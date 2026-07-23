@@ -1,0 +1,30 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="coverlet.collector" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" />
+    <PackageReference Include="xunit" />
+    <PackageReference Include="xunit.runner.visualstudio" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\HarborOps.Infrastructure\HarborOps.Infrastructure.csproj" />
+    <ProjectReference Include="..\..\src\Modules\Cargo\HarborOps.Modules.Cargo\HarborOps.Modules.Cargo.csproj" />
+    <ProjectReference Include="..\..\src\Modules\Compliance\HarborOps.Modules.Compliance\HarborOps.Modules.Compliance.csproj" />
+    <ProjectReference Include="..\..\src\Modules\Crew\HarborOps.Modules.Crew\HarborOps.Modules.Crew.csproj" />
+    <ProjectReference Include="..\..\src\Modules\Documents\HarborOps.Modules.Documents\HarborOps.Modules.Documents.csproj" />
+    <ProjectReference Include="..\..\src\Modules\Fleet\HarborOps.Modules.Fleet\HarborOps.Modules.Fleet.csproj" />
+    <ProjectReference Include="..\..\src\Modules\Identity\HarborOps.Modules.Identity\HarborOps.Modules.Identity.csproj" />
+    <ProjectReference Include="..\..\src\Modules\Maintenance\HarborOps.Modules.Maintenance\HarborOps.Modules.Maintenance.csproj" />
+    <ProjectReference Include="..\..\src\Modules\Voyages\HarborOps.Modules.Voyages\HarborOps.Modules.Voyages.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Using Include="Xunit" />
+  </ItemGroup>
+
+</Project>

@@ -1,0 +1,22 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Design">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
+    <PackageReference Include="Microsoft.EntityFrameworkCore.SqlServer" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Modules\Cargo\HarborOps.Modules.Cargo\HarborOps.Modules.Cargo.csproj" />
+    <ProjectReference Include="..\Modules\Compliance\HarborOps.Modules.Compliance\HarborOps.Modules.Compliance.csproj" />
+    <ProjectReference Include="..\Modules\Crew\HarborOps.Modules.Crew\HarborOps.Modules.Crew.csproj" />
+    <ProjectReference Include="..\Modules\Documents\HarborOps.Modules.Documents\HarborOps.Modules.Documents.csproj" />
+    <ProjectReference Include="..\Modules\Fleet\HarborOps.Modules.Fleet\HarborOps.Modules.Fleet.csproj" />
+    <ProjectReference Include="..\Modules\Identity\HarborOps.Modules.Identity\HarborOps.Modules.Identity.csproj" />
+    <ProjectReference Include="..\Modules\Maintenance\HarborOps.Modules.Maintenance\HarborOps.Modules.Maintenance.csproj" />
+    <ProjectReference Include="..\Modules\Voyages\HarborOps.Modules.Voyages\HarborOps.Modules.Voyages.csproj" />
+  </ItemGroup>
+
+</Project>
