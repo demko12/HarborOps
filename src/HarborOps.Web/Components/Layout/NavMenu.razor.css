@@ -1,105 +1,324 @@
-.navbar-toggler {
-    appearance: none;
-    cursor: pointer;
-    width: 3.5rem;
-    height: 2.5rem;
-    color: white;
-    position: absolute;
-    top: 0.5rem;
-    right: 1rem;
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    background: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 30 30'%3e%3cpath stroke='rgba%28255, 255, 255, 0.55%29' stroke-linecap='round' stroke-miterlimit='10' stroke-width='2' d='M4 7h22M4 15h22M4 23h22'/%3e%3c/svg%3e") no-repeat center/1.75rem rgba(255, 255, 255, 0.1);
-}
-
-.navbar-toggler:checked {
-    background-color: rgba(255, 255, 255, 0.5);
-}
-
-.top-row {
-    min-height: 3.5rem;
-    background-color: rgba(0,0,0,0.4);
-}
-
-.navbar-brand {
-    font-size: 1.1rem;
-}
-
-.bi {
-    display: inline-block;
+.topnav {
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0 1.5rem;
+    height: 60px;
+    border-bottom: 1px solid var(--border-subtle);
+    background: var(--bg-navbar);
+    backdrop-filter: blur(24px);
+    -webkit-backdrop-filter: blur(24px);
+    z-index: 30;
     position: relative;
-    width: 1.25rem;
-    height: 1.25rem;
-    margin-right: 0.75rem;
-    top: -1px;
-    background-size: cover;
 }
 
-.bi-house-door-fill-nav-menu {
-    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' fill='white' class='bi bi-house-door-fill' viewBox='0 0 16 16'%3E%3Cpath d='M6.5 14.5v-3.505c0-.245.25-.495.5-.495h2c.25 0 .5.25.5.5v3.5a.5.5 0 0 0 .5.5h4a.5.5 0 0 0 .5-.5v-7a.5.5 0 0 0-.146-.354L13 5.793V2.5a.5.5 0 0 0-.5-.5h-1a.5.5 0 0 0-.5.5v1.293L8.354 1.146a.5.5 0 0 0-.708 0l-6 6A.5.5 0 0 0 1.5 7.5v7a.5.5 0 0 0 .5.5h4a.5.5 0 0 0 .5-.5Z'/%3E%3C/svg%3E");
+/* Logo */
+.topnav-logo {
+    flex-shrink: 0;
+    width: 220px;
+    display: flex;
+    align-items: center;
 }
 
-.bi-plus-square-fill-nav-menu {
-    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' fill='white' class='bi bi-plus-square-fill' viewBox='0 0 16 16'%3E%3Cpath d='M2 0a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V2a2 2 0 0 0-2-2H2zm6.5 4.5v3h3a.5.5 0 0 1 0 1h-3v3a.5.5 0 0 1-1 0v-3h-3a.5.5 0 0 1 0-1h3v-3a.5.5 0 0 1 1 0z'/%3E%3C/svg%3E");
-}
-
-.bi-list-nested-nav-menu {
-    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' fill='white' class='bi bi-list-nested' viewBox='0 0 16 16'%3E%3Cpath fill-rule='evenodd' d='M4.5 11.5A.5.5 0 0 1 5 11h10a.5.5 0 0 1 0 1H5a.5.5 0 0 1-.5-.5zm-2-4A.5.5 0 0 1 3 7h10a.5.5 0 0 1 0 1H3a.5.5 0 0 1-.5-.5zm-2-4A.5.5 0 0 1 1 3h10a.5.5 0 0 1 0 1H1a.5.5 0 0 1-.5-.5z'/%3E%3C/svg%3E");
-}
-
-.nav-item {
-    font-size: 0.9rem;
-    padding-bottom: 0.5rem;
-}
-
-    .nav-item:first-of-type {
-        padding-top: 1rem;
-    }
-
-    .nav-item:last-of-type {
-        padding-bottom: 1rem;
-    }
-
-    .nav-item ::deep .nav-link {
-        color: #d7d7d7;
-        background: none;
-        border: none;
-        border-radius: 4px;
-        height: 3rem;
+    .topnav-logo a {
         display: flex;
         align-items: center;
-        line-height: 3rem;
-        width: 100%;
+        cursor: pointer;
     }
 
-.nav-item ::deep a.active {
-    background-color: rgba(255,255,255,0.37);
-    color: white;
+.logo-svg {
+    height: 48px;
+    width: auto;
 }
 
-.nav-item ::deep .nav-link:hover {
-    background-color: rgba(255,255,255,0.1);
-    color: white;
+/* Center nav */
+.topnav-center {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 0;
 }
 
-.nav-scrollable {
-    display: none;
+.nav-pills {
+    display: flex;
+    align-items: center;
+    gap: 0.125rem;
+    padding: 0.25rem;
+    border-radius: 0.75rem;
+    background: var(--bg-surface-strong);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border: 1px solid var(--border-medium);
+    max-width: 100%;
+    overflow-x: auto;
+    scrollbar-width: none;
 }
 
-.navbar-toggler:checked ~ .nav-scrollable {
-    display: block;
-}
-
-@media (min-width: 641px) {
-    .navbar-toggler {
+    .nav-pills::-webkit-scrollbar {
         display: none;
     }
 
-    .nav-scrollable {
-        /* Never collapse the sidebar for wide screens */
-        display: block;
+    /* NavLink renders its own <a> tag, so these need ::deep */
+    .nav-pills ::deep .nav-pill {
+        position: relative;
+        display: flex;
+        align-items: center;
+        gap: 0.375rem;
+        padding: 0.375rem 1.25rem;
+        border-radius: 0.5rem;
+        font-size: 13px;
+        font-weight: 500;
+        color: var(--text-muted);
+        text-decoration: none;
+        white-space: nowrap;
+        border: 1px solid transparent;
+        transition: all 0.15s ease;
+    }
 
-        /* Allow sidebar to scroll for tall menus */
-        height: calc(100vh - 3.5rem);
-        overflow-y: auto;
+        .nav-pills ::deep .nav-pill .bi,
+        .nav-pills ::deep .nav-pill .nav-icon {
+            font-size: 12px;
+            flex-shrink: 0;
+        }
+
+        .nav-pills ::deep .nav-pill:hover {
+            color: var(--text-secondary);
+            background: var(--bg-surface);
+        }
+
+        .nav-pills ::deep .nav-pill.active {
+            color: var(--text-primary);
+            background: rgba(255, 255, 255, 0.11);
+            border: 1px solid rgba(255, 255, 255, 0.16);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            box-shadow: 0 1px 8px rgba(0, 0, 0, 0.25), inset 0 1px 0 rgba(255, 255, 255, 0.1);
+        }
+
+    .nav-pills ::deep .nav-badge {
+        position: absolute;
+        top: -4px;
+        right: -4px;
+        background: #ef4444;
+        color: #fff;
+        font-size: 8px;
+        font-weight: 700;
+        border-radius: 999px;
+        width: 14px;
+        height: 14px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        line-height: 1;
+    }
+
+/* Right side */
+.topnav-right {
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-left: auto;
+    width: 220px;
+    justify-content: flex-end;
+}
+
+.icon-btn {
+    position: relative;
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 0.5rem;
+    border: none;
+    background: transparent;
+    color: var(--text-muted);
+    font-size: 15px;
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+
+    .icon-btn:hover {
+        color: var(--text-secondary);
+        background: var(--icon-hover-bg);
+    }
+
+.icon-dot {
+    position: absolute;
+    top: 6px;
+    right: 6px;
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: #ef4444;
+}
+
+.divider {
+    width: 1px;
+    height: 20px;
+    background: var(--border-medium);
+    margin: 0 0.125rem;
+}
+
+
+
+
+.profile-btn {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.375rem 0.625rem 0.375rem 0.375rem;
+    border-radius: 0.75rem;
+    border: none;
+    background: transparent;
+    cursor: pointer;
+    transition: background 0.15s ease;
+}
+
+    .profile-btn:hover {
+        background: var(--icon-hover-bg);
+    }
+
+.avatar {
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    background: linear-gradient(to bottom right, #60a5fa, #8b5cf6);
+    color: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 11px;
+    font-weight: 700;
+    flex-shrink: 0;
+}
+
+.profile-name {
+    color: var(--text-secondary);
+    font-size: 12px;
+    font-weight: 500;
+    white-space: nowrap;
+}
+
+/* Hamburger — hidden on desktop */
+.hamburger-btn {
+    display: none;
+    width: 32px;
+    height: 32px;
+    align-items: center;
+    justify-content: center;
+    border-radius: 0.5rem;
+    border: none;
+    background: transparent;
+    color: var(--text-secondary);
+    font-size: 18px;
+    cursor: pointer;
+}
+
+    .hamburger-btn:hover {
+        background: var(--icon-hover-bg);
+    }
+
+.mobile-backdrop {
+    display: none;
+}
+
+/* ── Mobile breakpoint (matches Tailwind sm: 640px) ── */
+@media (max-width: 640px) {
+    .topnav {
+        padding: 0 1rem;
+        gap: 0.5rem;
+    }
+
+    .topnav-logo {
+        width: auto;
+    }
+
+    .logo-svg {
+        height: 40px;
+    }
+
+    .topnav-right {
+        width: auto;
+    }
+
+    .hide-on-mobile {
+        display: none !important;
+    }
+
+    .hamburger-btn {
+        display: flex;
+    }
+
+    /* Nav collapses into a dropdown panel below the header — overrides desktop centering */
+    .topnav-center {
+        position: absolute;
+        top: 60px;
+        left: 0;
+        right: 0;
+        flex: none;
+        justify-content: stretch;
+        max-height: 0;
+        overflow: hidden;
+        background: var(--bg-navbar);
+        backdrop-filter: blur(16px);
+        -webkit-backdrop-filter: blur(16px);
+        border-bottom: 1px solid var(--border-subtle);
+        transition: max-height 0.25s ease;
+        z-index: 30;
+    }
+
+        .topnav-center.open {
+            max-height: 600px;
+            overflow-y: auto;
+        }
+
+    /* Pills stack vertically inside the dropdown — overrides desktop horizontal-scroll pill bar */
+    .nav-pills {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 0.25rem;
+        padding: 0.75rem;
+        border-radius: 0;
+        border: none;
+        background: transparent;
+        backdrop-filter: none;
+        -webkit-backdrop-filter: none;
+        max-width: none;
+        overflow-x: visible;
+    }
+
+        .nav-pills ::deep .nav-pill {
+            padding: 0.7rem 0.9rem;
+            font-size: 13.5px;
+            border-radius: 0.6rem;
+        }
+
+            .nav-pills ::deep .nav-pill .bi,
+            .nav-pills ::deep .nav-pill .nav-icon {
+                font-size: 14px;
+                width: 18px;
+            }
+
+        .nav-pills ::deep .nav-badge {
+            top: 50%;
+            right: 12px;
+            left: auto;
+            transform: translateY(-50%);
+            position: absolute !important;
+        }
+
+    .mobile-backdrop {
+        display: block;
+        position: fixed;
+        top: 60px;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0, 0, 0, 0.4);
+        z-index: 25;
     }
 }

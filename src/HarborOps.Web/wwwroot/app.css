@@ -1,3 +1,53 @@
+:root,
+[data-theme="dark"] {
+    --bg-app: #0a0e17;
+    --bg-surface: rgba(255, 255, 255, 0.04);
+    --bg-surface-strong: rgba(8, 18, 36, 0.55);
+    --bg-navbar: rgba(14, 22, 33, 0.9);
+    --border-subtle: rgba(255, 255, 255, 0.06);
+    --border-medium: rgba(255, 255, 255, 0.09);
+    --text-primary: rgba(255, 255, 255, 0.9);
+    --text-secondary: rgba(255, 255, 255, 0.6);
+    --text-muted: rgba(255, 255, 255, 0.45);
+    --icon-hover-bg: rgba(255, 255, 255, 0.07);
+}
+
+[data-theme="light"] {
+    --bg-app: #f4f6fa;
+    --bg-surface: rgba(15, 23, 42, 0.04);
+    --bg-surface-strong: rgba(255, 255, 255, 0.75);
+    --bg-navbar: rgba(255, 255, 255, 0.85);
+    --border-subtle: rgba(15, 23, 42, 0.08);
+    --border-medium: rgba(15, 23, 42, 0.1);
+    --text-primary: rgba(15, 23, 42, 0.92);
+    --text-secondary: rgba(15, 23, 42, 0.6);
+    --text-muted: rgba(15, 23, 42, 0.45);
+    --icon-hover-bg: rgba(15, 23, 42, 0.06);
+}
+
+.logo-dark,
+.logo-light {
+    display: none;
+}
+
+html[data-theme="dark"] .logo-dark {
+    display: block;
+}
+
+html[data-theme="light"] .logo-light {
+    display: block;
+}
+
+html, body {
+    margin: 0;
+    background-color: var(--bg-app);
+    color: var(--text-primary);
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+
+
 html, body {
     font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
 }
@@ -57,4 +107,16 @@ h1:focus {
 
 .form-floating > .form-control-plaintext:focus::placeholder, .form-floating > .form-control:focus::placeholder {
     text-align: start;
+}
+
+
+html, body {
+    margin: 0;
+    background-color: #0a0e17;
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    color: rgba(255, 255, 255, 0.85);
+}
+
+.content {
+    padding-top: 0;
 }
