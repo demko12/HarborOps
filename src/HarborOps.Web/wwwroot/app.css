@@ -10,6 +10,11 @@
     --text-secondary: rgba(255, 255, 255, 0.6);
     --text-muted: rgba(255, 255, 255, 0.45);
     --icon-hover-bg: rgba(255, 255, 255, 0.07);
+    /* accent used for active nav state */
+    --accent: #60a5fa;
+    --accent-bg: rgba(255, 255, 255, 0.11);
+    --accent-border: rgba(255, 255, 255, 0.16);
+    --accent-text: #ffffff;
 }
 
 [data-theme="light"] {
@@ -23,6 +28,11 @@
     --text-secondary: rgba(15, 23, 42, 0.6);
     --text-muted: rgba(15, 23, 42, 0.45);
     --icon-hover-bg: rgba(15, 23, 42, 0.06);
+    /* accent used for active nav state */
+    --accent: #2563eb;
+    --accent-bg: rgba(37, 99, 235, 0.12);
+    --accent-border: rgba(37, 99, 235, 0.35);
+    --accent-text: #1d4ed8;
 }
 
 .logo-dark,
