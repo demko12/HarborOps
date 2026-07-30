@@ -31,3 +31,8 @@ Thumbs.db
 *.log
 *.tmp
 *.bak
+/docs/HarborOps-Team-Architecture-and-Roadmap.pdf
+/docs/HarborOps-Team-Architecture-and-Roadmap.pptx
+/docs/presentation/generate_business_case_slides.py
+/docs/presentation/generate_harborops_deck.py
+/docs/presentation/generate_kickoff_vision_deck.py
