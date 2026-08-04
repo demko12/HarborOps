@@ -18,10 +18,13 @@ public sealed class RegisterVesselService(DbContext dbContext)
             throw new RegisterVesselValidationException(errors);
         }
 
+        var companyId = request.CompanyId!.Value;
+        var vesselTypeId = request.VesselTypeId!.Value;
         var name = request.Name!.Trim();
         var imoNumber = request.ImoNumber!.Trim();
         var flagState = request.FlagState!.Trim();
-        var vesselType = request.VesselType!.Trim();
+        var currentStatus = request.CurrentStatus!.Trim();
+
         var vessels = dbContext.Set<Vessel>();
 
         var imoNumberExists = await vessels
@@ -33,7 +36,22 @@ public sealed class RegisterVesselService(DbContext dbContext)
             throw new DuplicateImoNumberException(imoNumber);
         }
 
-        var vessel = Vessel.Register(name, imoNumber, flagState, vesselType);
+        var vesselTypeExists = await dbContext.Set<VesselType>()
+            .AsNoTracking()
+            .AnyAsync(vesselType => vesselType.Id == vesselTypeId, cancellationToken);
+
+        if (!vesselTypeExists)
+        {
+            throw new VesselTypeNotFoundException(vesselTypeId);
+        }
+
+        var vessel = Vessel.Register(
+            companyId,
+            vesselTypeId,
+            name,
+            imoNumber,
+            flagState,
+            currentStatus);
 
         await vessels.AddAsync(vessel, cancellationToken);
         await dbContext.SaveChangesAsync(cancellationToken);
