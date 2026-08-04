@@ -1,0 +1,77 @@
+using System;
+using System.Collections.Generic;
+using System.Text;
+
+namespace HarborOps.Modules.Maintenance.Domain;
+
+internal sealed class InventoryItem
+{
+    internal const int NameMaxLength = 200;
+    internal const int PartNumberMaxLength = 100;
+
+    private InventoryItem()
+    {
+    }
+
+    private InventoryItem(
+        Guid id,
+        Guid categoryId,
+        Guid unitId,
+        Guid supplierId,
+        string name,
+        string partNumber,
+        decimal quantity,
+        decimal minimumQuantity,
+        decimal unitCost)
+    {
+        Id = id;
+        CategoryId = categoryId;
+        UnitId = unitId;
+        SupplierId = supplierId;
+        Name = name;
+        PartNumber = partNumber;
+        Quantity = quantity;
+        MinimumQuantity = minimumQuantity;
+        UnitCost = unitCost;
+    }
+
+    public Guid Id { get; private set; }
+
+    public Guid CategoryId { get; private set; }
+
+    public Guid UnitId { get; private set; }
+
+    public Guid SupplierId { get; private set; }
+
+    public string Name { get; private set; } = null!;
+
+    public string PartNumber { get; private set; } = null!;
+
+    public decimal Quantity { get; private set; }
+
+    public decimal MinimumQuantity { get; private set; }
+
+    public decimal UnitCost { get; private set; }
+
+    internal static InventoryItem Create(
+        Guid categoryId,
+        Guid unitId,
+        Guid supplierId,
+        string name,
+        string partNumber,
+        decimal quantity,
+        decimal minimumQuantity,
+        decimal unitCost)
+    {
+        return new InventoryItem(
+            Guid.NewGuid(),
+            categoryId,
+            unitId,
+            supplierId,
+            name,
+            partNumber,
+            quantity,
+            minimumQuantity,
+            unitCost);
+    }
+}
