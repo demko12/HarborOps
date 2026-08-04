@@ -8,7 +8,12 @@ internal sealed class NonConformityConfiguration : IEntityTypeConfiguration<NonC
 {
     public void Configure(EntityTypeBuilder<NonConformity> builder)
     {
-        builder.ToTable("NonConformities", schema: ComplianceModule.Schema);
+        builder.ToTable("NonConformities", schema: ComplianceModule.Schema, t => t.IsTemporal(h =>
+        {
+            h.HasPeriodStart("PeriodStart");
+            h.HasPeriodEnd("PeriodEnd");
+            h.UseHistoryTable("NonConformitiesHistory", schema: ComplianceModule.Schema);
+        })); ;
 
         builder.HasKey(n => n.Id);
 
