@@ -8,7 +8,7 @@ internal sealed class CargoBookingConfiguration : IEntityTypeConfiguration<Cargo
 {
     public void Configure(EntityTypeBuilder<CargoBooking> builder)
     {
-        builder.ToTable("CargoBookings", CargoModule.Schema);
+        builder.ToTable("CargoBookings", CargoModule.Schema, table => table.IsTemporal());
 
         builder.HasKey(booking => booking.Id);
 

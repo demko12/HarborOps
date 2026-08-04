@@ -8,7 +8,12 @@ internal sealed class VesselConfiguration : IEntityTypeConfiguration<Vessel>
 {
     public void Configure(EntityTypeBuilder<Vessel> builder)
     {
-        builder.ToTable("Vessels", FleetModule.Schema);
+        builder.ToTable("Vessels", FleetModule.Schema, tb => tb.IsTemporal(temporal =>
+        {
+            temporal.HasPeriodStart("ValidFrom");
+            temporal.HasPeriodEnd("ValidTo");
+            temporal.UseHistoryTable("VesselsHistory", FleetModule.Schema);
+        }));
 
         builder.HasKey(vessel => vessel.Id);
 

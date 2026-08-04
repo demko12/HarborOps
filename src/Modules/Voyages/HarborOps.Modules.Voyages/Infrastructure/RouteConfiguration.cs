@@ -8,7 +8,7 @@ internal sealed class RouteConfiguration : IEntityTypeConfiguration<Route>
 {
     public void Configure(EntityTypeBuilder<Route> builder)
     {
-        builder.ToTable("Routes", VoyagesModule.Schema);
+        builder.ToTable("Routes", VoyagesModule.Schema, table => table.IsTemporal());
 
         builder.HasKey(route => route.Id);
 

@@ -8,14 +8,13 @@ internal sealed class VoyageConfiguration : IEntityTypeConfiguration<Voyage>
 {
     public void Configure(EntityTypeBuilder<Voyage> builder)
     {
-        builder.ToTable("Voyages", VoyagesModule.Schema);
+        builder.ToTable("Voyages", VoyagesModule.Schema, table => table.IsTemporal());
 
         builder.HasKey(voyage => voyage.Id);
 
         builder.Property(voyage => voyage.Id)
             .ValueGeneratedNever();
 
-        // VesselId and CaptainId are scalar identifiers owned by other modules.
         builder.Property(voyage => voyage.VesselId)
             .IsRequired();
 

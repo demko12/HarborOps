@@ -8,7 +8,7 @@ internal sealed class ContainerConfiguration : IEntityTypeConfiguration<Containe
 {
     public void Configure(EntityTypeBuilder<Container> builder)
     {
-        builder.ToTable("Containers", CargoModule.Schema);
+        builder.ToTable("Containers", CargoModule.Schema, table => table.IsTemporal());
 
         builder.HasKey(container => container.Id);
 
