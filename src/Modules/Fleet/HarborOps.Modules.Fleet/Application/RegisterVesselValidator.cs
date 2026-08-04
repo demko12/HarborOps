@@ -5,14 +5,28 @@ namespace HarborOps.Modules.Fleet.Application;
 
 internal static class RegisterVesselValidator
 {
+    internal const string CompanyIdField = "companyId";
+    internal const string VesselTypeIdField = "vesselTypeId";
     internal const string FlagStateField = "flagState";
     internal const string ImoNumberField = "imoNumber";
     internal const string NameField = "name";
-    internal const string VesselTypeField = "vesselType";
+    internal const string CurrentStatusField = "currentStatus";
 
     internal static IReadOnlyDictionary<string, string[]> Validate(RegisterVesselRequest request)
     {
         var errors = new Dictionary<string, string[]>(StringComparer.Ordinal);
+
+        ValidateRequiredGuid(
+            request.CompanyId,
+            CompanyIdField,
+            "Company",
+            errors);
+
+        ValidateRequiredGuid(
+            request.VesselTypeId,
+            VesselTypeIdField,
+            "Vessel type",
+            errors);
 
         ValidateRequiredLength(
             request.Name,
@@ -31,10 +45,10 @@ internal static class RegisterVesselValidator
             errors);
 
         ValidateRequiredLength(
-            request.VesselType,
-            Vessel.VesselTypeMaxLength,
-            VesselTypeField,
-            "Vessel type",
+            request.CurrentStatus,
+            Vessel.CurrentStatusMaxLength,
+            CurrentStatusField,
+            "Current status",
             errors);
 
         return errors;
@@ -56,6 +70,18 @@ internal static class RegisterVesselValidator
             || !normalizedImoNumber.All(char.IsAsciiDigit))
         {
             errors[ImoNumberField] = ["IMO number must contain exactly seven digits."];
+        }
+    }
+
+    private static void ValidateRequiredGuid(
+        Guid? value,
+        string field,
+        string displayName,
+        IDictionary<string, string[]> errors)
+    {
+        if (value is null || value == Guid.Empty)
+        {
+            errors[field] = [$"{displayName} is required."];
         }
     }
 
