@@ -8,7 +8,12 @@ internal sealed class InsurancePolicyConfiguration : IEntityTypeConfiguration<In
 {
     public void Configure(EntityTypeBuilder<InsurancePolicy> builder)
     {
-        builder.ToTable("InsurancePolicies", schema: ComplianceModule.Schema);
+        builder.ToTable("InsurancePolicies", schema: ComplianceModule.Schema, t => t.IsTemporal(h =>
+        {
+            h.HasPeriodStart("PeriodStart");
+            h.HasPeriodEnd("PeriodEnd");
+            h.UseHistoryTable("InsurancePoliciesHistory", schema: ComplianceModule.Schema);
+        }));
 
         builder.HasKey(p => p.Id);
 

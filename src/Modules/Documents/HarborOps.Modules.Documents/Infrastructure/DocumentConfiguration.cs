@@ -8,7 +8,12 @@ internal sealed class DocumentConfiguration : IEntityTypeConfiguration<Document>
 {
     public void Configure(EntityTypeBuilder<Document> builder)
     {
-        builder.ToTable("Documents", schema: DocumentsModule.Schema);
+        builder.ToTable("Documents", schema: DocumentsModule.Schema, t => t.IsTemporal(h =>
+        {
+            h.HasPeriodStart("PeriodStart");
+            h.HasPeriodEnd("PeriodEnd");
+            h.UseHistoryTable("DocumentsHistory", schema: DocumentsModule.Schema);
+        }));
 
         builder.HasKey(d => d.Id);
 
