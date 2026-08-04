@@ -33,5 +33,10 @@ internal sealed class CargoTrackingEventConfiguration
         builder.Property(trackingEvent => trackingEvent.Location)
             .HasMaxLength(CargoTrackingEvent.LocationMaxLength)
             .IsRequired();
+
+        builder.HasOne<CargoBooking>()
+            .WithMany()
+            .HasForeignKey(trackingEvent => trackingEvent.CargoBookingId)
+            .OnDelete(DeleteBehavior.Cascade);
     }
 }

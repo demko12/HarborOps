@@ -38,5 +38,10 @@ internal sealed class LoadUnloadOperationConfiguration
         builder.Property(operation => operation.StartedAtUtc);
 
         builder.Property(operation => operation.FinishedAtUtc);
+
+        builder.HasOne<CargoBooking>()
+            .WithMany()
+            .HasForeignKey(operation => operation.CargoBookingId)
+            .OnDelete(DeleteBehavior.Cascade);
     }
 }

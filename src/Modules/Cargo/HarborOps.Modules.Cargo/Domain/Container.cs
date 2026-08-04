@@ -15,13 +15,15 @@ internal sealed class Container
         string containerNumber,
         string containerType,
         CargoStatus status,
-        Guid? vesselId)
+        Guid? vesselId,
+        Guid? cargoBookingId)
     {
         Id = id;
         ContainerNumber = containerNumber;
         ContainerType = containerType;
         Status = status;
         VesselId = vesselId;
+        CargoBookingId = cargoBookingId;
     }
 
     public Guid Id { get; private set; }
@@ -34,17 +36,21 @@ internal sealed class Container
 
     public Guid? VesselId { get; private set; }
 
+    public Guid? CargoBookingId { get; private set; }
+
     internal static Container Register(
         string containerNumber,
         string containerType,
         CargoStatus status,
-        Guid? vesselId)
+        Guid? vesselId = null,
+        Guid? cargoBookingId = null)
     {
         return new Container(
             Guid.NewGuid(),
             containerNumber,
             containerType,
             status,
-            vesselId);
+            vesselId,
+            cargoBookingId);
     }
 }
