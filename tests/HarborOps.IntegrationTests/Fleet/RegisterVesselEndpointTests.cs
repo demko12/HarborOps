@@ -24,7 +24,8 @@ public sealed class RegisterVesselEndpointTests : IClassFixture<HarborOpsApiFact
     public async Task Post_registers_and_persists_vessel()
     {
         using var client = _application.CreateClient();
-        var request = CreateValidRequest();
+        var vesselTypeId = await SeedVesselTypeAsync();
+        var request = CreateValidRequest(vesselTypeId);
 
         using var response = await client.PostAsJsonAsync(
             "/api/fleet/vessels",
@@ -53,7 +54,9 @@ public sealed class RegisterVesselEndpointTests : IClassFixture<HarborOpsApiFact
         Assert.Equal(request.Name, vessel.Name);
         Assert.Equal(request.ImoNumber, vessel.ImoNumber);
         Assert.Equal(request.FlagState, vessel.FlagState);
-        Assert.Equal(request.VesselType, vessel.VesselType);
+        Assert.Equal(request.VesselTypeId, vessel.VesselTypeId);
+        Assert.Equal(request.CompanyId, vessel.CompanyId);
+        Assert.Equal(request.CurrentStatus, vessel.CurrentStatus);
         Assert.Equal("Vessels", entityType.GetTableName());
         Assert.Equal(FleetModule.Schema, entityType.GetSchema());
         Assert.True(imoNumberIndex.IsUnique);
@@ -65,10 +68,12 @@ public sealed class RegisterVesselEndpointTests : IClassFixture<HarborOpsApiFact
         using var client = _application.CreateClient();
         var request = new RegisterVesselRequest
         {
+            CompanyId = null,
+            VesselTypeId = null,
             Name = string.Empty,
             ImoNumber = "not-an-imo",
             FlagState = "Malta",
-            VesselType = "Container Ship",
+            CurrentStatus = "Active",
         };
 
         using var response = await client.PostAsJsonAsync(
@@ -82,16 +87,46 @@ public sealed class RegisterVesselEndpointTests : IClassFixture<HarborOpsApiFact
         Assert.NotNull(problem);
         Assert.Contains(RegisterVesselValidator.NameField, problem.Errors);
         Assert.Contains(RegisterVesselValidator.ImoNumberField, problem.Errors);
+        Assert.Contains(RegisterVesselValidator.CompanyIdField, problem.Errors);
+        Assert.Contains(RegisterVesselValidator.VesselTypeIdField, problem.Errors);
     }
 
-    private static RegisterVesselRequest CreateValidRequest()
+    [Fact]
+    public async Task Post_returns_not_found_problem_for_unknown_vessel_type()
+    {
+        using var client = _application.CreateClient();
+        var request = CreateValidRequest(Guid.NewGuid());
+
+        using var response = await client.PostAsJsonAsync(
+            "/api/fleet/vessels",
+            request,
+            CancellationToken.None);
+
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+    }
+
+    private static RegisterVesselRequest CreateValidRequest(Guid vesselTypeId)
     {
         return new RegisterVesselRequest
         {
+            CompanyId = Guid.NewGuid(),
+            VesselTypeId = vesselTypeId,
             Name = "North Star",
             ImoNumber = "1234567",
             FlagState = "Malta",
-            VesselType = "Container Ship",
+            CurrentStatus = "Active",
         };
+    }
+
+    private async Task<Guid> SeedVesselTypeAsync()
+    {
+        await using var scope = _application.Services.CreateAsyncScope();
+        var dbContext = scope.ServiceProvider.GetRequiredService<HarborOpsDbContext>();
+        var vesselType = VesselType.Register("Container Ship", "CNTR", "Container carrying vessel");
+
+        await dbContext.Set<VesselType>().AddAsync(vesselType);
+        await dbContext.SaveChangesAsync();
+
+        return vesselType.Id;
     }
 }
