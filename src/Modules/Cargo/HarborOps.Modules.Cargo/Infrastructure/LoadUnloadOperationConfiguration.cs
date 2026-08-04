@@ -9,7 +9,7 @@ internal sealed class LoadUnloadOperationConfiguration
 {
     public void Configure(EntityTypeBuilder<LoadUnloadOperation> builder)
     {
-        builder.ToTable("LoadUnloadOperations", CargoModule.Schema);
+        builder.ToTable("LoadUnloadOperations", CargoModule.Schema, table => table.IsTemporal());
 
         builder.HasKey(operation => operation.Id);
 

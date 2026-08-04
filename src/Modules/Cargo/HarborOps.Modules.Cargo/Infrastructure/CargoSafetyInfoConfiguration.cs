@@ -8,7 +8,7 @@ internal sealed class CargoSafetyInfoConfiguration : IEntityTypeConfiguration<Ca
 {
     public void Configure(EntityTypeBuilder<CargoSafetyInfo> builder)
     {
-        builder.ToTable("CargoSafetyInfos", CargoModule.Schema);
+        builder.ToTable("CargoSafetyInfos", CargoModule.Schema, table => table.IsTemporal());
 
         builder.HasKey(safetyInfo => safetyInfo.Id);
 
