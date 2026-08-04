@@ -1,0 +1,38 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/HarborOps.Api/HarborOps.Api.csproj" />
+    <Project Path="src/HarborOps.Infrastructure/HarborOps.Infrastructure.csproj" />
+    <Project Path="src/HarborOps.SharedKernel/HarborOps.SharedKernel.csproj" />
+    <Project Path="src/HarborOps.Web/HarborOps.Web.csproj" />
+  </Folder>
+  <Folder Name="/src/Modules/" />
+  <Folder Name="/src/Modules/Cargo/">
+    <Project Path="src/Modules/Cargo/HarborOps.Modules.Cargo/HarborOps.Modules.Cargo.csproj" />
+  </Folder>
+  <Folder Name="/src/Modules/Compliance/">
+    <Project Path="src/Modules/Compliance/HarborOps.Modules.Compliance/HarborOps.Modules.Compliance.csproj" />
+  </Folder>
+  <Folder Name="/src/Modules/Crew/">
+    <Project Path="src/Modules/Crew/HarborOps.Modules.Crew/HarborOps.Modules.Crew.csproj" />
+  </Folder>
+  <Folder Name="/src/Modules/Documents/">
+    <Project Path="src/Modules/Documents/HarborOps.Modules.Documents/HarborOps.Modules.Documents.csproj" />
+  </Folder>
+  <Folder Name="/src/Modules/Fleet/">
+    <Project Path="src/Modules/Fleet/HarborOps.Modules.Fleet/HarborOps.Modules.Fleet.csproj" />
+  </Folder>
+  <Folder Name="/src/Modules/Identity/">
+    <Project Path="src/Modules/Identity/HarborOps.Modules.Identity/HarborOps.Modules.Identity.csproj" />
+  </Folder>
+  <Folder Name="/src/Modules/Maintenance/">
+    <Project Path="src/Modules/Maintenance/HarborOps.Modules.Maintenance/HarborOps.Modules.Maintenance.csproj" />
+  </Folder>
+  <Folder Name="/src/Modules/Voyages/">
+    <Project Path="src/Modules/Voyages/HarborOps.Modules.Voyages/HarborOps.Modules.Voyages.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/HarborOps.ArchitectureTests/HarborOps.ArchitectureTests.csproj" />
+    <Project Path="tests/HarborOps.IntegrationTests/HarborOps.IntegrationTests.csproj" />
+    <Project Path="tests/HarborOps.UnitTests/HarborOps.UnitTests.csproj" />
+  </Folder>
+</Solution>
