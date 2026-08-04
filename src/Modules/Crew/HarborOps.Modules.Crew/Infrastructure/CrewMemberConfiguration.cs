@@ -8,7 +8,15 @@ internal sealed class CrewMemberConfiguration : IEntityTypeConfiguration<CrewMem
 {
     public void Configure(EntityTypeBuilder<CrewMember> builder)
     {
-        builder.ToTable("CrewMembers", CrewModule.Schema);
+        builder.ToTable(
+            "CrewMembers",
+            CrewModule.Schema,
+            tableBuilder => tableBuilder.IsTemporal(temporalBuilder =>
+            {
+                temporalBuilder.HasPeriodStart("ValidFrom");
+                temporalBuilder.HasPeriodEnd("ValidTo");
+                temporalBuilder.UseHistoryTable("CrewMembersHistory", CrewModule.Schema);
+            }));
 
         builder.HasKey(crewMember => crewMember.Id);
 
