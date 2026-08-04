@@ -30,5 +30,12 @@ internal sealed class ContainerConfiguration : IEntityTypeConfiguration<Containe
             .IsRequired();
 
         builder.Property(container => container.VesselId);
+
+        builder.Property(container => container.CargoBookingId);
+
+        builder.HasOne<CargoBooking>()
+            .WithMany()
+            .HasForeignKey(container => container.CargoBookingId)
+            .OnDelete(DeleteBehavior.Restrict);
     }
 }

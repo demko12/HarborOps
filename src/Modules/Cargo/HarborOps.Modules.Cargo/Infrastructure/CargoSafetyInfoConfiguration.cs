@@ -36,5 +36,10 @@ internal sealed class CargoSafetyInfoConfiguration : IEntityTypeConfiguration<Ca
 
         builder.HasIndex(safetyInfo => safetyInfo.CargoBookingId)
             .IsUnique();
+
+        builder.HasOne<CargoBooking>()
+            .WithMany()
+            .HasForeignKey(safetyInfo => safetyInfo.CargoBookingId)
+            .OnDelete(DeleteBehavior.Cascade);
     }
 }
