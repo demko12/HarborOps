@@ -8,7 +8,7 @@ internal sealed class RoutePortConfiguration : IEntityTypeConfiguration<RoutePor
 {
     public void Configure(EntityTypeBuilder<RoutePort> builder)
     {
-        builder.ToTable("RoutePorts", VoyagesModule.Schema);
+        builder.ToTable("RoutePorts", VoyagesModule.Schema, table => table.IsTemporal());
 
         builder.HasKey(routePort => routePort.Id);
 

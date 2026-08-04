@@ -8,7 +8,7 @@ internal sealed class BerthScheduleConfiguration : IEntityTypeConfiguration<Bert
 {
     public void Configure(EntityTypeBuilder<BerthSchedule> builder)
     {
-        builder.ToTable("BerthSchedules", VoyagesModule.Schema);
+        builder.ToTable("BerthSchedules", VoyagesModule.Schema, table => table.IsTemporal());
 
         builder.HasKey(berthSchedule => berthSchedule.Id);
 

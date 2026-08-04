@@ -8,7 +8,7 @@ internal sealed class VoyageStopConfiguration : IEntityTypeConfiguration<VoyageS
 {
     public void Configure(EntityTypeBuilder<VoyageStop> builder)
     {
-        builder.ToTable("VoyageStops", VoyagesModule.Schema);
+        builder.ToTable("VoyageStops", VoyagesModule.Schema, table => table.IsTemporal());
 
         builder.HasKey(voyageStop => voyageStop.Id);
 
