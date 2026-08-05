@@ -15,7 +15,7 @@ public sealed class NonConformity
 
     public PscInspection? Psc { get; private set; }
 
-    public int EvidenceDocumentId { get; private set; }
+    public Guid EvidenceDocumentId { get; private set; }
 
     public string Severity { get; private set; } = string.Empty;
 
@@ -28,7 +28,7 @@ public sealed class NonConformity
     }
 
     public NonConformity(
-        int evidenceDocumentId,
+        Guid evidenceDocumentId,
         string severity,
         DateOnly correctiveActionDeadline,
         string closureStatus,

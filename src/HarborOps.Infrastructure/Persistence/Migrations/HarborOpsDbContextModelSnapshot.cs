@@ -368,8 +368,8 @@ namespace HarborOps.Infrastructure.Persistence.Migrations
                     b.Property<DateOnly>("CorrectiveActionDeadline")
                         .HasColumnType("date");
 
-                    b.Property<int>("EvidenceDocumentId")
-                        .HasColumnType("int");
+                    b.Property<Guid>("EvidenceDocumentId")
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<DateTime>("PeriodEnd")
                         .ValueGeneratedOnAddOrUpdate()
@@ -462,8 +462,8 @@ namespace HarborOps.Infrastructure.Persistence.Migrations
                     b.Property<DateOnly>("Date")
                         .HasColumnType("date");
 
-                    b.Property<int?>("DocumentId")
-                        .HasColumnType("int");
+                    b.Property<Guid?>("DocumentId")
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<string>("Findings")
                         .IsRequired()
@@ -758,11 +758,8 @@ namespace HarborOps.Infrastructure.Persistence.Migrations
 
             modelBuilder.Entity("HarborOps.Modules.Documents.Domain.Document", b =>
                 {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<int>("DocumentTypeId")
                         .HasColumnType("int");
@@ -882,8 +879,8 @@ namespace HarborOps.Infrastructure.Persistence.Migrations
                     b.Property<int>("DaysBeforeExpiry")
                         .HasColumnType("int");
 
-                    b.Property<int>("DocumentId")
-                        .HasColumnType("int");
+                    b.Property<Guid>("DocumentId")
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<DateTime>("SentAt")
                         .HasColumnType("datetime2");

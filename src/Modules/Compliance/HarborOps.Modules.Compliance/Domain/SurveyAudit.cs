@@ -11,7 +11,7 @@ public sealed class SurveyAudit
 
     public Guid VesselId { get; private set; }
 
-    public int? DocumentId { get; private set; }
+    public Guid? DocumentId { get; private set; }
 
     public DateOnly Date { get; private set; }
 
@@ -33,7 +33,7 @@ public sealed class SurveyAudit
         string type,
         string result,
         string findings,
-        int? documentId = null,
+        Guid? documentId = null,
         string? inspectorName = null)
     {
         VesselId = vesselId;

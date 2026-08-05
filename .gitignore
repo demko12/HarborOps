@@ -36,3 +36,5 @@ Thumbs.db
 /docs/presentation/generate_business_case_slides.py
 /docs/presentation/generate_harborops_deck.py
 /docs/presentation/generate_kickoff_vision_deck.py
+
+.claude/
