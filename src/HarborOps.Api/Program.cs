@@ -1,4 +1,5 @@
 using HarborOps.Infrastructure;
+using HarborOps.Modules.Documents;
 using HarborOps.Modules.Fleet;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -7,6 +8,7 @@ var connectionString = builder.Configuration.GetConnectionString("HarborOpsDatab
     ?? throw new InvalidOperationException("Connection string 'HarborOpsDatabase' was not found.");
 
 builder.Services.AddHarborOpsInfrastructure(connectionString);
+builder.Services.AddDocumentsModule();
 builder.Services.AddFleetModule();
 builder.Services.AddHealthChecks();
 builder.Services.AddOpenApi();
