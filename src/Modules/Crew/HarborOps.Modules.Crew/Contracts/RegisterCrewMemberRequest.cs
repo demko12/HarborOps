@@ -1,0 +1,15 @@
+namespace HarborOps.Modules.Crew.Contracts;
+
+public sealed record RegisterCrewMemberRequest
+{
+    public Guid? BaseRankId { get; init; }
+    public string? Name { get; init; }
+    public DateOnly? DateOfBirth { get; init; }
+    public string? Nationality { get; init; }
+    public string? ImoSeafarerId { get; init; }
+    public string? PassportNumber { get; init; }
+    public DateOnly? PassportExpiry { get; init; }
+    public string? CdcNumber { get; init; }
+    public DateOnly? HireDate { get; init; }
+    public string? EmploymentStatus { get; init; }
+}
