@@ -3,7 +3,8 @@ namespace HarborOps.Modules.Crew.Domain;
 internal sealed class CrewAssignment
 {
     internal const int StatusMaxLength = 50;
-
+    internal const string PlannedStatus = "Planned";
+    internal const string ActiveStatus = "Active";
     private CrewAssignment()
     {
     }
@@ -50,9 +51,8 @@ internal sealed class CrewAssignment
         Guid? signOnPortId,
         Guid? signOffPortId,
         DateOnly signOnDate,
-        DateOnly plannedSignOffDate,
-        DateOnly? actualSignOffDate,
-        string status)
+        DateOnly plannedSignOffDate
+        )
     {
         return new CrewAssignment(
             Guid.NewGuid(),
@@ -63,7 +63,7 @@ internal sealed class CrewAssignment
             signOffPortId,
             signOnDate,
             plannedSignOffDate,
-            actualSignOffDate,
-            status);
+            actualSignOffDate: null,
+            PlannedStatus);
     }
 }
