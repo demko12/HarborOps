@@ -6,7 +6,7 @@ public sealed class Notification
 
     public int Id { get; private set; }
 
-    public int DocumentId { get; private set; }
+    public Guid DocumentId { get; private set; }
 
     public Document Document { get; private set; } = null!;
 
@@ -22,7 +22,7 @@ public sealed class Notification
     {
     }
 
-    public Notification(int documentId, int userId, int daysBeforeExpiry, string channel, DateTime sentAt)
+    public Notification(Guid documentId, int userId, int daysBeforeExpiry, string channel, DateTime sentAt)
     {
         DocumentId = documentId;
         UserId = userId;

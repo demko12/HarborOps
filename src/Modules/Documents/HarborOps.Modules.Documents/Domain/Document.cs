@@ -8,7 +8,7 @@ public sealed class Document
     internal const int FileNameMaxLength = 260;
     internal const int FileUrlMaxLength = 2048;
 
-    public int Id { get; private set; }
+    public Guid Id { get; private set; }
 
     public Guid VesselId { get; private set; }
 
@@ -47,6 +47,7 @@ public sealed class Document
         string issuingAuthority,
         string status)
     {
+        Id = Guid.NewGuid();
         VesselId = vesselId;
         DocumentTypeId = documentTypeId;
         Number = number;

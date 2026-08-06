@@ -17,6 +17,9 @@ internal sealed class DocumentConfiguration : IEntityTypeConfiguration<Document>
 
         builder.HasKey(d => d.Id);
 
+        builder.Property(d => d.Id)
+            .ValueGeneratedNever();
+
         builder.Property(d => d.VesselId)
             .IsRequired();
 
