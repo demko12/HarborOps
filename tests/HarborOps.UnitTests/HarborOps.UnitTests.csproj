@@ -15,6 +15,7 @@
   <ItemGroup>
     <ProjectReference Include="..\..\src\HarborOps.Infrastructure\HarborOps.Infrastructure.csproj" />
     <ProjectReference Include="..\..\src\Modules\Fleet\HarborOps.Modules.Fleet\HarborOps.Modules.Fleet.csproj" />
+    <ProjectReference Include="..\..\src\Modules\Maintenance\HarborOps.Modules.Maintenance\HarborOps.Modules.Maintenance.csproj" />
   </ItemGroup>
 
   <ItemGroup>

@@ -17,7 +17,7 @@ internal sealed class MaintenanceWorkOrder
         Guid id,
         Guid vesselId,
         Guid? dryDockId,
-        Guid assignedEngineerId,
+        Guid? assignedEngineerId,
         string title,
         string? description,
         WorkOrderPriority priority,
@@ -43,11 +43,9 @@ internal sealed class MaintenanceWorkOrder
 
     public Guid VesselId { get; private set; }
 
-    // Same-module FK -> Maintenance.DryDock (nullable)
     public Guid? DryDockId { get; private set; }
 
-    // Cross-module FK -> Identity.User (bez navigacije)
-    public Guid AssignedEngineerId { get; private set; }
+    public Guid? AssignedEngineerId { get; private set; }
 
     public string Title { get; private set; } = null!;
 
@@ -63,14 +61,14 @@ internal sealed class MaintenanceWorkOrder
 
     public DateTime? CompletedUtc { get; private set; }
 
-    internal static MaintenanceWorkOrder Register(
+    internal static MaintenanceWorkOrder Create(
         Guid vesselId,
-        Guid assignedEngineerId,
         string title,
         string? description,
         WorkOrderPriority priority,
         DateTime dueUtc,
-        Guid? dryDockId = null)
+        Guid? dryDockId = null,
+        Guid? assignedEngineerId = null)
     {
         return new MaintenanceWorkOrder(
             Guid.NewGuid(),

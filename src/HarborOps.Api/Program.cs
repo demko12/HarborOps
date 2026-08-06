@@ -1,5 +1,6 @@
 using HarborOps.Infrastructure;
 using HarborOps.Modules.Fleet;
+using HarborOps.Modules.Maintenance;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -8,6 +9,7 @@ var connectionString = builder.Configuration.GetConnectionString("HarborOpsDatab
 
 builder.Services.AddHarborOpsInfrastructure(connectionString);
 builder.Services.AddFleetModule();
+builder.Services.AddMaintenanceModule();
 builder.Services.AddHealthChecks();
 builder.Services.AddOpenApi();
 

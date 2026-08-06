@@ -26,8 +26,7 @@ internal sealed class MaintenanceWorkOrderConfiguration : IEntityTypeConfigurati
 
         builder.Property(workOrder => workOrder.DryDockId);
 
-        builder.Property(workOrder => workOrder.AssignedEngineerId)
-            .IsRequired();
+        builder.Property(workOrder => workOrder.AssignedEngineerId);
 
         builder.Property(workOrder => workOrder.Title)
             .HasMaxLength(MaintenanceWorkOrder.TitleMaxLength)
