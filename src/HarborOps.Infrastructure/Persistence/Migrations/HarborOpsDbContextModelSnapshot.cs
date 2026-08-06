@@ -654,6 +654,9 @@ namespace HarborOps.Infrastructure.Persistence.Migrations
                         .HasMaxLength(50)
                         .HasColumnType("nvarchar(50)");
 
+                    b.Property<DateTime>("CreatedUtc")
+                        .HasColumnType("datetime2");
+
                     b.Property<DateOnly>("DateOfBirth")
                         .HasColumnType("date");
 
@@ -1441,7 +1444,7 @@ namespace HarborOps.Infrastructure.Persistence.Migrations
                     b.Property<Guid>("Id")
                         .HasColumnType("uniqueidentifier");
 
-                    b.Property<Guid>("AssignedEngineerId")
+                    b.Property<Guid?>("AssignedEngineerId")
                         .HasColumnType("uniqueidentifier");
 
                     b.Property<DateTime?>("CompletedUtc")
@@ -1954,11 +1957,26 @@ namespace HarborOps.Infrastructure.Persistence.Migrations
                     b.Property<DateTime?>("ActualDeparture")
                         .HasColumnType("datetime2");
 
+                    b.Property<string>("ArrivalPortCode")
+                        .IsRequired()
+                        .HasMaxLength(5)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(5)");
+
                     b.Property<Guid?>("ArrivalPortId")
                         .HasColumnType("uniqueidentifier");
 
                     b.Property<Guid?>("CaptainId")
                         .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("CreatedUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("DeparturePortCode")
+                        .IsRequired()
+                        .HasMaxLength(5)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(5)");
 
                     b.Property<Guid?>("DeparturePortId")
                         .HasColumnType("uniqueidentifier");
@@ -2005,6 +2023,9 @@ namespace HarborOps.Infrastructure.Persistence.Migrations
                     b.HasIndex("DeparturePortId");
 
                     b.HasIndex("RouteId");
+
+                    b.HasIndex("VoyageNumber")
+                        .IsUnique();
 
                     b.ToTable("Voyages", "voyages");
 
