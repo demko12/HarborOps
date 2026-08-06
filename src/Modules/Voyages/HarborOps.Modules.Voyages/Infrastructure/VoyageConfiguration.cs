@@ -24,6 +24,16 @@ internal sealed class VoyageConfiguration : IEntityTypeConfiguration<Voyage>
             .HasMaxLength(Voyage.VoyageNumberMaxLength)
             .IsRequired();
 
+        builder.Property(voyage => voyage.DeparturePortCode)
+            .HasMaxLength(Voyage.PortCodeLength)
+            .IsUnicode(false)
+            .IsRequired();
+
+        builder.Property(voyage => voyage.ArrivalPortCode)
+            .HasMaxLength(Voyage.PortCodeLength)
+            .IsUnicode(false)
+            .IsRequired();
+
         builder.Property(voyage => voyage.Status)
             .HasMaxLength(Voyage.StatusMaxLength)
             .IsRequired();
@@ -32,6 +42,9 @@ internal sealed class VoyageConfiguration : IEntityTypeConfiguration<Voyage>
             .IsRequired();
 
         builder.Property(voyage => voyage.PlannedArrival)
+            .IsRequired();
+
+        builder.Property(voyage => voyage.CreatedUtc)
             .IsRequired();
 
         builder.HasOne<Route>()
@@ -48,5 +61,8 @@ internal sealed class VoyageConfiguration : IEntityTypeConfiguration<Voyage>
             .WithMany()
             .HasForeignKey(voyage => voyage.ArrivalPortId)
             .OnDelete(DeleteBehavior.Restrict);
+
+        builder.HasIndex(voyage => voyage.VoyageNumber)
+            .IsUnique();
     }
 }

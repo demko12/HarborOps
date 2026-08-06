@@ -58,5 +58,7 @@ internal sealed class CrewMemberConfiguration : IEntityTypeConfiguration<CrewMem
         builder.Property(crewMember => crewMember.EmploymentStatus)
             .HasMaxLength(CrewMember.EmploymentStatusMaxLength)
             .IsRequired();
+        builder.Property(crewMember => crewMember.CreatedUtc)
+            .IsRequired();
     }
 }

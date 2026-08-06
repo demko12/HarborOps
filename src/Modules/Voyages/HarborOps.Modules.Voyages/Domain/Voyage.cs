@@ -2,8 +2,10 @@ namespace HarborOps.Modules.Voyages.Domain;
 
 internal sealed class Voyage
 {
+    internal const int PortCodeLength = 5;
     internal const int StatusMaxLength = 30;
     internal const int VoyageNumberMaxLength = 50;
+    internal const string PlannedStatus = "Planned";
 
     private Voyage()
     {
@@ -13,26 +15,22 @@ internal sealed class Voyage
         Guid id,
         Guid vesselId,
         string voyageNumber,
+        string departurePortCode,
+        string arrivalPortCode,
         string status,
         DateTime plannedDeparture,
         DateTime plannedArrival,
-        Guid? routeId,
-        Guid? captainId,
-        Guid? departurePortId,
-        Guid? arrivalPortId,
-        string? notes)
+        DateTime createdUtc)
     {
         Id = id;
         VesselId = vesselId;
         VoyageNumber = voyageNumber;
+        DeparturePortCode = departurePortCode;
+        ArrivalPortCode = arrivalPortCode;
         Status = status;
         PlannedDeparture = plannedDeparture;
         PlannedArrival = plannedArrival;
-        RouteId = routeId;
-        CaptainId = captainId;
-        DeparturePortId = departurePortId;
-        ArrivalPortId = arrivalPortId;
-        Notes = notes;
+        CreatedUtc = createdUtc;
     }
 
     public Guid Id { get; private set; }
@@ -55,6 +53,10 @@ internal sealed class Voyage
 
     public string VoyageNumber { get; private set; } = null!;
 
+    public string DeparturePortCode { get; private set; } = null!;
+
+    public string ArrivalPortCode { get; private set; } = null!;
+
     public string Status { get; private set; } = null!;
 
     public DateTime PlannedDeparture { get; private set; }
@@ -67,29 +69,25 @@ internal sealed class Voyage
 
     public string? Notes { get; private set; }
 
-    internal static Voyage Create(
+    public DateTime CreatedUtc { get; private set; }
+
+    internal static Voyage Schedule(
         Guid vesselId,
         string voyageNumber,
-        string status,
+        string departurePortCode,
+        string arrivalPortCode,
         DateTime plannedDeparture,
-        DateTime plannedArrival,
-        Guid? routeId = null,
-        Guid? captainId = null,
-        Guid? departurePortId = null,
-        Guid? arrivalPortId = null,
-        string? notes = null)
+        DateTime plannedArrival)
     {
         return new Voyage(
             Guid.NewGuid(),
             vesselId,
             voyageNumber,
-            status,
+            departurePortCode,
+            arrivalPortCode,
+            PlannedStatus,
             plannedDeparture,
             plannedArrival,
-            routeId,
-            captainId,
-            departurePortId,
-            arrivalPortId,
-            notes);
+            DateTime.UtcNow);
     }
 }
