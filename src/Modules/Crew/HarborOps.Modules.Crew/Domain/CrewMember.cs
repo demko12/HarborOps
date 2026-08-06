@@ -24,7 +24,8 @@ internal sealed class CrewMember
         DateOnly passportExpiry,
         string cdcNumber,
         DateOnly hireDate,
-        string employmentStatus)
+        string employmentStatus,
+        DateTime createdUtc)
     {
         Id = id;
         BaseRankId = baseRankId;
@@ -37,28 +38,20 @@ internal sealed class CrewMember
         CdcNumber = cdcNumber;
         HireDate = hireDate;
         EmploymentStatus = employmentStatus;
+        CreatedUtc = createdUtc;
     }
 
     public Guid Id { get; private set; }
-
     public Guid BaseRankId { get; private set; }
-
     public string Name { get; private set; } = null!;
-
     public DateOnly DateOfBirth { get; private set; }
-
     public string Nationality { get; private set; } = null!;
-
     public string ImoSeafarerId { get; private set; } = null!;
-
     public string PassportNumber { get; private set; } = null!;
-
     public DateOnly PassportExpiry { get; private set; }
-
     public string CdcNumber { get; private set; } = null!;
-
     public DateOnly HireDate { get; private set; }
-
+    public DateTime CreatedUtc { get; private set; }
     public string EmploymentStatus { get; private set; } = null!;
 
     internal static CrewMember Create(
@@ -84,6 +77,7 @@ internal sealed class CrewMember
             passportExpiry,
             cdcNumber,
             hireDate,
-            employmentStatus);
+            employmentStatus,
+            DateTime.UtcNow);
     }
 }

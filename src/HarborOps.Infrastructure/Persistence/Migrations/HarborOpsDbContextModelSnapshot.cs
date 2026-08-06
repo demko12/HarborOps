@@ -293,6 +293,47 @@ namespace HarborOps.Infrastructure.Persistence.Migrations
                             }));
                 });
 
+            modelBuilder.Entity("HarborOps.Modules.Compliance.Domain.ComplianceCertificate", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("CertificateNumber")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<string>("CertificateType")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<DateTime>("CreatedUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateOnly>("ExpiresOn")
+                        .HasColumnType("date");
+
+                    b.Property<DateOnly>("IssuedOn")
+                        .HasColumnType("date");
+
+                    b.Property<string>("IssuingAuthority")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<Guid>("VesselId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ExpiresOn");
+
+                    b.HasIndex("VesselId");
+
+                    b.ToTable("ComplianceCertificates", "compliance");
+                });
+
             modelBuilder.Entity("HarborOps.Modules.Compliance.Domain.InsurancePolicy", b =>
                 {
                     b.Property<int>("Id")
