@@ -1,0 +1,29 @@
+using System.Security.Claims;
+using HarborOps.Modules.Identity.Contracts;
+using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.Routing;
+
+namespace HarborOps.Modules.Identity.Presentation;
+
+public static class IdentityEndpoints
+{
+    public static IEndpointRouteBuilder MapIdentityModuleEndpoints(this IEndpointRouteBuilder app)
+    {
+        var group = app.MapGroup("/api/identity").WithTags("Identity");
+
+        group.MapIdentityApi<IdentityUser<Guid>>();
+
+        group.MapGet("/me", async (ClaimsPrincipal principal, UserManager<IdentityUser<Guid>> userManager) =>
+        {
+            var user = await userManager.GetUserAsync(principal);
+            return user is null
+                ? Results.Unauthorized()
+                : Results.Ok(new AccountResponse(user.Id, user.Email!));
+        })
+            .RequireAuthorization();
+
+        return app;
+    }
+}

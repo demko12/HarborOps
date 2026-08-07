@@ -1,5 +1,6 @@
 using System.Reflection;
 using HarborOps.Modules.Maintenance.Application;
+using HarborOps.Modules.Maintenance.Contracts;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 
@@ -15,6 +16,8 @@ public static class MaintenanceModule
     {
         services.AddScoped<CreateMaintenanceWorkOrderService>();
         services.AddScoped<GetVesselMaintenanceOverviewService>();
+        services.AddScoped<IVesselMaintenanceOverviewQuery>(serviceProvider =>
+            serviceProvider.GetRequiredService<GetVesselMaintenanceOverviewService>());
         services.TryAddSingleton(TimeProvider.System);
         services.AddControllers()
             .AddApplicationPart(Assembly);
