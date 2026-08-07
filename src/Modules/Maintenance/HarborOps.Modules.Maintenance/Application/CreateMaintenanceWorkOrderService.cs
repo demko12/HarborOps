@@ -16,9 +16,9 @@ public sealed class CreateMaintenanceWorkOrderService(DbContext dbContext)
         ArgumentNullException.ThrowIfNull(request);
 
         var errors = CreateMaintenanceWorkOrderValidator.Validate(request);
-        if(errors.Count > 0)
+        if (errors.Count > 0)
         {
-            throw new CreateMaintenanceWorkOrderValidationException(errors);   
+            throw new CreateMaintenanceWorkOrderValidationException(errors);
         }
 
         var vesselId = request.VesselId!.Value;

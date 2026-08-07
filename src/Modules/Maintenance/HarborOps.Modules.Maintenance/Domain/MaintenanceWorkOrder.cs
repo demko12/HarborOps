@@ -83,4 +83,21 @@ internal sealed class MaintenanceWorkOrder
             DateTime.UtcNow,
             null);
     }
+
+
+    internal void Start()
+    {
+        Status = WorkOrderStatus.InProgress;
+    }
+
+    internal void Complete()
+    {
+        Status = WorkOrderStatus.Completed;
+        CompletedUtc = DateTime.UtcNow;
+    }
+
+    internal void Cancel()
+    {
+        Status = WorkOrderStatus.Canceled;
+    }
 }
