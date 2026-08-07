@@ -13,7 +13,7 @@ public static class IdentityModule
     public static IdentityBuilder AddIdentityModule(this IServiceCollection services)
     {
         return services
-            .AddIdentityCore<IdentityUser<Guid>>(options => options.User.RequireUniqueEmail = true)
+            .AddIdentityApiEndpoints<IdentityUser<Guid>>(options => options.User.RequireUniqueEmail = true)
             .AddRoles<IdentityRole<Guid>>();
     }
 }
