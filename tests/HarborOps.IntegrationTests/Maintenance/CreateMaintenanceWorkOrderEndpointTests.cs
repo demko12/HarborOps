@@ -19,7 +19,6 @@ public sealed class CreateMaintenanceWorkOrderEndpointTests : IClassFixture<Harb
     private readonly HarborOpsApiFactory _application;
 
     public CreateMaintenanceWorkOrderEndpointTests(HarborOpsApiFactory application)
-        : base(application)
     {
         _application = application;
     }

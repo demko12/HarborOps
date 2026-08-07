@@ -8,6 +8,7 @@ using Microsoft.EntityFrameworkCore;
 namespace HarborOps.Modules.Maintenance.Application;
 
 public sealed class GetVesselMaintenanceOverviewService(DbContext dbContext, TimeProvider timeProvider)
+    : IVesselMaintenanceOverviewQuery
 {
     private static readonly WorkOrderStatus[] OpenStatuses =
         [WorkOrderStatus.Open, WorkOrderStatus.InProgress];

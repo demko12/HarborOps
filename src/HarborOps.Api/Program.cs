@@ -1,3 +1,4 @@
+using HarborOps.Api.Composition.Operations;
 using HarborOps.Infrastructure;
 using HarborOps.Modules.Cargo;
 using HarborOps.Modules.Compliance;
@@ -20,6 +21,7 @@ builder.Services.AddFleetModule();
 builder.Services.AddComplianceModule();
 builder.Services.AddCrewModule();
 builder.Services.AddVoyagesModule();
+builder.Services.AddScoped<FleetVesselOverviewService>();
 builder.Services.AddMaintenanceModule();
 
 builder.Services.AddHealthChecks();
