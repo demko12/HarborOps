@@ -44,15 +44,13 @@ internal sealed class CrewAssignment
     public DateOnly? ActualSignOffDate { get; private set; }
     public string Status { get; private set; } = null!;
 
-    internal static CrewAssignment Create(
+    internal static CrewAssignment CreatePlanned(
         Guid crewMemberId,
         Guid vesselId,
         Guid rankId,
         Guid? signOnPortId,
-        Guid? signOffPortId,
         DateOnly signOnDate,
-        DateOnly plannedSignOffDate
-        )
+        DateOnly plannedSignOffDate)
     {
         return new CrewAssignment(
             Guid.NewGuid(),
@@ -60,7 +58,7 @@ internal sealed class CrewAssignment
             vesselId,
             rankId,
             signOnPortId,
-            signOffPortId,
+            signOffPortId: null,
             signOnDate,
             plannedSignOffDate,
             actualSignOffDate: null,
