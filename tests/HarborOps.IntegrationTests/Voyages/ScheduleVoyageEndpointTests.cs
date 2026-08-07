@@ -12,7 +12,7 @@ using Microsoft.Extensions.DependencyInjection;
 
 namespace HarborOps.IntegrationTests.Voyages;
 
-public sealed class ScheduleVoyageEndpointTests : IClassFixture<HarborOpsApiFactory>
+public sealed class ScheduleVoyageEndpointTests : IntegrationTestBase
 {
     private static readonly DateTime PlannedDepartureUtc =
         new(2026, 9, 1, 8, 0, 0, DateTimeKind.Utc);
@@ -23,6 +23,7 @@ public sealed class ScheduleVoyageEndpointTests : IClassFixture<HarborOpsApiFact
     private readonly HarborOpsApiFactory _application;
 
     public ScheduleVoyageEndpointTests(HarborOpsApiFactory application)
+        : base(application)
     {
         _application = application;
     }

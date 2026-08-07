@@ -11,7 +11,7 @@ using FleetEntity = HarborOps.Modules.Fleet.Domain.Fleet;
 
 namespace HarborOps.IntegrationTests.Fleet;
 
-public sealed class SearchVesselsEndpointTests : IClassFixture<HarborOpsApiFactory>
+public sealed class SearchVesselsEndpointTests : IntegrationTestBase
 {
     private static readonly string[] ExpectedItemProperties =
     [
@@ -30,6 +30,7 @@ public sealed class SearchVesselsEndpointTests : IClassFixture<HarborOpsApiFacto
     private readonly HarborOpsApiFactory _application;
 
     public SearchVesselsEndpointTests(HarborOpsApiFactory application)
+        : base(application)
     {
         _application = application;
     }

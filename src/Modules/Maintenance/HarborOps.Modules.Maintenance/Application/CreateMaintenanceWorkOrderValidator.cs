@@ -35,12 +35,12 @@ internal static class CreateMaintenanceWorkOrderValidator
     {
         if (string.IsNullOrWhiteSpace(title))
         {
-            errors[TitleField] = [ "Title is required." ];
+            errors[TitleField] = ["Title is required."];
             return;
         }
         if (title.Length > MaintenanceWorkOrder.TitleMaxLength)
         {
-            errors[TitleField] = [ $"Title must not exceed {MaintenanceWorkOrder.TitleMaxLength} characters." ];
+            errors[TitleField] = [$"Title must not exceed {MaintenanceWorkOrder.TitleMaxLength} characters."];
         }
     }
 
@@ -52,7 +52,7 @@ internal static class CreateMaintenanceWorkOrderValidator
         }
         if (description.Length > MaintenanceWorkOrder.DescriptionMaxLength)
         {
-            errors[DescriptionField] = [ $"Description must not exceed {MaintenanceWorkOrder.DescriptionMaxLength} characters." ];
+            errors[DescriptionField] = [$"Description must not exceed {MaintenanceWorkOrder.DescriptionMaxLength} characters."];
         }
     }
 
@@ -72,7 +72,7 @@ internal static class CreateMaintenanceWorkOrderValidator
             errors[DueUtcField] = ["Due date is required."];
             return;
         }
-        if(dueUtc.Value.Kind != DateTimeKind.Utc)
+        if (dueUtc.Value.Kind != DateTimeKind.Utc)
         {
             errors[DueUtcField] = ["Due date must be in UTC format."];
             return;

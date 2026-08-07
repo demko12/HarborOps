@@ -2,11 +2,12 @@ using System.Net;
 
 namespace HarborOps.IntegrationTests;
 
-public sealed class ApiSmokeTests : IClassFixture<HarborOpsApiFactory>
+public sealed class ApiSmokeTests : IntegrationTestBase
 {
     private readonly HarborOpsApiFactory _application;
 
     public ApiSmokeTests(HarborOpsApiFactory application)
+        : base(application)
     {
         _application = application;
     }

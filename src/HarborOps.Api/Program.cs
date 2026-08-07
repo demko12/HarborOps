@@ -6,8 +6,8 @@ using HarborOps.Modules.Crew;
 using HarborOps.Modules.Documents;
 using HarborOps.Modules.Fleet;
 using HarborOps.Modules.Identity;
-using HarborOps.Modules.Voyages;
 using HarborOps.Modules.Maintenance;
+using HarborOps.Modules.Voyages;
 
 var builder = WebApplication.CreateBuilder(args);
 

@@ -14,11 +14,12 @@ using Microsoft.Extensions.DependencyInjection;
 
 namespace HarborOps.IntegrationTests.Maintenance;
 
-public sealed class CreateMaintenanceWorkOrderEndpointTests: IClassFixture<HarborOpsApiFactory>
+public sealed class CreateMaintenanceWorkOrderEndpointTests : IntegrationTestBase
 {
     private readonly HarborOpsApiFactory _application;
 
     public CreateMaintenanceWorkOrderEndpointTests(HarborOpsApiFactory application)
+        : base(application)
     {
         _application = application;
     }

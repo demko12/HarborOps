@@ -5,11 +5,12 @@ using Microsoft.Extensions.DependencyInjection;
 
 namespace HarborOps.IntegrationTests.Identity;
 
-public sealed class IdentityAccountTests : IClassFixture<HarborOpsApiFactory>
+public sealed class IdentityAccountTests : IntegrationTestBase
 {
     private readonly HarborOpsApiFactory _application;
 
     public IdentityAccountTests(HarborOpsApiFactory application)
+        : base(application)
     {
         _application = application;
     }
