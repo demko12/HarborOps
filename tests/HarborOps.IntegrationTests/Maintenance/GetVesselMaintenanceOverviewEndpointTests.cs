@@ -12,10 +12,11 @@ using Microsoft.Extensions.DependencyInjection;
 
 namespace HarborOps.IntegrationTests.Maintenance;
 
-public sealed class GetVesselMaintenanceOverviewEndpointTests : IClassFixture<HarborOpsApiFactory>
+public sealed class GetVesselMaintenanceOverviewEndpointTests : IntegrationTestBase
 {
     private readonly HarborOpsApiFactory _application;
     public GetVesselMaintenanceOverviewEndpointTests(HarborOpsApiFactory application)
+        :base(application)
     {
         _application = application;
     }
