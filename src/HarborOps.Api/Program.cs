@@ -1,11 +1,13 @@
 using HarborOps.Infrastructure;
+using HarborOps.Infrastructure.Persistence;
 using HarborOps.Modules.Cargo;
 using HarborOps.Modules.Compliance;
 using HarborOps.Modules.Crew;
 using HarborOps.Modules.Documents;
 using HarborOps.Modules.Fleet;
-using HarborOps.Modules.Voyages;
+using HarborOps.Modules.Identity;
 using HarborOps.Modules.Maintenance;
+using HarborOps.Modules.Voyages;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -20,6 +22,11 @@ builder.Services.AddComplianceModule();
 builder.Services.AddCrewModule();
 builder.Services.AddVoyagesModule();
 builder.Services.AddMaintenanceModule();
+
+
+builder.Services.AddIdentityModule()
+    .AddEntityFrameworkStores<HarborOpsDbContext>();
+
 builder.Services.AddHealthChecks();
 builder.Services.AddOpenApi();
 

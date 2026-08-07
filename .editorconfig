@@ -22,5 +22,9 @@ dotnet_style_qualification_for_property = false:suggestion
 dotnet_style_qualification_for_method = false:suggestion
 dotnet_style_qualification_for_event = false:suggestion
 
+[src/HarborOps.Infrastructure/Persistence/Migrations/*.cs]
+charset = unset
+csharp_style_namespace_declarations = block_scoped:silent
+
 [*.md]
 trim_trailing_whitespace = false

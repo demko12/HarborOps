@@ -13,6 +13,7 @@ public static class ComplianceModule
     public static IServiceCollection AddComplianceModule(this IServiceCollection services)
     {
         services.AddScoped<RegisterComplianceCertificateService>();
+        services.AddScoped<RegisterPscInspectionService>();
         services.AddControllers()
             .AddApplicationPart(Assembly);
 

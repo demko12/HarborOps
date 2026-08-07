@@ -11,11 +11,12 @@ using Microsoft.Extensions.DependencyInjection;
 
 namespace HarborOps.IntegrationTests.Crew;
 
-public sealed class RegisterCrewMemberEndpointTests : IClassFixture<HarborOpsApiFactory>
+public sealed class RegisterCrewMemberEndpointTests : IntegrationTestBase
 {
     private readonly HarborOpsApiFactory _application;
 
     public RegisterCrewMemberEndpointTests(HarborOpsApiFactory application)
+        : base(application)
     {
         _application = application;
     }

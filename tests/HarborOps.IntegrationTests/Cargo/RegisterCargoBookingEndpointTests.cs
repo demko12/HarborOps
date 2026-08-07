@@ -12,7 +12,7 @@ using Microsoft.Extensions.DependencyInjection;
 
 namespace HarborOps.IntegrationTests.Cargo;
 
-public sealed class RegisterCargoBookingEndpointTests : IClassFixture<HarborOpsApiFactory>
+public sealed class RegisterCargoBookingEndpointTests : IntegrationTestBase
 {
     private const string Endpoint = "/api/cargo/bookings";
 
@@ -21,6 +21,7 @@ public sealed class RegisterCargoBookingEndpointTests : IClassFixture<HarborOpsA
     private readonly HarborOpsApiFactory _application;
 
     public RegisterCargoBookingEndpointTests(HarborOpsApiFactory application)
+        : base(application)
     {
         _application = application;
     }

@@ -7,12 +7,42 @@ namespace HarborOps.Modules.Fleet.Presentation;
 
 [ApiController]
 [Route("api/fleet/vessels")]
-public sealed class VesselsController(RegisterVesselService registerVesselService)
+public sealed class VesselsController(
+    RegisterVesselService registerVesselService,
+    ISearchVesselsQuery searchVesselsQuery)
     : ControllerBase
 {
+    [HttpGet]
+    [ProducesResponseType<SearchVesselsResponse>(StatusCodes.Status200OK)]
+    [ProducesResponseType<HttpValidationProblemDetails>(StatusCodes.Status400BadRequest)]
+    public async Task<ActionResult<SearchVesselsResponse>> Search(
+        [FromQuery] SearchVesselsRequest request,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            var response = await searchVesselsQuery.SearchAsync(request, cancellationToken);
+
+            return Ok(response);
+        }
+        catch (SearchVesselsValidationException exception)
+        {
+            return BadRequest(new HttpValidationProblemDetails(
+                exception.Errors.ToDictionary(
+                    error => error.Key,
+                    error => error.Value,
+                    StringComparer.Ordinal))
+            {
+                Status = StatusCodes.Status400BadRequest,
+                Title = "One or more validation errors occurred.",
+            });
+        }
+    }
+
     [HttpPost]
     [ProducesResponseType<RegisterVesselResponse>(StatusCodes.Status201Created)]
     [ProducesResponseType<HttpValidationProblemDetails>(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType<HttpValidationProblemDetails>(StatusCodes.Status404NotFound)]
     [ProducesResponseType<HttpValidationProblemDetails>(StatusCodes.Status409Conflict)]
     public async Task<ActionResult<RegisterVesselResponse>> Register(
         [FromBody] RegisterVesselRequest request,
@@ -34,6 +64,18 @@ public sealed class VesselsController(RegisterVesselService registerVesselServic
             {
                 Status = StatusCodes.Status400BadRequest,
                 Title = "One or more validation errors occurred.",
+            });
+        }
+        catch (VesselTypeNotFoundException exception)
+        {
+            return NotFound(new HttpValidationProblemDetails(
+                new Dictionary<string, string[]>
+                {
+                    [RegisterVesselValidator.VesselTypeIdField] = [exception.Message],
+                })
+            {
+                Status = StatusCodes.Status404NotFound,
+                Title = "The requested vessel type was not found.",
             });
         }
         catch (DuplicateImoNumberException exception)

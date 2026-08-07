@@ -8,12 +8,14 @@ using HarborOps.Modules.Fleet.Domain;
 using HarborOps.Modules.Identity;
 using HarborOps.Modules.Maintenance;
 using HarborOps.Modules.Voyages;
+using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
 
 namespace HarborOps.Infrastructure.Persistence;
 
 public sealed class HarborOpsDbContext(DbContextOptions<HarborOpsDbContext> options)
-    : DbContext(options)
+    : IdentityDbContext<IdentityUser<Guid>, IdentityRole<Guid>, Guid>(options)
 {
     internal DbSet<Vessel> Vessels => Set<Vessel>();
 

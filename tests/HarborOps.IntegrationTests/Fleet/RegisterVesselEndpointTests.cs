@@ -11,11 +11,12 @@ using Microsoft.Extensions.DependencyInjection;
 
 namespace HarborOps.IntegrationTests.Fleet;
 
-public sealed class RegisterVesselEndpointTests : IClassFixture<HarborOpsApiFactory>
+public sealed class RegisterVesselEndpointTests : IntegrationTestBase
 {
     private readonly HarborOpsApiFactory _application;
 
     public RegisterVesselEndpointTests(HarborOpsApiFactory application)
+        : base(application)
     {
         _application = application;
     }
@@ -25,7 +26,7 @@ public sealed class RegisterVesselEndpointTests : IClassFixture<HarborOpsApiFact
     {
         using var client = _application.CreateClient();
         var vesselTypeId = await SeedVesselTypeAsync();
-        var request = CreateValidRequest(vesselTypeId);
+        var request = CreateValidRequest("1234567", vesselTypeId);
 
         using var response = await client.PostAsJsonAsync(
             "/api/fleet/vessels",
@@ -95,7 +96,7 @@ public sealed class RegisterVesselEndpointTests : IClassFixture<HarborOpsApiFact
     public async Task Post_returns_not_found_problem_for_unknown_vessel_type()
     {
         using var client = _application.CreateClient();
-        var request = CreateValidRequest(Guid.NewGuid());
+        var request = CreateValidRequest("7654321", Guid.NewGuid());
 
         using var response = await client.PostAsJsonAsync(
             "/api/fleet/vessels",
@@ -105,14 +106,14 @@ public sealed class RegisterVesselEndpointTests : IClassFixture<HarborOpsApiFact
         Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
     }
 
-    private static RegisterVesselRequest CreateValidRequest(Guid vesselTypeId)
+    private static RegisterVesselRequest CreateValidRequest(string imoNumber, Guid vesselTypeId)
     {
         return new RegisterVesselRequest
         {
             CompanyId = Guid.NewGuid(),
             VesselTypeId = vesselTypeId,
             Name = "North Star",
-            ImoNumber = "1234567",
+            ImoNumber = imoNumber,
             FlagState = "Malta",
             CurrentStatus = "Active",
         };
