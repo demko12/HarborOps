@@ -1,4 +1,5 @@
 using HarborOps.Infrastructure.Persistence;
+using HarborOps.Modules.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -16,6 +17,8 @@ public static class DependencyInjection
             options => options.UseSqlServer(connectionString));
         services.AddScoped<DbContext>(
             serviceProvider => serviceProvider.GetRequiredService<HarborOpsDbContext>());
+        services.AddIdentityModule()
+            .AddEntityFrameworkStores<HarborOpsDbContext>();
 
         return services;
     }

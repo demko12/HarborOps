@@ -20,6 +20,7 @@
     <ProjectReference Include="..\..\src\Modules\Crew\HarborOps.Modules.Crew\HarborOps.Modules.Crew.csproj" />
     <ProjectReference Include="..\..\src\Modules\Documents\HarborOps.Modules.Documents\HarborOps.Modules.Documents.csproj" />
     <ProjectReference Include="..\..\src\Modules\Fleet\HarborOps.Modules.Fleet\HarborOps.Modules.Fleet.csproj" />
+    <ProjectReference Include="..\..\src\Modules\Identity\HarborOps.Modules.Identity\HarborOps.Modules.Identity.csproj" />
   </ItemGroup>
 
   <ItemGroup>
