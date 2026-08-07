@@ -13,7 +13,7 @@ public static class CrewModule
     public static IServiceCollection AddCrewModule(this IServiceCollection services)
     {
         services.AddScoped<RegisterCrewMemberService>();
-
+        services.AddScoped<RegisterCrewAssignmentService>();
         services
             .AddControllers()
             .AddApplicationPart(Assembly);
