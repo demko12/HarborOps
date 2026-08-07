@@ -14,7 +14,7 @@ using Microsoft.Extensions.DependencyInjection;
 
 namespace HarborOps.IntegrationTests.Maintenance;
 
-public sealed class CreateMaintenanceWorkOrderEndpointTests : IntegrationTestBase
+public sealed class CreateMaintenanceWorkOrderEndpointTests : IClassFixture<HarborOpsApiFactory>
 {
     private readonly HarborOpsApiFactory _application;
 
