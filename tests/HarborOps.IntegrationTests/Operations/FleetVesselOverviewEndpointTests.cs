@@ -218,7 +218,7 @@ public sealed class FleetVesselOverviewEndpointTests : IntegrationTestBase
                 break;
             case WorkOrderStatus.Completed:
                 workOrder.Start();
-                workOrder.Complete();
+                workOrder.Complete(dueUtc);
                 break;
             case WorkOrderStatus.Canceled:
                 workOrder.Cancel();

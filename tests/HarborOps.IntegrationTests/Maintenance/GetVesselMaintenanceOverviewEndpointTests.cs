@@ -16,7 +16,7 @@ public sealed class GetVesselMaintenanceOverviewEndpointTests : IntegrationTestB
 {
     private readonly HarborOpsApiFactory _application;
     public GetVesselMaintenanceOverviewEndpointTests(HarborOpsApiFactory application)
-        :base(application)
+        : base(application)
     {
         _application = application;
     }

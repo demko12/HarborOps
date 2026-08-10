@@ -19,7 +19,7 @@ public sealed class CreateMaintenanceWorkOrderEndpointTests : IntegrationTestBas
     private readonly HarborOpsApiFactory _application;
 
     public CreateMaintenanceWorkOrderEndpointTests(HarborOpsApiFactory application)
-        :base(application)
+        : base(application)
     {
         _application = application;
     }

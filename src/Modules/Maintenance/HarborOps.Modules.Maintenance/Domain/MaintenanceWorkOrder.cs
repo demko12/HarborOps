@@ -84,16 +84,19 @@ internal sealed class MaintenanceWorkOrder
             null);
     }
 
-
     internal void Start()
     {
         Status = WorkOrderStatus.InProgress;
     }
 
-    internal void Complete()
+    internal void Complete(DateTime completedUtc)
     {
+        if (Status is not (WorkOrderStatus.Open or WorkOrderStatus.InProgress))
+        {
+            throw new WorkOrderNotCompletableException(Id, Status);
+        }
         Status = WorkOrderStatus.Completed;
-        CompletedUtc = DateTime.UtcNow;
+        CompletedUtc = completedUtc;
     }
 
     internal void Cancel()
