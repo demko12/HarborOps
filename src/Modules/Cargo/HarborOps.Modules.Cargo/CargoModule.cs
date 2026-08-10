@@ -12,6 +12,7 @@ public static class CargoModule
 
     public static IServiceCollection AddCargoModule(this IServiceCollection services)
     {
+        services.AddScoped<DeclareCargoSafetyInfoService>();
         services.AddScoped<RegisterCargoBookingService>();
         services.AddControllers()
             .AddApplicationPart(Assembly);

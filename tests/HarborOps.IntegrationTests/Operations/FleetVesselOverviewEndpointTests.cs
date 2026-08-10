@@ -2,7 +2,7 @@ using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text.Json;
-using HarborOps.Api.Composition.Operations;
+using HarborOps.Api.Composition.Operations.FleetVessel;
 using HarborOps.Infrastructure.Persistence;
 using HarborOps.Modules.Fleet.Domain;
 using HarborOps.Modules.Maintenance.Domain;
@@ -100,6 +100,22 @@ public sealed class FleetVesselOverviewEndpointTests : IntegrationTestBase
             CancellationToken.None);
 
         Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task Get_returns_validation_problem_for_a_malformed_fleet_id()
+    {
+        using var client = _application.CreateClient();
+
+        using var response = await GetAuthenticatedAsync(
+            client,
+            "/api/operations/fleets/not-a-guid/vessels");
+        var problem = await response.Content.ReadFromJsonAsync<HttpValidationProblemDetails>(
+            CancellationToken.None);
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        Assert.NotNull(problem);
+        Assert.Contains(FleetVesselOverviewValidator.FleetIdField, problem.Errors);
     }
 
     [Fact]

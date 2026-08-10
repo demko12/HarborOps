@@ -1,6 +1,7 @@
 using System.Net;
 using System.Net.Http.Json;
 using HarborOps.Infrastructure.Persistence;
+using HarborOps.IntegrationTests.Authentication;
 using HarborOps.Modules.Crew;
 using HarborOps.Modules.Crew.Application;
 using HarborOps.Modules.Crew.Contracts;
@@ -24,7 +25,7 @@ public sealed class RegisterCrewMemberEndpointTests : IntegrationTestBase
     [Fact]
     public async Task Post_registers_and_persists_crew_member()
     {
-        using var client = _application.CreateClient();
+        using var client = await _application.CreateAuthenticatedClientAsync();
         var baseRankId = await SeedCrewPositionAsync();
         var request = CreateValidRequest("IMO900001", baseRankId);
 
@@ -63,7 +64,7 @@ public sealed class RegisterCrewMemberEndpointTests : IntegrationTestBase
     [Fact]
     public async Task Post_returns_validation_problem_for_invalid_input()
     {
-        using var client = _application.CreateClient();
+        using var client = await _application.CreateAuthenticatedClientAsync();
         var request = new RegisterCrewMemberRequest
         {
             BaseRankId = null,
@@ -97,7 +98,7 @@ public sealed class RegisterCrewMemberEndpointTests : IntegrationTestBase
     [Fact]
     public async Task Post_returns_conflict_for_duplicate_imo_seafarer_id()
     {
-        using var client = _application.CreateClient();
+        using var client = await _application.CreateAuthenticatedClientAsync();
         var baseRankId = await SeedCrewPositionAsync();
         var firstRequest = CreateValidRequest("IMO900002", baseRankId);
         var duplicateRequest = firstRequest with { Name = "Marko Marković" };
@@ -123,7 +124,7 @@ public sealed class RegisterCrewMemberEndpointTests : IntegrationTestBase
     [Fact]
     public async Task Post_returns_bad_request_for_unknown_base_rank()
     {
-        using var client = _application.CreateClient();
+        using var client = await _application.CreateAuthenticatedClientAsync();
         var request = CreateValidRequest("IMO900003", Guid.NewGuid());
 
         using var response = await client.PostAsJsonAsync(
@@ -132,6 +133,20 @@ public sealed class RegisterCrewMemberEndpointTests : IntegrationTestBase
             CancellationToken.None);
 
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task Post_without_authentication_returns_401()
+    {
+        using var client = _application.CreateClient();
+        var request = CreateValidRequest("IMO900004", Guid.NewGuid());
+
+        using var response = await client.PostAsJsonAsync(
+            "/api/crew/members",
+            request,
+            CancellationToken.None);
+
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
     }
 
     private static RegisterCrewMemberRequest CreateValidRequest(string imoSeafarerId, Guid baseRankId)

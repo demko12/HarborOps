@@ -11,11 +11,11 @@ public static class IdentityEndpoints
 {
     public static IEndpointRouteBuilder MapIdentityModuleEndpoints(this IEndpointRouteBuilder app)
     {
-        var group = app.MapGroup("/api/identity").WithTags("Identity");
+        var identityApiGroup = app.MapGroup("/api/identity").WithTags("Identity");
+        identityApiGroup.MapIdentityApi<IdentityUser<Guid>>().AllowAnonymous();
 
-        group.MapIdentityApi<IdentityUser<Guid>>();
-
-        group.MapGet("/me", async (ClaimsPrincipal principal, UserManager<IdentityUser<Guid>> userManager) =>
+        var meGroup = app.MapGroup("/api/identity").WithTags("Identity");
+        meGroup.MapGet("/me", async (ClaimsPrincipal principal, UserManager<IdentityUser<Guid>> userManager) =>
         {
             var user = await userManager.GetUserAsync(principal);
             return user is null

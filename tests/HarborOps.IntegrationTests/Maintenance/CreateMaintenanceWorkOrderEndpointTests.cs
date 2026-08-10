@@ -1,9 +1,8 @@
 using System;
-using System.Collections.Generic;
 using System.Net;
 using System.Net.Http.Json;
-using System.Text;
 using HarborOps.Infrastructure.Persistence;
+using HarborOps.IntegrationTests.Authentication;
 using HarborOps.Modules.Maintenance;
 using HarborOps.Modules.Maintenance.Application;
 using HarborOps.Modules.Maintenance.Contracts;
@@ -27,7 +26,7 @@ public sealed class CreateMaintenanceWorkOrderEndpointTests : IntegrationTestBas
     [Fact]
     public async Task Post_creates_and_persists_work_order()
     {
-        using var client = _application.CreateClient();
+        using var client = await _application.CreateAuthenticatedClientAsync();
         var request = CreateValidRequest();
 
         using var response = await client.PostAsJsonAsync(
@@ -63,13 +62,12 @@ public sealed class CreateMaintenanceWorkOrderEndpointTests : IntegrationTestBas
         Assert.Null(workOrder.CompletedUtc);
         Assert.Equal("MaintenanceWorkOrders", entityType!.GetTableName());
         Assert.Equal(MaintenanceModule.Schema, entityType!.GetSchema());
-
     }
 
     [Fact]
     public async Task Post_returns_validation_problem_for_invalid_input()
     {
-        using var client = _application.CreateClient();
+        using var client = await _application.CreateAuthenticatedClientAsync();
         var request = new CreateMaintenanceWorkOrderRequest
         {
             VesselId = Guid.Empty,
@@ -92,6 +90,20 @@ public sealed class CreateMaintenanceWorkOrderEndpointTests : IntegrationTestBas
         Assert.Contains(CreateMaintenanceWorkOrderValidator.TitleField, problem.Errors);
         Assert.Contains(CreateMaintenanceWorkOrderValidator.PriorityField, problem.Errors);
         Assert.Contains(CreateMaintenanceWorkOrderValidator.DueUtcField, problem.Errors);
+    }
+
+    [Fact]
+    public async Task Post_without_authentication_returns_401()
+    {
+        using var client = _application.CreateClient();
+        var request = CreateValidRequest();
+
+        using var response = await client.PostAsJsonAsync(
+            "/api/maintenance/work-orders",
+            request,
+            CancellationToken.None);
+
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
     }
 
     private static CreateMaintenanceWorkOrderRequest CreateValidRequest()

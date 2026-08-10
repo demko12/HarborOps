@@ -1,6 +1,7 @@
 using System.Net;
 using System.Net.Http.Json;
 using HarborOps.Infrastructure.Persistence;
+using HarborOps.IntegrationTests.Authentication;
 using HarborOps.Modules.Voyages;
 using HarborOps.Modules.Voyages.Application;
 using HarborOps.Modules.Voyages.Contracts;
@@ -31,7 +32,7 @@ public sealed class ScheduleVoyageEndpointTests : IntegrationTestBase
     [Fact]
     public async Task Post_schedules_and_persists_voyage()
     {
-        using var client = _application.CreateClient();
+        using var client = await _application.CreateAuthenticatedClientAsync();
         var request = CreateValidRequest("VOY-100");
 
         using var response = await client.PostAsJsonAsync(
@@ -73,7 +74,7 @@ public sealed class ScheduleVoyageEndpointTests : IntegrationTestBase
     [Fact]
     public async Task Post_returns_validation_problem_for_invalid_input()
     {
-        using var client = _application.CreateClient();
+        using var client = await _application.CreateAuthenticatedClientAsync();
         var request = new ScheduleVoyageRequest
         {
             VoyageNumber = string.Empty,
@@ -102,7 +103,7 @@ public sealed class ScheduleVoyageEndpointTests : IntegrationTestBase
     [Fact]
     public async Task Post_returns_conflict_for_duplicate_voyage_number()
     {
-        using var client = _application.CreateClient();
+        using var client = await _application.CreateAuthenticatedClientAsync();
         var request = CreateValidRequest("VOY-200");
 
         using var firstResponse = await client.PostAsJsonAsync(
@@ -120,6 +121,20 @@ public sealed class ScheduleVoyageEndpointTests : IntegrationTestBase
         Assert.Equal(HttpStatusCode.Conflict, duplicateResponse.StatusCode);
         Assert.NotNull(problem);
         Assert.Contains(ScheduleVoyageValidator.VoyageNumberField, problem.Errors);
+    }
+
+    [Fact]
+    public async Task Post_without_authentication_returns_401()
+    {
+        using var client = _application.CreateClient();
+        var request = CreateValidRequest("VOY-300");
+
+        using var response = await client.PostAsJsonAsync(
+            "/api/voyages",
+            request,
+            CancellationToken.None);
+
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
     }
 
     [Fact]

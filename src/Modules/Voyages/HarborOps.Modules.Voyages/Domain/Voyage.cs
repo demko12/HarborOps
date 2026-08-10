@@ -6,6 +6,7 @@ internal sealed class Voyage
     internal const int StatusMaxLength = 30;
     internal const int VoyageNumberMaxLength = 50;
     internal const string PlannedStatus = "Planned";
+    internal const string InProgressStatus = "InProgress";
 
     private Voyage()
     {
@@ -34,17 +35,9 @@ internal sealed class Voyage
     }
 
     public Guid Id { get; private set; }
-
-    /// <summary>
-    /// Scalar identifier of the vessel owned by the Fleet module.
-    /// </summary>
     public Guid VesselId { get; private set; }
 
     public Guid? RouteId { get; private set; }
-
-    /// <summary>
-    /// Scalar identifier of the crew member owned by the Crew module.
-    /// </summary>
     public Guid? CaptainId { get; private set; }
 
     public Guid? DeparturePortId { get; private set; }
@@ -89,5 +82,17 @@ internal sealed class Voyage
             plannedDeparture,
             plannedArrival,
             DateTime.UtcNow);
+    }
+
+    internal void Depart(DateTime actualDepartureUtc)
+    {
+        if (!string.Equals(Status, PlannedStatus, StringComparison.Ordinal)
+            || ActualDeparture is not null)
+        {
+            throw new VoyageNotPlannedException(Id, Status);
+        }
+
+        ActualDeparture = actualDepartureUtc;
+        Status = InProgressStatus;
     }
 }

@@ -1,6 +1,7 @@
 using System.Net;
 using System.Net.Http.Json;
 using HarborOps.Infrastructure.Persistence;
+using HarborOps.IntegrationTests.Authentication;
 using HarborOps.Modules.Compliance;
 using HarborOps.Modules.Compliance.Application;
 using HarborOps.Modules.Compliance.Contracts;
@@ -24,7 +25,7 @@ public sealed class RegisterComplianceCertificateEndpointTests : IntegrationTest
     [Fact]
     public async Task Post_registers_and_persists_certificate()
     {
-        using var client = _application.CreateClient();
+        using var client = await _application.CreateAuthenticatedClientAsync();
         var request = CreateValidRequest();
 
         using var response = await client.PostAsJsonAsync(
@@ -63,7 +64,7 @@ public sealed class RegisterComplianceCertificateEndpointTests : IntegrationTest
     [Fact]
     public async Task Post_returns_validation_problem_for_invalid_input()
     {
-        using var client = _application.CreateClient();
+        using var client = await _application.CreateAuthenticatedClientAsync();
         var request = new RegisterComplianceCertificateRequest
         {
             VesselId = Guid.Empty,
@@ -89,11 +90,23 @@ public sealed class RegisterComplianceCertificateEndpointTests : IntegrationTest
     }
 
     [Fact]
+    public async Task Post_without_authentication_returns_401()
+    {
+        using var client = _application.CreateClient();
+        var request = CreateValidRequest();
+
+        using var response = await client.PostAsJsonAsync(
+            "/api/compliance/certificates",
+            request,
+            CancellationToken.None);
+
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+    }
+
+    [Fact]
     public void ComplianceModule_registers_required_application_service()
     {
-        // The POST tests above already prove the controller resolves correctly via DI
-        // (a routed request would fail if ComplianceCertificatesController could not be
-        // activated). This test isolates the application-service registration itself.
+
         using var scope = _application.Services.CreateScope();
 
         var service = scope.ServiceProvider.GetRequiredService<RegisterComplianceCertificateService>();
