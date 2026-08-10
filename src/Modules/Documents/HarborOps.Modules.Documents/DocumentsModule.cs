@@ -1,6 +1,9 @@
 using System.Reflection;
 using HarborOps.Modules.Documents.Application;
+using HarborOps.Modules.Documents.Contracts;
+using HarborOps.SharedKernel;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 
 namespace HarborOps.Modules.Documents;
 
@@ -13,6 +16,8 @@ public static class DocumentsModule
     public static IServiceCollection AddDocumentsModule(this IServiceCollection services)
     {
         services.AddScoped<RegisterDocumentService>();
+        services.AddScoped<IGetExpiringDocumentsQuery, GetExpiringDocumentsQuery>();
+        services.TryAddSingleton<IDateTimeProvider, SystemDateTimeProvider>();
         services.AddControllers()
             .AddApplicationPart(Assembly);
 
