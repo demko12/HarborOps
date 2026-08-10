@@ -1,4 +1,4 @@
-namespace HarborOps.Api.Composition.Operations;
+namespace HarborOps.Api.Composition.Operations.FleetVessel;
 
 public sealed record FleetVesselOverviewRow(
     Guid Id,

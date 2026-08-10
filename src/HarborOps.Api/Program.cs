@@ -1,4 +1,4 @@
-using HarborOps.Api.Composition.Operations;
+using HarborOps.Api.Composition.Operations.FleetVessel;
 using HarborOps.Infrastructure;
 using HarborOps.Modules.Cargo;
 using HarborOps.Modules.Compliance;
