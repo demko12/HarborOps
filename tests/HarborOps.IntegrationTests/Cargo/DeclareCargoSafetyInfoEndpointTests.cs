@@ -1,6 +1,7 @@
 using System.Net;
 using System.Net.Http.Json;
 using HarborOps.Infrastructure.Persistence;
+using HarborOps.IntegrationTests.Authentication;
 using HarborOps.Modules.Cargo;
 using HarborOps.Modules.Cargo.Application;
 using HarborOps.Modules.Cargo.Contracts;
@@ -30,7 +31,7 @@ public sealed class DeclareCargoSafetyInfoEndpointTests : IntegrationTestBase
     [Fact]
     public async Task Post_declares_and_persists_safety_information()
     {
-        using var client = _application.CreateClient();
+        using var client = await _application.CreateAuthenticatedClientAsync();
         var bookingId = await RegisterBookingAsync(client, "BK-SAFE-INT-0001", isHazardous: true);
 
         using var response = await client.PostAsJsonAsync(
@@ -63,7 +64,7 @@ public sealed class DeclareCargoSafetyInfoEndpointTests : IntegrationTestBase
     [Fact]
     public async Task Post_returns_not_found_for_unknown_booking()
     {
-        using var client = _application.CreateClient();
+        using var client = await _application.CreateAuthenticatedClientAsync();
         var unknownBookingId = Guid.Parse("1f2e3d4c-5b6a-4978-8695-a4b3c2d1e0f9");
 
         using var response = await client.PostAsJsonAsync(
@@ -81,7 +82,7 @@ public sealed class DeclareCargoSafetyInfoEndpointTests : IntegrationTestBase
     [Fact]
     public async Task Post_returns_validation_problem_for_invalid_input()
     {
-        using var client = _application.CreateClient();
+        using var client = await _application.CreateAuthenticatedClientAsync();
         var bookingId = await RegisterBookingAsync(client, "BK-SAFE-INT-0002", isHazardous: true);
         var request = CreateValidRequest() with
         {
@@ -107,7 +108,7 @@ public sealed class DeclareCargoSafetyInfoEndpointTests : IntegrationTestBase
     [Fact]
     public async Task Post_returns_conflict_for_non_hazardous_booking()
     {
-        using var client = _application.CreateClient();
+        using var client = await _application.CreateAuthenticatedClientAsync();
         var bookingId = await RegisterBookingAsync(client, "BK-SAFE-INT-0003", isHazardous: false);
 
         using var response = await client.PostAsJsonAsync(
@@ -135,7 +136,7 @@ public sealed class DeclareCargoSafetyInfoEndpointTests : IntegrationTestBase
     [Fact]
     public async Task Post_returns_conflict_for_duplicate_declaration()
     {
-        using var client = _application.CreateClient();
+        using var client = await _application.CreateAuthenticatedClientAsync();
         var bookingId = await RegisterBookingAsync(client, "BK-SAFE-INT-0004", isHazardous: true);
 
         using var firstResponse = await client.PostAsJsonAsync(
