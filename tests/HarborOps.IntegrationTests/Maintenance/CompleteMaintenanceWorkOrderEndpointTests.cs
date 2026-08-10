@@ -1,6 +1,7 @@
 using System.Net;
 using System.Net.Http.Json;
 using HarborOps.Infrastructure.Persistence;
+using HarborOps.IntegrationTests.Authentication;
 using HarborOps.Modules.Maintenance.Application;
 using HarborOps.Modules.Maintenance.Contracts;
 using HarborOps.Modules.Maintenance.Domain;
@@ -24,7 +25,7 @@ public sealed class CompleteMaintenanceWorkOrderEndpointTests : IntegrationTestB
     [Fact]
     public async Task Post_completes_work_order_and_persists_maintenance_record()
     {
-        using var client = _application.CreateClient();
+        using var client = await _application.CreateAuthenticatedClientAsync();
         var workOrderId = await SeedWorkOrderAsync();
         var request = CreateValidRequest();
 
@@ -66,7 +67,7 @@ public sealed class CompleteMaintenanceWorkOrderEndpointTests : IntegrationTestB
     [Fact]
     public async Task Post_returns_not_found_for_unknown_work_order()
     {
-        using var client = _application.CreateClient();
+        using var client = await _application.CreateAuthenticatedClientAsync();
         var request = CreateValidRequest();
 
         using var response = await client.PostAsJsonAsync(
@@ -80,7 +81,7 @@ public sealed class CompleteMaintenanceWorkOrderEndpointTests : IntegrationTestB
     [Fact]
     public async Task Post_returns_validation_problem_for_invalid_input()
     {
-        using var client = _application.CreateClient();
+        using var client = await _application.CreateAuthenticatedClientAsync();
         var workOrderId = await SeedWorkOrderAsync();
         var request = new CompleteMaintenanceWorkOrderRequest
         {
@@ -108,7 +109,7 @@ public sealed class CompleteMaintenanceWorkOrderEndpointTests : IntegrationTestB
     [Fact]
     public async Task Post_returns_conflict_for_already_completed_work_order()
     {
-        using var client = _application.CreateClient();
+        using var client = await _application.CreateAuthenticatedClientAsync();
         var workOrderId = await SeedWorkOrderAsync();
         var request = CreateValidRequest();
 
@@ -139,7 +140,7 @@ public sealed class CompleteMaintenanceWorkOrderEndpointTests : IntegrationTestB
     [Fact]
     public async Task Post_returns_conflict_for_canceled_work_order()
     {
-        using var client = _application.CreateClient();
+        using var client = await _application.CreateAuthenticatedClientAsync();
 
         var workOrderId = await SeedCanceledWorkOrderAsync();
 
