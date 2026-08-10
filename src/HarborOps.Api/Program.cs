@@ -8,6 +8,7 @@ using HarborOps.Modules.Fleet;
 using HarborOps.Modules.Identity.Presentation;
 using HarborOps.Modules.Maintenance;
 using HarborOps.Modules.Voyages;
+using Microsoft.AspNetCore.Authorization;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -27,16 +28,23 @@ builder.Services.AddMaintenanceModule();
 builder.Services.AddHealthChecks();
 builder.Services.AddOpenApi();
 
+builder.Services.AddAuthorization(options =>
+{
+    options.FallbackPolicy = new AuthorizationPolicyBuilder()
+        .RequireAuthenticatedUser()
+        .Build();
+});
+
 var app = builder.Build();
 
 if (app.Environment.IsDevelopment())
 {
-    app.MapOpenApi();
+    app.MapOpenApi().AllowAnonymous();
     app.UseSwaggerUI(options =>
-        {
-            options.SwaggerEndpoint("/openapi/v1.json", "HarborOps API v1");
-            options.RoutePrefix = "swagger";
-        });
+    {
+        options.SwaggerEndpoint("/openapi/v1.json", "HarborOps API v1");
+        options.RoutePrefix = "swagger";
+    });
 }
 
 app.UseHttpsRedirection();
@@ -46,7 +54,7 @@ app.UseAuthorization();
 
 app.MapControllers();
 app.MapIdentityModuleEndpoints();
-app.MapHealthChecks("/health");
+app.MapHealthChecks("/health").AllowAnonymous();
 
 app.Run();
 /// <summary>

@@ -1,4 +1,6 @@
 using HarborOps.Infrastructure.Persistence;
+using HarborOps.IntegrationTests.Documents;
+using HarborOps.SharedKernel;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.EntityFrameworkCore;
@@ -10,6 +12,8 @@ namespace HarborOps.IntegrationTests;
 
 public sealed class HarborOpsApiFactory : WebApplicationFactory<Program>
 {
+    public static readonly DateTime FixedUtcNow = new(2026, 8, 10, 0, 0, 0, DateTimeKind.Utc);
+
     private readonly string _databaseName = $"HarborOpsIntegrationTests-{Guid.NewGuid()}";
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)
@@ -25,6 +29,9 @@ public sealed class HarborOpsApiFactory : WebApplicationFactory<Program>
                 options => options.UseInMemoryDatabase(_databaseName));
             services.AddScoped<DbContext>(
                 serviceProvider => serviceProvider.GetRequiredService<HarborOpsDbContext>());
+
+            services.RemoveAll<IDateTimeProvider>();
+            services.AddSingleton<IDateTimeProvider>(new FakeDateTimeProvider(FixedUtcNow));
         });
     }
 }

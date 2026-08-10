@@ -1,6 +1,7 @@
 using System.Net;
 using System.Net.Http.Json;
 using HarborOps.Infrastructure.Persistence;
+using HarborOps.IntegrationTests.Authentication;
 using HarborOps.Modules.Documents;
 using HarborOps.Modules.Documents.Application;
 using HarborOps.Modules.Documents.Contracts;
@@ -24,7 +25,7 @@ public sealed class RegisterDocumentEndpointTests : IntegrationTestBase
     [Fact]
     public async Task Post_registers_and_persists_document()
     {
-        using var client = _application.CreateClient();
+        using var client = await _application.CreateAuthenticatedClientAsync();
         var vesselId = Guid.NewGuid();
         var documentTypeId = await SeedDocumentTypeAsync();
         var request = CreateValidRequest(vesselId, documentTypeId);
@@ -64,7 +65,7 @@ public sealed class RegisterDocumentEndpointTests : IntegrationTestBase
     [Fact]
     public async Task Post_returns_validation_problem_for_invalid_input()
     {
-        using var client = _application.CreateClient();
+        using var client = await _application.CreateAuthenticatedClientAsync();
         var request = new RegisterDocumentRequest
         {
             VesselId = null,
@@ -95,7 +96,7 @@ public sealed class RegisterDocumentEndpointTests : IntegrationTestBase
     [Fact]
     public async Task Post_returns_bad_request_problem_for_unknown_document_type()
     {
-        using var client = _application.CreateClient();
+        using var client = await _application.CreateAuthenticatedClientAsync();
         var request = CreateValidRequest(Guid.NewGuid(), 999_999);
 
         using var response = await client.PostAsJsonAsync(
@@ -113,7 +114,7 @@ public sealed class RegisterDocumentEndpointTests : IntegrationTestBase
     [Fact]
     public async Task Post_returns_conflict_problem_for_duplicate_document_number()
     {
-        using var client = _application.CreateClient();
+        using var client = await _application.CreateAuthenticatedClientAsync();
         var vesselId = Guid.NewGuid();
         var documentTypeId = await SeedDocumentTypeAsync();
         var firstRequest = CreateValidRequest(vesselId, documentTypeId);
@@ -135,6 +136,20 @@ public sealed class RegisterDocumentEndpointTests : IntegrationTestBase
         Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
         Assert.NotNull(problem);
         Assert.Contains(RegisterDocumentValidator.NumberField, problem.Errors);
+    }
+
+    [Fact]
+    public async Task Post_without_authentication_returns_401()
+    {
+        using var client = _application.CreateClient();
+        var request = CreateValidRequest(Guid.NewGuid(), 1);
+
+        using var response = await client.PostAsJsonAsync(
+            "/api/documents",
+            request,
+            CancellationToken.None);
+
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
     }
 
     private static RegisterDocumentRequest CreateValidRequest(Guid vesselId, int documentTypeId)

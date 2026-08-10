@@ -7,9 +7,38 @@ namespace HarborOps.Modules.Documents.Presentation;
 
 [ApiController]
 [Route("api/documents")]
-public sealed class DocumentsController(RegisterDocumentService registerDocumentService)
+public sealed class DocumentsController(
+    RegisterDocumentService registerDocumentService,
+    IGetExpiringDocumentsQuery getExpiringDocumentsQuery)
     : ControllerBase
 {
+    [HttpGet("expiring")]
+    [ProducesResponseType<GetExpiringDocumentsResponse>(StatusCodes.Status200OK)]
+    [ProducesResponseType<HttpValidationProblemDetails>(StatusCodes.Status400BadRequest)]
+    public async Task<ActionResult<GetExpiringDocumentsResponse>> GetExpiring(
+        [FromQuery] GetExpiringDocumentsRequest request,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            var response = await getExpiringDocumentsQuery.GetExpiringDocumentsAsync(request, cancellationToken);
+
+            return Ok(response);
+        }
+        catch (GetExpiringDocumentsValidationException exception)
+        {
+            return BadRequest(new HttpValidationProblemDetails(
+                exception.Errors.ToDictionary(
+                    error => error.Key,
+                    error => error.Value,
+                    StringComparer.Ordinal))
+            {
+                Status = StatusCodes.Status400BadRequest,
+                Title = "One or more validation errors occurred.",
+            });
+        }
+    }
+
     [HttpPost]
     [ProducesResponseType<RegisterDocumentResponse>(StatusCodes.Status201Created)]
     [ProducesResponseType<HttpValidationProblemDetails>(StatusCodes.Status400BadRequest)]

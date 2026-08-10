@@ -2,6 +2,7 @@ using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
 using HarborOps.Infrastructure.Persistence;
+using HarborOps.IntegrationTests.Authentication;
 using HarborOps.Modules.Fleet.Application;
 using HarborOps.Modules.Fleet.Contracts;
 using HarborOps.Modules.Fleet.Domain;
@@ -38,7 +39,7 @@ public sealed class SearchVesselsEndpointTests : IntegrationTestBase
     [Fact]
     public async Task Get_returns_correctly_shaped_page()
     {
-        using var client = _application.CreateClient();
+        using var client = await _application.CreateAuthenticatedClientAsync();
         var seeded = await SeedVesselAsync("Aurora Borealis", "5100001", "Arctic Fleet");
 
         using var response = await client.GetAsync(
@@ -70,7 +71,7 @@ public sealed class SearchVesselsEndpointTests : IntegrationTestBase
     [Fact]
     public async Task Get_returns_empty_items_when_nothing_matches()
     {
-        using var client = _application.CreateClient();
+        using var client = await _application.CreateAuthenticatedClientAsync();
 
         using var response = await client.GetAsync(
             new Uri("/api/fleet/vessels?search=no-vessel-matches-this", UriKind.Relative),
@@ -89,7 +90,7 @@ public sealed class SearchVesselsEndpointTests : IntegrationTestBase
     [Fact]
     public async Task Get_returns_validation_problem_for_page_size_above_maximum()
     {
-        using var client = _application.CreateClient();
+        using var client = await _application.CreateAuthenticatedClientAsync();
 
         using var response = await client.GetAsync(
             new Uri("/api/fleet/vessels?pageSize=101", UriKind.Relative),
@@ -105,7 +106,7 @@ public sealed class SearchVesselsEndpointTests : IntegrationTestBase
     [Fact]
     public async Task Get_returns_validation_problem_for_page_number_below_one()
     {
-        using var client = _application.CreateClient();
+        using var client = await _application.CreateAuthenticatedClientAsync();
 
         using var response = await client.GetAsync(
             new Uri("/api/fleet/vessels?pageNumber=0", UriKind.Relative),
@@ -121,7 +122,7 @@ public sealed class SearchVesselsEndpointTests : IntegrationTestBase
     [Fact]
     public async Task Get_does_not_serialize_domain_entities()
     {
-        using var client = _application.CreateClient();
+        using var client = await _application.CreateAuthenticatedClientAsync();
         await SeedVesselAsync("Northern Light", "5100002", "Baltic Fleet");
 
         using var response = await client.GetAsync(
@@ -147,6 +148,18 @@ public sealed class SearchVesselsEndpointTests : IntegrationTestBase
         Assert.DoesNotContain("createdAtUtc", itemProperties, StringComparer.Ordinal);
         Assert.DoesNotContain("updatedAtUtc", itemProperties, StringComparer.Ordinal);
         Assert.DoesNotContain("mmsi", itemProperties, StringComparer.Ordinal);
+    }
+
+    [Fact]
+    public async Task Get_without_authentication_returns_401()
+    {
+        using var client = _application.CreateClient();
+
+        using var response = await client.GetAsync(
+            new Uri("/api/fleet/vessels", UriKind.Relative),
+            CancellationToken.None);
+
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
     }
 
     private async Task<SeededVessel> SeedVesselAsync(

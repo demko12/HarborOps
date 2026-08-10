@@ -1,6 +1,7 @@
 using System.Net;
 using System.Net.Http.Json;
 using HarborOps.Infrastructure.Persistence;
+using HarborOps.IntegrationTests.Authentication;
 using HarborOps.Modules.Fleet;
 using HarborOps.Modules.Fleet.Application;
 using HarborOps.Modules.Fleet.Contracts;
@@ -24,7 +25,7 @@ public sealed class RegisterVesselEndpointTests : IntegrationTestBase
     [Fact]
     public async Task Post_registers_and_persists_vessel()
     {
-        using var client = _application.CreateClient();
+        using var client = await _application.CreateAuthenticatedClientAsync();
         var vesselTypeId = await SeedVesselTypeAsync();
         var request = CreateValidRequest("1234567", vesselTypeId);
 
@@ -66,7 +67,7 @@ public sealed class RegisterVesselEndpointTests : IntegrationTestBase
     [Fact]
     public async Task Post_returns_validation_problem_for_invalid_input()
     {
-        using var client = _application.CreateClient();
+        using var client = await _application.CreateAuthenticatedClientAsync();
         var request = new RegisterVesselRequest
         {
             CompanyId = null,
@@ -95,7 +96,7 @@ public sealed class RegisterVesselEndpointTests : IntegrationTestBase
     [Fact]
     public async Task Post_returns_not_found_problem_for_unknown_vessel_type()
     {
-        using var client = _application.CreateClient();
+        using var client = await _application.CreateAuthenticatedClientAsync();
         var request = CreateValidRequest("7654321", Guid.NewGuid());
 
         using var response = await client.PostAsJsonAsync(
@@ -104,6 +105,20 @@ public sealed class RegisterVesselEndpointTests : IntegrationTestBase
             CancellationToken.None);
 
         Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task Post_without_authentication_returns_401()
+    {
+        using var client = _application.CreateClient();
+        var request = CreateValidRequest("1112223", Guid.NewGuid());
+
+        using var response = await client.PostAsJsonAsync(
+            "/api/fleet/vessels",
+            request,
+            CancellationToken.None);
+
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
     }
 
     private static RegisterVesselRequest CreateValidRequest(string imoNumber, Guid vesselTypeId)
