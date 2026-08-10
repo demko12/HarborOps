@@ -1,6 +1,7 @@
 using System.Reflection;
 using HarborOps.Modules.Voyages.Application;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 
 namespace HarborOps.Modules.Voyages;
 
@@ -12,7 +13,9 @@ public static class VoyagesModule
 
     public static IServiceCollection AddVoyagesModule(this IServiceCollection services)
     {
+        services.TryAddSingleton(TimeProvider.System);
         services.AddScoped<ScheduleVoyageService>();
+        services.AddScoped<RecordVoyageDepartureService>();
         services.AddControllers()
             .AddApplicationPart(Assembly);
 
