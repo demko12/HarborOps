@@ -1,6 +1,7 @@
 using System.Net;
 using System.Net.Http.Json;
 using HarborOps.Infrastructure.Persistence;
+using HarborOps.IntegrationTests.Authentication;
 using HarborOps.Modules.Cargo;
 using HarborOps.Modules.Cargo.Application;
 using HarborOps.Modules.Cargo.Contracts;
@@ -29,7 +30,7 @@ public sealed class RegisterCargoBookingEndpointTests : IntegrationTestBase
     [Fact]
     public async Task Post_registers_and_persists_booking()
     {
-        using var client = _application.CreateClient();
+        using var client = await _application.CreateAuthenticatedClientAsync();
         var request = CreateValidRequest("BK-INT-0001");
 
         using var response = await client.PostAsJsonAsync(
@@ -72,7 +73,7 @@ public sealed class RegisterCargoBookingEndpointTests : IntegrationTestBase
     [Fact]
     public async Task Post_returns_validation_problem_for_invalid_input()
     {
-        using var client = _application.CreateClient();
+        using var client = await _application.CreateAuthenticatedClientAsync();
         var request = CreateValidRequest("BK-INT-0002") with
         {
             BookingNumber = string.Empty,
@@ -99,7 +100,7 @@ public sealed class RegisterCargoBookingEndpointTests : IntegrationTestBase
     [Fact]
     public async Task Post_returns_conflict_for_duplicate_booking_number()
     {
-        using var client = _application.CreateClient();
+        using var client = await _application.CreateAuthenticatedClientAsync();
         var request = CreateValidRequest("BK-INT-0003");
 
         using var firstResponse = await client.PostAsJsonAsync(
@@ -117,6 +118,20 @@ public sealed class RegisterCargoBookingEndpointTests : IntegrationTestBase
         Assert.Equal(HttpStatusCode.Conflict, duplicateResponse.StatusCode);
         Assert.NotNull(problem);
         Assert.Contains(RegisterCargoBookingValidator.BookingNumberField, problem.Errors);
+    }
+
+    [Fact]
+    public async Task Post_without_authentication_returns_401()
+    {
+        using var client = _application.CreateClient();
+        var request = CreateValidRequest("BK-INT-0004");
+
+        using var response = await client.PostAsJsonAsync(
+            Endpoint,
+            request,
+            CancellationToken.None);
+
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
     }
 
     [Fact]
