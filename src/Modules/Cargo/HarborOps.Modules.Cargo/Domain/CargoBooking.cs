@@ -57,6 +57,16 @@ internal sealed class CargoBooking
 
     public DateTime CreatedUtc { get; private set; }
 
+    internal void AdvanceStatusTo(CargoStatus requestedStatus)
+    {
+        if (requestedStatus != Status + 1)
+        {
+            throw new CargoStatusTransitionNotAllowedException(Id, Status, requestedStatus);
+        }
+
+        Status = requestedStatus;
+    }
+
     internal static CargoBooking Register(
         string bookingNumber,
         Guid voyageId,
