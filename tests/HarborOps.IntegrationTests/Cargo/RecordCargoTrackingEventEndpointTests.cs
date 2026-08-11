@@ -7,6 +7,7 @@ using HarborOps.Modules.Cargo.Application;
 using HarborOps.Modules.Cargo.Contracts;
 using HarborOps.Modules.Cargo.Domain;
 using HarborOps.Modules.Cargo.Presentation;
+using HarborOps.Modules.Identity.Contracts;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -31,7 +32,7 @@ public sealed class RecordCargoTrackingEventEndpointTests : IntegrationTestBase
     [Fact]
     public async Task Post_records_and_persists_a_tracking_event_for_the_authenticated_user()
     {
-        using var client = await _application.CreateAuthenticatedClientAsync();
+        using var client = await _application.CreateAuthenticatedClientWithPermissionsAsync(Permissions.Cargo.Manage);
         var bookingId = await RegisterBookingAsync(client, "BK-TRACK-INT-0001");
         var responsibleUserId = await GetAuthenticatedUserIdAsync(client);
 
@@ -69,7 +70,7 @@ public sealed class RecordCargoTrackingEventEndpointTests : IntegrationTestBase
     [Fact]
     public async Task Post_ignores_a_responsible_user_id_supplied_in_the_request()
     {
-        using var client = await _application.CreateAuthenticatedClientAsync();
+        using var client = await _application.CreateAuthenticatedClientWithPermissionsAsync(Permissions.Cargo.Manage);
         var bookingId = await RegisterBookingAsync(client, "BK-TRACK-INT-0005");
         var responsibleUserId = await GetAuthenticatedUserIdAsync(client);
         var spoofedUserId = Guid.Parse("9e8d7c6b-5a4f-4e3d-8c2b-1a0f9e8d7c6b");
@@ -103,7 +104,7 @@ public sealed class RecordCargoTrackingEventEndpointTests : IntegrationTestBase
     [Fact]
     public async Task Post_returns_unauthorized_for_an_anonymous_client()
     {
-        using var authenticatedClient = await _application.CreateAuthenticatedClientAsync();
+        using var authenticatedClient = await _application.CreateAuthenticatedClientWithPermissionsAsync(Permissions.Cargo.Manage);
         var bookingId = await RegisterBookingAsync(authenticatedClient, "BK-TRACK-INT-0002");
         using var anonymousClient = _application.CreateClient();
 
@@ -126,9 +127,38 @@ public sealed class RecordCargoTrackingEventEndpointTests : IntegrationTestBase
     }
 
     [Fact]
+    public async Task Post_returns_forbidden_without_the_cargo_manage_permission()
+    {
+        using var managingClient = await _application.CreateAuthenticatedClientWithPermissionsAsync(Permissions.Cargo.Manage);
+        var bookingId = await RegisterBookingAsync(managingClient, "BK-TRACK-INT-0007");
+        using var readOnlyClient = await _application.CreateAuthenticatedClientWithPermissionsAsync(Permissions.Cargo.Read);
+
+        using var response = await readOnlyClient.PostAsJsonAsync(
+            TrackingEventsEndpoint(bookingId),
+            CreateValidRequest(nameof(CargoStatus.Planned)),
+            CancellationToken.None);
+
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+
+        await using var scope = _application.Services.CreateAsyncScope();
+        var dbContext = scope.ServiceProvider.GetRequiredService<HarborOpsDbContext>();
+        var booking = await dbContext
+            .Set<CargoBooking>()
+            .SingleAsync(candidate => candidate.Id == bookingId, CancellationToken.None);
+
+        Assert.Equal(CargoStatus.Registered, booking.Status);
+        Assert.False(
+            await dbContext
+                .Set<CargoTrackingEvent>()
+                .AnyAsync(
+                    candidate => candidate.CargoBookingId == bookingId,
+                    CancellationToken.None));
+    }
+
+    [Fact]
     public async Task Post_returns_not_found_for_an_unknown_booking()
     {
-        using var client = await _application.CreateAuthenticatedClientAsync();
+        using var client = await _application.CreateAuthenticatedClientWithPermissionsAsync(Permissions.Cargo.Manage);
         var unknownBookingId = Guid.Parse("7c6b5a4d-3e2f-4a1b-8c9d-0e1f2a3b4c5d");
 
         using var response = await client.PostAsJsonAsync(
@@ -146,7 +176,7 @@ public sealed class RecordCargoTrackingEventEndpointTests : IntegrationTestBase
     [Fact]
     public async Task Post_returns_validation_problem_for_invalid_input()
     {
-        using var client = await _application.CreateAuthenticatedClientAsync();
+        using var client = await _application.CreateAuthenticatedClientWithPermissionsAsync(Permissions.Cargo.Manage);
         var bookingId = await RegisterBookingAsync(client, "BK-TRACK-INT-0003");
         var request = CreateValidRequest("Departed") with
         {
@@ -171,7 +201,7 @@ public sealed class RecordCargoTrackingEventEndpointTests : IntegrationTestBase
     [Fact]
     public async Task Post_returns_conflict_for_a_skipped_transition_and_persists_nothing()
     {
-        using var client = await _application.CreateAuthenticatedClientAsync();
+        using var client = await _application.CreateAuthenticatedClientWithPermissionsAsync(Permissions.Cargo.Manage);
         var bookingId = await RegisterBookingAsync(client, "BK-TRACK-INT-0004");
 
         using var response = await client.PostAsJsonAsync(
@@ -203,7 +233,7 @@ public sealed class RecordCargoTrackingEventEndpointTests : IntegrationTestBase
     [Fact]
     public async Task Post_returns_conflict_for_a_repeated_transition_and_persists_nothing()
     {
-        using var client = await _application.CreateAuthenticatedClientAsync();
+        using var client = await _application.CreateAuthenticatedClientWithPermissionsAsync(Permissions.Cargo.Manage);
         var bookingId = await RegisterBookingAsync(client, "BK-TRACK-INT-0006");
 
         using var response = await client.PostAsJsonAsync(
