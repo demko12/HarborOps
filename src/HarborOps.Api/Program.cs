@@ -1,14 +1,17 @@
-using HarborOps.Api.Composition.Operations;
+using HarborOps.Api.Composition.Authorization;
+using HarborOps.Api.Composition.Operations.FleetVessel;
 using HarborOps.Infrastructure;
 using HarborOps.Modules.Cargo;
 using HarborOps.Modules.Compliance;
 using HarborOps.Modules.Crew;
 using HarborOps.Modules.Documents;
 using HarborOps.Modules.Fleet;
+using HarborOps.Modules.Identity;
 using HarborOps.Modules.Identity.Presentation;
 using HarborOps.Modules.Maintenance;
 using HarborOps.Modules.Voyages;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -25,8 +28,12 @@ builder.Services.AddVoyagesModule();
 builder.Services.AddScoped<FleetVesselOverviewService>();
 builder.Services.AddMaintenanceModule();
 
+
 builder.Services.AddHealthChecks();
 builder.Services.AddOpenApi();
+
+builder.Services.Configure<MvcOptions>(options =>
+    options.Conventions.Add(new CapabilityAuthorizationConvention()));
 
 builder.Services.AddAuthorization(options =>
 {
@@ -57,6 +64,7 @@ app.MapIdentityModuleEndpoints();
 app.MapHealthChecks("/health").AllowAnonymous();
 
 app.Run();
+
 /// <summary>
 /// Defines the <see cref="Program" />
 /// </summary>

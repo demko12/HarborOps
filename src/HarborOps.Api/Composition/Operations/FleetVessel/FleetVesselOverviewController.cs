@@ -2,11 +2,11 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 
-namespace HarborOps.Api.Composition.Operations;
+namespace HarborOps.Api.Composition.Operations.FleetVessel;
 
 [ApiController]
 [Authorize]
-[Route("api/operations/fleets/{fleetId:guid}/vessels")]
+[Route("api/operations/fleets/{fleetId}/vessels")]
 public sealed class FleetVesselOverviewController(
     FleetVesselOverviewService fleetVesselOverviewService)
     : ControllerBase

@@ -46,12 +46,14 @@ internal sealed class CargoSafetyInfo
         string storageConditions,
         string? handlingNotes)
     {
+        var normalizedHandlingNotes = handlingNotes?.Trim();
+
         return new CargoSafetyInfo(
             Guid.NewGuid(),
             cargoBookingId,
-            imdgClass,
-            unNumber,
-            storageConditions,
-            handlingNotes);
+            imdgClass.Trim().ToUpperInvariant(),
+            unNumber.Trim().ToUpperInvariant(),
+            storageConditions.Trim(),
+            string.IsNullOrEmpty(normalizedHandlingNotes) ? null : normalizedHandlingNotes);
     }
 }

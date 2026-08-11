@@ -7,6 +7,7 @@ using HarborOps.Modules.Maintenance;
 using HarborOps.Modules.Maintenance.Application;
 using HarborOps.Modules.Maintenance.Contracts;
 using HarborOps.Modules.Maintenance.Domain;
+using HarborOps.Modules.Identity.Contracts;
 using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
@@ -26,7 +27,7 @@ public sealed class CreateMaintenanceWorkOrderEndpointTests : IntegrationTestBas
     [Fact]
     public async Task Post_creates_and_persists_work_order()
     {
-        using var client = await _application.CreateAuthenticatedClientAsync();
+        using var client = await _application.CreateAuthenticatedClientWithPermissionsAsync(Permissions.Maintenance.Manage);
         var request = CreateValidRequest();
 
         using var response = await client.PostAsJsonAsync(
@@ -67,7 +68,7 @@ public sealed class CreateMaintenanceWorkOrderEndpointTests : IntegrationTestBas
     [Fact]
     public async Task Post_returns_validation_problem_for_invalid_input()
     {
-        using var client = await _application.CreateAuthenticatedClientAsync();
+        using var client = await _application.CreateAuthenticatedClientWithPermissionsAsync(Permissions.Maintenance.Manage);
         var request = new CreateMaintenanceWorkOrderRequest
         {
             VesselId = Guid.Empty,

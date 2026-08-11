@@ -11,7 +11,8 @@ namespace HarborOps.Modules.Maintenance.Presentation;
 [ApiController]
 [Route("api/maintenance/work-orders")]
 public class MaintenanceWorkOrdersController(
-    CreateMaintenanceWorkOrderService createMaintenanceWorkOrderService)
+    CreateMaintenanceWorkOrderService createMaintenanceWorkOrderService,
+    CompleteMaintenanceWorkOrderService completeMaintenanceWorkOrderService)
     : ControllerBase
 {
     [HttpPost]
@@ -37,6 +38,58 @@ public class MaintenanceWorkOrdersController(
             {
                 Status = StatusCodes.Status400BadRequest,
                 Title = "One or more validation errors occurred.",
+            });
+        }
+    }
+
+
+    [HttpPost("{workOrderId:guid}/completion")]
+    [ProducesResponseType<CompleteMaintenanceWorkOrderResponse>(StatusCodes.Status200OK)]
+    [ProducesResponseType<HttpValidationProblemDetails>(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]
+    public async Task<ActionResult<CompleteMaintenanceWorkOrderResponse>> CompleteWorkOrder(
+        Guid workOrderId,
+        [FromBody] CompleteMaintenanceWorkOrderRequest request,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            var response = await completeMaintenanceWorkOrderService.CompleteWorkOrderAsync(
+                workOrderId,
+                request,
+                cancellationToken);
+
+            return Ok(response);
+        }
+        catch (CompleteMaintenanceWorkOrderValidationException exception)
+        {
+            return BadRequest(new HttpValidationProblemDetails(
+                exception.Errors.ToDictionary(
+                    error => error.Key,
+                    error => error.Value,
+                    StringComparer.Ordinal))
+            {
+                Status = StatusCodes.Status400BadRequest,
+                Title = "One or more validation errors occurred.",
+            });
+        }
+        catch (MaintenanceWorkOrderNotFoundException exception)
+        {
+            return NotFound(new ProblemDetails
+            {
+                Status = StatusCodes.Status404NotFound,
+                Title = "Maintenance work order not found.",
+                Detail = exception.Message,
+            });
+        }
+        catch (CompleteMaintenanceWorkOrderConflictException exception)
+        {
+            return Conflict(new ProblemDetails
+            {
+                Status = StatusCodes.Status409Conflict,
+                Title = "Maintenance work order cannot be completed from its current status.",
+                Detail = exception.Message,
             });
         }
     }

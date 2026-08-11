@@ -77,7 +77,7 @@ public sealed class GetVesselMaintenanceOverviewServiceTests
             "This work order is completed and should not be counted.",
             WorkOrderPriority.Medium,
             FixedNow.AddDays(-3).UtcDateTime);
-        completed.Complete();
+        completed.Complete(FixedNow.AddDays(-2).UtcDateTime);
         var cancelled = MaintenanceWorkOrder.Create(
             vesselId, "Cancelled",
             "This work order is cancelled and should not be counted.",

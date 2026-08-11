@@ -3,6 +3,7 @@ using System.Net.Http.Json;
 using HarborOps.IntegrationTests.Authentication;
 using HarborOps.Modules.Crew.Application;
 using HarborOps.Modules.Crew.Contracts;
+using HarborOps.Modules.Identity.Contracts;
 using Microsoft.AspNetCore.Http;
 
 namespace HarborOps.IntegrationTests.Crew;
@@ -34,7 +35,7 @@ public sealed class RegisterCrewAssignmentEndpointTests : IntegrationTestBase
     [Fact]
     public async Task Post_with_authentication_reaches_normal_validation_behavior()
     {
-        using var client = await _application.CreateAuthenticatedClientAsync();
+        using var client = await _application.CreateAuthenticatedClientWithPermissionsAsync(Permissions.Crew.Manage);
         var request = new RegisterCrewAssignmentRequest
         {
             CrewMemberId = null,
@@ -73,4 +74,3 @@ public sealed class RegisterCrewAssignmentEndpointTests : IntegrationTestBase
         };
     }
 }
-

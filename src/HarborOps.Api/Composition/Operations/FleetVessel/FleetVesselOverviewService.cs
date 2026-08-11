@@ -1,7 +1,7 @@
 using HarborOps.Modules.Fleet.Contracts;
 using HarborOps.Modules.Maintenance.Contracts;
 
-namespace HarborOps.Api.Composition.Operations;
+namespace HarborOps.Api.Composition.Operations.FleetVessel;
 
 public sealed class FleetVesselOverviewService(
     ISearchVesselsQuery searchVesselsQuery,
