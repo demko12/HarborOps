@@ -6,6 +6,7 @@ using HarborOps.Modules.Fleet;
 using HarborOps.Modules.Fleet.Application;
 using HarborOps.Modules.Fleet.Contracts;
 using HarborOps.Modules.Fleet.Domain;
+using HarborOps.Modules.Identity.Contracts;
 using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
@@ -25,7 +26,7 @@ public sealed class RegisterVesselEndpointTests : IntegrationTestBase
     [Fact]
     public async Task Post_registers_and_persists_vessel()
     {
-        using var client = await _application.CreateAuthenticatedClientAsync();
+        using var client = await _application.CreateAuthenticatedClientWithPermissionsAsync(Permissions.Fleet.Manage);
         var vesselTypeId = await SeedVesselTypeAsync();
         var request = CreateValidRequest("1234567", vesselTypeId);
 
@@ -67,7 +68,7 @@ public sealed class RegisterVesselEndpointTests : IntegrationTestBase
     [Fact]
     public async Task Post_returns_validation_problem_for_invalid_input()
     {
-        using var client = await _application.CreateAuthenticatedClientAsync();
+        using var client = await _application.CreateAuthenticatedClientWithPermissionsAsync(Permissions.Fleet.Manage);
         var request = new RegisterVesselRequest
         {
             CompanyId = null,
@@ -96,7 +97,7 @@ public sealed class RegisterVesselEndpointTests : IntegrationTestBase
     [Fact]
     public async Task Post_returns_not_found_problem_for_unknown_vessel_type()
     {
-        using var client = await _application.CreateAuthenticatedClientAsync();
+        using var client = await _application.CreateAuthenticatedClientWithPermissionsAsync(Permissions.Fleet.Manage);
         var request = CreateValidRequest("7654321", Guid.NewGuid());
 
         using var response = await client.PostAsJsonAsync(
@@ -119,6 +120,43 @@ public sealed class RegisterVesselEndpointTests : IntegrationTestBase
             CancellationToken.None);
 
         Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task Post_with_authentication_but_no_manage_permission_returns_403()
+    {
+        using var client = await _application.CreateAuthenticatedClientAsync();
+        var request = CreateValidRequest("2223334", Guid.NewGuid());
+
+        using var response = await client.PostAsJsonAsync(
+            "/api/fleet/vessels",
+            request,
+            CancellationToken.None);
+
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task Get_search_only_requires_read_permission()
+    {
+        using var client = await _application.CreateAuthenticatedClientWithPermissionsAsync(Permissions.Fleet.Read);
+
+        using var response = await client.GetAsync("/api/fleet/vessels", CancellationToken.None);
+
+        Assert.NotEqual(HttpStatusCode.Forbidden, response.StatusCode);
+        Assert.NotEqual(HttpStatusCode.Unauthorized, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task Get_search_succeeds_for_manage_permission_too()
+    {
+        // manage implies read for the same capability
+        using var client = await _application.CreateAuthenticatedClientWithPermissionsAsync(Permissions.Fleet.Manage);
+
+        using var response = await client.GetAsync("/api/fleet/vessels", CancellationToken.None);
+
+        Assert.NotEqual(HttpStatusCode.Forbidden, response.StatusCode);
+        Assert.NotEqual(HttpStatusCode.Unauthorized, response.StatusCode);
     }
 
     private static RegisterVesselRequest CreateValidRequest(string imoNumber, Guid vesselTypeId)

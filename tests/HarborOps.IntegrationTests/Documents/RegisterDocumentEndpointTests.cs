@@ -6,6 +6,7 @@ using HarborOps.Modules.Documents;
 using HarborOps.Modules.Documents.Application;
 using HarborOps.Modules.Documents.Contracts;
 using HarborOps.Modules.Documents.Domain;
+using HarborOps.Modules.Identity.Contracts;
 using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
@@ -25,7 +26,7 @@ public sealed class RegisterDocumentEndpointTests : IntegrationTestBase
     [Fact]
     public async Task Post_registers_and_persists_document()
     {
-        using var client = await _application.CreateAuthenticatedClientAsync();
+        using var client = await _application.CreateAuthenticatedClientWithPermissionsAsync(Permissions.Documents.Manage);
         var vesselId = Guid.NewGuid();
         var documentTypeId = await SeedDocumentTypeAsync();
         var request = CreateValidRequest(vesselId, documentTypeId);
@@ -65,7 +66,7 @@ public sealed class RegisterDocumentEndpointTests : IntegrationTestBase
     [Fact]
     public async Task Post_returns_validation_problem_for_invalid_input()
     {
-        using var client = await _application.CreateAuthenticatedClientAsync();
+        using var client = await _application.CreateAuthenticatedClientWithPermissionsAsync(Permissions.Documents.Manage);
         var request = new RegisterDocumentRequest
         {
             VesselId = null,
@@ -96,7 +97,7 @@ public sealed class RegisterDocumentEndpointTests : IntegrationTestBase
     [Fact]
     public async Task Post_returns_bad_request_problem_for_unknown_document_type()
     {
-        using var client = await _application.CreateAuthenticatedClientAsync();
+        using var client = await _application.CreateAuthenticatedClientWithPermissionsAsync(Permissions.Documents.Manage);
         var request = CreateValidRequest(Guid.NewGuid(), 999_999);
 
         using var response = await client.PostAsJsonAsync(
@@ -114,7 +115,7 @@ public sealed class RegisterDocumentEndpointTests : IntegrationTestBase
     [Fact]
     public async Task Post_returns_conflict_problem_for_duplicate_document_number()
     {
-        using var client = await _application.CreateAuthenticatedClientAsync();
+        using var client = await _application.CreateAuthenticatedClientWithPermissionsAsync(Permissions.Documents.Manage);
         var vesselId = Guid.NewGuid();
         var documentTypeId = await SeedDocumentTypeAsync();
         var firstRequest = CreateValidRequest(vesselId, documentTypeId);

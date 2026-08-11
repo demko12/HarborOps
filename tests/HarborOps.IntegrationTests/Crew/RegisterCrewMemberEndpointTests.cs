@@ -6,6 +6,7 @@ using HarborOps.Modules.Crew;
 using HarborOps.Modules.Crew.Application;
 using HarborOps.Modules.Crew.Contracts;
 using HarborOps.Modules.Crew.Domain;
+using HarborOps.Modules.Identity.Contracts;
 using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
@@ -25,7 +26,7 @@ public sealed class RegisterCrewMemberEndpointTests : IntegrationTestBase
     [Fact]
     public async Task Post_registers_and_persists_crew_member()
     {
-        using var client = await _application.CreateAuthenticatedClientAsync();
+        using var client = await _application.CreateAuthenticatedClientWithPermissionsAsync(Permissions.Crew.Manage);
         var baseRankId = await SeedCrewPositionAsync();
         var request = CreateValidRequest("IMO900001", baseRankId);
 
@@ -64,7 +65,7 @@ public sealed class RegisterCrewMemberEndpointTests : IntegrationTestBase
     [Fact]
     public async Task Post_returns_validation_problem_for_invalid_input()
     {
-        using var client = await _application.CreateAuthenticatedClientAsync();
+        using var client = await _application.CreateAuthenticatedClientWithPermissionsAsync(Permissions.Crew.Manage);
         var request = new RegisterCrewMemberRequest
         {
             BaseRankId = null,
@@ -98,7 +99,7 @@ public sealed class RegisterCrewMemberEndpointTests : IntegrationTestBase
     [Fact]
     public async Task Post_returns_conflict_for_duplicate_imo_seafarer_id()
     {
-        using var client = await _application.CreateAuthenticatedClientAsync();
+        using var client = await _application.CreateAuthenticatedClientWithPermissionsAsync(Permissions.Crew.Manage);
         var baseRankId = await SeedCrewPositionAsync();
         var firstRequest = CreateValidRequest("IMO900002", baseRankId);
         var duplicateRequest = firstRequest with { Name = "Marko Marković" };
@@ -124,7 +125,7 @@ public sealed class RegisterCrewMemberEndpointTests : IntegrationTestBase
     [Fact]
     public async Task Post_returns_bad_request_for_unknown_base_rank()
     {
-        using var client = await _application.CreateAuthenticatedClientAsync();
+        using var client = await _application.CreateAuthenticatedClientWithPermissionsAsync(Permissions.Crew.Manage);
         var request = CreateValidRequest("IMO900003", Guid.NewGuid());
 
         using var response = await client.PostAsJsonAsync(
