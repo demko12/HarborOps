@@ -5,8 +5,6 @@ namespace HarborOps.Modules.Voyages.Application;
 internal static class RecordVoyageArrivalValidator
 {
     internal const string ActualArrivalUtcField = "actualArrivalUtc";
-
-    /// provjerava da arrival postoji, da je utc i da nije u buducnosti
     internal static IReadOnlyDictionary<string, string[]> Validate(
         RecordVoyageArrivalRequest request,
         DateTime utcNow)
@@ -32,8 +30,6 @@ internal static class RecordVoyageArrivalValidator
 
         return errors;
     }
-
-    /// a ova da je arrival strogo poslije stvarnog isplovljavanja
     internal static IReadOnlyDictionary<string, string[]> ValidateAgainstActualDeparture(
         DateTime actualArrivalUtc,
         DateTime actualDeparture)
