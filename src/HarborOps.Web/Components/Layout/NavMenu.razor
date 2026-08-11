@@ -1,4 +1,6 @@
 @inject IJSRuntime JS
+@inject CurrentUserAuthorizationState AuthorizationState
+@implements IDisposable
 
 <header class="topnav">
 	<div class="topnav-logo">
@@ -73,9 +75,12 @@
 			<NavLink class="nav-pill" href="reports" ActiveClass="active" @onclick="CloseMobileMenu">
 				<span class="bi bi-bar-chart-fill"></span> Reports
 			</NavLink>
-			<NavLink class="nav-pill" href="administration" ActiveClass="active" @onclick="CloseMobileMenu">
-				<span class="bi bi-person-gear"></span> Administration
-			</NavLink>
+            @if (AuthorizationState.CanManageAdministration)
+			{
+				<NavLink class="nav-pill" href="administration" ActiveClass="active" @onclick="CloseMobileMenu">
+					<span class="bi bi-person-gear"></span> Administration
+				</NavLink>
+			}
 		</div>
 	</nav>
 
@@ -127,6 +132,8 @@
 		}
 	}
 
+	protected override void OnInitialized() => AuthorizationState.Changed += StateHasChanged;
+
 	private async Task ToggleTheme()
 	{
 		isDark = !isDark;
@@ -135,4 +142,6 @@
 
 	private void ToggleMobileMenu() => mobileMenuOpen = !mobileMenuOpen;
 	private void CloseMobileMenu() => mobileMenuOpen = false;
+
+	public void Dispose() => AuthorizationState.Changed -= StateHasChanged;
 }

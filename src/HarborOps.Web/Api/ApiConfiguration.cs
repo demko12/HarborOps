@@ -16,6 +16,14 @@ internal static class ApiConfiguration
             client.Timeout = TimeSpan.FromSeconds(5);
         });
 
+        services.AddHttpClient<IdentityAdministrationApiClient>(client =>
+        {
+            client.BaseAddress = baseAddress;
+            client.Timeout = TimeSpan.FromSeconds(15);
+        });
+        services.AddHttpContextAccessor();
+        services.AddScoped<CurrentUserAuthorizationState>();
+
         return services;
     }
 
