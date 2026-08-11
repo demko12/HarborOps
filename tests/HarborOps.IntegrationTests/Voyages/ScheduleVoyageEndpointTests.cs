@@ -7,6 +7,7 @@ using HarborOps.Modules.Voyages.Application;
 using HarborOps.Modules.Voyages.Contracts;
 using HarborOps.Modules.Voyages.Domain;
 using HarborOps.Modules.Voyages.Presentation;
+using HarborOps.Modules.Identity.Contracts;
 using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
@@ -32,7 +33,7 @@ public sealed class ScheduleVoyageEndpointTests : IntegrationTestBase
     [Fact]
     public async Task Post_schedules_and_persists_voyage()
     {
-        using var client = await _application.CreateAuthenticatedClientAsync();
+        using var client = await _application.CreateAuthenticatedClientWithPermissionsAsync(Permissions.Voyages.Manage);
         var request = CreateValidRequest("VOY-100");
 
         using var response = await client.PostAsJsonAsync(
@@ -74,7 +75,7 @@ public sealed class ScheduleVoyageEndpointTests : IntegrationTestBase
     [Fact]
     public async Task Post_returns_validation_problem_for_invalid_input()
     {
-        using var client = await _application.CreateAuthenticatedClientAsync();
+        using var client = await _application.CreateAuthenticatedClientWithPermissionsAsync(Permissions.Voyages.Manage);
         var request = new ScheduleVoyageRequest
         {
             VoyageNumber = string.Empty,
@@ -103,7 +104,7 @@ public sealed class ScheduleVoyageEndpointTests : IntegrationTestBase
     [Fact]
     public async Task Post_returns_conflict_for_duplicate_voyage_number()
     {
-        using var client = await _application.CreateAuthenticatedClientAsync();
+        using var client = await _application.CreateAuthenticatedClientWithPermissionsAsync(Permissions.Voyages.Manage);
         var request = CreateValidRequest("VOY-200");
 
         using var firstResponse = await client.PostAsJsonAsync(

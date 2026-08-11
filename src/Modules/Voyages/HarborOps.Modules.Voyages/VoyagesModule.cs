@@ -16,6 +16,7 @@ public static class VoyagesModule
         services.TryAddSingleton(TimeProvider.System);
         services.AddScoped<ScheduleVoyageService>();
         services.AddScoped<RecordVoyageDepartureService>();
+        services.AddScoped<RecordVoyageArrivalService>();
         services.AddControllers()
             .AddApplicationPart(Assembly);
 

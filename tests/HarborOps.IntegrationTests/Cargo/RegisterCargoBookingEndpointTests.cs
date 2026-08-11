@@ -7,6 +7,7 @@ using HarborOps.Modules.Cargo.Application;
 using HarborOps.Modules.Cargo.Contracts;
 using HarborOps.Modules.Cargo.Domain;
 using HarborOps.Modules.Cargo.Presentation;
+using HarborOps.Modules.Identity.Contracts;
 using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
@@ -30,7 +31,7 @@ public sealed class RegisterCargoBookingEndpointTests : IntegrationTestBase
     [Fact]
     public async Task Post_registers_and_persists_booking()
     {
-        using var client = await _application.CreateAuthenticatedClientAsync();
+        using var client = await _application.CreateAuthenticatedClientWithPermissionsAsync(Permissions.Cargo.Manage);
         var request = CreateValidRequest("BK-INT-0001");
 
         using var response = await client.PostAsJsonAsync(
@@ -73,7 +74,7 @@ public sealed class RegisterCargoBookingEndpointTests : IntegrationTestBase
     [Fact]
     public async Task Post_returns_validation_problem_for_invalid_input()
     {
-        using var client = await _application.CreateAuthenticatedClientAsync();
+        using var client = await _application.CreateAuthenticatedClientWithPermissionsAsync(Permissions.Cargo.Manage);
         var request = CreateValidRequest("BK-INT-0002") with
         {
             BookingNumber = string.Empty,
@@ -100,7 +101,7 @@ public sealed class RegisterCargoBookingEndpointTests : IntegrationTestBase
     [Fact]
     public async Task Post_returns_conflict_for_duplicate_booking_number()
     {
-        using var client = await _application.CreateAuthenticatedClientAsync();
+        using var client = await _application.CreateAuthenticatedClientWithPermissionsAsync(Permissions.Cargo.Manage);
         var request = CreateValidRequest("BK-INT-0003");
 
         using var firstResponse = await client.PostAsJsonAsync(

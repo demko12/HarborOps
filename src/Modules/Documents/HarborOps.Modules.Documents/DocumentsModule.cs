@@ -16,6 +16,7 @@ public static class DocumentsModule
     public static IServiceCollection AddDocumentsModule(this IServiceCollection services)
     {
         services.AddScoped<RegisterDocumentService>();
+        services.AddScoped<RegisterDocumentTypeService>();
         services.AddScoped<IGetExpiringDocumentsQuery, GetExpiringDocumentsQuery>();
         services.TryAddSingleton<IDateTimeProvider, SystemDateTimeProvider>();
         services.AddControllers()

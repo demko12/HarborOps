@@ -9,6 +9,7 @@ namespace HarborOps.Modules.Documents.Presentation;
 [Route("api/documents")]
 public sealed class DocumentsController(
     RegisterDocumentService registerDocumentService,
+    RegisterDocumentTypeService registerDocumentTypeService,
     IGetExpiringDocumentsQuery getExpiringDocumentsQuery)
     : ControllerBase
 {
@@ -87,6 +88,46 @@ public sealed class DocumentsController(
             {
                 Status = StatusCodes.Status409Conflict,
                 Title = "A document with this number already exists for this vessel.",
+            });
+        }
+    }
+
+    [HttpPost("types")]
+    [ProducesResponseType<RegisterDocumentTypeResponse>(StatusCodes.Status201Created)]
+    [ProducesResponseType<HttpValidationProblemDetails>(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType<HttpValidationProblemDetails>(StatusCodes.Status409Conflict)]
+    public async Task<ActionResult<RegisterDocumentTypeResponse>> RegisterDocumentType(
+        [FromBody] RegisterDocumentTypeRequest request,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            var response = await registerDocumentTypeService.RegisterAsync(request, cancellationToken);
+
+            return Created($"/api/documents/types/{response.Id}", response);
+        }
+        catch (RegisterDocumentTypeValidationException exception)
+        {
+            return BadRequest(new HttpValidationProblemDetails(
+                exception.Errors.ToDictionary(
+                    error => error.Key,
+                    error => error.Value,
+                    StringComparer.Ordinal))
+            {
+                Status = StatusCodes.Status400BadRequest,
+                Title = "One or more validation errors occurred.",
+            });
+        }
+        catch (DuplicateDocumentTypeNameException exception)
+        {
+            return Conflict(new HttpValidationProblemDetails(
+                new Dictionary<string, string[]>
+                {
+                    [RegisterDocumentTypeValidator.NameField] = [exception.Message],
+                })
+            {
+                Status = StatusCodes.Status409Conflict,
+                Title = "A document type with this name already exists.",
             });
         }
     }

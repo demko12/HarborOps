@@ -6,6 +6,7 @@ using HarborOps.Modules.Compliance;
 using HarborOps.Modules.Compliance.Application;
 using HarborOps.Modules.Compliance.Contracts;
 using HarborOps.Modules.Compliance.Domain;
+using HarborOps.Modules.Identity.Contracts;
 using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
@@ -25,7 +26,7 @@ public sealed class RegisterComplianceCertificateEndpointTests : IntegrationTest
     [Fact]
     public async Task Post_registers_and_persists_certificate()
     {
-        using var client = await _application.CreateAuthenticatedClientAsync();
+        using var client = await _application.CreateAuthenticatedClientWithPermissionsAsync(Permissions.Compliance.Manage);
         var request = CreateValidRequest();
 
         using var response = await client.PostAsJsonAsync(
@@ -64,7 +65,7 @@ public sealed class RegisterComplianceCertificateEndpointTests : IntegrationTest
     [Fact]
     public async Task Post_returns_validation_problem_for_invalid_input()
     {
-        using var client = await _application.CreateAuthenticatedClientAsync();
+        using var client = await _application.CreateAuthenticatedClientWithPermissionsAsync(Permissions.Compliance.Manage);
         var request = new RegisterComplianceCertificateRequest
         {
             VesselId = Guid.Empty,
