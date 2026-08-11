@@ -10,7 +10,8 @@ namespace HarborOps.Modules.Voyages.Presentation;
 [Route("api/voyages")]
 public sealed class VoyagesController(
     ScheduleVoyageService scheduleVoyageService,
-    RecordVoyageDepartureService recordVoyageDepartureService)
+    RecordVoyageDepartureService recordVoyageDepartureService,
+    RecordVoyageArrivalService recordVoyageArrivalService)
     : ControllerBase
 {
     [HttpPost("{voyageId:guid}/departure")]
@@ -59,6 +60,57 @@ public sealed class VoyagesController(
             {
                 Status = StatusCodes.Status409Conflict,
                 Title = "The voyage cannot depart from its current status.",
+                Detail = exception.Message,
+            });
+        }
+    }
+
+    [HttpPost("{voyageId:guid}/arrival")]
+    [ProducesResponseType<RecordVoyageArrivalResponse>(StatusCodes.Status200OK)]
+    [ProducesResponseType<HttpValidationProblemDetails>(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]
+    public async Task<ActionResult<RecordVoyageArrivalResponse>> RecordArrival(
+        Guid voyageId,
+        [FromBody] RecordVoyageArrivalRequest request,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            var response = await recordVoyageArrivalService.RecordArrivalAsync(
+                voyageId,
+                request,
+                cancellationToken);
+
+            return Ok(response);
+        }
+        catch (RecordVoyageArrivalValidationException exception)
+        {
+            return BadRequest(new HttpValidationProblemDetails(
+                exception.Errors.ToDictionary(
+                    error => error.Key,
+                    error => error.Value,
+                    StringComparer.Ordinal))
+            {
+                Status = StatusCodes.Status400BadRequest,
+                Title = "One or more validation errors occurred.",
+            });
+        }
+        catch (VoyageNotFoundException exception)
+        {
+            return NotFound(new ProblemDetails
+            {
+                Status = StatusCodes.Status404NotFound,
+                Title = "The requested voyage was not found.",
+                Detail = exception.Message,
+            });
+        }
+        catch (VoyageNotInProgressException exception)
+        {
+            return Conflict(new ProblemDetails
+            {
+                Status = StatusCodes.Status409Conflict,
+                Title = "The voyage cannot arrive from its current status.",
                 Detail = exception.Message,
             });
         }

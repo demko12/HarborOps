@@ -7,6 +7,7 @@ internal sealed class Voyage
     internal const int VoyageNumberMaxLength = 50;
     internal const string PlannedStatus = "Planned";
     internal const string InProgressStatus = "InProgress";
+    internal const string CompletedStatus = "Completed";
 
     private Voyage()
     {
@@ -94,5 +95,18 @@ internal sealed class Voyage
 
         ActualDeparture = actualDepartureUtc;
         Status = InProgressStatus;
+    }
+
+    internal void Arrive(DateTime actualArrivalUtc)
+    {
+        if (!string.Equals(Status, InProgressStatus, StringComparison.Ordinal)
+            || ActualDeparture is null
+            || ActualArrival is not null)
+        {
+            throw new VoyageNotInProgressException(Id, Status);
+        }
+
+        ActualArrival = actualArrivalUtc;
+        Status = CompletedStatus;
     }
 }
