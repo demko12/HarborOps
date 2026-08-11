@@ -26,4 +26,13 @@ public sealed class DocumentType
         IssuingAuthority = issuingAuthority;
         RequiresSurvey = requiresSurvey;
     }
+
+    internal static DocumentType Register(
+        string name,
+        int mandatoryValidityPeriod,
+        string issuingAuthority,
+        bool requiresSurvey)
+    {
+        return new DocumentType(name, mandatoryValidityPeriod, issuingAuthority, requiresSurvey);
+    }
 }
