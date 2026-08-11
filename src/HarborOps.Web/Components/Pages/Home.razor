@@ -1,7 +1,85 @@
-﻿@page "/"
+@page "/"
+@implements IDisposable
+@inject HealthApiClient HealthApiClient
 
 <PageTitle>HarborOps</PageTitle>
 
-<h1>HarborOps</h1>
+<section class="home-intro">
+    <p class="home-eyebrow">Operations platform</p>
+    <h1>HarborOps</h1>
+    <p>Maritime operations management.</p>
+</section>
 
-<p>Maritime operations management.</p>
+<section class="api-status" aria-labelledby="api-status-title">
+    <h2 id="api-status-title">API status</h2>
+
+    @if (isLoading)
+    {
+        <LoadingState Message="Checking API availability..." />
+    }
+    else if (isAvailable)
+    {
+        <div class="api-status-card api-status-available" role="status">
+            <span class="api-status-indicator" aria-hidden="true"></span>
+            <div>
+                <strong>Available</strong>
+                <p>HarborOps API is responding.</p>
+            </div>
+        </div>
+    }
+    else
+    {
+        <ApiErrorState
+            Title="Unavailable"
+            Message="HarborOps API cannot be reached right now."
+            RetryLabel="Check again"
+            OnRetry="CheckAgainAsync" />
+    }
+</section>
+
+@code {
+    private CancellationTokenSource healthCheckCancellation = new();
+    private bool isLoading = true;
+    private bool isAvailable;
+
+    protected override Task OnInitializedAsync()
+    {
+        return CheckHealthAsync(healthCheckCancellation.Token);
+    }
+
+    private async Task CheckAgainAsync()
+    {
+        healthCheckCancellation.Cancel();
+        healthCheckCancellation.Dispose();
+        healthCheckCancellation = new CancellationTokenSource();
+
+        await CheckHealthAsync(healthCheckCancellation.Token);
+    }
+
+    private async Task CheckHealthAsync(CancellationToken cancellationToken)
+    {
+        isLoading = true;
+
+        try
+        {
+            isAvailable = await HealthApiClient.IsAvailableAsync(cancellationToken);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            return;
+        }
+        finally
+        {
+            if (!cancellationToken.IsCancellationRequested)
+            {
+                isLoading = false;
+            }
+        }
+    }
+
+    public void Dispose()
+    {
+        healthCheckCancellation.Cancel();
+        healthCheckCancellation.Dispose();
+    }
+}

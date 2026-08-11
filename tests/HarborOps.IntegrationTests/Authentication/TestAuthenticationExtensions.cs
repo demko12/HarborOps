@@ -12,13 +12,13 @@ public static class TestAuthenticationExtensions
 {
     private const string TestUserPassword = "P@ssw0rd!2026";
 
-    
+
     public static Task<HttpClient> CreateAuthenticatedClientAsync(this HarborOpsApiFactory application)
     {
         return application.CreateAuthenticatedClientAsync(roleNames: []);
     }
 
-   
+
     public static async Task<HttpClient> CreateAuthenticatedClientAsync(
         this HarborOpsApiFactory application,
         params string[] roleNames)
@@ -42,7 +42,7 @@ public static class TestAuthenticationExtensions
         return client;
     }
 
-  
+
     public static async Task<HttpClient> CreateAuthenticatedClientWithPermissionsAsync(
         this HarborOpsApiFactory application,
         params string[] permissions)

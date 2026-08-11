@@ -11,8 +11,8 @@ using HarborOps.Modules.Maintenance.Contracts;
 using HarborOps.Modules.Maintenance.Domain;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.Extensions.DependencyInjection;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace HarborOps.IntegrationTests.Maintenance;
 

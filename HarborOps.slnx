@@ -34,5 +34,6 @@
     <Project Path="tests/HarborOps.ArchitectureTests/HarborOps.ArchitectureTests.csproj" />
     <Project Path="tests/HarborOps.IntegrationTests/HarborOps.IntegrationTests.csproj" />
     <Project Path="tests/HarborOps.UnitTests/HarborOps.UnitTests.csproj" />
+    <Project Path="tests/HarborOps.Web.Tests/HarborOps.Web.Tests.csproj" />
   </Folder>
 </Solution>

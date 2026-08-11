@@ -1,0 +1,15 @@
+<div class="empty-state" role="status">
+    <span class="bi bi-inbox" aria-hidden="true"></span>
+    <div>
+        <strong>@Title</strong>
+        <p>@Message</p>
+    </div>
+</div>
+
+@code {
+    [Parameter]
+    public string Title { get; set; } = "Nothing to show";
+
+    [Parameter]
+    public string Message { get; set; } = "No records are available.";
+}

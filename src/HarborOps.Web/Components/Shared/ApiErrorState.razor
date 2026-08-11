@@ -1,0 +1,27 @@
+<div class="api-error-state" role="alert">
+    <span class="bi bi-exclamation-triangle" aria-hidden="true"></span>
+    <div class="api-error-content">
+        <strong>@Title</strong>
+        <p>@Message</p>
+        @if (OnRetry.HasDelegate)
+        {
+            <button type="button" class="btn btn-outline-light btn-sm" @onclick="OnRetry">
+                @RetryLabel
+            </button>
+        }
+    </div>
+</div>
+
+@code {
+    [Parameter]
+    public string Title { get; set; } = "Unable to load data";
+
+    [Parameter]
+    public string Message { get; set; } = "Please try again.";
+
+    [Parameter]
+    public string RetryLabel { get; set; } = "Retry";
+
+    [Parameter]
+    public EventCallback OnRetry { get; set; }
+}

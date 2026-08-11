@@ -19,7 +19,7 @@ public static class IdentityModule
             .AddIdentityApiEndpoints<IdentityUser<Guid>>(options => options.User.RequireUniqueEmail = true)
             .AddRoles<IdentityRole<Guid>>();
 
-       
+
         services.Configure<BearerTokenOptions>(IdentityConstants.BearerScheme, options =>
         {
             options.BearerTokenExpiration = TimeSpan.FromMinutes(15);

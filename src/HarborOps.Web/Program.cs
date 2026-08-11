@@ -1,9 +1,11 @@
+using HarborOps.Web.Api;
 using HarborOps.Web.Components;
 
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();
+builder.Services.AddHarborOpsApi(builder.Configuration);
 
 var app = builder.Build();
 

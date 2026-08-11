@@ -1,0 +1,61 @@
+.home-intro {
+    margin-bottom: 2rem;
+}
+
+.home-intro h1 {
+    margin-bottom: 0.4rem;
+}
+
+.home-intro > p:last-child {
+    color: var(--text-secondary);
+}
+
+.home-eyebrow {
+    margin-bottom: 0.35rem;
+    color: var(--accent);
+    font-size: 0.75rem;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+}
+
+.api-status {
+    max-width: 36rem;
+    padding: 1.25rem;
+    border: 1px solid var(--border-subtle);
+    border-radius: 1rem;
+    background: var(--bg-surface);
+}
+
+.api-status h2 {
+    margin-bottom: 1rem;
+    font-size: 1rem;
+}
+
+.api-status-card {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    min-height: 5rem;
+    padding: 1rem;
+    border-radius: 0.75rem;
+}
+
+.api-status-available {
+    border: 1px solid rgba(52, 211, 153, 0.25);
+    background: rgba(6, 78, 59, 0.15);
+}
+
+.api-status-indicator {
+    width: 0.75rem;
+    height: 0.75rem;
+    flex: 0 0 auto;
+    border-radius: 50%;
+    background: #34d399;
+    box-shadow: 0 0 0 0.3rem rgba(52, 211, 153, 0.12);
+}
+
+.api-status-card p {
+    margin: 0.2rem 0 0;
+    color: var(--text-secondary);
+}
