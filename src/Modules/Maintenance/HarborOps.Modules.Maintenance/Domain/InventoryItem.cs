@@ -74,4 +74,17 @@ internal sealed class InventoryItem
             minimumQuantity,
             unitCost);
     }
+
+    internal void ReduceStock(decimal quantityUsed)
+    {
+        if (quantityUsed <= 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(quantityUsed), "Quantity used must be greater than zero.");
+        }
+        if (quantityUsed > Quantity)
+        {
+            throw new InvalidOperationException("Insufficient stock to reduce by the specified quantity.");
+        }
+        Quantity -= quantityUsed;
+    }
 }

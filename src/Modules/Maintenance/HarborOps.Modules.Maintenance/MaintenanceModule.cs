@@ -17,6 +17,7 @@ public static class MaintenanceModule
         services.AddScoped<CreateMaintenanceWorkOrderService>();
         services.AddScoped<GetVesselMaintenanceOverviewService>();
         services.AddScoped<CompleteMaintenanceWorkOrderService>();
+        services.AddScoped<RecordInventoryItemUsageService>();
         services.AddScoped<IVesselMaintenanceOverviewQuery>(serviceProvider =>
             serviceProvider.GetRequiredService<GetVesselMaintenanceOverviewService>());
         services.TryAddSingleton(TimeProvider.System);

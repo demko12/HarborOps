@@ -12,7 +12,8 @@ namespace HarborOps.Modules.Maintenance.Presentation;
 [Route("api/maintenance/work-orders")]
 public class MaintenanceWorkOrdersController(
     CreateMaintenanceWorkOrderService createMaintenanceWorkOrderService,
-    CompleteMaintenanceWorkOrderService completeMaintenanceWorkOrderService)
+    CompleteMaintenanceWorkOrderService completeMaintenanceWorkOrderService,
+    RecordInventoryItemUsageService recordInventoryItemUsageService)
     : ControllerBase
 {
     [HttpPost]
@@ -89,6 +90,70 @@ public class MaintenanceWorkOrdersController(
             {
                 Status = StatusCodes.Status409Conflict,
                 Title = "Maintenance work order cannot be completed from its current status.",
+                Detail = exception.Message,
+            });
+        }
+    }
+
+    [HttpPost("{workOrderId:guid}/parts/{partId:guid}/usage")]
+    [ProducesResponseType<RecordInventoryItemUsageResponse>(StatusCodes.Status201Created)]
+    [ProducesResponseType<HttpValidationProblemDetails>(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]
+    public async Task<ActionResult<RecordInventoryItemUsageResponse>> RecordUsage(
+        Guid workOrderId,
+        Guid partId,
+        [FromBody] RecordInventoryItemUsageRequest request,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            var response = await recordInventoryItemUsageService.RecordUsageAsync(
+                workOrderId,
+                partId,
+                request,
+                cancellationToken);
+
+            return Created(
+                $"/api/maintenance/work-orders/{workOrderId}/parts/{partId}/usage",
+                response);
+        }
+        catch (RecordInventoryItemUsageValidationException exception)
+        {
+            return BadRequest(new HttpValidationProblemDetails(
+                exception.Errors.ToDictionary(
+                    error => error.Key,
+                    error => error.Value,
+                    StringComparer.Ordinal))
+            {
+                Status = StatusCodes.Status400BadRequest,
+                Title = "One or more validation errors occurred.",
+            });
+        }
+        catch (MaintenanceWorkOrderNotFoundException exception)
+        {
+            return NotFound(new ProblemDetails
+            {
+                Status = StatusCodes.Status404NotFound,
+                Title = "Maintenance work order not found.",
+                Detail = exception.Message,
+            });
+        }
+        catch (InventoryItemNotFoundException exception)
+        {
+            return NotFound(new ProblemDetails
+            {
+                Status = StatusCodes.Status404NotFound,
+                Title = "Inventory item not found.",
+                Detail = exception.Message,
+            });
+        }
+        catch (RecordInventoryItemUsageConflictException exception)
+        {
+            return Conflict(new ProblemDetails
+            {
+                Status = StatusCodes.Status409Conflict,
+                Title = "Inventory item usage could not be recorded.",
                 Detail = exception.Message,
             });
         }
