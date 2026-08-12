@@ -18,17 +18,28 @@ internal static class ApiConfiguration
             client.Timeout = TimeSpan.FromSeconds(5);
         });
 
-        services.AddHttpClient<IdentityAdministrationApiClient>(client =>
+        services.AddHttpClient<IdentitySessionApiClient>(client =>
         {
             client.BaseAddress = baseAddress;
             client.Timeout = TimeSpan.FromSeconds(15);
         });
+
+        services.AddHttpClient<IdentityAdministrationApiClient>(client =>
+        {
+            client.BaseAddress = baseAddress;
+            client.Timeout = TimeSpan.FromSeconds(15);
+        }).AddHttpMessageHandler<BearerTokenHandler>();
+
         services.AddHttpClient<VoyagesApiClient>(client =>
         {
             client.BaseAddress = baseAddress;
             client.Timeout = TimeSpan.FromSeconds(15);
         });
+
         services.AddHttpContextAccessor();
+        services.AddMemoryCache();
+        services.AddSingleton<ServerSessionTicketStore>();
+        services.AddTransient<BearerTokenHandler>();
         services.AddScoped<CurrentUserAuthorizationState>();
 
         return services;

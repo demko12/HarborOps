@@ -1,23 +1,11 @@
 @page "/administration"
+@attribute [Microsoft.AspNetCore.Authorization.Authorize(Policy = "ManageAdministration")]
 @implements IDisposable
 @inject IdentityAdministrationApiClient AdministrationApi
 @inject CurrentUserAuthorizationState AuthorizationState
 
 <PageTitle>Administration | HarborOps</PageTitle>
 
-@if (!AuthorizationState.CanManageAdministration)
-{
-    <section class="administration-page administration-denied" aria-labelledby="administration-denied-title">
-        <div class="administration-denied-card" role="alert">
-            <span class="bi bi-shield-lock-fill" aria-hidden="true"></span>
-            <p class="administration-eyebrow">Restricted area</p>
-            <h1 id="administration-denied-title">Administrator access required</h1>
-            <p>This area is available only to administrators with user and role management permissions.</p>
-        </div>
-    </section>
-}
-else
-{
 <section class="administration-page">
     <header class="administration-header">
         <div>
@@ -141,8 +129,3 @@ else
         </section>
     </div>
 </section>
-}
-
-@code {
-   
-}
