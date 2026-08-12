@@ -30,6 +30,12 @@ internal static class ApiConfiguration
             client.Timeout = TimeSpan.FromSeconds(15);
         }).AddHttpMessageHandler<BearerTokenHandler>();
 
+        services.AddHttpClient<FleetApiClient>(client =>
+        {
+            client.BaseAddress = baseAddress;
+            client.Timeout = TimeSpan.FromSeconds(15);
+        }).AddHttpMessageHandler<BearerTokenHandler>();
+
         services.AddHttpClient<VoyagesApiClient>(client =>
         {
             client.BaseAddress = baseAddress;

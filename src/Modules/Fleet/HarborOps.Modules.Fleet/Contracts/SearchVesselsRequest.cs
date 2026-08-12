@@ -8,5 +8,7 @@ public sealed record SearchVesselsRequest
 
     public string? Search { get; init; }
 
+    public string? Status { get; init; }
+
     public Guid? FleetId { get; init; }
 }

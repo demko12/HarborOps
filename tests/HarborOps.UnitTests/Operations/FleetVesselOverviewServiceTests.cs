@@ -114,9 +114,12 @@ public sealed class FleetVesselOverviewServiceTests
             "1234567",
             "Malta",
             "Active",
-            "InService",
             Guid.NewGuid(),
             "Bulk Carrier",
+            Guid.NewGuid(),
+            35_000m,
+            DateTime.UtcNow,
+            "InService",
             FleetId,
             "Atlantic Fleet");
     }
@@ -129,9 +132,12 @@ public sealed class FleetVesselOverviewServiceTests
             "7654321",
             "Panama",
             "Active",
-            null,
             Guid.NewGuid(),
             "Tanker",
+            Guid.NewGuid(),
+            22_500m,
+            DateTime.UtcNow,
+            null,
             FleetId,
             "Atlantic Fleet");
     }
