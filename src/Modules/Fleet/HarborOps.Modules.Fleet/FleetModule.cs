@@ -15,6 +15,7 @@ public static class FleetModule
     {
         services.AddScoped<RegisterVesselService>();
         services.AddScoped<ISearchVesselsQuery, SearchVesselsQuery>();
+        services.AddScoped<IVesselLookupService, VesselLookupService>();
         services.AddControllers()
             .AddApplicationPart(Assembly);
 

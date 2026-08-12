@@ -13,7 +13,8 @@ namespace HarborOps.Modules.Maintenance.Presentation;
 public class MaintenanceWorkOrdersController(
     CreateMaintenanceWorkOrderService createMaintenanceWorkOrderService,
     CompleteMaintenanceWorkOrderService completeMaintenanceWorkOrderService,
-    RecordInventoryItemUsageService recordInventoryItemUsageService)
+    RecordInventoryItemUsageService recordInventoryItemUsageService,
+    GetMaintenanceWorkOrdersQuery getMaintenanceWorkOrdersQuery)
     : ControllerBase
 {
     [HttpPost]
@@ -155,6 +156,33 @@ public class MaintenanceWorkOrdersController(
                 Status = StatusCodes.Status409Conflict,
                 Title = "Inventory item usage could not be recorded.",
                 Detail = exception.Message,
+            });
+        }
+    }
+
+    [HttpGet]
+    [ProducesResponseType<GetMaintenanceWorkOrdersResponse>(StatusCodes.Status200OK)]
+    [ProducesResponseType<HttpValidationProblemDetails>(StatusCodes.Status400BadRequest)]
+    public async Task<ActionResult<GetMaintenanceWorkOrdersResponse>> GetWorkOrders(
+        [FromQuery] GetMaintenanceWorkOrdersRequest request,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            var response = await getMaintenanceWorkOrdersQuery.GetWorkOrdersAsync(request, cancellationToken);
+
+            return Ok(response);
+        }
+        catch (GetMaintenanceWorkOrdersValidationException exception)
+        {
+            return BadRequest(new HttpValidationProblemDetails(
+                exception.Errors.ToDictionary(
+                    error => error.Key,
+                    error => error.Value,
+                    StringComparer.Ordinal))
+            {
+                Status = StatusCodes.Status400BadRequest,
+                Title = "One or more validation errors occurred.",
             });
         }
     }
