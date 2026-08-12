@@ -147,11 +147,19 @@
 	</div>
 }
 
+@if (isThemeChanging)
+{
+	<div class="theme-transition-overlay" aria-hidden="true">
+		<span class="theme-transition-spinner"></span>
+	</div>
+}
+
 @code {
 	private bool HasCriticalAlerts = true;
 	private bool mobileMenuOpen = false;
 	private bool isDark = true;
 	private bool showLogoutConfirmation;
+	private bool isThemeChanging;
 
 	protected override async Task OnAfterRenderAsync(bool firstRender)
 	{
@@ -177,8 +185,13 @@
 
 	private async Task ToggleTheme()
 	{
+		isThemeChanging = true;
+		StateHasChanged();
+		await Task.Yield();
 		isDark = !isDark;
 		await JS.InvokeVoidAsync("themeInterop.set", isDark ? "dark" : "light");
+		await Task.Delay(260);
+		isThemeChanging = false;
 	}
 
 	private void ToggleMobileMenu() => mobileMenuOpen = !mobileMenuOpen;
