@@ -1,12 +1,30 @@
 @page "/access-denied"
+@inject IJSRuntime JS
 
 <PageTitle>Access denied | HarborOps</PageTitle>
 
-<section class="login-page">
-    <div class="login-card" role="alert">
-        <p class="login-eyebrow">Access restricted</p>
-        <h1>Access denied</h1>
-        <p class="login-copy">Your account is signed in, but it does not have permission to use this area.</p>
-        <a class="btn btn-primary w-100" href="/">Return to dashboard</a>
+<section class="access-denied-page" aria-labelledby="access-denied-title">
+    <div class="access-denied-card" role="alert">
+        <div class="access-denied-icon" aria-hidden="true">
+            <span class="bi bi-shield-lock"></span>
+        </div>
+        <p class="access-denied-eyebrow">Restricted area</p>
+        <h1 id="access-denied-title">Access denied</h1>
+        <p class="access-denied-copy">Your account is signed in, but it does not have the required permission to open this area.</p>
+        <div class="access-denied-actions">
+            <a class="access-denied-primary" href="/">
+                <span class="bi bi-grid-1x2-fill" aria-hidden="true"></span>
+                Return to dashboard
+            </a>
+            <button class="access-denied-secondary" type="button" @onclick="GoBackAsync">
+                <span class="bi bi-arrow-left" aria-hidden="true"></span>
+                Go back
+            </button>
+        </div>
+        <p class="access-denied-help"><span class="bi bi-info-circle" aria-hidden="true"></span> Need access? Contact a HarborOps administrator.</p>
     </div>
 </section>
+
+@code {
+    private async Task GoBackAsync() => await JS.InvokeVoidAsync("history.back");
+}

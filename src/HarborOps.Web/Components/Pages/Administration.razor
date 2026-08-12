@@ -1,5 +1,5 @@
 @page "/administration"
-@attribute [Microsoft.AspNetCore.Authorization.Authorize]
+@attribute [Microsoft.AspNetCore.Authorization.Authorize(Policy = "ManageAdministration")]
 @implements IDisposable
 @inject IdentityAdministrationApiClient AdministrationApi
 @inject CurrentUserAuthorizationState AuthorizationState

@@ -69,7 +69,8 @@
     background: var(--border-medium);
 }
 
-.profile-form {
+.profile-menu {
+    position: relative;
     margin: 0;
 }
 
@@ -110,6 +111,8 @@
     text-overflow: ellipsis;
     white-space: nowrap;
 }
+
+.account-dropdown { position: absolute; top: calc(100% + .55rem); right: 0; width: 14rem; padding: .45rem; border: 1px solid var(--border-medium); border-radius: .75rem; background: var(--bg-navbar); box-shadow: 0 16px 38px rgba(0,0,0,.2); backdrop-filter: blur(20px); }.account-summary { display: grid; gap: .18rem; padding: .65rem .7rem .8rem; border-bottom: 1px solid var(--border-subtle); }.account-summary strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: .8rem; }.account-summary span { overflow: hidden; color: var(--text-muted); font-size: .72rem; text-overflow: ellipsis; white-space: nowrap; }.account-dropdown a,.account-dropdown button { display: flex; align-items: center; gap: .55rem; width: 100%; margin-top: .3rem; padding: .58rem .65rem; color: var(--text-secondary); border: 0; border-radius: .5rem; background: transparent; font-size: .8rem; text-align: left; text-decoration: none; cursor: pointer; }.account-dropdown a:hover,.account-dropdown button:hover { color: var(--text-primary); background: var(--icon-hover-bg); }.account-dropdown button { color: #ef4444; }
 
 .hamburger-btn {
     display: none;

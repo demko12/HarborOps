@@ -48,8 +48,6 @@
 				<span class="icon-dot"></span>
 			}
 		</button>
-		<button class="icon-btn hide-on-mobile" title="Settings"><span class="bi bi-gear"></span></button>
-
 		<button class="icon-btn theme-toggle" title="Toggle theme" @onclick="ToggleTheme">
 			<span class="bi @(isDark ? "bi-sun" : "bi-moon-stars")"></span>
 		</button>
@@ -58,12 +56,21 @@
 
 		<AuthorizeView>
 			<Authorized Context="authenticationState">
-				<div class="profile-form">
-					<button class="profile-btn" type="button" title="Sign out" @onclick="() => showLogoutConfirmation = true">
+				<div class="profile-menu">
+					<button class="profile-btn" type="button" title="Account menu" aria-expanded="@showAccountMenu" @onclick="() => showAccountMenu = !showAccountMenu">
 						<div class="avatar">@authenticationState.User.Identity?.Name?[0]</div>
-						<span class="profile-name hide-on-mobile">@authenticationState.User.Identity?.Name</span>
-						<span class="bi bi-box-arrow-right hide-on-mobile"></span>
 					</button>
+					@if (showAccountMenu)
+					{
+						<div class="account-dropdown" role="menu">
+							<div class="account-summary">
+								<span>Signed in as</span>
+								<strong>@authenticationState.User.Identity?.Name</strong>
+							</div>
+							<a href="/settings" role="menuitem"><span class="bi bi-gear"></span> Settings</a>
+							<button type="button" role="menuitem" @onclick="OpenLogoutConfirmation"><span class="bi bi-box-arrow-right"></span> Sign out</button>
+						</div>
+					}
 				</div>
 			</Authorized>
 			<NotAuthorized>
@@ -81,7 +88,7 @@
 	<nav class="sidebar-nav">
 		<div class="nav-pills">
 			<NavLink class="nav-pill" href="" title="Dashboard" Match="NavLinkMatch.All" ActiveClass="active" @onclick="CloseMobileMenu">
-				<span class="bi bi-speedometer2"></span> <span class="nav-pill-label">Dashboard</span>
+				<span class="bi bi-grid-1x2-fill"></span> <span class="nav-pill-label">Dashboard</span>
 			</NavLink>
 			<NavLink class="nav-pill" href="fleet" title="Fleet" ActiveClass="active" @onclick="CloseMobileMenu">
 				<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="nav-icon">
@@ -159,6 +166,7 @@
 	private bool mobileMenuOpen = false;
 	private bool isDark = true;
 	private bool showLogoutConfirmation;
+	private bool showAccountMenu;
 	private bool isThemeChanging;
 
 	protected override async Task OnAfterRenderAsync(bool firstRender)
@@ -196,6 +204,7 @@
 
 	private void ToggleMobileMenu() => mobileMenuOpen = !mobileMenuOpen;
 	private void CloseMobileMenu() => mobileMenuOpen = false;
+	private void OpenLogoutConfirmation() { showAccountMenu = false; showLogoutConfirmation = true; }
 
 	public void Dispose() => AuthorizationState.Changed -= StateHasChanged;
 }

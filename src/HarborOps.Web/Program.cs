@@ -21,7 +21,13 @@ builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationSc
     });
 builder.Services.AddOptions<CookieAuthenticationOptions>(CookieAuthenticationDefaults.AuthenticationScheme)
     .Configure<ServerSessionTicketStore>((options, ticketStore) => options.SessionStore = ticketStore);
-builder.Services.AddAuthorization();
+builder.Services.AddAuthorization(options =>
+{
+    options.AddPolicy("ManageAdministration", policy => policy
+        .RequireAuthenticatedUser()
+        .RequireClaim(CurrentUserAuthorizationState.PermissionClaimType, CurrentUserAuthorizationState.ManageUsersPermission)
+        .RequireClaim(CurrentUserAuthorizationState.PermissionClaimType, CurrentUserAuthorizationState.ManageRolesPermission));
+});
 
 var app = builder.Build();
 
