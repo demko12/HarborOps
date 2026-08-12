@@ -1,17 +1,28 @@
 @inherits LayoutComponentBase
+@inject NavigationManager Navigation
 
-<div class="page">
-	<NavMenu />
+<div class="page @(IsLoginPage ? "login-layout" : string.Empty)">
+    @if (!IsLoginPage)
+    {
+        <NavMenu />
+    }
 
-	<main>
-		<article class="content">
-			@Body
-		</article>
-	</main>
+    <main>
+        <article class="content">
+            @Body
+        </article>
+    </main>
 </div>
 
 <div id="blazor-error-ui" data-nosnippet>
-	An unhandled error has occurred.
-	<a href="." class="reload">Reload</a>
-	<span class="dismiss">🗙</span>
+    An unhandled error has occurred.
+    <a href="." class="reload">Reload</a>
+    <span class="dismiss">ðŸ—™</span>
 </div>
+
+@code {
+    private bool IsLoginPage => string.Equals(
+        Navigation.ToBaseRelativePath(Navigation.Uri).Split('?', '#')[0],
+        "login",
+        StringComparison.OrdinalIgnoreCase);
+}

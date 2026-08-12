@@ -1,16 +1,18 @@
 @page "/"
+@attribute [Microsoft.AspNetCore.Authorization.Authorize]
 @implements IDisposable
 @inject HealthApiClient HealthApiClient
 
 <PageTitle>HarborOps</PageTitle>
 
-<section class="home-intro">
-    <p class="home-eyebrow">Operations platform</p>
-    <h1>HarborOps</h1>
-    <p>Maritime operations management.</p>
-</section>
+<div class="home-page">
+    <section class="home-intro">
+        <p class="home-eyebrow">Operations platform</p>
+        <h1>HarborOps</h1>
+        <p>Maritime operations management.</p>
+    </section>
 
-<section class="api-status" aria-labelledby="api-status-title">
+    <section class="api-status" aria-labelledby="api-status-title">
     <h2 id="api-status-title">API status</h2>
 
     @if (isLoading)
@@ -35,7 +37,8 @@
             RetryLabel="Check again"
             OnRetry="CheckAgainAsync" />
     }
-</section>
+    </section>
+</div>
 
 @code {
     private CancellationTokenSource healthCheckCancellation = new();
