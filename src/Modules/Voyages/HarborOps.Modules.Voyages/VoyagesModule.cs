@@ -1,5 +1,6 @@
 using System.Reflection;
 using HarborOps.Modules.Voyages.Application;
+using HarborOps.Modules.Voyages.Contracts;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 
@@ -17,6 +18,7 @@ public static class VoyagesModule
         services.AddScoped<ScheduleVoyageService>();
         services.AddScoped<RecordVoyageDepartureService>();
         services.AddScoped<RecordVoyageArrivalService>();
+        services.AddScoped<IGetVoyagesQuery, GetVoyagesQuery>();
         services.AddControllers()
             .AddApplicationPart(Assembly);
 

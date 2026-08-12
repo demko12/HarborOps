@@ -1,3 +1,5 @@
+using HarborOps.Web.Api.Voyages;
+
 namespace HarborOps.Web.Api;
 
 internal static class ApiConfiguration
@@ -17,6 +19,11 @@ internal static class ApiConfiguration
         });
 
         services.AddHttpClient<IdentityAdministrationApiClient>(client =>
+        {
+            client.BaseAddress = baseAddress;
+            client.Timeout = TimeSpan.FromSeconds(15);
+        });
+        services.AddHttpClient<VoyagesApiClient>(client =>
         {
             client.BaseAddress = baseAddress;
             client.Timeout = TimeSpan.FromSeconds(15);
