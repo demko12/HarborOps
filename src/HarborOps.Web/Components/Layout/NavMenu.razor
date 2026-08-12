@@ -67,6 +67,7 @@
 								<span>Signed in as</span>
 								<strong>@authenticationState.User.Identity?.Name</strong>
 							</div>
+							<a href="/profile" role="menuitem"><span class="bi bi-person"></span> My Profile</a>
 							<a href="/settings" role="menuitem"><span class="bi bi-gear"></span> Settings</a>
 							<button type="button" role="menuitem" @onclick="OpenLogoutConfirmation"><span class="bi bi-box-arrow-right"></span> Sign out</button>
 						</div>
