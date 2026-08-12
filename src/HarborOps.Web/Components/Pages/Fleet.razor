@@ -1,0 +1,185 @@
+@page "/fleet"
+@attribute [Microsoft.AspNetCore.Authorization.Authorize]
+@implements IDisposable
+@inject FleetApiClient FleetApi
+
+<PageTitle>Fleet | HarborOps</PageTitle>
+
+<section class="fleet-page">
+    <header class="fleet-header">
+        <div>
+            <p class="fleet-eyebrow">Fleet operations</p>
+            <h1>Vessels</h1>
+            <p>Review registered vessels and their current operating status.</p>
+        </div>
+    </header>
+
+    @if (page is not null)
+    {
+        <section class="fleet-summary" aria-label="Fleet summary">
+            <article class="fleet-summary-card">
+                <div><span>Active vessels</span><strong>@ActiveVessels</strong><small>Currently operational</small></div>
+                <span class="summary-icon summary-icon-blue"><span class="bi bi-grid-1x2-fill"></span></span>
+            </article>
+            <article class="fleet-summary-card">
+                <div><span>En route</span><strong>@EnRouteVessels</strong><small>Currently in transit</small></div>
+                <span class="summary-icon summary-icon-green"><span class="bi bi-check2-circle"></span></span>
+            </article>
+            <article class="fleet-summary-card">
+                <div><span>Under maintenance</span><strong>@MaintenanceVessels</strong><small>Requiring operational attention</small></div>
+                <span class="summary-icon summary-icon-purple"><span class="bi bi-diagram-3"></span></span>
+            </article>
+            <article class="fleet-summary-card">
+                <div><span>DWT capacity</span><strong>@FormatDwt(TotalDwt)</strong><small>Total on this page</small></div>
+                <span class="summary-icon summary-icon-amber"><span class="bi bi-globe2"></span></span>
+            </article>
+        </section>
+    }
+
+    <section class="fleet-card" aria-labelledby="fleet-list-title">
+        <div class="fleet-card-heading">
+            <div>
+                <h2 id="fleet-list-title">Vessel register</h2>
+                <p>@(page?.TotalCount ?? 0) vessels found</p>
+            </div>
+            <span class="fleet-vessel-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M12 10v4"></path><path d="M12 2v3"></path><path d="M19 13V7a2 2 0 0 0-2-2H7a2 2 0 0 0-2 2v6"></path><path d="M19.4 20A11.5 11.5 0 0 0 21 14l-8.2-3.6a2 2 0 0 0-1.6 0L3 14a11.5 11.5 0 0 0 2.8 7.8"></path><path d="M2 21c.6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1s1.2 1 2.5 1c2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1"></path>
+                </svg>
+            </span>
+        </div>
+
+        <form class="fleet-filters" @onsubmit="SearchAsync" @onsubmit:preventDefault="true">
+            <div class="fleet-input-shell">
+                <span class="bi bi-search" aria-hidden="true"></span>
+                <input @bind="search" placeholder="Search vessel name or IMO number" aria-label="Search vessels" />
+            </div>
+            <select @bind="status" aria-label="Filter by vessel status">
+                <option value="">All statuses</option>
+                @foreach (var option in statusOptions)
+                {
+                    <option value="@option">@option</option>
+                }
+            </select>
+            <button class="fleet-search-button" type="submit" disabled="@isLoading">Search</button>
+        </form>
+
+        @if (isLoading)
+        {
+            <LoadingState Message="Loading vessels..." />
+        }
+        else if (failure is not null)
+        {
+            <ApiErrorState Title="@failure.Title" Message="@failure.Message" OnRetry="LoadVesselsAsync" />
+        }
+        else if (page is null || page.Items.Count == 0)
+        {
+            <EmptyState Title="No vessels found" Message="Try another vessel name, IMO number, or status." />
+        }
+        else
+        {
+            <div class="fleet-vessel-list">
+                @foreach (var vessel in page.Items)
+                {
+                    <article class="fleet-vessel-row">
+                        <span class="vessel-row-icon"><span class="bi bi-water"></span></span>
+                        <div class="vessel-primary"><strong>@vessel.Name</strong><span>IMO @vessel.ImoNumber · @vessel.FlagState · @vessel.VesselTypeName</span></div>
+                        <div class="vessel-updated"><span>Last updated</span><strong>@vessel.UpdatedAtUtc.ToLocalTime().ToString("dd MMM yyyy, HH:mm")</strong></div>
+                        <span class="vessel-status @GetStatusClass(vessel.CurrentStatus)">@vessel.CurrentStatus</span>
+                        <span class="bi bi-chevron-right vessel-chevron" aria-hidden="true"></span>
+                    </article>
+                }
+            </div>
+            <div class="fleet-pagination">
+                <span>Page @(page.PageNumber) of @TotalPages</span>
+                <div>
+                    <button type="button" @onclick="PreviousPageAsync" disabled="@(page.PageNumber <= 1)">Previous</button>
+                    <button type="button" @onclick="NextPageAsync" disabled="@(page.PageNumber >= TotalPages)">Next</button>
+                </div>
+            </div>
+        }
+    </section>
+</section>
+
+@code {
+    private static readonly string[] statusOptions = ["Active", "Inactive", "Under Maintenance", "In Transit"];
+    private readonly CancellationTokenSource disposalCts = new();
+    private VesselPageResponse? page;
+    private FleetApiFailure? failure;
+    private string? search;
+    private string? status;
+    private bool isLoading = true;
+
+    private int TotalPages => page is null || page.TotalCount == 0 ? 1 : (int)Math.Ceiling((double)page.TotalCount / page.PageSize);
+    private int ActiveVessels => page?.Items.Count(vessel => string.Equals(vessel.CurrentStatus, "Active", StringComparison.OrdinalIgnoreCase)) ?? 0;
+    private int EnRouteVessels => page?.Items.Count(vessel => string.Equals(vessel.CurrentStatus, "In Transit", StringComparison.OrdinalIgnoreCase) || string.Equals(vessel.CurrentStatus, "En Route", StringComparison.OrdinalIgnoreCase)) ?? 0;
+    private int MaintenanceVessels => page?.Items.Count(vessel => string.Equals(vessel.CurrentStatus, "Under Maintenance", StringComparison.OrdinalIgnoreCase)) ?? 0;
+    private decimal TotalDwt => page?.Items.Sum(vessel => vessel.Dwt ?? 0) ?? 0;
+
+    protected override async Task OnInitializedAsync() => await LoadVesselsAsync();
+
+    private async Task SearchAsync()
+    {
+        if (page is not null)
+        {
+            page = page with { PageNumber = 1 };
+        }
+
+        await LoadVesselsAsync();
+    }
+
+    private async Task PreviousPageAsync()
+    {
+        if (page is not null && page.PageNumber > 1)
+        {
+            page = page with { PageNumber = page.PageNumber - 1 };
+            await LoadVesselsAsync();
+        }
+    }
+
+    private async Task NextPageAsync()
+    {
+        if (page is not null && page.PageNumber < TotalPages)
+        {
+            page = page with { PageNumber = page.PageNumber + 1 };
+            await LoadVesselsAsync();
+        }
+    }
+
+    private async Task LoadVesselsAsync()
+    {
+        isLoading = true;
+        failure = null;
+        var result = await FleetApi.GetVesselsAsync(search, status, page?.PageNumber ?? 1, 25, disposalCts.Token);
+        if (result.IsSuccess)
+        {
+            page = result.Value;
+        }
+        else
+        {
+            failure = result.Failure;
+        }
+
+        isLoading = false;
+    }
+
+    private static string GetStatusClass(string status) => status.ToLowerInvariant() switch
+    {
+        "active" => "vessel-status-active",
+        "in transit" => "vessel-status-transit",
+        "under maintenance" => "vessel-status-maintenance",
+        _ => "vessel-status-neutral",
+    };
+
+    private static string FormatDwt(decimal dwt) => dwt >= 1_000_000
+        ? $"{dwt / 1_000_000m:0.#}M"
+        : dwt >= 1_000
+            ? $"{dwt / 1_000m:0.#}K"
+            : $"{dwt:0}";
+
+    public void Dispose()
+    {
+        disposalCts.Cancel();
+        disposalCts.Dispose();
+    }
+}

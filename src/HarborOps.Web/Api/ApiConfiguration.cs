@@ -27,6 +27,11 @@ internal static class ApiConfiguration
             client.BaseAddress = baseAddress;
             client.Timeout = TimeSpan.FromSeconds(15);
         }).AddHttpMessageHandler<BearerTokenHandler>();
+        services.AddHttpClient<FleetApiClient>(client =>
+        {
+            client.BaseAddress = baseAddress;
+            client.Timeout = TimeSpan.FromSeconds(15);
+        }).AddHttpMessageHandler<BearerTokenHandler>();
         services.AddHttpContextAccessor();
         services.AddMemoryCache();
         services.AddSingleton<ServerSessionTicketStore>();
