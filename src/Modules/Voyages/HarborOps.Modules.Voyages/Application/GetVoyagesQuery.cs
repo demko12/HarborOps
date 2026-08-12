@@ -21,7 +21,6 @@ internal sealed class GetVoyagesQuery(DbContext dbContext) : IGetVoyagesQuery
         var pageNumber = request.PageNumber ?? GetVoyagesValidator.DefaultPageNumber;
         var pageSize = request.PageSize ?? GetVoyagesValidator.DefaultPageSize;
 
-        /// prozor je inkluzivan po danu, pa gornja granica ide na pocetak sljedeceg dana
         var windowStart = request.From.ToDateTime(TimeOnly.MinValue, DateTimeKind.Utc);
         var windowEndExclusive = request.To.AddDays(1).ToDateTime(TimeOnly.MinValue, DateTimeKind.Utc);
 
