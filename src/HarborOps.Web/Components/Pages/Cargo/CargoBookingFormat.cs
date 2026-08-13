@@ -34,6 +34,16 @@ internal static class CargoBookingFormat
         return createdUtc.ToString("yyyy-MM-dd HH:mm", CultureInfo.InvariantCulture);
     }
 
+    internal static string CreatedUtcDate(DateTime createdUtc)
+    {
+        return createdUtc.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
+    }
+
+    internal static string CreatedUtcTime(DateTime createdUtc)
+    {
+        return createdUtc.ToString("HH:mm", CultureInfo.InvariantCulture);
+    }
+
     internal static string HazardLabel(bool isHazardous)
     {
         return isHazardous ? HazardousLabel : NotHazardousLabel;

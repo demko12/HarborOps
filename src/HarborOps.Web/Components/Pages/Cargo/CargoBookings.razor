@@ -65,7 +65,7 @@
         </div>
 
         <label class="cargo-hazard-toggle" for="cargo-hazardous">
-            <input type="checkbox" id="cargo-hazardous" @bind="hazardousOnly" />
+            <input type="checkbox" id="cargo-hazardous" @bind="hazardousOnly" @bind:after="ApplyFiltersAsync" />
             <span class="cargo-placard" aria-hidden="true"></span>
             Hazardous only
         </label>
@@ -168,7 +168,10 @@
                                         }
                                     </span>
                                 </td>
-                                <td class="cargo-muted cargo-num col-created">@CargoBookingFormat.CreatedUtc(row.CreatedUtc)</td>
+                                <td class="cargo-muted col-created">
+                                    <span class="cargo-stamp-date">@CargoBookingFormat.CreatedUtcDate(row.CreatedUtc)</span>
+                                    <span class="cargo-stamp-time">@CargoBookingFormat.CreatedUtcTime(row.CreatedUtc)</span>
+                                </td>
                             </tr>
                         }
                     </tbody>

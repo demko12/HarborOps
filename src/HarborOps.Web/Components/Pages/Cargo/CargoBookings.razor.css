@@ -248,8 +248,8 @@ html[data-theme="light"] .cargo-validation { border-color: rgba(185, 28, 28, .3)
 .cargo-card-heading h2 { margin: 0; font-size: 1.05rem; }
 .cargo-card-heading p { margin: .4rem 0 0; color: var(--text-secondary); font-size: .85rem; }
 
-.cargo-table-scroll { overflow-x: auto; }
-.cargo-table { width: 100%; min-width: 46rem; border-collapse: collapse; }
+.cargo-table-scroll { overflow-x: auto; scrollbar-width: thin; scrollbar-color: var(--border-medium) transparent; }
+.cargo-table { width: 100%; border-collapse: collapse; }
 
 .cargo-table th {
     padding: .55rem .8rem;
@@ -271,8 +271,8 @@ html[data-theme="light"] .cargo-validation { border-color: rgba(185, 28, 28, .3)
 }
 
 .cargo-table tbody tr:last-child td { border-bottom: 0; }
-.cargo-table tbody tr { transition: background .15s ease, transform .15s ease; }
-.cargo-table tbody tr:hover { background: var(--bg-surface); transform: translateX(2px); }
+.cargo-table tbody tr { transition: background .15s ease; }
+.cargo-table tbody tr:hover { background: var(--bg-surface); }
 
 .cargo-table tbody tr.cargo-hazard-row { background: color-mix(in srgb, var(--hazard) 5%, transparent); }
 .cargo-table tbody tr.cargo-hazard-row td:first-child { box-shadow: inset 3px 0 0 var(--hazard); }
@@ -282,8 +282,20 @@ html[data-theme="light"] .cargo-validation { border-color: rgba(185, 28, 28, .3)
 .cargo-booking-no { display: block; font-weight: 600; white-space: nowrap; }
 .cargo-voyage { display: block; margin-top: .2rem; color: var(--text-muted); font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: .74rem; }
 
-.cargo-desc { display: block; max-width: 22rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cargo-desc {
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    line-clamp: 2;
+    max-width: 22rem;
+    overflow: hidden;
+    white-space: normal;
+    overflow-wrap: anywhere;
+}
+
 .cargo-muted { color: var(--text-secondary); }
+.cargo-stamp-date { display: block; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.cargo-stamp-time { display: block; margin-top: .2rem; color: var(--text-muted); font-size: .78rem; white-space: nowrap; font-variant-numeric: tabular-nums; }
 
 .cargo-placard {
     width: .6rem;
@@ -388,12 +400,9 @@ html[data-theme="light"] .cargo-track.done { color: #0f766e; }
     .cargo-input-shell,
     .filter-field select,
     .cargo-pages button { transition: none; }
-
-    .cargo-table tbody tr:hover { transform: none; }
 }
 
 @media (max-width: 1050px) {
-    .cargo-table { min-width: 34rem; }
     .cargo-table .col-type,
     .cargo-table .col-packages { display: none; }
 }
@@ -404,7 +413,6 @@ html[data-theme="light"] .cargo-track.done { color: #0f766e; }
     .cargo-summary { grid-template-columns: 1fr; }
     .cargo-filters { flex-direction: column; align-items: stretch; }
     .cargo-filters > * { width: 100%; }
-    .cargo-table { min-width: 0; }
     .cargo-table .col-created { display: none; }
     .cargo-pagination { align-items: flex-start; flex-direction: column; }
 }
