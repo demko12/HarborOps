@@ -63,6 +63,59 @@
     box-shadow: 0 0 0 1px rgba(239,68,68,.28);
 }
 
+.notifications-menu {
+    position: relative;
+}
+
+.notifications-dropdown {
+    position: absolute;
+    top: calc(100% + .55rem);
+    right: 0;
+    width: min(20rem, calc(100vw - 2rem));
+    overflow: hidden;
+    border: 1px solid var(--border-medium);
+    border-radius: .75rem;
+    background: var(--bg-navbar);
+    box-shadow: 0 16px 38px rgba(0,0,0,.2);
+    backdrop-filter: blur(20px);
+}
+
+.notifications-heading {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: .75rem;
+    padding: .8rem .9rem;
+    border-bottom: 1px solid var(--border-subtle);
+}
+
+.notifications-heading strong { color: var(--text-primary); font-size: .84rem; }
+.notifications-heading span { color: #10b981; font-size: .72rem; font-weight: 600; }
+
+.notifications-empty {
+    display: flex;
+    align-items: flex-start;
+    gap: .75rem;
+    padding: 1rem .9rem 1.1rem;
+}
+
+.notifications-empty > span {
+    display: grid;
+    width: 2rem;
+    height: 2rem;
+    flex: 0 0 auto;
+    place-items: center;
+    color: var(--accent);
+    border: 1px solid var(--accent-border);
+    border-radius: .6rem;
+    background: var(--accent-bg);
+    font-size: .9rem;
+}
+
+.notifications-empty p { display: grid; gap: .2rem; margin: .05rem 0 0; }
+.notifications-empty strong { color: var(--text-primary); font-size: .8rem; }
+.notifications-empty small { color: var(--text-muted); font-size: .74rem; line-height: 1.4; }
+
 .divider {
     width: 1px;
     height: 1.35rem;
@@ -115,6 +168,10 @@
 .account-dropdown { position: absolute; top: calc(100% + .55rem); right: 0; width: 14rem; padding: .45rem; border: 1px solid var(--border-medium); border-radius: .75rem; background: var(--bg-navbar); box-shadow: 0 16px 38px rgba(0,0,0,.2); backdrop-filter: blur(20px); }.account-summary { display: grid; gap: .18rem; padding: .65rem .7rem .8rem; border-bottom: 1px solid var(--border-subtle); }.account-summary strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: .8rem; }.account-summary span { overflow: hidden; color: var(--text-muted); font-size: .72rem; text-overflow: ellipsis; white-space: nowrap; }.account-dropdown a,.account-dropdown button { display: flex; align-items: center; gap: .55rem; width: 100%; margin-top: .3rem; padding: .58rem .65rem; color: var(--text-secondary); border: 0; border-radius: .5rem; background: transparent; font-size: .8rem; text-align: left; text-decoration: none; cursor: pointer; }.account-dropdown a:hover,.account-dropdown button:hover { color: var(--text-primary); background: var(--icon-hover-bg); }.account-dropdown button { color: #ef4444; }
 
 .hamburger-btn {
+    display: none;
+}
+
+.mobile-scroll-top {
     display: none;
 }
 
@@ -335,6 +392,28 @@
         border: 0;
         border-radius: .5rem;
         background: transparent;
+    }
+
+    .mobile-scroll-top {
+        display: grid;
+        position: fixed;
+        z-index: 25;
+        right: 1rem;
+        bottom: 1rem;
+        width: 2.65rem;
+        height: 2.65rem;
+        place-items: center;
+        color: #fff;
+        border: 1px solid rgba(147,197,253,.5);
+        border-radius: 50%;
+        background: linear-gradient(135deg, #2563eb, #1d4ed8);
+        box-shadow: 0 10px 24px rgba(37,99,235,.3);
+        font-size: 1rem;
+        cursor: pointer;
+    }
+
+    .mobile-scroll-top:active {
+        transform: translateY(1px);
     }
 
     .app-sidebar, .app-sidebar:hover {

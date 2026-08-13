@@ -15,29 +15,61 @@
         <span class="voyages-utc" aria-label="All times are shown in UTC">UTC</span>
     </header>
 
-    <div class="voyages-summary">
-        <div class="voyages-kpi">
+    <section class="voyages-summary" aria-label="Voyage summary">
+        <article class="voyages-kpi">
             <div>
-                <p class="voyages-kpi-label">Planned voyages</p>
-                <p class="voyages-kpi-value">@(plannedCount?.ToString(System.Globalization.CultureInfo.InvariantCulture) ?? MissingValue)</p>
+                <p class="voyages-kpi-label">Planned</p>
+                <p class="voyages-kpi-value">@FormatCount(StatusCount(PlannedStatus))</p>
                 <p class="voyages-kpi-note">@FormatDate(appliedFrom) &ndash; @FormatDate(appliedTo)</p>
             </div>
-            <span class="voyages-kpi-icon" aria-hidden="true"><span class="bi bi-calendar-check"></span></span>
-        </div>
-    </div>
+            <span class="voyages-kpi-icon kpi-icon-planned" aria-hidden="true"><span class="bi bi-calendar-check"></span></span>
+        </article>
+        <article class="voyages-kpi">
+            <div>
+                <p class="voyages-kpi-label">In progress</p>
+                <p class="voyages-kpi-value">@FormatCount(StatusCount(InProgressStatus))</p>
+                <p class="voyages-kpi-note">Departed, not yet arrived</p>
+            </div>
+            <span class="voyages-kpi-icon kpi-icon-progress" aria-hidden="true"><span class="bi bi-arrow-right-circle"></span></span>
+        </article>
+        <article class="voyages-kpi">
+            <div>
+                <p class="voyages-kpi-label">Completed</p>
+                <p class="voyages-kpi-value">@FormatCount(StatusCount(CompletedStatus))</p>
+                <p class="voyages-kpi-note">Arrival recorded</p>
+            </div>
+            <span class="voyages-kpi-icon kpi-icon-completed" aria-hidden="true"><span class="bi bi-check2-circle"></span></span>
+        </article>
+        <article class="voyages-kpi">
+            <div>
+                <p class="voyages-kpi-label">@DelayedStatus</p>
+                <p class="voyages-kpi-value">@MissingValue</p>
+                <p class="voyages-kpi-note">Not tracked yet</p>
+            </div>
+            <span class="voyages-kpi-icon kpi-icon-delayed" aria-hidden="true"><span class="bi bi-hourglass-split"></span></span>
+        </article>
+    </section>
 
-    <form class="voyages-filters" @onsubmit="ApplyFiltersAsync" @onsubmit:preventDefault="true">
+    <div class="voyages-filters">
+        <div class="filter-field filter-field-grow">
+            <label for="voyages-search">Search</label>
+            <div class="voyages-input-shell">
+                <span class="bi bi-search" aria-hidden="true"></span>
+                <input id="voyages-search" @bind="searchTerm" @bind:event="oninput" @bind:after="ApplyFiltersAsync"
+                       placeholder="Voyage number" aria-label="Search voyages by voyage number" />
+            </div>
+        </div>
         <div class="filter-field">
             <label for="voyages-from">From</label>
-            <input id="voyages-from" type="date" @bind="fromDate" />
+            <input id="voyages-from" type="date" @bind="fromDate" @bind:after="ApplyFiltersAsync" />
         </div>
         <div class="filter-field">
             <label for="voyages-to">To</label>
-            <input id="voyages-to" type="date" @bind="toDate" />
+            <input id="voyages-to" type="date" @bind="toDate" @bind:after="ApplyFiltersAsync" />
         </div>
         <div class="filter-field">
             <label for="voyages-status">Status</label>
-            <select id="voyages-status" @bind="statusFilter">
+            <select id="voyages-status" @bind="statusFilter" @bind:after="ApplyFiltersAsync">
                 <option value="">All statuses</option>
                 @foreach (var option in StatusOptions)
                 {
@@ -47,15 +79,14 @@
         </div>
         <div class="filter-field">
             <label for="voyages-page-size">Per page</label>
-            <select id="voyages-page-size" @bind="pageSize">
+            <select id="voyages-page-size" @bind="pageSize" @bind:after="ApplyFiltersAsync">
                 <option value="25">25</option>
                 <option value="50">50</option>
                 <option value="100">100</option>
             </select>
         </div>
-        <button class="voyages-button" type="submit" disabled="@isLoading">Apply</button>
         <button class="voyages-reset" type="button" @onclick="ResetFiltersAsync" disabled="@isLoading">Reset</button>
-    </form>
+    </div>
 
     @if (failure is { IsValidation: true, Errors.Count: > 0 })
     {

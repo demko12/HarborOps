@@ -57,6 +57,11 @@ internal static class ApiConfiguration
             client.BaseAddress = baseAddress;
             client.Timeout = TimeSpan.FromSeconds(15);
         }).AddHttpMessageHandler<BearerTokenHandler>();
+        services.AddHttpClient<CrewApiClient>(client =>
+        {
+            client.BaseAddress = baseAddress;
+            client.Timeout = TimeSpan.FromSeconds(15);
+        }).AddHttpMessageHandler<BearerTokenHandler>();
 
         services.AddHttpClient<VoyagesApiClient>(client =>
         {

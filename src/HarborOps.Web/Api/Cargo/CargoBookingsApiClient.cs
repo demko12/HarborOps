@@ -29,6 +29,10 @@ internal sealed class CargoBookingsApiClient(HttpClient httpClient)
 
             return new CargoApiResult<CargoBookingPage>(page, null);
         }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
         catch (HttpRequestException)
         {
             return new CargoApiResult<CargoBookingPage>(null, Unavailable());

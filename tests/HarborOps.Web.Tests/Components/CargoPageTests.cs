@@ -48,8 +48,7 @@ public sealed class CargoPageTests : BunitContext
     {
         var page = RenderCargoPage();
 
-        page.Find("#cargo-search").Change("ammonium");
-        page.Find("form.cargo-filters").Submit();
+        page.Find("#cargo-search").Input("ammonium");
 
         page.WaitForAssertion(() =>
             Assert.Contains(
@@ -64,7 +63,6 @@ public sealed class CargoPageTests : BunitContext
 
         page.Find("#cargo-status").Change("InTransit");
         page.Find("#cargo-hazardous").Change(true);
-        page.Find("form.cargo-filters").Submit();
 
         page.WaitForAssertion(() =>
         {
@@ -80,8 +78,7 @@ public sealed class CargoPageTests : BunitContext
     {
         var page = RenderCargoPage();
 
-        page.Find("#cargo-search").Change("ammonium");
-        page.Find("form.cargo-filters").Submit();
+        page.Find("#cargo-search").Input("ammonium");
         page.WaitForAssertion(() => Assert.Equal(2, requestedUris.Count));
 
         page.Find(".cargo-reset").Click();

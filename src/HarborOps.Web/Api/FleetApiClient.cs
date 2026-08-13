@@ -37,6 +37,10 @@ internal sealed class FleetApiClient(HttpClient httpClient)
                     : "Please try again."),
                 problem?.Errors ?? NoErrors));
         }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
         catch (HttpRequestException)
         {
             return new FleetApiResult<VesselPageResponse>(null, new FleetApiFailure(
@@ -76,7 +80,10 @@ internal sealed record VesselListItemResponse(
     string VesselTypeName,
     Guid CompanyId,
     decimal? Dwt,
-    DateTime UpdatedAtUtc);
+    DateTime UpdatedAtUtc,
+    string? LifecycleStage,
+    Guid? FleetId,
+    string? FleetName);
 
 internal sealed record FleetApiResult<T>(T? Value, FleetApiFailure? Failure)
 {

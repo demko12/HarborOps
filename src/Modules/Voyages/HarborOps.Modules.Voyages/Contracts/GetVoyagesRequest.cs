@@ -6,6 +6,8 @@ public sealed record GetVoyagesRequest
 
     public DateOnly To { get; init; }
 
+    public string? Search { get; init; }
+
     public string? Status { get; init; }
 
     public int? PageNumber { get; init; }
