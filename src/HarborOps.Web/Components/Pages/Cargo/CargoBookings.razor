@@ -34,19 +34,19 @@
         </article>
     </section>
 
-    <form class="cargo-filters" @onsubmit="ApplyFiltersAsync" @onsubmit:preventDefault="true">
+    <div class="cargo-filters">
         <div class="filter-field filter-field-grow">
             <label for="cargo-search">Search</label>
             <div class="cargo-input-shell">
                 <span class="bi bi-search" aria-hidden="true"></span>
-                <input id="cargo-search" @bind="search" placeholder="Booking number or description"
+                <input id="cargo-search" @bind="search" @bind:event="oninput" @bind:after="ApplyFiltersAsync" placeholder="Booking number or description"
                        aria-label="Search bookings by number or description" />
             </div>
         </div>
 
         <div class="filter-field">
             <label for="cargo-status">Status</label>
-            <select id="cargo-status" @bind="status">
+            <select id="cargo-status" @bind="status" @bind:after="ApplyFiltersAsync">
                 <option value="">All statuses</option>
                 @foreach (var option in CargoBookingFormat.Statuses)
                 {
@@ -65,14 +65,13 @@
         </div>
 
         <label class="cargo-hazard-toggle" for="cargo-hazardous">
-            <input type="checkbox" id="cargo-hazardous" @bind="hazardousOnly" />
+            <input type="checkbox" id="cargo-hazardous" @bind="hazardousOnly" @bind:after="ApplyFiltersAsync" />
             <span class="cargo-placard" aria-hidden="true"></span>
             Hazardous only
         </label>
 
-        <button class="cargo-button" type="submit" disabled="@isLoading">Apply</button>
         <button class="cargo-reset" type="button" @onclick="ClearFiltersAsync" disabled="@isLoading">Reset</button>
-    </form>
+    </div>
 
     @if (failure is { IsValidation: true, Errors.Count: > 0 })
     {

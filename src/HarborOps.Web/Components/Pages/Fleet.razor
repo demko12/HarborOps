@@ -51,21 +51,20 @@
             </span>
         </div>
 
-        <form class="fleet-filters" @onsubmit="SearchAsync" @onsubmit:preventDefault="true">
+        <div class="fleet-filters">
             <div class="fleet-input-shell">
                 <span class="bi bi-search" aria-hidden="true"></span>
-                <input @bind="search" placeholder="Search vessel name or IMO number" aria-label="Search vessels" />
+                <input @bind="search" @bind:event="oninput" @bind:after="SearchAsync" placeholder="Search vessel name or IMO number" aria-label="Search vessels" />
             </div>
-            <select @bind="status" aria-label="Filter by vessel status">
+            <select @bind="status" @bind:after="SearchAsync" aria-label="Filter by vessel status">
                 <option value="">All statuses</option>
                 @foreach (var option in statusOptions)
                 {
                     <option value="@option">@option</option>
                 }
             </select>
-            <button class="fleet-search-button" type="submit" disabled="@isLoading">Search</button>
             <button class="fleet-reset-button" type="button" @onclick="ResetFiltersAsync" disabled="@isLoading">Reset</button>
-        </form>
+        </div>
 
         @if (failure is { IsValidation: true, Errors.Count: > 0 })
         {
