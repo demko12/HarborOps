@@ -8,6 +8,12 @@ window.themeInterop = {
     }
 };
 
+window.scrollInterop = {
+    toTop: function () {
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+};
+
 // Apply the theme NOW, before Blazor loads — prevents "flashing" the wrong theme
 (function () {
     var saved = localStorage.getItem('theme') || 'dark';
