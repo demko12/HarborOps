@@ -29,6 +29,10 @@ internal sealed class CrewApiClient(HttpClient httpClient)
                 problem?.Title ?? (isForbidden ? "Crew access denied" : "Unable to load crew roster"),
                 problem?.Detail ?? (isForbidden ? "Your account does not have permission to view crew members." : "Please try again.")));
         }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
         catch (HttpRequestException)
         {
             return new CrewApiResult<CrewMemberPageResponse>(null, new CrewApiFailure(0, "HarborOps API is unavailable", "Please try again."));

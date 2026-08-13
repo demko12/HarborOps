@@ -89,7 +89,15 @@ public partial class CargoBookings
             pageNumber,
             pageSize);
 
-        var result = await CargoApi.SearchAsync(filter, cancellationToken);
+        CargoApiResult<CargoBookingPage> result;
+        try
+        {
+            result = await CargoApi.SearchAsync(filter, cancellationToken);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            return;
+        }
 
         if (cancellationToken.IsCancellationRequested)
         {

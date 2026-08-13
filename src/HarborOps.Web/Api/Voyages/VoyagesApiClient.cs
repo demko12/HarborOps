@@ -53,6 +53,10 @@ internal sealed class VoyagesApiClient(HttpClient httpClient)
                 problem?.Detail ?? "Please review the filters and try again.",
                 problem?.Errors ?? NoErrors));
         }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
         catch (HttpRequestException)
         {
             return new VoyagesApiResult<VoyagePage>(default, new VoyagesApiFailure(

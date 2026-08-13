@@ -37,6 +37,10 @@ internal sealed class FleetApiClient(HttpClient httpClient)
                     : "Please try again."),
                 problem?.Errors ?? NoErrors));
         }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
         catch (HttpRequestException)
         {
             return new FleetApiResult<VesselPageResponse>(null, new FleetApiFailure(

@@ -102,7 +102,7 @@
 </section>
 
 @code {
-    private readonly CancellationTokenSource disposalCts = new();
+    private CancellationTokenSource loadCancellation = new();
     private readonly DateOnly currentDate = DateOnly.FromDateTime(DateTime.Today);
     private CrewMemberPageResponse? roster;
     private CrewApiFailure? failure;
@@ -166,15 +166,36 @@
 
     private async Task LoadRosterAsync()
     {
-        isLoading = true; failure = null;
-        var result = await CrewApi.GetMembersAsync(search, employmentStatus, roster?.PageNumber ?? 1, 25, disposalCts.Token);
+        loadCancellation.Cancel();
+        loadCancellation.Dispose();
+        loadCancellation = new CancellationTokenSource();
+
+        var cancellationToken = loadCancellation.Token;
+        isLoading = true;
+        failure = null;
+
+        CrewApiResult<CrewMemberPageResponse> result;
+        try
+        {
+            result = await CrewApi.GetMembersAsync(search, employmentStatus, roster?.PageNumber ?? 1, 25, cancellationToken);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            return;
+        }
+
+        if (cancellationToken.IsCancellationRequested)
+        {
+            return;
+        }
+
         if (result.IsSuccess) roster = result.Value; else failure = result.Failure;
         isLoading = false;
     }
 
     private PassportState GetPassportState(DateOnly expiry) => expiry < currentDate ? new(true, "passport-expired") : new(false, "");
     private static string GetEmploymentStatusClass(string status) => string.Equals(status, "Active", StringComparison.OrdinalIgnoreCase) ? "employment-active" : "employment-inactive";
-    public void Dispose() { disposalCts.Cancel(); disposalCts.Dispose(); }
+    public void Dispose() { loadCancellation.Cancel(); loadCancellation.Dispose(); }
     private sealed record PassportState(bool IsExpired, string Class);
     private sealed record RankSummary(string Name, int Count, int Percentage);
 }

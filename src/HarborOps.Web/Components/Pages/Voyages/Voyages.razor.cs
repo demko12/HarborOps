@@ -182,14 +182,22 @@ public partial class Voyages
         isLoading = true;
         failure = null;
 
-        var result = await VoyagesApi.GetVoyagesAsync(
-            appliedFrom,
-            appliedTo,
-            appliedSearch,
-            appliedStatus,
-            pageNumber,
-            pageSize,
-            cancellationToken);
+        VoyagesApiResult<VoyagePage> result;
+        try
+        {
+            result = await VoyagesApi.GetVoyagesAsync(
+                appliedFrom,
+                appliedTo,
+                appliedSearch,
+                appliedStatus,
+                pageNumber,
+                pageSize,
+                cancellationToken);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            return;
+        }
 
         if (cancellationToken.IsCancellationRequested)
         {
@@ -220,14 +228,22 @@ public partial class Voyages
     {
         foreach (var status in StatusOptions)
         {
-            var result = await VoyagesApi.GetVoyagesAsync(
-                appliedFrom,
-                appliedTo,
-                appliedSearch,
-                status,
-                1,
-                1,
-                cancellationToken);
+            VoyagesApiResult<VoyagePage> result;
+            try
+            {
+                result = await VoyagesApi.GetVoyagesAsync(
+                    appliedFrom,
+                    appliedTo,
+                    appliedSearch,
+                    status,
+                    1,
+                    1,
+                    cancellationToken);
+            }
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            {
+                return;
+            }
 
             if (cancellationToken.IsCancellationRequested)
             {
