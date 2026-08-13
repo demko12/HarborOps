@@ -35,17 +35,20 @@
 }
 
 .input-shell ::deep input:focus { box-shadow: none; }
+.administration-search .input-shell, .create-role .input-shell { height: 2.8rem; }
+.administration-search .input-shell ::deep input, .create-role .input-shell ::deep input { height: 100%; padding: 0 .75rem 0 0; font-size: .92rem; }
 .input-shell ::deep input::placeholder { color: var(--text-muted); }
 .admin-form { display: grid; gap: .15rem; }
 .form-field { margin-bottom: .55rem; }
 .form-field label { display: block; margin-bottom: .4rem; color: var(--text-primary); font-size: .84rem; font-weight: 600; }
 .form-field small { display: block; margin: .42rem 0 0; color: var(--text-muted); font-size: .75rem; }
 
-.admin-button, .admin-button-secondary, .pagination button { padding: .68rem .95rem; border: 1px solid var(--accent-border); border-radius: .6rem; color: #fff; background: linear-gradient(135deg, #3b82f6, #2563eb); font-weight: 650; cursor: pointer; transition: transform .15s ease, filter .15s ease, background .15s ease; }
+.admin-button, .admin-button-secondary, .pagination button { padding: 0 1.05rem; border: 1px solid var(--accent-border); border-radius: .6rem; color: #fff; background: linear-gradient(135deg, #3b82f6, #2563eb); font-weight: 650; cursor: pointer; transition: transform .15s ease, filter .15s ease, background .15s ease; }
 .admin-button:hover:not(:disabled) { filter: brightness(1.08); transform: translateY(-1px); }
 .admin-button-secondary, .pagination button { color: var(--text-primary); background: var(--bg-surface); }
 .admin-button-secondary:hover:not(:disabled), .pagination button:hover:not(:disabled) { background: var(--accent-bg); }
 .admin-button:disabled, .pagination button:disabled { cursor: not-allowed; opacity: .5; }
+.admin-button, .admin-button-secondary { height: 2.8rem; font-size: .92rem; }
 
 .user-list, .role-list { border-top: 1px solid var(--border-subtle); }
 .user-row, .role-row { display: flex; width: 100%; align-items: center; justify-content: space-between; gap: 1rem; padding: .9rem .15rem; text-align: left; color: var(--text-primary); border: 0; border-bottom: 1px solid var(--border-subtle); background: transparent; cursor: pointer; transition: color .15s ease, padding .15s ease; }
