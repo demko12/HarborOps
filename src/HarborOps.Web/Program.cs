@@ -1,6 +1,6 @@
+using HarborOps.Web;
 using HarborOps.Web.Api;
 using HarborOps.Web.Components;
-using HarborOps.Web;
 using Microsoft.AspNetCore.Authentication.Cookies;
 
 var builder = WebApplication.CreateBuilder(args);

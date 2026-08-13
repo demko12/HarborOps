@@ -1,0 +1,164 @@
+@page "/voyages"
+@using HarborOps.Web.Api.Voyages
+@implements IDisposable
+@inject VoyagesApiClient VoyagesApi
+
+<PageTitle>Voyages | HarborOps</PageTitle>
+
+<section class="voyages-page">
+    <header class="voyages-header">
+        <div>
+            <p class="voyages-eyebrow">Voyage operations</p>
+            <h1>Voyages</h1>
+            <p>Scheduled voyages ordered by planned departure.</p>
+        </div>
+        <span class="voyages-utc" aria-label="All times are shown in UTC">UTC</span>
+    </header>
+
+    <div class="voyages-summary">
+        <div class="voyages-kpi">
+            <div>
+                <p class="voyages-kpi-label">Planned voyages</p>
+                <p class="voyages-kpi-value">@(plannedCount?.ToString(System.Globalization.CultureInfo.InvariantCulture) ?? MissingValue)</p>
+                <p class="voyages-kpi-note">@FormatDate(appliedFrom) &ndash; @FormatDate(appliedTo)</p>
+            </div>
+            <span class="voyages-kpi-icon" aria-hidden="true"><span class="bi bi-calendar-check"></span></span>
+        </div>
+    </div>
+
+    <form class="voyages-filters" @onsubmit="ApplyFiltersAsync" @onsubmit:preventDefault="true">
+        <div class="filter-field">
+            <label for="voyages-from">From</label>
+            <input id="voyages-from" type="date" @bind="fromDate" />
+        </div>
+        <div class="filter-field">
+            <label for="voyages-to">To</label>
+            <input id="voyages-to" type="date" @bind="toDate" />
+        </div>
+        <div class="filter-field">
+            <label for="voyages-status">Status</label>
+            <select id="voyages-status" @bind="statusFilter">
+                <option value="">All statuses</option>
+                @foreach (var option in StatusOptions)
+                {
+                    <option value="@option">@option</option>
+                }
+            </select>
+        </div>
+        <div class="filter-field">
+            <label for="voyages-page-size">Per page</label>
+            <select id="voyages-page-size" @bind="pageSize">
+                <option value="25">25</option>
+                <option value="50">50</option>
+                <option value="100">100</option>
+            </select>
+        </div>
+        <button class="voyages-button" type="submit" disabled="@isLoading">Apply</button>
+        <button class="voyages-reset" type="button" @onclick="ResetFiltersAsync" disabled="@isLoading">Reset</button>
+    </form>
+
+    @if (failure is { IsValidation: true, Errors.Count: > 0 })
+    {
+        <div class="voyages-validation" role="alert">
+            <strong>@failure.Title</strong>
+            <ul>
+                @foreach (var entry in failure.Errors)
+                {
+                    @foreach (var message in entry.Value)
+                    {
+                        <li>@message</li>
+                    }
+                }
+            </ul>
+        </div>
+    }
+
+    <section class="voyages-card" aria-labelledby="voyages-list-title">
+        <div class="voyages-card-heading">
+            <div>
+                <h2 id="voyages-list-title">Voyage schedule</h2>
+                <p>@totalCount voyages found</p>
+            </div>
+            <span class="voyages-card-icon" aria-hidden="true"><span class="bi bi-signpost-split-fill"></span></span>
+        </div>
+
+        @if (isLoading)
+        {
+            <LoadingState Message="Loading voyages..." />
+        }
+        else if (failure is not null)
+        {
+            <ApiErrorState Title="@FailureTitle(failure)"
+                           Message="@FailureMessage(failure)"
+                           RetryLabel="Retry"
+                           OnRetry="LoadAsync" />
+        }
+        else if (voyages.Count == 0)
+        {
+            <EmptyState Title="No voyages in this window"
+                        Message="Widen the date range or clear the status filter." />
+        }
+        else
+        {
+            <div class="voyages-table-scroll">
+                <table class="voyages-table">
+                    <thead>
+                        <tr>
+                            <th scope="col">Voyage</th>
+                            <th scope="col" class="col-vessel">Vessel</th>
+                            <th scope="col">Route</th>
+                            <th scope="col">Status</th>
+                            <th scope="col">Planned</th>
+                            <th scope="col" class="col-actual">Actual</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @{
+                            var utcNow = DateTime.UtcNow;
+                        }
+                        @foreach (var voyage in voyages)
+                        {
+                            var isImminent = IsImminentDeparture(voyage.PlannedDeparture, utcNow);
+
+                            <tr @key="voyage.VoyageId"
+                                class="@(isImminent ? "imminent" : null)"
+                                title="@(isImminent ? "Departs within 24 hours" : null)">
+                                <td class="voyage-number">@voyage.VoyageNumber</td>
+                                <td class="voyage-vessel col-vessel" title="@voyage.VesselId">@FormatVesselReference(voyage.VesselId)</td>
+                                <td class="voyage-route">@FormatRoute(voyage.DeparturePortCode, voyage.ArrivalPortCode)</td>
+                                <td>
+                                    <span class="voyage-status @StatusModifier(voyage.Status)">@voyage.Status</span>
+                                    <span class="voyage-steps @StatusModifier(voyage.Status)"
+                                          role="img"
+                                          aria-label="@($"Step {StatusStep(voyage.Status)} of 3")">
+                                        @for (var step = 1; step <= 3; step++)
+                                        {
+                                            <i class="@(step <= StatusStep(voyage.Status) ? "on" : null)"></i>
+                                        }
+                                    </span>
+                                </td>
+                                <td class="voyage-stamps">
+                                    <span><b>DEP</b>@FormatUtc(voyage.PlannedDeparture)</span>
+                                    <span><b>ARR</b>@FormatUtc(voyage.PlannedArrival)</span>
+                                </td>
+                                <td class="voyage-stamps col-actual">
+                                    <span class="@(voyage.ActualDeparture is null ? "missing" : null)"><b>DEP</b>@FormatUtc(voyage.ActualDeparture)</span>
+                                    <span class="@(voyage.ActualArrival is null ? "missing" : null)"><b>ARR</b>@FormatUtc(voyage.ActualArrival)</span>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="voyages-pagination">
+                <span>Showing @FirstRowNumber&ndash;@LastRowNumber of @totalCount voyages</span>
+                <div>
+                    <button type="button" @onclick="GoToPreviousPageAsync" disabled="@(pageNumber <= 1)">Previous</button>
+                    <span class="voyages-page-indicator">Page @pageNumber of @TotalPages</span>
+                    <button type="button" @onclick="GoToNextPageAsync" disabled="@(pageNumber >= TotalPages)">Next</button>
+                </div>
+            </div>
+        }
+    </section>
+</section>

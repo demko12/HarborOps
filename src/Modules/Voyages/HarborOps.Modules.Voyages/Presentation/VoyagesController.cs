@@ -11,9 +11,37 @@ namespace HarborOps.Modules.Voyages.Presentation;
 public sealed class VoyagesController(
     ScheduleVoyageService scheduleVoyageService,
     RecordVoyageDepartureService recordVoyageDepartureService,
-    RecordVoyageArrivalService recordVoyageArrivalService)
+    RecordVoyageArrivalService recordVoyageArrivalService,
+    IGetVoyagesQuery getVoyagesQuery)
     : ControllerBase
 {
+    [HttpGet]
+    [ProducesResponseType<GetVoyagesResponse>(StatusCodes.Status200OK)]
+    [ProducesResponseType<HttpValidationProblemDetails>(StatusCodes.Status400BadRequest)]
+    public async Task<ActionResult<GetVoyagesResponse>> Get(
+        [FromQuery] GetVoyagesRequest request,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            var response = await getVoyagesQuery.GetVoyagesAsync(request, cancellationToken);
+
+            return Ok(response);
+        }
+        catch (GetVoyagesValidationException exception)
+        {
+            return BadRequest(new HttpValidationProblemDetails(
+                exception.Errors.ToDictionary(
+                    error => error.Key,
+                    error => error.Value,
+                    StringComparer.Ordinal))
+            {
+                Status = StatusCodes.Status400BadRequest,
+                Title = "One or more validation errors occurred.",
+            });
+        }
+    }
+
     [HttpPost("{voyageId:guid}/departure")]
     [ProducesResponseType<RecordVoyageDepartureResponse>(StatusCodes.Status200OK)]
     [ProducesResponseType<HttpValidationProblemDetails>(StatusCodes.Status400BadRequest)]

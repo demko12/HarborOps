@@ -1,401 +1,322 @@
 @page "/maintenance"
-@implements IDisposable
-@inject MaintenanceWorkOrderBoard Board
+@using HarborOps.Web.Api.Fleet
 @using HarborOps.Web.Api.Maintenance
-@using HarborOps.Web.Features.Maintenance
+@implements IDisposable
+@inject MaintenanceApiClient MaintenanceApi
+@inject VesselLookupApiClient VesselLookupApi
 
-<PageTitle>Maintenance - HarborOps</PageTitle>
+<PageTitle>Maintenance | HarborOps</PageTitle>
 
-<section class="maintenance-intro">
-	<p class="maintenance-eyebrow">Maintenance</p>
-	<h1>Work orders</h1>
-	<p>Review due work, create work orders, and record completion.</p>
-</section>
+<section class="maintenance-page">
+	<header class="maintenance-header">
+		<div>
+			<p class="maintenance-eyebrow">Maintenance operations</p>
+			<h1>Work orders</h1>
+			<p>Review due work, create work orders, and record completion.</p>
+		</div>
+		<span class="maintenance-utc" aria-label="All times are shown in UTC">UTC</span>
+	</header>
 
-<section class="filters-bar" aria-label="Filters">
-	<div class="filter-field">
-		<label for="vessel-filter">Vessel ID</label>
-		<input id="vessel-filter" @bind="vesselIdFilterText" placeholder="e.g. 3fa85f64-..." />
-	</div>
-	<div class="filter-field">
-		<label for="status-filter">Status</label>
-		<select id="status-filter" @bind="Board.StatusFilter">
-			<option value="">All</option>
-			<option value="Open">Open</option>
-			<option value="InProgress">In progress</option>
-			<option value="Completed">Completed</option>
-			<option value="Canceled">Canceled</option>
-		</select>
-	</div>
-	<div class="filter-field">
-		<label for="priority-filter">Priority</label>
-		<select id="priority-filter" @bind="Board.PriorityFilter">
-			<option value="">All</option>
-			<option value="Low">Low</option>
-			<option value="Medium">Medium</option>
-			<option value="High">High</option>
-			<option value="Critical">Critical</option>
-		</select>
-	</div>
-	<div class="filter-field">
-		<label for="overdue-filter">Due status</label>
-		<select id="overdue-filter" @bind="overdueFilterText">
-			<option value="">All</option>
-			<option value="true">Overdue only</option>
-			<option value="false">Not overdue</option>
-		</select>
-	</div>
-	<div class="filter-actions">
-		<button type="button" class="btn btn-primary btn-sm" @onclick="ApplyFiltersAsync">Apply filters</button>
-		<button type="button" class="btn btn-outline-light btn-sm" @onclick="ClearFiltersAsync">Clear</button>
-	</div>
-</section>
+	<section class="maintenance-summary" aria-label="Work order summary">
+		<article class="maintenance-summary-card">
+			<div>
+				<span>Total work orders</span>
+				<strong>@totalCount</strong>
+				<small>Matching the current filters</small>
+			</div>
+			<span class="summary-icon summary-icon-blue" aria-hidden="true"><span class="bi bi-tools"></span></span>
+		</article>
+		<article class="maintenance-summary-card">
+			<div>
+				<span>Overdue on this page</span>
+				<strong>@rows.Count(row => MaintenanceFormat.IsOverdue(row.Status, row.DueUtc, DateTime.UtcNow))</strong>
+				<small>Past due and still open</small>
+			</div>
+			<span class="summary-icon summary-icon-amber" aria-hidden="true"><span class="bi bi-exclamation-triangle-fill"></span></span>
+		</article>
+	</section>
 
-@if (Board.LoadState == BoardLoadState.ValidationFailed && Board.FilterValidationErrors is not null)
-{
-	<div class="filter-validation" role="alert">
-		<strong>These filters aren't valid.</strong>
-		<ul>
-			@foreach (var error in Board.FilterValidationErrors.SelectMany(entry => entry.Value))
-			{
-				<li>@error</li>
-			}
-		</ul>
-	</div>
-}
-
-@if (createSuccessMessage is not null)
-{
-	<div class="success-banner" role="status">@createSuccessMessage</div>
-}
-@if (completionSuccessMessage is not null)
-{
-	<div class="success-banner" role="status">@completionSuccessMessage</div>
-}
-@if (Board.CompletionConflictMessage is not null)
-{
-	<div class="conflict-banner" role="alert">@Board.CompletionConflictMessage</div>
-}
-
-<section class="board-section" aria-label="Work orders">
-	@if (Board.LoadState == BoardLoadState.Loading)
-	{
-		<LoadingState Message="Loading work orders..." />
-	}
-	else if (Board.LoadState == BoardLoadState.Error)
-	{
-		<ApiErrorState Title="Unable to load work orders"
-					   Message="@(Board.ErrorMessage ?? "Something went wrong.")"
-					   RetryLabel="Retry"
-					   OnRetry="RetryAsync" />
-	}
-	else if (Board.LoadState == BoardLoadState.Empty)
-	{
-		<EmptyState Title="No work orders" Message="No work orders match the current filters." />
-	}
-	else if (Board.LoadState == BoardLoadState.Loaded)
-	{
-		<table class="work-order-table">
-			<thead>
-				<tr>
-					<th>Title</th>
-					<th>Vessel</th>
-					<th>Priority</th>
-					<th>Status</th>
-					<th>Due</th>
-					<th>Assigned engineer</th>
-					<th>Created</th>
-					<th>Completed</th>
-					<th></th>
-				</tr>
-			</thead>
-			<tbody>
-				@foreach (var row in Board.Rows)
+	<form class="maintenance-filters" @onsubmit="ApplyFiltersAsync" @onsubmit:preventDefault="true">
+		<div class="filter-field">
+			<label for="maintenance-vessel">Vessel ID</label>
+			<input id="maintenance-vessel" @bind="vesselIdFilterText" placeholder="e.g. 3fa85f64-..." />
+		</div>
+		<div class="filter-field">
+			<label for="maintenance-status">Status</label>
+			<select id="maintenance-status" @bind="statusFilter">
+				<option value="">All statuses</option>
+				@foreach (var option in MaintenanceFormat.Statuses)
 				{
-					<tr class="@(row.IsOverdue ? "row-overdue" : null)">
-						<td>
-							<strong>@row.Title</strong>
-							@if (!string.IsNullOrWhiteSpace(row.Description))
-							{
-								<div class="row-description">@row.Description</div>
-							}
-						</td>
-						<td>@row.VesselDisplayName</td>
-						<td>
-							<span class="badge-priority priority-@row.Priority.ToLowerInvariant()">
-								@row.Priority
-								@if (row.IsCritical)
-								{
-									<span class="bi bi-exclamation-triangle-fill" aria-hidden="true"></span>
-								}
-							</span>
-						</td>
-						<td><span class="badge-status status-@row.Status.ToLowerInvariant()">@row.Status</span></td>
-						<td>
-							@row.DueUtc.ToString("yyyy-MM-dd HH:mm")
-							@if (row.IsOverdue)
-							{
-								<span class="badge-overdue">Overdue</span>
-							}
-						</td>
-						<td>@(row.AssignedEngineerId?.ToString() ?? "Unassigned")</td>
-						<td>@row.CreatedUtc.ToString("yyyy-MM-dd")</td>
-						<td>@(row.CompletedUtc?.ToString("yyyy-MM-dd HH:mm") ?? "-")</td>
-						<td>
-							@if (row.CanComplete)
-							{
-								<button type="button" class="btn btn-sm btn-outline-light" @onclick="() => OpenCompletionForm(row.WorkOrderId)">
-									Complete
-								</button>
-							}
-						</td>
-					</tr>
+					<option value="@option">@option</option>
 				}
-			</tbody>
-		</table>
-
-		<div class="pagination-bar">
-			<button type="button" class="btn btn-sm btn-outline-light" disabled="@(Board.PageNumber <= 1)" @onclick="PreviousPageAsync">
-				Previous
-			</button>
-			<span>Page @Board.PageNumber of @Board.TotalPages (@Board.TotalCount total)</span>
-			<button type="button" class="btn btn-sm btn-outline-light" disabled="@(Board.PageNumber >= Board.TotalPages)" @onclick="NextPageAsync">
-				Next
-			</button>
+			</select>
 		</div>
-	}
-</section>
-
-<section class="create-section" aria-labelledby="create-title">
-	<h2 id="create-title">Create work order</h2>
-	<EditForm Model="createModel" OnValidSubmit="SubmitCreateAsync">
-		<div class="form-grid">
-			<div class="form-field">
-				<label for="create-vessel">Vessel ID</label>
-				<input id="create-vessel" @bind="createModel.VesselId" placeholder="Vessel GUID" />
-			</div>
-			<div class="form-field">
-				<label for="create-title-input">Title</label>
-				<input id="create-title-input" @bind="createModel.Title" maxlength="200" />
-			</div>
-			<div class="form-field form-field-wide">
-				<label for="create-description">Description</label>
-				<textarea id="create-description" @bind="createModel.Description" maxlength="2000"></textarea>
-			</div>
-			<div class="form-field">
-				<label for="create-priority">Priority</label>
-				<select id="create-priority" @bind="createModel.Priority">
-					<option value="">Select...</option>
-					<option value="Low">Low</option>
-					<option value="Medium">Medium</option>
-					<option value="High">High</option>
-					<option value="Critical">Critical</option>
-				</select>
-			</div>
-			<div class="form-field">
-				<label for="create-due">Due (UTC)</label>
-				<input id="create-due" type="datetime-local" @bind="createModel.DueUtcLocal" />
-			</div>
-		</div>
-
-		@if (Board.CreateValidationErrors is not null)
-		{
-			<ul class="field-errors" role="alert">
-				@foreach (var error in Board.CreateValidationErrors.SelectMany(entry => entry.Value))
+		<div class="filter-field">
+			<label for="maintenance-priority">Priority</label>
+			<select id="maintenance-priority" @bind="priorityFilter">
+				<option value="">All priorities</option>
+				@foreach (var option in MaintenanceFormat.Priorities)
 				{
-					<li>@error</li>
+					<option value="@option">@option</option>
+				}
+			</select>
+		</div>
+		<div class="filter-field">
+			<label for="maintenance-overdue">Due status</label>
+			<select id="maintenance-overdue" @bind="overdueFilter">
+				<option value="">All</option>
+				<option value="true">Overdue only</option>
+				<option value="false">Not overdue</option>
+			</select>
+		</div>
+		<div class="filter-field">
+			<label for="maintenance-page-size">Per page</label>
+			<select id="maintenance-page-size" @bind="pageSize">
+				<option value="25">25</option>
+				<option value="50">50</option>
+				<option value="100">100</option>
+			</select>
+		</div>
+		<button class="maintenance-button" type="submit" disabled="@isLoading">Apply</button>
+		<button class="maintenance-reset" type="button" @onclick="ClearFiltersAsync" disabled="@isLoading">Reset</button>
+	</form>
+
+	@if (failure is { IsValidation: true, Errors.Count: > 0 })
+	{
+		<div class="maintenance-validation" role="alert">
+			<strong>@failure.Title</strong>
+			<ul>
+				@foreach (var entry in failure.Errors)
+				{
+					@foreach (var message in entry.Value)
+					{
+						<li>@message</li>
+					}
 				}
 			</ul>
-		}
-		@if (Board.CreateErrorMessage is not null)
+		</div>
+	}
+
+	@if (createSuccessMessage is not null)
+	{
+		<div class="maintenance-success" role="status">@createSuccessMessage</div>
+	}
+	@if (completionSuccessMessage is not null)
+	{
+		<div class="maintenance-success" role="status">@completionSuccessMessage</div>
+	}
+	@if (completionFailure is { IsConflict: true } or { IsNotFound: true })
+	{
+		<div class="maintenance-conflict" role="alert">@completionFailure.Message</div>
+	}
+
+	<section class="maintenance-card" aria-labelledby="maintenance-list-title">
+		<div class="maintenance-card-heading">
+			<div>
+				<h2 id="maintenance-list-title">Work order board</h2>
+				<p>@totalCount work orders found</p>
+			</div>
+			<span class="maintenance-card-icon" aria-hidden="true"><span class="bi bi-tools"></span></span>
+		</div>
+
+		@if (isLoading)
 		{
-			<div class="api-error-inline" role="alert">@Board.CreateErrorMessage</div>
+			<LoadingState Message="Loading work orders..." />
 		}
+		else if (failure is not null && !failure.IsValidation)
+		{
+			<ApiErrorState Title="@failure.Title" Message="@failure.Message" OnRetry="RetryAsync" />
+		}
+		else if (rows.Count == 0)
+		{
+			<EmptyState Title="No work orders match your filters"
+						Message="Widen the filters or clear the vessel, status, and priority selections." />
+		}
+		else
+		{
+			<div class="maintenance-table-scroll">
+				<table class="maintenance-table">
+					<caption class="visually-hidden">Maintenance work orders, ordered by due date</caption>
+					<thead>
+						<tr>
+							<th scope="col">Title</th>
+							<th scope="col">Vessel</th>
+							<th scope="col">Priority</th>
+							<th scope="col">Status</th>
+							<th scope="col">Due</th>
+							<th scope="col">Assigned engineer</th>
+							<th scope="col">Created</th>
+							<th scope="col">Completed</th>
+							<th scope="col"></th>
+						</tr>
+					</thead>
+					<tbody>
+						@{
+							var utcNow = DateTime.UtcNow;
+						}
+						@foreach (var row in rows)
+						{
+							var isOverdue = MaintenanceFormat.IsOverdue(row.Status, row.DueUtc, utcNow);
+							var isCritical = MaintenanceFormat.IsCritical(row.Priority);
 
-		<button type="submit" class="btn btn-primary" disabled="@Board.IsSubmittingCreate">
-			@(Board.IsSubmittingCreate ? "Creating..." : "Create work order")
-		</button>
-	</EditForm>
-</section>
+							<tr @key="row.WorkOrderId" class="@(isOverdue ? "maintenance-overdue-row" : null)">
+								<td>
+									<span class="maintenance-title">@row.Title</span>
+									@if (!string.IsNullOrWhiteSpace(row.Description))
+									{
+										<span class="maintenance-description" title="@row.Description">@row.Description</span>
+									}
+								</td>
+								<td title="@row.VesselId">@row.VesselDisplayName</td>
+								<td>
+									<span class="maintenance-priority priority-@MaintenanceFormat.PriorityModifier(row.Priority)">
+										@if (isCritical)
+										{
+											<span class="bi bi-exclamation-triangle-fill" aria-hidden="true"></span>
+										}
+										@row.Priority
+									</span>
+								</td>
+								<td>
+									<span class="maintenance-status status-@MaintenanceFormat.StatusModifier(row.Status)">@row.Status</span>
+								</td>
+								<td>
+									@MaintenanceFormat.DueUtc(row.DueUtc)
+									@if (isOverdue)
+									{
+										<span class="maintenance-overdue-badge">Overdue</span>
+									}
+								</td>
+								<td class="maintenance-muted">@MaintenanceFormat.AssignedEngineer(row.AssignedEngineerId)</td>
+								<td class="maintenance-muted">@MaintenanceFormat.CreatedUtc(row.CreatedUtc)</td>
+								<td class="maintenance-muted">@MaintenanceFormat.CompletedUtc(row.CompletedUtc)</td>
+								<td>
+									@if (MaintenanceFormat.CanComplete(row.Status))
+									{
+										<button type="button" class="maintenance-complete-button" @onclick="() => OpenCompletionForm(row.WorkOrderId)">
+											Complete
+										</button>
+									}
+								</td>
+							</tr>
+						}
+					</tbody>
+				</table>
+			</div>
 
-@if (completingWorkOrderId is not null)
-{
-	<section class="completion-section" aria-labelledby="completion-title">
-		<h2 id="completion-title">Complete work order</h2>
-		<EditForm Model="completionModel" OnValidSubmit="SubmitCompletionAsync">
-			<div class="form-grid">
-				<div class="form-field">
-					<label for="complete-technician">Technician ID</label>
-					<input id="complete-technician" @bind="completionModel.TechnicianId" />
+			<div class="maintenance-pagination">
+				<span>Showing @FirstRowNumber&ndash;@LastRowNumber of @totalCount work orders</span>
+				<div class="maintenance-pages">
+					<button type="button" @onclick="PreviousPageAsync" disabled="@(pageNumber <= 1)">Previous</button>
+					<span class="maintenance-page-indicator">Page @pageNumber of @TotalPages</span>
+					<button type="button" @onclick="NextPageAsync" disabled="@(pageNumber >= TotalPages)">Next</button>
 				</div>
-				<div class="form-field">
-					<label for="complete-completed-utc">Completed (UTC)</label>
-					<input id="complete-completed-utc" type="datetime-local" @bind="completionModel.CompletedUtcLocal" />
+			</div>
+		}
+	</section>
+
+	<section class="maintenance-form-card" aria-labelledby="maintenance-create-title">
+		<h2 id="maintenance-create-title">Create work order</h2>
+		<form class="maintenance-form" @onsubmit="SubmitCreateAsync" @onsubmit:preventDefault="true">
+			<div class="maintenance-form-grid">
+				<div class="filter-field">
+					<label for="create-vessel">Vessel ID</label>
+					<input id="create-vessel" @bind="createModel.VesselId" placeholder="Vessel GUID" />
 				</div>
-				<div class="form-field">
-					<label for="complete-cost">Cost</label>
-					<input id="complete-cost" type="number" step="0.01" @bind="completionModel.Cost" />
+				<div class="filter-field">
+					<label for="create-title">Title</label>
+					<input id="create-title" @bind="createModel.Title" maxlength="200" />
 				</div>
-				<div class="form-field">
-					<label for="complete-labor-hours">Labor hours</label>
-					<input id="complete-labor-hours" type="number" step="0.1" @bind="completionModel.LaborHours" />
+				<div class="filter-field filter-field-wide">
+					<label for="create-description">Description</label>
+					<textarea id="create-description" @bind="createModel.Description" maxlength="2000"></textarea>
 				</div>
-				<div class="form-field form-field-wide">
-					<label for="complete-notes">Notes</label>
-					<textarea id="complete-notes" @bind="completionModel.Notes" maxlength="2000"></textarea>
+				<div class="filter-field">
+					<label for="create-priority">Priority</label>
+					<select id="create-priority" @bind="createModel.Priority">
+						<option value="">Select...</option>
+						@foreach (var option in MaintenanceFormat.Priorities)
+						{
+							<option value="@option">@option</option>
+						}
+					</select>
+				</div>
+				<div class="filter-field">
+					<label for="create-due">Due (UTC)</label>
+					<input id="create-due" type="datetime-local" @bind="createModel.DueUtcLocal" />
 				</div>
 			</div>
 
-			@if (Board.CompletionValidationErrors is not null)
+			@if (createFailure is { IsValidation: true })
 			{
-				<ul class="field-errors" role="alert">
-					@foreach (var error in Board.CompletionValidationErrors.SelectMany(entry => entry.Value))
+				<ul class="maintenance-field-errors" role="alert">
+					@foreach (var error in createFailure.Errors.SelectMany(entry => entry.Value))
 					{
 						<li>@error</li>
 					}
 				</ul>
 			}
-			@if (Board.CompletionErrorMessage is not null)
+			@if (createFailure is { IsValidation: false })
 			{
-				<div class="api-error-inline" role="alert">@Board.CompletionErrorMessage</div>
+				<div class="maintenance-inline-error" role="alert">@createFailure.Message</div>
 			}
 
-			<div class="completion-actions">
-				<button type="submit" class="btn btn-primary" disabled="@Board.IsSubmittingCompletion">
-					@(Board.IsSubmittingCompletion ? "Completing..." : "Complete work order")
-				</button>
-				<button type="button" class="btn btn-outline-light" @onclick="CloseCompletionForm">Cancel</button>
-			</div>
-		</EditForm>
+			<button type="submit" class="maintenance-button" disabled="@isCreating">
+				@(isCreating ? "Creating..." : "Create work order")
+			</button>
+		</form>
 	</section>
-}
 
-@code {
-	private CancellationTokenSource cancellation = new();
-	private string? vesselIdFilterText;
-	private string? overdueFilterText;
-	private string? createSuccessMessage;
-	private string? completionSuccessMessage;
-	private Guid? completingWorkOrderId;
-
-	private CreateWorkOrderModel createModel = new();
-	private CompleteWorkOrderModel completionModel = new();
-
-	protected override Task OnInitializedAsync() => Board.LoadAsync(cancellation.Token);
-
-	private Task RetryAsync() => Board.LoadAsync(cancellation.Token);
-
-	private Task ApplyFiltersAsync()
+	@if (completingWorkOrderId is not null)
 	{
-		Board.VesselIdFilter = Guid.TryParse(vesselIdFilterText, out var vesselId) ? vesselId : null;
-		Board.OverdueFilter = overdueFilterText switch
-		{
-			"true" => true,
-			"false" => false,
-			_ => null,
-		};
-		return Board.ApplyFiltersAsync(cancellation.Token);
+		<section class="maintenance-form-card" aria-labelledby="maintenance-complete-title">
+			<h2 id="maintenance-complete-title">Complete work order</h2>
+			<form class="maintenance-form" @onsubmit="SubmitCompletionAsync" @onsubmit:preventDefault="true">
+				<div class="maintenance-form-grid">
+					<div class="filter-field">
+						<label for="complete-technician">Technician ID</label>
+						<input id="complete-technician" @bind="completionModel.TechnicianId" />
+					</div>
+					<div class="filter-field">
+						<label for="complete-completed-utc">Completed (UTC)</label>
+						<input id="complete-completed-utc" type="datetime-local" @bind="completionModel.CompletedUtcLocal" />
+					</div>
+					<div class="filter-field">
+						<label for="complete-cost">Cost</label>
+						<input id="complete-cost" type="number" step="0.01" @bind="completionModel.Cost" />
+					</div>
+					<div class="filter-field">
+						<label for="complete-labor-hours">Labor hours</label>
+						<input id="complete-labor-hours" type="number" step="0.1" @bind="completionModel.LaborHours" />
+					</div>
+					<div class="filter-field filter-field-wide">
+						<label for="complete-notes">Notes</label>
+						<textarea id="complete-notes" @bind="completionModel.Notes" maxlength="2000"></textarea>
+					</div>
+				</div>
+
+				@if (completionFailure is { IsValidation: true })
+				{
+					<ul class="maintenance-field-errors" role="alert">
+						@foreach (var error in completionFailure.Errors.SelectMany(entry => entry.Value))
+						{
+							<li>@error</li>
+						}
+					</ul>
+				}
+				
+				@if (completionFailure is { IsValidation: false, IsConflict: false, IsNotFound: false })
+				{
+					<div class="maintenance-inline-error" role="alert">@completionFailure.Message</div>
+				}
+
+				<div class="maintenance-form-actions">
+					<button type="submit" class="maintenance-button" disabled="@isCompleting">
+						@(isCompleting ? "Completing..." : "Complete work order")
+					</button>
+					<button type="button" class="maintenance-reset" @onclick="CloseCompletionForm">Cancel</button>
+				</div>
+			</form>
+		</section>
 	}
-
-	private Task ClearFiltersAsync()
-	{
-		vesselIdFilterText = null;
-		overdueFilterText = null;
-		return Board.ClearFiltersAsync(cancellation.Token);
-	}
-
-	private Task PreviousPageAsync() => Board.GoToPageAsync(Board.PageNumber - 1, cancellation.Token);
-
-	private Task NextPageAsync() => Board.GoToPageAsync(Board.PageNumber + 1, cancellation.Token);
-
-	private async Task SubmitCreateAsync()
-	{
-		createSuccessMessage = null;
-
-		var request = new CreateMaintenanceWorkOrderRequest
-		{
-			VesselId = Guid.TryParse(createModel.VesselId, out var vesselId) ? vesselId : null,
-			Title = createModel.Title,
-			Description = createModel.Description,
-			Priority = createModel.Priority,
-			DueUtc = createModel.DueUtcLocal is { } dueLocal
-				? DateTime.SpecifyKind(dueLocal, DateTimeKind.Utc)
-				: null,
-		};
-
-		var succeeded = await Board.CreateWorkOrderAsync(request, cancellation.Token);
-
-		if (succeeded)
-		{
-			createSuccessMessage = "Work order created.";
-			createModel = new CreateWorkOrderModel();
-		}
-		// Na neuspehu namerno ne resetujemo createModel - vrednosti ostaju u formi.
-	}
-
-	private void OpenCompletionForm(Guid workOrderId)
-	{
-		completingWorkOrderId = workOrderId;
-		completionModel = new CompleteWorkOrderModel();
-		completionSuccessMessage = null;
-	}
-
-	private void CloseCompletionForm()
-	{
-		completingWorkOrderId = null;
-	}
-
-	private async Task SubmitCompletionAsync()
-	{
-		if (completingWorkOrderId is not { } workOrderId)
-		{
-			return;
-		}
-
-		completionSuccessMessage = null;
-
-		var request = new CompleteMaintenanceWorkOrderRequest
-		{
-			TechnicianId = Guid.TryParse(completionModel.TechnicianId, out var technicianId) ? technicianId : null,
-			CompletedUtc = completionModel.CompletedUtcLocal is { } completedLocal
-				? DateTime.SpecifyKind(completedLocal, DateTimeKind.Utc)
-				: null,
-			Notes = completionModel.Notes,
-			Cost = completionModel.Cost,
-			LaborHours = completionModel.LaborHours,
-		};
-
-		var succeeded = await Board.CompleteWorkOrderAsync(workOrderId, request, cancellation.Token);
-
-		if (succeeded)
-		{
-			completionSuccessMessage = "Work order completed.";
-			completingWorkOrderId = null;
-		}
-		// Na neuspehu (validacija/konflikt) forma i vrednosti ostaju otvoreni.
-	}
-
-	public void Dispose()
-	{
-		cancellation.Cancel();
-		cancellation.Dispose();
-	}
-
-	private sealed class CreateWorkOrderModel
-	{
-		public string? VesselId { get; set; }
-		public string? Title { get; set; }
-		public string? Description { get; set; }
-		public string? Priority { get; set; }
-		public DateTime? DueUtcLocal { get; set; }
-	}
-
-	private sealed class CompleteWorkOrderModel
-	{
-		public string? TechnicianId { get; set; }
-		public DateTime? CompletedUtcLocal { get; set; } = DateTime.UtcNow;
-		public string? Notes { get; set; }
-		public decimal? Cost { get; set; }
-		public decimal? LaborHours { get; set; }
-	}
-}
+</section>

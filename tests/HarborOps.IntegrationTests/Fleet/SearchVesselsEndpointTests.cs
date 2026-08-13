@@ -17,14 +17,17 @@ public sealed class SearchVesselsEndpointTests : IntegrationTestBase
 {
     private static readonly string[] ExpectedItemProperties =
     [
+        "companyId",
         "currentStatus",
+        "dwt",
         "flagState",
         "fleetId",
         "fleetName",
-        "id",
         "imoNumber",
         "lifecycleStage",
         "name",
+        "updatedAtUtc",
+        "vesselId",
         "vesselTypeId",
         "vesselTypeName",
     ];
@@ -145,9 +148,7 @@ public sealed class SearchVesselsEndpointTests : IntegrationTestBase
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         Assert.Equal(ExpectedItemProperties, itemProperties);
-        Assert.DoesNotContain("companyId", itemProperties, StringComparer.Ordinal);
         Assert.DoesNotContain("createdAtUtc", itemProperties, StringComparer.Ordinal);
-        Assert.DoesNotContain("updatedAtUtc", itemProperties, StringComparer.Ordinal);
         Assert.DoesNotContain("mmsi", itemProperties, StringComparer.Ordinal);
     }
 

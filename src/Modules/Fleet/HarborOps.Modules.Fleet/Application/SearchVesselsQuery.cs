@@ -40,7 +40,13 @@ internal sealed class SearchVesselsQuery(DbContext dbContext) : ISearchVesselsQu
 
             rows = rows.Where(row =>
                 row.Vessel.Name.Contains(search)
-                || row.Vessel.ImoNumber.Contains(search));
+                || row.Vessel.ImoNumber == search);
+        }
+
+        if (!string.IsNullOrWhiteSpace(request.Status))
+        {
+            var status = request.Status.Trim();
+            rows = rows.Where(row => row.Vessel.CurrentStatus == status);
         }
 
         if (request.FleetId is { } fleetId)
@@ -64,9 +70,12 @@ internal sealed class SearchVesselsQuery(DbContext dbContext) : ISearchVesselsQu
                 row.Vessel.ImoNumber,
                 row.Vessel.FlagState,
                 row.Vessel.CurrentStatus,
-                row.Vessel.LifecycleStage,
                 row.Vessel.VesselTypeId,
                 row.VesselTypeName,
+                row.Vessel.CompanyId,
+                row.Vessel.Dwt,
+                row.Vessel.UpdatedAtUtc,
+                row.Vessel.LifecycleStage,
                 fleetAssignments
                     .Where(assignment =>
                         assignment.VesselId == row.Vessel.Id && assignment.IsActive)

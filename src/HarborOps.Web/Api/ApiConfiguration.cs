@@ -1,6 +1,8 @@
+using HarborOps.Web.Api.Cargo;
+using HarborOps.Web.Api.Voyages;
+
 using HarborOps.Web.Api.Fleet;
 using HarborOps.Web.Api.Maintenance;
-using HarborOps.Web.Features.Maintenance;
 
 namespace HarborOps.Web.Api;
 
@@ -26,29 +28,47 @@ internal static class ApiConfiguration
             client.Timeout = TimeSpan.FromSeconds(15);
         });
 
+        services.AddHttpClient<CargoBookingsApiClient>(client =>
+        {
+            client.BaseAddress = baseAddress;
+            client.Timeout = TimeSpan.FromSeconds(15);
+        }).AddHttpMessageHandler<BearerTokenHandler>();
+
         services.AddHttpClient<MaintenanceApiClient>(client =>
         {
             client.BaseAddress = baseAddress;
             client.Timeout = TimeSpan.FromSeconds(10);
-        });
+        }).AddHttpMessageHandler<BearerTokenHandler>();
 
-        services.AddHttpClient<FleetApiClient>(client =>
+        services.AddHttpClient<VesselLookupApiClient>(client =>
         {
             client.BaseAddress = baseAddress;
             client.Timeout = TimeSpan.FromSeconds(10);
-        });
+        }).AddHttpMessageHandler<BearerTokenHandler>();
 
         services.AddHttpClient<IdentityAdministrationApiClient>(client =>
         {
             client.BaseAddress = baseAddress;
             client.Timeout = TimeSpan.FromSeconds(15);
         }).AddHttpMessageHandler<BearerTokenHandler>();
+
+        services.AddHttpClient<FleetApiClient>(client =>
+        {
+            client.BaseAddress = baseAddress;
+            client.Timeout = TimeSpan.FromSeconds(15);
+        }).AddHttpMessageHandler<BearerTokenHandler>();
+
+        services.AddHttpClient<VoyagesApiClient>(client =>
+        {
+            client.BaseAddress = baseAddress;
+            client.Timeout = TimeSpan.FromSeconds(15);
+        }).AddHttpMessageHandler<BearerTokenHandler>();
+
         services.AddHttpContextAccessor();
         services.AddMemoryCache();
         services.AddSingleton<ServerSessionTicketStore>();
         services.AddTransient<BearerTokenHandler>();
         services.AddScoped<CurrentUserAuthorizationState>();
-        services.AddScoped<MaintenanceWorkOrderBoard>();
 
         return services;
     }

@@ -1,0 +1,188 @@
+@page "/cargo"
+@using HarborOps.Web.Api.Cargo
+@implements IDisposable
+@inject CargoBookingsApiClient CargoApi
+
+<PageTitle>Cargo bookings | HarborOps</PageTitle>
+
+<section class="cargo-page">
+    <header class="cargo-header">
+        <div>
+            <p class="cargo-eyebrow">Cargo operations</p>
+            <h1>Cargo bookings</h1>
+            <p>Search registered bookings and spot hazardous cargo that needs prioritized handling.</p>
+        </div>
+        <span class="cargo-utc" aria-label="All times are shown in UTC">UTC</span>
+    </header>
+
+    <section class="cargo-summary" aria-label="Booking summary">
+        <article class="cargo-summary-card">
+            <div>
+                <span>Total bookings</span>
+                <strong>@totalCount</strong>
+                <small>Matching the current filters</small>
+            </div>
+            <span class="summary-icon summary-icon-blue" aria-hidden="true"><span class="bi bi-box-seam-fill"></span></span>
+        </article>
+        <article class="cargo-summary-card">
+            <div>
+                <span>Hazardous on this page</span>
+                <strong>@rows.Count(row => row.IsHazardous)</strong>
+                <small>Require IMDG handling</small>
+            </div>
+            <span class="summary-icon summary-icon-amber" aria-hidden="true"><span class="bi bi-exclamation-triangle-fill"></span></span>
+        </article>
+    </section>
+
+    <form class="cargo-filters" @onsubmit="ApplyFiltersAsync" @onsubmit:preventDefault="true">
+        <div class="filter-field filter-field-grow">
+            <label for="cargo-search">Search</label>
+            <div class="cargo-input-shell">
+                <span class="bi bi-search" aria-hidden="true"></span>
+                <input id="cargo-search" @bind="search" placeholder="Booking number or description"
+                       aria-label="Search bookings by number or description" />
+            </div>
+        </div>
+
+        <div class="filter-field">
+            <label for="cargo-status">Status</label>
+            <select id="cargo-status" @bind="status">
+                <option value="">All statuses</option>
+                @foreach (var option in CargoBookingFormat.Statuses)
+                {
+                    <option value="@option">@option</option>
+                }
+            </select>
+        </div>
+
+        <div class="filter-field">
+            <label for="cargo-page-size">Per page</label>
+            <select id="cargo-page-size" @bind="pageSize">
+                <option value="25">25</option>
+                <option value="50">50</option>
+                <option value="100">100</option>
+            </select>
+        </div>
+
+        <label class="cargo-hazard-toggle" for="cargo-hazardous">
+            <input type="checkbox" id="cargo-hazardous" @bind="hazardousOnly" />
+            <span class="cargo-placard" aria-hidden="true"></span>
+            Hazardous only
+        </label>
+
+        <button class="cargo-button" type="submit" disabled="@isLoading">Apply</button>
+        <button class="cargo-reset" type="button" @onclick="ClearFiltersAsync" disabled="@isLoading">Reset</button>
+    </form>
+
+    @if (failure is { IsValidation: true, Errors.Count: > 0 })
+    {
+        <div class="cargo-validation" role="alert">
+            <strong>@failure.Title</strong>
+            <ul>
+                @foreach (var entry in failure.Errors)
+                {
+                    @foreach (var message in entry.Value)
+                    {
+                        <li>@message</li>
+                    }
+                }
+            </ul>
+        </div>
+    }
+
+    <section class="cargo-card" aria-labelledby="cargo-list-title">
+        <div class="cargo-card-heading">
+            <div>
+                <h2 id="cargo-list-title">Booking register</h2>
+                <p>@totalCount bookings found</p>
+            </div>
+            <span class="cargo-card-icon" aria-hidden="true"><span class="bi bi-box-seam-fill"></span></span>
+        </div>
+
+        @if (isLoading)
+        {
+            <LoadingState Message="Loading cargo bookings..." />
+        }
+        else if (failure is not null && !failure.IsValidation)
+        {
+            <ApiErrorState Title="@failure.Title" Message="@failure.Message" OnRetry="RetryAsync" />
+        }
+        else if (rows.Count == 0)
+        {
+            <EmptyState Title="No bookings match your filters"
+                        Message="Clear the search or choose a different status." />
+        }
+        else
+        {
+            <div class="cargo-table-scroll">
+                <table class="cargo-table">
+                    <caption class="visually-hidden">Registered cargo bookings, newest first</caption>
+                    <thead>
+                        <tr>
+                            <th scope="col">Booking</th>
+                            <th scope="col" class="col-description">Description</th>
+                            <th scope="col" class="col-type">Cargo type</th>
+                            <th scope="col" class="cargo-num">Weight (kg)</th>
+                            <th scope="col" class="cargo-num col-packages">Packages</th>
+                            <th scope="col">Hazard</th>
+                            <th scope="col">Status</th>
+                            <th scope="col" class="col-created">Created</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var row in rows)
+                        {
+                            <tr @key="row.CargoBookingId" class="@(row.IsHazardous ? "cargo-hazard-row" : null)">
+                                <td>
+                                    <span class="cargo-booking-no">@row.BookingNumber</span>
+                                    <span class="cargo-voyage" title="@row.VoyageId">voyage @CargoBookingFormat.ShortVoyage(row.VoyageId)</span>
+                                </td>
+                                <td class="col-description"><span class="cargo-desc" title="@row.Description">@row.Description</span></td>
+                                <td class="cargo-muted col-type">@row.CargoType</td>
+                                <td class="cargo-num">@CargoBookingFormat.WeightKg(row.WeightKg)</td>
+                                <td class="cargo-num col-packages">@CargoBookingFormat.PackageCount(row.PackageCount)</td>
+                                <td>
+                                    @if (row.IsHazardous)
+                                    {
+                                        <span class="cargo-hazard-chip">
+                                            <span class="cargo-placard" aria-hidden="true"></span>
+                                            @CargoBookingFormat.HazardousLabel
+                                        </span>
+                                    }
+                                    else
+                                    {
+                                        <span class="cargo-no-hazard">
+                                            <span aria-hidden="true">&mdash;</span>
+                                            <span class="visually-hidden">@CargoBookingFormat.NotHazardousLabel</span>
+                                        </span>
+                                    }
+                                </td>
+                                <td>
+                                    <span class="cargo-status @StatusModifier(row.Status)">@row.Status</span>
+                                    <span class="cargo-track @StatusModifier(row.Status)"
+                                          role="img"
+                                          aria-label="@($"Step {CargoBookingFormat.LifecycleStep(row.Status)} of {CargoBookingFormat.Statuses.Count}")">
+                                        @for (var step = 1; step <= CargoBookingFormat.Statuses.Count; step++)
+                                        {
+                                            <i class="@(step <= CargoBookingFormat.LifecycleStep(row.Status) ? "on" : null)"></i>
+                                        }
+                                    </span>
+                                </td>
+                                <td class="cargo-muted cargo-num col-created">@CargoBookingFormat.CreatedUtc(row.CreatedUtc)</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="cargo-pagination">
+                <span>Showing @FirstRowNumber&ndash;@LastRowNumber of @totalCount bookings</span>
+                <div class="cargo-pages">
+                    <button type="button" @onclick="PreviousPageAsync" disabled="@(pageNumber <= 1)">Previous</button>
+                    <span class="cargo-page-indicator">Page @pageNumber of @TotalPages</span>
+                    <button type="button" @onclick="NextPageAsync" disabled="@(pageNumber >= TotalPages)">Next</button>
+                </div>
+            </div>
+        }
+    </section>
+</section>

@@ -1,13 +1,22 @@
+using System.Text.Json.Serialization;
+
 namespace HarborOps.Modules.Fleet.Contracts;
 
 public sealed record VesselListItem(
-    Guid Id,
+    Guid VesselId,
     string Name,
     string ImoNumber,
     string FlagState,
     string CurrentStatus,
-    string? LifecycleStage,
     Guid VesselTypeId,
     string VesselTypeName,
+    Guid CompanyId,
+    decimal? Dwt,
+    DateTime UpdatedAtUtc,
+    string? LifecycleStage,
     Guid? FleetId,
-    string? FleetName);
+    string? FleetName)
+{
+    [JsonIgnore]
+    public Guid Id => VesselId;
+}

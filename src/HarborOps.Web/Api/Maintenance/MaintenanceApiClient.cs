@@ -1,176 +1,164 @@
-using System.Globalization;
 using System.Net;
 using System.Text.Json;
-using Microsoft.AspNetCore.WebUtilities;
 
 namespace HarborOps.Web.Api.Maintenance;
 
-internal sealed class MaintenanceApiClient(
-    HttpClient httpClient)
+internal sealed class MaintenanceApiClient(HttpClient httpClient)
 {
-    private static readonly JsonSerializerOptions JsonOptions = JsonSerializerOptions.Web;
+    private const string BasePath = "api/maintenance/work-orders";
 
-    internal async Task<GetWorkOrdersResult> GetWorkOrdersAsync(
+    private static readonly IReadOnlyDictionary<string, string[]> NoErrors =
+        new Dictionary<string, string[]>(StringComparer.OrdinalIgnoreCase);
+
+    internal async Task<MaintenanceApiResult<MaintenanceWorkOrdersPage>> GetWorkOrdersAsync(
         MaintenanceWorkOrderFilter filter,
         CancellationToken cancellationToken)
     {
-        var queryParameters = new Dictionary<string, string?>
-        {
-            ["pageNumber"] = filter.PageNumber.ToString(CultureInfo.InvariantCulture),
-            ["pageSize"] = filter.PageSize.ToString(CultureInfo.InvariantCulture),
-        };
-
-        if (filter.VesselId is { } vesselId)
-        {
-            queryParameters["vesselId"] = vesselId.ToString();
-        }
-
-        if (!string.IsNullOrWhiteSpace(filter.Status))
-        {
-            queryParameters["status"] = filter.Status;
-        }
-
-        if (!string.IsNullOrWhiteSpace(filter.Priority))
-        {
-            queryParameters["priority"] = filter.Priority;
-        }
-
-        if (filter.Overdue is { } overdue)
-        {
-            queryParameters["overdue"] = overdue ? "true" : "false";
-        }
-
-        var uri = QueryHelpers.AddQueryString("api/maintenance/work-orders", queryParameters);
+        ArgumentNullException.ThrowIfNull(filter);
 
         try
         {
-            using var response = await httpClient.GetAsync(uri, cancellationToken);
+            using var response = await httpClient.GetAsync(
+                BuildGetPath(filter),
+                HttpCompletionOption.ResponseHeadersRead,
+                cancellationToken);
 
-            if (response.IsSuccessStatusCode)
+            if (!response.IsSuccessStatusCode)
             {
-                var page = await response.Content.ReadFromJsonAsync<MaintenanceWorkOrdersPage>(
-                    JsonOptions, cancellationToken);
-                return new GetWorkOrdersResult(MaintenanceRequestStatus.Success, page, null, null);
+                return new MaintenanceApiResult<MaintenanceWorkOrdersPage>(
+                    null, await ReadFailureAsync(response, "Unable to load work orders", cancellationToken));
             }
 
-            if (response.StatusCode == HttpStatusCode.BadRequest)
-            {
-                var problem = await ReadProblemAsync(response, cancellationToken);
-                return new GetWorkOrdersResult(
-                    MaintenanceRequestStatus.ValidationFailed, null, problem?.Errors, problem?.Title);
-            }
+            var page = await response.Content.ReadFromJsonAsync<MaintenanceWorkOrdersPage>(cancellationToken);
 
-            return new GetWorkOrdersResult(
-                MaintenanceRequestStatus.Error, null, null, "Unable to load work orders right now.");
+            return new MaintenanceApiResult<MaintenanceWorkOrdersPage>(page, null);
         }
         catch (HttpRequestException)
         {
-            return new GetWorkOrdersResult(
-                MaintenanceRequestStatus.Error, null, null, "The maintenance service could not be reached.");
+            return new MaintenanceApiResult<MaintenanceWorkOrdersPage>(null, Unavailable());
         }
-        catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
+        catch (TaskCanceledException) when (!cancellationToken.IsCancellationRequested)
         {
-            return new GetWorkOrdersResult(
-                MaintenanceRequestStatus.Error, null, null, "The request timed out.");
+            return new MaintenanceApiResult<MaintenanceWorkOrdersPage>(null, Unavailable());
         }
     }
 
-    internal async Task<CreateWorkOrderResult> CreateWorkOrderAsync(
-        CreateMaintenanceWorkOrderRequest request,
-        CancellationToken cancellationToken)
+    internal async Task<MaintenanceApiResult<CreatedMaintenanceWorkOrder>> CreateWorkOrderAsync(
+    CreateMaintenanceWorkOrderRequest request,
+    CancellationToken cancellationToken)
     {
+        ArgumentNullException.ThrowIfNull(request);
+
         try
         {
-            using var response = await httpClient.PostAsJsonAsync(
-                "api/maintenance/work-orders", request, JsonOptions, cancellationToken);
+            using var response = await httpClient.PostAsJsonAsync(BasePath, request, cancellationToken);
 
-            if (response.StatusCode == HttpStatusCode.Created)
+            if (response.StatusCode != HttpStatusCode.Created)
             {
-                var created = await response.Content.ReadFromJsonAsync<CreatedWorkOrder>(
-                    JsonOptions, cancellationToken);
-                return new CreateWorkOrderResult(MaintenanceRequestStatus.Success, created?.Id, null, null);
+                return new MaintenanceApiResult<CreatedMaintenanceWorkOrder>(
+                    null, await ReadFailureAsync(response, "Unable to create the work order", cancellationToken));
             }
 
-            if (response.StatusCode == HttpStatusCode.BadRequest)
-            {
-                var problem = await ReadProblemAsync(response, cancellationToken);
-                return new CreateWorkOrderResult(
-                    MaintenanceRequestStatus.ValidationFailed, null, problem?.Errors, problem?.Title);
-            }
+            var created = await response.Content.ReadFromJsonAsync<CreatedMaintenanceWorkOrder>(cancellationToken);
 
-            return new CreateWorkOrderResult(
-                MaintenanceRequestStatus.Error, null, null, "Unable to create the work order right now.");
+            return new MaintenanceApiResult<CreatedMaintenanceWorkOrder>(created, null);
         }
         catch (HttpRequestException)
         {
-            return new CreateWorkOrderResult(
-                MaintenanceRequestStatus.Error, null, null, "The maintenance service could not be reached.");
+            return new MaintenanceApiResult<CreatedMaintenanceWorkOrder>(null, Unavailable());
         }
     }
 
-    internal async Task<CompleteWorkOrderResult> CompleteWorkOrderAsync(
+    internal async Task<MaintenanceApiResult<CompleteMaintenanceWorkOrderApiResult>> CompleteWorkOrderAsync(
         Guid workOrderId,
         CompleteMaintenanceWorkOrderRequest request,
         CancellationToken cancellationToken)
     {
+        ArgumentNullException.ThrowIfNull(request);
+
         try
         {
             using var response = await httpClient.PostAsJsonAsync(
-                $"api/maintenance/work-orders/{workOrderId}/completion", request, JsonOptions, cancellationToken);
+                $"{BasePath}/{workOrderId}/completion", request, cancellationToken);
 
-            if (response.StatusCode == HttpStatusCode.OK)
+            if (!response.IsSuccessStatusCode)
             {
-                var result = await response.Content.ReadFromJsonAsync<CompleteMaintenanceWorkOrderApiResult>(
-                    JsonOptions, cancellationToken);
-                return new CompleteWorkOrderResult(
-                    MaintenanceRequestStatus.Success, result?.CompletedUtc, null, null);
+                return new MaintenanceApiResult<CompleteMaintenanceWorkOrderApiResult>(
+                    null, await ReadFailureAsync(response, "Unable to complete the work order", cancellationToken));
             }
 
-            if (response.StatusCode == HttpStatusCode.BadRequest)
-            {
-                var problem = await ReadProblemAsync(response, cancellationToken);
-                return new CompleteWorkOrderResult(
-                    MaintenanceRequestStatus.ValidationFailed, null, problem?.Errors, problem?.Title);
-            }
+            var result = await response.Content
+                .ReadFromJsonAsync<CompleteMaintenanceWorkOrderApiResult>(cancellationToken);
 
-            if (response.StatusCode == HttpStatusCode.Conflict)
-            {
-                var problem = await ReadProblemAsync(response, cancellationToken);
-                return new CompleteWorkOrderResult(
-                    MaintenanceRequestStatus.Conflict,
-                    null,
-                    null,
-                    problem?.Detail ?? "This work order can no longer be completed.");
-            }
-
-            if (response.StatusCode == HttpStatusCode.NotFound)
-            {
-                return new CompleteWorkOrderResult(
-                    MaintenanceRequestStatus.NotFound, null, null, "This work order was not found.");
-            }
-
-            return new CompleteWorkOrderResult(
-                MaintenanceRequestStatus.Error, null, null, "Unable to complete the work order right now.");
+            return new MaintenanceApiResult<CompleteMaintenanceWorkOrderApiResult>(result, null);
         }
         catch (HttpRequestException)
         {
-            return new CompleteWorkOrderResult(
-                MaintenanceRequestStatus.Error, null, null, "The maintenance service could not be reached.");
+            return new MaintenanceApiResult<CompleteMaintenanceWorkOrderApiResult>(null, Unavailable());
         }
     }
 
-    private static async Task<ApiProblemDetails?> ReadProblemAsync(
-        HttpResponseMessage response, CancellationToken cancellationToken)
+    private static string BuildGetPath(MaintenanceWorkOrderFilter filter)
     {
+        var query = new List<string>
+        {
+            $"pageNumber={filter.PageNumber}",
+            $"pageSize={filter.PageSize}",
+        };
+
+        if (filter.VesselId is { } vesselId)
+        {
+            query.Add($"vesselId={vesselId}");
+        }
+
+        if (!string.IsNullOrWhiteSpace(filter.Status))
+        {
+            query.Add($"status={Uri.EscapeDataString(filter.Status)}");
+        }
+
+        if (!string.IsNullOrWhiteSpace(filter.Priority))
+        {
+            query.Add($"priority={Uri.EscapeDataString(filter.Priority)}");
+        }
+
+        if (filter.Overdue is { } overdue)
+        {
+            query.Add($"overdue={(overdue ? "true" : "false")}");
+        }
+
+        return $"{BasePath}?{string.Join('&', query)}";
+    }
+
+    private static async Task<MaintenanceApiFailure> ReadFailureAsync(
+        HttpResponseMessage response,
+        string defaultTitle,
+        CancellationToken cancellationToken)
+    {
+        ApiProblemDetails? problem = null;
+
         try
         {
-            return await response.Content.ReadFromJsonAsync<ApiProblemDetails>(JsonOptions, cancellationToken);
+            problem = await response.Content.ReadFromJsonAsync<ApiProblemDetails>(cancellationToken);
         }
         catch (JsonException)
         {
-            return null;
+            // Not every failure carries a problem details body; keep the page retryable.
         }
+
+        return new MaintenanceApiFailure(
+            (int)response.StatusCode,
+            problem?.Title ?? defaultTitle,
+            problem?.Detail ?? "Please review the details and try again.",
+            problem?.Errors ?? NoErrors);
     }
 
-    private sealed record CreatedWorkOrder(Guid Id);
+    private static MaintenanceApiFailure Unavailable()
+    {
+        return new MaintenanceApiFailure(
+            0,
+            "HarborOps API is unavailable",
+            "The maintenance service cannot be reached right now.",
+            NoErrors);
+    }
+
 }

@@ -2,7 +2,7 @@ using System.Text.Json;
 
 namespace HarborOps.Web.Api.Fleet;
 
-internal sealed class FleetApiClient(
+internal sealed class VesselLookupApiClient(
     HttpClient httpClient)
 {
     private static readonly JsonSerializerOptions JsonOptions = JsonSerializerOptions.Web;

@@ -6,7 +6,6 @@ internal static class RecordVoyageDepartureValidator
 {
     internal const string ActualDepartureUtcField = "actualDepartureUtc";
 
-    /// provjerava departure postoji,utd i da nije u buducnosti 
     internal static IReadOnlyDictionary<string, string[]> Validate(
         RecordVoyageDepartureRequest request,
         DateTime utcNow)
@@ -33,7 +32,6 @@ internal static class RecordVoyageDepartureValidator
         return errors;
     }
 
-    /// a ova da departure nije prije voyagea,tj poredi sa createdUTC
     internal static IReadOnlyDictionary<string, string[]> ValidateAgainstCreatedUtc(
         DateTime actualDepartureUtc,
         DateTime createdUtc)
