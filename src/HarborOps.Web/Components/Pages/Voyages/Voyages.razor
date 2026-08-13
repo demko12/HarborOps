@@ -50,18 +50,18 @@
         </article>
     </section>
 
-    <form class="voyages-filters" @onsubmit="ApplyFiltersAsync" @onsubmit:preventDefault="true">
+    <div class="voyages-filters">
         <div class="filter-field">
             <label for="voyages-from">From</label>
-            <input id="voyages-from" type="date" @bind="fromDate" />
+            <input id="voyages-from" type="date" @bind="fromDate" @bind:after="ApplyFiltersAsync" />
         </div>
         <div class="filter-field">
             <label for="voyages-to">To</label>
-            <input id="voyages-to" type="date" @bind="toDate" />
+            <input id="voyages-to" type="date" @bind="toDate" @bind:after="ApplyFiltersAsync" />
         </div>
         <div class="filter-field">
             <label for="voyages-status">Status</label>
-            <select id="voyages-status" @bind="statusFilter">
+            <select id="voyages-status" @bind="statusFilter" @bind:after="ApplyFiltersAsync">
                 <option value="">All statuses</option>
                 @foreach (var option in StatusOptions)
                 {
@@ -71,15 +71,14 @@
         </div>
         <div class="filter-field">
             <label for="voyages-page-size">Per page</label>
-            <select id="voyages-page-size" @bind="pageSize">
+            <select id="voyages-page-size" @bind="pageSize" @bind:after="ApplyFiltersAsync">
                 <option value="25">25</option>
                 <option value="50">50</option>
                 <option value="100">100</option>
             </select>
         </div>
-        <button class="voyages-button" type="submit" disabled="@isLoading">Apply</button>
         <button class="voyages-reset" type="button" @onclick="ResetFiltersAsync" disabled="@isLoading">Reset</button>
-    </form>
+    </div>
 
     @if (failure is { IsValidation: true, Errors.Count: > 0 })
     {

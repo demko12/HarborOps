@@ -76,7 +76,10 @@ internal sealed record VesselListItemResponse(
     string VesselTypeName,
     Guid CompanyId,
     decimal? Dwt,
-    DateTime UpdatedAtUtc);
+    DateTime UpdatedAtUtc,
+    string? LifecycleStage,
+    Guid? FleetId,
+    string? FleetName);
 
 internal sealed record FleetApiResult<T>(T? Value, FleetApiFailure? Failure)
 {

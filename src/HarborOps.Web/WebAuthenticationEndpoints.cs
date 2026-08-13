@@ -44,7 +44,7 @@ internal static class WebAuthenticationEndpoints
             var properties = new AuthenticationProperties { IsPersistent = true };
             properties.StoreTokens([new AuthenticationToken { Name = "access_token", Value = tokens.AccessToken }, new AuthenticationToken { Name = "refresh_token", Value = tokens.RefreshToken }]);
             await context.SignInAsync(CookieAuthenticationDefaults.AuthenticationScheme, new ClaimsPrincipal(identity), properties);
-            return Results.Redirect(returnUrl);
+            return Results.Redirect($"/login?success=1&returnUrl={Uri.EscapeDataString(returnUrl)}");
         }
         catch (HttpRequestException) { return Results.Redirect("/login?error=unavailable"); }
     }

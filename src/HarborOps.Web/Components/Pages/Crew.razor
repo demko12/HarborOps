@@ -1,0 +1,180 @@
+@page "/crew"
+@attribute [Microsoft.AspNetCore.Authorization.Authorize]
+@implements IDisposable
+@inject CrewApiClient CrewApi
+
+<PageTitle>Crew | HarborOps</PageTitle>
+
+<section class="crew-page">
+    <header class="crew-header">
+        <div><p class="crew-eyebrow">Crewing operations</p><h1>Crew roster</h1><p>Find crew members and identify passport expiry issues.</p></div>
+    </header>
+
+    @if (roster is not null)
+    {
+        <section class="crew-summary" aria-label="Crew summary">
+            <article class="crew-summary-card"><div><span>Total crew</span><strong>@(roster.TotalCount)</strong><small>In the personnel register</small></div><span class="crew-summary-icon crew-summary-blue"><span class="bi bi-people"></span></span></article>
+            <article class="crew-summary-card"><div><span>Active crew</span><strong>@ActiveCrew</strong><small>On this page</small></div><span class="crew-summary-icon crew-summary-green"><span class="bi bi-person-check"></span></span></article>
+            <article class="crew-summary-card"><div><span>Expired passports</span><strong>@ExpiredPassports</strong><small>Require immediate attention</small></div><span class="crew-summary-icon crew-summary-red"><span class="bi bi-passport"></span></span></article>
+            <article class="crew-summary-card"><div><span>Expiring in 90 days</span><strong>@PassportsExpiringSoon</strong><small>Plan renewal activity</small></div><span class="crew-summary-icon crew-summary-amber"><span class="bi bi-calendar-event"></span></span></article>
+        </section>
+    }
+
+    <div class="crew-workspace">
+    <section class="crew-card" aria-labelledby="crew-roster-title">
+        <div class="crew-card-heading"><div><h2 id="crew-roster-title">Personnel register</h2><p>@(roster?.TotalCount ?? 0) crew members found</p></div><span class="bi bi-people" aria-hidden="true"></span></div>
+        <div class="crew-filters">
+            <div class="crew-input-shell"><span class="bi bi-search" aria-hidden="true"></span><input @bind="search" @bind:event="oninput" @bind:after="SearchAsync" placeholder="Search name or IMO seafarer ID" aria-label="Search crew members" /></div>
+            <select @bind="employmentStatus" @bind:after="SearchAsync" aria-label="Filter by employment status"><option value="">All statuses</option><option value="Active">Active</option><option value="Inactive">Inactive</option></select>
+            <button type="button" class="crew-reset-button" @onclick="ResetFiltersAsync" disabled="@isLoading">Reset</button>
+        </div>
+
+        @if (isLoading)
+        {
+            <LoadingState Message="Loading crew roster..." />
+        }
+        else if (failure is not null)
+        {
+            <ApiErrorState Title="@failure.Title" Message="@failure.Message" OnRetry="LoadRosterAsync" />
+        }
+        else if (roster is null || roster.Items.Count == 0)
+        {
+            <EmptyState Title="No crew members found" Message="Try another name, IMO seafarer ID, or employment status." />
+        }
+        else
+        {
+            <div class="crew-list-labels" aria-hidden="true"><span></span><span>Crew member</span><span>Rank</span><span>Passport</span><span>Status</span></div>
+            <div class="crew-roster-list">
+                @foreach (var member in roster.Items)
+                {
+                    var passportState = GetPassportState(member.PassportExpiry);
+                    <article class="crew-member-row">
+                        <span class="crew-avatar">@member.Name[0]</span>
+                        <div class="crew-member-primary"><strong>@member.Name</strong><span>@member.Nationality &middot; IMO @member.ImoSeafarerId</span></div>
+                        <div class="crew-rank"><span>Base rank</span><strong>@member.BaseRankName</strong></div>
+                        <div class="crew-passport @passportState.Class"><span>Passport expiry</span><strong>@member.PassportExpiry.ToString("dd MMM yyyy")</strong>@if (passportState.IsExpired) { <small><span class="bi bi-exclamation-triangle"></span> Expired</small> }</div>
+                        <span class="employment-status @GetEmploymentStatusClass(member.EmploymentStatus)">@member.EmploymentStatus</span>
+                    </article>
+                }
+            </div>
+            <div class="crew-pagination"><span>Showing @FirstRowNumber&ndash;@LastRowNumber of @roster.TotalCount crew members</span><div><button type="button" @onclick="PreviousPageAsync" disabled="@(roster.PageNumber <= 1)">Previous</button><span class="crew-page-indicator">Page @roster.PageNumber of @TotalPages</span><button type="button" @onclick="NextPageAsync" disabled="@(roster.PageNumber >= TotalPages)">Next</button></div></div>
+        }
+    </section>
+    @if (roster is not null)
+    {
+        <aside class="crew-insights" aria-label="Crew roster insights">
+            <section class="crew-insight-card">
+                <div class="crew-insight-heading"><h2>Rank distribution</h2><span class="bi bi-bar-chart" aria-hidden="true"></span></div>
+                @if (RankDistribution.Count == 0)
+                {
+                    <p class="crew-insight-empty"><span class="bi bi-info-circle"></span> No rank data matches the current filters.</p>
+                }
+                else
+                {
+                    <div class="rank-distribution">
+                        @foreach (var rank in RankDistribution)
+                        {
+                            <div class="rank-distribution-row"><div><span>@rank.Name</span><strong>@rank.Count</strong></div><span class="rank-distribution-bar"><span style="width: @rank.Percentage%"></span></span></div>
+                        }
+                    </div>
+                }
+                <p class="crew-insight-note">Based on the current roster page.</p>
+            </section>
+            <section class="crew-insight-card">
+                <div class="crew-insight-heading"><h2>Passport attention</h2><span class="bi bi-passport" aria-hidden="true"></span></div>
+                @if (PassportAttention.Count == 0)
+                {
+                    <p class="crew-insight-empty"><span class="bi bi-check2-circle"></span> No expired or soon-expiring passports on this page.</p>
+                }
+                else
+                {
+                    <div class="passport-attention-list">
+                        @foreach (var member in PassportAttention)
+                        {
+                            <div><span class="bi bi-exclamation-triangle" aria-hidden="true"></span><p><strong>@member.Name</strong><small>Expires @member.PassportExpiry.ToString("dd MMM yyyy")</small></p></div>
+                        }
+                    </div>
+                }
+            </section>
+        </aside>
+    }
+    </div>
+</section>
+
+@code {
+    private readonly CancellationTokenSource disposalCts = new();
+    private readonly DateOnly currentDate = DateOnly.FromDateTime(DateTime.Today);
+    private CrewMemberPageResponse? roster;
+    private CrewApiFailure? failure;
+    private string? search;
+    private string? employmentStatus;
+    private bool isLoading = true;
+
+    private int TotalPages => roster is null || roster.TotalCount == 0 ? 1 : (int)Math.Ceiling((double)roster.TotalCount / roster.PageSize);
+    private int FirstRowNumber => roster is null || roster.TotalCount == 0 ? 0 : ((roster.PageNumber - 1) * roster.PageSize) + 1;
+    private int LastRowNumber => roster is null ? 0 : Math.Min(roster.PageNumber * roster.PageSize, roster.TotalCount);
+    private int ActiveCrew => roster?.Items.Count(member => string.Equals(member.EmploymentStatus, "Active", StringComparison.OrdinalIgnoreCase)) ?? 0;
+    private int ExpiredPassports => roster?.Items.Count(member => member.PassportExpiry < currentDate) ?? 0;
+    private int PassportsExpiringSoon => roster?.Items.Count(member => member.PassportExpiry >= currentDate && member.PassportExpiry <= currentDate.AddDays(90)) ?? 0;
+    private IReadOnlyList<RankSummary> RankDistribution
+    {
+        get
+        {
+            if (roster is null || roster.Items.Count == 0)
+            {
+                return [];
+            }
+
+            return roster.Items
+                .GroupBy(member => member.BaseRankName)
+                .OrderByDescending(group => group.Count())
+                .ThenBy(group => group.Key, StringComparer.Ordinal)
+                .Select(group => new RankSummary(group.Key, group.Count(), Math.Max(8, group.Count() * 100 / roster.Items.Count)))
+                .ToList();
+        }
+    }
+    private IReadOnlyList<CrewMemberListItemResponse> PassportAttention => roster?.Items
+        .Where(member => member.PassportExpiry <= currentDate.AddDays(90))
+        .OrderBy(member => member.PassportExpiry)
+        .Take(5)
+        .ToList() ?? [];
+
+    protected override async Task OnInitializedAsync() => await LoadRosterAsync();
+
+    private async Task SearchAsync()
+    {
+        if (roster is not null) roster = roster with { PageNumber = 1 };
+        await LoadRosterAsync();
+    }
+
+    private async Task PreviousPageAsync()
+    {
+        if (roster is not null && roster.PageNumber > 1) { roster = roster with { PageNumber = roster.PageNumber - 1 }; await LoadRosterAsync(); }
+    }
+
+    private async Task ResetFiltersAsync()
+    {
+        search = null;
+        employmentStatus = null;
+        await SearchAsync();
+    }
+
+    private async Task NextPageAsync()
+    {
+        if (roster is not null && roster.PageNumber < TotalPages) { roster = roster with { PageNumber = roster.PageNumber + 1 }; await LoadRosterAsync(); }
+    }
+
+    private async Task LoadRosterAsync()
+    {
+        isLoading = true; failure = null;
+        var result = await CrewApi.GetMembersAsync(search, employmentStatus, roster?.PageNumber ?? 1, 25, disposalCts.Token);
+        if (result.IsSuccess) roster = result.Value; else failure = result.Failure;
+        isLoading = false;
+    }
+
+    private PassportState GetPassportState(DateOnly expiry) => expiry < currentDate ? new(true, "passport-expired") : new(false, "");
+    private static string GetEmploymentStatusClass(string status) => string.Equals(status, "Active", StringComparison.OrdinalIgnoreCase) ? "employment-active" : "employment-inactive";
+    public void Dispose() { disposalCts.Cancel(); disposalCts.Dispose(); }
+    private sealed record PassportState(bool IsExpired, string Class);
+    private sealed record RankSummary(string Name, int Count, int Percentage);
+}

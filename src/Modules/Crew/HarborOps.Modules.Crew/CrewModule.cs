@@ -1,5 +1,6 @@
 using System.Reflection;
 using HarborOps.Modules.Crew.Application;
+using HarborOps.Modules.Crew.Contracts;
 using HarborOps.SharedKernel;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
@@ -15,6 +16,7 @@ public static class CrewModule
     public static IServiceCollection AddCrewModule(this IServiceCollection services)
     {
         services.AddScoped<RegisterCrewMemberService>();
+        services.AddScoped<ISearchCrewMembersQuery, SearchCrewMembersQuery>();
         services.AddScoped<RegisterCrewAssignmentService>();
         services.AddScoped<RegisterCrewCertificateService>();
         services.TryAddSingleton<IDateTimeProvider, SystemDateTimeProvider>();
