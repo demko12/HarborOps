@@ -1,0 +1,163 @@
+.maintenance-intro {
+    margin-bottom: 1.5rem;
+}
+
+.maintenance-eyebrow {
+    margin-bottom: 0.35rem;
+    color: var(--accent);
+    font-size: 0.75rem;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+}
+
+.filters-bar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: end;
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+    padding: 1rem;
+    border: 1px solid var(--border-subtle);
+    border-radius: 0.75rem;
+    background: var(--bg-surface);
+}
+
+.filter-field {
+    display: flex;
+    flex-direction: column;
+    gap: 0.3rem;
+    min-width: 10rem;
+}
+
+    .filter-field label {
+        font-size: 0.75rem;
+        color: var(--text-secondary);
+    }
+
+.filter-actions {
+    display: flex;
+    gap: 0.5rem;
+}
+
+.filter-validation,
+.field-errors {
+    margin-bottom: 1rem;
+    padding: 0.75rem 1rem;
+    border: 1px solid rgba(248, 113, 113, 0.25);
+    border-radius: 0.5rem;
+    background: rgba(127, 29, 29, 0.15);
+    color: var(--text-secondary);
+}
+
+.success-banner {
+    margin-bottom: 1rem;
+    padding: 0.75rem 1rem;
+    border: 1px solid rgba(52, 211, 153, 0.25);
+    border-radius: 0.5rem;
+    background: rgba(6, 78, 59, 0.15);
+    color: var(--text-primary);
+}
+
+.conflict-banner {
+    margin-bottom: 1rem;
+    padding: 0.75rem 1rem;
+    border: 1px solid rgba(251, 191, 36, 0.3);
+    border-radius: 0.5rem;
+    background: rgba(120, 53, 15, 0.15);
+    color: var(--text-primary);
+}
+
+.board-section {
+    margin-bottom: 2rem;
+}
+
+.work-order-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+    .work-order-table th,
+    .work-order-table td {
+        padding: 0.6rem 0.75rem;
+        text-align: left;
+        border-bottom: 1px solid var(--border-subtle);
+        font-size: 0.875rem;
+    }
+
+.row-overdue {
+    background: rgba(248, 113, 113, 0.06);
+}
+
+.row-description {
+    color: var(--text-muted);
+    font-size: 0.8rem;
+}
+
+.badge-priority,
+.badge-status,
+.badge-overdue {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    padding: 0.15rem 0.5rem;
+    border-radius: 999px;
+    font-size: 0.75rem;
+}
+
+.priority-critical {
+    background: rgba(248, 113, 113, 0.18);
+    color: #f87171;
+}
+
+.badge-overdue {
+    margin-left: 0.5rem;
+    background: rgba(248, 113, 113, 0.18);
+    color: #f87171;
+}
+
+.pagination-bar {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    margin-top: 1rem;
+    color: var(--text-secondary);
+    font-size: 0.875rem;
+}
+
+.create-section,
+.completion-section {
+    max-width: 44rem;
+    margin-bottom: 2rem;
+    padding: 1.25rem;
+    border: 1px solid var(--border-subtle);
+    border-radius: 1rem;
+    background: var(--bg-surface);
+}
+
+.form-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
+    margin-bottom: 1rem;
+}
+
+.form-field-wide {
+    grid-column: 1 / -1;
+}
+
+.form-field {
+    display: flex;
+    flex-direction: column;
+    gap: 0.3rem;
+}
+
+.api-error-inline {
+    margin-bottom: 1rem;
+    color: #f87171;
+}
+
+.completion-actions {
+    display: flex;
+    gap: 0.5rem;
+}
