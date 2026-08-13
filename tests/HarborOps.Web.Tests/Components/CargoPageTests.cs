@@ -84,7 +84,7 @@ public sealed class CargoPageTests : BunitContext
         page.Find("form.cargo-filters").Submit();
         page.WaitForAssertion(() => Assert.Equal(2, requestedUris.Count));
 
-        page.Find(".cargo-button-link").Click();
+        page.Find(".cargo-reset").Click();
 
         page.WaitForAssertion(() =>
         {

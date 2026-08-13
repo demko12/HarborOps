@@ -114,14 +114,14 @@ public partial class CargoBookings
         totalCount = page.TotalCount;
     }
 
-    private static string? StatusModifier(string status)
+    private static string StatusModifier(string status)
     {
         if (string.Equals(status, "Completed", StringComparison.OrdinalIgnoreCase))
         {
             return "done";
         }
 
-        return CargoBookingFormat.LifecycleStep(status) > 1 ? "active" : null;
+        return CargoBookingFormat.LifecycleStep(status) > 1 ? "active" : "pending";
     }
 
     public void Dispose()
