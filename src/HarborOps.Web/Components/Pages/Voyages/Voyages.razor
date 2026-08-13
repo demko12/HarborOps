@@ -15,16 +15,40 @@
         <span class="voyages-utc" aria-label="All times are shown in UTC">UTC</span>
     </header>
 
-    <div class="voyages-summary">
-        <div class="voyages-kpi">
+    <section class="voyages-summary" aria-label="Voyage summary">
+        <article class="voyages-kpi">
             <div>
-                <p class="voyages-kpi-label">Planned voyages</p>
-                <p class="voyages-kpi-value">@(plannedCount?.ToString(System.Globalization.CultureInfo.InvariantCulture) ?? MissingValue)</p>
+                <p class="voyages-kpi-label">Planned</p>
+                <p class="voyages-kpi-value">@FormatCount(StatusCount(PlannedStatus))</p>
                 <p class="voyages-kpi-note">@FormatDate(appliedFrom) &ndash; @FormatDate(appliedTo)</p>
             </div>
-            <span class="voyages-kpi-icon" aria-hidden="true"><span class="bi bi-calendar-check"></span></span>
-        </div>
-    </div>
+            <span class="voyages-kpi-icon kpi-icon-planned" aria-hidden="true"><span class="bi bi-calendar-check"></span></span>
+        </article>
+        <article class="voyages-kpi">
+            <div>
+                <p class="voyages-kpi-label">In progress</p>
+                <p class="voyages-kpi-value">@FormatCount(StatusCount(InProgressStatus))</p>
+                <p class="voyages-kpi-note">Departed, not yet arrived</p>
+            </div>
+            <span class="voyages-kpi-icon kpi-icon-progress" aria-hidden="true"><span class="bi bi-arrow-right-circle"></span></span>
+        </article>
+        <article class="voyages-kpi">
+            <div>
+                <p class="voyages-kpi-label">Completed</p>
+                <p class="voyages-kpi-value">@FormatCount(StatusCount(CompletedStatus))</p>
+                <p class="voyages-kpi-note">Arrival recorded</p>
+            </div>
+            <span class="voyages-kpi-icon kpi-icon-completed" aria-hidden="true"><span class="bi bi-check2-circle"></span></span>
+        </article>
+        <article class="voyages-kpi">
+            <div>
+                <p class="voyages-kpi-label">@DelayedStatus</p>
+                <p class="voyages-kpi-value">@MissingValue</p>
+                <p class="voyages-kpi-note">Not tracked yet</p>
+            </div>
+            <span class="voyages-kpi-icon kpi-icon-delayed" aria-hidden="true"><span class="bi bi-hourglass-split"></span></span>
+        </article>
+    </section>
 
     <form class="voyages-filters" @onsubmit="ApplyFiltersAsync" @onsubmit:preventDefault="true">
         <div class="filter-field">

@@ -20,7 +20,10 @@ public partial class Voyages
     private static readonly string[] StatusOptions =
         [PlannedStatus, InProgressStatus, CompletedStatus];
 
+    internal const string DelayedStatus = "Delayed";
+
     private readonly List<VoyageListItemModel> voyages = [];
+    private readonly Dictionary<string, int?> statusCounts = new(StringComparer.Ordinal);
 
     private CancellationTokenSource loadCancellation = new();
 
@@ -34,7 +37,6 @@ public partial class Voyages
     private int pageNumber = 1;
     private int pageSize = 25;
     private int totalCount;
-    private int? plannedCount;
     private VoyagesApiFailure? failure;
     private bool isLoading = true;
 
@@ -54,6 +56,11 @@ public partial class Voyages
     internal static string FormatRoute(string departurePortCode, string arrivalPortCode)
     {
         return $"{departurePortCode} → {arrivalPortCode}";
+    }
+
+    internal static string FormatCount(int? value)
+    {
+        return value?.ToString(CultureInfo.InvariantCulture) ?? MissingValue;
     }
 
     internal static string FormatDate(DateOnly value)
@@ -191,7 +198,7 @@ public partial class Voyages
             failure = result.Failure;
             voyages.Clear();
             totalCount = 0;
-            plannedCount = null;
+            statusCounts.Clear();
             return;
         }
 
@@ -201,25 +208,33 @@ public partial class Voyages
         pageNumber = page.PageNumber;
         totalCount = page.TotalCount;
 
-        await LoadPlannedCountAsync(cancellationToken);
+        await LoadStatusCountsAsync(cancellationToken);
     }
 
-    private async Task LoadPlannedCountAsync(CancellationToken cancellationToken)
+    private async Task LoadStatusCountsAsync(CancellationToken cancellationToken)
     {
-        var result = await VoyagesApi.GetVoyagesAsync(
-            appliedFrom,
-            appliedTo,
-            PlannedStatus,
-            1,
-            1,
-            cancellationToken);
-
-        if (cancellationToken.IsCancellationRequested)
+        foreach (var status in StatusOptions)
         {
-            return;
-        }
+            var result = await VoyagesApi.GetVoyagesAsync(
+                appliedFrom,
+                appliedTo,
+                status,
+                1,
+                1,
+                cancellationToken);
 
-        plannedCount = result.IsSuccess ? result.Value!.TotalCount : null;
+            if (cancellationToken.IsCancellationRequested)
+            {
+                return;
+            }
+
+            statusCounts[status] = result.IsSuccess ? result.Value!.TotalCount : null;
+        }
+    }
+
+    private int? StatusCount(string status)
+    {
+        return statusCounts.TryGetValue(status, out var count) ? count : null;
     }
 
     public void Dispose()

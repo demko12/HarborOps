@@ -1,9 +1,9 @@
 using HarborOps.Web.Api.Voyages;
 using HarborOps.Web.Components.Pages.Voyages;
 
-namespace HarborOps.Web.Tests.Pages;
+namespace HarborOps.Web.Tests.Components;
 
-public sealed class VoyagesRenderingTests
+public sealed class VoyageFormatTests
 {
     [Fact]
     public void Route_renders_departure_code_to_arrival_code()
