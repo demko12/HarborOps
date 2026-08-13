@@ -62,7 +62,24 @@
                 }
             </select>
             <button class="fleet-search-button" type="submit" disabled="@isLoading">Search</button>
+            <button class="fleet-reset-button" type="button" @onclick="ResetFiltersAsync" disabled="@isLoading">Reset</button>
         </form>
+
+        @if (failure is { IsValidation: true, Errors.Count: > 0 })
+        {
+            <div class="fleet-validation" role="alert">
+                <strong>@failure.Title</strong>
+                <ul>
+                    @foreach (var entry in failure.Errors)
+                    {
+                        @foreach (var message in entry.Value)
+                        {
+                            <li>@message</li>
+                        }
+                    }
+                </ul>
+            </div>
+        }
 
         @if (isLoading)
         {
@@ -126,6 +143,13 @@
         }
 
         await LoadVesselsAsync();
+    }
+
+    private async Task ResetFiltersAsync()
+    {
+        search = null;
+        status = null;
+        await SearchAsync();
     }
 
     private async Task PreviousPageAsync()

@@ -16,9 +16,12 @@
 
     <div class="voyages-summary">
         <div class="voyages-kpi">
-            <p class="voyages-kpi-label">Planned voyages</p>
-            <p class="voyages-kpi-value">@(plannedCount?.ToString(System.Globalization.CultureInfo.InvariantCulture) ?? MissingValue)</p>
-            <p class="voyages-kpi-note">@FormatDate(appliedFrom) &ndash; @FormatDate(appliedTo)</p>
+            <div>
+                <p class="voyages-kpi-label">Planned voyages</p>
+                <p class="voyages-kpi-value">@(plannedCount?.ToString(System.Globalization.CultureInfo.InvariantCulture) ?? MissingValue)</p>
+                <p class="voyages-kpi-note">@FormatDate(appliedFrom) &ndash; @FormatDate(appliedTo)</p>
+            </div>
+            <span class="voyages-kpi-icon" aria-hidden="true"><span class="bi bi-calendar-check"></span></span>
         </div>
     </div>
 
@@ -69,7 +72,15 @@
         </div>
     }
 
-    <section class="voyages-card" aria-label="Voyages">
+    <section class="voyages-card" aria-labelledby="voyages-list-title">
+        <div class="voyages-card-heading">
+            <div>
+                <h2 id="voyages-list-title">Voyage schedule</h2>
+                <p>@totalCount voyages found</p>
+            </div>
+            <span class="voyages-card-icon" aria-hidden="true"><span class="bi bi-signpost-split-fill"></span></span>
+        </div>
+
         @if (isLoading)
         {
             <LoadingState Message="Loading voyages..." />
@@ -93,11 +104,11 @@
                     <thead>
                         <tr>
                             <th scope="col">Voyage</th>
-                            <th scope="col">Vessel</th>
+                            <th scope="col" class="col-vessel">Vessel</th>
                             <th scope="col">Route</th>
                             <th scope="col">Status</th>
                             <th scope="col">Planned</th>
-                            <th scope="col">Actual</th>
+                            <th scope="col" class="col-actual">Actual</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -112,7 +123,7 @@
                                 class="@(isImminent ? "imminent" : null)"
                                 title="@(isImminent ? "Departs within 24 hours" : null)">
                                 <td class="voyage-number">@voyage.VoyageNumber</td>
-                                <td class="voyage-vessel" title="@voyage.VesselId">@FormatVesselReference(voyage.VesselId)</td>
+                                <td class="voyage-vessel col-vessel" title="@voyage.VesselId">@FormatVesselReference(voyage.VesselId)</td>
                                 <td class="voyage-route">@FormatRoute(voyage.DeparturePortCode, voyage.ArrivalPortCode)</td>
                                 <td>
                                     <span class="voyage-status @StatusModifier(voyage.Status)">@voyage.Status</span>
@@ -129,7 +140,7 @@
                                     <span><b>DEP</b>@FormatUtc(voyage.PlannedDeparture)</span>
                                     <span><b>ARR</b>@FormatUtc(voyage.PlannedArrival)</span>
                                 </td>
-                                <td class="voyage-stamps">
+                                <td class="voyage-stamps col-actual">
                                     <span class="@(voyage.ActualDeparture is null ? "missing" : null)"><b>DEP</b>@FormatUtc(voyage.ActualDeparture)</span>
                                     <span class="@(voyage.ActualArrival is null ? "missing" : null)"><b>ARR</b>@FormatUtc(voyage.ActualArrival)</span>
                                 </td>

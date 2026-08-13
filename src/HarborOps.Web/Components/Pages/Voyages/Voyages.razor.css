@@ -52,8 +52,10 @@ html[data-theme="light"] .voyages-page {
 
 .voyages-kpi {
     display: inline-flex;
-    flex-direction: column;
-    min-width: 15rem;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 1.5rem;
+    min-width: 18rem;
     padding: 1.15rem 1.35rem;
     border: 1px solid var(--border-medium);
     border-radius: 1rem;
@@ -64,6 +66,31 @@ html[data-theme="light"] .voyages-page {
 .voyages-kpi-label { margin: 0; color: var(--text-muted); font-size: .72rem; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; }
 .voyages-kpi-value { margin: .3rem 0 0; font-size: 2.1rem; font-weight: 650; line-height: 1.1; font-variant-numeric: tabular-nums; }
 .voyages-kpi-note { margin: .2rem 0 0; color: var(--text-secondary); font-size: .8rem; }
+
+.voyages-kpi-icon,
+.voyages-card-icon {
+    display: grid;
+    flex: 0 0 auto;
+    width: 2rem;
+    height: 2rem;
+    place-items: center;
+    color: var(--accent);
+    border: 1px solid var(--accent-border);
+    border-radius: .65rem;
+    background: var(--accent-bg);
+    font-size: .9rem;
+}
+
+.voyages-card-heading {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 1rem;
+    margin-bottom: 1.15rem;
+}
+
+.voyages-card-heading h2 { margin: 0; font-size: 1.05rem; }
+.voyages-card-heading p { margin: .4rem 0 0; color: var(--text-secondary); font-size: .85rem; }
 
 .voyages-filters {
     display: flex;
@@ -182,7 +209,7 @@ html[data-theme="light"] .voyages-page {
 }
 
 .voyages-table-scroll { overflow-x: auto; }
-.voyages-table { width: 100%; min-width: 46rem; border-collapse: collapse; }
+.voyages-table { width: 100%; min-width: 42rem; border-collapse: collapse; }
 
 .voyages-table th {
     padding: .55rem .8rem;
@@ -205,8 +232,8 @@ html[data-theme="light"] .voyages-page {
 }
 
 .voyages-table tbody tr:last-child td { border-bottom: 0; }
-.voyages-table tbody tr { transition: background .15s ease; }
-.voyages-table tbody tr:hover { background: var(--bg-surface); }
+.voyages-table tbody tr { transition: background .15s ease, transform .15s ease; }
+.voyages-table tbody tr:hover { background: var(--bg-surface); transform: translateX(2px); }
 
 .voyages-table tbody tr.imminent { background: color-mix(in srgb, var(--accent) 5%, transparent); }
 .voyages-table tbody tr.imminent td:first-child { box-shadow: inset 3px 0 0 var(--accent); }
@@ -221,7 +248,9 @@ html[data-theme="light"] .voyages-page {
 .voyage-stamps .missing { color: var(--text-muted); }
 
 .voyage-status {
-    display: inline-block;
+    display: inline-flex;
+    justify-content: center;
+    min-width: 6.2rem;
     padding: .18rem .65rem;
     border: 1px solid color-mix(in srgb, currentColor 28%, transparent);
     border-radius: 999px;
@@ -292,7 +321,13 @@ html[data-theme="light"] .filter-field select {
     .filter-field select,
     .voyages-pagination button { transition: none; }
 
-    .voyages-button:hover:not(:disabled) { transform: none; }
+    .voyages-button:hover:not(:disabled),
+    .voyages-table tbody tr:hover { transform: none; }
+}
+
+@media (max-width: 1050px) {
+    .voyages-table { min-width: 32rem; }
+    .voyages-table .col-vessel { display: none; }
 }
 
 @media (max-width: 760px) {
@@ -300,4 +335,6 @@ html[data-theme="light"] .filter-field select {
     .voyages-header { flex-direction: column; }
     .voyages-filters { flex-direction: column; align-items: stretch; }
     .voyages-kpi, .filter-field input, .filter-field select, .voyages-button { width: 100%; }
+    .voyages-table { min-width: 0; }
+    .voyages-table .col-actual { display: none; }
 }

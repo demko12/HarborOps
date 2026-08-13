@@ -5,6 +5,9 @@ namespace HarborOps.Web.Api;
 
 internal sealed class FleetApiClient(HttpClient httpClient)
 {
+    private static readonly IReadOnlyDictionary<string, string[]> NoErrors =
+        new Dictionary<string, string[]>(StringComparer.OrdinalIgnoreCase);
+
     internal async Task<FleetApiResult<VesselPageResponse>> GetVesselsAsync(
         string? search,
         string? status,
@@ -31,14 +34,16 @@ internal sealed class FleetApiClient(HttpClient httpClient)
                 problem?.Title ?? (isForbidden ? "Fleet access denied" : "Unable to load vessels"),
                 problem?.Detail ?? (isForbidden
                     ? "Your account does not have permission to view vessels."
-                    : "Please try again.")));
+                    : "Please try again."),
+                problem?.Errors ?? NoErrors));
         }
         catch (HttpRequestException)
         {
             return new FleetApiResult<VesselPageResponse>(null, new FleetApiFailure(
                 0,
                 "HarborOps API is unavailable",
-                "Please try again."));
+                "Please try again.",
+                NoErrors));
         }
     }
 
@@ -78,4 +83,11 @@ internal sealed record FleetApiResult<T>(T? Value, FleetApiFailure? Failure)
     internal bool IsSuccess => Failure is null;
 }
 
-internal sealed record FleetApiFailure(int StatusCode, string Title, string Message);
+internal sealed record FleetApiFailure(
+    int StatusCode,
+    string Title,
+    string Message,
+    IReadOnlyDictionary<string, string[]> Errors)
+{
+    internal bool IsValidation => StatusCode == StatusCodes.Status400BadRequest;
+}

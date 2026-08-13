@@ -49,6 +49,35 @@ public sealed class FleetApiClientTests
         Assert.Equal("Fleet access denied", result.Failure!.Title);
     }
 
+    [Fact]
+    public async Task GetVesselsAsync_surfaces_validation_errors_from_problem_details()
+    {
+        using var httpClient = CreateHttpClient((_, _) => Json(
+            HttpStatusCode.BadRequest,
+            """{"title":"One or more validation errors occurred.","errors":{"status":["Status is not a known vessel status."]}}"""));
+
+        var result = await new FleetApiClient(httpClient).GetVesselsAsync(
+            null, "Sailing", 1, 25, CancellationToken.None);
+
+        Assert.False(result.IsSuccess);
+        Assert.True(result.Failure!.IsValidation);
+        Assert.Equal("One or more validation errors occurred.", result.Failure.Title);
+        Assert.Equal(
+            "Status is not a known vessel status.",
+            Assert.Single(result.Failure.Errors["status"]));
+    }
+
+    [Fact]
+    public async Task GetVesselsAsync_reports_no_validation_errors_for_other_failures()
+    {
+        using var httpClient = CreateHttpClient((_, _) => Json(HttpStatusCode.Forbidden, string.Empty));
+
+        var result = await new FleetApiClient(httpClient).GetVesselsAsync(null, null, 1, 25, CancellationToken.None);
+
+        Assert.False(result.Failure!.IsValidation);
+        Assert.Empty(result.Failure.Errors);
+    }
+
     private static HttpClient CreateHttpClient(Func<HttpRequestMessage, CancellationToken, Task<HttpResponseMessage>> responseFactory) =>
         new(new StubHttpMessageHandler(responseFactory)) { BaseAddress = new Uri("https://api.harborops.test/") };
 
