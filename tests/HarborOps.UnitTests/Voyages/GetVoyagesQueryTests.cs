@@ -71,6 +71,35 @@ public sealed class GetVoyagesQueryTests
     }
 
     [Fact]
+    public async Task Search_matches_part_of_the_voyage_number()
+    {
+        await using var dbContext = CreateDbContext();
+        await SeedAsync(dbContext, "VOY-901", new DateTime(2026, 9, 7, 8, 0, 0, DateTimeKind.Utc));
+        await SeedAsync(dbContext, "ATL-902", new DateTime(2026, 9, 8, 8, 0, 0, DateTimeKind.Utc));
+
+        var response = await CreateQuery(dbContext).GetVoyagesAsync(
+            new GetVoyagesRequest { From = WindowFrom, To = WindowTo, Search = "VOY-9" },
+            CancellationToken.None);
+
+        Assert.Equal(1, response.TotalCount);
+        Assert.Equal("VOY-901", Assert.Single(response.Items).VoyageNumber);
+    }
+
+    [Fact]
+    public async Task Blank_search_is_treated_as_no_filter()
+    {
+        await using var dbContext = CreateDbContext();
+        await SeedAsync(dbContext, "VOY-911", new DateTime(2026, 9, 7, 8, 0, 0, DateTimeKind.Utc));
+        await SeedAsync(dbContext, "ATL-912", new DateTime(2026, 9, 8, 8, 0, 0, DateTimeKind.Utc));
+
+        var response = await CreateQuery(dbContext).GetVoyagesAsync(
+            new GetVoyagesRequest { From = WindowFrom, To = WindowTo, Search = "   " },
+            CancellationToken.None);
+
+        Assert.Equal(2, response.TotalCount);
+    }
+
+    [Fact]
     public async Task Results_are_ordered_by_planned_departure_then_voyage_id()
     {
         await using var dbContext = CreateDbContext();

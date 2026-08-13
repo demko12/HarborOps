@@ -30,10 +30,12 @@ public partial class Voyages
     private DateOnly fromDate = DefaultFrom();
     private DateOnly toDate = DefaultTo();
     private string statusFilter = string.Empty;
+    private string? searchTerm;
 
     private DateOnly appliedFrom = DefaultFrom();
     private DateOnly appliedTo = DefaultTo();
     private string appliedStatus = string.Empty;
+    private string? appliedSearch;
     private int pageNumber = 1;
     private int pageSize = 25;
     private int totalCount;
@@ -131,6 +133,7 @@ public partial class Voyages
         appliedFrom = fromDate;
         appliedTo = toDate;
         appliedStatus = statusFilter;
+        appliedSearch = searchTerm;
         pageNumber = 1;
 
         await LoadAsync();
@@ -141,6 +144,7 @@ public partial class Voyages
         fromDate = DefaultFrom();
         toDate = DefaultTo();
         statusFilter = string.Empty;
+        searchTerm = null;
 
         await ApplyFiltersAsync();
     }
@@ -181,6 +185,7 @@ public partial class Voyages
         var result = await VoyagesApi.GetVoyagesAsync(
             appliedFrom,
             appliedTo,
+            appliedSearch,
             appliedStatus,
             pageNumber,
             pageSize,
@@ -218,6 +223,7 @@ public partial class Voyages
             var result = await VoyagesApi.GetVoyagesAsync(
                 appliedFrom,
                 appliedTo,
+                appliedSearch,
                 status,
                 1,
                 1,

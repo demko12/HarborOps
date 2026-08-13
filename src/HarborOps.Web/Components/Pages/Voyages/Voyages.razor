@@ -51,6 +51,14 @@
     </section>
 
     <div class="voyages-filters">
+        <div class="filter-field filter-field-grow">
+            <label for="voyages-search">Search</label>
+            <div class="voyages-input-shell">
+                <span class="bi bi-search" aria-hidden="true"></span>
+                <input id="voyages-search" @bind="searchTerm" @bind:event="oninput" @bind:after="ApplyFiltersAsync"
+                       placeholder="Voyage number" aria-label="Search voyages by voyage number" />
+            </div>
+        </div>
         <div class="filter-field">
             <label for="voyages-from">From</label>
             <input id="voyages-from" type="date" @bind="fromDate" @bind:after="ApplyFiltersAsync" />

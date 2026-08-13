@@ -116,7 +116,6 @@ public sealed class VoyagesPageTests : BunitContext
         page.Find("#voyages-to").Change("2026-09-30");
         page.Find("#voyages-status").Change("Planned");
         page.Find("#voyages-page-size").Change("50");
-        page.Find("form.voyages-filters").Submit();
 
         page.WaitForAssertion(() => Assert.Contains(
             ResultQueries(),
@@ -127,12 +126,23 @@ public sealed class VoyagesPageTests : BunitContext
     }
 
     [Fact]
+    public void Searching_sends_the_voyage_number_to_the_api()
+    {
+        var page = RenderVoyagesPage();
+
+        page.Find("#voyages-search").Input("VOY-06");
+
+        page.WaitForAssertion(() => Assert.Contains(
+            ResultQueries(),
+            query => query.Contains("search=VOY-06", StringComparison.Ordinal)));
+    }
+
+    [Fact]
     public void Resetting_the_filters_returns_to_the_default_window_and_first_page()
     {
         var page = RenderVoyagesPage();
 
         page.Find("#voyages-status").Change("Completed");
-        page.Find("form.voyages-filters").Submit();
         page.WaitForAssertion(() => Assert.Contains(
             ResultQueries(),
             query => query.Contains("status=Completed", StringComparison.Ordinal)));

@@ -81,6 +81,26 @@ public sealed class GetVoyagesEndpointTests : IntegrationTestBase
     }
 
     [Fact]
+    public async Task Get_applies_the_search_term_from_the_query_string()
+    {
+        using var client = await _application.CreateAuthenticatedClientWithPermissionsAsync(
+            Permissions.Voyages.Read);
+        await SeedVoyageAsync("VOY-640", new DateTime(2026, 9, 4, 8, 0, 0, DateTimeKind.Utc));
+        await SeedVoyageAsync("ATL-641", new DateTime(2026, 9, 5, 8, 0, 0, DateTimeKind.Utc));
+
+        using var response = await client.GetAsync(
+            new Uri("/api/voyages?from=2026-09-01&to=2026-09-30&search=VOY-64", UriKind.Relative),
+            CancellationToken.None);
+        var page = await response.Content.ReadFromJsonAsync<GetVoyagesResponse>(
+            CancellationToken.None);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.NotNull(page);
+        Assert.Equal(1, page.TotalCount);
+        Assert.Equal("VOY-640", Assert.Single(page.Items).VoyageNumber);
+    }
+
+    [Fact]
     public async Task Get_returns_empty_page_when_the_window_holds_no_voyages()
     {
         using var client = await _application.CreateAuthenticatedClientWithPermissionsAsync(

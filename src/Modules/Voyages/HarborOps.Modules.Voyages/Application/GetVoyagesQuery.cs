@@ -29,6 +29,12 @@ internal sealed class GetVoyagesQuery(DbContext dbContext) : IGetVoyagesQuery
             .Where(voyage => voyage.PlannedDeparture >= windowStart
                 && voyage.PlannedDeparture < windowEndExclusive);
 
+        if (!string.IsNullOrWhiteSpace(request.Search))
+        {
+            var search = request.Search.Trim();
+            voyages = voyages.Where(voyage => voyage.VoyageNumber.Contains(search));
+        }
+
         if (!string.IsNullOrWhiteSpace(request.Status))
         {
             var status = request.Status;

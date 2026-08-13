@@ -27,6 +27,7 @@ public sealed class VoyagesApiClientTests
         var result = await CreateClient(httpClient).GetVoyagesAsync(
             new DateOnly(2026, 9, 1),
             new DateOnly(2026, 9, 30),
+            null,
             "Planned",
             2,
             50,
@@ -56,11 +57,34 @@ public sealed class VoyagesApiClientTests
             new DateOnly(2026, 9, 1),
             new DateOnly(2026, 9, 30),
             null,
+            null,
             1,
             25,
             CancellationToken.None);
 
         Assert.Contains("status=&", captured!.RequestUri!.Query, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task GetVoyagesAsync_sends_the_search_term_escaped()
+    {
+        HttpRequestMessage? captured = null;
+        using var httpClient = CreateHttpClient((request, _) =>
+        {
+            captured = request;
+            return Json(HttpStatusCode.OK, PageJson);
+        });
+
+        await CreateClient(httpClient).GetVoyagesAsync(
+            new DateOnly(2026, 9, 1),
+            new DateOnly(2026, 9, 30),
+            "VOY 600",
+            null,
+            1,
+            25,
+            CancellationToken.None);
+
+        Assert.Contains("search=VOY%20600", captured!.RequestUri!.Query, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -71,6 +95,7 @@ public sealed class VoyagesApiClientTests
         var result = await CreateClient(httpClient).GetVoyagesAsync(
             new DateOnly(2026, 9, 1),
             new DateOnly(2026, 9, 30),
+            null,
             null,
             1,
             25,
@@ -97,6 +122,7 @@ public sealed class VoyagesApiClientTests
             new DateOnly(2026, 11, 1),
             new DateOnly(2026, 11, 30),
             null,
+            null,
             1,
             25,
             CancellationToken.None);
@@ -116,6 +142,7 @@ public sealed class VoyagesApiClientTests
         var result = await CreateClient(httpClient).GetVoyagesAsync(
             new DateOnly(2026, 9, 30),
             new DateOnly(2026, 9, 1),
+            null,
             null,
             1,
             25,
@@ -137,6 +164,7 @@ public sealed class VoyagesApiClientTests
         var result = await CreateClient(httpClient).GetVoyagesAsync(
             new DateOnly(2026, 9, 1),
             new DateOnly(2026, 9, 30),
+            null,
             null,
             1,
             25,
@@ -162,9 +190,9 @@ public sealed class VoyagesApiClientTests
         var client = CreateClient(httpClient);
 
         var firstResult = await client.GetVoyagesAsync(
-            new DateOnly(2026, 9, 1), new DateOnly(2026, 9, 30), null, 1, 25, CancellationToken.None);
+            new DateOnly(2026, 9, 1), new DateOnly(2026, 9, 30), null, null, 1, 25, CancellationToken.None);
         var retryResult = await client.GetVoyagesAsync(
-            new DateOnly(2026, 9, 1), new DateOnly(2026, 9, 30), null, 1, 25, CancellationToken.None);
+            new DateOnly(2026, 9, 1), new DateOnly(2026, 9, 30), null, null, 1, 25, CancellationToken.None);
 
         Assert.False(firstResult.IsSuccess);
         Assert.True(retryResult.IsSuccess);
@@ -184,6 +212,7 @@ public sealed class VoyagesApiClientTests
         var result = await CreateClient(httpClient).GetVoyagesAsync(
             new DateOnly(2026, 9, 1),
             new DateOnly(2026, 9, 30),
+            null,
             null,
             1,
             25,

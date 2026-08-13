@@ -14,6 +14,7 @@ internal sealed class VoyagesApiClient(HttpClient httpClient)
     internal async Task<VoyagesApiResult<VoyagePage>> GetVoyagesAsync(
         DateOnly from,
         DateOnly to,
+        string? search,
         string? status,
         int pageNumber,
         int pageSize,
@@ -21,7 +22,7 @@ internal sealed class VoyagesApiClient(HttpClient httpClient)
     {
         var path = string.Create(
             CultureInfo.InvariantCulture,
-            $"{BasePath}?from={from:yyyy-MM-dd}&to={to:yyyy-MM-dd}&status={Uri.EscapeDataString(status ?? string.Empty)}&pageNumber={pageNumber}&pageSize={pageSize}");
+            $"{BasePath}?from={from:yyyy-MM-dd}&to={to:yyyy-MM-dd}&search={Uri.EscapeDataString(search ?? string.Empty)}&status={Uri.EscapeDataString(status ?? string.Empty)}&pageNumber={pageNumber}&pageSize={pageSize}");
 
         try
         {
