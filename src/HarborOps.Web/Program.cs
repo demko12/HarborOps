@@ -27,6 +27,24 @@ builder.Services.AddAuthorization(options =>
         .RequireAuthenticatedUser()
         .RequireClaim(CurrentUserAuthorizationState.PermissionClaimType, CurrentUserAuthorizationState.ManageUsersPermission)
         .RequireClaim(CurrentUserAuthorizationState.PermissionClaimType, CurrentUserAuthorizationState.ManageRolesPermission));
+    options.AddPolicy("AccessFleet", policy => policy.RequireAuthenticatedUser().RequireAssertion(context =>
+        context.User.HasClaim(CurrentUserAuthorizationState.PermissionClaimType, CurrentUserAuthorizationState.FleetReadPermission)
+        || context.User.HasClaim(CurrentUserAuthorizationState.PermissionClaimType, CurrentUserAuthorizationState.FleetManagePermission)));
+    options.AddPolicy("AccessCrew", policy => policy.RequireAuthenticatedUser().RequireAssertion(context =>
+        context.User.HasClaim(CurrentUserAuthorizationState.PermissionClaimType, CurrentUserAuthorizationState.CrewReadPermission)
+        || context.User.HasClaim(CurrentUserAuthorizationState.PermissionClaimType, CurrentUserAuthorizationState.CrewManagePermission)));
+    options.AddPolicy("AccessVoyages", policy => policy.RequireAuthenticatedUser().RequireAssertion(context =>
+        context.User.HasClaim(CurrentUserAuthorizationState.PermissionClaimType, CurrentUserAuthorizationState.VoyagesReadPermission)
+        || context.User.HasClaim(CurrentUserAuthorizationState.PermissionClaimType, CurrentUserAuthorizationState.VoyagesManagePermission)));
+    options.AddPolicy("AccessCargo", policy => policy.RequireAuthenticatedUser().RequireAssertion(context =>
+        context.User.HasClaim(CurrentUserAuthorizationState.PermissionClaimType, CurrentUserAuthorizationState.CargoReadPermission)
+        || context.User.HasClaim(CurrentUserAuthorizationState.PermissionClaimType, CurrentUserAuthorizationState.CargoManagePermission)));
+    options.AddPolicy("AccessMaintenance", policy => policy.RequireAuthenticatedUser().RequireAssertion(context =>
+        context.User.HasClaim(CurrentUserAuthorizationState.PermissionClaimType, CurrentUserAuthorizationState.MaintenanceReadPermission)
+        || context.User.HasClaim(CurrentUserAuthorizationState.PermissionClaimType, CurrentUserAuthorizationState.MaintenanceManagePermission)));
+    options.AddPolicy("AccessReports", policy => policy.RequireAuthenticatedUser().RequireAssertion(context =>
+        context.User.HasClaim(CurrentUserAuthorizationState.PermissionClaimType, CurrentUserAuthorizationState.ReportsReadPermission)
+        || context.User.HasClaim(CurrentUserAuthorizationState.PermissionClaimType, CurrentUserAuthorizationState.ReportsManagePermission)));
 });
 
 var app = builder.Build();

@@ -33,6 +33,10 @@ internal sealed class MaintenanceApiClient(HttpClient httpClient)
 
             return new MaintenanceApiResult<MaintenanceWorkOrdersPage>(page, null);
         }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
         catch (HttpRequestException)
         {
             return new MaintenanceApiResult<MaintenanceWorkOrdersPage>(null, Unavailable());
@@ -147,8 +151,12 @@ internal sealed class MaintenanceApiClient(HttpClient httpClient)
 
         return new MaintenanceApiFailure(
             (int)response.StatusCode,
-            problem?.Title ?? defaultTitle,
-            problem?.Detail ?? "Please review the details and try again.",
+            problem?.Title ?? (response.StatusCode == HttpStatusCode.Forbidden
+                ? "Maintenance access denied"
+                : defaultTitle),
+            problem?.Detail ?? (response.StatusCode == HttpStatusCode.Forbidden
+                ? "Your account does not have permission to access maintenance work orders."
+                : "Please review the details and try again."),
             problem?.Errors ?? NoErrors);
     }
 

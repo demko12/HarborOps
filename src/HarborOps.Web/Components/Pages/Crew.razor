@@ -1,5 +1,5 @@
 @page "/crew"
-@attribute [Microsoft.AspNetCore.Authorization.Authorize]
+@attribute [Microsoft.AspNetCore.Authorization.Authorize(Policy = "AccessCrew")]
 @implements IDisposable
 @inject CrewApiClient CrewApi
 

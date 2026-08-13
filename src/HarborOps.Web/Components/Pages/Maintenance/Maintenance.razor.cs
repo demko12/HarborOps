@@ -107,7 +107,16 @@ public partial class Maintenance
             pageNumber,
             pageSize);
 
-        var result = await MaintenanceApi.GetWorkOrdersAsync(filter, cancellationToken);
+        MaintenanceApiResult<MaintenanceWorkOrdersPage> result;
+
+        try
+        {
+            result = await MaintenanceApi.GetWorkOrdersAsync(filter, cancellationToken);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            return;
+        }
 
         if (cancellationToken.IsCancellationRequested)
         {

@@ -1,0 +1,7 @@
+.reports-page { max-width: 1400px; margin: 0 auto; padding: 2.5rem 2rem; }
+.reports-page header { display: grid; gap: .4rem; margin-bottom: 1.75rem; }
+.reports-page header p { margin: 0; color: var(--accent); font-size: .72rem; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; }
+.reports-page h1 { margin: 0; font-size: clamp(1.75rem, 3vw, 2.25rem); letter-spacing: -.04em; }
+.reports-page header span { color: var(--text-secondary); }
+.reports-card { padding: 1.35rem; border: 1px solid var(--border-medium); border-radius: 1rem; background: linear-gradient(145deg, var(--bg-surface-strong), var(--bg-surface)); box-shadow: 0 12px 35px rgba(0,0,0,.08); }
+@media (max-width: 760px) { .reports-page { padding: 1.25rem 1rem; } }

@@ -46,6 +46,12 @@ public static class Permissions
         public const string Manage = "documents.manage";
     }
 
+    public static class Reports
+    {
+        public const string Read = "reports.read";
+        public const string Manage = "reports.manage";
+    }
+
     public static class IdentityUsers
     {
         public const string Read = "identity.users.read";
@@ -78,6 +84,8 @@ public static class Permissions
         new(Compliance.Manage, "compliance", "manage"),
         new(Documents.Read, "documents", "read"),
         new(Documents.Manage, "documents", "manage"),
+        new(Reports.Read, "reports", "read"),
+        new(Reports.Manage, "reports", "manage"),
         new(IdentityUsers.Read, "identity.users", "read"),
         new(IdentityUsers.Manage, "identity.users", "manage"),
         new(IdentityRoles.Read, "identity.roles", "read"),

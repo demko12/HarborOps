@@ -1,4 +1,5 @@
 @page "/voyages"
+@attribute [Microsoft.AspNetCore.Authorization.Authorize(Policy = "AccessVoyages")]
 @using HarborOps.Web.Api.Voyages
 @implements IDisposable
 @inject VoyagesApiClient VoyagesApi

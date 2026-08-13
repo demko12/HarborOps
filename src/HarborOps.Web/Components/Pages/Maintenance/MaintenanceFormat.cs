@@ -68,7 +68,11 @@ internal static class MaintenanceFormat
 
     internal static string StatusModifier(string status)
     {
-        return status.ToLowerInvariant();
+        return status switch
+        {
+            InProgressStatus => "in-progress",
+            _ => status.ToLowerInvariant(),
+        };
     }
 
     private static string ShortId(Guid id)

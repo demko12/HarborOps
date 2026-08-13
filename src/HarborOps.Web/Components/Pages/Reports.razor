@@ -1,0 +1,16 @@
+@page "/reports"
+@attribute [Microsoft.AspNetCore.Authorization.Authorize(Policy = "AccessReports")]
+
+<PageTitle>Reports | HarborOps</PageTitle>
+
+<section class="reports-page">
+    <header>
+        <p>Reporting</p>
+        <h1>Reports</h1>
+        <span>Review operational reporting as it becomes available.</span>
+    </header>
+
+    <section class="reports-card">
+        <EmptyState Title="No reports available yet" Message="Reporting data and saved report views will appear here." />
+    </section>
+</section>

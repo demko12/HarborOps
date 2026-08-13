@@ -1,4 +1,5 @@
 @page "/maintenance"
+@attribute [Microsoft.AspNetCore.Authorization.Authorize(Policy = "AccessMaintenance")]
 @using HarborOps.Web.Api.Fleet
 @using HarborOps.Web.Api.Maintenance
 @implements IDisposable
@@ -36,14 +37,14 @@
 		</article>
 	</section>
 
-	<form class="maintenance-filters" @onsubmit="ApplyFiltersAsync" @onsubmit:preventDefault="true">
+	<section class="maintenance-filters" aria-label="Work order filters">
 		<div class="filter-field">
 			<label for="maintenance-vessel">Vessel ID</label>
-			<input id="maintenance-vessel" @bind="vesselIdFilterText" placeholder="e.g. 3fa85f64-..." />
+			<input id="maintenance-vessel" @bind="vesselIdFilterText" @bind:event="oninput" @bind:after="ApplyFiltersAsync" placeholder="e.g. 3fa85f64-..." />
 		</div>
 		<div class="filter-field">
 			<label for="maintenance-status">Status</label>
-			<select id="maintenance-status" @bind="statusFilter">
+			<select id="maintenance-status" @bind="statusFilter" @bind:after="ApplyFiltersAsync">
 				<option value="">All statuses</option>
 				@foreach (var option in MaintenanceFormat.Statuses)
 				{
@@ -53,7 +54,7 @@
 		</div>
 		<div class="filter-field">
 			<label for="maintenance-priority">Priority</label>
-			<select id="maintenance-priority" @bind="priorityFilter">
+			<select id="maintenance-priority" @bind="priorityFilter" @bind:after="ApplyFiltersAsync">
 				<option value="">All priorities</option>
 				@foreach (var option in MaintenanceFormat.Priorities)
 				{
@@ -63,7 +64,7 @@
 		</div>
 		<div class="filter-field">
 			<label for="maintenance-overdue">Due status</label>
-			<select id="maintenance-overdue" @bind="overdueFilter">
+			<select id="maintenance-overdue" @bind="overdueFilter" @bind:after="ApplyFiltersAsync">
 				<option value="">All</option>
 				<option value="true">Overdue only</option>
 				<option value="false">Not overdue</option>
@@ -71,15 +72,14 @@
 		</div>
 		<div class="filter-field">
 			<label for="maintenance-page-size">Per page</label>
-			<select id="maintenance-page-size" @bind="pageSize">
+			<select id="maintenance-page-size" @bind="pageSize" @bind:after="ApplyFiltersAsync">
 				<option value="25">25</option>
 				<option value="50">50</option>
 				<option value="100">100</option>
 			</select>
 		</div>
-		<button class="maintenance-button" type="submit" disabled="@isLoading">Apply</button>
 		<button class="maintenance-reset" type="button" @onclick="ClearFiltersAsync" disabled="@isLoading">Reset</button>
-	</form>
+	</section>
 
 	@if (failure is { IsValidation: true, Errors.Count: > 0 })
 	{
@@ -139,15 +139,15 @@
 					<caption class="visually-hidden">Maintenance work orders, ordered by due date</caption>
 					<thead>
 						<tr>
-							<th scope="col">Title</th>
-							<th scope="col">Vessel</th>
-							<th scope="col">Priority</th>
-							<th scope="col">Status</th>
-							<th scope="col">Due</th>
-							<th scope="col">Assigned engineer</th>
-							<th scope="col">Created</th>
-							<th scope="col">Completed</th>
-							<th scope="col"></th>
+							<th scope="col" class="col-title">Title</th>
+							<th scope="col" class="col-vessel">Vessel</th>
+							<th scope="col" class="col-priority">Priority</th>
+							<th scope="col" class="col-status">Status</th>
+							<th scope="col" class="col-due">Due</th>
+							<th scope="col" class="col-assigned">Assigned engineer</th>
+							<th scope="col" class="col-created">Created</th>
+							<th scope="col" class="col-completed">Completed</th>
+							<th scope="col" class="col-actions"></th>
 						</tr>
 					</thead>
 					<tbody>
@@ -160,15 +160,15 @@
 							var isCritical = MaintenanceFormat.IsCritical(row.Priority);
 
 							<tr @key="row.WorkOrderId" class="@(isOverdue ? "maintenance-overdue-row" : null)">
-								<td>
+								<td class="col-title">
 									<span class="maintenance-title">@row.Title</span>
 									@if (!string.IsNullOrWhiteSpace(row.Description))
 									{
 										<span class="maintenance-description" title="@row.Description">@row.Description</span>
 									}
 								</td>
-								<td title="@row.VesselId">@row.VesselDisplayName</td>
-								<td>
+								<td class="col-vessel" title="@row.VesselId">@row.VesselDisplayName</td>
+								<td class="col-priority">
 									<span class="maintenance-priority priority-@MaintenanceFormat.PriorityModifier(row.Priority)">
 										@if (isCritical)
 										{
@@ -177,26 +177,27 @@
 										@row.Priority
 									</span>
 								</td>
-								<td>
+								<td class="col-status">
 									<span class="maintenance-status status-@MaintenanceFormat.StatusModifier(row.Status)">@row.Status</span>
 								</td>
-								<td>
+								<td class="col-due">
 									@MaintenanceFormat.DueUtc(row.DueUtc)
 									@if (isOverdue)
 									{
 										<span class="maintenance-overdue-badge">Overdue</span>
 									}
 								</td>
-								<td class="maintenance-muted">@MaintenanceFormat.AssignedEngineer(row.AssignedEngineerId)</td>
-								<td class="maintenance-muted">@MaintenanceFormat.CreatedUtc(row.CreatedUtc)</td>
-								<td class="maintenance-muted">@MaintenanceFormat.CompletedUtc(row.CompletedUtc)</td>
-								<td>
+								<td class="maintenance-muted col-assigned">@MaintenanceFormat.AssignedEngineer(row.AssignedEngineerId)</td>
+								<td class="maintenance-muted col-created">@MaintenanceFormat.CreatedUtc(row.CreatedUtc)</td>
+								<td class="maintenance-muted col-completed">@MaintenanceFormat.CompletedUtc(row.CompletedUtc)</td>
+								<td class="col-actions">
 									@if (MaintenanceFormat.CanComplete(row.Status))
 									{
 										<button type="button" class="maintenance-complete-button" @onclick="() => OpenCompletionForm(row.WorkOrderId)">
 											Complete
 										</button>
 									}
+									<span class="bi bi-chevron-right maintenance-row-chevron" aria-hidden="true"></span>
 								</td>
 							</tr>
 						}
