@@ -93,9 +93,11 @@ html[data-theme="light"] .cargo-page {
     font-size: .9rem;
 }
 
-.summary-icon-blue { color: #60a5fa; background: rgba(37, 99, 235, .16); }
-.summary-icon-amber { color: var(--hazard); background: var(--hazard-bg); }
+.summary-icon-blue { color: #93c5fd; border: 1px solid rgba(96, 165, 250, .28); background: rgba(96, 165, 250, .14); }
+.summary-icon-amber { color: var(--hazard); border: 1px solid rgba(251, 191, 36, .28); background: var(--hazard-bg); }
 .cargo-card-icon { color: var(--accent); border: 1px solid var(--accent-border); background: var(--accent-bg); }
+html[data-theme="light"] .summary-icon-blue { color: #1d4ed8; border-color: rgba(37, 99, 235, .3); background: rgba(37, 99, 235, .12); }
+html[data-theme="light"] .summary-icon-amber { color: #b45309; border-color: rgba(180, 83, 9, .3); background: rgba(180, 83, 9, .12); }
 
 .cargo-filters {
     display: flex;
