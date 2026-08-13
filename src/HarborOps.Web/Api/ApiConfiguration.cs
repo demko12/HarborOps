@@ -1,3 +1,4 @@
+using HarborOps.Web.Api.Cargo;
 using HarborOps.Web.Api.Voyages;
 
 namespace HarborOps.Web.Api;
@@ -23,6 +24,12 @@ internal static class ApiConfiguration
             client.BaseAddress = baseAddress;
             client.Timeout = TimeSpan.FromSeconds(15);
         });
+
+        services.AddHttpClient<CargoBookingsApiClient>(client =>
+        {
+            client.BaseAddress = baseAddress;
+            client.Timeout = TimeSpan.FromSeconds(15);
+        }).AddHttpMessageHandler<BearerTokenHandler>();
 
         services.AddHttpClient<IdentityAdministrationApiClient>(client =>
         {

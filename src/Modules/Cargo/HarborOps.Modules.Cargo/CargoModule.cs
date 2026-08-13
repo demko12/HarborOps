@@ -16,6 +16,7 @@ public static class CargoModule
         services.AddScoped<DeclareCargoSafetyInfoService>();
         services.AddScoped<RecordCargoTrackingEventService>();
         services.AddScoped<RegisterCargoBookingService>();
+        services.AddScoped<SearchCargoBookingsQuery>();
         services.TryAddSingleton(TimeProvider.System);
         services.AddControllers()
             .AddApplicationPart(Assembly);

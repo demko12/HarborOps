@@ -1,0 +1,439 @@
+.cargo-page {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+}
+
+.cargo-header h1 {
+    margin: 0;
+    font-size: 1.75rem;
+    letter-spacing: -0.01em;
+}
+
+.cargo-header p:last-child {
+    margin: 0.4rem 0 0;
+    max-width: 46ch;
+    color: var(--text-secondary);
+}
+
+.cargo-eyebrow {
+    margin: 0 0 0.35rem;
+    color: var(--accent);
+    font-size: 0.75rem;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+}
+
+/* summary tiles fed only by the current response */
+
+.cargo-summary {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(13rem, 1fr));
+    gap: 1rem;
+}
+
+.cargo-tile {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+    padding: 1.1rem 1.25rem;
+    border: 1px solid var(--border-subtle);
+    border-radius: 1rem;
+    background: var(--bg-surface);
+}
+
+.cargo-tile-label {
+    display: flex;
+    align-items: center;
+    gap: 0.45rem;
+    color: var(--text-secondary);
+    font-size: 0.75rem;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+}
+
+.cargo-tile-value {
+    font-size: 1.9rem;
+    font-weight: 600;
+    line-height: 1.1;
+    letter-spacing: -0.02em;
+    font-variant-numeric: tabular-nums;
+}
+
+.cargo-tile-note {
+    color: var(--text-muted);
+    font-size: 0.78rem;
+}
+
+.cargo-tile-hazard {
+    border-color: rgba(251, 191, 36, 0.3);
+    background: rgba(120, 53, 15, 0.28);
+}
+
+.cargo-tile-hazard .cargo-tile-label,
+.cargo-tile-hazard .cargo-tile-value {
+    color: #fbbf24;
+}
+
+/* panel */
+
+.cargo-panel {
+    border: 1px solid var(--border-subtle);
+    border-radius: 1rem;
+    background: var(--bg-surface);
+    overflow: hidden;
+}
+
+.cargo-panel-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 1rem 1.25rem;
+    border-bottom: 1px solid var(--border-subtle);
+}
+
+.cargo-panel-head h2 {
+    margin: 0;
+    font-size: 0.95rem;
+    font-weight: 600;
+}
+
+.cargo-count {
+    color: var(--text-muted);
+    font-size: 0.8rem;
+    font-variant-numeric: tabular-nums;
+}
+
+/* filters */
+
+.cargo-filters {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    gap: 0.9rem;
+    padding: 1.1rem 1.25rem;
+    border-bottom: 1px solid var(--border-subtle);
+}
+
+.cargo-field {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+}
+
+.cargo-field-grow {
+    flex: 1 1 18rem;
+}
+
+.cargo-field label {
+    color: var(--text-muted);
+    font-size: 0.7rem;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+.input-shell {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0 0.75rem;
+    border: 1px solid var(--border-medium);
+    border-radius: 0.6rem;
+    background: var(--bg-surface-strong);
+}
+
+.input-shell > span {
+    color: var(--text-muted);
+}
+
+.input-shell input {
+    width: 100%;
+    padding: 0.5rem 0;
+    border: 0;
+    background: none;
+    color: var(--text-primary);
+    font: inherit;
+}
+
+.input-shell input:focus {
+    outline: none;
+}
+
+.cargo-field select {
+    padding: 0.5rem 0.75rem;
+    border: 1px solid var(--border-medium);
+    border-radius: 0.6rem;
+    background: var(--bg-surface-strong);
+    color: var(--text-primary);
+    font: inherit;
+}
+
+.cargo-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.55rem;
+    padding: 0.5rem 0.8rem;
+    border: 1px solid rgba(251, 191, 36, 0.3);
+    border-radius: 0.6rem;
+    background: rgba(120, 53, 15, 0.28);
+    color: #fbbf24;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.cargo-toggle input {
+    margin: 0;
+    accent-color: #fbbf24;
+}
+
+.cargo-button {
+    padding: 0.5rem 1rem;
+    border: 1px solid var(--accent-border);
+    border-radius: 0.6rem;
+    background: var(--accent-bg);
+    color: var(--accent-text);
+    font: inherit;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.cargo-button:disabled {
+    opacity: 0.55;
+    cursor: not-allowed;
+}
+
+.cargo-button-link {
+    padding: 0.5rem 0.2rem;
+    border: 0;
+    background: none;
+    color: var(--accent);
+    font: inherit;
+    cursor: pointer;
+}
+
+.cargo-button-link:hover {
+    text-decoration: underline;
+}
+
+/* validation problem details */
+
+.cargo-validation {
+    margin: 0;
+    padding: 0.9rem 1.25rem;
+    border-bottom: 1px solid var(--border-subtle);
+    background: rgba(127, 29, 29, 0.15);
+    color: var(--text-secondary);
+}
+
+.cargo-validation strong {
+    color: #f87171;
+}
+
+.cargo-validation ul {
+    margin: 0.3rem 0 0;
+    padding-left: 1.1rem;
+}
+
+/* table */
+
+.cargo-table-scroll {
+    overflow-x: auto;
+}
+
+.cargo-table {
+    width: 100%;
+    border-collapse: collapse;
+    white-space: nowrap;
+}
+
+.cargo-table thead th {
+    padding: 0.7rem 1rem;
+    border-bottom: 1px solid var(--border-medium);
+    color: var(--text-muted);
+    font-size: 0.7rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-align: left;
+    text-transform: uppercase;
+}
+
+.cargo-table tbody td {
+    padding: 0.8rem 1rem;
+    border-bottom: 1px solid var(--border-subtle);
+    vertical-align: middle;
+}
+
+.cargo-table tbody tr:last-child td {
+    border-bottom: 0;
+}
+
+.cargo-table tbody tr:hover {
+    background: var(--icon-hover-bg);
+}
+
+.cargo-hazard-row td:first-child {
+    box-shadow: inset 3px 0 0 #fbbf24;
+}
+
+.cargo-num {
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+}
+
+.cargo-booking-no {
+    display: block;
+    font-weight: 600;
+}
+
+.cargo-voyage {
+    display: block;
+    color: var(--text-muted);
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 0.75rem;
+}
+
+.cargo-desc {
+    display: block;
+    max-width: 22rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.cargo-muted {
+    color: var(--text-secondary);
+}
+
+/* hazard indication: shape and text, never colour alone */
+
+.cargo-placard {
+    width: 0.6rem;
+    height: 0.6rem;
+    flex: 0 0 auto;
+    border: 1.5px solid currentColor;
+    border-radius: 1px;
+    transform: rotate(45deg);
+}
+
+.cargo-hazard-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+    padding: 0.2rem 0.6rem 0.2rem 0.45rem;
+    border: 1px solid rgba(251, 191, 36, 0.3);
+    border-radius: 999px;
+    background: rgba(120, 53, 15, 0.28);
+    color: #fbbf24;
+    font-size: 0.75rem;
+    font-weight: 700;
+}
+
+.cargo-no-hazard {
+    color: var(--text-muted);
+}
+
+/* lifecycle status */
+
+.cargo-status {
+    display: inline-flex;
+    flex-direction: column;
+    gap: 0.3rem;
+}
+
+.cargo-status-name {
+    font-size: 0.78rem;
+    font-weight: 600;
+}
+
+.cargo-status.active .cargo-status-name {
+    color: var(--accent);
+}
+
+.cargo-status.done .cargo-status-name {
+    color: #34d399;
+}
+
+.cargo-track {
+    display: flex;
+    gap: 2px;
+}
+
+.cargo-track i {
+    width: 0.6rem;
+    height: 3px;
+    border-radius: 2px;
+    background: var(--border-medium);
+}
+
+.cargo-track i.on {
+    background: var(--accent);
+}
+
+.cargo-status.done .cargo-track i.on {
+    background: #34d399;
+}
+
+/* pager */
+
+.cargo-pager {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 0.9rem 1.25rem;
+    border-top: 1px solid var(--border-subtle);
+    color: var(--text-secondary);
+    font-size: 0.8rem;
+}
+
+.cargo-range {
+    font-variant-numeric: tabular-nums;
+}
+
+.cargo-pages {
+    display: flex;
+    gap: 0.3rem;
+}
+
+.cargo-pages button {
+    padding: 0.35rem 0.8rem;
+    border: 1px solid var(--border-medium);
+    border-radius: 0.5rem;
+    background: transparent;
+    color: var(--text-secondary);
+    font: inherit;
+    cursor: pointer;
+}
+
+.cargo-pages button:hover:not(:disabled) {
+    background: var(--icon-hover-bg);
+    color: var(--text-primary);
+}
+
+.cargo-pages button:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+}
+
+.visually-hidden {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+}
+
+@media (max-width: 640px) {
+    .cargo-filters {
+        flex-direction: column;
+        align-items: stretch;
+    }
+}
