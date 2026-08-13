@@ -18,7 +18,7 @@
     {
         <section class="fleet-summary" aria-label="Fleet summary">
             <article class="fleet-summary-card">
-                <div><span>Active vessels</span><strong>@ActiveVessels</strong><small>Currently operational</small></div>
+                <div><span>Active vessels</span><strong>@OperationalVessels</strong><small>Currently operational</small></div>
                 <span class="summary-icon summary-icon-blue"><span class="bi bi-grid-1x2-fill"></span></span>
             </article>
             <article class="fleet-summary-card">
@@ -26,13 +26,15 @@
                 <span class="summary-icon summary-icon-green"><span class="bi bi-check2-circle"></span></span>
             </article>
             <article class="fleet-summary-card">
-                <div><span>Under maintenance</span><strong>@MaintenanceVessels</strong><small>Requiring operational attention</small></div>
+                <div><span>At port</span><strong>@AtPortVessels</strong><small>Moored or awaiting berth</small></div>
                 <span class="summary-icon summary-icon-purple"><span class="bi bi-diagram-3"></span></span>
             </article>
             <article class="fleet-summary-card">
-                <div><span>DWT capacity</span><strong>@FormatDwt(TotalDwt)</strong><small>Total on this page</small></div>
+                <div><span>Maintenance</span><strong>@MaintenanceVessels</strong><small>Requiring operational attention</small></div>
                 <span class="summary-icon summary-icon-amber"><span class="bi bi-globe2"></span></span>
             </article>
+            <article class="fleet-summary-card"><div><span>Vessel types</span><strong>@VesselTypeCount</strong><small>Represented on this page</small></div><span class="summary-icon summary-icon-purple"><span class="bi bi-layers"></span></span></article>
+            <article class="fleet-summary-card"><div><span>DWT capacity</span><strong>@FormatDwt(TotalDwt)</strong><small>Total on this page</small></div><span class="summary-icon summary-icon-green"><span class="bi bi-box-seam"></span></span></article>
         </section>
     }
 
@@ -95,22 +97,27 @@
         }
         else
         {
+            <div class="fleet-row-labels" aria-hidden="true"><span></span><span>Vessel</span><span>Status</span><span>Flag state</span><span>DWT</span><span>Fleet</span><span>Last updated</span><span></span></div>
             <div class="fleet-vessel-list">
                 @foreach (var vessel in page.Items)
                 {
                     <article class="fleet-vessel-row">
                         <span class="vessel-row-icon"><span class="bi bi-water"></span></span>
                         <div class="vessel-primary"><strong>@vessel.Name</strong><span>IMO @vessel.ImoNumber · @vessel.FlagState · @vessel.VesselTypeName</span></div>
+                        <div class="vessel-status-group"><span class="vessel-status @GetStatusClass(vessel.CurrentStatus)">@vessel.CurrentStatus</span>@if (!string.IsNullOrWhiteSpace(vessel.LifecycleStage)) { <small>@vessel.LifecycleStage</small> }</div>
+                        <div class="vessel-detail"><span>Flag state</span><strong>@vessel.FlagState</strong></div>
+                        <div class="vessel-detail"><span>DWT</span><strong>@(vessel.Dwt is null ? "—" : FormatDwt(vessel.Dwt.Value))</strong></div>
+                        <div class="vessel-detail vessel-fleet"><span>Fleet</span><strong>@(vessel.FleetName ?? "Unassigned")</strong></div>
                         <div class="vessel-updated"><span>Last updated</span><strong>@vessel.UpdatedAtUtc.ToLocalTime().ToString("dd MMM yyyy, HH:mm")</strong></div>
-                        <span class="vessel-status @GetStatusClass(vessel.CurrentStatus)">@vessel.CurrentStatus</span>
                         <span class="bi bi-chevron-right vessel-chevron" aria-hidden="true"></span>
                     </article>
                 }
             </div>
             <div class="fleet-pagination">
-                <span>Page @(page.PageNumber) of @TotalPages</span>
+                <span>Showing @FirstRowNumber&ndash;@LastRowNumber of @(page.TotalCount) vessels</span>
                 <div>
                     <button type="button" @onclick="PreviousPageAsync" disabled="@(page.PageNumber <= 1)">Previous</button>
+                    <span class="fleet-page-indicator">Page @(page.PageNumber) of @TotalPages</span>
                     <button type="button" @onclick="NextPageAsync" disabled="@(page.PageNumber >= TotalPages)">Next</button>
                 </div>
             </div>
@@ -119,7 +126,7 @@
 </section>
 
 @code {
-    private static readonly string[] statusOptions = ["Active", "Inactive", "Under Maintenance", "In Transit"];
+    private static readonly string[] statusOptions = ["Active", "En Route", "At Port", "Maintenance", "Inactive"];
     private readonly CancellationTokenSource disposalCts = new();
     private VesselPageResponse? page;
     private FleetApiFailure? failure;
@@ -128,9 +135,13 @@
     private bool isLoading = true;
 
     private int TotalPages => page is null || page.TotalCount == 0 ? 1 : (int)Math.Ceiling((double)page.TotalCount / page.PageSize);
-    private int ActiveVessels => page?.Items.Count(vessel => string.Equals(vessel.CurrentStatus, "Active", StringComparison.OrdinalIgnoreCase)) ?? 0;
+    private int FirstRowNumber => page is null || page.TotalCount == 0 ? 0 : ((page.PageNumber - 1) * page.PageSize) + 1;
+    private int LastRowNumber => page is null ? 0 : Math.Min(page.PageNumber * page.PageSize, page.TotalCount);
+    private int OperationalVessels => page?.Items.Count(vessel => !IsMaintenance(vessel.CurrentStatus) && !string.Equals(vessel.CurrentStatus, "Inactive", StringComparison.OrdinalIgnoreCase)) ?? 0;
     private int EnRouteVessels => page?.Items.Count(vessel => string.Equals(vessel.CurrentStatus, "In Transit", StringComparison.OrdinalIgnoreCase) || string.Equals(vessel.CurrentStatus, "En Route", StringComparison.OrdinalIgnoreCase)) ?? 0;
-    private int MaintenanceVessels => page?.Items.Count(vessel => string.Equals(vessel.CurrentStatus, "Under Maintenance", StringComparison.OrdinalIgnoreCase)) ?? 0;
+    private int AtPortVessels => page?.Items.Count(vessel => string.Equals(vessel.CurrentStatus, "At Port", StringComparison.OrdinalIgnoreCase)) ?? 0;
+    private int MaintenanceVessels => page?.Items.Count(vessel => IsMaintenance(vessel.CurrentStatus)) ?? 0;
+    private int VesselTypeCount => page?.Items.Select(vessel => vessel.VesselTypeId).Distinct().Count() ?? 0;
     private decimal TotalDwt => page?.Items.Sum(vessel => vessel.Dwt ?? 0) ?? 0;
 
     protected override async Task OnInitializedAsync() => await LoadVesselsAsync();
@@ -191,9 +202,14 @@
     {
         "active" => "vessel-status-active",
         "in transit" => "vessel-status-transit",
+        "en route" => "vessel-status-transit",
         "under maintenance" => "vessel-status-maintenance",
+        "maintenance" => "vessel-status-maintenance",
+        "at port" => "vessel-status-port",
         _ => "vessel-status-neutral",
     };
+
+    private static bool IsMaintenance(string status) => string.Equals(status, "Under Maintenance", StringComparison.OrdinalIgnoreCase) || string.Equals(status, "Maintenance", StringComparison.OrdinalIgnoreCase);
 
     private static string FormatDwt(decimal dwt) => dwt >= 1_000_000
         ? $"{dwt / 1_000_000m:0.#}M"
