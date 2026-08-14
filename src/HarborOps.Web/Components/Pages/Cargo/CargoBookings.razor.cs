@@ -4,7 +4,8 @@ namespace HarborOps.Web.Components.Pages.Cargo;
 
 public partial class CargoBookings
 {
-    private CancellationTokenSource loadCancellation = new();
+    private readonly CancellationTokenSource disposeCancellation = new();
+    private int loadVersion;
     private IReadOnlyList<CargoBookingRow> rows = [];
     private CargoApiFailure? failure;
     private string? search;
@@ -74,11 +75,8 @@ public partial class CargoBookings
 
     private async Task LoadAsync()
     {
-        loadCancellation.Cancel();
-        loadCancellation.Dispose();
-        loadCancellation = new CancellationTokenSource();
-
-        var cancellationToken = loadCancellation.Token;
+        var requestVersion = ++loadVersion;
+        var cancellationToken = disposeCancellation.Token;
         isLoading = true;
         failure = null;
 
@@ -94,12 +92,12 @@ public partial class CargoBookings
         {
             result = await CargoApi.SearchAsync(filter, cancellationToken);
         }
-        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        catch (OperationCanceledException) when (disposeCancellation.IsCancellationRequested)
         {
             return;
         }
 
-        if (cancellationToken.IsCancellationRequested)
+        if (disposeCancellation.IsCancellationRequested || requestVersion != loadVersion)
         {
             return;
         }
@@ -134,7 +132,7 @@ public partial class CargoBookings
 
     public void Dispose()
     {
-        loadCancellation.Cancel();
-        loadCancellation.Dispose();
+        disposeCancellation.Cancel();
+        disposeCancellation.Dispose();
     }
 }

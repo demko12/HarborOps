@@ -1,5 +1,5 @@
 @page "/crew"
-@attribute [Microsoft.AspNetCore.Authorization.Authorize]
+@attribute [Microsoft.AspNetCore.Authorization.Authorize(Policy = "AccessCrew")]
 @implements IDisposable
 @inject CrewApiClient CrewApi
 
@@ -102,7 +102,8 @@
 </section>
 
 @code {
-    private CancellationTokenSource loadCancellation = new();
+    private readonly CancellationTokenSource disposeCancellation = new();
+    private int loadVersion;
     private readonly DateOnly currentDate = DateOnly.FromDateTime(DateTime.Today);
     private CrewMemberPageResponse? roster;
     private CrewApiFailure? failure;
@@ -166,11 +167,8 @@
 
     private async Task LoadRosterAsync()
     {
-        loadCancellation.Cancel();
-        loadCancellation.Dispose();
-        loadCancellation = new CancellationTokenSource();
-
-        var cancellationToken = loadCancellation.Token;
+        var requestVersion = ++loadVersion;
+        var cancellationToken = disposeCancellation.Token;
         isLoading = true;
         failure = null;
 
@@ -179,12 +177,12 @@
         {
             result = await CrewApi.GetMembersAsync(search, employmentStatus, roster?.PageNumber ?? 1, 25, cancellationToken);
         }
-        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        catch (OperationCanceledException) when (disposeCancellation.IsCancellationRequested)
         {
             return;
         }
 
-        if (cancellationToken.IsCancellationRequested)
+        if (disposeCancellation.IsCancellationRequested || requestVersion != loadVersion)
         {
             return;
         }
@@ -195,7 +193,7 @@
 
     private PassportState GetPassportState(DateOnly expiry) => expiry < currentDate ? new(true, "passport-expired") : new(false, "");
     private static string GetEmploymentStatusClass(string status) => string.Equals(status, "Active", StringComparison.OrdinalIgnoreCase) ? "employment-active" : "employment-inactive";
-    public void Dispose() { loadCancellation.Cancel(); loadCancellation.Dispose(); }
+    public void Dispose() { disposeCancellation.Cancel(); disposeCancellation.Dispose(); }
     private sealed record PassportState(bool IsExpired, string Class);
     private sealed record RankSummary(string Name, int Count, int Percentage);
 }

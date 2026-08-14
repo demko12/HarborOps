@@ -22,7 +22,14 @@ public static class IdentityEndpoints
             var user = await userManager.GetUserAsync(principal);
             return user is null
                 ? Results.Unauthorized()
-                : Results.Ok(new AccountResponse(user.Id, user.Email!));
+                : Results.Ok(new AccountResponse(
+                    user.Id,
+                    user.Email!,
+                    principal.FindAll(Permissions.ClaimType)
+                        .Select(claim => claim.Value)
+                        .Distinct(StringComparer.Ordinal)
+                        .OrderBy(permission => permission, StringComparer.Ordinal)
+                        .ToArray()));
         })
             .RequireAuthorization();
 

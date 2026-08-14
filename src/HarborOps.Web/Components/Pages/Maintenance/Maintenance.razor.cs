@@ -5,7 +5,8 @@ namespace HarborOps.Web.Components.Pages.Maintenance;
 
 public partial class Maintenance
 {
-    private CancellationTokenSource loadCancellation = new();
+    private readonly CancellationTokenSource disposeCancellation = new();
+    private int loadVersion;
 
     private IReadOnlyList<MaintenanceWorkOrderRow> rows = [];
     private MaintenanceApiFailure? failure;
@@ -91,11 +92,8 @@ public partial class Maintenance
 
     private async Task LoadAsync()
     {
-        loadCancellation.Cancel();
-        loadCancellation.Dispose();
-        loadCancellation = new CancellationTokenSource();
-
-        var cancellationToken = loadCancellation.Token;
+        var requestVersion = ++loadVersion;
+        var cancellationToken = disposeCancellation.Token;
         isLoading = true;
         failure = null;
 
@@ -107,9 +105,18 @@ public partial class Maintenance
             pageNumber,
             pageSize);
 
-        var result = await MaintenanceApi.GetWorkOrdersAsync(filter, cancellationToken);
+        MaintenanceApiResult<MaintenanceWorkOrdersPage> result;
 
-        if (cancellationToken.IsCancellationRequested)
+        try
+        {
+            result = await MaintenanceApi.GetWorkOrdersAsync(filter, cancellationToken);
+        }
+        catch (OperationCanceledException) when (disposeCancellation.IsCancellationRequested)
+        {
+            return;
+        }
+
+        if (disposeCancellation.IsCancellationRequested || requestVersion != loadVersion)
         {
             return;
         }
@@ -130,17 +137,18 @@ public partial class Maintenance
         pageSize = page.PageSize;
         totalCount = page.TotalCount;
 
-        await ComposeRowsAsync(page.Items, cancellationToken);
+        await ComposeRowsAsync(page.Items, cancellationToken, requestVersion);
     }
 
     private async Task ComposeRowsAsync(
         IReadOnlyList<MaintenanceWorkOrderListItem> items,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        int requestVersion)
     {
         var vesselIds = items.Select(item => item.VesselId).Distinct().ToArray();
         var vesselNames = await VesselLookupApi.LookupVesselNamesAsync(vesselIds, cancellationToken);
 
-        if (cancellationToken.IsCancellationRequested)
+        if (disposeCancellation.IsCancellationRequested || requestVersion != loadVersion)
         {
             return;
         }
@@ -263,8 +271,8 @@ public partial class Maintenance
 
     public void Dispose()
     {
-        loadCancellation.Cancel();
-        loadCancellation.Dispose();
+        disposeCancellation.Cancel();
+        disposeCancellation.Dispose();
     }
 
     private sealed class CreateWorkOrderModel

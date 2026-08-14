@@ -67,6 +67,8 @@
     position: relative;
 }
 
+.topbar-menu-backdrop { position: fixed; z-index: 35; inset: 3.75rem 0 0; background: transparent; }
+
 .notifications-dropdown {
     position: absolute;
     top: calc(100% + .55rem);

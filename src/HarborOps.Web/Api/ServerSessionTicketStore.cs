@@ -8,6 +8,7 @@ namespace HarborOps.Web.Api;
 internal sealed class ServerSessionTicketStore(IMemoryCache cache) : ITicketStore
 {
     private static readonly TimeSpan SessionLifetime = TimeSpan.FromDays(7);
+    private readonly AsyncLocal<string?> currentSessionKey = new();
 
     public Task<string> StoreAsync(AuthenticationTicket ticket) => StoreAsync(ticket, CancellationToken.None);
 
@@ -32,6 +33,7 @@ internal sealed class ServerSessionTicketStore(IMemoryCache cache) : ITicketStor
 
     public Task<AuthenticationTicket?> RetrieveAsync(string key, CancellationToken cancellationToken)
     {
+        currentSessionKey.Value = key;
         cache.TryGetValue(key, out AuthenticationTicket? ticket);
         return Task.FromResult(ticket);
     }
@@ -39,6 +41,29 @@ internal sealed class ServerSessionTicketStore(IMemoryCache cache) : ITicketStor
     public Task RemoveAsync(string key, CancellationToken cancellationToken)
     {
         cache.Remove(key);
+        return Task.CompletedTask;
+    }
+
+    internal Task<bool> RenewCurrentAsync(AuthenticationTicket ticket)
+    {
+        var key = currentSessionKey.Value;
+        if (string.IsNullOrWhiteSpace(key))
+        {
+            return Task.FromResult(false);
+        }
+
+        cache.Set(key, ticket, SessionLifetime);
+        return Task.FromResult(true);
+    }
+
+    internal Task RemoveCurrentAsync()
+    {
+        var key = currentSessionKey.Value;
+        if (!string.IsNullOrWhiteSpace(key))
+        {
+            cache.Remove(key);
+        }
+
         return Task.CompletedTask;
     }
 }

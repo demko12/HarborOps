@@ -6,4 +6,4 @@ internal sealed record IdentityAccessTokenResponse(
     int ExpiresIn,
     string TokenType);
 
-internal sealed record CurrentAccountResponse(Guid Id, string Email);
+internal sealed record CurrentAccountResponse(Guid Id, string Email, IReadOnlyList<string>? Permissions);

@@ -10,6 +10,8 @@ public sealed record GetVoyagesRequest
 
     public string? Status { get; init; }
 
+    public bool? IncludeActive { get; init; }
+
     public int? PageNumber { get; init; }
 
     public int? PageSize { get; init; }

@@ -1,0 +1,43 @@
+@inject FleetApiClient FleetApi
+
+<div class="vessel-picker">
+    <input class="vessel-picker-input"
+           type="text"
+           value="@displayText"
+           placeholder="@(Placeholder ?? DefaultPlaceholder)"
+           disabled="@Disabled"
+           autocomplete="off"
+           role="combobox"
+           aria-expanded="@(isDropdownOpen ? "true" : "false")"
+           aria-autocomplete="list"
+           @oninput="OnInputAsync"
+           @onfocus="OnFocus"
+           @onblur="OnBlurAsync" />
+
+    @if (isDropdownOpen)
+    {
+        <ul class="vessel-picker-dropdown" role="listbox">
+            @if (isSearching)
+            {
+                <li class="vessel-picker-status">Searching...</li>
+            }
+            else if (searchFailed)
+            {
+                <li class="vessel-picker-status vessel-picker-error">Unable to search vessels right now</li>
+            }
+            else if (results.Count == 0)
+            {
+                <li class="vessel-picker-status">No vessels found</li>
+            }
+            else
+            {
+                @foreach (var vessel in results)
+                {
+                    <li class="vessel-picker-option" role="option" @onclick="() => SelectVessel(vessel)">
+                        @vessel.Name <span class="vessel-picker-imo">(@vessel.ImoNumber)</span>
+                    </li>
+                }
+            }
+        </ul>
+    }
+</div>

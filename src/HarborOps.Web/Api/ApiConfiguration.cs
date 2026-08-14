@@ -1,8 +1,8 @@
 using HarborOps.Web.Api.Cargo;
-using HarborOps.Web.Api.Voyages;
-
+using HarborOps.Web.Api.Documents;
 using HarborOps.Web.Api.Fleet;
 using HarborOps.Web.Api.Maintenance;
+using HarborOps.Web.Api.Voyages;
 
 namespace HarborOps.Web.Api;
 
@@ -64,6 +64,12 @@ internal static class ApiConfiguration
         }).AddHttpMessageHandler<BearerTokenHandler>();
 
         services.AddHttpClient<VoyagesApiClient>(client =>
+        {
+            client.BaseAddress = baseAddress;
+            client.Timeout = TimeSpan.FromSeconds(15);
+        }).AddHttpMessageHandler<BearerTokenHandler>();
+
+        services.AddHttpClient<DocumentsApiClient>(client =>
         {
             client.BaseAddress = baseAddress;
             client.Timeout = TimeSpan.FromSeconds(15);

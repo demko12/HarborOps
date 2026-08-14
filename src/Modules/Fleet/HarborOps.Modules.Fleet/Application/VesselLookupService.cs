@@ -16,7 +16,7 @@ internal sealed class VesselLookupService(DbContext dbContext) : IVesselLookupSe
         ArgumentNullException.ThrowIfNull(request);
 
         var errors = VesselLookupValidator.Validate(request);
-        if(errors.Count>0)
+        if (errors.Count > 0)
         {
             throw new VesselLookupValidationException(errors);
         }

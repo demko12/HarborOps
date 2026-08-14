@@ -25,9 +25,17 @@ internal sealed class GetExpiringDocumentsQuery(DbContext dbContext, IDateTimePr
 
         var today = DateOnly.FromDateTime(dateTimeProvider.UtcNow);
 
-        var documents = dbContext.Set<Document>()
-            .AsNoTracking()
-            .Where(document => document.ExpiryDate >= request.From && document.ExpiryDate <= request.To);
+        var documents = dbContext.Set<Document>().AsNoTracking();
+
+        if (request.From is { } from)
+        {
+            documents = documents.Where(document => document.ExpiryDate >= from);
+        }
+
+        if (request.To is { } to)
+        {
+            documents = documents.Where(document => document.ExpiryDate <= to);
+        }
 
         if (request.VesselId is { } vesselId)
         {

@@ -79,13 +79,12 @@ public sealed class MaintenancePageTests : BunitContext
     }
 
     [Fact]
-    public void Applying_the_status_and_priority_filters_sends_them_to_the_api()
+    public void Changing_the_status_and_priority_filters_sends_them_to_the_api()
     {
         var page = RenderMaintenancePage();
 
         page.Find("#maintenance-status").Change("Open");
         page.Find("#maintenance-priority").Change("Critical");
-        page.Find("form.maintenance-filters").Submit();
 
         page.WaitForAssertion(() =>
         {
@@ -97,12 +96,11 @@ public sealed class MaintenancePageTests : BunitContext
     }
 
     [Fact]
-    public void Applying_the_overdue_filter_sends_it_to_the_api()
+    public void Changing_the_overdue_filter_sends_it_to_the_api()
     {
         var page = RenderMaintenancePage();
 
         page.Find("#maintenance-overdue").Change("true");
-        page.Find("form.maintenance-filters").Submit();
 
         page.WaitForAssertion(() =>
             Assert.Contains(
@@ -118,7 +116,6 @@ public sealed class MaintenancePageTests : BunitContext
         var page = RenderMaintenancePage();
 
         page.Find("#maintenance-status").Change("Open");
-        page.Find("form.maintenance-filters").Submit();
         page.WaitForAssertion(() => Assert.True(requestedUris.Count(uri => uri.AbsolutePath.Contains("work-orders")) >= 2));
 
         page.Find(".maintenance-reset").Click();

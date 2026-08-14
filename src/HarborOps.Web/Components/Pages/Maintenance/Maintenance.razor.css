@@ -192,6 +192,12 @@ html[data-theme="light"] .maintenance-page {
     }
 
 .filter-field select {
+    appearance: none;
+    padding-right: 2.5rem;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 16 16' fill='none'%3E%3Cpath d='m4 6 4 4 4-4' stroke='%2394a3b8' stroke-width='1.7' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right .72rem center;
+    background-size: 1rem;
     cursor: pointer;
 }
 
@@ -339,14 +345,31 @@ html[data-theme="light"] .maintenance-page {
 /* Table */
 
 .maintenance-table-scroll {
-    overflow-x: auto;
+    width: 100%;
 }
 
 .maintenance-table {
     width: 100%;
-    min-width: 42rem;
+    table-layout: fixed;
     border-collapse: collapse;
 }
+
+.maintenance-table .col-title { width: 18%; }
+
+.maintenance-table .col-vessel { width: 12%; }
+
+.maintenance-table .col-priority { width: 10%; }
+
+.maintenance-table .col-status { width: 11%; }
+
+.maintenance-table .col-due { width: 14%; }
+
+.maintenance-table .col-assigned { width: 11%; }
+
+.maintenance-table .col-created,
+.maintenance-table .col-completed { width: 7%; }
+
+.maintenance-table .col-actions { width: 10%; }
 
     .maintenance-table th {
         padding: .55rem .8rem;
@@ -366,6 +389,7 @@ html[data-theme="light"] .maintenance-page {
         border-bottom: 1px solid var(--border-subtle);
         font-size: .88rem;
         font-variant-numeric: tabular-nums;
+        overflow: hidden;
     }
 
     .maintenance-table tbody tr:last-child td {
@@ -387,13 +411,15 @@ html[data-theme="light"] .maintenance-page {
 
 .maintenance-title {
     display: block;
+    overflow: hidden;
     font-weight: 600;
+    text-overflow: ellipsis;
     white-space: nowrap;
 }
 
 .maintenance-description {
     display: block;
-    max-width: 16rem;
+    max-width: 100%;
     overflow: hidden;
     color: var(--text-muted);
     font-size: .8rem;
@@ -403,6 +429,27 @@ html[data-theme="light"] .maintenance-page {
 
 .maintenance-muted {
     color: var(--text-muted);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.maintenance-table .col-vessel {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.maintenance-table .col-actions {
+    text-align: right;
+    white-space: nowrap;
+}
+
+.maintenance-row-chevron {
+    display: inline-block;
+    margin-left: .55rem;
+    color: var(--text-muted);
+    font-size: .76rem;
 }
 
 /* Priority / Status */
@@ -425,6 +472,21 @@ html[data-theme="light"] .maintenance-page {
 .priority-critical {
     color: #f87171;
     background: rgba(248, 113, 113, .14);
+}
+
+.priority-low {
+    color: #94a3b8;
+    background: rgba(148, 163, 184, .12);
+}
+
+.priority-medium {
+    color: #93c5fd;
+    background: rgba(96, 165, 250, .14);
+}
+
+.priority-high {
+    color: #fbbf24;
+    background: rgba(251, 191, 36, .14);
 }
 
 .maintenance-overdue-badge {
@@ -617,6 +679,27 @@ html[data-theme="light"] .maintenance-status.canceled {
     background: rgba(185, 28, 28, .1);
 }
 
+html[data-theme="light"] .priority-low {
+    color: #475569;
+    background: rgba(71, 85, 105, .1);
+}
+
+html[data-theme="light"] .priority-medium {
+    color: #1d4ed8;
+    background: rgba(37, 99, 235, .12);
+}
+
+html[data-theme="light"] .priority-high {
+    color: #b45309;
+    background: rgba(180, 83, 9, .12);
+}
+
+html[data-theme="light"] .priority-critical,
+html[data-theme="light"] .maintenance-overdue-badge {
+    color: #b91c1c;
+    background: rgba(185, 28, 28, .1);
+}
+
 html[data-theme="light"] .maintenance-validation,
 html[data-theme="light"] .maintenance-field-errors {
     border-color: rgba(185, 28, 28, .3);
@@ -655,13 +738,11 @@ html[data-theme="light"] .maintenance-form-grid textarea {
 /* Responsive */
 
 @media (max-width: 1050px) {
-    .maintenance-table {
-        min-width: 32rem;
+    .maintenance-table .col-assigned,
+    .maintenance-table .col-created,
+    .maintenance-table .col-completed {
+        display: none;
     }
-
-        .maintenance-table .col-vessel {
-            display: none;
-        }
 }
 
 @media (max-width: 760px) {
@@ -693,9 +774,14 @@ html[data-theme="light"] .maintenance-form-grid textarea {
         grid-template-columns: 1fr;
     }
 
-    .maintenance-table {
-        min-width: 0;
-    }
+    .maintenance-table th,
+    .maintenance-table td { padding: .7rem .45rem; }
+
+    .maintenance-table .col-vessel { display: none; }
+
+    .maintenance-table .col-title { width: 30%; }
+
+    .maintenance-description { max-width: 100%; }
 
     .maintenance-pagination {
         align-items: flex-start;

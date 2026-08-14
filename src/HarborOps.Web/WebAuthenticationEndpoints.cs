@@ -33,13 +33,9 @@ internal static class WebAuthenticationEndpoints
             identity.AddClaim(new Claim(ClaimTypes.NameIdentifier, account.Id.ToString()));
             identity.AddClaim(new Claim(ClaimTypes.Name, account.Email));
             identity.AddClaim(new Claim(ClaimTypes.Email, account.Email));
-            if (await identityApi.HasAdministrationPermissionAsync(tokens.AccessToken, "api/identity/admin/users", cancellationToken))
+            foreach (var permission in (account.Permissions ?? []).Distinct(StringComparer.Ordinal))
             {
-                identity.AddClaim(new Claim(CurrentUserAuthorizationState.PermissionClaimType, CurrentUserAuthorizationState.ManageUsersPermission));
-            }
-            if (await identityApi.HasAdministrationPermissionAsync(tokens.AccessToken, "api/identity/admin/roles", cancellationToken))
-            {
-                identity.AddClaim(new Claim(CurrentUserAuthorizationState.PermissionClaimType, CurrentUserAuthorizationState.ManageRolesPermission));
+                identity.AddClaim(new Claim(CurrentUserAuthorizationState.PermissionClaimType, permission));
             }
             var properties = new AuthenticationProperties { IsPersistent = true };
             properties.StoreTokens([new AuthenticationToken { Name = "access_token", Value = tokens.AccessToken }, new AuthenticationToken { Name = "refresh_token", Value = tokens.RefreshToken }]);

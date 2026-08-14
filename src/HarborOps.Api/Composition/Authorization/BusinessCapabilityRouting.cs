@@ -13,5 +13,6 @@ internal static class BusinessCapabilityRouting
         ("/api/maintenance", "maintenance"),
         ("/api/compliance", "compliance"),
         ("/api/documents", "documents"),
+        ("/api/reports", "reports"),
     ];
 }

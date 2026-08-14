@@ -29,13 +29,16 @@
                 <div><h2 id="users-title">Users</h2><p>Assign roles to existing accounts.</p></div>
                 <span class="bi bi-people" aria-hidden="true"></span>
             </div>
-            <form class="administration-search" @onsubmit="SearchAsync" @onsubmit:preventDefault="true">
+            <div class="administration-search">
                 <div class="input-shell">
                     <span class="bi bi-search" aria-hidden="true"></span>
-                    <input @bind="search" placeholder="Search by email address" aria-label="Search users by email" />
+                    <input @bind="search" @bind:event="oninput" @bind:after="SearchAsync" placeholder="Search by email address" aria-label="Search users by email" />
                 </div>
-                <button class="admin-button admin-button-secondary" type="submit" disabled="@isLoadingUsers">Search</button>
-            </form>
+                <button class="admin-button" type="button" @onclick="OpenCreateUserDialog">
+                    <span class="bi bi-person-plus" aria-hidden="true"></span>
+                    Create user
+                </button>
+            </div>
             @if (isLoadingUsers)
             {
                 <LoadingState Message="Loading users..." />
@@ -66,30 +69,7 @@
             }
         </section>
 
-        <section class="administration-card" aria-labelledby="create-user-title">
-            <div class="card-heading"><div><h2 id="create-user-title">Create user</h2><p>Provide a temporary password directly to the account holder.</p></div><span class="bi bi-person-plus"></span></div>
-            <EditForm Model="newUser" OnValidSubmit="CreateUserAsync" class="admin-form">
-                <DataAnnotationsValidator />
-                <ValidationSummary />
-                <div class="form-field">
-                    <label for="new-user-email">Email address</label>
-                    <div class="input-shell"><span class="bi bi-envelope" aria-hidden="true"></span><InputText id="new-user-email" @bind-Value="newUser.Email" type="email" autocomplete="email" placeholder="name@company.com" /></div>
-                </div>
-                <div class="form-field">
-                    <label for="new-user-password">Temporary password</label>
-                    <div class="input-shell"><span class="bi bi-key" aria-hidden="true"></span><InputText id="new-user-password" @bind-Value="newUser.TemporaryPassword" type="password" autocomplete="new-password" /></div>
-                    <small>Share this securely. It is cleared after submission.</small>
-                </div>
-                <div class="form-field">
-                    <label for="new-user-confirmation">Confirm temporary password</label>
-                    <div class="input-shell"><span class="bi bi-check2-circle" aria-hidden="true"></span><InputText id="new-user-confirmation" @bind-Value="newUser.Confirmation" type="password" autocomplete="new-password" /></div>
-                </div>
-                @if (userFormMessage is not null) { <p class="form-message @userFormMessageClass">@userFormMessage</p> }
-                <button class="admin-button" type="submit" disabled="@isCreatingUser">@(isCreatingUser ? "Creating..." : "Create user")</button>
-            </EditForm>
-        </section>
-
-        <section class="administration-card" aria-labelledby="roles-title">
+        <section class="administration-card administration-roles" aria-labelledby="roles-title">
             <div class="card-heading"><div><h2 id="roles-title">Roles</h2><p>Create and configure reusable access roles.</p></div><span class="bi bi-person-badge"></span></div>
             <form class="create-role" @onsubmit="CreateRoleAsync" @onsubmit:preventDefault="true"><div class="input-shell"><span class="bi bi-person-badge" aria-hidden="true"></span><input @bind="newRoleName" placeholder="e.g. Port operations" aria-label="New role name" /></div><button class="admin-button" type="submit" disabled="@isCreatingRole">Create role</button></form>
             @if (roleFormMessage is not null) { <p class="form-message @roleFormMessageClass">@roleFormMessage</p> }
@@ -128,4 +108,40 @@
             else { <EmptyState Title="Select a user or role" Message="Choose an item to manage its access." /> }
         </section>
     </div>
+
+    @if (showCreateUserDialog)
+    {
+        <div class="administration-modal-backdrop" @onclick="CloseCreateUserDialog">
+            <section class="administration-modal" role="dialog" aria-modal="true" aria-labelledby="create-user-title" @onclick:stopPropagation="true">
+                <div class="card-heading">
+                    <div><h2 id="create-user-title">Create user</h2><p>Provide a temporary password directly to the account holder.</p></div>
+                    <button class="administration-modal-close" type="button" @onclick="CloseCreateUserDialog" disabled="@isCreatingUser" aria-label="Close create user dialog">
+                        <span class="bi bi-x-lg" aria-hidden="true"></span>
+                    </button>
+                </div>
+                <EditForm Model="newUser" OnValidSubmit="CreateUserAsync" class="admin-form">
+                    <DataAnnotationsValidator />
+                    <ValidationSummary />
+                    <div class="form-field">
+                        <label for="new-user-email">Email address</label>
+                        <div class="input-shell"><span class="bi bi-envelope" aria-hidden="true"></span><InputText id="new-user-email" @bind-Value="newUser.Email" type="email" autocomplete="email" placeholder="name@company.com" /></div>
+                    </div>
+                    <div class="form-field">
+                        <label for="new-user-password">Temporary password</label>
+                        <div class="input-shell"><span class="bi bi-key" aria-hidden="true"></span><InputText id="new-user-password" @bind-Value="newUser.TemporaryPassword" type="password" autocomplete="new-password" /></div>
+                        <small>Share this securely. It is cleared after submission.</small>
+                    </div>
+                    <div class="form-field">
+                        <label for="new-user-confirmation">Confirm temporary password</label>
+                        <div class="input-shell"><span class="bi bi-check2-circle" aria-hidden="true"></span><InputText id="new-user-confirmation" @bind-Value="newUser.Confirmation" type="password" autocomplete="new-password" /></div>
+                    </div>
+                    @if (userFormMessage is not null) { <p class="form-message @userFormMessageClass">@userFormMessage</p> }
+                    <div class="administration-modal-actions">
+                        <button class="admin-button" type="submit" disabled="@isCreatingUser">@(isCreatingUser ? "Creating..." : "Create user")</button>
+                        <button class="admin-button-secondary" type="button" @onclick="CloseCreateUserDialog" disabled="@isCreatingUser">Cancel</button>
+                    </div>
+                </EditForm>
+            </section>
+        </div>
+    }
 </section>

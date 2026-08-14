@@ -1,6 +1,7 @@
 using HarborOps.Modules.Voyages.Application;
 using HarborOps.Modules.Voyages.Contracts;
 using HarborOps.Modules.Voyages.Domain;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 
@@ -15,6 +16,8 @@ public sealed class VoyagesController(
     IGetVoyagesQuery getVoyagesQuery)
     : ControllerBase
 {
+    private const string ManageVoyagesPolicy = "voyages.manage";
+
     [HttpGet]
     [ProducesResponseType<GetVoyagesResponse>(StatusCodes.Status200OK)]
     [ProducesResponseType<HttpValidationProblemDetails>(StatusCodes.Status400BadRequest)]
@@ -43,6 +46,7 @@ public sealed class VoyagesController(
     }
 
     [HttpPost("{voyageId:guid}/departure")]
+    [Authorize(ManageVoyagesPolicy)]
     [ProducesResponseType<RecordVoyageDepartureResponse>(StatusCodes.Status200OK)]
     [ProducesResponseType<HttpValidationProblemDetails>(StatusCodes.Status400BadRequest)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
@@ -94,6 +98,7 @@ public sealed class VoyagesController(
     }
 
     [HttpPost("{voyageId:guid}/arrival")]
+    [Authorize(ManageVoyagesPolicy)]
     [ProducesResponseType<RecordVoyageArrivalResponse>(StatusCodes.Status200OK)]
     [ProducesResponseType<HttpValidationProblemDetails>(StatusCodes.Status400BadRequest)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
