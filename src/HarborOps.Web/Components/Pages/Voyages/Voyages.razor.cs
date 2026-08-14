@@ -360,7 +360,7 @@ public partial class Voyages
 
         await LoadStatusCountsAsync(cancellationToken, requestVersion);
     }
-    private async Task LoadStatusCountsAsync(CancellationToken cancellationToken)
+    private async Task LoadStatusCountsAsync(CancellationToken cancellationToken, int requestVersion)
     {
         foreach (var status in StatusOptions)
         {
@@ -399,7 +399,7 @@ public partial class Voyages
     {
         actionCancellation.Cancel();
         actionCancellation.Dispose();
-        loadCancellation.Cancel();
-        loadCancellation.Dispose();
+        disposeCancellation.Cancel();
+        disposeCancellation.Dispose();
     }
 }
