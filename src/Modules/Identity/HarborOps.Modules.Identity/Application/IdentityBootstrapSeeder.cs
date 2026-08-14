@@ -40,7 +40,14 @@ public sealed class IdentityBootstrapSeeder(
         }
 
         var existingClaims = await roleManager.GetClaimsAsync(role);
-        foreach (var permission in new[] { Permissions.IdentityUsers.Manage, Permissions.IdentityRoles.Manage })
+        foreach (var permission in new[]
+        {
+            Permissions.IdentityUsers.Manage,
+            Permissions.IdentityRoles.Manage,
+            Permissions.Voyages.Read,
+            Permissions.Voyages.Manage,
+            Permissions.Fleet.Read,
+        })
         {
             var alreadyGranted = existingClaims.Any(claim =>
                 claim.Type == Permissions.ClaimType && claim.Value == permission);

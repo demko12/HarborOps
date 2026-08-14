@@ -71,6 +71,71 @@ public sealed class GetVoyagesQueryTests
     }
 
     [Fact]
+    public async Task Active_voyages_stay_in_the_result_when_they_started_before_the_window()
+    {
+        await using var dbContext = CreateDbContext();
+        var atSea = await SeedAsync(
+            dbContext,
+            "VOY-921",
+            new DateTime(2026, 7, 20, 8, 0, 0, DateTimeKind.Utc));
+        var overdue = await SeedAsync(
+            dbContext,
+            "VOY-922",
+            new DateTime(2026, 7, 25, 8, 0, 0, DateTimeKind.Utc));
+        await SeedAsync(dbContext, "VOY-923", new DateTime(2026, 9, 9, 8, 0, 0, DateTimeKind.Utc));
+
+        atSea.Depart(new DateTime(2026, 7, 20, 9, 0, 0, DateTimeKind.Utc));
+        await dbContext.SaveChangesAsync(CancellationToken.None);
+
+        var response = await CreateQuery(dbContext).GetVoyagesAsync(
+            new GetVoyagesRequest { From = WindowFrom, To = WindowTo, IncludeActive = true },
+            CancellationToken.None);
+
+        Assert.Equal(3, response.TotalCount);
+        Assert.Contains(response.Items, item => item.VoyageId == atSea.Id);
+        Assert.Contains(response.Items, item => item.VoyageId == overdue.Id);
+    }
+
+    [Fact]
+    public async Task Completed_voyages_before_the_window_stay_out_of_the_result()
+    {
+        await using var dbContext = CreateDbContext();
+        var finished = await SeedAsync(
+            dbContext,
+            "VOY-931",
+            new DateTime(2026, 7, 20, 8, 0, 0, DateTimeKind.Utc));
+
+        finished.Depart(new DateTime(2026, 7, 20, 9, 0, 0, DateTimeKind.Utc));
+        finished.Arrive(new DateTime(2026, 7, 24, 9, 0, 0, DateTimeKind.Utc));
+        await dbContext.SaveChangesAsync(CancellationToken.None);
+
+        var response = await CreateQuery(dbContext).GetVoyagesAsync(
+            new GetVoyagesRequest { From = WindowFrom, To = WindowTo, IncludeActive = true },
+            CancellationToken.None);
+
+        Assert.Equal(0, response.TotalCount);
+    }
+
+    [Fact]
+    public async Task Active_voyages_outside_the_window_are_excluded_by_default()
+    {
+        await using var dbContext = CreateDbContext();
+        var atSea = await SeedAsync(
+            dbContext,
+            "VOY-941",
+            new DateTime(2026, 7, 20, 8, 0, 0, DateTimeKind.Utc));
+
+        atSea.Depart(new DateTime(2026, 7, 20, 9, 0, 0, DateTimeKind.Utc));
+        await dbContext.SaveChangesAsync(CancellationToken.None);
+
+        var response = await CreateQuery(dbContext).GetVoyagesAsync(
+            new GetVoyagesRequest { From = WindowFrom, To = WindowTo },
+            CancellationToken.None);
+
+        Assert.Equal(0, response.TotalCount);
+    }
+
+    [Fact]
     public async Task Search_matches_part_of_the_voyage_number()
     {
         await using var dbContext = CreateDbContext();

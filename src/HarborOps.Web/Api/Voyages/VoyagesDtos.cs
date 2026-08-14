@@ -18,6 +18,22 @@ internal sealed record VoyagePage(
     int PageSize,
     int TotalCount);
 
+internal sealed record ScheduleVoyageWebRequest(
+    string VoyageNumber,
+    Guid VesselId,
+    string DeparturePortCode,
+    string ArrivalPortCode,
+    DateTime PlannedDepartureUtc,
+    DateTime PlannedArrivalUtc);
+
+internal sealed record RecordDepartureWebRequest(DateTime ActualDepartureUtc);
+
+internal sealed record RecordArrivalWebRequest(DateTime ActualArrivalUtc);
+
+internal sealed record ScheduledVoyage(Guid Id);
+
+internal sealed record VoyageTransition(Guid Id, string Status);
+
 internal sealed record VoyagesApiResult<T>(T? Value, VoyagesApiFailure? Failure)
 {
     internal bool IsSuccess => Failure is null;
@@ -32,4 +48,8 @@ internal sealed record VoyagesApiFailure(
     internal bool IsValidation => StatusCode == StatusCodes.Status400BadRequest;
 
     internal bool IsForbidden => StatusCode == StatusCodes.Status403Forbidden;
+
+    internal bool IsNotFound => StatusCode == StatusCodes.Status404NotFound;
+
+    internal bool IsConflict => StatusCode == StatusCodes.Status409Conflict;
 }
