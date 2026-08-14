@@ -126,7 +126,8 @@
 
 @code {
     private static readonly string[] statusOptions = ["Active", "En Route", "At Port", "Maintenance", "Inactive"];
-    private CancellationTokenSource loadCancellation = new();
+    private readonly CancellationTokenSource disposeCancellation = new();
+    private int loadVersion;
     private VesselPageResponse? page;
     private FleetApiFailure? failure;
     private string? search;
@@ -182,11 +183,8 @@
 
     private async Task LoadVesselsAsync()
     {
-        loadCancellation.Cancel();
-        loadCancellation.Dispose();
-        loadCancellation = new CancellationTokenSource();
-
-        var cancellationToken = loadCancellation.Token;
+        var requestVersion = ++loadVersion;
+        var cancellationToken = disposeCancellation.Token;
         isLoading = true;
         failure = null;
 
@@ -195,12 +193,12 @@
         {
             result = await FleetApi.GetVesselsAsync(search, status, page?.PageNumber ?? 1, 25, cancellationToken);
         }
-        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        catch (OperationCanceledException) when (disposeCancellation.IsCancellationRequested)
         {
             return;
         }
 
-        if (cancellationToken.IsCancellationRequested)
+        if (disposeCancellation.IsCancellationRequested || requestVersion != loadVersion)
         {
             return;
         }
@@ -238,7 +236,7 @@
 
     public void Dispose()
     {
-        loadCancellation.Cancel();
-        loadCancellation.Dispose();
+        disposeCancellation.Cancel();
+        disposeCancellation.Dispose();
     }
 }
