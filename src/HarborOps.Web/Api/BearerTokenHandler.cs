@@ -7,7 +7,8 @@ namespace HarborOps.Web.Api;
 
 internal sealed class BearerTokenHandler(
     IHttpContextAccessor httpContextAccessor,
-    IdentitySessionApiClient identitySessionApiClient) : DelegatingHandler
+    IdentitySessionApiClient identitySessionApiClient,
+    ServerSessionTicketStore sessionTicketStore) : DelegatingHandler
 {
     private const string AccessTokenName = "access_token";
     private const string RefreshTokenName = "refresh_token";
@@ -34,27 +35,50 @@ internal sealed class BearerTokenHandler(
         var refreshToken = ticket.Properties?.GetTokenValue(RefreshTokenName);
         if (string.IsNullOrWhiteSpace(refreshToken))
         {
-            await context.SignOutAsync(CookieAuthenticationDefaults.AuthenticationScheme);
+            await ClearSessionAsync(context);
             return response;
         }
 
         var refreshed = await identitySessionApiClient.RefreshAsync(refreshToken, cancellationToken);
         if (refreshed is null)
         {
-            await context.SignOutAsync(CookieAuthenticationDefaults.AuthenticationScheme);
+            await ClearSessionAsync(context);
             return response;
         }
 
-        response.Dispose();
         ticket.Properties!.StoreTokens([
             new AuthenticationToken { Name = AccessTokenName, Value = refreshed.AccessToken },
             new AuthenticationToken { Name = RefreshTokenName, Value = refreshed.RefreshToken },
         ]);
-        await context.SignInAsync(CookieAuthenticationDefaults.AuthenticationScheme, ticket.Principal!, ticket.Properties);
+        var refreshedTicket = new AuthenticationTicket(
+            ticket.Principal!,
+            ticket.Properties!,
+            CookieAuthenticationDefaults.AuthenticationScheme);
 
+        if (!await sessionTicketStore.RenewCurrentAsync(refreshedTicket))
+        {
+            if (context.Response.HasStarted)
+            {
+                return response;
+            }
+
+            await context.SignInAsync(CookieAuthenticationDefaults.AuthenticationScheme, ticket.Principal!, ticket.Properties);
+        }
+
+        response.Dispose();
         var retry = await CloneAsync(request, cancellationToken);
         retry.Headers.Authorization = new AuthenticationHeaderValue("Bearer", refreshed.AccessToken);
         return await base.SendAsync(retry, cancellationToken);
+    }
+
+    private async Task ClearSessionAsync(HttpContext context)
+    {
+        await sessionTicketStore.RemoveCurrentAsync();
+
+        if (!context.Response.HasStarted)
+        {
+            await context.SignOutAsync(CookieAuthenticationDefaults.AuthenticationScheme);
+        }
     }
 
     private static async Task<HttpRequestMessage> CloneAsync(HttpRequestMessage request, CancellationToken cancellationToken)

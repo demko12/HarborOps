@@ -6,5 +6,5 @@ namespace HarborOps.Modules.Fleet.Contracts;
 
 public sealed record VesselLookupRequest
 {
-    public IReadOnlyCollection<Guid>? VesselIds { get; init;  }
+    public IReadOnlyCollection<Guid>? VesselIds { get; init; }
 }

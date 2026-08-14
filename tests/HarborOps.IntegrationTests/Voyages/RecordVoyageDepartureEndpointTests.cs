@@ -2,6 +2,7 @@ using System.Net;
 using System.Net.Http.Json;
 using HarborOps.Infrastructure.Persistence;
 using HarborOps.IntegrationTests.Authentication;
+using HarborOps.Modules.Identity.Contracts;
 using HarborOps.Modules.Voyages;
 using HarborOps.Modules.Voyages.Application;
 using HarborOps.Modules.Voyages.Contracts;
@@ -32,7 +33,8 @@ public sealed class RecordVoyageDepartureEndpointTests : IntegrationTestBase
     [Fact]
     public async Task Post_records_departure_and_persists_transition()
     {
-        using var client = await _application.CreateAuthenticatedClientAsync();
+        using var client = await _application.CreateAuthenticatedClientWithPermissionsAsync(
+            Permissions.Voyages.Manage);
         var seeded = await SeedPlannedVoyageAsync("VOY-300");
 
         using var response = await client.PostAsJsonAsync(
@@ -57,7 +59,8 @@ public sealed class RecordVoyageDepartureEndpointTests : IntegrationTestBase
     [Fact]
     public async Task Post_returns_not_found_for_unknown_voyage()
     {
-        using var client = await _application.CreateAuthenticatedClientAsync();
+        using var client = await _application.CreateAuthenticatedClientWithPermissionsAsync(
+            Permissions.Voyages.Manage);
 
         using var response = await client.PostAsJsonAsync(
             DepartureUri(Guid.NewGuid()),
@@ -77,7 +80,8 @@ public sealed class RecordVoyageDepartureEndpointTests : IntegrationTestBase
     [Fact]
     public async Task Post_returns_validation_problem_for_future_departure()
     {
-        using var client = await _application.CreateAuthenticatedClientAsync();
+        using var client = await _application.CreateAuthenticatedClientWithPermissionsAsync(
+            Permissions.Voyages.Manage);
         var seeded = await SeedPlannedVoyageAsync("VOY-301");
 
         using var response = await client.PostAsJsonAsync(
@@ -103,7 +107,8 @@ public sealed class RecordVoyageDepartureEndpointTests : IntegrationTestBase
     [Fact]
     public async Task Post_returns_conflict_for_second_departure()
     {
-        using var client = await _application.CreateAuthenticatedClientAsync();
+        using var client = await _application.CreateAuthenticatedClientWithPermissionsAsync(
+            Permissions.Voyages.Manage);
         var seeded = await SeedPlannedVoyageAsync("VOY-302");
         var request = new RecordVoyageDepartureRequest
         {
@@ -135,7 +140,8 @@ public sealed class RecordVoyageDepartureEndpointTests : IntegrationTestBase
     [Fact]
     public async Task Departure_introduces_no_fleet_lookup_or_reference()
     {
-        using var client = await _application.CreateAuthenticatedClientAsync();
+        using var client = await _application.CreateAuthenticatedClientWithPermissionsAsync(
+            Permissions.Voyages.Manage);
         var seeded = await SeedPlannedVoyageAsync("VOY-303");
 
         using var response = await client.PostAsJsonAsync(
@@ -167,6 +173,26 @@ public sealed class RecordVoyageDepartureEndpointTests : IntegrationTestBase
             CancellationToken.None);
 
         Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task Post_without_the_manage_permission_returns_403()
+    {
+        using var client = await _application.CreateAuthenticatedClientWithPermissionsAsync(
+            Permissions.Voyages.Read);
+        var seeded = await SeedPlannedVoyageAsync("VOY-304");
+
+        using var response = await client.PostAsJsonAsync(
+            DepartureUri(seeded.VoyageId),
+            new RecordVoyageDepartureRequest { ActualDepartureUtc = seeded.CreatedUtc },
+            CancellationToken.None);
+
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+
+        var persisted = await LoadVoyageAsync(seeded.VoyageId);
+
+        Assert.Null(persisted.ActualDeparture);
+        Assert.Equal(Voyage.PlannedStatus, persisted.Status);
     }
 
     private static Uri DepartureUri(Guid voyageId)

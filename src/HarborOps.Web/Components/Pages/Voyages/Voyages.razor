@@ -3,6 +3,7 @@
 @using HarborOps.Web.Api.Voyages
 @implements IDisposable
 @inject VoyagesApiClient VoyagesApi
+@inject CurrentUserAuthorizationState AuthorizationState
 
 <PageTitle>Voyages | HarborOps</PageTitle>
 
@@ -111,8 +112,44 @@
                 <h2 id="voyages-list-title">Voyage schedule</h2>
                 <p>@totalCount voyages found</p>
             </div>
-            <span class="voyages-card-icon" aria-hidden="true"><span class="bi bi-signpost-split-fill"></span></span>
+            <div class="voyages-card-tools">
+                @if (CanManageVoyages)
+                {
+                    <a class="voyages-schedule-button" href="/voyages/schedule">
+                        <span aria-hidden="true">+</span> Schedule voyage
+                    </a>
+                }
+                <span class="voyages-card-icon" aria-hidden="true"><span class="bi bi-signpost-split-fill"></span></span>
+            </div>
         </div>
+
+        @if (actionSuccess is not null)
+        {
+            <div class="voyages-action-success" role="status">@actionSuccess</div>
+        }
+
+        @if (actionFailure is not null)
+        {
+            <div class="voyages-action-failure" role="alert">
+                <strong>@actionFailure.Title</strong>
+                @if (actionFailure.Errors.Count > 0)
+                {
+                    <ul>
+                        @foreach (var entry in actionFailure.Errors)
+                        {
+                            @foreach (var message in entry.Value)
+                            {
+                                <li>@message</li>
+                            }
+                        }
+                    </ul>
+                }
+                else
+                {
+                    <p>@actionFailure.Message</p>
+                }
+            </div>
+        }
 
         @if (isLoading)
         {
@@ -129,6 +166,15 @@
         {
             <EmptyState Title="No voyages in this window"
                         Message="Widen the date range or clear the status filter." />
+
+            @if (CanManageVoyages)
+            {
+                <div class="voyages-empty-action">
+                    <a class="voyages-schedule-button" href="/voyages/schedule">
+                        <span aria-hidden="true">+</span> Schedule voyage
+                    </a>
+                </div>
+            }
         }
         else
         {
@@ -142,6 +188,10 @@
                             <th scope="col">Status</th>
                             <th scope="col">Planned</th>
                             <th scope="col" class="col-actual">Actual</th>
+                            @if (CanManageVoyages)
+                            {
+                                <th scope="col">Actions</th>
+                            }
                         </tr>
                     </thead>
                     <tbody>
@@ -177,6 +227,47 @@
                                     <span class="@(voyage.ActualDeparture is null ? "missing" : null)"><b>DEP</b>@FormatUtc(voyage.ActualDeparture)</span>
                                     <span class="@(voyage.ActualArrival is null ? "missing" : null)"><b>ARR</b>@FormatUtc(voyage.ActualArrival)</span>
                                 </td>
+                                @if (CanManageVoyages)
+                                {
+                                    <td class="voyage-actions">
+                                        @if (actionVoyageId == voyage.VoyageId)
+                                        {
+                                            <div class="voyage-action-form" @onkeydown="HandleActionKeyDown">
+                                                <label for="voyage-action-date">@ActionLabel(actionKind!, actionVoyageNumber)</label>
+                                                <div class="voyage-action-stamp">
+                                                    <input id="voyage-action-date" type="date" @bind="actionDate"
+                                                           @ref="actionDateInput"
+                                                           min="@(actionMinDate is { } earliest ? FormatIsoDate(earliest) : null)"
+                                                           max="@FormatIsoDate(actionMaxDate)" />
+                                                    <input id="voyage-action-time" type="time" @bind="actionTime"
+                                                           aria-label="Time in UTC" />
+                                                </div>
+                                                <div class="voyage-action-buttons">
+                                                    <button class="voyages-button" type="button"
+                                                            @onclick="ConfirmActionAsync" disabled="@isActionSubmitting">
+                                                        @(isActionSubmitting ? "Saving..." : "Confirm")
+                                                    </button>
+                                                    <button class="voyages-reset" type="button"
+                                                            @onclick="CancelAction" disabled="@isActionSubmitting">Cancel</button>
+                                                </div>
+                                            </div>
+                                        }
+                                        else if (CanDepart(voyage.Status))
+                                        {
+                                            <button class="voyages-row-action" type="button"
+                                                    @onclick="() => BeginAction(voyage, DepartAction)">Depart</button>
+                                        }
+                                        else if (CanArrive(voyage.Status))
+                                        {
+                                            <button class="voyages-row-action" type="button"
+                                                    @onclick="() => BeginAction(voyage, ArriveAction)">Arrive</button>
+                                        }
+                                        else
+                                        {
+                                            <span class="voyage-actions-none" aria-hidden="true">@MissingValue</span>
+                                        }
+                                    </td>
+                                }
                             </tr>
                         }
                     </tbody>

@@ -1,0 +1,181 @@
+@page "/voyages/schedule"
+@using HarborOps.Web.Api.Voyages
+@attribute [Microsoft.AspNetCore.Authorization.Authorize]
+@implements IDisposable
+@inject VoyagesApiClient VoyagesApi
+@inject FleetApiClient FleetApi
+@inject CurrentUserAuthorizationState AuthorizationState
+@inject NavigationManager Navigation
+
+<PageTitle>Schedule voyage | HarborOps</PageTitle>
+
+<section class="schedule-page">
+    <header class="schedule-header">
+        <div>
+            <p class="schedule-eyebrow">Voyage operations</p>
+            <h1>Schedule voyage</h1>
+            <p>Register a planned voyage for an existing vessel.</p>
+        </div>
+        <span class="schedule-utc" aria-label="All times are entered in UTC">UTC</span>
+    </header>
+
+    @if (!CanManageVoyages)
+    {
+        <section class="schedule-card schedule-denied" role="alert">
+            <span class="bi bi-shield-lock-fill" aria-hidden="true"></span>
+            <div>
+                <strong>Voyage management permission required</strong>
+                <p>Your account cannot schedule voyages. Ask an administrator for the voyages manage permission.</p>
+            </div>
+        </section>
+    }
+    else
+    {
+        <section class="schedule-card" aria-labelledby="schedule-form-title">
+            <div class="schedule-card-heading">
+                <div>
+                    <h2 id="schedule-form-title">Voyage details</h2>
+                    <p>Planned times are stored and shown in UTC.</p>
+                </div>
+                <span class="schedule-card-icon" aria-hidden="true"><span class="bi bi-signpost-split-fill"></span></span>
+            </div>
+
+            @if (failure is not null)
+            {
+                <div class="schedule-failure" role="alert">
+                    <strong>@failure.Title</strong>
+                    @if (failure.Errors.Count > 0)
+                    {
+                        <ul>
+                            @foreach (var entry in failure.Errors)
+                            {
+                                @foreach (var message in entry.Value)
+                                {
+                                    <li>@message</li>
+                                }
+                            }
+                        </ul>
+                    }
+                    else
+                    {
+                        <p>@failure.Message</p>
+                    }
+                </div>
+            }
+
+            <form class="schedule-form" @onsubmit="SubmitAsync" @onsubmit:preventDefault="true">
+                <div class="schedule-field">
+                    <label for="schedule-voyage-number">Voyage number</label>
+                    <input id="schedule-voyage-number" @bind="voyageNumber" maxlength="50"
+                           placeholder="e.g. VOY-2026-0143" />
+                </div>
+
+                <div class="schedule-field schedule-field-wide">
+                    <label for="schedule-vessel-search">Vessel</label>
+                    @if (selectedVessel is not null)
+                    {
+                        <div class="schedule-vessel-selected">
+                            <div>
+                                <strong>@selectedVessel.Name</strong>
+                                <span>IMO @selectedVessel.ImoNumber</span>
+                            </div>
+                            <button class="schedule-link" type="button" @onclick="ClearVessel">Change</button>
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="schedule-input-shell">
+                            <span class="bi bi-search" aria-hidden="true"></span>
+                            <input id="schedule-vessel-search" @bind="vesselSearch" @bind:event="oninput"
+                                   @bind:after="SearchVesselsAsync" @onkeydown="HandleVesselKeyDown"
+                                   placeholder="e.g. Northern Star"
+                                   aria-label="Search vessels by name" />
+                        </div>
+
+                        @if (isSearchingVessels)
+                        {
+                            <p class="schedule-hint">Searching vessels...</p>
+                        }
+                        else if (vesselFailure is not null)
+                        {
+                            <p class="schedule-hint schedule-hint-error">@vesselFailure.Title</p>
+                        }
+                        else if (vesselResults.Count > 0)
+                        {
+                            <ul class="schedule-vessel-results">
+                                @for (var index = 0; index < vesselResults.Count; index++)
+                                {
+                                    var vessel = vesselResults[index];
+
+                                    <li @key="vessel.VesselId">
+                                        <button type="button" class="@(index == highlightedVessel ? "highlighted" : null)"
+                                                @onclick="() => SelectVessel(vessel)">
+                                            <strong>@vessel.Name</strong>
+                                            <span>IMO @vessel.ImoNumber · @vessel.FlagState</span>
+                                        </button>
+                                    </li>
+                                }
+                            </ul>
+                        }
+                        else if (!string.IsNullOrWhiteSpace(vesselSearch))
+                        {
+                            <p class="schedule-hint">No vessels match that search.</p>
+                        }
+                    }
+                </div>
+
+                <div class="schedule-field">
+                    <label for="schedule-departure-port">Departure port code</label>
+                    <input id="schedule-departure-port" @bind="DeparturePortCode" @bind:event="oninput"
+                           maxlength="@PortCodeLength" placeholder="e.g. MEBAR" />
+                </div>
+
+                <div class="schedule-field">
+                    <label for="schedule-arrival-port">Arrival port code</label>
+                    <input id="schedule-arrival-port" @bind="ArrivalPortCode" @bind:event="oninput"
+                           maxlength="@PortCodeLength" placeholder="e.g. ITGOA" />
+                </div>
+
+                <div class="schedule-field">
+                    <label for="schedule-departure-date">Planned departure (UTC)</label>
+                    <div class="schedule-stamp">
+                        <input id="schedule-departure-date" type="date" @bind="plannedDepartureDate" />
+                        <input id="schedule-departure-time" type="time" @bind="plannedDepartureTime"
+                               aria-label="Planned departure time in UTC" />
+                    </div>
+                </div>
+
+                <div class="schedule-field">
+                    <label for="schedule-arrival-date">Planned arrival (UTC)</label>
+                    <div class="schedule-stamp">
+                        <input id="schedule-arrival-date" type="date" @bind="plannedArrivalDate"
+                               min="@FormatIsoDate(plannedDepartureDate)" />
+                        <input id="schedule-arrival-time" type="time" @bind="plannedArrivalTime"
+                               aria-label="Planned arrival time in UTC" />
+                    </div>
+                </div>
+
+                <div class="schedule-summary" role="status">
+                    <span class="schedule-summary-route">@DescribeRoute(DeparturePortCode, ArrivalPortCode)</span>
+                    @if (PlannedArrivalUtc > PlannedDepartureUtc)
+                    {
+                        <span class="schedule-summary-duration">
+                            @FormatDuration(PlannedArrivalUtc - PlannedDepartureUtc)
+                        </span>
+                    }
+                    else
+                    {
+                        <span class="schedule-summary-warning">Planned arrival is not after planned departure.</span>
+                    }
+                </div>
+
+                <div class="schedule-actions">
+                    <button class="schedule-button" type="submit" disabled="@(isSubmitting || selectedVessel is null)">
+                        @(isSubmitting ? "Scheduling..." : "Schedule voyage")
+                    </button>
+                    <a class="schedule-link" href="/voyages">Cancel</a>
+                </div>
+            </form>
+        </section>
+    }
+</section>

@@ -1,10 +1,17 @@
 window.themeInterop = {
-    get: function () {
-        return localStorage.getItem('theme') || 'dark';
+    getPreference: function () {
+        return localStorage.getItem('themePreference') || localStorage.getItem('theme') || 'system';
     },
-    set: function (theme) {
-        localStorage.setItem('theme', theme);
-        document.documentElement.setAttribute('data-theme', theme);
+    getResolved: function () {
+        var preference = this.getPreference();
+        return preference === 'system'
+            ? (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')
+            : preference;
+    },
+    set: function (preference) {
+        localStorage.setItem('themePreference', preference);
+        localStorage.removeItem('theme');
+        document.documentElement.setAttribute('data-theme', this.getResolved());
     }
 };
 
@@ -16,6 +23,5 @@ window.scrollInterop = {
 
 // Apply the theme NOW, before Blazor loads — prevents "flashing" the wrong theme
 (function () {
-    var saved = localStorage.getItem('theme') || 'dark';
-    document.documentElement.setAttribute('data-theme', saved);
+    document.documentElement.setAttribute('data-theme', window.themeInterop.getResolved());
 })();

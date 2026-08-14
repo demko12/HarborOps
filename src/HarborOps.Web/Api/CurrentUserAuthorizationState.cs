@@ -34,6 +34,16 @@ internal sealed class CurrentUserAuthorizationState(IHttpContextAccessor httpCon
         ? userId
         : null;
 
+    internal string? Email => httpContextAccessor.HttpContext?.User.FindFirstValue(ClaimTypes.Email);
+
+    internal IReadOnlyList<string> Permissions => httpContextAccessor.HttpContext?.User
+        .FindAll(PermissionClaimType)
+        .Select(claim => claim.Value)
+        .Distinct(StringComparer.OrdinalIgnoreCase)
+        .Order(StringComparer.OrdinalIgnoreCase)
+        .ToList()
+        ?? [];
+
     internal bool CanAccessAdministration => HasPermission(ReadUsersPermission) || HasPermission(ManageUsersPermission)
         || HasPermission(ReadRolesPermission) || HasPermission(ManageRolesPermission);
 

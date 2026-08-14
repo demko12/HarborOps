@@ -81,6 +81,26 @@ public sealed class GetVoyagesEndpointTests : IntegrationTestBase
     }
 
     [Fact]
+    public async Task Get_keeps_active_voyages_from_before_the_window_when_asked()
+    {
+        using var client = await _application.CreateAuthenticatedClientWithPermissionsAsync(
+            Permissions.Voyages.Read);
+        var atSeaId = await SeedDepartedVoyageAsync(
+            "VOY-650",
+            new DateTime(2026, 7, 20, 8, 0, 0, DateTimeKind.Utc));
+
+        using var response = await client.GetAsync(
+            new Uri("/api/voyages?from=2026-09-01&to=2026-09-30&includeActive=true", UriKind.Relative),
+            CancellationToken.None);
+        var page = await response.Content.ReadFromJsonAsync<GetVoyagesResponse>(
+            CancellationToken.None);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.NotNull(page);
+        Assert.Equal(atSeaId, Assert.Single(page.Items).VoyageId);
+    }
+
+    [Fact]
     public async Task Get_applies_the_search_term_from_the_query_string()
     {
         using var client = await _application.CreateAuthenticatedClientWithPermissionsAsync(
@@ -176,6 +196,27 @@ public sealed class GetVoyagesEndpointTests : IntegrationTestBase
             "HarborOps.Modules.Fleet",
             referencedAssemblies,
             StringComparer.Ordinal);
+    }
+
+    private async Task<Guid> SeedDepartedVoyageAsync(string voyageNumber, DateTime plannedDeparture)
+    {
+        await using var scope = _application.Services.CreateAsyncScope();
+        var dbContext = scope.ServiceProvider.GetRequiredService<HarborOpsDbContext>();
+
+        var voyage = Voyage.Schedule(
+            Guid.NewGuid(),
+            voyageNumber,
+            "MERIJ",
+            "ITGOA",
+            plannedDeparture,
+            plannedDeparture.AddDays(3));
+
+        voyage.Depart(plannedDeparture.AddHours(1));
+
+        await dbContext.Set<Voyage>().AddAsync(voyage);
+        await dbContext.SaveChangesAsync();
+
+        return voyage.Id;
     }
 
     private async Task<SeededVoyage> SeedVoyageAsync(string voyageNumber, DateTime plannedDeparture)

@@ -62,10 +62,6 @@
 				</div>
 			}
 		</div>
-		<button class="icon-btn theme-toggle" title="Toggle theme" @onclick="ToggleTheme">
-			<span class="bi @(isDark ? "bi-sun" : "bi-moon-stars")"></span>
-		</button>
-
 		<div class="divider hide-on-mobile"></div>
 
 		<AuthorizeView>
@@ -81,8 +77,8 @@
 								<span>Signed in as</span>
 								<strong>@authenticationState.User.Identity?.Name</strong>
 							</div>
-							<a href="/profile" role="menuitem"><span class="bi bi-person"></span> My Profile</a>
-							<a href="/settings" role="menuitem"><span class="bi bi-gear"></span> Settings</a>
+							<a href="/profile" role="menuitem" @onclick="CloseTopbarMenus"><span class="bi bi-person"></span> My Profile</a>
+							<a href="/settings" role="menuitem" @onclick="CloseTopbarMenus"><span class="bi bi-gear"></span> Settings</a>
 							<button type="button" role="menuitem" @onclick="OpenLogoutConfirmation"><span class="bi bi-box-arrow-right"></span> Sign out</button>
 						</div>
 					}
@@ -98,6 +94,11 @@
 		</button>
 	</div>
 </header>
+
+@if (showAccountMenu || showNotifications)
+{
+	<div class="topbar-menu-backdrop" aria-hidden="true" @onclick="CloseTopbarMenus"></div>
+}
 
 <aside class="app-sidebar @(mobileMenuOpen ? "open" : string.Empty)">
 	<nav class="sidebar-nav">
@@ -179,31 +180,12 @@
 	</div>
 }
 
-@if (isThemeChanging)
-{
-	<div class="theme-transition-overlay" aria-hidden="true">
-		<span class="theme-transition-spinner"></span>
-	</div>
-}
-
 @code {
 	private bool HasCriticalAlerts => false;
 	private bool mobileMenuOpen = false;
-	private bool isDark = true;
 	private bool showLogoutConfirmation;
 	private bool showAccountMenu;
 	private bool showNotifications;
-	private bool isThemeChanging;
-
-	protected override async Task OnAfterRenderAsync(bool firstRender)
-	{
-		if (firstRender)
-		{
-			var current = await JS.InvokeAsync<string>("themeInterop.get");
-			isDark = current != "light";
-			StateHasChanged();
-		}
-	}
 
 	private Microsoft.AspNetCore.Antiforgery.AntiforgeryTokenSet antiforgeryToken = default!;
 
@@ -215,17 +197,6 @@
 		{
 			antiforgeryToken = Antiforgery.GetAndStoreTokens(httpContext);
 		}
-	}
-
-	private async Task ToggleTheme()
-	{
-		isThemeChanging = true;
-		StateHasChanged();
-		await Task.Yield();
-		isDark = !isDark;
-		await JS.InvokeVoidAsync("themeInterop.set", isDark ? "dark" : "light");
-		await Task.Delay(260);
-		isThemeChanging = false;
 	}
 
 	private Task ScrollToTopAsync() => JS.InvokeVoidAsync("scrollInterop.toTop").AsTask();
@@ -244,7 +215,16 @@
 		showNotifications = false;
 	}
 
+	private void CloseTopbarMenus()
+	{
+		showAccountMenu = false;
+		showNotifications = false;
+	}
+
 	private void OpenLogoutConfirmation() { showAccountMenu = false; showLogoutConfirmation = true; }
 
-	public void Dispose() => AuthorizationState.Changed -= StateHasChanged;
+	public void Dispose()
+	{
+		AuthorizationState.Changed -= StateHasChanged;
+	}
 }

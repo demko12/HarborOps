@@ -25,8 +25,14 @@ internal sealed class GetVoyagesQuery(DbContext dbContext) : IGetVoyagesQuery
         var windowEndExclusive = request.To.AddDays(1).ToDateTime(TimeOnly.MinValue, DateTimeKind.Utc);
 
         var voyages = dbContext.Set<Voyage>()
-            .AsNoTracking()
-            .Where(voyage => voyage.PlannedDeparture >= windowStart
+            .AsNoTracking();
+
+        voyages = request.IncludeActive == true
+            ? voyages.Where(voyage =>
+                (voyage.PlannedDeparture >= windowStart && voyage.PlannedDeparture < windowEndExclusive)
+                || voyage.Status == Voyage.InProgressStatus
+                || (voyage.Status == Voyage.PlannedStatus && voyage.PlannedDeparture < windowStart))
+            : voyages.Where(voyage => voyage.PlannedDeparture >= windowStart
                 && voyage.PlannedDeparture < windowEndExclusive);
 
         if (!string.IsNullOrWhiteSpace(request.Search))

@@ -1,0 +1,76 @@
+@page "/profile"
+@attribute [Microsoft.AspNetCore.Authorization.Authorize]
+@inject CurrentUserAuthorizationState AuthorizationState
+
+<PageTitle>My profile | HarborOps</PageTitle>
+
+<section class="profile-page">
+    <header class="profile-header">
+        <div>
+            <p class="profile-eyebrow">Account</p>
+            <h1>My profile</h1>
+            <p>Review the access currently available in your HarborOps session.</p>
+        </div>
+        <span class="profile-header-icon bi bi-person-circle" aria-hidden="true"></span>
+    </header>
+
+    <section class="profile-card profile-account-card" aria-labelledby="account-details-title">
+        <div class="profile-card-heading">
+            <div><h2 id="account-details-title">Account details</h2><p>Your authenticated HarborOps account.</p></div>
+            <span class="bi bi-shield-check" aria-hidden="true"></span>
+        </div>
+        <dl class="profile-details">
+            <div><dt>Email address</dt><dd>@(AuthorizationState.Email ?? "Unavailable")</dd></div>
+            <div><dt>User ID</dt><dd class="profile-user-id">@(AuthorizationState.UserId?.ToString() ?? "Unavailable")</dd></div>
+        </dl>
+    </section>
+
+    <section class="profile-card" aria-labelledby="permissions-title">
+        <div class="profile-card-heading">
+            <div><h2 id="permissions-title">Effective permissions</h2><p>@Permissions.Count permission@(Permissions.Count == 1 ? string.Empty : "s") available in this session.</p></div>
+            <span class="bi bi-key" aria-hidden="true"></span>
+        </div>
+        @if (Permissions.Count == 0)
+        {
+            <EmptyState Title="No permissions assigned" Message="Your account is authenticated but has no operational permissions yet." />
+        }
+        else
+        {
+            <div class="profile-permission-groups">
+                @foreach (var group in Permissions.GroupBy(GetCapability).OrderBy(group => group.Key, StringComparer.OrdinalIgnoreCase))
+                {
+                    <section class="profile-permission-group">
+                        <h3>@group.Key</h3>
+                        <ul>
+                            @foreach (var permission in group.OrderBy(permission => permission, StringComparer.OrdinalIgnoreCase))
+                            {
+                                <li><span class="bi bi-check2" aria-hidden="true"></span>@GetAction(permission)</li>
+                            }
+                        </ul>
+                    </section>
+                }
+            </div>
+        }
+    </section>
+</section>
+
+@code {
+    private IReadOnlyList<string> Permissions => AuthorizationState.Permissions;
+
+    private static string GetCapability(string permission)
+    {
+        var separator = permission.IndexOf('.');
+        var capability = separator >= 0 ? permission[..separator] : permission;
+        return string.Join(' ', capability.Split('.', StringSplitOptions.RemoveEmptyEntries).Select(ToTitleCase));
+    }
+
+    private static string GetAction(string permission)
+    {
+        var separator = permission.LastIndexOf('.');
+        return ToTitleCase(separator >= 0 ? permission[(separator + 1)..] : permission);
+    }
+
+    private static string ToTitleCase(string value) => value.Length == 0
+        ? value
+        : char.ToUpperInvariant(value[0]) + value[1..];
+}

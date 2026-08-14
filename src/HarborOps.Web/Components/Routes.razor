@@ -1,6 +1,9 @@
 <Router AppAssembly="typeof(Program).Assembly" NotFoundPage="typeof(Pages.NotFound)">
     <Found Context="routeData">
-        @if (routeData.PageType == typeof(Pages.Login))
+        @* Login and the two recovery pages render without an authentication check: an unknown
+           route or an unexpected failure must not bounce an anonymous visitor back to the sign-in
+           page instead of telling them what happened. *@
+        @if (AnonymousPages.Contains(routeData.PageType))
         {
             <RouteView RouteData="routeData" DefaultLayout="typeof(Layout.MainLayout)" />
         }
@@ -25,3 +28,12 @@
         <FocusOnNavigate RouteData="routeData" Selector="h1" />
     </Found>
 </Router>
+
+@code {
+    internal static readonly HashSet<Type> AnonymousPages =
+    [
+        typeof(Pages.Login),
+        typeof(Pages.Error),
+        typeof(Pages.NotFound),
+    ];
+}

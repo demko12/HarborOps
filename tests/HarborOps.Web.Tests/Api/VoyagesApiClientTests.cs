@@ -29,6 +29,7 @@ public sealed class VoyagesApiClientTests
             new DateOnly(2026, 9, 30),
             null,
             "Planned",
+            false,
             2,
             50,
             CancellationToken.None);
@@ -58,6 +59,7 @@ public sealed class VoyagesApiClientTests
             new DateOnly(2026, 9, 30),
             null,
             null,
+            false,
             1,
             25,
             CancellationToken.None);
@@ -80,11 +82,39 @@ public sealed class VoyagesApiClientTests
             new DateOnly(2026, 9, 30),
             "VOY 600",
             null,
+            false,
             1,
             25,
             CancellationToken.None);
 
         Assert.Contains("search=VOY%20600", captured!.RequestUri!.Query, StringComparison.Ordinal);
+    }
+
+    [Theory]
+    [InlineData(true, "includeActive=true")]
+    [InlineData(false, "includeActive=false")]
+    public async Task GetVoyagesAsync_sends_whether_active_voyages_stay_on_the_board(
+        bool includeActive,
+        string expected)
+    {
+        HttpRequestMessage? captured = null;
+        using var httpClient = CreateHttpClient((request, _) =>
+        {
+            captured = request;
+            return Json(HttpStatusCode.OK, PageJson);
+        });
+
+        await CreateClient(httpClient).GetVoyagesAsync(
+            new DateOnly(2026, 9, 1),
+            new DateOnly(2026, 9, 30),
+            null,
+            null,
+            includeActive,
+            1,
+            25,
+            CancellationToken.None);
+
+        Assert.Contains(expected, captured!.RequestUri!.Query, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -97,6 +127,7 @@ public sealed class VoyagesApiClientTests
             new DateOnly(2026, 9, 30),
             null,
             null,
+            false,
             1,
             25,
             CancellationToken.None);
@@ -123,6 +154,7 @@ public sealed class VoyagesApiClientTests
             new DateOnly(2026, 11, 30),
             null,
             null,
+            false,
             1,
             25,
             CancellationToken.None);
@@ -144,6 +176,7 @@ public sealed class VoyagesApiClientTests
             new DateOnly(2026, 9, 1),
             null,
             null,
+            false,
             1,
             25,
             CancellationToken.None);
@@ -166,6 +199,7 @@ public sealed class VoyagesApiClientTests
             new DateOnly(2026, 9, 30),
             null,
             null,
+            false,
             1,
             25,
             CancellationToken.None);
@@ -190,9 +224,9 @@ public sealed class VoyagesApiClientTests
         var client = CreateClient(httpClient);
 
         var firstResult = await client.GetVoyagesAsync(
-            new DateOnly(2026, 9, 1), new DateOnly(2026, 9, 30), null, null, 1, 25, CancellationToken.None);
+            new DateOnly(2026, 9, 1), new DateOnly(2026, 9, 30), null, null, false, 1, 25, CancellationToken.None);
         var retryResult = await client.GetVoyagesAsync(
-            new DateOnly(2026, 9, 1), new DateOnly(2026, 9, 30), null, null, 1, 25, CancellationToken.None);
+            new DateOnly(2026, 9, 1), new DateOnly(2026, 9, 30), null, null, false, 1, 25, CancellationToken.None);
 
         Assert.False(firstResult.IsSuccess);
         Assert.True(retryResult.IsSuccess);
@@ -214,6 +248,7 @@ public sealed class VoyagesApiClientTests
             new DateOnly(2026, 9, 30),
             null,
             null,
+            false,
             1,
             25,
             CancellationToken.None);
@@ -221,6 +256,107 @@ public sealed class VoyagesApiClientTests
         Assert.False(result.IsSuccess);
         Assert.Equal(502, result.Failure!.StatusCode);
         Assert.Equal("Unable to load voyages", result.Failure.Title);
+    }
+
+    [Fact]
+    public async Task ScheduleAsync_posts_the_voyage_to_the_collection_endpoint()
+    {
+        HttpRequestMessage? captured = null;
+        string? body = null;
+        using var httpClient = CreateHttpClient(async (request, _) =>
+        {
+            captured = request;
+            body = await request.Content!.ReadAsStringAsync();
+
+            return await Json(HttpStatusCode.Created, """{"id":"70000000-0000-0000-0000-000000000004"}""");
+        });
+
+        var result = await CreateClient(httpClient).ScheduleAsync(
+            new ScheduleVoyageWebRequest(
+                "VOY-700",
+                new Guid("40000000-0000-0000-0000-000000000009"),
+                "MEBAR",
+                "ITGOA",
+                new DateTime(2026, 9, 1, 6, 0, 0, DateTimeKind.Utc),
+                new DateTime(2026, 9, 4, 17, 30, 0, DateTimeKind.Utc)),
+            CancellationToken.None);
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal(HttpMethod.Post, captured!.Method);
+        Assert.Equal("/api/voyages", captured.RequestUri!.AbsolutePath);
+        Assert.Contains("2026-09-01T06:00:00Z", body, StringComparison.Ordinal);
+        Assert.Equal(new Guid("70000000-0000-0000-0000-000000000004"), result.Value!.Id);
+    }
+
+    [Fact]
+    public async Task RecordDepartureAsync_posts_to_the_departure_endpoint_and_reads_the_new_status()
+    {
+        HttpRequestMessage? captured = null;
+        using var httpClient = CreateHttpClient((request, _) =>
+        {
+            captured = request;
+
+            return Json(
+                HttpStatusCode.OK,
+                """{"id":"20000000-0000-0000-0000-000000000001","actualDepartureUtc":"2026-09-01T06:42:00Z","status":"InProgress"}""");
+        });
+        var voyageId = new Guid("20000000-0000-0000-0000-000000000001");
+
+        var result = await CreateClient(httpClient).RecordDepartureAsync(
+            voyageId,
+            new RecordDepartureWebRequest(new DateTime(2026, 9, 1, 6, 42, 0, DateTimeKind.Utc)),
+            CancellationToken.None);
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal($"/api/voyages/{voyageId}/departure", captured!.RequestUri!.AbsolutePath);
+        Assert.Equal("InProgress", result.Value!.Status);
+    }
+
+    [Fact]
+    public async Task RecordArrivalAsync_posts_to_the_arrival_endpoint()
+    {
+        HttpRequestMessage? captured = null;
+        using var httpClient = CreateHttpClient((request, _) =>
+        {
+            captured = request;
+
+            return Json(
+                HttpStatusCode.OK,
+                """{"id":"20000000-0000-0000-0000-000000000001","actualArrivalUtc":"2026-09-04T18:05:00Z","status":"Completed"}""");
+        });
+        var voyageId = new Guid("20000000-0000-0000-0000-000000000001");
+
+        var result = await CreateClient(httpClient).RecordArrivalAsync(
+            voyageId,
+            new RecordArrivalWebRequest(new DateTime(2026, 9, 4, 18, 5, 0, DateTimeKind.Utc)),
+            CancellationToken.None);
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal($"/api/voyages/{voyageId}/arrival", captured!.RequestUri!.AbsolutePath);
+        Assert.Equal("Completed", result.Value!.Status);
+    }
+
+    [Theory]
+    [InlineData(HttpStatusCode.NotFound, true, false)]
+    [InlineData(HttpStatusCode.Conflict, false, true)]
+    public async Task RecordDepartureAsync_reports_the_authoritative_failure(
+        HttpStatusCode statusCode,
+        bool expectedNotFound,
+        bool expectedConflict)
+    {
+        using var httpClient = CreateHttpClient((_, _) => Json(
+            statusCode,
+            """{"title":"The voyage cannot depart from its current status.","detail":"Voyage state changed."}"""));
+
+        var result = await CreateClient(httpClient).RecordDepartureAsync(
+            Guid.NewGuid(),
+            new RecordDepartureWebRequest(new DateTime(2026, 9, 1, 6, 42, 0, DateTimeKind.Utc)),
+            CancellationToken.None);
+
+        Assert.False(result.IsSuccess);
+        Assert.Equal(expectedNotFound, result.Failure!.IsNotFound);
+        Assert.Equal(expectedConflict, result.Failure.IsConflict);
+        Assert.Equal("The voyage cannot depart from its current status.", result.Failure.Title);
     }
 
     private static VoyagesApiClient CreateClient(HttpClient httpClient) => new(httpClient);

@@ -1,0 +1,59 @@
+@page "/settings"
+@attribute [Microsoft.AspNetCore.Authorization.Authorize]
+@implements IDisposable
+@inject ThemePreferenceState ThemePreference
+
+<PageTitle>Settings | HarborOps</PageTitle>
+
+<section class="settings-page">
+    <header class="settings-header">
+        <div>
+            <p class="settings-eyebrow">Preferences</p>
+            <h1>Settings</h1>
+            <p>Choose the appearance that is most comfortable for you.</p>
+        </div>
+        <span class="settings-header-icon bi bi-palette" aria-hidden="true"></span>
+    </header>
+
+    <section class="settings-card" aria-labelledby="appearance-title">
+        <div class="settings-card-heading">
+            <div><h2 id="appearance-title">Appearance</h2><p>Your choice is saved only in this browser.</p></div>
+            <span class="bi bi-circle-half" aria-hidden="true"></span>
+        </div>
+        <div class="theme-options" role="radiogroup" aria-label="Theme preference">
+            @foreach (var option in ThemeOptions)
+            {
+                <button type="button" class="theme-option @(ThemePreference.Preference == option.Value ? "selected" : string.Empty)" role="radio" aria-checked="@(ThemePreference.Preference == option.Value)" @onclick="() => SetThemeAsync(option.Value)">
+                    <span class="theme-option-icon bi @option.Icon" aria-hidden="true"></span>
+                    <span><strong>@option.Label</strong><small>@option.Description</small></span>
+                    <span class="theme-option-check bi bi-check2" aria-hidden="true"></span>
+                </button>
+            }
+        </div>
+    </section>
+</section>
+
+@code {
+    private static readonly ThemeOption[] ThemeOptions = [
+        new(ThemePreferenceState.Light, "Light", "Use the light HarborOps appearance.", "bi-sun"),
+        new(ThemePreferenceState.Dark, "Dark", "Use the dark HarborOps appearance.", "bi-moon-stars"),
+        new(ThemePreferenceState.System, "System", "Match your device appearance.", "bi-display"),
+    ];
+
+    protected override void OnInitialized() => ThemePreference.Changed += StateHasChanged;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            await ThemePreference.InitializeAsync();
+            StateHasChanged();
+        }
+    }
+
+    private Task SetThemeAsync(string preference) => ThemePreference.SetAsync(preference);
+
+    public void Dispose() => ThemePreference.Changed -= StateHasChanged;
+
+    private sealed record ThemeOption(string Value, string Label, string Description, string Icon);
+}

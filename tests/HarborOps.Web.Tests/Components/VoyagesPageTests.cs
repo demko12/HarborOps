@@ -1,9 +1,12 @@
 using System.Globalization;
 using System.Net;
+using System.Security.Claims;
 using System.Text;
 using Bunit;
+using HarborOps.Web.Api;
 using HarborOps.Web.Api.Voyages;
 using HarborOps.Web.Components.Pages.Voyages;
+using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace HarborOps.Web.Tests.Components;
@@ -11,6 +14,7 @@ namespace HarborOps.Web.Tests.Components;
 public sealed class VoyagesPageTests : BunitContext
 {
     private readonly List<Uri> requestedUris = [];
+    private readonly List<(string Path, string Body)> writes = [];
 
     private Func<HttpRequestMessage, Task<HttpResponseMessage>> respond =
         _ => Json(HttpStatusCode.OK, Page());
@@ -265,21 +269,239 @@ public sealed class VoyagesPageTests : BunitContext
         });
     }
 
+    [Fact]
+    public void Without_the_manage_permission_the_board_offers_no_actions()
+    {
+        respond = _ => Json(HttpStatusCode.OK, Page(Row("VOY-0200")));
+
+        var page = RenderVoyagesPage();
+
+        Assert.Empty(page.FindAll(".voyages-schedule-button"));
+        Assert.Empty(page.FindAll(".voyages-row-action"));
+        Assert.DoesNotContain("Actions", page.Find("thead").TextContent, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void With_the_manage_permission_the_board_offers_scheduling()
+    {
+        respond = _ => Json(HttpStatusCode.OK, Page(Row("VOY-0201")));
+
+        var page = RenderVoyagesPage(Voyages.ManageVoyagesPermission);
+
+        Assert.Equal("/voyages/schedule", page.Find(".voyages-schedule-button").GetAttribute("href"));
+        Assert.Contains("Actions", page.Find("thead").TextContent, StringComparison.Ordinal);
+    }
+
+    [Theory]
+    [InlineData(Voyages.PlannedStatus, "Depart")]
+    [InlineData(Voyages.InProgressStatus, "Arrive")]
+    public void Only_the_action_valid_for_the_row_status_is_offered(string status, string expected)
+    {
+        respond = _ => Json(HttpStatusCode.OK, Page(Row("VOY-0202", status: status)));
+
+        var page = RenderVoyagesPage(Voyages.ManageVoyagesPermission);
+
+        Assert.Equal(expected, page.Find(".voyages-row-action").TextContent.Trim());
+    }
+
+    [Fact]
+    public void Completed_voyages_offer_no_action()
+    {
+        respond = _ => Json(HttpStatusCode.OK, Page(Row("VOY-0203", status: Voyages.CompletedStatus)));
+
+        var page = RenderVoyagesPage(Voyages.ManageVoyagesPermission);
+
+        Assert.Empty(page.FindAll(".voyages-row-action"));
+        Assert.Equal(Voyages.MissingValue, page.Find(".voyage-actions-none").TextContent.Trim());
+    }
+
+    [Fact]
+    public void Confirming_a_departure_sends_the_utc_stamp_to_the_transition_endpoint()
+    {
+        respond = request => request.Method == HttpMethod.Get
+            ? Json(HttpStatusCode.OK, Page(Row("VOY-0204")))
+            : Json(HttpStatusCode.OK, """{"id":"20000000-0000-0000-0000-000000000001","status":"InProgress"}""");
+
+        var page = RenderVoyagesPage(Voyages.ManageVoyagesPermission);
+
+        page.Find(".voyages-row-action").Click();
+        page.Find("#voyage-action-date").Change("2026-08-20");
+        page.Find("#voyage-action-time").Change("06:30:00");
+        page.Find(".voyage-action-buttons .voyages-button").Click();
+
+        page.WaitForAssertion(() =>
+        {
+            var write = Assert.Single(writes);
+
+            Assert.EndsWith("/departure", write.Path, StringComparison.Ordinal);
+            Assert.Contains("2026-08-20T06:30:00Z", write.Body, StringComparison.Ordinal);
+            Assert.Contains("is now InProgress", page.Markup, StringComparison.Ordinal);
+        });
+    }
+
+    [Fact]
+    public void An_arrival_cannot_be_dated_before_its_departure()
+    {
+        respond = _ => Json(HttpStatusCode.OK, Page(RowWithDeparture("VOY-0209")));
+
+        var page = RenderVoyagesPage(Voyages.ManageVoyagesPermission);
+
+        page.Find(".voyages-row-action").Click();
+
+        var date = page.Find("#voyage-action-date");
+
+        Assert.Equal("2026-09-15", date.GetAttribute("min"));
+        Assert.Equal(
+            Voyages.FormatIsoDate(DateOnly.FromDateTime(DateTime.UtcNow)),
+            date.GetAttribute("max"));
+    }
+
+    [Fact]
+    public void A_departure_cannot_be_dated_in_the_future()
+    {
+        respond = _ => Json(HttpStatusCode.OK, Page(Row("VOY-0210")));
+
+        var page = RenderVoyagesPage(Voyages.ManageVoyagesPermission);
+
+        page.Find(".voyages-row-action").Click();
+
+        var date = page.Find("#voyage-action-date");
+
+        Assert.False(date.HasAttribute("min"));
+        Assert.Equal(
+            Voyages.FormatIsoDate(DateOnly.FromDateTime(DateTime.UtcNow)),
+            date.GetAttribute("max"));
+    }
+
+    [Fact]
+    public void A_validation_problem_from_a_transition_is_listed_on_the_board()
+    {
+        respond = request => request.Method == HttpMethod.Get
+            ? Json(HttpStatusCode.OK, Page(Row("VOY-0205")))
+            : Json(
+                HttpStatusCode.BadRequest,
+                """{"title":"One or more validation errors occurred.","status":400,"errors":{"actualDepartureUtc":["Actual departure must not be in the future."]}}""");
+
+        var page = RenderVoyagesPage(Voyages.ManageVoyagesPermission);
+
+        page.Find(".voyages-row-action").Click();
+        page.Find(".voyage-action-buttons .voyages-button").Click();
+
+        page.WaitForAssertion(() => Assert.Contains(
+            "Actual departure must not be in the future.",
+            page.Find(".voyages-action-failure").TextContent,
+            StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void A_conflict_reports_the_state_and_reloads_the_board()
+    {
+        respond = request => request.Method == HttpMethod.Get
+            ? Json(HttpStatusCode.OK, Page(Row("VOY-0206")))
+            : Json(
+                HttpStatusCode.Conflict,
+                """{"title":"The voyage cannot depart from its current status.","status":409}""");
+
+        var page = RenderVoyagesPage(Voyages.ManageVoyagesPermission);
+        var loadsBeforeAction = ResultQueries().Count;
+
+        page.Find(".voyages-row-action").Click();
+        page.Find(".voyage-action-buttons .voyages-button").Click();
+
+        page.WaitForAssertion(() =>
+        {
+            Assert.Contains(
+                "The voyage cannot depart from its current status.",
+                page.Find(".voyages-action-failure").TextContent,
+                StringComparison.Ordinal);
+            Assert.True(ResultQueries().Count > loadsBeforeAction);
+        });
+    }
+
+    [Fact]
+    public void A_missing_voyage_is_reported_on_the_board()
+    {
+        respond = request => request.Method == HttpMethod.Get
+            ? Json(HttpStatusCode.OK, Page(Row("VOY-0207")))
+            : Json(
+                HttpStatusCode.NotFound,
+                """{"title":"The requested voyage was not found.","status":404}""");
+
+        var page = RenderVoyagesPage(Voyages.ManageVoyagesPermission);
+
+        page.Find(".voyages-row-action").Click();
+        page.Find(".voyage-action-buttons .voyages-button").Click();
+
+        page.WaitForAssertion(() => Assert.Contains(
+            "The requested voyage was not found.",
+            page.Find(".voyages-action-failure").TextContent,
+            StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void A_successful_action_keeps_the_selected_filters_and_page()
+    {
+        respond = request =>
+        {
+            if (request.Method != HttpMethod.Get)
+            {
+                return Json(
+                    HttpStatusCode.OK,
+                    """{"id":"20000000-0000-0000-0000-000000000001","status":"InProgress"}""");
+            }
+
+            var requestedPage = request.RequestUri!.Query.Contains("pageNumber=2", StringComparison.Ordinal) ? 2 : 1;
+
+            return Json(HttpStatusCode.OK, Page(requestedPage, 60, Row("VOY-0208")));
+        };
+
+        var page = RenderVoyagesPage(Voyages.ManageVoyagesPermission);
+
+        page.Find("#voyages-status").Change(Voyages.PlannedStatus);
+        page.WaitForAssertion(() => Assert.Contains(
+            ResultQueries(),
+            query => query.Contains("status=Planned", StringComparison.Ordinal)));
+
+        page.FindAll(".voyages-pagination button")[1].Click();
+        page.WaitForAssertion(() => Assert.Contains(
+            ResultQueries(),
+            query => query.Contains("pageNumber=2", StringComparison.Ordinal)));
+
+        page.Find(".voyages-row-action").Click();
+        page.Find(".voyage-action-buttons .voyages-button").Click();
+
+        page.WaitForAssertion(() =>
+        {
+            var lastQuery = ResultQueries()[^1];
+
+            Assert.Contains("status=Planned", lastQuery, StringComparison.Ordinal);
+            Assert.Contains("pageNumber=2", lastQuery, StringComparison.Ordinal);
+        });
+    }
+
     /// the board also asks for the planned count with pageSize=1; those are not result requests
     private List<string> ResultQueries()
     {
         return requestedUris
             .Select(uri => uri.Query)
-            .Where(query => !query.Contains("pageSize=1&", StringComparison.Ordinal)
+            .Where(query => query.Contains("from=", StringComparison.Ordinal)
+                && !query.Contains("pageSize=1&", StringComparison.Ordinal)
                 && !query.EndsWith("pageSize=1", StringComparison.Ordinal))
             .ToList();
     }
 
-    private IRenderedComponent<Voyages> RenderVoyagesPage()
+    private IRenderedComponent<Voyages> RenderVoyagesPage(params string[] permissions)
     {
         var httpClient = new HttpClient(new StubHttpMessageHandler(request =>
         {
             requestedUris.Add(request.RequestUri!);
+
+            if (request.Method != HttpMethod.Get)
+            {
+                writes.Add((
+                    request.RequestUri!.AbsolutePath,
+                    request.Content?.ReadAsStringAsync().GetAwaiter().GetResult() ?? string.Empty));
+            }
 
             return respond(request);
         }))
@@ -288,6 +510,20 @@ public sealed class VoyagesPageTests : BunitContext
         };
 
         Services.AddSingleton(new VoyagesApiClient(httpClient));
+        Services.AddSingleton<IHttpContextAccessor>(new HttpContextAccessor
+        {
+            HttpContext = new DefaultHttpContext
+            {
+                User = new ClaimsPrincipal(new ClaimsIdentity(
+                    permissions
+                        .Select(permission => new Claim(
+                            CurrentUserAuthorizationState.PermissionClaimType,
+                            permission))
+                        .ToArray(),
+                    "TestAuthentication")),
+            },
+        });
+        Services.AddScoped<CurrentUserAuthorizationState>();
 
         var page = Render<Voyages>();
         page.WaitForAssertion(() => Assert.NotEmpty(requestedUris));
@@ -308,6 +544,13 @@ public sealed class VoyagesPageTests : BunitContext
     {
         return $$"""
             {"voyageId":"20000000-0000-0000-0000-000000000001","voyageNumber":"{{voyageNumber}}","vesselId":"30000000-0000-0000-0000-000000000002","departurePortCode":"MEBAR","arrivalPortCode":"ITGOA","status":"{{status}}","plannedDeparture":"{{plannedDeparture}}","plannedArrival":"{{plannedArrival}}","actualDeparture":null,"actualArrival":null}
+            """;
+    }
+
+    private static string RowWithDeparture(string voyageNumber)
+    {
+        return $$"""
+            {"voyageId":"20000000-0000-0000-0000-000000000001","voyageNumber":"{{voyageNumber}}","vesselId":"30000000-0000-0000-0000-000000000002","departurePortCode":"MEBAR","arrivalPortCode":"ITGOA","status":"InProgress","plannedDeparture":"2026-09-15T08:00:00Z","plannedArrival":"2026-09-18T17:30:00Z","actualDeparture":"2026-09-15T09:12:00Z","actualArrival":null}
             """;
     }
 
