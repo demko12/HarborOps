@@ -31,7 +31,8 @@ public partial class Voyages
     private readonly Dictionary<string, int?> statusCounts = new(StringComparer.Ordinal);
     private readonly CancellationTokenSource actionCancellation = new();
 
-    private CancellationTokenSource loadCancellation = new();
+    private readonly CancellationTokenSource disposeCancellation = new();
+    private int loadVersion;
 
     private DateOnly fromDate = DefaultFrom();
     private DateOnly toDate = DefaultTo();
@@ -311,11 +312,8 @@ public partial class Voyages
     }
     private async Task LoadAsync()
     {
-        loadCancellation.Cancel();
-        loadCancellation.Dispose();
-        loadCancellation = new CancellationTokenSource();
-
-        var cancellationToken = loadCancellation.Token;
+        var requestVersion = ++loadVersion;
+        var cancellationToken = disposeCancellation.Token;
 
         isLoading = true;
         failure = null;
@@ -333,12 +331,12 @@ public partial class Voyages
                 pageSize,
                 cancellationToken);
         }
-        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        catch (OperationCanceledException) when (disposeCancellation.IsCancellationRequested)
         {
             return;
         }
 
-        if (cancellationToken.IsCancellationRequested)
+        if (disposeCancellation.IsCancellationRequested || requestVersion != loadVersion)
         {
             return;
         }
@@ -360,7 +358,7 @@ public partial class Voyages
         pageNumber = page.PageNumber;
         totalCount = page.TotalCount;
 
-        await LoadStatusCountsAsync(cancellationToken);
+        await LoadStatusCountsAsync(cancellationToken, requestVersion);
     }
     private async Task LoadStatusCountsAsync(CancellationToken cancellationToken)
     {
@@ -379,12 +377,12 @@ public partial class Voyages
                     1,
                     cancellationToken);
             }
-            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            catch (OperationCanceledException) when (disposeCancellation.IsCancellationRequested)
             {
                 return;
             }
 
-            if (cancellationToken.IsCancellationRequested)
+            if (disposeCancellation.IsCancellationRequested || requestVersion != loadVersion)
             {
                 return;
             }
