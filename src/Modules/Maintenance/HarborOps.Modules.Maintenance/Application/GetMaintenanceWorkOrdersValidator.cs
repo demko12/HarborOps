@@ -23,9 +23,9 @@ internal static class GetMaintenanceWorkOrdersValidator
     {
         var errors = new Dictionary<string, string[]>(StringComparer.Ordinal);
 
-        if(request.VesselId == Guid.Empty)
+        if (request.VesselId == Guid.Empty)
         {
-            errors[VesselIdField] = [ "VesselId cannot be empty." ];
+            errors[VesselIdField] = ["VesselId cannot be empty."];
         }
 
         if (!string.IsNullOrWhiteSpace(request.Status)
