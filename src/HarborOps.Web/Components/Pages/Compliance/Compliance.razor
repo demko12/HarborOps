@@ -1,0 +1,142 @@
+@page "/compliance"
+@attribute [Microsoft.AspNetCore.Authorization.Authorize(Policy = "AccessCompliance")]
+@using HarborOps.Web.Api.Compliance
+@implements IDisposable
+@inject ComplianceApiClient ComplianceApi
+
+<PageTitle>Compliance | HarborOps</PageTitle>
+
+<section class="compliance-page">
+    <header class="compliance-header">
+        <p class="compliance-eyebrow">Compliance operations</p>
+        <h1>Vessel compliance</h1>
+        <p>Review certificates, inspections, and open non-conformities for a vessel.</p>
+    </header>
+
+    <section class="compliance-selector" aria-label="Vessel selection">
+        <div class="compliance-field compliance-vessel-field">
+            <label>Vessel</label>
+            <VesselPicker Value="selectedVesselId" ValueChanged="SelectVesselAsync" Disabled="isOverviewLoading" />
+        </div>
+    </section>
+
+    @if (selectedVesselId is null)
+    {
+        <section class="compliance-card"><EmptyState Title="Select a vessel" Message="Search by vessel name or IMO number to view its compliance overview." /></section>
+    }
+    else if (isOverviewLoading)
+    {
+        <section class="compliance-card"><LoadingState Message="Loading vessel compliance overview..." /></section>
+    }
+    else if (overviewFailure is not null)
+    {
+        <section class="compliance-card"><ApiErrorState Title="@overviewFailure.Title" Message="@overviewFailure.Message" OnRetry="RetryOverviewAsync" /></section>
+    }
+    else if (overview is not null)
+    {
+        <div class="compliance-actions">
+            <button type="button" @onclick="() => isCertificateFormOpen = !isCertificateFormOpen">Register certificate</button>
+            <button type="button" @onclick="() => isPscFormOpen = !isPscFormOpen">Register PSC inspection</button>
+        </div>
+
+        @if (isCertificateFormOpen)
+        {
+            <section class="compliance-card compliance-form-card">
+                <h2>Register certificate</h2>
+                @if (certificateSuccess is not null) { <div class="compliance-success" role="status">@certificateSuccess</div> }
+                @if (certificateError is not null) { <div class="compliance-error" role="alert">@certificateError</div> }
+                <EditForm EditContext="certificateEditContext" OnSubmit="SubmitCertificateAsync">
+                    <DataAnnotationsValidator />
+                    <div class="compliance-form-grid">
+                        <div class="compliance-field"><label for="certificate-type">Certificate type</label><InputText id="certificate-type" @bind-Value="certificateModel.CertificateType" /><ValidationMessage For="() => certificateModel.CertificateType" /></div>
+                        <div class="compliance-field"><label for="certificate-number">Certificate number</label><InputText id="certificate-number" @bind-Value="certificateModel.CertificateNumber" /><ValidationMessage For="() => certificateModel.CertificateNumber" /></div>
+                        <div class="compliance-field"><label for="certificate-authority">Issuing authority</label><InputText id="certificate-authority" @bind-Value="certificateModel.IssuingAuthority" /><ValidationMessage For="() => certificateModel.IssuingAuthority" /></div>
+                        <div class="compliance-field"><label for="certificate-issued">Issued on</label><InputDate id="certificate-issued" @bind-Value="certificateModel.IssuedOn" /><ValidationMessage For="() => certificateModel.IssuedOn" /></div>
+                        <div class="compliance-field"><label for="certificate-expires">Expires on</label><InputDate id="certificate-expires" @bind-Value="certificateModel.ExpiresOn" /><ValidationMessage For="() => certificateModel.ExpiresOn" /></div>
+                    </div>
+                    <button class="compliance-submit" type="submit" disabled="@isSubmittingCertificate">@(isSubmittingCertificate ? "Registering..." : "Register certificate")</button>
+                </EditForm>
+            </section>
+        }
+
+        @if (isPscFormOpen)
+        {
+            <section class="compliance-card compliance-form-card">
+                <h2>Register PSC inspection</h2>
+                @if (pscSuccess is not null) { <div class="compliance-success" role="status">@pscSuccess</div> }
+                @if (pscError is not null) { <div class="compliance-error" role="alert">@pscError</div> }
+                <EditForm EditContext="pscEditContext" OnSubmit="SubmitPscAsync">
+                    <DataAnnotationsValidator />
+                    <div class="compliance-form-grid">
+                        <div class="compliance-field"><label for="psc-port">Port ID</label><InputText id="psc-port" @bind-Value="pscModel.PortIdText" /><ValidationMessage For="() => pscModel.PortIdText" /></div>
+                        <div class="compliance-field"><label for="psc-date">Inspection date</label><InputDate id="psc-date" @bind-Value="pscModel.InspectionDate" /><ValidationMessage For="() => pscModel.InspectionDate" /></div>
+                        <div class="compliance-field"><label for="psc-authority">Inspecting authority</label><InputText id="psc-authority" @bind-Value="pscModel.InspectingAuthority" /><ValidationMessage For="() => pscModel.InspectingAuthority" /></div>
+                        <div class="compliance-field"><label for="psc-deficiencies">Deficiency count</label><InputNumber id="psc-deficiencies" @bind-Value="pscModel.DeficiencyCount" /><ValidationMessage For="() => pscModel.DeficiencyCount" /></div>
+                        <div class="compliance-field"><label><InputCheckbox @bind-Value="pscModel.VesselDetained" /> Vessel detained</label></div>
+                    </div>
+                    <button class="compliance-submit" type="submit" disabled="@isSubmittingPsc">@(isSubmittingPsc ? "Registering..." : "Register PSC inspection")</button>
+                </EditForm>
+            </section>
+        }
+
+        <ComplianceSection Title="Certificates" EmptyTitle="No certificates recorded" IsEmpty="@(overview.Certificates.Count == 0)">
+            @foreach (var item in overview.Certificates)
+            {
+                <article class="compliance-record certificate-card @(IsExpired(item) ? "is-expired" : null)">
+                    <div class="record-identity">
+                        <span class="record-kicker">Certificate</span>
+                        <strong>@item.CertificateType</strong>
+                        <span class="record-reference">@item.CertificateNumber</span>
+                    </div>
+                    <div class="record-detail">
+                        <span class="record-label">Issued by</span>
+                        <span>@item.IssuingAuthority</span>
+                        <small>Issued @item.IssuedOn.ToString("dd MMM yyyy")</small>
+                    </div>
+                    <div class="record-status-block">
+                        <span class="compliance-badge @(IsExpired(item) ? "danger" : "success")">@(IsExpired(item) ? "Expired" : "Valid")</span>
+                        <span class="record-label">Expires</span>
+                        <strong>@item.ExpiresOn.ToString("dd MMM yyyy")</strong>
+                    </div>
+                </article>
+            }
+        </ComplianceSection>
+        <ComplianceSection Title="PSC inspections" EmptyTitle="No PSC inspections recorded" IsEmpty="@(overview.PscInspections.Count == 0)">
+            @foreach (var item in overview.PscInspections)
+            {
+                <article class="compliance-record inspection-card @(item.VesselDetained ? "is-detained" : null)">
+                    <div class="record-identity">
+                        <span class="record-kicker">Inspection</span>
+                        <strong>@item.InspectionDate.ToString("dd MMM yyyy")</strong>
+                        <span class="record-reference">@item.InspectingAuthority</span>
+                    </div>
+                    <div class="inspection-metric">
+                        <strong>@item.DeficiencyCount</strong>
+                        <span>@(item.DeficiencyCount == 1 ? "Deficiency" : "Deficiencies")</span>
+                    </div>
+                    <div class="record-status-block">
+                        <span class="compliance-badge @(item.VesselDetained ? "danger" : "success")">@(item.VesselDetained ? "Detained" : "Clear")</span>
+                    </div>
+                    <div class="record-metadata"><span>Port ID</span><code>@item.PortId</code></div>
+                </article>
+            }
+        </ComplianceSection>
+        <ComplianceSection Title="Open non-conformities" EmptyTitle="No open non-conformities" IsEmpty="@(overview.OpenNonConformities.Count == 0)">
+            @foreach (var item in overview.OpenNonConformities)
+            {
+                <article class="compliance-record issue-card @(IsCritical(item) ? "is-critical" : null)">
+                    <div class="record-identity">
+                        <span class="record-kicker">Outstanding issue</span>
+                        <strong>@item.Severity severity</strong>
+                        <span class="compliance-badge @(IsCritical(item) ? "danger" : "neutral")">@item.Severity</span>
+                    </div>
+                    <div class="deadline-block">
+                        <span class="record-label">Corrective action due</span>
+                        <strong>@item.CorrectiveActionDeadline.ToString("dd MMM yyyy")</strong>
+                    </div>
+                    <div class="record-metadata"><span>Evidence document ID</span><code>@item.EvidenceDocumentId</code></div>
+                </article>
+            }
+        </ComplianceSection>
+    }
+</section>

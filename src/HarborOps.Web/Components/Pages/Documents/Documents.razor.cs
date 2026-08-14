@@ -76,7 +76,7 @@ public partial class Documents
     private EditContext registerTypeEditContext = null!;
     private ValidationMessageStore registerTypeMessageStore = null!;
     private bool isRegisteringType;
-    private bool isRegisterTypeModalOpen;
+    private bool isRegisterTypeFormOpen;
     private string? registerTypeSuccessMessage;
     private string? registerTypeConflictMessage;
     private string? registerTypeGeneralError;
@@ -89,7 +89,7 @@ public partial class Documents
     private EditContext registerDocumentEditContext = null!;
     private ValidationMessageStore registerDocumentMessageStore = null!;
     private bool isRegisteringDocument;
-    private bool isRegisterDocumentModalOpen;
+    private bool isRegisterDocumentFormOpen;
     private string? registerDocumentSuccessMessage;
     private string? registerDocumentConflictMessage;
     private string? registerDocumentGeneralError;
@@ -326,24 +326,14 @@ public partial class Documents
         documentTypeOptions = result.IsSuccess ? result.Value!.Items : [];
     }
 
-    private void OpenRegisterTypeModal()
+    private void ToggleRegisterTypeForm()
     {
-        isRegisterTypeModalOpen = true;
+        isRegisterTypeFormOpen = !isRegisterTypeFormOpen;
     }
 
-    private void CloseRegisterTypeModal()
+    private void ToggleRegisterDocumentForm()
     {
-        isRegisterTypeModalOpen = false;
-    }
-
-    private void OpenRegisterDocumentModal()
-    {
-        isRegisterDocumentModalOpen = true;
-    }
-
-    private void CloseRegisterDocumentModal()
-    {
-        isRegisterDocumentModalOpen = false;
+        isRegisterDocumentFormOpen = !isRegisterDocumentFormOpen;
     }
 
     private async Task SubmitDocumentTypeAsync()

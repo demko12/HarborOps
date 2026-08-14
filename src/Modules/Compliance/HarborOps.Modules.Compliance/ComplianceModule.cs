@@ -1,5 +1,6 @@
 using System.Reflection;
 using HarborOps.Modules.Compliance.Application;
+using HarborOps.Modules.Compliance.Contracts;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace HarborOps.Modules.Compliance;
@@ -14,6 +15,7 @@ public static class ComplianceModule
     {
         services.AddScoped<RegisterComplianceCertificateService>();
         services.AddScoped<RegisterPscInspectionService>();
+        services.AddScoped<IGetVesselComplianceOverviewQuery, GetVesselComplianceOverviewQuery>();
         services.AddControllers()
             .AddApplicationPart(Assembly);
 
