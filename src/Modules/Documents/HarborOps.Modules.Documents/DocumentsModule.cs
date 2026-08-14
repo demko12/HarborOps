@@ -18,6 +18,7 @@ public static class DocumentsModule
         services.AddScoped<RegisterDocumentService>();
         services.AddScoped<RegisterDocumentTypeService>();
         services.AddScoped<IGetExpiringDocumentsQuery, GetExpiringDocumentsQuery>();
+        services.AddScoped<IGetDocumentTypesQuery, GetDocumentTypesQuery>();
         services.TryAddSingleton<IDateTimeProvider, SystemDateTimeProvider>();
         services.AddControllers()
             .AddApplicationPart(Assembly);

@@ -19,26 +19,13 @@ internal static class GetExpiringDocumentsValidator
     {
         var errors = new Dictionary<string, string[]>(StringComparer.Ordinal);
 
-        var fromIsEmpty = request.From == default;
-        var toIsEmpty = request.To == default;
-
-        if (fromIsEmpty)
+        if (request.From is { } from && request.To is { } to)
         {
-            errors[FromField] = ["From date is required."];
-        }
-
-        if (toIsEmpty)
-        {
-            errors[ToField] = ["To date is required."];
-        }
-
-        if (!fromIsEmpty && !toIsEmpty)
-        {
-            if (request.To < request.From)
+            if (to < from)
             {
                 errors[ToField] = ["To date must not be earlier than the from date."];
             }
-            else if (request.To.DayNumber - request.From.DayNumber > MaxRangeDays)
+            else if (to.DayNumber - from.DayNumber > MaxRangeDays)
             {
                 errors[ToField] = [$"Date range must not exceed {MaxRangeDays} days."];
             }

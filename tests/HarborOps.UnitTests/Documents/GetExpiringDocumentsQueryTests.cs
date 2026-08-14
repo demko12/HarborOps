@@ -12,6 +12,64 @@ public sealed class GetExpiringDocumentsQueryTests
     private static readonly DateOnly Today = DateOnly.FromDateTime(FixedUtcNow);
 
     [Fact]
+    public async Task GetExpiringDocuments_without_date_boundaries_returns_all_documents_through_paging()
+    {
+        await using var dbContext = CreateDbContext();
+        var documentTypeId = await SeedDocumentTypeAsync(dbContext);
+        var vesselId = Guid.NewGuid();
+        await SeedDocumentAsync(dbContext, vesselId, documentTypeId, "EARLY", new DateOnly(2020, 1, 1));
+        await SeedDocumentAsync(dbContext, vesselId, documentTypeId, "LATE", new DateOnly(2030, 1, 1));
+
+        var query = new GetExpiringDocumentsQuery(dbContext, new FakeDateTimeProvider(FixedUtcNow));
+
+        var response = await query.GetExpiringDocumentsAsync(
+            new GetExpiringDocumentsRequest { PageNumber = 1, PageSize = 1 },
+            CancellationToken.None);
+
+        Assert.Equal(2, response.TotalCount);
+        Assert.Single(response.Items);
+        Assert.Equal("EARLY", response.Items[0].Number);
+    }
+
+    [Fact]
+    public async Task GetExpiringDocuments_with_from_only_applies_lower_bound()
+    {
+        await using var dbContext = CreateDbContext();
+        var documentTypeId = await SeedDocumentTypeAsync(dbContext);
+        var vesselId = Guid.NewGuid();
+        var from = new DateOnly(2026, 8, 1);
+        await SeedDocumentAsync(dbContext, vesselId, documentTypeId, "BEFORE", from.AddDays(-1));
+        var included = await SeedDocumentAsync(dbContext, vesselId, documentTypeId, "ON-FROM", from);
+
+        var query = new GetExpiringDocumentsQuery(dbContext, new FakeDateTimeProvider(FixedUtcNow));
+
+        var response = await query.GetExpiringDocumentsAsync(
+            new GetExpiringDocumentsRequest { From = from },
+            CancellationToken.None);
+
+        Assert.Equal(included.Id, Assert.Single(response.Items).DocumentId);
+    }
+
+    [Fact]
+    public async Task GetExpiringDocuments_with_to_only_applies_upper_bound()
+    {
+        await using var dbContext = CreateDbContext();
+        var documentTypeId = await SeedDocumentTypeAsync(dbContext);
+        var vesselId = Guid.NewGuid();
+        var to = new DateOnly(2026, 8, 31);
+        var included = await SeedDocumentAsync(dbContext, vesselId, documentTypeId, "ON-TO", to);
+        await SeedDocumentAsync(dbContext, vesselId, documentTypeId, "AFTER", to.AddDays(1));
+
+        var query = new GetExpiringDocumentsQuery(dbContext, new FakeDateTimeProvider(FixedUtcNow));
+
+        var response = await query.GetExpiringDocumentsAsync(
+            new GetExpiringDocumentsRequest { To = to },
+            CancellationToken.None);
+
+        Assert.Equal(included.Id, Assert.Single(response.Items).DocumentId);
+    }
+
+    [Fact]
     public async Task GetExpiringDocuments_includes_documents_on_range_boundaries_and_excludes_outside()
     {
         await using var dbContext = CreateDbContext();

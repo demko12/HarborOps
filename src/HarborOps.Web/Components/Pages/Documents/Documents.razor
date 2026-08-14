@@ -1,0 +1,294 @@
+@page "/documents"
+@attribute [Microsoft.AspNetCore.Authorization.Authorize(Policy = "AccessDocuments")]
+@using HarborOps.Web.Api.Documents
+@using HarborOps.Web.Api.Fleet
+@implements IDisposable
+@inject DocumentsApiClient DocumentsApi
+@inject VesselLookupApiClient VesselLookupApi
+
+<PageTitle>Documents | HarborOps</PageTitle>
+
+<section class="documents-page">
+    <header class="documents-header">
+        <div>
+            <p class="documents-eyebrow">Documents operations</p>
+            <h1>Expiring documents</h1>
+            <p>Review vessel documents due to expire within the selected date range.</p>
+        </div>
+    </header>
+
+    <section class="documents-filters" aria-label="Document filters">
+        <button class="documents-all-button @(IsAllActive ? "is-active" : null)"
+                type="button"
+                aria-pressed="@(IsAllActive ? "true" : "false")"
+                @onclick="ShowAllAsync"
+                disabled="@isLoading">All</button>
+        <div class="filter-field">
+            <label for="documents-from">From</label>
+            <input id="documents-from" type="date" @bind="fromFilter" />
+        </div>
+        <div class="filter-field">
+            <label for="documents-to">To</label>
+            <input id="documents-to" type="date" @bind="toFilter" />
+        </div>
+        <div class="filter-field filter-field-wide">
+            <label for="documents-vessel">Vessel</label>
+            <VesselPicker @key="filterVesselPickerResetToken" @bind-Value="vesselIdFilter" Placeholder="All vessels" />
+        </div>
+        <button class="documents-search-button" type="button" @onclick="SearchAsync" disabled="@isLoading">Search</button>
+    </section>
+
+    <section class="documents-registration-actions" aria-label="Document registration actions">
+        <button type="button" class="documents-registration-action" @onclick="OpenRegisterTypeModal">
+            Register document type
+        </button>
+        <button type="button" class="documents-registration-action" @onclick="OpenRegisterDocumentModal">
+            Register document
+        </button>
+    </section>
+
+    @if (filterValidationMessage is not null)
+    {
+        <div class="documents-validation" role="alert">
+            <strong>Check the filters</strong>
+            <ul>
+                <li>@filterValidationMessage</li>
+            </ul>
+        </div>
+    }
+
+    @if (failure is { IsValidation: true, Errors.Count: > 0 })
+    {
+        <div class="documents-validation" role="alert">
+            <strong>@failure.Title</strong>
+            <ul>
+                @foreach (var entry in failure.Errors)
+                {
+                    @foreach (var message in entry.Value)
+                    {
+                        <li>@message</li>
+                    }
+                }
+            </ul>
+        </div>
+    }
+
+    <section class="documents-card" aria-labelledby="documents-list-title">
+        <div class="documents-card-heading">
+            <div>
+                <h2 id="documents-list-title">Expiring document register</h2>
+                <p>@totalCount documents found</p>
+            </div>
+            <span class="documents-card-icon" aria-hidden="true"><span class="bi bi-file-earmark-text-fill"></span></span>
+        </div>
+
+        @if (isLoading)
+        {
+            <LoadingState Message="Loading expiring documents..." />
+        }
+        else if (failure is not null && !failure.IsValidation)
+        {
+            <ApiErrorState Title="@failure.Title" Message="@failure.Message" OnRetry="RetryAsync" />
+        }
+        else if (rows.Count == 0)
+        {
+            <EmptyState Title="No documents match your filters"
+                        Message="Widen the date range or clear the vessel selection." />
+        }
+        else
+        {
+            <div class="documents-table-scroll">
+                <table class="documents-table">
+                    <caption class="visually-hidden">Documents expiring within the selected date range</caption>
+                    <thead>
+                        <tr>
+                            <th scope="col" class="col-number">Number</th>
+                            <th scope="col" class="col-vessel">Vessel</th>
+                            <th scope="col" class="col-type">Document type</th>
+                            <th scope="col" class="col-authority">Issuing authority</th>
+                            <th scope="col" class="col-issue">Issue date</th>
+                            <th scope="col" class="col-expiry">Expiry date</th>
+                            <th scope="col" class="col-status">Status</th>
+                            <th scope="col" class="documents-num col-days">Days left</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var row in rows)
+                        {
+                            <tr @key="row.DocumentId">
+                                <td class="col-number">@row.Number</td>
+                                <td class="col-vessel" title="@row.VesselId">@row.VesselDisplayName</td>
+                                <td class="documents-muted col-type">@row.DocumentTypeName</td>
+                                <td class="documents-muted col-authority">@row.IssuingAuthority</td>
+                                <td class="documents-muted col-issue">@row.IssueDate.ToString("dd MMM yyyy")</td>
+                                <td class="col-expiry">@row.ExpiryDate.ToString("dd MMM yyyy")</td>
+                                <td class="col-status"><span class="documents-status">@row.Status</span></td>
+                                <td class="documents-num col-days">@row.DaysUntilExpiry</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="documents-pagination">
+                <span>Showing @FirstRowNumber&ndash;@LastRowNumber of @totalCount documents</span>
+                <div class="documents-pages">
+                    <button type="button" @onclick="PreviousPageAsync" disabled="@(pageNumber <= 1)">Previous</button>
+                    <span class="documents-page-indicator">Page @pageNumber of @TotalPages</span>
+                    <button type="button" @onclick="NextPageAsync" disabled="@(pageNumber >= TotalPages)">Next</button>
+                </div>
+            </div>
+        }
+    </section>
+
+    <div class="documents-modal-backdrop @(isRegisterTypeModalOpen ? "is-open" : null)" aria-hidden="@(!isRegisterTypeModalOpen)">
+    <section class="documents-modal-dialog documents-type-form-card" role="dialog" aria-modal="true" aria-labelledby="documents-type-form-title">
+        <div class="documents-modal-header">
+            <h2 id="documents-type-form-title">Register document type</h2>
+            <button type="button" class="documents-modal-close" @onclick="CloseRegisterTypeModal" aria-label="Close register document type dialog">&times;</button>
+        </div>
+
+        @if (registerTypeConflictMessage is not null)
+        {
+            <div class="documents-type-conflict" role="alert">@registerTypeConflictMessage</div>
+        }
+
+        @if (registerTypeGeneralError is not null)
+        {
+            <div class="documents-type-inline-error" role="alert">@registerTypeGeneralError</div>
+        }
+
+        @if (registerTypeUnmappedErrors.Count > 0)
+        {
+            <ul class="documents-type-field-errors" role="alert">
+                @foreach (var message in registerTypeUnmappedErrors)
+                {
+                    <li>@message</li>
+                }
+            </ul>
+        }
+
+        @if (registerTypeSuccessMessage is not null)
+        {
+            <div class="documents-type-success" role="status">@registerTypeSuccessMessage</div>
+        }
+
+        <EditForm EditContext="registerTypeEditContext" OnSubmit="SubmitDocumentTypeAsync" class="documents-type-form">
+            <DataAnnotationsValidator />
+
+            <div class="documents-type-form-grid">
+                <div class="filter-field">
+                    <label for="type-name">Name</label>
+                    <InputText id="type-name" @bind-Value="registerTypeModel.Name" maxlength="200" />
+                    <ValidationMessage For="() => registerTypeModel.Name" />
+                </div>
+                <div class="filter-field">
+                    <label for="type-issuing-authority">Issuing authority</label>
+                    <InputText id="type-issuing-authority" @bind-Value="registerTypeModel.IssuingAuthority" maxlength="200" />
+                    <ValidationMessage For="() => registerTypeModel.IssuingAuthority" />
+                </div>
+                <div class="filter-field">
+                    <label for="type-validity-days">Mandatory validity period (days)</label>
+                    <InputNumber id="type-validity-days" @bind-Value="registerTypeModel.MandatoryValidityPeriodDays" min="1" max="3650" />
+                    <ValidationMessage For="() => registerTypeModel.MandatoryValidityPeriodDays" />
+                </div>
+                <div class="filter-field">
+                    <label id="type-requires-survey-label">Requires survey</label>
+                    <div class="documents-type-radio-group" role="group" aria-labelledby="type-requires-survey-label">
+                        <InputRadioGroup @bind-Value="registerTypeModel.RequiresSurvey" Name="requires-survey">
+                            <label class="documents-type-radio"><InputRadio Value="true" /> Yes</label>
+                            <label class="documents-type-radio"><InputRadio Value="false" /> No</label>
+                        </InputRadioGroup>
+                    </div>
+                    <ValidationMessage For="() => registerTypeModel.RequiresSurvey" />
+                </div>
+            </div>
+
+            <button type="submit" class="documents-search-button" disabled="@isRegisteringType">
+                @(isRegisteringType ? "Registering..." : "Register type")
+            </button>
+        </EditForm>
+    </section>
+    </div>
+
+    <div class="documents-modal-backdrop @(isRegisterDocumentModalOpen ? "is-open" : null)" aria-hidden="@(!isRegisterDocumentModalOpen)">
+    <section class="documents-modal-dialog documents-form-card" role="dialog" aria-modal="true" aria-labelledby="documents-form-title">
+        <div class="documents-modal-header">
+            <h2 id="documents-form-title">Register document</h2>
+            <button type="button" class="documents-modal-close" @onclick="CloseRegisterDocumentModal" aria-label="Close register document dialog">&times;</button>
+        </div>
+
+        @if (registerDocumentConflictMessage is not null)
+        {
+            <div class="documents-type-conflict" role="alert">@registerDocumentConflictMessage</div>
+        }
+
+        @if (registerDocumentGeneralError is not null)
+        {
+            <div class="documents-type-inline-error" role="alert">@registerDocumentGeneralError</div>
+        }
+
+        @if (registerDocumentUnmappedErrors.Count > 0)
+        {
+            <ul class="documents-type-field-errors" role="alert">
+                @foreach (var message in registerDocumentUnmappedErrors)
+                {
+                    <li>@message</li>
+                }
+            </ul>
+        }
+
+        @if (registerDocumentSuccessMessage is not null)
+        {
+            <div class="documents-type-success" role="status">@registerDocumentSuccessMessage</div>
+        }
+
+        <EditForm EditContext="registerDocumentEditContext" OnSubmit="SubmitDocumentAsync" class="documents-form">
+            <DataAnnotationsValidator />
+
+            <div class="documents-form-grid">
+                <div class="filter-field">
+                    <label for="doc-number">Document number</label>
+                    <InputText id="doc-number" @bind-Value="registerDocumentModel.Number" maxlength="100" />
+                    <ValidationMessage For="() => registerDocumentModel.Number" />
+                </div>
+                <div class="filter-field">
+                    <label for="doc-vessel">Vessel</label>
+                    <VesselPicker @key="vesselPickerResetToken" @bind-Value="registerDocumentModel.VesselId" Placeholder="Search vessel by name or IMO..." />
+                    <ValidationMessage For="() => registerDocumentModel.VesselId" />
+                </div>
+                <div class="filter-field">
+                    <label for="doc-type">Document type</label>
+                    <InputSelect id="doc-type" @bind-Value="registerDocumentModel.DocumentTypeId" disabled="@(isLoadingDocumentTypes || documentTypeOptions.Count == 0)">
+                        <option value="">@DocumentTypePlaceholder</option>
+                        @foreach (var option in documentTypeOptions)
+                        {
+                            <option value="@option.DocumentTypeId">@option.Name (@option.MandatoryValidityPeriodDays days)</option>
+                        }
+                    </InputSelect>
+                    <ValidationMessage For="() => registerDocumentModel.DocumentTypeId" />
+                </div>
+                <div class="filter-field">
+                    <label for="doc-issue-date">Issue date</label>
+                    <InputDate id="doc-issue-date" @bind-Value="registerDocumentModel.IssueDate" />
+                    <ValidationMessage For="() => registerDocumentModel.IssueDate" />
+                </div>
+                <div class="filter-field">
+                    <label for="doc-expiry-date">Expiry date</label>
+                    <InputDate id="doc-expiry-date" @bind-Value="registerDocumentModel.ExpiryDate" />
+                    <ValidationMessage For="() => registerDocumentModel.ExpiryDate" />
+                </div>
+                <div class="filter-field">
+                    <label for="doc-issuing-authority">Issuing authority</label>
+                    <InputText id="doc-issuing-authority" @bind-Value="registerDocumentModel.IssuingAuthority" maxlength="200" />
+                    <ValidationMessage For="() => registerDocumentModel.IssuingAuthority" />
+                </div>
+            </div>
+
+            <button type="submit" class="documents-search-button" disabled="@isRegisteringDocument">
+                @(isRegisteringDocument ? "Registering..." : "Register document")
+            </button>
+        </EditForm>
+    </section>
+    </div>
+</section>
