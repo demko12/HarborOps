@@ -51,10 +51,12 @@ public partial class Administration
 
     private int pageNumber = 1;
     private int totalUsers;
+    private int usersLoadVersion;
 
     private bool isLoadingUsers = true;
     private bool isLoadingRoles = true;
     private bool isCreatingUser;
+    private bool showCreateUserDialog;
     private bool isCreatingRole;
     private bool isSaving;
     private bool confirmUserRoles;
@@ -89,6 +91,7 @@ public partial class Administration
 
     private async Task LoadUsersAsync()
     {
+        var requestVersion = ++usersLoadVersion;
         isLoadingUsers = true;
         usersFailure = null;
 
@@ -97,6 +100,11 @@ public partial class Administration
             pageNumber,
             pageSize,
             CancellationToken.None);
+
+        if (requestVersion != usersLoadVersion)
+        {
+            return;
+        }
 
         isLoadingUsers = false;
 
@@ -128,7 +136,10 @@ public partial class Administration
             return;
         }
 
-        roles = result.Value!.ToList();
+        roles = result.Value!
+            .OrderByDescending(role => role.Permissions.Count)
+            .ThenBy(role => role.Name, StringComparer.OrdinalIgnoreCase)
+            .ToList();
     }
 
     private async Task CreateUserAsync()
@@ -160,6 +171,7 @@ public partial class Administration
             userFormMessage = "User created successfully.";
             userFormMessageClass = "success";
             await LoadUsersAsync();
+            showCreateUserDialog = false;
         }
         finally
         {
@@ -206,6 +218,27 @@ public partial class Administration
         selectedRoleNames.Clear();
         selectedRoleNames.UnionWith(user.Roles);
         ResetEditor();
+    }
+
+    private void OpenCreateUserDialog()
+    {
+        userFormMessage = null;
+        userFormMessageClass = string.Empty;
+        showCreateUserDialog = true;
+    }
+
+    private void CloseCreateUserDialog()
+    {
+        if (isCreatingUser)
+        {
+            return;
+        }
+
+        newUser.TemporaryPassword = string.Empty;
+        newUser.Confirmation = string.Empty;
+        userFormMessage = null;
+        userFormMessageClass = string.Empty;
+        showCreateUserDialog = false;
     }
 
     private void SelectRole(AdminRole role)
