@@ -19,7 +19,7 @@ public static class ComplianceModule
         services.AddScoped<RegisterPscInspectionService>();
         services.AddScoped<RegisterNonConformityService>();
         services.AddScoped<IGetVesselComplianceOverviewQuery, GetVesselComplianceOverviewQuery>();
-        services.TryAddSingleton<IDateTimeProvider, SystemDateTimeProvider>();
+        services.AddScoped<IOperationsDashboardComplianceQuery, OperationsDashboardComplianceQuery>();
         services.AddControllers()
             .AddApplicationPart(Assembly);
 

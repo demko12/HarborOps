@@ -169,4 +169,116 @@ internal sealed class MaintenanceApiClient(HttpClient httpClient)
             NoErrors);
     }
 
+    private const string InventoryItemsPath = "api/maintenance/inventory-items";
+
+    internal async Task<MaintenanceApiResult<InventoryItemsPage>> GetInventoryItemsAsync(
+        InventoryItemFilter filter,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(filter);
+
+        try
+        {
+            using var response = await httpClient.GetAsync(
+                BuildInventoryItemsPath(filter),
+                HttpCompletionOption.ResponseHeadersRead,
+                cancellationToken);
+
+            if (!response.IsSuccessStatusCode)
+            {
+                return new MaintenanceApiResult<InventoryItemsPage>(
+                    null, await ReadFailureAsync(response, "Unable to load inventory items", cancellationToken));
+            }
+
+            var page = await response.Content.ReadFromJsonAsync<InventoryItemsPage>(cancellationToken);
+
+            return new MaintenanceApiResult<InventoryItemsPage>(page, null);
+        }
+        catch (HttpRequestException)
+        {
+            return new MaintenanceApiResult<InventoryItemsPage>(null, Unavailable());
+        }
+        catch (TaskCanceledException) when (!cancellationToken.IsCancellationRequested)
+        {
+            return new MaintenanceApiResult<InventoryItemsPage>(null, Unavailable());
+        }
+    }
+
+    internal async Task<MaintenanceApiResult<WorkOrderPartUsagesResult>> GetPartUsagesAsync(
+        Guid workOrderId,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            using var response = await httpClient.GetAsync(
+                $"{BasePath}/{workOrderId}/part-usages",
+                HttpCompletionOption.ResponseHeadersRead,
+                cancellationToken);
+
+            if (!response.IsSuccessStatusCode)
+            {
+                return new MaintenanceApiResult<WorkOrderPartUsagesResult>(
+                    null, await ReadFailureAsync(response, "Unable to load part usage", cancellationToken));
+            }
+
+            var result = await response.Content.ReadFromJsonAsync<WorkOrderPartUsagesResult>(cancellationToken);
+
+            return new MaintenanceApiResult<WorkOrderPartUsagesResult>(result, null);
+        }
+        catch (HttpRequestException)
+        {
+            return new MaintenanceApiResult<WorkOrderPartUsagesResult>(null, Unavailable());
+        }
+    }
+
+    internal async Task<MaintenanceApiResult<RecordPartUsageResult>> RecordPartUsageAsync(
+        Guid workOrderId,
+        Guid partId,
+        RecordPartUsageRequest request,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+
+        try
+        {
+            using var response = await httpClient.PostAsJsonAsync(
+                $"{BasePath}/{workOrderId}/parts/{partId}/usage", request, cancellationToken);
+
+            if (response.StatusCode != HttpStatusCode.Created)
+            {
+                return new MaintenanceApiResult<RecordPartUsageResult>(
+                    null, await ReadFailureAsync(response, "Unable to record part usage", cancellationToken));
+            }
+
+            var result = await response.Content.ReadFromJsonAsync<RecordPartUsageResult>(cancellationToken);
+
+            return new MaintenanceApiResult<RecordPartUsageResult>(result, null);
+        }
+        catch (HttpRequestException)
+        {
+            return new MaintenanceApiResult<RecordPartUsageResult>(null, Unavailable());
+        }
+    }
+
+    private static string BuildInventoryItemsPath(InventoryItemFilter filter)
+    {
+        var query = new List<string>
+        {
+            $"pageNumber={filter.PageNumber}",
+            $"pageSize={filter.PageSize}",
+        };
+
+        if (!string.IsNullOrWhiteSpace(filter.Search))
+        {
+            query.Add($"search={Uri.EscapeDataString(filter.Search)}");
+        }
+
+        if (filter.LowStock is { } lowStock)
+        {
+            query.Add($"lowStock={(lowStock ? "true" : "false")}");
+        }
+
+        return $"{InventoryItemsPath}?{string.Join('&', query)}";
+    }
+
 }

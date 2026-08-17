@@ -78,3 +78,47 @@ internal sealed record MaintenanceApiFailure(
 }
 
 internal sealed record CreatedMaintenanceWorkOrder(Guid Id);
+
+internal sealed record InventoryItemListItem(
+    Guid InventoryItemId,
+    string Name,
+    string PartNumber,
+    decimal Quantity,
+    decimal MinimumQuantity,
+    decimal UnitCost,
+    Guid CategoryId,
+    Guid UnitId,
+    Guid SupplierId);
+
+internal sealed record InventoryItemsPage(
+    IReadOnlyList<InventoryItemListItem> Items,
+    int PageNumber,
+    int PageSize,
+    int TotalCount);
+
+internal sealed record InventoryItemFilter(
+    string? Search,
+    bool? LowStock,
+    int PageNumber,
+    int PageSize);
+
+internal sealed record RecordPartUsageRequest
+{
+    public decimal? QuantityUsed { get; init; }
+}
+
+internal sealed record RecordPartUsageResult(
+    Guid WorkOrderId,
+    Guid PartId,
+    decimal QuantityUsed,
+    decimal RemainingQuantity);
+
+internal sealed record WorkOrderPartUsageListItem(
+    Guid PartId,
+    string Name,
+    string PartNumber,
+    decimal QuantityUsed,
+    decimal RemainingQuantity);
+
+internal sealed record WorkOrderPartUsagesResult(
+    IReadOnlyList<WorkOrderPartUsageListItem> Items);

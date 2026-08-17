@@ -79,4 +79,14 @@ internal static class MaintenanceFormat
     {
         return id.ToString("N", CultureInfo.InvariantCulture)[..8];
     }
+
+    internal static bool IsLowStock(decimal quantity, decimal minimumQuantity)
+    {
+        return quantity <= minimumQuantity;
+    }
+
+    internal static bool IsInsufficientStock(decimal quantity, decimal? quantityRequested)
+    {
+        return quantityRequested is { } requested && requested > quantity;
+    }
 }

@@ -3,8 +3,10 @@ using System.Collections.Generic;
 using System.Text;
 using HarborOps.Modules.Maintenance.Application;
 using HarborOps.Modules.Maintenance.Contracts;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+
 
 namespace HarborOps.Modules.Maintenance.Presentation;
 
@@ -14,7 +16,8 @@ public class MaintenanceWorkOrdersController(
     CreateMaintenanceWorkOrderService createMaintenanceWorkOrderService,
     CompleteMaintenanceWorkOrderService completeMaintenanceWorkOrderService,
     RecordInventoryItemUsageService recordInventoryItemUsageService,
-    GetMaintenanceWorkOrdersQuery getMaintenanceWorkOrdersQuery)
+    GetMaintenanceWorkOrdersQuery getMaintenanceWorkOrdersQuery,
+    GetWorkOrderPartUsagesQuery getWorkOrderPartUsagesQuery)
     : ControllerBase
 {
     [HttpPost]
@@ -183,6 +186,30 @@ public class MaintenanceWorkOrdersController(
             {
                 Status = StatusCodes.Status400BadRequest,
                 Title = "One or more validation errors occurred.",
+            });
+        }
+    }
+
+    [HttpGet("{workOrderId:guid}/part-usages")]
+    [ProducesResponseType<GetWorkOrderPartUsagesResponse>(StatusCodes.Status200OK)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<GetWorkOrderPartUsagesResponse>> GetPartUsages(
+        Guid workOrderId,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            var response = await getWorkOrderPartUsagesQuery.GetPartUsagesAsync(workOrderId, cancellationToken);
+
+            return Ok(response);
+        }
+        catch (MaintenanceWorkOrderNotFoundException exception)
+        {
+            return NotFound(new ProblemDetails
+            {
+                Status = StatusCodes.Status404NotFound,
+                Title = "Maintenance work order not found.",
+                Detail = exception.Message,
             });
         }
     }

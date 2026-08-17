@@ -1,0 +1,16 @@
+@inject IJSRuntime JS
+
+<button class="print-button no-print" type="button" title="@Label" aria-label="@Label" @onclick="PrintAsync">
+    <span class="bi bi-printer" aria-hidden="true"></span>
+    <span class="print-button-text">Print</span>
+</button>
+
+@code {
+    [Parameter]
+    public string Label { get; set; } = "Print this page";
+
+    private Task PrintAsync()
+    {
+        return JS.InvokeVoidAsync("print").AsTask();
+    }
+}

@@ -177,7 +177,20 @@ html[data-theme="light"] .schedule-stamp input { color-scheme: light; }
 .schedule-vessel-selected strong { display: block; font-size: .9rem; }
 .schedule-vessel-selected span { color: var(--text-muted); font-size: .76rem; }
 
-.schedule-vessel-results { display: grid; gap: .35rem; margin: .5rem 0 0; padding: 0; list-style: none; }
+.schedule-vessel-results {
+    display: grid;
+    gap: .35rem;
+    margin: .5rem 0 0;
+    padding: 0;
+    max-height: 19rem;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    list-style: none;
+    scrollbar-width: thin;
+    scrollbar-color: var(--border-medium) transparent;
+}
+
+.schedule-vessel-results > li { padding-right: .25rem; }
 
 .schedule-vessel-results button {
     display: block;
