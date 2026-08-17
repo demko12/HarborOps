@@ -1,9 +1,9 @@
 :root,
 [data-theme="dark"] {
     --bg-app: #0a0e17;
-    --bg-surface: rgba(255, 255, 255, 0.04);
-    --bg-surface-strong: rgba(8, 18, 36, 0.55);
-    --bg-navbar: rgba(14, 22, 33, 0.9);
+    --bg-surface: rgba(255, 255, 255, 0.035);
+    --bg-surface-strong: rgba(8, 18, 36, 0.3);
+    --bg-navbar: rgba(14, 22, 33, 0.56);
     --border-subtle: rgba(255, 255, 255, 0.06);
     --border-medium: rgba(255, 255, 255, 0.09);
     --text-primary: rgba(255, 255, 255, 0.9);
@@ -19,9 +19,9 @@
 
 [data-theme="light"] {
     --bg-app: #e9eef5;
-    --bg-surface: rgba(15, 23, 42, 0.06);
-    --bg-surface-strong: rgba(255, 255, 255, 0.92);
-    --bg-navbar: rgba(248, 250, 252, 0.94);
+    --bg-surface: rgba(255, 255, 255, 0.16);
+    --bg-surface-strong: rgba(255, 255, 255, 0.42);
+    --bg-navbar: rgba(248, 250, 252, 0.58);
     --border-subtle: rgba(15, 23, 42, 0.12);
     --border-medium: rgba(15, 23, 42, 0.18);
     --text-primary: rgba(15, 23, 42, 0.96);
@@ -131,6 +131,91 @@ html, body {
     padding-top: 0;
 }
 
+/* Shared clear-glass surfaces for authenticated pages. Login intentionally keeps its dedicated light-only experience. */
+.page:not(.login-layout) :is(
+    .access-denied-card,
+    .administration-card,
+    .administration-denied-card,
+    .cargo-card,
+    .cargo-summary-card,
+    .compliance-card,
+    .crew-card,
+    .crew-insight-card,
+    .crew-summary-card,
+    .documents-card,
+    .documents-form-card,
+    .documents-type-form-card,
+    .error-card,
+    .fleet-card,
+    .fleet-summary-card,
+    .maintenance-card,
+    .maintenance-form-card,
+    .maintenance-summary-card,
+    .not-found-card,
+    .profile-card,
+    .reports-card,
+    .schedule-card,
+    .settings-card,
+    .voyages-card) {
+    border-color: rgba(148, 163, 184, .24) !important;
+    background: linear-gradient(135deg, rgba(255, 255, 255, .4), rgba(255, 255, 255, .14)) !important;
+    box-shadow: 0 18px 38px rgba(15, 23, 42, .07), inset 0 1px rgba(255, 255, 255, .6) !important;
+    backdrop-filter: blur(26px) saturate(150%);
+    -webkit-backdrop-filter: blur(26px) saturate(150%);
+}
+
+.page:not(.login-layout) :is(
+    .administration-modal,
+    .logout-modal,
+    .notifications-dropdown,
+    .account-dropdown) {
+    border-color: rgba(148, 163, 184, .3) !important;
+    background: rgba(255, 255, 255, .68) !important;
+    box-shadow: 0 24px 60px rgba(15, 23, 42, .16), inset 0 1px rgba(255, 255, 255, .72) !important;
+    backdrop-filter: blur(30px) saturate(150%);
+    -webkit-backdrop-filter: blur(30px) saturate(150%);
+}
+
+html[data-theme="dark"] .page:not(.login-layout) :is(
+    .access-denied-card,
+    .administration-card,
+    .administration-denied-card,
+    .cargo-card,
+    .cargo-summary-card,
+    .compliance-card,
+    .crew-card,
+    .crew-insight-card,
+    .crew-summary-card,
+    .documents-card,
+    .documents-form-card,
+    .documents-type-form-card,
+    .error-card,
+    .fleet-card,
+    .fleet-summary-card,
+    .maintenance-card,
+    .maintenance-form-card,
+    .maintenance-summary-card,
+    .not-found-card,
+    .profile-card,
+    .reports-card,
+    .schedule-card,
+    .settings-card,
+    .voyages-card) {
+    border-color: rgba(191, 219, 254, .15) !important;
+    background: linear-gradient(135deg, rgba(30, 41, 59, .4), rgba(15, 23, 42, .14)) !important;
+    box-shadow: 0 18px 38px rgba(0, 0, 0, .16), inset 0 1px rgba(255, 255, 255, .09) !important;
+}
+
+html[data-theme="dark"] .page:not(.login-layout) :is(
+    .administration-modal,
+    .logout-modal,
+    .notifications-dropdown,
+    .account-dropdown) {
+    border-color: rgba(191, 219, 254, .2) !important;
+    background: rgba(15, 23, 42, .72) !important;
+    box-shadow: 0 24px 60px rgba(0, 0, 0, .3), inset 0 1px rgba(255, 255, 255, .1) !important;
+}
+
 /* ---------- Printing ----------
    Shared rules every printable page relies on: the themed dark surface is
    replaced with plain dark-on-white, the application chrome is dropped, and the
@@ -138,7 +223,10 @@ html, body {
    filter summary. Component-scoped CSS carries a [b-*] attribute and therefore
    out-specifies these plain selectors, which is why the overrides are forced.
    Layout corrections that only make sense for one page stay in that page's own
-   stylesheet. */
+   stylesheet.
+
+   This block stays last in the file: the clear-glass rules above are forced too,
+   so the print overrides need the later position to win the tie. */
 
 .print-only {
     display: none;
@@ -198,6 +286,22 @@ html, body {
     a {
         color: #1a1a1a !important;
         text-decoration: none;
+    }
+
+    /* The clear-glass treatment is a screen effect: on paper the gradient and
+       blur only muddy the text, so the printable cards go back to plain paper.
+       Selector shape matches the rules above so this override wins on order. */
+    .page:not(.login-layout) :is(
+        .crew-card,
+        .crew-insight-card,
+        .crew-summary-card,
+        .fleet-card,
+        .fleet-summary-card) {
+        border-color: #999999 !important;
+        background: none !important;
+        box-shadow: none !important;
+        backdrop-filter: none !important;
+        -webkit-backdrop-filter: none !important;
     }
 
     /* The applied filters are the only context a paper copy has for explaining

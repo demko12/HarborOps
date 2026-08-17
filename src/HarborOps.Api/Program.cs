@@ -1,4 +1,5 @@
 using HarborOps.Api.Composition.Authorization;
+using HarborOps.Api.Composition.Operations.Dashboard;
 using HarborOps.Api.Composition.Operations.FleetVessel;
 using HarborOps.Infrastructure;
 using HarborOps.Modules.Cargo;
@@ -26,6 +27,7 @@ builder.Services.AddComplianceModule();
 builder.Services.AddCrewModule();
 builder.Services.AddVoyagesModule();
 builder.Services.AddScoped<FleetVesselOverviewService>();
+builder.Services.AddScoped<OperationsDashboardService>();
 builder.Services.AddMaintenanceModule();
 
 
