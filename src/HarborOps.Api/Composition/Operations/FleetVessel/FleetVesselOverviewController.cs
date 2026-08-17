@@ -1,3 +1,4 @@
+using HarborOps.Modules.Identity.Contracts;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
@@ -5,7 +6,8 @@ using Microsoft.AspNetCore.Mvc;
 namespace HarborOps.Api.Composition.Operations.FleetVessel;
 
 [ApiController]
-[Authorize]
+[Authorize(Permissions.Fleet.Read)]
+[Authorize(Permissions.Maintenance.Read)]
 [Route("api/operations/fleets/{fleetId}/vessels")]
 public sealed class FleetVesselOverviewController(
     FleetVesselOverviewService fleetVesselOverviewService)
@@ -14,6 +16,8 @@ public sealed class FleetVesselOverviewController(
     [HttpGet]
     [ProducesResponseType<FleetVesselOverviewPage>(StatusCodes.Status200OK)]
     [ProducesResponseType<HttpValidationProblemDetails>(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
     public async Task<ActionResult<FleetVesselOverviewPage>> Get(
         Guid fleetId,
         CancellationToken cancellationToken,

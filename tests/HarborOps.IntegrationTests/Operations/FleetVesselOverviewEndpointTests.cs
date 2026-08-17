@@ -1,10 +1,10 @@
 using System.Net;
-using System.Net.Http.Headers;
 using System.Net.Http.Json;
-using System.Text.Json;
 using HarborOps.Api.Composition.Operations.FleetVessel;
 using HarborOps.Infrastructure.Persistence;
+using HarborOps.IntegrationTests.Authentication;
 using HarborOps.Modules.Fleet.Domain;
+using HarborOps.Modules.Identity.Contracts;
 using HarborOps.Modules.Maintenance.Domain;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.DependencyInjection;
@@ -36,10 +36,10 @@ public sealed class FleetVesselOverviewEndpointTests : IntegrationTestBase
         await SeedWorkOrderAsync(aurora, WorkOrderStatus.InProgress, WorkOrderPriority.Low, UpcomingUtc);
         await SeedWorkOrderAsync(aurora, WorkOrderStatus.Completed, WorkOrderPriority.High, OverdueUtc);
 
-        using var client = _application.CreateClient();
-        using var response = await GetAuthenticatedAsync(
-            client,
-            $"/api/operations/fleets/{fleetId}/vessels");
+        using var client = await CreateOverviewClientAsync();
+        using var response = await client.GetAsync(
+            $"/api/operations/fleets/{fleetId}/vessels",
+            CancellationToken.None);
         var page = await response.Content.ReadFromJsonAsync<FleetVesselOverviewPage>(
             CancellationToken.None);
 
@@ -73,10 +73,10 @@ public sealed class FleetVesselOverviewEndpointTests : IntegrationTestBase
         await SeedVesselAsync(fleetId, "Nordic Wind", "2100003");
         await SeedVesselAsync(otherFleetId, "Coral Ghost", "2100004");
 
-        using var client = _application.CreateClient();
-        using var response = await GetAuthenticatedAsync(
-            client,
-            $"/api/operations/fleets/{fleetId}/vessels?pageNumber=2&pageSize=1&search=Coral");
+        using var client = await CreateOverviewClientAsync();
+        using var response = await client.GetAsync(
+            $"/api/operations/fleets/{fleetId}/vessels?pageNumber=2&pageSize=1&search=Coral",
+            CancellationToken.None);
         var page = await response.Content.ReadFromJsonAsync<FleetVesselOverviewPage>(
             CancellationToken.None);
 
@@ -103,13 +103,39 @@ public sealed class FleetVesselOverviewEndpointTests : IntegrationTestBase
     }
 
     [Fact]
+    public async Task Get_is_forbidden_without_the_maintenance_read_permission()
+    {
+        using var client = await _application.CreateAuthenticatedClientWithPermissionsAsync(
+            Permissions.Fleet.Read);
+
+        using var response = await client.GetAsync(
+            $"/api/operations/fleets/{Guid.NewGuid()}/vessels",
+            CancellationToken.None);
+
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task Get_is_forbidden_without_the_fleet_read_permission()
+    {
+        using var client = await _application.CreateAuthenticatedClientWithPermissionsAsync(
+            Permissions.Maintenance.Read);
+
+        using var response = await client.GetAsync(
+            $"/api/operations/fleets/{Guid.NewGuid()}/vessels",
+            CancellationToken.None);
+
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+    }
+
+    [Fact]
     public async Task Get_returns_validation_problem_for_a_malformed_fleet_id()
     {
-        using var client = _application.CreateClient();
+        using var client = await CreateOverviewClientAsync();
 
-        using var response = await GetAuthenticatedAsync(
-            client,
-            "/api/operations/fleets/not-a-guid/vessels");
+        using var response = await client.GetAsync(
+            "/api/operations/fleets/not-a-guid/vessels",
+            CancellationToken.None);
         var problem = await response.Content.ReadFromJsonAsync<HttpValidationProblemDetails>(
             CancellationToken.None);
 
@@ -121,11 +147,11 @@ public sealed class FleetVesselOverviewEndpointTests : IntegrationTestBase
     [Fact]
     public async Task Get_returns_validation_problem_for_invalid_paging()
     {
-        using var client = _application.CreateClient();
+        using var client = await CreateOverviewClientAsync();
 
-        using var response = await GetAuthenticatedAsync(
-            client,
-            $"/api/operations/fleets/{Guid.NewGuid()}/vessels?pageNumber=0&pageSize=0");
+        using var response = await client.GetAsync(
+            $"/api/operations/fleets/{Guid.NewGuid()}/vessels?pageNumber=0&pageSize=0",
+            CancellationToken.None);
         var problem = await response.Content.ReadFromJsonAsync<HttpValidationProblemDetails>(
             CancellationToken.None);
 
@@ -135,44 +161,11 @@ public sealed class FleetVesselOverviewEndpointTests : IntegrationTestBase
         Assert.Contains(FleetVesselOverviewValidator.PageSizeField, problem.Errors);
     }
 
-    private static async Task<HttpResponseMessage> GetAuthenticatedAsync(
-        HttpClient client,
-        string requestUri)
+    private Task<HttpClient> CreateOverviewClientAsync()
     {
-        var accessToken = await AuthenticateAsync(client);
-
-        using var request = new HttpRequestMessage(
-            HttpMethod.Get,
-            new Uri(requestUri, UriKind.Relative));
-        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
-
-        return await client.SendAsync(request, CancellationToken.None);
-    }
-
-    private static async Task<string> AuthenticateAsync(HttpClient client)
-    {
-        var credentials = new
-        {
-            email = $"fleet.operator.{Guid.NewGuid():N}@harborops.test",
-            password = "P@ssw0rd!2026",
-        };
-
-        using var registerResponse = await client.PostAsJsonAsync(
-            "/api/identity/register",
-            credentials,
-            CancellationToken.None);
-        Assert.Equal(HttpStatusCode.OK, registerResponse.StatusCode);
-
-        using var loginResponse = await client.PostAsJsonAsync(
-            "/api/identity/login",
-            credentials,
-            CancellationToken.None);
-        Assert.Equal(HttpStatusCode.OK, loginResponse.StatusCode);
-
-        var tokens = await loginResponse.Content.ReadFromJsonAsync<JsonElement>(
-            CancellationToken.None);
-
-        return tokens.GetProperty("accessToken").GetString()!;
+        return _application.CreateAuthenticatedClientWithPermissionsAsync(
+            Permissions.Fleet.Read,
+            Permissions.Maintenance.Read);
     }
 
     private async Task<Guid> SeedFleetAsync(string name)
