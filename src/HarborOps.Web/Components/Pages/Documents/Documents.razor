@@ -39,10 +39,10 @@
     </section>
 
     <section class="documents-registration-actions" aria-label="Document registration actions">
-        <button type="button" class="documents-registration-action" @onclick="OpenRegisterTypeModal">
+        <button type="button" class="documents-registration-action" @onclick="ToggleRegisterTypeForm">
             Register document type
         </button>
-        <button type="button" class="documents-registration-action" @onclick="OpenRegisterDocumentModal">
+        <button type="button" class="documents-registration-action" @onclick="ToggleRegisterDocumentForm">
             Register document
         </button>
     </section>
@@ -141,11 +141,11 @@
         }
     </section>
 
-    <div class="documents-modal-backdrop @(isRegisterTypeModalOpen ? "is-open" : null)" aria-hidden="@(!isRegisterTypeModalOpen)">
-    <section class="documents-modal-dialog documents-type-form-card" role="dialog" aria-modal="true" aria-labelledby="documents-type-form-title">
-        <div class="documents-modal-header">
+    @if (isRegisterTypeFormOpen)
+    {
+    <section class="documents-type-form-card documents-inline-form" aria-labelledby="documents-type-form-title">
+        <div class="documents-inline-form-header">
             <h2 id="documents-type-form-title">Register document type</h2>
-            <button type="button" class="documents-modal-close" @onclick="CloseRegisterTypeModal" aria-label="Close register document type dialog">&times;</button>
         </div>
 
         @if (registerTypeConflictMessage is not null)
@@ -209,13 +209,13 @@
             </button>
         </EditForm>
     </section>
-    </div>
+    }
 
-    <div class="documents-modal-backdrop @(isRegisterDocumentModalOpen ? "is-open" : null)" aria-hidden="@(!isRegisterDocumentModalOpen)">
-    <section class="documents-modal-dialog documents-form-card" role="dialog" aria-modal="true" aria-labelledby="documents-form-title">
-        <div class="documents-modal-header">
+    @if (isRegisterDocumentFormOpen)
+    {
+    <section class="documents-form-card documents-inline-form" aria-labelledby="documents-form-title">
+        <div class="documents-inline-form-header">
             <h2 id="documents-form-title">Register document</h2>
-            <button type="button" class="documents-modal-close" @onclick="CloseRegisterDocumentModal" aria-label="Close register document dialog">&times;</button>
         </div>
 
         @if (registerDocumentConflictMessage is not null)
@@ -290,5 +290,5 @@
             </button>
         </EditForm>
     </section>
-    </div>
+    }
 </section>

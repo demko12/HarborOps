@@ -18,6 +18,34 @@ window.themeInterop = {
 window.scrollInterop = {
     toTop: function () {
         window.scrollTo({ top: 0, behavior: 'smooth' });
+    },
+    // Keeps the keyboard-highlighted option visible inside a scrolling list.
+    intoView: function (elementId) {
+        var element = document.getElementById(elementId);
+        if (element) {
+            element.scrollIntoView({ block: 'nearest' });
+        }
+    }
+};
+
+window.headerScrollInterop = {
+    initialize: function () {
+        var header = document.querySelector('.app-topbar');
+        if (!header) {
+            return;
+        }
+
+        var update = function () {
+            header.classList.toggle('is-scrolled', window.scrollY > 8);
+        };
+
+        if (window.__harborOpsHeaderScrollHandler) {
+            window.removeEventListener('scroll', window.__harborOpsHeaderScrollHandler);
+        }
+
+        window.__harborOpsHeaderScrollHandler = update;
+        window.addEventListener('scroll', update, { passive: true });
+        update();
     }
 };
 

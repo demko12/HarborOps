@@ -46,6 +46,9 @@ builder.Services.AddAuthorization(options =>
     options.AddPolicy("AccessDocuments", policy => policy.RequireAuthenticatedUser().RequireAssertion(context =>
         context.User.HasClaim(CurrentUserAuthorizationState.PermissionClaimType, CurrentUserAuthorizationState.DocumentsReadPermission)
         || context.User.HasClaim(CurrentUserAuthorizationState.PermissionClaimType, CurrentUserAuthorizationState.DocumentsManagePermission)));
+    options.AddPolicy("AccessCompliance", policy => policy.RequireAuthenticatedUser().RequireAssertion(context =>
+        context.User.HasClaim(CurrentUserAuthorizationState.PermissionClaimType, CurrentUserAuthorizationState.ComplianceReadPermission)
+        || context.User.HasClaim(CurrentUserAuthorizationState.PermissionClaimType, CurrentUserAuthorizationState.ComplianceManagePermission)));
     options.AddPolicy("AccessReports", policy => policy.RequireAuthenticatedUser().RequireAssertion(context =>
         context.User.HasClaim(CurrentUserAuthorizationState.PermissionClaimType, CurrentUserAuthorizationState.ReportsReadPermission)
         || context.User.HasClaim(CurrentUserAuthorizationState.PermissionClaimType, CurrentUserAuthorizationState.ReportsManagePermission)));

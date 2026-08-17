@@ -1,12 +1,16 @@
 .page {
+    position: relative;
     display: flex;
     min-height: 100vh;
+    isolation: isolate;
     background-color: var(--bg-app);
     color: var(--text-primary);
     transition: background-color 0.2s ease, color 0.2s ease;
 }
 
 main {
+    position: relative;
+    z-index: 1;
     flex: 1;
     min-width: 0;
     padding-top: 3.75rem;

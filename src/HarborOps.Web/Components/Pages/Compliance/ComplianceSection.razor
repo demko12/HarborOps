@@ -1,0 +1,14 @@
+<section class="compliance-card compliance-section">
+    <div class="compliance-section-heading">
+        <h2>@Title</h2>
+    </div>
+    @if (IsEmpty) { <EmptyState Title="@EmptyTitle" Message="Records will appear here when they are added for this vessel." /> }
+    else { <div class="compliance-list">@ChildContent</div> }
+</section>
+
+@code {
+    [Parameter, EditorRequired] public string Title { get; set; } = string.Empty;
+    [Parameter, EditorRequired] public string EmptyTitle { get; set; } = string.Empty;
+    [Parameter] public bool IsEmpty { get; set; }
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+}

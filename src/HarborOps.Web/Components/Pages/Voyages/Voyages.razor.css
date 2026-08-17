@@ -162,16 +162,17 @@ html[data-theme="light"] .voyages-action-failure { border-color: rgba(185, 28, 2
 .voyages-row-action:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 
 .voyages-empty-action { display: flex; justify-content: center; margin-top: .75rem; }
-.voyage-actions { white-space: nowrap; }
-.voyage-actions-none { color: var(--text-muted); }
-.voyage-action-form { display: grid; gap: .4rem; min-width: 9.5rem; max-width: 12rem; }
-.voyage-action-form label { color: var(--text-muted); font-size: .68rem; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; white-space: normal; }
 
-/// the inline form lives inside a table cell, so date and time always stack
+.voyage-actions { width: 13rem; white-space: nowrap; vertical-align: top; }
+.voyage-actions-none { color: var(--text-muted); }
+.voyage-action-form { display: grid; gap: .4rem; width: 100%; max-width: 12rem; }
+.voyage-action-form label { color: var(--text-muted); font-size: .68rem; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; white-space: normal; line-height: 1.3; }
+
 .voyage-action-stamp { display: grid; grid-template-columns: minmax(0, 1fr); gap: .35rem; }
 
 .voyage-action-stamp input {
     width: 100%;
+    min-width: 0;
     box-sizing: border-box;
     height: 2.1rem;
     padding: 0 .5rem;
@@ -185,7 +186,7 @@ html[data-theme="light"] .voyages-action-failure { border-color: rgba(185, 28, 2
 }
 
 html[data-theme="light"] .voyage-action-stamp input { color-scheme: light; }
-.voyage-action-buttons { display: flex; gap: .35rem; }
+.voyage-action-buttons { display: flex; flex-wrap: wrap; gap: .35rem; }
 .voyage-action-buttons .voyages-button, .voyage-action-buttons .voyages-reset { height: 2.1rem; padding: 0 .7rem; font-size: .8rem; }
 
 .voyages-card-heading h2 { margin: 0; font-size: 1.05rem; }

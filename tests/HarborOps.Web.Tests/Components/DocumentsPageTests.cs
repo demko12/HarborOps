@@ -271,9 +271,31 @@ public sealed class DocumentsPageTests : BunitContext
     // ---- Register document type form ----
 
     [Fact]
+    public void Registration_actions_reveal_inline_forms_without_a_modal_dialog()
+    {
+        var page = RenderDocumentsPage();
+
+        Assert.Empty(page.FindAll("form.documents-type-form"));
+        Assert.Empty(page.FindAll("form.documents-form"));
+
+        OpenTypeForm(page);
+        Assert.Single(page.FindAll("form.documents-type-form"));
+        Assert.Empty(page.FindAll("[role=dialog]"));
+        Assert.Empty(page.FindAll(".documents-modal-backdrop"));
+
+        OpenDocumentForm(page);
+        Assert.Single(page.FindAll("form.documents-form"));
+        Assert.Empty(page.FindAll("[role=dialog]"));
+
+        OpenDocumentForm(page);
+        Assert.Empty(page.FindAll("form.documents-form"));
+    }
+
+    [Fact]
     public void Submitting_an_empty_type_form_shows_client_side_validation_without_calling_the_api()
     {
         var page = RenderDocumentsPage();
+        OpenTypeForm(page);
         page.WaitForAssertion(() => Assert.NotEmpty(requestedUris));
 
         var requestsBeforeSubmit = requestedUris.Count(IsRegisterDocumentTypeRequest);
@@ -289,6 +311,7 @@ public sealed class DocumentsPageTests : BunitContext
     public void Registering_a_valid_document_type_shows_a_success_message_and_resets_the_form()
     {
         var page = RenderDocumentsPage();
+        OpenTypeForm(page);
         page.WaitForAssertion(() => Assert.NotEmpty(requestedUris));
 
         page.Find("#type-name").Change("Safety Certificate");
@@ -313,6 +336,7 @@ public sealed class DocumentsPageTests : BunitContext
             """{"title":"One or more validation errors occurred.","errors":{"name":["Name must not exceed 200 characters."]}}""");
 
         var page = RenderDocumentsPage();
+        OpenTypeForm(page);
         page.WaitForAssertion(() => Assert.NotEmpty(requestedUris));
 
         page.Find("#type-name").Change("Safety Certificate");
@@ -343,6 +367,7 @@ public sealed class DocumentsPageTests : BunitContext
             """{"title":"A document type with this name already exists.","errors":{"name":["A document type with name 'Safety Certificate' already exists."]}}""");
 
         var page = RenderDocumentsPage();
+        OpenTypeForm(page);
         page.WaitForAssertion(() => Assert.NotEmpty(requestedUris));
 
         page.Find("#type-name").Change("Safety Certificate");
@@ -362,6 +387,28 @@ public sealed class DocumentsPageTests : BunitContext
     }
 
     [Fact]
+    public void A_general_registration_api_error_remains_visible_in_the_inline_form()
+    {
+        respondToRegisterDocumentType = _ => Json(
+            HttpStatusCode.InternalServerError,
+            """{"title":"Unable to register document type","detail":"Please try again later.","errors":{}}""");
+
+        var page = RenderDocumentsPage();
+        OpenTypeForm(page);
+        page.Find("#type-name").Change("Safety Certificate");
+        page.Find("#type-issuing-authority").Change("Flag State");
+        page.Find("#type-validity-days").Change("365");
+        page.FindAll(".documents-type-radio input")[0].Change("True");
+
+        page.Find("form.documents-type-form").Submit();
+
+        page.WaitForAssertion(() =>
+            Assert.Contains("Please try again later.", page.Find(".documents-type-inline-error").TextContent));
+        Assert.Single(page.FindAll("form.documents-type-form"));
+        Assert.Equal("Safety Certificate", page.Find("#type-name").GetAttribute("value"));
+    }
+
+    [Fact]
     public void Submitting_the_type_form_twice_quickly_only_sends_one_request_while_the_first_is_pending()
     {
         var pending = new TaskCompletionSource<HttpResponseMessage>();
@@ -375,6 +422,7 @@ public sealed class DocumentsPageTests : BunitContext
         };
 
         var page = RenderDocumentsPage();
+        OpenTypeForm(page);
         page.WaitForAssertion(() => Assert.NotEmpty(requestedUris));
 
         page.Find("#type-name").Change("Safety Certificate");
@@ -406,6 +454,7 @@ public sealed class DocumentsPageTests : BunitContext
     public void Submitting_an_empty_document_form_shows_client_side_validation_without_calling_the_api()
     {
         var page = RenderDocumentsPage();
+        OpenDocumentForm(page);
         page.WaitForAssertion(() => Assert.NotEmpty(requestedUris));
 
         var requestsBeforeSubmit = requestedUris.Count(IsRegisterDocumentRequest);
@@ -424,6 +473,7 @@ public sealed class DocumentsPageTests : BunitContext
     public async Task An_expiry_date_before_the_issue_date_shows_a_cross_field_validation_message_without_calling_the_api()
     {
         var page = RenderDocumentsPage();
+        OpenDocumentForm(page);
         page.WaitForAssertion(() => Assert.NotEmpty(page.FindAll("#doc-type option")));
 
         var requestsBeforeSubmit = requestedUris.Count(IsRegisterDocumentRequest);
@@ -463,6 +513,7 @@ public sealed class DocumentsPageTests : BunitContext
             TypesPage(TypeRow(documentTypeId: 7, name: "Load Line Certificate", mandatoryValidityPeriodDays: 60)));
 
         var page = RenderDocumentsPage();
+        OpenDocumentForm(page);
 
         page.WaitForAssertion(() =>
             Assert.Contains("Load Line Certificate (60 days)", page.Find("#doc-type").TextContent, StringComparison.Ordinal));
@@ -484,6 +535,7 @@ public sealed class DocumentsPageTests : BunitContext
         };
 
         var page = RenderDocumentsPage();
+        OpenDocumentForm(page);
         page.WaitForAssertion(() => Assert.NotEmpty(page.FindAll("#doc-type option")));
 
         page.Find("#doc-number").Change("CERT-001");
@@ -513,6 +565,19 @@ public sealed class DocumentsPageTests : BunitContext
     public async Task Registering_a_valid_document_shows_a_success_message_resets_the_form_and_refreshes_the_grid()
     {
         var page = RenderDocumentsPage();
+
+        page.Find("#documents-from").Change("2026-01-01");
+        page.Find("#documents-to").Change("2026-12-31");
+        page.Find(".documents-filters .vessel-picker-input").Input("Auro");
+        page.WaitForAssertion(
+            () => Assert.Single(page.FindAll(".documents-filters .vessel-picker-option")),
+            TimeSpan.FromSeconds(3));
+        await page.InvokeAsync(() => page.Find(".documents-filters .vessel-picker-option").Click());
+        page.Find(".documents-search-button").Click();
+        page.WaitForAssertion(() =>
+            Assert.Contains("from=2026-01-01", requestedUris.Last(IsExpiringRequest).Query, StringComparison.Ordinal));
+
+        OpenDocumentForm(page);
         page.WaitForAssertion(() => Assert.NotEmpty(page.FindAll("#doc-type option")));
 
         var expiringRequestsBefore = requestedUris.Count(IsExpiringRequest);
@@ -541,6 +606,12 @@ public sealed class DocumentsPageTests : BunitContext
         Assert.True(string.IsNullOrEmpty(page.Find("#doc-number").GetAttribute("value")));
         Assert.True(string.IsNullOrEmpty(page.Find("#doc-issuing-authority").GetAttribute("value")));
         Assert.True(requestedUris.Count(IsExpiringRequest) > expiringRequestsBefore);
+        Assert.Single(page.FindAll("form.documents-form"));
+
+        var refreshedQuery = requestedUris.Last(IsExpiringRequest).Query;
+        Assert.Contains("from=2026-01-01", refreshedQuery, StringComparison.Ordinal);
+        Assert.Contains("to=2026-12-31", refreshedQuery, StringComparison.Ordinal);
+        Assert.Contains($"vesselId={VesselId}", refreshedQuery, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -551,6 +622,7 @@ public sealed class DocumentsPageTests : BunitContext
             """{"title":"One or more validation errors occurred.","errors":{"documentTypeId":["Document type is required."]}}""");
 
         var page = RenderDocumentsPage();
+        OpenDocumentForm(page);
         page.WaitForAssertion(() => Assert.NotEmpty(page.FindAll("#doc-type option")));
 
         page.Find("#doc-number").Change("CERT-001");
@@ -589,6 +661,8 @@ public sealed class DocumentsPageTests : BunitContext
     public void Registering_a_document_type_refreshes_the_document_type_dropdown_options()
     {
         var page = RenderDocumentsPage();
+        OpenTypeForm(page);
+        OpenDocumentForm(page);
         page.WaitForAssertion(() => Assert.NotEmpty(page.FindAll("#doc-type option")));
 
         var typesRequestsBefore = requestedUris.Count(IsDocumentTypesGetRequest);
@@ -623,6 +697,12 @@ public sealed class DocumentsPageTests : BunitContext
 
     private static bool IsRegisterDocumentTypeRequest(Uri uri) =>
         uri.AbsolutePath.EndsWith("/types", StringComparison.Ordinal);
+
+    private static void OpenTypeForm(IRenderedComponent<Documents> page) =>
+        page.FindAll(".documents-registration-action")[0].Click();
+
+    private static void OpenDocumentForm(IRenderedComponent<Documents> page) =>
+        page.FindAll(".documents-registration-action")[1].Click();
 
     private IRenderedComponent<Documents> RenderDocumentsPage()
     {

@@ -19,6 +19,7 @@ public static class MaintenanceModule
         services.AddScoped<CompleteMaintenanceWorkOrderService>();
         services.AddScoped<RecordInventoryItemUsageService>();
         services.AddScoped<GetMaintenanceWorkOrdersQuery>();
+        services.AddScoped<IOperationsDashboardMaintenanceQuery, OperationsDashboardMaintenanceQuery>();
         services.AddScoped<GetInventoryItemsQuery>();
         services.AddScoped<GetWorkOrderPartUsagesQuery>();
         services.AddScoped<IVesselMaintenanceOverviewQuery>(serviceProvider =>

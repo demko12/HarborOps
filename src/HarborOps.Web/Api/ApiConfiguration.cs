@@ -1,4 +1,5 @@
 using HarborOps.Web.Api.Cargo;
+using HarborOps.Web.Api.Compliance;
 using HarborOps.Web.Api.Documents;
 using HarborOps.Web.Api.Fleet;
 using HarborOps.Web.Api.Maintenance;
@@ -21,6 +22,12 @@ internal static class ApiConfiguration
             client.BaseAddress = baseAddress;
             client.Timeout = TimeSpan.FromSeconds(5);
         });
+
+        services.AddHttpClient<OperationsDashboardApiClient>(client =>
+        {
+            client.BaseAddress = baseAddress;
+            client.Timeout = TimeSpan.FromSeconds(15);
+        }).AddHttpMessageHandler<BearerTokenHandler>();
 
         services.AddHttpClient<IdentitySessionApiClient>(client =>
         {
@@ -70,6 +77,12 @@ internal static class ApiConfiguration
         }).AddHttpMessageHandler<BearerTokenHandler>();
 
         services.AddHttpClient<DocumentsApiClient>(client =>
+        {
+            client.BaseAddress = baseAddress;
+            client.Timeout = TimeSpan.FromSeconds(15);
+        }).AddHttpMessageHandler<BearerTokenHandler>();
+
+        services.AddHttpClient<ComplianceApiClient>(client =>
         {
             client.BaseAddress = baseAddress;
             client.Timeout = TimeSpan.FromSeconds(15);

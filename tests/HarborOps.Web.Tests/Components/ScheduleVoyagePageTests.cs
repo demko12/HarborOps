@@ -155,6 +155,92 @@ public sealed class ScheduleVoyagePageTests : BunitContext
         Assert.False(page.Find(".schedule-button").HasAttribute("disabled"));
     }
 
+    [Fact]
+    public void Focusing_the_vessel_field_lists_vessels_without_a_search_term()
+    {
+        var page = RenderSchedulePage(ScheduleVoyage.ManageVoyagesPermission);
+
+        page.Find("#schedule-vessel-search").Focus();
+
+        page.WaitForAssertion(() =>
+        {
+            Assert.Contains(
+                requestedUris,
+                uri => uri.AbsolutePath == "/api/fleet/vessels"
+                    && uri.Query.Contains("search=&", StringComparison.Ordinal));
+            Assert.Contains("Northern Star", page.Find(".schedule-vessel-results").TextContent, StringComparison.Ordinal);
+        });
+    }
+
+    [Fact]
+    public void Focusing_again_reuses_the_options_already_listed()
+    {
+        var page = RenderSchedulePage(ScheduleVoyage.ManageVoyagesPermission);
+
+        page.Find("#schedule-vessel-search").Focus();
+        page.WaitForAssertion(() => Assert.NotEmpty(page.FindAll(".schedule-vessel-results button")));
+
+        var lookupsAfterFirstFocus = VesselLookups();
+
+        page.Find("#schedule-vessel-search").Focus();
+
+        Assert.Equal(lookupsAfterFirstFocus, VesselLookups());
+    }
+
+    [Fact]
+    public void Clearing_the_search_lists_every_vessel_again()
+    {
+        var page = RenderSchedulePage(ScheduleVoyage.ManageVoyagesPermission);
+
+        page.Find("#schedule-vessel-search").Input("Northern");
+        page.WaitForAssertion(() => Assert.Contains(
+            requestedUris,
+            uri => uri.Query.Contains("search=Northern", StringComparison.Ordinal)));
+
+        page.Find("#schedule-vessel-search").Input(string.Empty);
+
+        page.WaitForAssertion(() => Assert.Contains(
+            "search=&",
+            requestedUris[^1].Query,
+            StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void Options_carry_the_identifiers_that_keyboard_scrolling_targets()
+    {
+        var page = RenderSchedulePage(ScheduleVoyage.ManageVoyagesPermission);
+
+        page.Find("#schedule-vessel-search").Focus();
+
+        page.WaitForAssertion(() => Assert.Equal(
+            ScheduleVoyage.VesselOptionId(0),
+            page.Find(".schedule-vessel-results button").GetAttribute("id")));
+    }
+
+    [Fact]
+    public void An_empty_register_is_reported_rather_than_left_blank()
+    {
+        respond = _ => Json(
+            HttpStatusCode.OK,
+            """{"items":[],"pageNumber":1,"pageSize":25,"totalCount":0}""");
+
+        var page = RenderSchedulePage(ScheduleVoyage.ManageVoyagesPermission);
+
+        page.Find("#schedule-vessel-search").Focus();
+
+        page.WaitForAssertion(() => Assert.Contains(
+            "No vessels are registered yet.",
+            page.Find(".schedule-hint").TextContent,
+            StringComparison.Ordinal));
+    }
+
+    private List<Uri> VesselLookups()
+    {
+        return requestedUris
+            .Where(uri => uri.AbsolutePath == "/api/fleet/vessels")
+            .ToList();
+    }
+
     private void SelectFirstVessel(IRenderedComponent<ScheduleVoyage> page)
     {
         page.Find("#schedule-vessel-search").Input("Northern");

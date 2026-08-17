@@ -10,6 +10,8 @@
     max-width: 1400px;
     margin: 0 auto;
     padding: 2.5rem 2rem;
+    display: flex;
+    flex-direction: column;
 }
 
 html[data-theme="light"] .documents-page {
@@ -26,6 +28,7 @@ html[data-theme="light"] .documents-page {
 /* Header */
 
 .documents-header {
+    order: 1;
     margin-bottom: 1.75rem;
 }
 
@@ -52,6 +55,7 @@ html[data-theme="light"] .documents-page {
 /* Filters */
 
 .documents-filters {
+    order: 2;
     display: flex;
     align-items: flex-end;
     flex-wrap: wrap;
@@ -184,6 +188,7 @@ html[data-theme="light"] .filter-field input {
 /* Validation */
 
 .documents-validation {
+    order: 5;
     margin-bottom: 1rem;
     padding: .9rem 1.1rem;
     border: 1px solid rgba(248, 113, 113, .35);
@@ -206,6 +211,7 @@ html[data-theme="light"] .documents-validation {
 /* Card */
 
 .documents-card {
+    order: 5;
     padding: 1.35rem;
     border: 1px solid var(--border-medium);
     border-radius: 1rem;
@@ -393,6 +399,7 @@ html[data-theme="light"] .documents-validation {
 /* Registration actions and dialogs */
 
 .documents-registration-actions {
+    order: 3;
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 1rem;
@@ -426,75 +433,29 @@ html[data-theme="light"] .documents-validation {
         outline-offset: 2px;
     }
 
-.documents-modal-backdrop {
-    position: fixed;
-    z-index: 1000;
-    inset: 3.75rem 0 0 4.75rem;
-    display: none;
-    place-items: center;
-    padding: 1.25rem;
-    background: var(--bg-app);
+.documents-inline-form {
+    order: 4;
+    width: 100%;
+    max-width: none;
+    margin: 0 0 1rem;
+    animation: documents-form-reveal .16s ease-out;
 }
 
-html[data-theme="light"] .documents-modal-backdrop {
-    background: #ffffff;
-}
-
-    .documents-modal-backdrop.is-open {
-        display: grid;
-    }
-
-.documents-modal-dialog.documents-type-form-card,
-.documents-modal-dialog.documents-form-card {
-    width: min(100%, 44rem);
-    max-height: calc(100vh - 2.5rem);
-    margin: 0;
-    overflow-y: auto;
-    background: var(--control-surface);
-}
-
-.documents-modal-header {
+.documents-inline-form-header {
     display: flex;
     align-items: center;
     justify-content: space-between;
     gap: 1rem;
 }
 
-.documents-modal-close {
-    display: grid;
-    flex: 0 0 auto;
-    width: 2.35rem;
-    height: 2.35rem;
-    padding: 0;
-    place-items: center;
-    color: var(--text-secondary);
-    border: 1px solid var(--border-medium);
-    border-radius: .65rem;
-    background: var(--bg-surface);
-    font: inherit;
-    font-size: 1.5rem;
-    line-height: 1;
-    cursor: pointer;
-    transition: border-color .16s ease, background .16s ease, color .16s ease;
+@keyframes documents-form-reveal {
+    from { opacity: 0; transform: translateY(-.35rem); }
+    to { opacity: 1; transform: translateY(0); }
 }
-
-    .documents-modal-close:hover {
-        color: var(--text-primary);
-        border-color: var(--accent-border);
-        background: var(--accent-bg);
-    }
-
-    .documents-modal-close:focus-visible {
-        outline: 2px solid var(--accent);
-        outline-offset: 2px;
-    }
 
 /* Register document type form */
 
 .documents-type-form-card {
-    max-width: 44rem;
-    margin-top: 1.5rem;
-    margin-bottom: 1.5rem;
     padding: 1.35rem;
     border: 1px solid var(--border-medium);
     border-radius: 1rem;
@@ -619,9 +580,6 @@ html[data-theme="light"] .documents-type-field-errors {
    layout below is a separate .documents-form-* namespace, since this is a distinct form. */
 
 .documents-form-card {
-    max-width: 44rem;
-    margin-top: 1.5rem;
-    margin-bottom: 1.5rem;
     padding: 1.35rem;
     border: 1px solid var(--border-medium);
     border-radius: 1rem;
@@ -700,7 +658,6 @@ html[data-theme="light"] .documents-form-grid ::deep select {
     .documents-search-button,
     .documents-all-button,
     .documents-registration-action,
-    .documents-modal-close,
     .documents-table tbody tr,
     .filter-field input,
     .documents-type-form-grid ::deep input:not([type="radio"]),
@@ -736,16 +693,6 @@ html[data-theme="light"] .documents-form-grid ::deep select {
 
     .documents-registration-actions {
         grid-template-columns: 1fr;
-    }
-
-    .documents-modal-backdrop {
-        left: 0;
-        padding: .75rem;
-    }
-
-    .documents-modal-dialog.documents-type-form-card,
-    .documents-modal-dialog.documents-form-card {
-        max-height: calc(100vh - 1.5rem);
     }
 
     .filter-field input,

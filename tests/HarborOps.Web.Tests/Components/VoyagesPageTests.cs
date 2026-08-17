@@ -479,7 +479,6 @@ public sealed class VoyagesPageTests : BunitContext
         });
     }
 
-    /// the board also asks for the planned count with pageSize=1; those are not result requests
     private List<string> ResultQueries()
     {
         return requestedUris
