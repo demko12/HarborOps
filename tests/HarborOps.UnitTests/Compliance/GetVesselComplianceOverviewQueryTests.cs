@@ -16,6 +16,7 @@ public sealed class GetVesselComplianceOverviewQueryTests
 
         Assert.Empty(response.Certificates);
         Assert.Empty(response.PscInspections);
+        Assert.Empty(response.SurveyAudits);
         Assert.Empty(response.OpenNonConformities);
     }
 
@@ -56,6 +57,23 @@ public sealed class GetVesselComplianceOverviewQueryTests
     }
 
     [Fact]
+    public async Task GetAsync_orders_survey_audits_deterministically_by_date_descending_then_id()
+    {
+        await using var dbContext = CreateDbContext();
+        var vesselId = Guid.NewGuid();
+        var date = new DateOnly(2026, 8, 1);
+        var older = new SurveyAudit(vesselId, date.AddDays(-1), "Annual Survey", "Pass", "No findings.");
+        var tiedOne = new SurveyAudit(vesselId, date, "Intermediate Survey", "Pass", "Minor findings.");
+        var tiedTwo = new SurveyAudit(vesselId, date, "Renewal Survey", "Fail", "Major findings.");
+        await dbContext.AddRangeAsync(older, tiedOne, tiedTwo);
+        await dbContext.SaveChangesAsync();
+
+        var response = await QueryAsync(dbContext, vesselId);
+
+        Assert.Equal(new[] { tiedOne.Id, tiedTwo.Id, older.Id }, response.SurveyAudits.Select(item => item.Id));
+    }
+
+    [Fact]
     public async Task GetAsync_orders_open_non_conformities_and_filters_closed_records()
     {
         await using var dbContext = CreateDbContext();
@@ -86,6 +104,7 @@ public sealed class GetVesselComplianceOverviewQueryTests
         await dbContext.AddAsync(ComplianceCertificate.Register(otherVesselId, "Other", "O", "Authority", new DateOnly(2026, 1, 1), new DateOnly(2027, 1, 1)));
         var otherInspection = new PscInspection(otherVesselId, Guid.NewGuid(), new DateOnly(2026, 8, 1), "Authority", 1, false);
         await dbContext.AddAsync(otherInspection);
+        await dbContext.AddAsync(new SurveyAudit(otherVesselId, new DateOnly(2026, 8, 1), "Annual Survey", "Pass", "No findings."));
         await dbContext.SaveChangesAsync();
         await dbContext.AddAsync(new NonConformity(Guid.NewGuid(), "Minor", new DateOnly(2026, 9, 1), "Open", pscId: otherInspection.Id));
         await dbContext.SaveChangesAsync();
@@ -94,6 +113,7 @@ public sealed class GetVesselComplianceOverviewQueryTests
 
         Assert.Empty(response.Certificates);
         Assert.Empty(response.PscInspections);
+        Assert.Empty(response.SurveyAudits);
         Assert.Empty(response.OpenNonConformities);
     }
 

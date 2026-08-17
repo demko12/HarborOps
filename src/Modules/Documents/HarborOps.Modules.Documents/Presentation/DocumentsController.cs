@@ -11,7 +11,8 @@ public sealed class DocumentsController(
     RegisterDocumentService registerDocumentService,
     RegisterDocumentTypeService registerDocumentTypeService,
     IGetExpiringDocumentsQuery getExpiringDocumentsQuery,
-    IGetDocumentTypesQuery getDocumentTypesQuery)
+    IGetDocumentTypesQuery getDocumentTypesQuery,
+    IGetDocumentsQuery getDocumentsQuery)
     : ControllerBase
 {
     [HttpGet("expiring")]
@@ -55,6 +56,33 @@ public sealed class DocumentsController(
             return Ok(response);
         }
         catch (GetDocumentTypesValidationException exception)
+        {
+            return BadRequest(new HttpValidationProblemDetails(
+                exception.Errors.ToDictionary(
+                    error => error.Key,
+                    error => error.Value,
+                    StringComparer.Ordinal))
+            {
+                Status = StatusCodes.Status400BadRequest,
+                Title = "One or more validation errors occurred.",
+            });
+        }
+    }
+
+    [HttpGet]
+    [ProducesResponseType<GetDocumentsResponse>(StatusCodes.Status200OK)]
+    [ProducesResponseType<HttpValidationProblemDetails>(StatusCodes.Status400BadRequest)]
+    public async Task<ActionResult<GetDocumentsResponse>> Get(
+        [FromQuery] GetDocumentsRequest request,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            var response = await getDocumentsQuery.GetDocumentsAsync(request, cancellationToken);
+
+            return Ok(response);
+        }
+        catch (GetDocumentsValidationException exception)
         {
             return BadRequest(new HttpValidationProblemDetails(
                 exception.Errors.ToDictionary(

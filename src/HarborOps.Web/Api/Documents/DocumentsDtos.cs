@@ -24,6 +24,22 @@ internal sealed record ExpiringDocumentsPage(
     int PageSize,
     int TotalCount);
 
+internal sealed record GetDocumentsQuery(Guid? VesselId, string? Search, int? PageNumber, int? PageSize);
+
+internal sealed record DocumentListItem(
+    Guid DocumentId,
+    Guid VesselId,
+    string Number,
+    string DocumentTypeName,
+    string Status,
+    DateOnly ExpiryDate);
+
+internal sealed record DocumentsPage(
+    IReadOnlyList<DocumentListItem> Items,
+    int PageNumber,
+    int PageSize,
+    int TotalCount);
+
 internal sealed record RegisterDocumentRequest
 {
     public Guid? VesselId { get; init; }

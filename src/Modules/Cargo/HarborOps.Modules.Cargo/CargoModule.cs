@@ -1,5 +1,6 @@
 using System.Reflection;
 using HarborOps.Modules.Cargo.Application;
+using HarborOps.Modules.Cargo.Contracts;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 
@@ -18,6 +19,7 @@ public static class CargoModule
         services.AddScoped<RecordCargoTrackingEventService>();
         services.AddScoped<RegisterCargoBookingService>();
         services.AddScoped<SearchCargoBookingsQuery>();
+        services.AddScoped<IOperationsDashboardCargoQuery, OperationsDashboardCargoQuery>();
         services.TryAddSingleton(TimeProvider.System);
         services.AddControllers()
             .AddApplicationPart(Assembly);

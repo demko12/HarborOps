@@ -1,88 +1,296 @@
 @page "/"
 @attribute [Microsoft.AspNetCore.Authorization.Authorize]
 @implements IDisposable
-@inject HealthApiClient HealthApiClient
+@inject OperationsDashboardApiClient DashboardApiClient
 
-<PageTitle>HarborOps</PageTitle>
+<PageTitle>Dashboard | HarborOps</PageTitle>
 
-<div class="home-page">
-    <section class="home-intro">
-        <p class="home-eyebrow">Operations platform</p>
-        <h1>HarborOps</h1>
-        <p>Maritime operations management.</p>
-    </section>
-
-    <section class="api-status" aria-labelledby="api-status-title">
-    <h2 id="api-status-title">API status</h2>
+<section class="dashboard-page">
+    <header class="dashboard-header">
+        <div>
+            <p class="dashboard-eyebrow">Operations overview</p>
+            <h1>What needs attention</h1>
+            <p>Time-sensitive work across the HarborOps capabilities you can access.</p>
+        </div>
+    </header>
 
     @if (isLoading)
     {
-        <LoadingState Message="Checking API availability..." />
+        <LoadingState Message="Loading your operations dashboard..." />
     }
-    else if (isAvailable)
+    else if (failure is not null)
     {
-        <div class="api-status-card api-status-available" role="status">
-            <span class="api-status-indicator" aria-hidden="true"></span>
-            <div>
-                <strong>Available</strong>
-                <p>HarborOps API is responding.</p>
-            </div>
-        </div>
+        <ApiErrorState Title="@failure.Title" Message="@failure.Message" OnRetry="LoadAsync" />
+    }
+    else if (dashboard is null || dashboard.Sections.Count == 0)
+    {
+        <EmptyState Title="No operational access yet" Message="Your account is signed in, but it has no module read permissions to show on this dashboard." />
     }
     else
     {
-        <ApiErrorState
-            Title="Unavailable"
-            Message="HarborOps API cannot be reached right now."
-            RetryLabel="Check again"
-            OnRetry="CheckAgainAsync" />
+        @if (HasUnavailableSections)
+        {
+            <div class="dashboard-partial-notice" role="status">
+                <span class="bi bi-exclamation-triangle" aria-hidden="true"></span>
+                <span>Some operational sections are temporarily unavailable. The remaining data is current.</span>
+            </div>
+        }
+
+        <section class="dashboard-summary-grid" aria-label="Operational summary">
+            @foreach (var section in dashboard.Sections)
+            {
+                <a class="dashboard-summary-card @(section.IsUnavailable ? "is-unavailable" : string.Empty)" href="@section.Link">
+                    <span class="dashboard-summary-icon @GetIconClass(section.Capability)">
+                        <span class="bi @GetIcon(section.Capability)" aria-hidden="true"></span>
+                    </span>
+                    <span class="dashboard-summary-content">
+                        <span>@section.Title</span>
+                        @if (section.IsUnavailable)
+                        {
+                            <strong>—</strong>
+                            <small>Temporarily unavailable</small>
+                        }
+                        else
+                        {
+                            <strong>@section.Count</strong>
+                            <small>@section.SummaryLabel</small>
+                        }
+                    </span>
+                    <span class="bi bi-chevron-right dashboard-summary-arrow" aria-hidden="true"></span>
+                </a>
+            }
+        </section>
+
+        @if (dashboard.PriorityItems.Count > 0)
+        {
+            <section class="dashboard-priority-queue" aria-labelledby="priority-queue-title">
+                <div class="dashboard-priority-heading">
+                    <div>
+                        <p class="dashboard-eyebrow">Immediate attention</p>
+                        <h2 id="priority-queue-title">Priority queue</h2>
+                    </div>
+                    <span>Showing @FilteredPriorityItems.Count of @dashboard.PriorityItems.Count</span>
+                </div>
+                <div class="dashboard-priority-layout">
+                    <div class="dashboard-priority-list">
+                        @foreach (var item in FilteredPriorityItems)
+                        {
+                            <a href="@item.Link" class="dashboard-priority-item">
+                                <span class="dashboard-attention-icon @GetIconClass(item.Capability)">
+                                    <span class="bi @GetIcon(item.Capability)" aria-hidden="true"></span>
+                                </span>
+                                <div class="dashboard-priority-main">
+                                    <span class="dashboard-priority-capability">@item.CapabilityTitle</span>
+                                    <strong>@item.Title</strong>
+                                    <small>@item.Detail</small>
+                                </div>
+                                <span class="dashboard-priority-risk @item.Severity">@GetRiskLabel(item.Severity)</span>
+                                @if (item.DueLabel is not null)
+                                {
+                                    <span class="dashboard-priority-due">@GetDueLabel(item)</span>
+                                }
+                                <span class="bi bi-chevron-right dashboard-priority-arrow" aria-hidden="true"></span>
+                            </a>
+                        }
+                    </div>
+                    <aside class="dashboard-risk-overview" aria-label="Priority queue filters">
+                        <p>Filter queue</p>
+                        <strong>Focus by risk</strong>
+                        <button type="button" class='dashboard-risk-stat critical @GetRiskFilterClass("critical")' @onclick='() => TogglePriorityFilter("critical")' aria-pressed='@(activePriorityFilter == "critical")'><span>Critical</span><strong>@PriorityCriticalCount</strong></button>
+                        <button type="button" class='dashboard-risk-stat warning @GetRiskFilterClass("warning")' @onclick='() => TogglePriorityFilter("warning")' aria-pressed='@(activePriorityFilter == "warning")'><span>Attention</span><strong>@PriorityAttentionCount</strong></button>
+                        <button type="button" class='dashboard-risk-stat upcoming @GetRiskFilterClass("due")' @onclick='() => TogglePriorityFilter("due")' aria-pressed='@(activePriorityFilter == "due")'><span>Due today / overdue</span><strong>@PriorityDueNowCount</strong></button>
+                    </aside>
+                </div>
+            </section>
+        }
+
+        <section class="dashboard-attention" aria-labelledby="attention-title">
+            <div class="dashboard-section-heading">
+                <div>
+                    <p class="dashboard-eyebrow">Priority queue</p>
+                    <h2 id="attention-title">Operational attention</h2>
+                </div>
+                <span>As of @dashboard.AsOf.ToString("dd MMM yyyy")</span>
+            </div>
+
+            <div class="dashboard-section-grid">
+                @foreach (var section in dashboard.Sections)
+                {
+                    <article class="dashboard-attention-card">
+                        <header>
+                            <div>
+                                <span class="dashboard-attention-icon @GetIconClass(section.Capability)">
+                                    <span class="bi @GetIcon(section.Capability)" aria-hidden="true"></span>
+                                </span>
+                                <h3>@section.Title</h3>
+                            </div>
+                            @if (!section.IsUnavailable)
+                            {
+                                <span class="dashboard-section-count">@section.Count</span>
+                            }
+                            <a href="@section.Link">View all <span class="bi bi-arrow-up-right" aria-hidden="true"></span></a>
+                        </header>
+                        @if (section.IsUnavailable)
+                        {
+                            <p class="dashboard-unavailable"><span class="bi bi-exclamation-circle" aria-hidden="true"></span>This section could not be loaded. Try refreshing the dashboard.</p>
+                        }
+                        else if (section.Items.Count == 0)
+                        {
+                            <p class="dashboard-empty"><span class="bi bi-check2-circle" aria-hidden="true"></span>Nothing requiring attention right now.</p>
+                        }
+                        else
+                        {
+                            <ul class="dashboard-attention-list">
+                                @foreach (var item in section.Items)
+                                {
+                                    <li>
+                                        <span class="dashboard-severity @item.Severity" aria-hidden="true"></span>
+                                        <div>
+                                            <strong>@item.Title</strong>
+                                            <span>@item.Detail</span>
+                                        </div>
+                                        @if (item.DueLabel is not null)
+                                        {
+                                            <time datetime="@item.DueLabel">@GetDueLabel(section.Capability, item.DueLabel, item.Severity)</time>
+                                        }
+                                    </li>
+                                }
+                            </ul>
+                        }
+                    </article>
+                }
+            </div>
+        </section>
     }
-    </section>
-</div>
+
+</section>
 
 @code {
-    private CancellationTokenSource healthCheckCancellation = new();
+    private readonly CancellationTokenSource disposeCancellation = new();
+    private int loadVersion;
     private bool isLoading = true;
-    private bool isAvailable;
+    private OperationsDashboardResponse? dashboard;
+    private OperationsDashboardApiFailure? failure;
+    private string? activePriorityFilter;
 
-    protected override Task OnInitializedAsync()
+    private bool HasUnavailableSections => dashboard?.Sections.Any(section => section.IsUnavailable) == true;
+
+    private int PriorityCriticalCount => dashboard?.PriorityItems.Count(item => item.Severity == "critical") ?? 0;
+
+    private int PriorityAttentionCount => dashboard?.PriorityItems.Count(item => item.Severity == "warning") ?? 0;
+
+    private int PriorityDueNowCount => dashboard?.PriorityItems.Count(item =>
+        IsDueNow(item)) ?? 0;
+
+    private IReadOnlyList<OperationsDashboardPriorityItemResponse> FilteredPriorityItems => dashboard?.PriorityItems
+        .Where(item => activePriorityFilter switch
+        {
+            "critical" => item.Severity == "critical",
+            "warning" => item.Severity == "warning",
+            "due" => IsDueNow(item),
+            _ => true,
+        })
+        .ToArray() ?? [];
+
+    protected override Task OnInitializedAsync() => LoadAsync();
+
+    private async Task LoadAsync()
     {
-        return CheckHealthAsync(healthCheckCancellation.Token);
-    }
+        var requestVersion = ++loadVersion;
+        var cancellationToken = disposeCancellation.Token;
+        var asOf = DateOnly.FromDateTime(DateTime.UtcNow);
 
-    private async Task CheckAgainAsync()
-    {
-        healthCheckCancellation.Cancel();
-        healthCheckCancellation.Dispose();
-        healthCheckCancellation = new CancellationTokenSource();
-
-        await CheckHealthAsync(healthCheckCancellation.Token);
-    }
-
-    private async Task CheckHealthAsync(CancellationToken cancellationToken)
-    {
         isLoading = true;
+        failure = null;
 
         try
         {
-            isAvailable = await HealthApiClient.IsAvailableAsync(cancellationToken);
+            var dashboardTask = DashboardApiClient.GetAsync(asOf, cancellationToken);
+            await dashboardTask;
+
+            if (cancellationToken.IsCancellationRequested || requestVersion != loadVersion)
+            {
+                return;
+            }
+
+            var dashboardResult = await dashboardTask;
+            dashboard = dashboardResult.Value;
+            failure = dashboardResult.Failure;
+            activePriorityFilter = null;
         }
-        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        catch (OperationCanceledException) when (disposeCancellation.IsCancellationRequested)
         {
             return;
         }
         finally
         {
-            if (!cancellationToken.IsCancellationRequested)
+            if (!disposeCancellation.IsCancellationRequested && requestVersion == loadVersion)
             {
                 isLoading = false;
             }
         }
     }
 
+    private static string GetIcon(string capability) => capability switch
+    {
+        "fleet" => "bi-water",
+        "crew" => "bi-people",
+        "voyages" => "bi-signpost-split",
+        "cargo" => "bi-box-seam",
+        "maintenance" => "bi-wrench-adjustable",
+        "compliance" => "bi-shield-check",
+        "documents" => "bi-file-earmark-text",
+        _ => "bi-grid-1x2",
+    };
+
+    private static string GetIconClass(string capability) => $"dashboard-icon-{capability}";
+
+    private void TogglePriorityFilter(string filter) =>
+        activePriorityFilter = activePriorityFilter == filter ? null : filter;
+
+    private string GetRiskFilterClass(string filter) =>
+        activePriorityFilter == filter ? "selected" : string.Empty;
+
+    private bool IsDueNow(OperationsDashboardPriorityItemResponse item) =>
+        item.DueLabel is not null
+        && dashboard is not null
+        && DateOnly.Parse(item.DueLabel, System.Globalization.CultureInfo.InvariantCulture) <= dashboard.AsOf;
+
+    private static string GetRiskLabel(string severity) => severity switch
+    {
+        "critical" => "Critical",
+        "warning" => "Attention",
+        _ => "Upcoming",
+    };
+
+    private string GetDueLabel(OperationsDashboardPriorityItemResponse item) =>
+        GetDueLabel(item.Capability, item.DueLabel!, item.Severity);
+
+    private string GetDueLabel(string capability, string dueLabel, string severity)
+    {
+        var date = DateOnly.Parse(dueLabel, System.Globalization.CultureInfo.InvariantCulture);
+        var days = date.DayNumber - dashboard!.AsOf.DayNumber;
+
+        if (days < 0)
+        {
+            return $"Overdue by {-days}d";
+        }
+
+        var label = capability switch
+        {
+            "crew" or "compliance" or "documents" => "Expires",
+            "voyages" => "Departs",
+            _ => "Due",
+        };
+
+        return days == 0
+            ? $"{label} today"
+            : $"{label} in {days}d";
+    }
+
     public void Dispose()
     {
-        healthCheckCancellation.Cancel();
-        healthCheckCancellation.Dispose();
+        disposeCancellation.Cancel();
+        disposeCancellation.Dispose();
     }
 }

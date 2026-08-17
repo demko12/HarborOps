@@ -3,6 +3,7 @@ namespace HarborOps.Web.Api.Compliance;
 internal sealed record ComplianceOverview(
     IReadOnlyList<ComplianceCertificateItem> Certificates,
     IReadOnlyList<PscInspectionItem> PscInspections,
+    IReadOnlyList<SurveyAuditItem> SurveyAudits,
     IReadOnlyList<OpenNonConformityItem> OpenNonConformities);
 
 internal sealed record ComplianceCertificateItem(Guid Id, Guid VesselId, string CertificateType,
@@ -10,6 +11,8 @@ internal sealed record ComplianceCertificateItem(Guid Id, Guid VesselId, string 
 
 internal sealed record PscInspectionItem(int Id, Guid VesselId, Guid PortId, DateOnly InspectionDate,
     string InspectingAuthority, int DeficiencyCount, bool VesselDetained);
+
+internal sealed record SurveyAuditItem(int Id, Guid VesselId, DateOnly Date, string Type, string Result);
 
 internal sealed record OpenNonConformityItem(int Id, Guid VesselId, Guid EvidenceDocumentId,
     string Severity, DateOnly CorrectiveActionDeadline, string ClosureStatus);
@@ -20,9 +23,18 @@ internal sealed record RegisterComplianceCertificateRequest(Guid? VesselId, stri
 internal sealed record RegisterPscInspectionRequest(Guid? VesselId, Guid? PortId,
     DateOnly? InspectionDate, string? InspectingAuthority, int? DeficiencyCount, bool? VesselDetained);
 
+internal sealed record RegisterNonConformityRequest(
+    int? SurveyId,
+    int? PscId,
+    Guid? EvidenceDocumentId,
+    string? Severity,
+    DateOnly? CorrectiveActionDeadline);
+
 internal sealed record RegisterComplianceCertificateResult(Guid Id);
 
 internal sealed record RegisterPscInspectionResult(int Id);
+
+internal sealed record RegisterNonConformityResult(int Id);
 
 internal sealed record ComplianceApiResult<T>(T? Value, ComplianceApiFailure? Failure)
 {

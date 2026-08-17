@@ -8,7 +8,18 @@
 <section class="crew-page">
     <header class="crew-header">
         <div><p class="crew-eyebrow">Crewing operations</p><h1>Crew roster</h1><p>Find crew members and identify passport expiry issues.</p></div>
+        <PrintButton Label="Print the crew roster" />
     </header>
+
+    <section class="print-only print-summary crew-print-summary">
+        <h2>Personnel register</h2>
+        <dl>
+            <div><dt>Search</dt><dd>@(string.IsNullOrWhiteSpace(search) ? "All crew members" : search)</dd></div>
+            <div><dt>Employment status</dt><dd>@(string.IsNullOrWhiteSpace(employmentStatus) ? "All statuses" : employmentStatus)</dd></div>
+            <div><dt>Page</dt><dd>@(roster?.PageNumber ?? 1) of @TotalPages</dd></div>
+            <div><dt>Crew members</dt><dd>@FirstRowNumber&ndash;@LastRowNumber of @(roster?.TotalCount ?? 0)</dd></div>
+        </dl>
+    </section>
 
     @if (roster is not null)
     {
@@ -47,7 +58,7 @@
             <div class="crew-roster-list">
                 @foreach (var member in roster.Items)
                 {
-                    var passportState = GetPassportState(member.PassportExpiry);
+                    var passportState = GetPassportState(member.PassportExpiry, currentDate);
                     <article class="crew-member-row">
                         <span class="crew-avatar">@member.Name[0]</span>
                         <div class="crew-member-primary"><strong>@member.Name</strong><span>@member.Nationality &middot; IMO @member.ImoSeafarerId</span></div>
@@ -191,9 +202,9 @@
         isLoading = false;
     }
 
-    private PassportState GetPassportState(DateOnly expiry) => expiry < currentDate ? new(true, "passport-expired") : new(false, "");
-    private static string GetEmploymentStatusClass(string status) => string.Equals(status, "Active", StringComparison.OrdinalIgnoreCase) ? "employment-active" : "employment-inactive";
+    internal static PassportState GetPassportState(DateOnly expiry, DateOnly currentDate) => expiry < currentDate ? new(true, "passport-expired") : new(false, "");
+    internal static string GetEmploymentStatusClass(string status) => string.Equals(status, "Active", StringComparison.OrdinalIgnoreCase) ? "employment-active" : "employment-inactive";
     public void Dispose() { disposeCancellation.Cancel(); disposeCancellation.Dispose(); }
-    private sealed record PassportState(bool IsExpired, string Class);
+    internal sealed record PassportState(bool IsExpired, string Class);
     private sealed record RankSummary(string Name, int Count, int Percentage);
 }

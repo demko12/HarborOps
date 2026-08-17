@@ -1,15 +1,59 @@
 using System.Net;
+using System.Security.Claims;
 using System.Text;
 using Bunit;
+using HarborOps.Web.Api;
 using HarborOps.Web.Api.Fleet;
 using HarborOps.Web.Api.Maintenance;
 using HarborOps.Web.Components.Pages.Maintenance;
+using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace HarborOps.Web.Tests.Components;
 
 public sealed class MaintenancePageTests : BunitContext
 {
+
+    private static string InventoryItem(
+        string inventoryItemId,
+        string name = "Main engine filter",
+        string partNumber = "FILTER-001",
+        decimal quantity = 10m,
+        decimal minimumQuantity = 2m)
+    {
+        return $$"""
+            {"inventoryItemId":"{{inventoryItemId}}","name":"{{name}}","partNumber":"{{partNumber}}",
+            "quantity":{{quantity}},"minimumQuantity":{{minimumQuantity}},"unitCost":150,
+            "categoryId":"90000000-0000-0000-0000-000000000009",
+            "unitId":"a0000000-0000-0000-0000-00000000000a",
+            "supplierId":"b0000000-0000-0000-0000-00000000000b"}
+            """;
+    }
+
+    private static string InventoryPage(params string[] items)
+    {
+        return $$"""
+            {"items":[{{string.Join(',', items)}}],"pageNumber":1,"pageSize":25,"totalCount":{{items.Length}}}
+            """;
+    }
+
+    private static string UsagePage(params string[] items)
+    {
+        return $$"""{"items":[{{string.Join(',', items)}}]}""";
+    }
+
+    private static string Usage(
+        string partId,
+        string name = "Main engine filter",
+        string partNumber = "FILTER-001",
+        decimal quantityUsed = 2.5m,
+        decimal remainingQuantity = 7.5m)
+    {
+        return $$"""
+            {"partId":"{{partId}}","name":"{{name}}","partNumber":"{{partNumber}}",
+            "quantityUsed":{{quantityUsed}},"remainingQuantity":{{remainingQuantity}}}
+            """;
+    }
     private const string VesselId = "30000000-0000-0000-0000-000000000002";
 
     private readonly List<Uri> requestedUris = [];
@@ -182,7 +226,9 @@ public sealed class MaintenancePageTests : BunitContext
         {
             if (request.Method == HttpMethod.Post)
             {
-                return Json(HttpStatusCode.Created, """{"id":"60000000-0000-0000-0000-000000000006"}""");
+                return Json(
+                    HttpStatusCode.Created,
+                    """{"id":"60000000-0000-0000-0000-000000000006"}""");
             }
 
             maintenanceCalls++;
@@ -192,6 +238,8 @@ public sealed class MaintenancePageTests : BunitContext
 
         var page = RenderMaintenancePage();
 
+        page.Find("button.maintenance-button").Click();
+
         page.Find("#create-vessel").Change(VesselId);
         page.Find("#create-title").Change("Replace filter");
         page.Find("#create-priority").Change("High");
@@ -200,7 +248,11 @@ public sealed class MaintenancePageTests : BunitContext
 
         page.WaitForAssertion(() =>
         {
-            Assert.Contains("Work order created.", page.Markup, StringComparison.Ordinal);
+            Assert.Contains(
+                "Work order created.",
+                page.Markup,
+                StringComparison.Ordinal);
+
             Assert.True(maintenanceCalls >= 2);
         });
     }
@@ -216,13 +268,20 @@ public sealed class MaintenancePageTests : BunitContext
 
         var page = RenderMaintenancePage();
 
+        page.Find("button.maintenance-button").Click();
+
         page.Find("#create-vessel").Change(VesselId);
         page.Find("form.maintenance-form").Submit();
 
         page.WaitForAssertion(() =>
-            Assert.Contains("Title is required.", page.Find(".maintenance-field-errors").TextContent, StringComparison.Ordinal));
+            Assert.Contains(
+                "Title is required.",
+                page.Find(".maintenance-field-errors").TextContent,
+                StringComparison.Ordinal));
 
-        Assert.Equal(VesselId, page.Find("#create-vessel").GetAttribute("value"));
+        Assert.Equal(
+            VesselId,
+            page.Find("#create-vessel").GetAttribute("value"));
     }
 
     [Fact]
@@ -356,7 +415,7 @@ public sealed class MaintenancePageTests : BunitContext
         });
     }
 
-    private IRenderedComponent<Maintenance> RenderMaintenancePage()
+    private IRenderedComponent<Maintenance> RenderMaintenancePage(params string[] permissions)
     {
         var maintenanceHttpClient = new HttpClient(new StubHttpMessageHandler(request =>
         {
@@ -380,11 +439,26 @@ public sealed class MaintenancePageTests : BunitContext
 
         Services.AddSingleton(new MaintenanceApiClient(maintenanceHttpClient));
         Services.AddSingleton(new VesselLookupApiClient(lookupHttpClient));
+        Services.AddSingleton(CreateAuthorizationState(
+            permissions.Length == 0 ? ["maintenance.manage"] : permissions));
 
         var page = Render<Maintenance>();
         page.WaitForAssertion(() => Assert.NotEmpty(requestedUris));
 
         return page;
+    }
+
+    private static CurrentUserAuthorizationState CreateAuthorizationState(IEnumerable<string> permissions)
+    {
+        var identity = new ClaimsIdentity("test");
+        foreach (var permission in permissions)
+        {
+            identity.AddClaim(new Claim(CurrentUserAuthorizationState.PermissionClaimType, permission));
+        }
+
+        var context = new DefaultHttpContext { User = new ClaimsPrincipal(identity) };
+
+        return new CurrentUserAuthorizationState(new HttpContextAccessor { HttpContext = context });
     }
 
     private static string Row(
@@ -428,5 +502,300 @@ public sealed class MaintenancePageTests : BunitContext
         {
             return responseFactory(request);
         }
+    }
+
+    [Fact]
+    public void Opening_the_usage_form_searches_inventory_and_loads_existing_usage()
+    {
+        const string InventoryItemId = "80000000-0000-0000-0000-000000000008";
+        respondToMaintenance = request =>
+        {
+            if (request.RequestUri!.AbsolutePath.Contains("inventory-items", StringComparison.Ordinal))
+            {
+                return Json(HttpStatusCode.OK, InventoryPage(InventoryItem(InventoryItemId)));
+            }
+
+            if (request.RequestUri.AbsolutePath.Contains("part-usages", StringComparison.Ordinal))
+            {
+                return Json(HttpStatusCode.OK, UsagePage());
+            }
+
+            return Json(HttpStatusCode.OK, Page(Row("00000000-0000-0000-0000-000000000001", status: "Open")));
+        };
+
+        var page = RenderMaintenancePage();
+
+        page.Find(".maintenance-usage-button").Click();
+
+        page.WaitForAssertion(() =>
+        {
+            Assert.Contains(
+                requestedUris,
+                uri => uri.AbsolutePath.Contains("inventory-items", StringComparison.Ordinal));
+            Assert.Contains(
+                requestedUris,
+                uri => uri.AbsolutePath.Contains("part-usages", StringComparison.Ordinal));
+            Assert.Contains("Main engine filter", page.Markup, StringComparison.Ordinal);
+        });
+    }
+
+    [Fact]
+    public void Searching_parts_sends_the_search_text_to_the_inventory_endpoint()
+    {
+        const string InventoryItemId = "80000000-0000-0000-0000-000000000008";
+        respondToMaintenance = request =>
+        {
+            if (request.RequestUri!.AbsolutePath.Contains("inventory-items", StringComparison.Ordinal))
+            {
+                return Json(HttpStatusCode.OK, InventoryPage(InventoryItem(InventoryItemId)));
+            }
+
+            if (request.RequestUri.AbsolutePath.Contains("part-usages", StringComparison.Ordinal))
+            {
+                return Json(HttpStatusCode.OK, UsagePage());
+            }
+
+            return Json(HttpStatusCode.OK, Page(Row("00000000-0000-0000-0000-000000000001", status: "Open")));
+        };
+
+        var page = RenderMaintenancePage();
+        page.Find(".maintenance-usage-button").Click();
+        page.WaitForAssertion(() => Assert.NotEmpty(page.FindAll("#usage-search")));
+
+        page.Find("#usage-search").Change("Fuel");
+        page.Find("form.maintenance-filters:has(#usage-search)").Submit();
+
+        page.WaitForAssertion(() =>
+            Assert.Contains(
+                "search=Fuel",
+                requestedUris.Last(uri => uri.AbsolutePath.Contains("inventory-items", StringComparison.Ordinal)).Query,
+                StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void Recording_usage_shows_a_success_message_and_refreshes_usage_and_inventory()
+    {
+        const string InventoryItemId = "80000000-0000-0000-0000-000000000008";
+        var recordCalls = 0;
+        respondToMaintenance = request =>
+        {
+            if (request.RequestUri!.AbsolutePath.Contains("/usage", StringComparison.Ordinal)
+                && request.Method == HttpMethod.Post)
+            {
+                recordCalls++;
+                return Json(
+                    HttpStatusCode.Created,
+                    """
+                    {"workOrderId":"00000000-0000-0000-0000-000000000001",
+                    "partId":"80000000-0000-0000-0000-000000000008",
+                    "quantityUsed":2.5,"remainingQuantity":7.5}
+                    """);
+            }
+
+            if (request.RequestUri.AbsolutePath.Contains("inventory-items", StringComparison.Ordinal))
+            {
+                return Json(HttpStatusCode.OK, InventoryPage(InventoryItem(InventoryItemId)));
+            }
+
+            if (request.RequestUri.AbsolutePath.Contains("part-usages", StringComparison.Ordinal))
+            {
+                return Json(
+                    HttpStatusCode.OK,
+                    UsagePage(recordCalls > 0 ? Usage(InventoryItemId) : null!));
+            }
+
+            return Json(HttpStatusCode.OK, Page(Row("00000000-0000-0000-0000-000000000001", status: "Open")));
+        };
+
+        var page = RenderMaintenancePage();
+        page.Find(".maintenance-usage-button").Click();
+        page.WaitForAssertion(() => Assert.NotEmpty(page.FindAll(".maintenance-complete-button")));
+
+        page.FindAll(".maintenance-complete-button")
+            .First(button => button.TextContent.Contains("Select", StringComparison.Ordinal))
+            .Click();
+
+        page.Find("#usage-quantity").Change("2.5");
+        page.Find("section[aria-labelledby='maintenance-usage-title'] form.maintenance-form").Submit();
+
+        page.WaitForAssertion(() =>
+        {
+            Assert.Contains("Part usage recorded.", page.Markup, StringComparison.Ordinal);
+            Assert.Contains("7.5", page.Markup, StringComparison.Ordinal);
+        });
+    }
+
+    [Fact]
+    public void Insufficient_quantity_shows_an_inline_warning_before_submitting()
+    {
+        const string InventoryItemId = "80000000-0000-0000-0000-000000000008";
+        respondToMaintenance = request =>
+        {
+            if (request.RequestUri!.AbsolutePath.Contains("inventory-items", StringComparison.Ordinal))
+            {
+                return Json(HttpStatusCode.OK, InventoryPage(InventoryItem(InventoryItemId, quantity: 5m)));
+            }
+
+            if (request.RequestUri.AbsolutePath.Contains("part-usages", StringComparison.Ordinal))
+            {
+                return Json(HttpStatusCode.OK, UsagePage());
+            }
+
+            return Json(HttpStatusCode.OK, Page(Row("00000000-0000-0000-0000-000000000001", status: "Open")));
+        };
+
+        var page = RenderMaintenancePage();
+        page.Find(".maintenance-usage-button").Click();
+        page.WaitForAssertion(() => Assert.NotEmpty(page.FindAll(".maintenance-complete-button")));
+
+        page.FindAll(".maintenance-complete-button")
+            .First(button => button.TextContent.Contains("Select", StringComparison.Ordinal))
+            .Click();
+
+        page.Find("#usage-quantity").Change("10");
+
+        page.WaitForAssertion(() =>
+            Assert.Contains("Insufficient stock", page.Markup, StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void A_duplicate_usage_conflict_keeps_the_form_open_with_a_message()
+    {
+        const string InventoryItemId = "80000000-0000-0000-0000-000000000008";
+        respondToMaintenance = request =>
+        {
+            if (request.RequestUri!.AbsolutePath.Contains("/usage", StringComparison.Ordinal)
+                && request.Method == HttpMethod.Post)
+            {
+                return Json(
+                    HttpStatusCode.Conflict,
+                    """{"title":"Inventory item usage could not be recorded.","detail":"Usage for this part has already been recorded."}""");
+            }
+
+            if (request.RequestUri.AbsolutePath.Contains("inventory-items", StringComparison.Ordinal))
+            {
+                return Json(HttpStatusCode.OK, InventoryPage(InventoryItem(InventoryItemId)));
+            }
+
+            if (request.RequestUri.AbsolutePath.Contains("part-usages", StringComparison.Ordinal))
+            {
+                return Json(HttpStatusCode.OK, UsagePage());
+            }
+
+            return Json(HttpStatusCode.OK, Page(Row("00000000-0000-0000-0000-000000000001", status: "Open")));
+        };
+
+        var page = RenderMaintenancePage();
+        page.Find(".maintenance-usage-button").Click();
+        page.WaitForAssertion(() => Assert.NotEmpty(page.FindAll(".maintenance-complete-button")));
+
+        page.FindAll(".maintenance-complete-button")
+            .First(button => button.TextContent.Contains("Select", StringComparison.Ordinal))
+            .Click();
+
+        page.Find("#usage-quantity").Change("2.5");
+        page.Find("section[aria-labelledby='maintenance-usage-title'] form.maintenance-form").Submit();
+
+        page.WaitForAssertion(() =>
+        {
+            Assert.Contains("Usage for this part has already been recorded.", page.Markup, StringComparison.Ordinal);
+            Assert.NotEmpty(page.FindAll("#usage-quantity"));
+        });
+    }
+
+    [Fact]
+    public void Quantity_validation_errors_from_the_api_are_shown()
+    {
+        const string InventoryItemId = "80000000-0000-0000-0000-000000000008";
+        respondToMaintenance = request =>
+        {
+            if (request.RequestUri!.AbsolutePath.Contains("/usage", StringComparison.Ordinal)
+                && request.Method == HttpMethod.Post)
+            {
+                return Json(
+                    HttpStatusCode.BadRequest,
+                    """{"title":"One or more validation errors occurred.","errors":{"quantityUsed":["QuantityUsed must be greater than zero."]}}""");
+            }
+
+            if (request.RequestUri.AbsolutePath.Contains("inventory-items", StringComparison.Ordinal))
+            {
+                return Json(HttpStatusCode.OK, InventoryPage(InventoryItem(InventoryItemId)));
+            }
+
+            if (request.RequestUri.AbsolutePath.Contains("part-usages", StringComparison.Ordinal))
+            {
+                return Json(HttpStatusCode.OK, UsagePage());
+            }
+
+            return Json(HttpStatusCode.OK, Page(Row("00000000-0000-0000-0000-000000000001", status: "Open")));
+        };
+
+        var page = RenderMaintenancePage();
+        page.Find(".maintenance-usage-button").Click();
+        page.WaitForAssertion(() => Assert.NotEmpty(page.FindAll(".maintenance-complete-button")));
+
+        page.FindAll(".maintenance-complete-button")
+            .First(button => button.TextContent.Contains("Select", StringComparison.Ordinal))
+            .Click();
+
+        page.Find("section[aria-labelledby='maintenance-usage-title'] form.maintenance-form").Submit();
+
+        page.WaitForAssertion(() =>
+            Assert.Contains(
+                "QuantityUsed must be greater than zero.",
+                page.Find(".maintenance-field-errors").TextContent,
+                StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void Record_usage_button_is_hidden_without_the_manage_permission()
+    {
+        respondToMaintenance = _ => Json(
+            HttpStatusCode.OK,
+            Page(Row("00000000-0000-0000-0000-000000000001", status: "Open")));
+
+        var page = RenderMaintenancePage("maintenance.read");
+
+        Assert.Empty(page.FindAll(".maintenance-usage-button"));
+    }
+
+    [Fact]
+    public void Record_usage_button_is_visible_with_the_manage_permission()
+    {
+        respondToMaintenance = _ => Json(
+            HttpStatusCode.OK,
+            Page(Row("00000000-0000-0000-0000-000000000001", status: "Open")));
+
+        var page = RenderMaintenancePage("maintenance.manage");
+
+        Assert.Single(page.FindAll(".maintenance-usage-button"));
+    }
+
+    [Fact]
+    public void An_unreachable_inventory_endpoint_shows_a_retryable_error_state()
+    {
+        respondToMaintenance = request =>
+        {
+            if (request.RequestUri!.AbsolutePath.Contains("inventory-items", StringComparison.Ordinal))
+            {
+                throw new HttpRequestException("Connection failed.");
+            }
+
+            if (request.RequestUri.AbsolutePath.Contains("part-usages", StringComparison.Ordinal))
+            {
+                return Json(HttpStatusCode.OK, UsagePage());
+            }
+
+            return Json(HttpStatusCode.OK, Page(Row("00000000-0000-0000-0000-000000000001", status: "Open")));
+        };
+
+        var page = RenderMaintenancePage();
+        page.Find(".maintenance-usage-button").Click();
+
+        page.WaitForAssertion(() =>
+        {
+            Assert.Contains("HarborOps API is unavailable", page.Markup, StringComparison.Ordinal);
+            Assert.NotNull(page.Find(".maintenance-usage-picker .api-error-state button"));
+        });
     }
 }

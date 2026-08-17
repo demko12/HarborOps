@@ -2,6 +2,7 @@ using System.Globalization;
 using HarborOps.Web.Api;
 using HarborOps.Web.Api.Voyages;
 using Microsoft.AspNetCore.Components.Web;
+using Microsoft.JSInterop;
 
 namespace HarborOps.Web.Components.Pages.Voyages;
 
@@ -10,7 +11,7 @@ public partial class ScheduleVoyage
     internal const string ManageVoyagesPermission = "voyages.manage";
     internal const int PortCodeLength = 5;
 
-    private const int VesselResultLimit = 8;
+    private const int VesselResultLimit = 25;
 
     private CancellationTokenSource pageCancellation = new();
 
@@ -31,10 +32,10 @@ public partial class ScheduleVoyage
     private bool isSubmitting;
 
     private int highlightedVessel = -1;
+    private int vesselSearchVersion;
 
     private bool CanManageVoyages => AuthorizationState.HasPermission(ManageVoyagesPermission);
 
-    /// port codes are always upper case, so the field corrects while it is typed
     private string DeparturePortCode
     {
         get => departurePortCode;
@@ -78,32 +79,41 @@ public partial class ScheduleVoyage
         return value.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
     }
 
-    private async Task SearchVesselsAsync()
+    // Focusing the field lists vessels straight away, so a planner who does not
+    // know the name can browse instead of having to guess a first letter.
+    private Task ShowVesselOptionsAsync()
     {
-        if (string.IsNullOrWhiteSpace(vesselSearch))
-        {
-            vesselResults = [];
-            vesselFailure = null;
+        return vesselResults.Count > 0
+            ? Task.CompletedTask
+            : LoadVesselsAsync(vesselSearch);
+    }
 
-            return;
-        }
+    private Task SearchVesselsAsync()
+    {
+        return LoadVesselsAsync(vesselSearch);
+    }
+
+    private async Task LoadVesselsAsync(string? search)
+    {
+        var requestVersion = ++vesselSearchVersion;
 
         isSearchingVessels = true;
         vesselFailure = null;
 
         var result = await FleetApi.GetVesselsAsync(
-            vesselSearch,
+            search,
             null,
             1,
             VesselResultLimit,
             pageCancellation.Token);
 
-        if (pageCancellation.IsCancellationRequested)
+        if (pageCancellation.IsCancellationRequested || requestVersion != vesselSearchVersion)
         {
             return;
         }
 
         isSearchingVessels = false;
+        highlightedVessel = -1;
 
         if (!result.IsSuccess)
         {
@@ -124,7 +134,12 @@ public partial class ScheduleVoyage
         highlightedVessel = -1;
     }
 
-    private void HandleVesselKeyDown(KeyboardEventArgs args)
+    internal static string VesselOptionId(int index)
+    {
+        return string.Create(CultureInfo.InvariantCulture, $"schedule-vessel-option-{index}");
+    }
+
+    private async Task HandleVesselKeyDown(KeyboardEventArgs args)
     {
         if (vesselResults.Count == 0)
         {
@@ -135,11 +150,13 @@ public partial class ScheduleVoyage
         {
             case "ArrowDown":
                 highlightedVessel = (highlightedVessel + 1) % vesselResults.Count;
+                await ScrollHighlightedVesselIntoViewAsync();
                 break;
             case "ArrowUp":
                 highlightedVessel = highlightedVessel <= 0
                     ? vesselResults.Count - 1
                     : highlightedVessel - 1;
+                await ScrollHighlightedVesselIntoViewAsync();
                 break;
             case "Enter" when highlightedVessel >= 0:
                 SelectVessel(vesselResults[highlightedVessel]);
@@ -149,6 +166,11 @@ public partial class ScheduleVoyage
                 highlightedVessel = -1;
                 break;
         }
+    }
+
+    private async Task ScrollHighlightedVesselIntoViewAsync()
+    {
+        await JS.InvokeVoidAsync("scrollInterop.intoView", VesselOptionId(highlightedVessel));
     }
 
     private void ClearVessel()

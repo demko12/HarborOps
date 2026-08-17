@@ -38,6 +38,30 @@ public partial class Maintenance
 
     private int LastRowNumber => FirstRowNumber + rows.Count - 1;
 
+    private Guid? usageWorkOrderId;
+    private string? inventorySearchText;
+    private bool inventoryLowStockOnly;
+    private IReadOnlyList<InventoryItemListItem> inventoryItems = [];
+    private bool isInventoryLoading;
+    private MaintenanceApiFailure? inventoryFailure;
+
+    private Guid? selectedInventoryItemId;
+    private string? selectedInventoryItemName;
+    private decimal selectedInventoryItemQuantity;
+
+    private readonly RecordUsageModel usageModel = new();
+    private bool isRecordingUsage;
+    private MaintenanceApiFailure? usageFailure;
+    private string? usageSuccessMessage;
+
+    private IReadOnlyList<WorkOrderPartUsageListItem> workOrderUsages = [];
+    private bool isUsagesLoading;
+    private MaintenanceApiFailure? usagesFailure;
+
+    private bool CanRecordUsage => AuthorizationState.HasPermission("maintenance.manage");
+
+    private bool isCreateFormOpen;
+
     protected override Task OnInitializedAsync()
     {
         return LoadAsync();
@@ -205,6 +229,7 @@ public partial class Maintenance
         }
 
         createSuccessMessage = "Work order created.";
+        isCreateFormOpen = false;
         createModel.Reset();
 
         await LoadAsync();
@@ -317,5 +342,159 @@ public partial class Maintenance
             Cost = null;
             LaborHours = null;
         }
+    }
+
+    private async Task OpenUsageForm(Guid workOrderId)
+    {
+        usageWorkOrderId = workOrderId;
+        inventorySearchText = null;
+        inventoryLowStockOnly = false;
+        selectedInventoryItemId = null;
+        selectedInventoryItemName = null;
+        selectedInventoryItemQuantity = 0m;
+        usageModel.Reset();
+        usageFailure = null;
+        usageSuccessMessage = null;
+
+        await Task.WhenAll(SearchInventoryAsync(), LoadWorkOrderUsagesAsync(workOrderId));
+    }
+
+    private void CloseUsageForm()
+    {
+        usageWorkOrderId = null;
+        usageFailure = null;
+        inventoryItems = [];
+        workOrderUsages = [];
+    }
+
+    private async Task SearchInventoryAsync()
+    {
+        if (usageWorkOrderId is null)
+        {
+            return;
+        }
+
+        isInventoryLoading = true;
+        inventoryFailure = null;
+
+        var filter = new InventoryItemFilter(
+            string.IsNullOrWhiteSpace(inventorySearchText) ? null : inventorySearchText,
+            inventoryLowStockOnly ? true : null,
+            PageNumber: 1,
+            PageSize: 25);
+
+        var result = await MaintenanceApi.GetInventoryItemsAsync(filter, CancellationToken.None);
+
+        isInventoryLoading = false;
+
+        if (!result.IsSuccess)
+        {
+            inventoryFailure = result.Failure;
+            inventoryItems = [];
+
+            return;
+        }
+
+        inventoryItems = result.Value!.Items;
+    }
+
+    private void SelectInventoryItem(InventoryItemListItem item)
+    {
+        selectedInventoryItemId = item.InventoryItemId;
+        selectedInventoryItemName = $"{item.Name} ({item.PartNumber})";
+        selectedInventoryItemQuantity = item.Quantity;
+        usageFailure = null;
+    }
+
+    private void ClearSelectedInventoryItem()
+    {
+        selectedInventoryItemId = null;
+        selectedInventoryItemName = null;
+        selectedInventoryItemQuantity = 0m;
+    }
+
+    private async Task SubmitUsageAsync()
+    {
+        if (isRecordingUsage || usageWorkOrderId is not { } workOrderId || selectedInventoryItemId is not { } partId)
+        {
+            return;
+        }
+
+        isRecordingUsage = true;
+        usageFailure = null;
+        usageSuccessMessage = null;
+
+        var request = new RecordPartUsageRequest
+        {
+            QuantityUsed = usageModel.QuantityUsed,
+        };
+
+        var result = await MaintenanceApi.RecordPartUsageAsync(workOrderId, partId, request, CancellationToken.None);
+
+        isRecordingUsage = false;
+
+        if (!result.IsSuccess)
+        {
+            usageFailure = result.Failure;
+
+            if (result.Failure is { IsNotFound: true })
+            {
+                usageWorkOrderId = null;
+                await LoadAsync();
+            }
+
+            return;
+        }
+
+        usageSuccessMessage = "Part usage recorded.";
+        usageModel.Reset();
+        ClearSelectedInventoryItem();
+
+        await LoadWorkOrderUsagesAsync(workOrderId);
+        await SearchInventoryAsync();
+    }
+
+    private async Task LoadWorkOrderUsagesAsync(Guid workOrderId)
+    {
+        isUsagesLoading = true;
+        usagesFailure = null;
+
+        var result = await MaintenanceApi.GetPartUsagesAsync(workOrderId, CancellationToken.None);
+
+        isUsagesLoading = false;
+
+        if (!result.IsSuccess)
+        {
+            usagesFailure = result.Failure;
+            workOrderUsages = [];
+
+            return;
+        }
+
+        workOrderUsages = result.Value!.Items;
+    }
+
+    private sealed class RecordUsageModel
+    {
+        public decimal? QuantityUsed { get; set; }
+
+        public void Reset()
+        {
+            QuantityUsed = null;
+        }
+    }
+
+    private void OpenCreateForm()
+    {
+        isCreateFormOpen = true;
+        createModel.Reset();
+        createFailure = null;
+        createSuccessMessage = null;
+    }
+
+    private void CloseCreateForm()
+    {
+        isCreateFormOpen = false;
+        createFailure = null;
     }
 }

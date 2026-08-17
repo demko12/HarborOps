@@ -28,6 +28,12 @@ internal sealed class ComplianceApiClient(HttpClient httpClient)
             () => httpClient.PostAsJsonAsync($"{BasePath}/psc-inspections", request, cancellationToken),
             HttpStatusCode.Created, "Unable to register PSC inspection", cancellationToken);
 
+    internal Task<ComplianceApiResult<RegisterNonConformityResult>> RegisterNonConformityAsync(
+        RegisterNonConformityRequest request, CancellationToken cancellationToken) =>
+        SendAsync<RegisterNonConformityResult>(
+            () => httpClient.PostAsJsonAsync($"{BasePath}/non-conformities", request, cancellationToken),
+            HttpStatusCode.Created, "Unable to register non-conformity", cancellationToken);
+
     private static async Task<ComplianceApiResult<T>> SendAsync<T>(Func<Task<HttpResponseMessage>> send,
         HttpStatusCode successStatus, string defaultTitle, CancellationToken cancellationToken)
         where T : class

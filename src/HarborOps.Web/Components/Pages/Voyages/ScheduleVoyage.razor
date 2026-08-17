@@ -6,6 +6,7 @@
 @inject FleetApiClient FleetApi
 @inject CurrentUserAuthorizationState AuthorizationState
 @inject NavigationManager Navigation
+@inject IJSRuntime JS
 
 <PageTitle>Schedule voyage | HarborOps</PageTitle>
 
@@ -88,7 +89,8 @@
                             <span class="bi bi-search" aria-hidden="true"></span>
                             <input id="schedule-vessel-search" @bind="vesselSearch" @bind:event="oninput"
                                    @bind:after="SearchVesselsAsync" @onkeydown="HandleVesselKeyDown"
-                                   placeholder="e.g. Northern Star"
+                                   @onfocus="ShowVesselOptionsAsync"
+                                   placeholder="Click to browse, or type to search"
                                    aria-label="Search vessels by name" />
                         </div>
 
@@ -108,7 +110,8 @@
                                     var vessel = vesselResults[index];
 
                                     <li @key="vessel.VesselId">
-                                        <button type="button" class="@(index == highlightedVessel ? "highlighted" : null)"
+                                        <button type="button" id="@VesselOptionId(index)"
+                                                class="@(index == highlightedVessel ? "highlighted" : null)"
                                                 @onclick="() => SelectVessel(vessel)">
                                             <strong>@vessel.Name</strong>
                                             <span>IMO @vessel.ImoNumber · @vessel.FlagState</span>
@@ -117,9 +120,13 @@
                                 }
                             </ul>
                         }
-                        else if (!string.IsNullOrWhiteSpace(vesselSearch))
+                        else if (vesselSearchVersion > 0)
                         {
-                            <p class="schedule-hint">No vessels match that search.</p>
+                            <p class="schedule-hint">
+                                @(string.IsNullOrWhiteSpace(vesselSearch)
+                                    ? "No vessels are registered yet."
+                                    : "No vessels match that search.")
+                            </p>
                         }
                     }
                 </div>

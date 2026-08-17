@@ -54,6 +54,20 @@ internal sealed class GetVesselComplianceOverviewQuery(DbContext dbContext)
                 inspection.VesselDetained))
             .ToListAsync(cancellationToken);
 
+        var surveyAudits = await dbContext.Set<SurveyAudit>()
+            .AsNoTracking()
+            .Where(survey => survey.VesselId == request.VesselId)
+            .OrderByDescending(survey => survey.Date)
+            .ThenBy(survey => survey.Id)
+            .Take(MaxItemsPerCollection)
+            .Select(survey => new SurveyAuditOverviewItem(
+                survey.Id,
+                survey.VesselId,
+                survey.Date,
+                survey.Type,
+                survey.Result))
+            .ToListAsync(cancellationToken);
+
         var openNonConformities = await dbContext.Set<NonConformity>()
             .AsNoTracking()
             .Where(nonConformity =>
@@ -77,6 +91,7 @@ internal sealed class GetVesselComplianceOverviewQuery(DbContext dbContext)
         return new GetVesselComplianceOverviewResponse(
             certificates,
             pscInspections,
+            surveyAudits,
             openNonConformities);
     }
 }

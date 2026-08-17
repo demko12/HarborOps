@@ -3,6 +3,7 @@
 @using HarborOps.Web.Api.Compliance
 @implements IDisposable
 @inject ComplianceApiClient ComplianceApi
+@inject CurrentUserAuthorizationState AuthorizationState
 
 <PageTitle>Compliance | HarborOps</PageTitle>
 
@@ -37,6 +38,10 @@
         <div class="compliance-actions">
             <button type="button" @onclick="() => isCertificateFormOpen = !isCertificateFormOpen">Register certificate</button>
             <button type="button" @onclick="() => isPscFormOpen = !isPscFormOpen">Register PSC inspection</button>
+            @if (AuthorizationState.CanManageCompliance)
+            {
+                <button type="button" @onclick="() => isNonConformityFormOpen = !isNonConformityFormOpen">Register non-conformity</button>
+            }
         </div>
 
         @if (isCertificateFormOpen)
@@ -75,6 +80,74 @@
                         <div class="compliance-field"><label><InputCheckbox @bind-Value="pscModel.VesselDetained" /> Vessel detained</label></div>
                     </div>
                     <button class="compliance-submit" type="submit" disabled="@isSubmittingPsc">@(isSubmittingPsc ? "Registering..." : "Register PSC inspection")</button>
+                </EditForm>
+            </section>
+        }
+
+        @if (isNonConformityFormOpen)
+        {
+            <section class="compliance-card compliance-form-card">
+                <h2>Register non-conformity</h2>
+                @if (nonConformitySuccess is not null) { <div class="compliance-success" role="status">@nonConformitySuccess</div> }
+                @if (nonConformityError is not null) { <div class="compliance-error" role="alert">@nonConformityError</div> }
+                <EditForm EditContext="nonConformityEditContext" OnSubmit="SubmitNonConformityAsync">
+                    <DataAnnotationsValidator />
+                    <div class="compliance-form-grid">
+                        <div class="compliance-field">
+                            <label>Source</label>
+                            <InputRadioGroup @bind-Value="nonConformityModel.SourceType" Name="nc-source">
+                                <label class="compliance-radio"><InputRadio Value="@("Survey")" /> Survey</label>
+                                <label class="compliance-radio"><InputRadio Value="@("Psc")" /> PSC inspection</label>
+                            </InputRadioGroup>
+                        </div>
+                        @if (nonConformityModel.SourceType == "Survey")
+                        {
+                            <div class="compliance-field">
+                                <label for="nc-survey">Survey audit</label>
+                                <select id="nc-survey" class="compliance-select" @bind="nonConformityModel.SurveyId">
+                                    <option value="">-- Select a survey audit --</option>
+                                    @foreach (var survey in overview.SurveyAudits)
+                                    {
+                                        <option value="@survey.Id">@survey.Date.ToString("dd MMM yyyy") &mdash; @survey.Type (@survey.Result)</option>
+                                    }
+                                </select>
+                            </div>
+                        }
+                        else
+                        {
+                            <div class="compliance-field">
+                                <label for="nc-psc">PSC inspection</label>
+                                <select id="nc-psc" class="compliance-select" @bind="nonConformityModel.PscId">
+                                    <option value="">-- Select a PSC inspection --</option>
+                                    @foreach (var psc in overview.PscInspections)
+                                    {
+                                        <option value="@psc.Id">@psc.InspectionDate.ToString("dd MMM yyyy") &mdash; @psc.InspectingAuthority</option>
+                                    }
+                                </select>
+                            </div>
+                        }
+                        <div class="compliance-field">
+                            <label>Evidence document</label>
+                            <DocumentPicker @key="nonConformityResetToken" VesselId="selectedVesselId" Value="nonConformityModel.EvidenceDocumentId" ValueChanged="@((Guid? id) => nonConformityModel.EvidenceDocumentId = id)" />
+                            <ValidationMessage For="() => nonConformityModel.EvidenceDocumentId" />
+                        </div>
+                        <div class="compliance-field">
+                            <label for="nc-severity">Severity</label>
+                            <select id="nc-severity" class="compliance-select" @bind="nonConformityModel.Severity">
+                                <option value="">-- Select severity --</option>
+                                <option value="Minor">Minor</option>
+                                <option value="Major">Major</option>
+                                <option value="Critical">Critical</option>
+                            </select>
+                            <ValidationMessage For="() => nonConformityModel.Severity" />
+                        </div>
+                        <div class="compliance-field">
+                            <label for="nc-deadline">Corrective action deadline</label>
+                            <InputDate id="nc-deadline" @bind-Value="nonConformityModel.CorrectiveActionDeadline" />
+                            <ValidationMessage For="() => nonConformityModel.CorrectiveActionDeadline" />
+                        </div>
+                    </div>
+                    <button class="compliance-submit" type="submit" disabled="@isSubmittingNonConformity">@(isSubmittingNonConformity ? "Registering..." : "Register non-conformity")</button>
                 </EditForm>
             </section>
         }
