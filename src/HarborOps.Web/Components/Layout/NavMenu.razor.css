@@ -11,9 +11,11 @@
     justify-content: space-between;
     height: 3.75rem;
     padding: 0 1rem;
-    border-bottom: 1px solid var(--border-subtle);
-    background: var(--bg-navbar);
-    backdrop-filter: blur(24px);
+    border-bottom: 1px solid rgba(148, 163, 184, .24);
+    background: linear-gradient(135deg, rgba(255, 255, 255, .66), rgba(255, 255, 255, .36));
+    box-shadow: 0 8px 26px rgba(15, 23, 42, .05), inset 0 1px rgba(255, 255, 255, .72);
+    backdrop-filter: blur(28px) saturate(150%);
+    -webkit-backdrop-filter: blur(28px) saturate(150%);
 }
 
 .app-logo {
@@ -39,7 +41,7 @@
     height: 2rem;
     place-items: center;
     color: var(--text-muted);
-    border: 0;
+    border: 1px solid transparent;
     border-radius: .5rem;
     background: transparent;
     cursor: pointer;
@@ -48,7 +50,8 @@
 
     .icon-btn:hover {
         color: var(--text-secondary);
-        background: var(--icon-hover-bg);
+        border-color: var(--border-medium);
+        background: rgba(255, 255, 255, .34);
     }
 
 .icon-dot {
@@ -135,7 +138,7 @@
     gap: .55rem;
     padding: .35rem .45rem;
     color: inherit;
-    border: 0;
+    border: 1px solid transparent;
     border-radius: .65rem;
     background: transparent;
     text-decoration: none;
@@ -143,7 +146,8 @@
 }
 
     .profile-btn:hover {
-        background: var(--icon-hover-bg);
+        border-color: var(--border-medium);
+        background: rgba(255, 255, 255, .34);
     }
 
 .avatar {
@@ -188,9 +192,11 @@
     flex-direction: column;
     width: 4.75rem;
     padding: .8rem .55rem;
-    border-right: 1px solid var(--border-subtle);
-    background: var(--bg-navbar);
-    backdrop-filter: blur(24px);
+    border-right: 1px solid rgba(148, 163, 184, .22);
+    background: linear-gradient(180deg, rgba(255, 255, 255, .54), rgba(255, 255, 255, .28));
+    box-shadow: 6px 0 24px rgba(15, 23, 42, .035), inset -1px 0 rgba(255, 255, 255, .36);
+    backdrop-filter: blur(28px) saturate(150%);
+    -webkit-backdrop-filter: blur(28px) saturate(150%);
     transition: width .32s cubic-bezier(.25,.8,.35,1), box-shadow .32s cubic-bezier(.25,.8,.35,1);
     overflow-x: hidden;
     overflow-y: auto;
@@ -198,7 +204,7 @@
 
     .app-sidebar:hover {
         width: 15.5rem;
-        box-shadow: 8px 0 28px rgba(0,0,0,.2);
+        box-shadow: 10px 0 32px rgba(15, 23, 42, .1), inset -1px 0 rgba(255, 255, 255, .4);
     }
 
 .sidebar-nav {
@@ -225,7 +231,7 @@
         border-radius: .6rem;
         font-weight: 500;
         text-decoration: none;
-        transition: background-color .3s cubic-bezier(.25,.8,.35,1), color .3s cubic-bezier(.25,.8,.35,1), border-color .3s cubic-bezier(.25,.8,.35,1), gap .35s cubic-bezier(.25,.8,.35,1), transform .25s cubic-bezier(.25,.8,.35,1);
+        transition: color .2s ease, border-color .2s ease, background-color .2s ease, box-shadow .2s ease, gap .35s cubic-bezier(.25,.8,.35,1);
     }
 
 .app-sidebar:hover .nav-pills ::deep .nav-pill {
@@ -250,16 +256,17 @@
 }
 
 .nav-pills ::deep .nav-pill:hover {
-    color: var(--text-secondary);
-    background: var(--bg-surface);
-    transform: translateX(2px);
+    color: var(--accent-text);
+    border-color: rgba(37, 99, 235, .16);
+    background: rgba(37, 99, 235, .075);
+    transform: none;
 }
 
 .nav-pills ::deep .nav-pill.active {
     color: var(--accent-text);
     border-color: var(--accent-border);
-    background: var(--accent-bg);
-    box-shadow: inset 0 1px 0 rgba(255,255,255,.08);
+    background: linear-gradient(135deg, rgba(37, 99, 235, .18), rgba(96, 165, 250, .08));
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.46), 0 5px 12px rgba(37, 99, 235, .08);
 }
 
     .nav-pills ::deep .nav-pill.active:hover {
@@ -274,11 +281,11 @@
     width: 1.25rem;
     height: 1.25rem;
     font-size: 1.08rem;
-    transition: transform .25s cubic-bezier(.25,.8,.35,1);
+    transition: color .2s ease;
 }
 
 .nav-pills ::deep .nav-pill:hover .bi, .nav-pills ::deep .nav-pill:hover .nav-icon {
-    transform: scale(1.08);
+    transform: none;
 }
 
 .app-sidebar:not(:hover) .nav-pills ::deep .nav-pill::after {
@@ -328,6 +335,37 @@
     border-radius: 1rem;
     background: var(--bg-navbar);
     box-shadow: 0 24px 60px rgba(0,0,0,.3);
+}
+
+html[data-theme="dark"] .app-topbar {
+    border-bottom-color: rgba(191, 219, 254, .14);
+    background: linear-gradient(135deg, rgba(30, 41, 59, .68), rgba(15, 23, 42, .4));
+    box-shadow: 0 8px 26px rgba(0, 0, 0, .16), inset 0 1px rgba(255, 255, 255, .09);
+}
+
+html[data-theme="dark"] .app-sidebar {
+    border-right-color: rgba(191, 219, 254, .13);
+    background: linear-gradient(180deg, rgba(30, 41, 59, .56), rgba(15, 23, 42, .34));
+    box-shadow: 6px 0 24px rgba(0, 0, 0, .14), inset -1px 0 rgba(255, 255, 255, .06);
+}
+
+html[data-theme="dark"] .app-sidebar:hover {
+    box-shadow: 10px 0 32px rgba(0, 0, 0, .24), inset -1px 0 rgba(255, 255, 255, .08);
+}
+
+html[data-theme="dark"] .icon-btn:hover,
+html[data-theme="dark"] .profile-btn:hover {
+    background: rgba(255, 255, 255, .075);
+}
+
+html[data-theme="dark"] .nav-pills ::deep .nav-pill:hover {
+    border-color: rgba(147, 197, 253, .18);
+    background: rgba(96, 165, 250, .12);
+}
+
+html[data-theme="dark"] .nav-pills ::deep .nav-pill.active {
+    background: linear-gradient(135deg, rgba(96, 165, 250, .22), rgba(96, 165, 250, .08));
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.12), 0 5px 12px rgba(0, 0, 0, .14);
 }
 
 .logout-modal-icon {
