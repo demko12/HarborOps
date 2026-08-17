@@ -28,6 +28,27 @@ window.scrollInterop = {
     }
 };
 
+window.headerScrollInterop = {
+    initialize: function () {
+        var header = document.querySelector('.app-topbar');
+        if (!header) {
+            return;
+        }
+
+        var update = function () {
+            header.classList.toggle('is-scrolled', window.scrollY > 8);
+        };
+
+        if (window.__harborOpsHeaderScrollHandler) {
+            window.removeEventListener('scroll', window.__harborOpsHeaderScrollHandler);
+        }
+
+        window.__harborOpsHeaderScrollHandler = update;
+        window.addEventListener('scroll', update, { passive: true });
+        update();
+    }
+};
+
 // Apply the theme NOW, before Blazor loads — prevents "flashing" the wrong theme
 (function () {
     document.documentElement.setAttribute('data-theme', window.themeInterop.getResolved());
