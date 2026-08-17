@@ -12,7 +12,18 @@
             <h1>Vessels</h1>
             <p>Review registered vessels and their current operating status.</p>
         </div>
+        <PrintButton Label="Print the vessel register" />
     </header>
+
+    <section class="print-only print-summary fleet-print-summary">
+        <h2>Vessel register</h2>
+        <dl>
+            <div><dt>Search</dt><dd>@(string.IsNullOrWhiteSpace(search) ? "All vessels" : search)</dd></div>
+            <div><dt>Status</dt><dd>@(string.IsNullOrWhiteSpace(status) ? "All statuses" : status)</dd></div>
+            <div><dt>Page</dt><dd>@(page?.PageNumber ?? 1) of @TotalPages</dd></div>
+            <div><dt>Vessels</dt><dd>@FirstRowNumber&ndash;@LastRowNumber of @(page?.TotalCount ?? 0)</dd></div>
+        </dl>
+    </section>
 
     @if (page is not null)
     {
@@ -215,7 +226,7 @@
         isLoading = false;
     }
 
-    private static string GetStatusClass(string status) => status.ToLowerInvariant() switch
+    internal static string GetStatusClass(string status) => status.ToLowerInvariant() switch
     {
         "active" => "vessel-status-active",
         "in transit" => "vessel-status-transit",
@@ -226,9 +237,9 @@
         _ => "vessel-status-neutral",
     };
 
-    private static bool IsMaintenance(string status) => string.Equals(status, "Under Maintenance", StringComparison.OrdinalIgnoreCase) || string.Equals(status, "Maintenance", StringComparison.OrdinalIgnoreCase);
+    internal static bool IsMaintenance(string status) => string.Equals(status, "Under Maintenance", StringComparison.OrdinalIgnoreCase) || string.Equals(status, "Maintenance", StringComparison.OrdinalIgnoreCase);
 
-    private static string FormatDwt(decimal dwt) => dwt >= 1_000_000
+    internal static string FormatDwt(decimal dwt) => dwt >= 1_000_000
         ? $"{dwt / 1_000_000m:0.#}M"
         : dwt >= 1_000
             ? $"{dwt / 1_000m:0.#}K"

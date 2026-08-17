@@ -168,9 +168,6 @@ public partial class Voyages
 
         return $"Record {action} for {voyageNumber} (UTC)";
     }
-
-    /// an arrival can never precede its departure, so the picker refuses those days
-    /// outright; the API stays the authority on the exact timestamp
     internal static DateOnly? EarliestActionDate(VoyageListItemModel voyage, string kind)
     {
         return string.Equals(kind, ArriveAction, StringComparison.Ordinal)

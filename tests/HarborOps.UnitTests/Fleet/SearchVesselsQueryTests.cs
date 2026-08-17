@@ -100,6 +100,114 @@ public sealed class SearchVesselsQueryTests
     }
 
     [Fact]
+    public async Task Search_filters_by_current_status()
+    {
+        await using var dbContext = CreateDbContext();
+        var vesselTypeId = await SeedVesselTypeAsync(dbContext, "Container Ship");
+        await SeedVesselAsync(dbContext, vesselTypeId, "North Star", "1000001", "Active");
+        await SeedVesselAsync(dbContext, vesselTypeId, "Southern Cross", "1000002", "At Port");
+        await SeedVesselAsync(dbContext, vesselTypeId, "Western Gale", "1000003", "At Port");
+
+        var query = new SearchVesselsQuery(dbContext);
+
+        var response = await query.SearchAsync(
+            new SearchVesselsRequest { Status = "At Port" },
+            CancellationToken.None);
+
+        Assert.Equal(2, response.TotalCount);
+        Assert.All(response.Items, item => Assert.Equal("At Port", item.CurrentStatus));
+    }
+
+    [Fact]
+    public async Task Search_combines_the_search_term_with_the_status_filter()
+    {
+        await using var dbContext = CreateDbContext();
+        var vesselTypeId = await SeedVesselTypeAsync(dbContext, "Container Ship");
+        await SeedVesselAsync(dbContext, vesselTypeId, "North Star", "1000001", "Active");
+        await SeedVesselAsync(dbContext, vesselTypeId, "North Wind", "1000002", "At Port");
+
+        var query = new SearchVesselsQuery(dbContext);
+
+        var response = await query.SearchAsync(
+            new SearchVesselsRequest { Search = "North", Status = "Active" },
+            CancellationToken.None);
+
+        Assert.Equal(1, response.TotalCount);
+        Assert.Equal("North Star", Assert.Single(response.Items).Name);
+    }
+
+    [Fact]
+    public async Task Search_returns_an_empty_page_when_nothing_matches()
+    {
+        await using var dbContext = CreateDbContext();
+        var vesselTypeId = await SeedVesselTypeAsync(dbContext, "Container Ship");
+        await SeedVesselAsync(dbContext, vesselTypeId, "North Star", "1000001");
+
+        var query = new SearchVesselsQuery(dbContext);
+
+        var response = await query.SearchAsync(
+            new SearchVesselsRequest { Search = "Nothing matches this" },
+            CancellationToken.None);
+
+        Assert.Equal(0, response.TotalCount);
+        Assert.Empty(response.Items);
+        Assert.Equal(1, response.PageNumber);
+    }
+
+    [Fact]
+    public async Task Search_returns_an_empty_page_when_no_vessels_are_registered()
+    {
+        await using var dbContext = CreateDbContext();
+        var query = new SearchVesselsQuery(dbContext);
+
+        var response = await query.SearchAsync(
+            new SearchVesselsRequest(),
+            CancellationToken.None);
+
+        Assert.Equal(0, response.TotalCount);
+        Assert.Empty(response.Items);
+    }
+
+    [Fact]
+    public async Task Search_returns_the_requested_page()
+    {
+        await using var dbContext = CreateDbContext();
+        var vesselTypeId = await SeedVesselTypeAsync(dbContext, "Container Ship");
+
+        for (var index = 1; index <= 5; index++)
+        {
+            await SeedVesselAsync(dbContext, vesselTypeId, $"Vessel {index:D2}", $"{1000000 + index}");
+        }
+
+        var query = new SearchVesselsQuery(dbContext);
+
+        var response = await query.SearchAsync(
+            new SearchVesselsRequest { PageNumber = 2, PageSize = 2 },
+            CancellationToken.None);
+
+        Assert.Equal(2, response.PageNumber);
+        Assert.Equal(5, response.TotalCount);
+        Assert.Equal(["Vessel 03", "Vessel 04"], response.Items.Select(item => item.Name));
+    }
+
+    [Fact]
+    public async Task Search_returns_no_items_for_a_page_beyond_the_result_set()
+    {
+        await using var dbContext = CreateDbContext();
+        var vesselTypeId = await SeedVesselTypeAsync(dbContext, "Container Ship");
+        await SeedVesselAsync(dbContext, vesselTypeId, "North Star", "1000001");
+
+        var query = new SearchVesselsQuery(dbContext);
+
+        var response = await query.SearchAsync(
+            new SearchVesselsRequest { PageNumber = 4, PageSize = 10 },
+            CancellationToken.None);
+
+        Assert.Equal(1, response.TotalCount);
+        Assert.Empty(response.Items);
+    }
+
+    [Fact]
     public async Task Search_projects_vessel_type_and_active_fleet()
     {
         await using var dbContext = CreateDbContext();
@@ -247,7 +355,8 @@ public sealed class SearchVesselsQueryTests
         HarborOpsDbContext dbContext,
         Guid vesselTypeId,
         string name,
-        string imoNumber)
+        string imoNumber,
+        string currentStatus = "Active")
     {
         var vessel = Vessel.Register(
             Guid.NewGuid(),
@@ -255,7 +364,7 @@ public sealed class SearchVesselsQueryTests
             name,
             imoNumber,
             "Malta",
-            "Active");
+            currentStatus);
 
         await dbContext.Set<Vessel>().AddAsync(vessel);
         await dbContext.SaveChangesAsync();

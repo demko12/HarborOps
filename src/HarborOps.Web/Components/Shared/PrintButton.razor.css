@@ -1,0 +1,43 @@
+.print-button {
+    display: inline-flex;
+    align-items: center;
+    gap: .4rem;
+    flex: 0 0 auto;
+    height: 2.4rem;
+    padding: 0 .9rem;
+    color: var(--text-secondary);
+    border: 1px solid var(--border-medium);
+    border-radius: .6rem;
+    background: var(--bg-surface);
+    font: inherit;
+    font-size: .82rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: color .15s ease, background .15s ease, border-color .15s ease;
+}
+
+.print-button:hover {
+    color: var(--accent);
+    border-color: var(--accent-border);
+    background: var(--accent-bg);
+}
+
+.print-button:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+}
+
+.print-button .bi {
+    font-size: .95rem;
+    line-height: 1;
+}
+
+@media (max-width: 760px) {
+    .print-button-text {
+        display: none;
+    }
+
+    .print-button {
+        padding: 0 .7rem;
+    }
+}

@@ -18,6 +18,13 @@ window.themeInterop = {
 window.scrollInterop = {
     toTop: function () {
         window.scrollTo({ top: 0, behavior: 'smooth' });
+    },
+    // Keeps the keyboard-highlighted option visible inside a scrolling list.
+    intoView: function (elementId) {
+        var element = document.getElementById(elementId);
+        if (element) {
+            element.scrollIntoView({ block: 'nearest' });
+        }
     }
 };
 
