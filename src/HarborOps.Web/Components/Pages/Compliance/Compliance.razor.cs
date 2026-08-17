@@ -29,10 +29,20 @@ public partial class Compliance
     private string? pscSuccess;
     private string? pscError;
 
+    private bool isNonConformityFormOpen;
+    private NonConformityFormModel nonConformityModel = new();
+    private EditContext nonConformityEditContext = null!;
+    private ValidationMessageStore nonConformityMessages = null!;
+    private bool isSubmittingNonConformity;
+    private string? nonConformitySuccess;
+    private string? nonConformityError;
+    private int nonConformityResetToken;
+
     protected override void OnInitialized()
     {
         ResetCertificateForm();
         ResetPscForm();
+        ResetNonConformityForm();
     }
 
     private async Task SelectVesselAsync(Guid? vesselId)
@@ -121,6 +131,46 @@ public partial class Compliance
         pscModel = new(); pscEditContext = new(pscModel); pscMessages = new(pscEditContext);
     }
 
+    private async Task SubmitNonConformityAsync()
+    {
+        if (isSubmittingNonConformity || selectedVesselId is not { } vesselId) return;
+        nonConformityMessages.Clear();
+        nonConformityError = nonConformitySuccess = null;
+        if (!nonConformityEditContext.Validate()) return;
+        isSubmittingNonConformity = true;
+        try
+        {
+            var request = new RegisterNonConformityRequest(
+                nonConformityModel.SourceType == "Survey" ? nonConformityModel.SurveyId : null,
+                nonConformityModel.SourceType == "Psc" ? nonConformityModel.PscId : null,
+                nonConformityModel.EvidenceDocumentId,
+                nonConformityModel.Severity,
+                nonConformityModel.CorrectiveActionDeadline);
+            var result = await ComplianceApi.RegisterNonConformityAsync(request, CancellationToken.None);
+            if (!result.IsSuccess)
+            {
+                ApplyErrors(result.Failure!, nonConformityEditContext, nonConformityMessages, NonConformityFieldMap, value => nonConformityError = value);
+                return;
+            }
+
+            ResetNonConformityForm();
+            nonConformitySuccess = "Non-conformity registered successfully.";
+            await LoadOverviewAsync();
+        }
+        finally
+        {
+            isSubmittingNonConformity = false;
+        }
+    }
+
+    private void ResetNonConformityForm()
+    {
+        nonConformityModel = new();
+        nonConformityEditContext = new(nonConformityModel);
+        nonConformityMessages = new(nonConformityEditContext);
+        nonConformityResetToken++;
+    }
+
     private static void ApplyErrors(ComplianceApiFailure failure, EditContext context,
         ValidationMessageStore store, IReadOnlyDictionary<string, string> map, Action<string?> setGeneral)
     {
@@ -167,6 +217,14 @@ public partial class Compliance
         ["deficiencyCount"] = nameof(PscFormModel.DeficiencyCount),
         ["vesselDetained"] = nameof(PscFormModel.VesselDetained),
     };
+    private static readonly IReadOnlyDictionary<string, string> NonConformityFieldMap = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+    {
+        ["surveyId"] = nameof(NonConformityFormModel.SurveyId),
+        ["pscId"] = nameof(NonConformityFormModel.PscId),
+        ["evidenceDocumentId"] = nameof(NonConformityFormModel.EvidenceDocumentId),
+        ["severity"] = nameof(NonConformityFormModel.Severity),
+        ["correctiveActionDeadline"] = nameof(NonConformityFormModel.CorrectiveActionDeadline),
+    };
 
     public void Dispose() { overviewCts?.Cancel(); overviewCts?.Dispose(); }
 
@@ -186,5 +244,15 @@ public partial class Compliance
         [Required, StringLength(200)] public string? InspectingAuthority { get; set; }
         [Required, Range(0, int.MaxValue)] public int? DeficiencyCount { get; set; }
         public bool VesselDetained { get; set; }
+    }
+
+    private sealed class NonConformityFormModel
+    {
+        public string SourceType { get; set; } = "Survey";
+        public int? SurveyId { get; set; }
+        public int? PscId { get; set; }
+        [Required] public Guid? EvidenceDocumentId { get; set; }
+        [Required] public string? Severity { get; set; }
+        [Required] public DateOnly? CorrectiveActionDeadline { get; set; }
     }
 }

@@ -49,6 +49,43 @@ internal sealed class DocumentsApiClient(HttpClient httpClient)
         }
     }
 
+    internal async Task<DocumentsApiResult<DocumentsPage>> GetDocumentsAsync(
+        GetDocumentsQuery query,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(query);
+
+        try
+        {
+            using var response = await httpClient.GetAsync(
+                BuildDocumentsPath(query),
+                HttpCompletionOption.ResponseHeadersRead,
+                cancellationToken);
+
+            if (!response.IsSuccessStatusCode)
+            {
+                return new DocumentsApiResult<DocumentsPage>(
+                    null, await ReadFailureAsync(response, "Unable to load documents", cancellationToken));
+            }
+
+            var page = await response.Content.ReadFromJsonAsync<DocumentsPage>(cancellationToken);
+
+            return new DocumentsApiResult<DocumentsPage>(page, null);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (HttpRequestException)
+        {
+            return new DocumentsApiResult<DocumentsPage>(null, Unavailable());
+        }
+        catch (TaskCanceledException) when (!cancellationToken.IsCancellationRequested)
+        {
+            return new DocumentsApiResult<DocumentsPage>(null, Unavailable());
+        }
+    }
+
     internal async Task<DocumentsApiResult<RegisterDocumentResult>> RegisterDocumentAsync(
         RegisterDocumentRequest request,
         CancellationToken cancellationToken)
@@ -201,6 +238,33 @@ internal sealed class DocumentsApiClient(HttpClient httpClient)
         }
 
         return extra.Count == 0 ? $"{BasePath}/types" : $"{BasePath}/types?{string.Join('&', extra)}";
+    }
+
+    private static string BuildDocumentsPath(GetDocumentsQuery query)
+    {
+        var extra = new List<string>();
+
+        if (query.VesselId is { } vesselId)
+        {
+            extra.Add($"vesselId={vesselId}");
+        }
+
+        if (!string.IsNullOrWhiteSpace(query.Search))
+        {
+            extra.Add($"search={Uri.EscapeDataString(query.Search)}");
+        }
+
+        if (query.PageNumber is { } pageNumber)
+        {
+            extra.Add($"pageNumber={pageNumber}");
+        }
+
+        if (query.PageSize is { } pageSize)
+        {
+            extra.Add($"pageSize={pageSize}");
+        }
+
+        return extra.Count == 0 ? BasePath : $"{BasePath}?{string.Join('&', extra)}";
     }
 
     private static async Task<DocumentsApiFailure> ReadFailureAsync(

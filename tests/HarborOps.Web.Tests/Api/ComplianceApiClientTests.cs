@@ -26,12 +26,15 @@ public sealed class ComplianceApiClientTests
         await client.GetOverviewAsync(vesselId, CancellationToken.None);
         var certificate = await client.RegisterCertificateAsync(new(vesselId, "Safety", "1", "Authority", new(2026, 1, 1), new(2027, 1, 1)), CancellationToken.None);
         var inspection = await client.RegisterPscInspectionAsync(new(vesselId, Guid.NewGuid(), new(2026, 8, 1), "Authority", 0, false), CancellationToken.None);
+        var nonConformity = await client.RegisterNonConformityAsync(new(1, null, Guid.NewGuid(), "Major", new(2026, 12, 1)), CancellationToken.None);
 
         Assert.Contains((HttpMethod.Get, $"/api/compliance/vessels/{vesselId}/overview"), requests);
         Assert.Contains((HttpMethod.Post, "/api/compliance/certificates"), requests);
         Assert.Contains((HttpMethod.Post, "/api/compliance/psc-inspections"), requests);
+        Assert.Contains((HttpMethod.Post, "/api/compliance/non-conformities"), requests);
         Assert.Equal(Guid.Parse("30000000-0000-0000-0000-000000000003"), certificate.Value!.Id);
         Assert.Equal(1, inspection.Value!.Id);
+        Assert.Equal(1, nonConformity.Value!.Id);
     }
 
     [Fact]
