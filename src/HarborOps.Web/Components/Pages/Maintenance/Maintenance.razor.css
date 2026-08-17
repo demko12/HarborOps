@@ -354,22 +354,59 @@ html[data-theme="light"] .maintenance-page {
     border-collapse: collapse;
 }
 
-.maintenance-table .col-title { width: 18%; }
+    .maintenance-table .col-title {
+        width: 16%;
+    }
 
-.maintenance-table .col-vessel { width: 12%; }
+    .maintenance-table .col-vessel {
+        width: 11%;
+    }
 
-.maintenance-table .col-priority { width: 10%; }
+    .maintenance-table .col-priority {
+        width: 9%;
+    }
 
-.maintenance-table .col-status { width: 11%; }
+    .maintenance-table .col-status {
+        width: 10%;
+    }
 
-.maintenance-table .col-due { width: 14%; }
+    .maintenance-table .col-due {
+        width: 13%;
+    }
 
-.maintenance-table .col-assigned { width: 11%; }
+    .maintenance-table .col-assigned {
+        width: 11%;
+    }
 
-.maintenance-table .col-created,
-.maintenance-table .col-completed { width: 7%; }
+    .maintenance-table .col-created {
+        width: 8%;
+    }
 
-.maintenance-table .col-actions { width: 10%; }
+    .maintenance-table .col-completed {
+        width: 9%;
+    }
+
+    .maintenance-table .col-actions {
+        width: 13%;
+        text-align: center;
+        white-space: normal;
+        vertical-align: top;
+        padding-top: .85rem;
+    }
+
+        .maintenance-table .col-actions button {
+            display: block;
+            width: 100%;
+            margin: 0 0 .35rem;
+        }
+
+            .maintenance-table .col-actions button:last-of-type {
+                margin-bottom: 0;
+            }
+
+.col-actions button {
+    margin-bottom: 0.3rem;
+}
 
     .maintenance-table th {
         padding: .55rem .8rem;
@@ -385,7 +422,7 @@ html[data-theme="light"] .maintenance-page {
 
     .maintenance-table td {
         padding: .85rem .8rem;
-        vertical-align: top;
+        vertical-align: middle;
         border-bottom: 1px solid var(--border-subtle);
         font-size: .88rem;
         font-variant-numeric: tabular-nums;
@@ -437,11 +474,6 @@ html[data-theme="light"] .maintenance-page {
 .maintenance-table .col-vessel {
     overflow: hidden;
     text-overflow: ellipsis;
-    white-space: nowrap;
-}
-
-.maintenance-table .col-actions {
-    text-align: right;
     white-space: nowrap;
 }
 
@@ -585,16 +617,6 @@ html[data-theme="light"] .maintenance-page {
 
 /* Forms */
 
-.maintenance-form-card {
-    max-width: 44rem;
-    margin-top: 1.5rem;
-    margin-bottom: 1.5rem;
-    padding: 1.35rem;
-    border: 1px solid var(--border-medium);
-    border-radius: 1rem;
-    background: linear-gradient(145deg, var(--bg-surface-strong), var(--bg-surface));
-    box-shadow: var(--card-shadow);
-}
 
     .maintenance-form-card h2 {
         margin: 0;
@@ -787,4 +809,87 @@ html[data-theme="light"] .maintenance-form-grid textarea {
         align-items: flex-start;
         flex-direction: column;
     }
+    
+}
+.maintenance-form-card {
+    max-width: 44rem;
+    max-height: 92vh;
+    overflow-y: auto;
+    margin-top: 0;
+    margin-bottom: 0;
+    padding: 1.35rem;
+    border: 1px solid var(--border-medium);
+    border-radius: 1rem;
+    background: linear-gradient(145deg, var(--bg-surface-strong), var(--bg-surface));
+    box-shadow: var(--card-shadow);
+}
+.maintenance-modal-backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(8, 12, 20, 0.82);
+    display: flex;
+    align-items: flex-start;
+    justify-content: center;
+    padding: 4vh 1rem;
+    overflow-y: auto;
+    z-index: 1000;
+}
+.maintenance-selected-row {
+    background: var(--maintenance-selected-bg, #eff6ff);
+}
+
+.maintenance-usage-history {
+    margin-top: 1.5rem;
+}
+
+.maintenance-usage-button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: .4rem .8rem;
+    color: var(--text-primary);
+    border: 1px solid var(--border-medium);
+    border-radius: .6rem;
+    background: var(--bg-surface);
+    font: inherit;
+    font-size: .8rem;
+    cursor: pointer;
+    transition: background .15s ease, color .15s ease, border-color .15s ease;
+}
+
+    .maintenance-usage-button:hover:not(:disabled) {
+        color: var(--accent);
+        border-color: var(--accent-border);
+        background: var(--accent-bg);
+    }
+
+    .maintenance-usage-button:disabled {
+        cursor: not-allowed;
+        opacity: .45;
+    }
+
+.maintenance-low-stock-badge {
+    margin-left: 0.5rem;
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: var(--maintenance-amber-text, #92400e);
+    background: var(--maintenance-amber-bg, #fef3c7);
+    border-radius: 0.25rem;
+    padding: 0.1rem 0.4rem;
+}
+
+.maintenance-modal-backdrop .maintenance-form-card {
+    background: var(--control-surface);
+    border: 1px solid var(--border-strong-hover);
+}
+.maintenance-header-actions {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    flex: 0 0 auto;
+}
+.maintenance-card-heading-actions {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
 }

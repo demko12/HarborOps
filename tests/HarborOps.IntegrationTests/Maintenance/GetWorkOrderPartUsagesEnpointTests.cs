@@ -119,19 +119,19 @@ public sealed class GetWorkOrderPartUsagesEndpointTests : IntegrationTestBase
         Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
     }
 
-    //[Fact]
-    //public async Task Get_with_authentication_but_no_read_permission_returns_403()
-    //{
-    //    using var client = await _application.CreateAuthenticatedClientAsync();
+    [Fact]
+    public async Task Get_with_authentication_but_no_read_permission_returns_403()
+    {
+        using var client = await _application.CreateAuthenticatedClientAsync();
 
-    //    using var response = await client.GetAsync(
-    //        new Uri(
-    //            $"/api/maintenance/work-orders/{Guid.NewGuid()}/part-usages",
-    //            UriKind.Relative),
-    //        CancellationToken.None);
+        using var response = await client.GetAsync(
+            new Uri(
+                $"/api/maintenance/work-orders/{Guid.NewGuid()}/part-usages",
+                UriKind.Relative),
+            CancellationToken.None);
 
-    //    Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
-    //}
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+    }
 
     private async Task<MaintenanceWorkOrder> SeedWorkOrderAsync()
     {

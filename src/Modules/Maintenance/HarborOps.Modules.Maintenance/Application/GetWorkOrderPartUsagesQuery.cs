@@ -23,7 +23,7 @@ public sealed class GetWorkOrderPartUsagesQuery(DbContext dbContext)
             throw new MaintenanceWorkOrderNotFoundException(workOrderId);
         }
 
-        var rows = await(
+        var rows = await (
             from usage in dbContext.Set<InventoryItemUsage>().AsNoTracking()
             join item in dbContext.Set<InventoryItem>().AsNoTracking()
                 on usage.PartId equals item.Id

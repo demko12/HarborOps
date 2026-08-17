@@ -5,6 +5,7 @@
 @implements IDisposable
 @inject MaintenanceApiClient MaintenanceApi
 @inject VesselLookupApiClient VesselLookupApi
+@inject CurrentUserAuthorizationState AuthorizationState
 
 <PageTitle>Maintenance | HarborOps</PageTitle>
 
@@ -116,7 +117,10 @@
 				<h2 id="maintenance-list-title">Work order board</h2>
 				<p>@totalCount work orders found</p>
 			</div>
-			<span class="maintenance-card-icon" aria-hidden="true"><span class="bi bi-tools"></span></span>
+			<div class="maintenance-card-heading-actions">
+				<button type="button" class="maintenance-button" @onclick="OpenCreateForm">Create work order</button>
+				<span class="maintenance-card-icon" aria-hidden="true"><span class="bi bi-tools"></span></span>
+			</div>
 		</div>
 
 		@if (isLoading)
@@ -197,7 +201,16 @@
 											Complete
 										</button>
 									}
-									<span class="bi bi-chevron-right maintenance-row-chevron" aria-hidden="true"></span>
+									@if (MaintenanceFormat.CanComplete(row.Status) && CanRecordUsage)
+									{
+										<button type="button" class="maintenance-usage-button" @onclick="() => OpenUsageForm(row.WorkOrderId)">
+											Record usage
+										</button>
+									}
+									@if (!MaintenanceFormat.CanComplete(row.Status))
+									{
+										<span class="bi bi-chevron-right maintenance-row-chevron" aria-hidden="true"></span>
+									}
 								</td>
 							</tr>
 						}
@@ -216,7 +229,10 @@
 		}
 	</section>
 
-	<section class="maintenance-form-card" aria-labelledby="maintenance-create-title">
+	@if (isCreateFormOpen)
+	{
+	<div class="maintenance-modal-backdrop" @onclick="CloseCreateForm">
+	<section class="maintenance-form-card" aria-labelledby="maintenance-create-title" @onclick:stopPropagation="true">
 		<h2 id="maintenance-create-title">Create work order</h2>
 		<form class="maintenance-form" @onsubmit="SubmitCreateAsync" @onsubmit:preventDefault="true">
 			<div class="maintenance-form-grid">
@@ -262,15 +278,20 @@
 				<div class="maintenance-inline-error" role="alert">@createFailure.Message</div>
 			}
 
-			<button type="submit" class="maintenance-button" disabled="@isCreating">
-				@(isCreating ? "Creating..." : "Create work order")
-			</button>
-		</form>
-	</section>
-
+					<div class="maintenance-form-actions">
+						<button type="submit" class="maintenance-button" disabled="@isCreating">
+							@(isCreating ? "Creating..." : "Create work order")
+						</button>
+						<button type="button" class="maintenance-reset" @onclick="CloseCreateForm">Cancel</button>
+					</div>
+				</form>
+			</section>
+		</div>
+	}
 	@if (completingWorkOrderId is not null)
 	{
-		<section class="maintenance-form-card" aria-labelledby="maintenance-complete-title">
+		<div class="maintenance-modal-backdrop" @onclick="CloseCompletionForm">
+		<section class="maintenance-form-card" aria-labelledby="maintenance-complete-title" @onclick:stopPropagation="true">
 			<h2 id="maintenance-complete-title">Complete work order</h2>
 			<form class="maintenance-form" @onsubmit="SubmitCompletionAsync" @onsubmit:preventDefault="true">
 				<div class="maintenance-form-grid">
@@ -319,5 +340,180 @@
 				</div>
 			</form>
 		</section>
+		</div>
+	}
+	@if (usageWorkOrderId is not null)
+	{
+		<div class="maintenance-modal-backdrop" @onclick="CloseUsageForm">
+		<section class="maintenance-form-card" aria-labelledby="maintenance-usage-title" @onclick:stopPropagation="true">
+			<h2 id="maintenance-usage-title">Record part usage</h2>
+
+			@if (usageSuccessMessage is not null)
+			{
+				<div class="maintenance-success" role="status">@usageSuccessMessage</div>
+			}
+
+			<div class="maintenance-usage-picker">
+				<form class="maintenance-filters" @onsubmit="SearchInventoryAsync" @onsubmit:preventDefault="true">
+					<div class="filter-field">
+						<label for="usage-search">Search parts</label>
+						<input id="usage-search" @bind="inventorySearchText" placeholder="Name or part number" />
+					</div>
+					<div class="filter-field">
+						<label for="usage-low-stock">
+							<input id="usage-low-stock" type="checkbox" @bind="inventoryLowStockOnly" />
+							Low stock only
+						</label>
+					</div>
+					<button class="maintenance-button" type="submit" disabled="@isInventoryLoading">Search</button>
+				</form>
+
+				@if (isInventoryLoading)
+				{
+					<LoadingState Message="Loading inventory..." />
+				}
+				else if (inventoryFailure is not null)
+				{
+					<ApiErrorState Title="@inventoryFailure.Title" Message="@inventoryFailure.Message" OnRetry="SearchInventoryAsync" />
+				}
+				else if (inventoryItems.Count == 0)
+				{
+					<EmptyState Title="No parts found" Message="Try a different search or clear the low-stock filter." />
+				}
+				else
+				{
+					<div class="maintenance-table-scroll">
+						<table class="maintenance-table">
+							<caption class="visually-hidden">Available inventory parts</caption>
+							<thead>
+								<tr>
+									<th scope="col">Part</th>
+									<th scope="col">Part number</th>
+									<th scope="col">In stock</th>
+									<th scope="col">Minimum</th>
+									<th scope="col"></th>
+								</tr>
+							</thead>
+							<tbody>
+								@foreach (var item in inventoryItems)
+								{
+									var isLowStock = MaintenanceFormat.IsLowStock(item.Quantity, item.MinimumQuantity);
+									var isSelected = selectedInventoryItemId == item.InventoryItemId;
+
+									<tr @key="item.InventoryItemId" class="@(isSelected ? "maintenance-selected-row" : null)">
+										<td>@item.Name</td>
+										<td>@item.PartNumber</td>
+										<td>
+											@item.Quantity
+											@if (isLowStock)
+											{
+												<span class="maintenance-low-stock-badge">Low stock</span>
+											}
+										</td>
+										<td class="maintenance-muted">@item.MinimumQuantity</td>
+										<td>
+											<button type="button" class="maintenance-complete-button" @onclick="() => SelectInventoryItem(item)" disabled="@isSelected">
+												@(isSelected ? "Selected" : "Select")
+											</button>
+										</td>
+									</tr>
+								}
+							</tbody>
+						</table>
+					</div>
+				}
+			</div>
+
+			@if (selectedInventoryItemId is not null)
+			{
+				<form class="maintenance-form" @onsubmit="SubmitUsageAsync" @onsubmit:preventDefault="true">
+					<div class="maintenance-form-grid">
+						<div class="filter-field">
+							<label>Selected part</label>
+							<span>@selectedInventoryItemName</span>
+						</div>
+						<div class="filter-field">
+							<label for="usage-quantity">Quantity used</label>
+							<input id="usage-quantity" type="number" step="0.001" min="0" @bind="usageModel.QuantityUsed" />
+							@if (MaintenanceFormat.IsInsufficientStock(selectedInventoryItemQuantity, usageModel.QuantityUsed))
+							{
+								<span class="maintenance-inline-error">Insufficient stock: only @selectedInventoryItemQuantity available.</span>
+							}
+						</div>
+					</div>
+
+					@if (usageFailure is { IsValidation: true })
+					{
+						<ul class="maintenance-field-errors" role="alert">
+							@foreach (var error in usageFailure.Errors.SelectMany(entry => entry.Value))
+							{
+								<li>@error</li>
+							}
+						</ul>
+					}
+					@if (usageFailure is { IsValidation: false, IsConflict: false, IsNotFound: false })
+					{
+						<div class="maintenance-inline-error" role="alert">@usageFailure.Message</div>
+					}
+					@if (usageFailure is { IsConflict: true })
+					{
+						<div class="maintenance-conflict" role="alert">@usageFailure.Message</div>
+					}
+
+					<div class="maintenance-form-actions">
+						<button type="submit" class="maintenance-button" disabled="@isRecordingUsage">
+							@(isRecordingUsage ? "Recording..." : "Record usage")
+						</button>
+						<button type="button" class="maintenance-reset" @onclick="ClearSelectedInventoryItem">Change part</button>
+					</div>
+				</form>
+			}
+
+			<div class="maintenance-usage-history">
+				<h3>Recorded usage for this work order</h3>
+				@if (isUsagesLoading)
+				{
+					<LoadingState Message="Loading usage..." />
+				}
+				else if (usagesFailure is not null)
+				{
+					<ApiErrorState Title="@usagesFailure.Title" Message="@usagesFailure.Message" OnRetry="@(() => LoadWorkOrderUsagesAsync(usageWorkOrderId!.Value))" />
+				}
+				else if (workOrderUsages.Count == 0)
+				{
+					<EmptyState Title="No usage recorded yet" Message="Parts recorded for this work order will appear here." />
+				}
+				else
+				{
+					<table class="maintenance-table">
+						<caption class="visually-hidden">Parts already used on this work order</caption>
+						<thead>
+							<tr>
+								<th scope="col">Part</th>
+								<th scope="col">Part number</th>
+								<th scope="col">Quantity used</th>
+								<th scope="col">Remaining</th>
+							</tr>
+						</thead>
+						<tbody>
+							@foreach (var usage in workOrderUsages)
+							{
+								<tr @key="usage.PartId">
+									<td>@usage.Name</td>
+									<td>@usage.PartNumber</td>
+									<td>@usage.QuantityUsed</td>
+									<td>@usage.RemainingQuantity</td>
+								</tr>
+							}
+						</tbody>
+					</table>
+				}
+			</div>
+
+			<div class="maintenance-form-actions">
+				<button type="button" class="maintenance-reset" @onclick="CloseUsageForm">Close</button>
+			</div>
+		</section>
+		</div>
 	}
 </section>
