@@ -23,6 +23,12 @@ internal static class ApiConfiguration
             client.Timeout = TimeSpan.FromSeconds(5);
         });
 
+        services.AddHttpClient<OperationsDashboardApiClient>(client =>
+        {
+            client.BaseAddress = baseAddress;
+            client.Timeout = TimeSpan.FromSeconds(15);
+        }).AddHttpMessageHandler<BearerTokenHandler>();
+
         services.AddHttpClient<IdentitySessionApiClient>(client =>
         {
             client.BaseAddress = baseAddress;

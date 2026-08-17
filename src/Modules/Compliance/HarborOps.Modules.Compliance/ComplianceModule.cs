@@ -16,6 +16,7 @@ public static class ComplianceModule
         services.AddScoped<RegisterComplianceCertificateService>();
         services.AddScoped<RegisterPscInspectionService>();
         services.AddScoped<IGetVesselComplianceOverviewQuery, GetVesselComplianceOverviewQuery>();
+        services.AddScoped<IOperationsDashboardComplianceQuery, OperationsDashboardComplianceQuery>();
         services.AddControllers()
             .AddApplicationPart(Assembly);
 

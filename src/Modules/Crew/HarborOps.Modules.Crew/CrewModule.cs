@@ -17,6 +17,7 @@ public static class CrewModule
     {
         services.AddScoped<RegisterCrewMemberService>();
         services.AddScoped<ISearchCrewMembersQuery, SearchCrewMembersQuery>();
+        services.AddScoped<IOperationsDashboardCrewQuery, OperationsDashboardCrewQuery>();
         services.AddScoped<RegisterCrewAssignmentService>();
         services.AddScoped<RegisterCrewCertificateService>();
         services.TryAddSingleton<IDateTimeProvider, SystemDateTimeProvider>();
