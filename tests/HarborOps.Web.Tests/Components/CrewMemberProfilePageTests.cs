@@ -38,6 +38,9 @@ public sealed class CrewMemberProfilePageTests : BunitContext
     private Func<HttpRequestMessage, Task<HttpResponseMessage>> respondToRegisterAssignment =
         _ => Json(HttpStatusCode.Created, """{"id":"70000000-0000-0000-0000-000000000001"}""");
 
+    private Func<HttpRequestMessage, Task<HttpResponseMessage>> respondToDeleteAssignment =
+        _ => Task.FromResult(new HttpResponseMessage(HttpStatusCode.NoContent));
+
     private Func<HttpRequestMessage, Task<HttpResponseMessage>> respondToVesselSearch =
         _ => Json(HttpStatusCode.OK, VesselPageJson);
 
@@ -347,7 +350,7 @@ public sealed class CrewMemberProfilePageTests : BunitContext
         Closest(page, "#assign-rank", "form").Submit();
 
         page.WaitForAssertion(() => Assert.Contains(
-            "Crew member already has an open assignment.",
+            "Ivan Petrović already has an open assignment.",
             page.Find(".crew-profile-form-conflict").TextContent,
             StringComparison.Ordinal));
     }
@@ -371,6 +374,129 @@ public sealed class CrewMemberProfilePageTests : BunitContext
             "Selected rank is no longer available.",
             page.Markup,
             StringComparison.Ordinal));
+    }
+
+    // ---- Assignment details popup ----
+
+    [Fact]
+    public void Clicking_an_assignment_row_opens_its_details()
+    {
+        respondToProfile = _ => Json(
+            HttpStatusCode.OK,
+            Profile(certificates: [], assignments: [Assignment(status: "Active")]));
+
+        var page = RenderProfilePage(CurrentUserAuthorizationState.CrewReadPermission);
+
+        page.WaitForAssertion(() => Assert.NotEmpty(page.FindAll(".crew-profile-row-clickable")));
+        page.Find(".crew-profile-row-clickable").Click();
+
+        var modal = page.Find(".crew-assignment-modal");
+        Assert.Contains("Bosun", modal.TextContent, StringComparison.Ordinal);
+        Assert.Contains("Active", modal.TextContent, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Closing_the_popup_removes_it_from_the_page()
+    {
+        respondToProfile = _ => Json(
+            HttpStatusCode.OK,
+            Profile(certificates: [], assignments: [Assignment()]));
+
+        var page = RenderProfilePage(CurrentUserAuthorizationState.CrewReadPermission);
+
+        page.WaitForAssertion(() => Assert.NotEmpty(page.FindAll(".crew-profile-row-clickable")));
+        page.Find(".crew-profile-row-clickable").Click();
+        page.Find(".crew-assignment-modal-close").Click();
+
+        Assert.Empty(page.FindAll(".crew-assignment-modal"));
+    }
+
+    [Fact]
+    public void Without_the_manage_permission_the_delete_button_is_not_offered()
+    {
+        respondToProfile = _ => Json(
+            HttpStatusCode.OK,
+            Profile(certificates: [], assignments: [Assignment(status: "Planned")]));
+
+        var page = RenderProfilePage(CurrentUserAuthorizationState.CrewReadPermission);
+
+        page.WaitForAssertion(() => Assert.NotEmpty(page.FindAll(".crew-profile-row-clickable")));
+        page.Find(".crew-profile-row-clickable").Click();
+
+        Assert.Empty(page.FindAll(".crew-assignment-modal-delete"));
+    }
+
+    [Fact]
+    public void A_non_planned_assignment_offers_no_delete_action()
+    {
+        respondToProfile = _ => Json(
+            HttpStatusCode.OK,
+            Profile(certificates: [], assignments: [Assignment(status: "Active")]));
+
+        var page = RenderProfilePage(
+            CurrentUserAuthorizationState.CrewReadPermission,
+            CurrentUserAuthorizationState.CrewManagePermission);
+
+        page.WaitForAssertion(() => Assert.NotEmpty(page.FindAll(".crew-profile-row-clickable")));
+        page.Find(".crew-profile-row-clickable").Click();
+
+        Assert.Empty(page.FindAll(".crew-assignment-modal-delete"));
+        Assert.Contains(
+            "Only planned assignments can be deleted.",
+            page.Find(".crew-assignment-modal").TextContent,
+            StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Deleting_a_planned_assignment_closes_the_popup_and_refreshes_the_list()
+    {
+        var callCount = 0;
+        respondToProfile = _ =>
+        {
+            callCount++;
+            return callCount == 1
+                ? Json(HttpStatusCode.OK, Profile(certificates: [], assignments: [Assignment(status: "Planned")]))
+                : Json(HttpStatusCode.OK, Profile(certificates: [], assignments: []));
+        };
+
+        var page = RenderProfilePage(
+            CurrentUserAuthorizationState.CrewReadPermission,
+            CurrentUserAuthorizationState.CrewManagePermission);
+
+        page.WaitForAssertion(() => Assert.NotEmpty(page.FindAll(".crew-profile-row-clickable")));
+        page.Find(".crew-profile-row-clickable").Click();
+        page.Find(".crew-assignment-modal-delete").Click();
+
+        page.WaitForAssertion(() =>
+        {
+            Assert.Empty(page.FindAll(".crew-assignment-modal"));
+            Assert.Contains("No assignments on record", page.Markup, StringComparison.Ordinal);
+        });
+    }
+
+    [Fact]
+    public void A_delete_conflict_is_shown_in_the_popup()
+    {
+        respondToProfile = _ => Json(
+            HttpStatusCode.OK,
+            Profile(certificates: [], assignments: [Assignment(status: "Planned")]));
+        respondToDeleteAssignment = _ => Json(
+            HttpStatusCode.Conflict,
+            """{"title":"Crew assignment cannot be deleted.","status":409,"detail":"Crew assignment cannot be deleted because it is not in Planned status."}""");
+
+        var page = RenderProfilePage(
+            CurrentUserAuthorizationState.CrewReadPermission,
+            CurrentUserAuthorizationState.CrewManagePermission);
+
+        page.WaitForAssertion(() => Assert.NotEmpty(page.FindAll(".crew-profile-row-clickable")));
+        page.Find(".crew-profile-row-clickable").Click();
+        page.Find(".crew-assignment-modal-delete").Click();
+
+        page.WaitForAssertion(() => Assert.Contains(
+            "Crew assignment cannot be deleted because it is not in Planned status.",
+            page.Find(".crew-assignment-modal-error").TextContent,
+            StringComparison.Ordinal));
+        Assert.NotEmpty(page.FindAll(".crew-assignment-modal"));
     }
 
     // ---- Helpers ----
@@ -400,8 +526,8 @@ public sealed class CrewMemberProfilePageTests : BunitContext
         await page.InvokeAsync(() => page.Find(".vessel-picker-option").Click());
 
         page.Find("#assign-rank").Change(RankId.ToString());
-        page.Find("#assign-sign-on-date").Change("2026-01-01");
-        page.Find("#assign-planned-sign-off-date").Change("2026-06-01");
+        page.Find("#assign-sign-on-date").Change("2027-01-01");
+        page.Find("#assign-planned-sign-off-date").Change("2027-06-01");
     }
 
     private static AngleSharp.Dom.IElement Closest(
@@ -432,12 +558,17 @@ public sealed class CrewMemberProfilePageTests : BunitContext
                 return respondToRegisterCertificate(request);
             }
 
-            if (path.EndsWith("/assignments", StringComparison.Ordinal))
+            if (path.EndsWith("/assignments", StringComparison.Ordinal) && request.Method == HttpMethod.Post)
             {
                 return respondToRegisterAssignment(request);
             }
 
-            throw new InvalidOperationException($"Unexpected request: {path}");
+            if (path.Contains("/assignments/", StringComparison.Ordinal) && request.Method == HttpMethod.Delete)
+            {
+                return respondToDeleteAssignment(request);
+            }
+
+            throw new InvalidOperationException($"Unexpected request: {request.Method} {path}");
         }))
         {
             BaseAddress = new Uri("https://api.harborops.test/"),

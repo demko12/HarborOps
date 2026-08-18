@@ -16,10 +16,10 @@
         <div class="crew-profile-form-error" role="alert">@generalError</div>
     }
 
-    @if (unmappedErrors.Count > 0)
+    @if (fieldErrors.Count > 0)
     {
         <ul class="crew-profile-form-field-errors" role="alert">
-            @foreach (var message in unmappedErrors)
+            @foreach (var message in fieldErrors)
             {
                 <li>@message</li>
             }
@@ -31,42 +31,34 @@
         <div class="crew-profile-form-success" role="status">@successMessage</div>
     }
 
-    <EditForm EditContext="editContext" OnSubmit="SubmitAsync" class="crew-profile-form-grid">
-        <DataAnnotationsValidator />
-
+    <form class="crew-profile-form-grid" @onsubmit="SubmitAsync" @onsubmit:preventDefault="true">
         <div class="crew-profile-form-field">
             <label for="cert-type">Type</label>
-            <InputText id="cert-type" @bind-Value="model.Type" maxlength="100" />
-            <ValidationMessage For="() => model.Type" />
+            <input id="cert-type" @bind="model.Type" maxlength="100" />
         </div>
         <div class="crew-profile-form-field">
             <label for="cert-name">Name</label>
-            <InputText id="cert-name" @bind-Value="model.Name" maxlength="200" />
-            <ValidationMessage For="() => model.Name" />
+            <input id="cert-name" @bind="model.Name" maxlength="200" />
         </div>
         <div class="crew-profile-form-field">
             <label for="cert-authority">Issuing authority</label>
-            <InputText id="cert-authority" @bind-Value="model.IssuingAuthority" maxlength="200" />
-            <ValidationMessage For="() => model.IssuingAuthority" />
+            <input id="cert-authority" @bind="model.IssuingAuthority" maxlength="200" />
         </div>
         <div class="crew-profile-form-field">
             <label for="cert-license">License number</label>
-            <InputText id="cert-license" @bind-Value="model.LicenseNumber" maxlength="100" />
-            <ValidationMessage For="() => model.LicenseNumber" />
+            <input id="cert-license" @bind="model.LicenseNumber" maxlength="100" />
         </div>
         <div class="crew-profile-form-field">
             <label for="cert-issue-date">Issue date</label>
-            <InputDate id="cert-issue-date" @bind-Value="model.IssueDate" />
-            <ValidationMessage For="() => model.IssueDate" />
+            <input id="cert-issue-date" type="date" @bind="model.IssueDate" />
         </div>
         <div class="crew-profile-form-field">
             <label for="cert-expiry-date">Expiry date</label>
-            <InputDate id="cert-expiry-date" @bind-Value="model.ExpiryDate" />
-            <ValidationMessage For="() => model.ExpiryDate" />
+            <input id="cert-expiry-date" type="date" @bind="model.ExpiryDate" />
         </div>
 
         <button type="submit" class="crew-profile-form-submit" disabled="@isSubmitting">
             @(isSubmitting ? "Registering..." : "Register certificate")
         </button>
-    </EditForm>
+    </form>
 </section>

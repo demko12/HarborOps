@@ -17,10 +17,10 @@
         <div class="crew-profile-form-error" role="alert">@generalError</div>
     }
 
-    @if (unmappedErrors.Count > 0)
+    @if (fieldErrors.Count > 0)
     {
         <ul class="crew-profile-form-field-errors" role="alert">
-            @foreach (var message in unmappedErrors)
+            @foreach (var message in fieldErrors)
             {
                 <li>@message</li>
             }
@@ -32,41 +32,36 @@
         <div class="crew-profile-form-success" role="status">@successMessage</div>
     }
 
-    <EditForm EditContext="editContext" OnSubmit="SubmitAsync" class="crew-profile-form-grid">
-        <DataAnnotationsValidator />
-
-        <div class="crew-profile-form-field">
+    <form class="crew-profile-form-grid" @onsubmit="SubmitAsync" @onsubmit:preventDefault="true">
+        <div class="crew-profile-form-field crew-profile-form-field-wide">
             <label for="assign-vessel">Vessel</label>
             <VesselPicker @key="vesselPickerResetToken" @bind-Value="model.VesselId" Placeholder="Search vessel by name or IMO..." />
-            <ValidationMessage For="() => model.VesselId" />
         </div>
 
         <div class="crew-profile-form-field">
             <label for="assign-rank">Rank</label>
-            <InputSelect id="assign-rank" @bind-Value="model.RankId" disabled="@(isLoadingPositions || positionOptions.Count == 0)">
+            <select id="assign-rank" value="@(model.RankId?.ToString() ?? string.Empty)" @onchange="OnRankChanged" disabled="@(isLoadingPositions || positionOptions.Count == 0)">
                 <option value="">@RankPlaceholder</option>
                 @foreach (var option in positionOptions)
                 {
                     <option value="@option.CrewPositionId">@option.RankName (@option.Department)</option>
                 }
-            </InputSelect>
-            <ValidationMessage For="() => model.RankId" />
+            </select>
         </div>
 
         <div class="crew-profile-form-field">
             <label for="assign-sign-on-date">Sign-on date</label>
-            <InputDate id="assign-sign-on-date" @bind-Value="model.SignOnDate" />
-            <ValidationMessage For="() => model.SignOnDate" />
+            <input id="assign-sign-on-date" type="date" @bind="model.SignOnDate" min="@FormatIsoDate(today)" />
         </div>
 
         <div class="crew-profile-form-field">
             <label for="assign-planned-sign-off-date">Planned sign-off date</label>
-            <InputDate id="assign-planned-sign-off-date" @bind-Value="model.PlannedSignOffDate" />
-            <ValidationMessage For="() => model.PlannedSignOffDate" />
+            <input id="assign-planned-sign-off-date" type="date" @bind="model.PlannedSignOffDate"
+                   min="@(model.SignOnDate is { } signOn ? FormatIsoDate(signOn) : FormatIsoDate(today))" />
         </div>
 
-        <button type="submit" class="crew-profile-form-submit" disabled="@isSubmitting">
+        <button type="submit" class="crew-profile-form-submit" disabled="@(isSubmitting || model.VesselId is null)">
             @(isSubmitting ? "Assigning..." : "Assign to vessel")
         </button>
-    </EditForm>
+    </form>
 </section>

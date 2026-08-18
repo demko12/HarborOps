@@ -132,7 +132,7 @@
                         @foreach (var assignment in profile.Assignments)
                         {
                             var state = GetAssignmentState(assignment);
-                            <article class="crew-profile-row" @key="assignment.AssignmentId">
+                            <button type="button" class="crew-profile-row crew-profile-row-clickable" @key="assignment.AssignmentId" @onclick="() => OpenAssignmentDetails(assignment)">
                                 <div class="crew-profile-row-primary">
                                     <strong>Vessel @ShortId(assignment.VesselId)</strong>
                                     <span>@assignment.RankName</span>
@@ -146,16 +146,62 @@
                                     </span>
                                 </div>
                                 <span class="crew-profile-indicator @state.Class">@state.Label</span>
-                            </article>
+                            </button>
                         }
                     </div>
                 }
 
                 @if (CanManage)
                 {
-                    <AssignToVesselForm CrewMemberId="CrewMemberId" OnRegistered="OnAssignmentRegisteredAsync" />
+                    <AssignToVesselForm CrewMemberId="CrewMemberId" CrewMemberName="@profile.Name" OnRegistered="OnAssignmentRegisteredAsync" />
                 }
             </section>
         </div>
+
+        @if (selectedAssignment is not null)
+        {
+            var detailState = GetAssignmentState(selectedAssignment);
+            <div class="crew-assignment-modal-backdrop" @onclick="CloseAssignmentDetails">
+                <section class="crew-assignment-modal" role="dialog" aria-modal="true" aria-labelledby="crew-assignment-detail-title" @onclick:stopPropagation="true">
+                    <div class="crew-profile-card-heading">
+                        <h2 id="crew-assignment-detail-title">Assignment details</h2>
+                        <button type="button" class="crew-assignment-modal-close" @onclick="CloseAssignmentDetails" aria-label="Close assignment details">
+                            <span class="bi bi-x-lg" aria-hidden="true"></span>
+                        </button>
+                    </div>
+
+                    <dl class="crew-assignment-modal-details">
+                        <div><dt>Vessel</dt><dd>Vessel @ShortId(selectedAssignment.VesselId)</dd></div>
+                        <div><dt>Rank</dt><dd>@selectedAssignment.RankName</dd></div>
+                        <div><dt>Sign-on date</dt><dd>@selectedAssignment.SignOnDate.ToString("dd MMM yyyy")</dd></div>
+                        <div><dt>Planned sign-off date</dt><dd>@selectedAssignment.PlannedSignOffDate.ToString("dd MMM yyyy")</dd></div>
+                        @if (selectedAssignment.ActualSignOffDate is { } actualSignOff)
+                        {
+                            <div><dt>Actual sign-off date</dt><dd>@actualSignOff.ToString("dd MMM yyyy")</dd></div>
+                        }
+                        <div><dt>Status</dt><dd><span class="crew-profile-indicator @detailState.Class">@detailState.Label</span></dd></div>
+                    </dl>
+
+                    @if (deleteAssignmentError is not null)
+                    {
+                        <div class="crew-assignment-modal-error" role="alert">@deleteAssignmentError</div>
+                    }
+
+                    @if (CanManage)
+                    {
+                        @if (string.Equals(selectedAssignment.Status, "Planned", StringComparison.OrdinalIgnoreCase))
+                        {
+                            <button type="button" class="crew-assignment-modal-delete" disabled="@isDeletingAssignment" @onclick="DeleteSelectedAssignmentAsync">
+                                @(isDeletingAssignment ? "Deleting..." : "Delete assignment")
+                            </button>
+                        }
+                        else
+                        {
+                            <p class="crew-assignment-modal-hint">Only planned assignments can be deleted.</p>
+                        }
+                    }
+                </section>
+            </div>
+        }
     }
 </section>

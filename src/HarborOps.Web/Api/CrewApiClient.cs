@@ -128,6 +128,43 @@ internal sealed class CrewApiClient(HttpClient httpClient)
             "api/crew/assignments", request, cancellationToken);
     }
 
+    internal async Task<CrewApiWriteResult<bool>> DeleteAssignmentAsync(
+        Guid assignmentId,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            using var response = await httpClient.DeleteAsync($"api/crew/assignments/{assignmentId}", cancellationToken);
+
+            if (response.IsSuccessStatusCode)
+            {
+                return new CrewApiWriteResult<bool>(true, null);
+            }
+
+            var problem = await TryReadProblemAsync(response, cancellationToken);
+            var isForbidden = response.StatusCode == HttpStatusCode.Forbidden;
+            var isNotFound = response.StatusCode == HttpStatusCode.NotFound;
+            var isConflict = response.StatusCode == HttpStatusCode.Conflict;
+
+            return new CrewApiWriteResult<bool>(false, new CrewApiFailure(
+                (int)response.StatusCode,
+                problem?.Title ?? (isForbidden ? "Crew access denied"
+                    : isNotFound ? "Crew assignment not found"
+                    : isConflict ? "Conflict"
+                    : "Unable to delete"),
+                problem?.Detail ?? "Please try again.",
+                problem?.Errors ?? EmptyErrors));
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (HttpRequestException)
+        {
+            return new CrewApiWriteResult<bool>(false, new CrewApiFailure(0, "HarborOps API is unavailable", "Please try again.", EmptyErrors));
+        }
+    }
+
     private async Task<CrewApiWriteResult<TResponse>> PostAsync<TRequest, TResponse>(
     string path,
     TRequest request,

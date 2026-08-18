@@ -4,9 +4,14 @@
    sibling form components rather than factored into the parent profile page. */
 
 .crew-profile-form {
+    --control-popup: #131c2b;
     margin-top: 1.1rem;
     padding-top: 1.1rem;
     border-top: 1px solid var(--border-subtle);
+}
+
+html[data-theme="light"] .crew-profile-form {
+    --control-popup: #ffffff;
 }
 
 .crew-profile-form-header { margin-bottom: 1rem; }
@@ -59,6 +64,7 @@ html[data-theme="light"] .crew-profile-form-field-errors { border-color: rgba(18
 }
 
 .crew-profile-form-field { display: flex; flex-direction: column; gap: .4rem; min-width: 0; }
+.crew-profile-form-field-wide { grid-column: span 2; }
 .crew-profile-form-field label { color: var(--text-muted); font-size: .7rem; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; }
 
 .crew-profile-form-grid ::deep select,
@@ -86,6 +92,11 @@ html[data-theme="light"] .crew-profile-form-field-errors { border-color: rgba(18
 }
 
 .crew-profile-form-grid ::deep select:disabled { cursor: not-allowed; opacity: .6; }
+
+.crew-profile-form-grid ::deep select option {
+    color: var(--text-primary);
+    background-color: var(--control-popup);
+}
 
 .crew-profile-form-grid ::deep select:hover,
 .crew-profile-form-grid ::deep input:hover { border-color: var(--border-medium); }
@@ -120,5 +131,5 @@ html[data-theme="light"] .crew-profile-form-grid ::deep input:not(.vessel-picker
 
 @media (max-width: 620px) {
     .crew-profile-form-grid { grid-template-columns: 1fr; }
-    .crew-profile-form-submit { grid-column: auto; }
+    .crew-profile-form-field-wide, .crew-profile-form-submit { grid-column: auto; }
 }

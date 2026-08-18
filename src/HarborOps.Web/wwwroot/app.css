@@ -141,6 +141,8 @@ html, body {
     .compliance-card,
     .crew-card,
     .crew-insight-card,
+    .crew-profile-card,
+    .crew-profile-summary-card,
     .crew-summary-card,
     .documents-card,
     .documents-form-card,
@@ -168,6 +170,7 @@ html, body {
 
 .page:not(.login-layout) :is(
     .administration-modal,
+    .crew-assignment-modal,
     .logout-modal,
     .notifications-dropdown,
     .account-dropdown) {
@@ -187,6 +190,8 @@ html[data-theme="dark"] .page:not(.login-layout) :is(
     .compliance-card,
     .crew-card,
     .crew-insight-card,
+    .crew-profile-card,
+    .crew-profile-summary-card,
     .crew-summary-card,
     .documents-card,
     .documents-form-card,
@@ -212,6 +217,7 @@ html[data-theme="dark"] .page:not(.login-layout) :is(
 
 html[data-theme="dark"] .page:not(.login-layout) :is(
     .administration-modal,
+    .crew-assignment-modal,
     .logout-modal,
     .notifications-dropdown,
     .account-dropdown) {

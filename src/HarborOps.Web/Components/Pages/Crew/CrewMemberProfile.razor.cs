@@ -16,6 +16,10 @@ public partial class CrewMemberProfile : IDisposable
     private bool isLoading = true;
     private bool isSensitiveDataRevealed;
 
+    private CrewAssignmentProfileItemResponse? selectedAssignment;
+    private bool isDeletingAssignment;
+    private string? deleteAssignmentError;
+
     private bool CanManage => CurrentUser.HasPermission(CurrentUserAuthorizationState.CrewManagePermission);
 
     protected override async Task OnInitializedAsync() => await LoadProfileAsync();
@@ -83,6 +87,48 @@ public partial class CrewMemberProfile : IDisposable
         if (result.IsSuccess && result.Value is not null && profile is not null)
         {
             profile = profile with { Assignments = result.Value.Assignments };
+        }
+    }
+
+    private void OpenAssignmentDetails(CrewAssignmentProfileItemResponse assignment)
+    {
+        selectedAssignment = assignment;
+        deleteAssignmentError = null;
+    }
+
+    private void CloseAssignmentDetails()
+    {
+        selectedAssignment = null;
+        deleteAssignmentError = null;
+    }
+
+    private async Task DeleteSelectedAssignmentAsync()
+    {
+        if (selectedAssignment is null || isDeletingAssignment)
+        {
+            return;
+        }
+
+        isDeletingAssignment = true;
+        deleteAssignmentError = null;
+
+        var result = await CrewApi.DeleteAssignmentAsync(selectedAssignment.AssignmentId, disposeCancellation.Token);
+
+        isDeletingAssignment = false;
+
+        if (!result.IsSuccess)
+        {
+            deleteAssignmentError = result.Failure!.Message;
+            return;
+        }
+
+        selectedAssignment = null;
+
+        // Same "refresh only the affected section" pattern as OnAssignmentRegisteredAsync.
+        var refreshed = await CrewApi.GetProfileAsync(CrewMemberId, disposeCancellation.Token);
+        if (refreshed.IsSuccess && refreshed.Value is not null && profile is not null)
+        {
+            profile = profile with { Assignments = refreshed.Value.Assignments };
         }
     }
 
