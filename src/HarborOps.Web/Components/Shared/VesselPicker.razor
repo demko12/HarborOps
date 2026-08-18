@@ -1,6 +1,7 @@
 @inject FleetApiClient FleetApi
 
 <div class="vessel-picker">
+    <span class="bi bi-search vessel-picker-search-icon" aria-hidden="true"></span>
     <input class="vessel-picker-input"
            type="text"
            value="@displayText"
@@ -33,8 +34,10 @@
             {
                 @foreach (var vessel in results)
                 {
-                    <li class="vessel-picker-option" role="option" @onclick="() => SelectVessel(vessel)">
-                        @vessel.Name <span class="vessel-picker-imo">(@vessel.ImoNumber)</span>
+                    <li role="option">
+                        <button class="vessel-picker-option" type="button" @onclick="() => SelectVessel(vessel)">
+                            <strong>@vessel.Name</strong><span class="vessel-picker-imo">IMO @vessel.ImoNumber &middot; @vessel.FlagState</span>
+                        </button>
                     </li>
                 }
             }

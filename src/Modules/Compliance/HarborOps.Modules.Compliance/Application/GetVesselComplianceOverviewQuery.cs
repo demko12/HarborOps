@@ -59,7 +59,7 @@ internal sealed class GetVesselComplianceOverviewQuery(DbContext dbContext)
             .Where(survey => survey.VesselId == request.VesselId)
             .OrderByDescending(survey => survey.Date)
             .ThenBy(survey => survey.Id)
-            .Take(MaxItemsPerCollection)
+            .Take(10)
             .Select(survey => new SurveyAuditOverviewItem(
                 survey.Id,
                 survey.VesselId,

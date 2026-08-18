@@ -1,9 +1,12 @@
 .compliance-page { --control:#131c2b; max-width:1400px; margin:0 auto; padding:2.5rem 2rem; }
 html[data-theme="light"] .compliance-page { --control:#fff; }
-.compliance-header { margin-bottom:1.75rem; }
+.compliance-header { display:flex; align-items:flex-end; justify-content:space-between; gap:1rem; margin-bottom:1.75rem; }
 .compliance-eyebrow { margin:0 0 .4rem; color:var(--accent); font-size:.72rem; font-weight:700; letter-spacing:.14em; text-transform:uppercase; }
 .compliance-header h1 { margin:0; font-size:clamp(1.75rem,3vw,2.25rem); letter-spacing:-.04em; }
 .compliance-header p:last-child { margin:.4rem 0 0; color:var(--text-secondary); }
+.compliance-header-action { display:inline-flex; flex:0 0 auto; align-items:center; gap:.5rem; height:2.8rem; padding:0 1rem; color:var(--text-primary); border:1px solid var(--border-medium); border-radius:.6rem; background:var(--bg-surface-strong); font:inherit; font-size:.88rem; font-weight:600; text-decoration:none; cursor:pointer; transition:border-color .16s ease,background .16s ease,transform .16s ease; }
+.compliance-header-action > .bi { color:#2563eb; }
+.compliance-header-action:hover { border-color:var(--accent-border); background:var(--accent-bg); transform:translateY(-1px); }
 .compliance-selector,.compliance-card,.compliance-actions button { border:1px solid var(--border-medium); border-radius:1rem; background:linear-gradient(145deg,var(--bg-surface-strong),var(--bg-surface)); box-shadow:0 18px 40px rgba(0,0,0,.25); }
 .compliance-selector { padding:1.1rem 1.25rem; margin-bottom:1rem; }
 .compliance-vessel-field { max-width:32rem; }
@@ -16,7 +19,7 @@ html[data-theme="light"] .compliance-page { --control:#fff; }
 .compliance-field { display:flex; flex-direction:column; gap:.4rem; }
 .compliance-field label { color:var(--text-muted); font-size:.7rem; font-weight:700; letter-spacing:.1em; text-transform:uppercase; }
 .compliance-form-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:1rem; margin-bottom:1rem; }
-.compliance-form-grid ::deep input:not([type="checkbox"]) { width:100%; height:2.8rem; padding:0 .85rem; color:var(--text-primary); border:1px solid var(--border-medium); border-radius:.65rem; background:var(--control); font:inherit; }
+.compliance-form-grid ::deep input:not([type="checkbox"]):not([type="radio"]):not(.document-picker-input) { width:100%; height:2.8rem; padding:0 .85rem; color:var(--text-primary); border:1px solid var(--border-medium); border-radius:.65rem; background:var(--control); font:inherit; }
 .validation-message,.compliance-error { color:#f87171; font-size:.8rem; }
 .compliance-success { margin-bottom:1rem; padding:.8rem; border:1px solid rgba(52,211,153,.3); border-radius:.7rem; background:rgba(6,78,59,.15); }
 .compliance-section { margin-top:1.35rem; padding:1.45rem; }
@@ -52,6 +55,150 @@ html[data-theme="light"] .compliance-page { --control:#fff; }
 html[data-theme="light"] .compliance-record { background:#fff; box-shadow:0 4px 14px rgba(15,23,42,.06); }
 html[data-theme="light"] .compliance-badge.danger { color:#991b1b; background:rgba(254,226,226,.75); }
 html[data-theme="light"] .compliance-badge.success { color:#047857; background:rgba(209,250,229,.75); }
+
+.compliance-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: .7rem;
+    padding: 1rem 1.15rem;
+    border: 1px solid var(--border-medium);
+    border-radius: 1rem;
+    background: var(--bg-surface-strong);
+    box-shadow: 0 12px 28px rgba(15, 23, 42, .08);
+}
+
+.compliance-actions button {
+    display: inline-flex;
+    align-items: center;
+    gap: .5rem;
+    height: 2.8rem;
+    padding: 0 1rem;
+    color: var(--text-primary);
+    border: 1px solid var(--border-medium);
+    border-radius: .6rem;
+    background: var(--bg-surface);
+    font-size: .88rem;
+    font-weight: 600;
+    transition: border-color .16s ease, background .16s ease, transform .16s ease;
+}
+
+.compliance-actions button:hover { border-color: var(--accent-border); background: var(--accent-bg); transform: translateY(-1px); }
+
+.compliance-modal-backdrop {
+    position: fixed;
+    z-index: 1200;
+    inset: 0;
+    display: grid;
+    place-items: center;
+    padding: 1.5rem;
+    overflow-y: auto;
+    background: rgba(15, 23, 42, .24);
+    backdrop-filter: blur(3px);
+}
+
+.compliance-registration-modal {
+    width: min(100%, 54rem);
+    max-height: calc(100vh - 3rem);
+    margin: 0;
+    overflow-y: auto;
+    border-color: rgba(148, 163, 184, .42);
+    background: #f8fafc;
+    box-shadow: 0 28px 70px rgba(15, 23, 42, .24), 0 0 0 1px rgba(255, 255, 255, .7) inset;
+}
+
+.compliance-modal-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem; margin-bottom: 1.35rem; }
+.compliance-modal-heading h2 { margin: 0; font-size: 1.08rem; }
+.compliance-modal-heading p { margin: .4rem 0 0; color: var(--text-secondary); font-size: .85rem; }
+.compliance-modal-close,.compliance-cancel { display: inline-flex; align-items: center; gap: .42rem; height: 2.5rem; padding: 0 .8rem; color: var(--text-secondary); border: 1px solid var(--border-medium); border-radius: .55rem; background: var(--bg-surface); font: inherit; font-size: .82rem; font-weight: 600; cursor: pointer; }
+.compliance-modal-close:hover,.compliance-cancel:hover { color: var(--text-primary); border-color: var(--accent-border); background: var(--accent-bg); }
+.compliance-modal-actions { display: flex; align-items: center; gap: .75rem; }
+.compliance-modal-actions .compliance-submit { height: 2.8rem; padding: 0 1.1rem; color:var(--text-primary); border-color:var(--border-medium); background:var(--bg-surface-strong); box-shadow:none; transition:transform .16s ease,border-color .16s ease,background .16s ease; }
+.compliance-modal-actions .compliance-submit:hover:not(:disabled) { border-color:var(--accent-border); background:var(--accent-bg); transform:translateY(-1px); }
+.compliance-modal-actions .compliance-submit:focus-visible { outline:0; box-shadow:0 0 0 .22rem var(--accent-bg); }
+
+.compliance-form-grid ::deep :is(input:not([type="checkbox"]):not([type="radio"]):not(.document-picker-input), select) { box-sizing: border-box; width: 100%; height: 2.8rem; padding: 0 .85rem; color: var(--text-primary); border: 1px solid var(--border-medium); border-radius: .65rem; outline: 0; background: var(--control); font: inherit; font-size: .88rem; color-scheme: light; }
+.compliance-form-grid ::deep :is(input:not([type="checkbox"]):not([type="radio"]):not(.document-picker-input), select):focus { border-color: var(--accent); box-shadow: 0 0 0 .22rem var(--accent-bg); }
+html[data-theme="dark"] .compliance-form-grid ::deep :is(input:not([type="checkbox"]), select) { color-scheme: dark; }
+.compliance-radio { display: inline-flex; align-items: center; gap: .45rem; margin-right: 1rem; color: var(--text-secondary); font-size: .88rem; letter-spacing: 0; text-transform: none; }
+.compliance-radio ::deep input[type="radio"] { width:1rem; height:1rem; margin:0; accent-color:#2563eb; }
+
+.compliance-page ::deep .compliance-section { border-color: rgba(148, 163, 184, .24); background: linear-gradient(145deg, var(--bg-surface-strong), var(--bg-surface)); box-shadow: 0 14px 32px rgba(15, 23, 42, .08); }
+.compliance-page ::deep .compliance-section-heading { justify-content: space-between; padding-bottom: .9rem; border-bottom: 1px solid var(--border-subtle); }
+.compliance-page ::deep .compliance-section-heading h2 { font-size: 1.02rem; }
+
+html[data-theme="dark"] .compliance-modal-backdrop { background: rgba(2, 6, 23, .48); }
+html[data-theme="dark"] .compliance-registration-modal { border-color: rgba(148, 163, 184, .25); background: #172033; box-shadow: 0 28px 70px rgba(0, 0, 0, .45), 0 0 0 1px rgba(255, 255, 255, .06) inset; }
+
+.compliance-actions {
+    padding: 0;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    box-shadow: none;
+}
+
+.compliance-actions button { box-shadow: none; }
+
+.compliance-actions button {
+    color: #172033;
+    border-color: #c7d1df !important;
+    background: #ffffff;
+}
+
+.compliance-actions button > .bi { color: #2563eb; }
+.compliance-actions button:hover { border-color: rgba(37, 99, 235, .48); background: #eff6ff; }
+
+.compliance-registration-modal {
+    border-color: #c7d1df;
+    background: #ffffff !important;
+    box-shadow: 0 28px 64px rgba(15, 23, 42, .28) !important;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+}
+
+html[data-theme="dark"] .compliance-registration-modal {
+    border-color: rgba(148, 163, 184, .28) !important;
+    background: #172033 !important;
+    box-shadow: 0 28px 64px rgba(0, 0, 0, .5) !important;
+}
+
+html[data-theme="dark"] .compliance-actions button {
+    color: var(--text-primary);
+    border-color: rgba(148, 163, 184, .32);
+    background: #172033;
+}
+
+html[data-theme="dark"] .compliance-actions button:hover { background: #1d2a41; }
+
+.compliance-page ::deep .compliance-section {
+    padding: 1.3rem;
+    margin-top: 1.25rem;
+    border: 1px solid rgba(148, 163, 184, .28);
+    border-radius: 1rem;
+    background: #f8fafc;
+    box-shadow: none;
+}
+
+.compliance-page ::deep .compliance-section-heading {
+    display: flex;
+    align-items: center;
+    min-height: 2rem;
+    margin: 0 0 1rem;
+    padding: 0 0 .85rem;
+    border-bottom: 1px solid var(--border-subtle);
+}
+
+.compliance-page ::deep .compliance-section-heading h2 {
+    margin: 0;
+    color: var(--text-primary);
+    font-size: 1.03rem;
+    letter-spacing: -.015em;
+}
+
+html[data-theme="dark"] .compliance-page ::deep .compliance-section {
+    border-color: rgba(148, 163, 184, .2);
+    background: #172033;
+}
 @media(prefers-reduced-motion:reduce){.compliance-record{transition:none}.compliance-record:hover{transform:none}}
 @media(max-width:1050px){.compliance-list{grid-template-columns:1fr}}
-@media(max-width:760px){.compliance-page{padding:1.25rem 1rem}.compliance-actions,.compliance-form-grid{grid-template-columns:1fr}.compliance-section{padding:1rem}.certificate-card,.inspection-card,.issue-card{grid-template-columns:1fr}.record-status-block,.deadline-block{align-items:flex-start;text-align:left}.inspection-metric{width:max-content;align-items:flex-start;text-align:left}.record-metadata{align-items:flex-start;flex-direction:column;gap:.25rem}.record-metadata code{width:100%}}
+@media(max-width:760px){.compliance-page{padding:1.25rem 1rem}.compliance-header{align-items:flex-start;flex-direction:column}.compliance-actions,.compliance-form-grid{grid-template-columns:1fr}.compliance-section{padding:1rem}.certificate-card,.inspection-card,.issue-card{grid-template-columns:1fr}.record-status-block,.deadline-block{align-items:flex-start;text-align:left}.inspection-metric{width:max-content;align-items:flex-start;text-align:left}.record-metadata{align-items:flex-start;flex-direction:column;gap:.25rem}.record-metadata code{width:100%}}

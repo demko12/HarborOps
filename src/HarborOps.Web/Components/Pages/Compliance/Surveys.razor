@@ -1,0 +1,436 @@
+@page "/compliance/surveys"
+@attribute [Microsoft.AspNetCore.Authorization.Authorize(Policy = "AccessCompliance")]
+@using HarborOps.Web.Api
+@using HarborOps.Web.Api.Compliance
+@using HarborOps.Web.Api.Documents
+@using Microsoft.AspNetCore.Components.Web
+@using Microsoft.JSInterop
+@inject ComplianceApiClient ComplianceApi
+@inject DocumentsApiClient DocumentsApi
+@inject FleetApiClient FleetApi
+@inject CurrentUserAuthorizationState AuthorizationState
+@inject IJSRuntime JS
+@implements IAsyncDisposable
+
+<PageTitle>Surveys and audits | HarborOps</PageTitle>
+
+<section class="survey-page" @ref="pageElement" @onclick="CloseVesselDropdowns">
+    <header class="survey-header">
+        <div><p class="compliance-eyebrow">Compliance operations</p><h1>Surveys and audits</h1><p>Register and review vessel survey findings and audit outcomes.</p></div>
+        @if (AuthorizationState.CanManageCompliance) { <button class="survey-register-action" type="button" @onclick="OpenRegistrationForm"><span class="bi bi-plus-lg"></span> Register survey</button> }
+    </header>
+
+    @if (AuthorizationState.CanManageCompliance && isRegistrationOpen)
+    {
+        <div class="survey-modal-backdrop" role="presentation" @onclick="CloseRegistrationForm">
+        <section class="survey-card survey-registration-modal" role="dialog" aria-modal="true" aria-labelledby="survey-form-title" @onclick:stopPropagation="true">
+            <div class="survey-card-heading"><div><h2 id="survey-form-title">Register survey</h2><p>Record the outcome and findings against the selected vessel.</p></div><button class="survey-close-button" type="button" @onclick="CloseRegistrationForm"><span class="bi bi-x-lg" aria-hidden="true"></span> Close</button></div>
+            @if (registerFailure is not null) { <ApiErrorState Title="@registerFailure.Title" Message="@registerFailure.Message" /> }
+            <div class="survey-form">
+                <div class="survey-field survey-field-wide survey-form-vessel-picker" @onclick:stopPropagation="true">
+                    <label for="survey-vessel-search">Vessel</label>
+                    @if (selectedVessel is not null)
+                    {
+                        <div class="survey-vessel-selected">
+                            <div>
+                                <strong>@selectedVessel.Name</strong>
+                                <span>IMO @selectedVessel.ImoNumber</span>
+                            </div>
+                            <button class="survey-link" type="button" @onclick="ClearVessel">Change</button>
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="survey-input-shell">
+                            <span class="bi bi-search" aria-hidden="true"></span>
+                            <input id="survey-vessel-search" class="survey-vessel-search" @bind="vesselSearch" @bind:event="oninput"
+                                   @bind:after="SearchVesselsAsync" @onkeydown="HandleVesselKeyDown"
+                                   @onfocus="ShowVesselOptionsAsync" disabled="@isSubmitting"
+                                   placeholder="Click to browse, or type to search"
+                                   aria-label="Search vessels by name" />
+                        </div>
+
+                        @if (isVesselDropdownOpen && isSearchingVessels)
+                        {
+                            <p class="survey-hint">Searching vessels...</p>
+                        }
+                        else if (isVesselDropdownOpen && vesselFailure is not null)
+                        {
+                            <p class="survey-hint survey-hint-error">@vesselFailure.Title</p>
+                        }
+                        else if (isVesselDropdownOpen && vesselResults.Count > 0)
+                        {
+                            <ul class="survey-vessel-results">
+                                @for (var index = 0; index < vesselResults.Count; index++)
+                                {
+                                    var vessel = vesselResults[index];
+
+                                    <li @key="vessel.VesselId">
+                                        <button type="button" id="@VesselOptionId(index)"
+                                                class="@(index == highlightedVessel ? "highlighted" : null)"
+                                                @onclick="() => SelectVessel(vessel)">
+                                            <strong>@vessel.Name</strong>
+                                            <span>IMO @vessel.ImoNumber · @vessel.FlagState</span>
+                                        </button>
+                                    </li>
+                                }
+                            </ul>
+                        }
+                        else if (isVesselDropdownOpen && vesselSearchVersion > 0)
+                        {
+                            <p class="survey-hint">
+                                @(string.IsNullOrWhiteSpace(vesselSearch)
+                                    ? "No vessels are registered yet."
+                                    : "No vessels match that search.")
+                            </p>
+                        }
+                    }
+                </div>
+                <div class="survey-field"><label for="survey-date">Survey date</label><InputDate id="survey-date" @bind-Value="model.SurveyDate" /></div>
+                <div class="survey-field"><label for="survey-type">Type</label><select id="survey-type" @bind="model.Type"><option value="">Select type</option>@foreach (var type in Types) { <option value="@type">@type</option> }</select></div>
+                <div class="survey-field"><label for="survey-inspector">Inspector</label><InputText id="survey-inspector" @bind-Value="model.InspectorName" placeholder="Inspector or audit lead" /></div>
+                <div class="survey-field"><label for="survey-result">Result</label><select id="survey-result" @bind="model.Result"><option value="">Select result</option>@foreach (var result in Results) { <option value="@result">@result</option> }</select></div>
+                <div class="survey-field survey-field-wide"><label>Supporting document</label><DocumentPicker VesselId="model.VesselId" Value="model.DocumentId" ValueChanged="@(value => model.DocumentId = value)" /></div>
+                <div class="survey-field survey-field-wide"><label for="survey-findings">Findings</label><InputTextArea id="survey-findings" @bind-Value="model.Findings" placeholder="Record observations, findings, or follow-up required." /></div>
+                <div class="survey-actions"><button class="survey-button" type="button" disabled="@isSubmitting" @onclick="RegisterAsync">@(isSubmitting ? "Registering..." : "Register survey")</button><button class="survey-link" type="button" @onclick="CloseRegistrationForm">Cancel</button></div>
+            </div>
+        </section>
+        </div>
+    }
+
+    <section class="survey-card survey-register-card">
+        <div class="surveys-list-heading"><div><h2>Survey register</h2><p>@(surveys?.TotalCount ?? 0) surveys and audits found</p></div><span class="survey-panel-icon bi bi-clipboard2-check" aria-hidden="true"></span></div>
+        <div class="surveys-filters">
+            <div class="survey-vessel-filter" @onclick:stopPropagation="true">
+                @if (selectedFilterVessel is not null)
+                {
+                    <div class="survey-vessel-selected">
+                        <div>
+                            <strong>@selectedFilterVessel.Name</strong>
+                            <span>IMO @selectedFilterVessel.ImoNumber</span>
+                        </div>
+                        <button class="survey-link" type="button" @onclick="ClearFilterVesselAsync">Change</button>
+                    </div>
+                }
+                else
+                {
+                    <div class="survey-input-shell">
+                        <span class="bi bi-search" aria-hidden="true"></span>
+                        <input id="survey-filter-vessel-search" class="survey-vessel-search" @bind="filterVesselSearch" @bind:event="oninput"
+                               @bind:after="SearchFilterVesselsAsync" @onfocus="ShowFilterVesselOptionsAsync"
+                               disabled="@isLoading" placeholder="Click to browse vessels, or type to search" aria-label="Filter surveys by vessel" />
+                    </div>
+
+                    @if (isFilterVesselDropdownOpen && isSearchingFilterVessels)
+                    {
+                        <p class="survey-hint">Searching vessels...</p>
+                    }
+                    else if (isFilterVesselDropdownOpen && filterVesselFailure is not null)
+                    {
+                        <p class="survey-hint survey-hint-error">@filterVesselFailure.Title</p>
+                    }
+                    else if (isFilterVesselDropdownOpen && filterVesselResults.Count > 0)
+                    {
+                        <ul class="survey-vessel-results">
+                            @foreach (var vessel in filterVesselResults)
+                            {
+                                <li @key="vessel.VesselId">
+                                    <button type="button" @onclick="() => SelectFilterVesselAsync(vessel)">
+                                        <strong>@vessel.Name</strong>
+                                        <span>IMO @vessel.ImoNumber · @vessel.FlagState</span>
+                                    </button>
+                                </li>
+                            }
+                        </ul>
+                    }
+                }
+            </div>
+            <div class="surveys-input-shell"><span class="bi bi-search" aria-hidden="true"></span><input id="survey-search" @bind="search" @bind:event="oninput" @bind:after="ReloadAsync" placeholder="Search survey type, inspector or findings" aria-label="Search surveys" /></div>
+            <div class="survey-select-shell"><select id="filter-type" @bind="typeFilter" @bind:after="ReloadAsync" aria-label="Filter by type"><option value="">All types</option>@foreach (var type in Types) { <option value="@type">@type</option> }</select><span class="bi bi-chevron-down" aria-hidden="true"></span></div>
+            <div class="survey-select-shell"><select id="filter-result" @bind="resultFilter" @bind:after="ReloadAsync" aria-label="Filter by result"><option value="">All results</option>@foreach (var result in Results) { <option value="@result">@result</option> }</select><span class="bi bi-chevron-down" aria-hidden="true"></span></div>
+        </div>
+        @if (isLoading) { <LoadingState Message="Loading surveys and audits..." /> }
+        else if (failure is not null) { <ApiErrorState Title="@failure.Title" Message="@failure.Message" OnRetry="ReloadAsync" /> }
+        else if (surveys is null || surveys.Items.Count == 0) { <EmptyState Title="No surveys found" Message="Try changing the filters or register the first survey." /> }
+        else { <div class="surveys-list">@foreach (var survey in surveys.Items) { <button type="button" class="survey-record" @onclick="() => LoadDetailsAsync(survey.Id)"><div class="survey-record-cell survey-record-type"><span>Survey type</span><strong>@survey.Type</strong></div><div class="survey-record-cell"><span>Survey date</span><strong>@survey.SurveyDate.ToString("dd MMM yyyy")</strong></div><div class="survey-record-cell"><span>Inspector</span><strong>@(survey.InspectorName ?? "Inspector not recorded")</strong></div><span class="compliance-badge neutral">@survey.Result</span><span class="bi bi-chevron-right" aria-hidden="true"></span></button> }</div><div class="surveys-pagination"><span>Showing @surveys.Items.Count of @surveys.TotalCount surveys</span><div><button type="button" disabled="@(pageNumber == 1)" @onclick="PreviousPageAsync">Previous</button><span>Page @pageNumber</span><button type="button" disabled="@(pageNumber * 25 >= surveys.TotalCount)" @onclick="NextPageAsync">Next</button></div></div> }
+    </section>
+
+    @if (details is not null)
+    {
+        <section class="survey-card survey-details" aria-labelledby="survey-details-title">
+            <div class="survey-card-heading">
+                <div>
+                    <p class="survey-detail-eyebrow">Survey record</p>
+                    <h2 id="survey-details-title">@details.Type</h2>
+                    <p>@details.SurveyDate.ToString("dd MMM yyyy") &middot; @(details.InspectorName ?? "Inspector not recorded")</p>
+                </div>
+                <button class="survey-close-button" type="button" @onclick="CloseDetails"><span class="bi bi-x-lg" aria-hidden="true"></span> Close</button>
+            </div>
+
+            <div class="survey-details-grid">
+                <div class="survey-detail-item">
+                    <span>Result</span>
+                    <strong class="compliance-badge neutral">@details.Result</strong>
+                </div>
+                <div class="survey-detail-item">
+                    <span>Supporting document</span>
+                    <strong>@(details.DocumentId is null ? "No document linked" : detailDocument is null ? details.DocumentId.ToString() : $"{detailDocument.DocumentTypeName} — {detailDocument.Number}")</strong>
+                </div>
+            </div>
+
+            <div class="survey-findings-panel">
+                <span>Findings</span>
+                <p>@(string.IsNullOrWhiteSpace(details.Findings) ? "No findings were recorded." : details.Findings)</p>
+            </div>
+
+            <div class="survey-details-actions">
+                <a class="survey-button survey-nc-action" href="/compliance?surveyId=@details.Id">Start non-conformity workflow <span class="bi bi-arrow-right"></span></a>
+            </div>
+        </section>
+    }
+</section>
+
+@code {
+    private const int VesselResultLimit = 25;
+
+    private static readonly string[] Types = ["Annual survey", "Intermediate survey", "Internal audit", "External audit", "Flag state inspection"];
+    private static readonly string[] Results = ["Satisfactory", "Findings raised", "Unsatisfactory"];
+    private readonly CancellationTokenSource disposeCts = new();
+
+    private SurveyForm model = new(); private SurveyAuditList? surveys; private SurveyAuditDetails? details; private DocumentListItem? detailDocument; private ComplianceApiFailure? failure; private ComplianceApiFailure? registerFailure; private bool isLoading; private bool isSubmitting; private bool isRegistrationOpen; private Guid? vesselFilter; private string? search; private string? typeFilter; private string? resultFilter; private int pageNumber = 1;
+    private string? vesselSearch;
+    private IReadOnlyList<VesselListItemResponse> vesselResults = [];
+    private VesselListItemResponse? selectedVessel;
+    private FleetApiFailure? vesselFailure;
+    private bool isSearchingVessels;
+    private int highlightedVessel = -1;
+    private int vesselSearchVersion;
+    private bool isVesselDropdownOpen;
+    private string? filterVesselSearch;
+    private IReadOnlyList<VesselListItemResponse> filterVesselResults = [];
+    private VesselListItemResponse? selectedFilterVessel;
+    private FleetApiFailure? filterVesselFailure;
+    private bool isSearchingFilterVessels;
+    private int filterVesselSearchVersion;
+    private bool isFilterVesselDropdownOpen;
+    private ElementReference pageElement;
+    private DotNetObjectReference<Surveys>? outsideClickReference;
+
+    protected override Task OnInitializedAsync() => ReloadAsync();
+
+    private void OpenRegistrationForm() => isRegistrationOpen = true;
+
+    private void CloseRegistrationForm() => isRegistrationOpen = false;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            outsideClickReference = DotNetObjectReference.Create(this);
+            await JS.InvokeVoidAsync("outsideClickInterop.register", pageElement, outsideClickReference);
+        }
+    }
+
+    private Task ShowVesselOptionsAsync()
+    {
+        isVesselDropdownOpen = true;
+
+        return vesselResults.Count > 0
+            ? Task.CompletedTask
+            : LoadVesselsAsync(vesselSearch);
+    }
+
+    private Task SearchVesselsAsync()
+    {
+        isVesselDropdownOpen = true;
+
+        return LoadVesselsAsync(vesselSearch);
+    }
+
+    private async Task LoadVesselsAsync(string? searchTerm)
+    {
+        var requestVersion = ++vesselSearchVersion;
+
+        isSearchingVessels = true;
+        vesselFailure = null;
+
+        var result = await FleetApi.GetVesselsAsync(
+            searchTerm,
+            null,
+            1,
+            VesselResultLimit,
+            disposeCts.Token);
+
+        if (disposeCts.IsCancellationRequested || requestVersion != vesselSearchVersion)
+        {
+            return;
+        }
+
+        isSearchingVessels = false;
+        highlightedVessel = -1;
+
+        if (!result.IsSuccess)
+        {
+            vesselFailure = result.Failure;
+            vesselResults = [];
+
+            return;
+        }
+
+        vesselResults = result.Value!.Items;
+    }
+
+    private void SelectVessel(VesselListItemResponse vessel)
+    {
+        selectedVessel = vessel;
+        model.VesselId = vessel.VesselId;
+        model.DocumentId = null;
+        vesselResults = [];
+        vesselSearch = null;
+        highlightedVessel = -1;
+        isVesselDropdownOpen = false;
+    }
+
+    private static string VesselOptionId(int index) => $"survey-vessel-option-{index}";
+
+    private async Task HandleVesselKeyDown(KeyboardEventArgs args)
+    {
+        if (vesselResults.Count == 0)
+        {
+            return;
+        }
+
+        switch (args.Key)
+        {
+            case "ArrowDown":
+                highlightedVessel = (highlightedVessel + 1) % vesselResults.Count;
+                await JS.InvokeVoidAsync("scrollInterop.intoView", VesselOptionId(highlightedVessel));
+                break;
+            case "ArrowUp":
+                highlightedVessel = highlightedVessel <= 0
+                    ? vesselResults.Count - 1
+                    : highlightedVessel - 1;
+                await JS.InvokeVoidAsync("scrollInterop.intoView", VesselOptionId(highlightedVessel));
+                break;
+            case "Enter" when highlightedVessel >= 0:
+                SelectVessel(vesselResults[highlightedVessel]);
+                break;
+            case "Escape":
+                vesselResults = [];
+                highlightedVessel = -1;
+                break;
+        }
+    }
+
+    private void ClearVessel()
+    {
+        selectedVessel = null;
+        model.VesselId = null;
+        model.DocumentId = null;
+    }
+
+    private Task ShowFilterVesselOptionsAsync()
+    {
+        isFilterVesselDropdownOpen = true;
+
+        return filterVesselResults.Count > 0
+            ? Task.CompletedTask
+            : LoadFilterVesselsAsync(filterVesselSearch);
+    }
+
+    private Task SearchFilterVesselsAsync()
+    {
+        isFilterVesselDropdownOpen = true;
+
+        return LoadFilterVesselsAsync(filterVesselSearch);
+    }
+
+    private async Task LoadFilterVesselsAsync(string? searchTerm)
+    {
+        var requestVersion = ++filterVesselSearchVersion;
+
+        isSearchingFilterVessels = true;
+        filterVesselFailure = null;
+
+        var result = await FleetApi.GetVesselsAsync(
+            searchTerm,
+            null,
+            1,
+            VesselResultLimit,
+            disposeCts.Token);
+
+        if (disposeCts.IsCancellationRequested || requestVersion != filterVesselSearchVersion)
+        {
+            return;
+        }
+
+        isSearchingFilterVessels = false;
+
+        if (!result.IsSuccess)
+        {
+            filterVesselFailure = result.Failure;
+            filterVesselResults = [];
+
+            return;
+        }
+
+        filterVesselResults = result.Value!.Items;
+    }
+
+    private async Task SelectFilterVesselAsync(VesselListItemResponse vessel)
+    {
+        selectedFilterVessel = vessel;
+        vesselFilter = vessel.VesselId;
+        filterVesselResults = [];
+        filterVesselSearch = null;
+        isFilterVesselDropdownOpen = false;
+        pageNumber = 1;
+        await ReloadAsync();
+    }
+
+    private async Task ClearFilterVesselAsync()
+    {
+        selectedFilterVessel = null;
+        vesselFilter = null;
+        filterVesselResults = [];
+        filterVesselSearch = null;
+        isFilterVesselDropdownOpen = false;
+        pageNumber = 1;
+        await ReloadAsync();
+    }
+
+    [JSInvokable]
+    public void CloseVesselDropdowns()
+    {
+        isVesselDropdownOpen = false;
+        isFilterVesselDropdownOpen = false;
+    }
+
+    private async Task ReloadAsync() { isLoading = true; failure = null; try { var query = $"pageNumber={pageNumber}&pageSize=25&vesselId={vesselFilter}&search={Uri.EscapeDataString(search ?? string.Empty)}&type={Uri.EscapeDataString(typeFilter ?? string.Empty)}&result={Uri.EscapeDataString(resultFilter ?? string.Empty)}"; var response = await ComplianceApi.GetSurveysAsync(query, disposeCts.Token); surveys = response.Value; failure = response.Failure; } catch (OperationCanceledException) when (disposeCts.IsCancellationRequested) { } finally { if (!disposeCts.IsCancellationRequested) isLoading = false; } }
+    private async Task PreviousPageAsync() { if (pageNumber > 1) { pageNumber--; await ReloadAsync(); } }
+    private async Task NextPageAsync() { if (surveys is not null && pageNumber * 25 < surveys.TotalCount) { pageNumber++; await ReloadAsync(); } }
+    private async Task RegisterAsync() { if (isSubmitting) return; isSubmitting = true; registerFailure = null; try { var response = await ComplianceApi.RegisterSurveyAsync(new(model.VesselId, model.SurveyDate, model.Type, model.InspectorName, model.Result, model.Findings, model.DocumentId), disposeCts.Token); if (!response.IsSuccess) { registerFailure = response.Failure; return; } model = new(); selectedVessel = null; vesselResults = []; vesselSearch = null; isRegistrationOpen = false; await ReloadAsync(); } finally { isSubmitting = false; } }
+    private async Task LoadDetailsAsync(int id) { var response = await ComplianceApi.GetSurveyAsync(id, disposeCts.Token); details = response.Value; failure = response.Failure; detailDocument = null; if (details?.DocumentId is { } documentId) { var documents = await DocumentsApi.GetDocumentsAsync(new(details.VesselId, null, 1, 100), disposeCts.Token); detailDocument = documents.Value?.Items.SingleOrDefault(item => item.DocumentId == documentId); } }
+    private void CloseDetails() { details = null; detailDocument = null; }
+    public async ValueTask DisposeAsync()
+    {
+        disposeCts.Cancel();
+
+        if (outsideClickReference is not null)
+        {
+            try
+            {
+                await JS.InvokeVoidAsync("outsideClickInterop.unregister", pageElement);
+            }
+            catch (JSDisconnectedException)
+            {
+                // The circuit has already ended; there is no browser listener left to remove.
+            }
+
+            outsideClickReference.Dispose();
+        }
+
+        disposeCts.Dispose();
+    }
+    private sealed class SurveyForm { public Guid? VesselId { get; set; } public DateOnly? SurveyDate { get; set; } public string? Type { get; set; } public string? InspectorName { get; set; } public string? Result { get; set; } public string? Findings { get; set; } public Guid? DocumentId { get; set; } }
+}

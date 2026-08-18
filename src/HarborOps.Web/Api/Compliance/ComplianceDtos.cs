@@ -36,6 +36,12 @@ internal sealed record RegisterPscInspectionResult(int Id);
 
 internal sealed record RegisterNonConformityResult(int Id);
 
+internal sealed record RegisterSurveyAuditRequest(Guid? VesselId, DateOnly? SurveyDate, string? Type, string? InspectorName, string? Result, string? Findings, Guid? DocumentId);
+internal sealed record RegisterSurveyAuditResult(int Id);
+internal sealed record SurveyAuditList(IReadOnlyList<SurveyAuditListItem> Items, int TotalCount, int PageNumber, int PageSize);
+internal sealed record SurveyAuditListItem(int Id, Guid VesselId, DateOnly SurveyDate, string Type, string? InspectorName, string Result, Guid? DocumentId);
+internal sealed record SurveyAuditDetails(int Id, Guid VesselId, DateOnly SurveyDate, string Type, string? InspectorName, string Result, string Findings, Guid? DocumentId);
+
 internal sealed record ComplianceApiResult<T>(T? Value, ComplianceApiFailure? Failure)
 {
     internal bool IsSuccess => Failure is null;
