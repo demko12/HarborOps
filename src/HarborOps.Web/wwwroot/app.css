@@ -231,7 +231,21 @@ html[data-theme="dark"] .page:not(.login-layout) :is(
     -webkit-backdrop-filter: none !important;
 }
 
+.page:not(.login-layout) .administration-modal {
+    border-color: #c7d1df !important;
+    background: #f8fafc !important;
+    box-shadow: 0 28px 70px rgba(15, 23, 42, .28), 0 0 0 1px rgba(255, 255, 255, .7) inset !important;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+}
+
 html[data-theme="dark"] .page:not(.login-layout) .compliance-registration-modal {
+    border-color: rgba(148, 163, 184, .28) !important;
+    background: #172033 !important;
+    box-shadow: 0 28px 70px rgba(0, 0, 0, .5), 0 0 0 1px rgba(255, 255, 255, .06) inset !important;
+}
+
+html[data-theme="dark"] .page:not(.login-layout) .administration-modal {
     border-color: rgba(148, 163, 184, .28) !important;
     background: #172033 !important;
     box-shadow: 0 28px 70px rgba(0, 0, 0, .5), 0 0 0 1px rgba(255, 255, 255, .06) inset !important;

@@ -24,7 +24,7 @@
     {
         <div class="survey-modal-backdrop" role="presentation" @onclick="CloseRegistrationForm">
         <section class="survey-card survey-registration-modal" role="dialog" aria-modal="true" aria-labelledby="survey-form-title" @onclick:stopPropagation="true">
-            <div class="survey-card-heading"><div><h2 id="survey-form-title">Register survey</h2><p>Record the outcome and findings against the selected vessel.</p></div><button class="survey-close-button" type="button" @onclick="CloseRegistrationForm"><span class="bi bi-x-lg" aria-hidden="true"></span> Close</button></div>
+            <div class="survey-card-heading"><div><h2 id="survey-form-title">Register survey</h2><p>Record the outcome and findings against the selected vessel.</p></div></div>
             @if (registerFailure is not null) { <ApiErrorState Title="@registerFailure.Title" Message="@registerFailure.Message" /> }
             <div class="survey-form">
                 <div class="survey-field survey-field-wide survey-form-vessel-picker" @onclick:stopPropagation="true">

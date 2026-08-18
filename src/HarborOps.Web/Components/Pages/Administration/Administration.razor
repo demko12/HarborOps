@@ -115,9 +115,6 @@
             <section class="administration-modal" role="dialog" aria-modal="true" aria-labelledby="create-user-title" @onclick:stopPropagation="true">
                 <div class="card-heading">
                     <div><h2 id="create-user-title">Create user</h2><p>Provide a temporary password directly to the account holder.</p></div>
-                    <button class="administration-modal-close" type="button" @onclick="CloseCreateUserDialog" disabled="@isCreatingUser" aria-label="Close create user dialog">
-                        <span class="bi bi-x-lg" aria-hidden="true"></span>
-                    </button>
                 </div>
                 <EditForm Model="newUser" OnValidSubmit="CreateUserAsync" class="admin-form">
                     <DataAnnotationsValidator />
