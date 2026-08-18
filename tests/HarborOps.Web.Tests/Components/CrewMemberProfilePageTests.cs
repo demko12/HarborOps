@@ -282,7 +282,7 @@ public sealed class CrewMemberProfilePageTests : BunitContext
     // ---- Assign to vessel ----
 
     [Fact]
-    public void Assigning_to_a_vessel_sends_scalar_ids_and_refreshes_only_the_assignments_section()
+    public async Task Assigning_to_a_vessel_sends_scalar_ids_and_refreshes_only_the_assignments_section()
     {
         var callCount = 0;
         respondToProfile = _ =>
@@ -312,7 +312,7 @@ public sealed class CrewMemberProfilePageTests : BunitContext
 
         page.WaitForAssertion(() => Assert.Contains("Basic Safety", page.Markup, StringComparison.Ordinal));
 
-        FillAssignmentForm(page);
+        await FillAssignmentFormAsync(page);
         Closest(page, "#assign-rank", "form").Submit();
 
         page.WaitForAssertion(() =>
@@ -332,7 +332,7 @@ public sealed class CrewMemberProfilePageTests : BunitContext
     }
 
     [Fact]
-    public void An_open_assignment_conflict_is_shown_on_the_form()
+    public async Task An_open_assignment_conflict_is_shown_on_the_form()
     {
         respondToRegisterAssignment = _ => Json(
             HttpStatusCode.Conflict,
@@ -343,7 +343,7 @@ public sealed class CrewMemberProfilePageTests : BunitContext
             CurrentUserAuthorizationState.CrewManagePermission);
 
         page.WaitForAssertion(() => Assert.Contains("Ivan Petrović", page.Markup, StringComparison.Ordinal));
-        FillAssignmentForm(page);
+        await FillAssignmentFormAsync(page);
         Closest(page, "#assign-rank", "form").Submit();
 
         page.WaitForAssertion(() => Assert.Contains(
@@ -353,7 +353,7 @@ public sealed class CrewMemberProfilePageTests : BunitContext
     }
 
     [Fact]
-    public void Assignment_validation_problems_from_the_api_are_listed_on_the_form()
+    public async Task Assignment_validation_problems_from_the_api_are_listed_on_the_form()
     {
         respondToRegisterAssignment = _ => Json(
             HttpStatusCode.BadRequest,
@@ -364,7 +364,7 @@ public sealed class CrewMemberProfilePageTests : BunitContext
             CurrentUserAuthorizationState.CrewManagePermission);
 
         page.WaitForAssertion(() => Assert.Contains("Ivan Petrović", page.Markup, StringComparison.Ordinal));
-        FillAssignmentForm(page);
+        await FillAssignmentFormAsync(page);
         Closest(page, "#assign-rank", "form").Submit();
 
         page.WaitForAssertion(() => Assert.Contains(
@@ -385,7 +385,7 @@ public sealed class CrewMemberProfilePageTests : BunitContext
         page.Find("#cert-expiry-date").Change("2027-01-01");
     }
 
-    private void FillAssignmentForm(IRenderedComponent<CrewMemberProfile> page)
+    private async Task FillAssignmentFormAsync(IRenderedComponent<CrewMemberProfile> page)
     {
         page.WaitForAssertion(() => Assert.NotEmpty(page.FindAll("#assign-rank option[value='" + RankId + "']")));
 
@@ -393,7 +393,11 @@ public sealed class CrewMemberProfilePageTests : BunitContext
         page.WaitForAssertion(
             () => Assert.Single(page.FindAll(".vessel-picker-option")),
             TimeSpan.FromSeconds(3));
-        page.Find(".vessel-picker-option").Click();
+
+        // Find and Click must be dispatched as one action: the debounced search can
+        // trigger another render between finding and clicking the option, leaving a
+        // stale event handler if they're issued separately.
+        await page.InvokeAsync(() => page.Find(".vessel-picker-option").Click());
 
         page.Find("#assign-rank").Change(RankId.ToString());
         page.Find("#assign-sign-on-date").Change("2026-01-01");
