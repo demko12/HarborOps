@@ -42,13 +42,6 @@
     display: flex;
     align-items: center;
     gap: .35rem;
-    padding: .25rem;
-    border: 1px solid rgba(148, 163, 184, .24);
-    border-radius: .85rem;
-    background: rgba(255, 255, 255, .34);
-    box-shadow: 0 8px 20px rgba(15, 23, 42, .07), inset 0 1px rgba(255, 255, 255, .62);
-    backdrop-filter: blur(20px) saturate(145%);
-    -webkit-backdrop-filter: blur(20px) saturate(145%);
 }
 
 .icon-btn {
@@ -354,12 +347,6 @@ html[data-theme="dark"] .app-topbar.is-scrolled {
     box-shadow: 0 8px 26px rgba(0, 0, 0, .16), inset 0 1px rgba(255, 255, 255, .09);
 }
 
-html[data-theme="dark"] .app-topbar-right {
-    border-color: rgba(191, 219, 254, .15);
-    background: rgba(15, 23, 42, .4);
-    box-shadow: 0 8px 20px rgba(0, 0, 0, .18), inset 0 1px rgba(255, 255, 255, .08);
-}
-
 html[data-theme="dark"] .app-sidebar {
     border-color: rgba(191, 219, 254, .16);
     background: linear-gradient(180deg, rgba(30, 41, 59, .56), rgba(15, 23, 42, .34));
@@ -473,7 +460,6 @@ html[data-theme="dark"] .nav-pills ::deep .nav-pill.active {
 
     .app-topbar-right {
         gap: .2rem;
-        padding: .2rem;
     }
 
     .hide-on-mobile {
