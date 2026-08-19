@@ -285,6 +285,8 @@ html[data-theme="light"] .documents-validation {
 
 .documents-table .col-days { width: 10%; }
 
+.documents-table .col-file { width: 8%; }
+
     .documents-table th {
         padding: .55rem .8rem;
         color: var(--text-muted);
@@ -652,6 +654,174 @@ html[data-theme="light"] .documents-form-grid ::deep select {
     color-scheme: light;
 }
 
+/* File detail panel */
+
+.documents-file-toggle {
+    padding: .3rem .7rem;
+    color: var(--text-secondary);
+    border: 1px solid var(--border-medium);
+    border-radius: .5rem;
+    background: transparent;
+    font: inherit;
+    font-size: .8rem;
+    cursor: pointer;
+    transition: color .15s ease, border-color .15s ease, background .15s ease;
+}
+
+    .documents-file-toggle:hover {
+        color: var(--accent);
+        border-color: var(--accent-border);
+        background: var(--accent-bg);
+    }
+
+    .documents-file-toggle:focus-visible {
+        outline: 2px solid var(--accent);
+        outline-offset: 2px;
+    }
+
+.documents-file-panel-row td {
+    padding: 0;
+    border-bottom: 1px solid var(--border-subtle);
+}
+
+.documents-file-panel {
+    padding: 1rem 1.25rem;
+    background: var(--control-surface);
+    white-space: normal;
+}
+
+.documents-file-panel-loading {
+    color: var(--text-muted);
+    font-size: .85rem;
+}
+
+.documents-file-empty {
+    margin: 0 0 .75rem;
+    color: var(--text-muted);
+    font-size: .85rem;
+}
+
+.documents-file-meta {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr));
+    gap: .75rem 1.5rem;
+    margin: 0 0 .9rem;
+}
+
+    .documents-file-meta div {
+        display: flex;
+        flex-direction: column;
+        gap: .2rem;
+    }
+
+    .documents-file-meta dt {
+        margin: 0;
+        color: var(--text-muted);
+        font-size: .7rem;
+        font-weight: 700;
+        letter-spacing: .1em;
+        text-transform: uppercase;
+    }
+
+    .documents-file-meta dd {
+        margin: 0;
+        color: var(--text-primary);
+        font-size: .88rem;
+        overflow-wrap: anywhere;
+    }
+
+.documents-file-actions {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: .75rem;
+    margin-bottom: .75rem;
+}
+
+.documents-file-download-link {
+    padding: .4rem .9rem;
+    color: var(--apply-text);
+    border: 1px solid var(--apply-border);
+    border-radius: .5rem;
+    background: var(--apply-surface);
+    font-size: .85rem;
+    font-weight: 600;
+    text-decoration: none;
+    transition: background .15s ease, border-color .15s ease;
+}
+
+    .documents-file-download-link:hover {
+        background: var(--apply-surface-hover);
+        border-color: var(--border-strong-hover);
+    }
+
+.documents-file-replace-button {
+    padding: .4rem .9rem;
+    color: var(--text-secondary);
+    border: 1px solid var(--border-medium);
+    border-radius: .5rem;
+    background: var(--control-surface);
+    font: inherit;
+    font-size: .85rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: color .15s ease, border-color .15s ease, background .15s ease;
+}
+
+    .documents-file-replace-button:hover {
+        color: var(--accent);
+        border-color: var(--accent-border);
+        background: var(--accent-bg);
+    }
+
+.documents-file-replace-confirm {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: .6rem;
+    margin-bottom: .9rem;
+    padding: .75rem .9rem;
+    border: 1px solid rgba(251, 191, 36, .3);
+    border-radius: .65rem;
+    background: rgba(120, 53, 15, .15);
+}
+
+    .documents-file-replace-confirm p {
+        margin: 0;
+        flex: 1 1 16rem;
+        color: var(--text-primary);
+        font-size: .85rem;
+    }
+
+.documents-file-upload-form {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: .75rem;
+}
+
+    .documents-file-upload-form input[type="file"] {
+        color: var(--text-primary);
+        font-size: .85rem;
+    }
+
+/* <progress> is only themed via accent-color (broadly supported in current evergreen
+   browsers for this element) rather than the ::-webkit-progress-bar / ::-webkit-progress-value
+   / ::-moz-progress-bar pseudo-elements a full custom look would need - that's meaningfully
+   more CSS (and per-engine) for a small, secondary indicator, so it's left at the browser's
+   default track styling otherwise. */
+.documents-file-progress {
+    width: 12rem;
+    height: .5rem;
+    accent-color: var(--accent);
+}
+
+.documents-file-progress-label {
+    color: var(--text-muted);
+    font-size: .78rem;
+    font-variant-numeric: tabular-nums;
+}
+
 /* Reduced motion */
 
 @media (prefers-reduced-motion: reduce) {
@@ -663,7 +833,9 @@ html[data-theme="light"] .documents-form-grid ::deep select {
     .documents-type-form-grid ::deep input:not([type="radio"]),
     .documents-form-grid ::deep input:not(.vessel-picker-input),
     .documents-form-grid ::deep select,
-    .documents-pagination button {
+    .documents-pagination button,
+    .documents-file-toggle,
+    .documents-file-replace-button {
         transition: none;
     }
 
