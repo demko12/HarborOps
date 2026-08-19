@@ -68,6 +68,7 @@ app.UseAntiforgery();
 app.UseAuthentication();
 app.UseAuthorization();
 app.MapWebAuthenticationEndpoints();
+app.MapDocumentFileDownloadEndpoints();
 app.MapStaticAssets();
 app.MapRazorComponents<App>()
     .AddInteractiveServerRenderMode();
