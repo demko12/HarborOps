@@ -2,6 +2,7 @@ using System.Net;
 using System.Security.Claims;
 using System.Text;
 using Bunit;
+using HarborOps.Web.Api;
 using HarborOps.Web.Api.Compliance;
 using HarborOps.Web.Api.Documents;
 using HarborOps.Web.Api.Fleet;

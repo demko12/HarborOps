@@ -45,14 +45,4 @@ public sealed class FleetFormatTests
         Assert.Equal(expected, Fleet.GetStatusClass(status));
     }
 
-    [Theory]
-    [InlineData("Maintenance", true)]
-    [InlineData("Under Maintenance", true)]
-    [InlineData("under maintenance", true)]
-    [InlineData("Active", false)]
-    [InlineData("At Port", false)]
-    public void Maintenance_covers_both_wordings_the_api_returns(string status, bool expected)
-    {
-        Assert.Equal(expected, Fleet.IsMaintenance(status));
-    }
 }

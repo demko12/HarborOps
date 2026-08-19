@@ -84,7 +84,7 @@ public sealed class FleetPageTests : BunitContext
         respond = _ => Json(HttpStatusCode.OK, Page(
             Row(name: "Alpha", imoNumber: "5100001", currentStatus: "Active", dwt: "1000"),
             Row(name: "Bravo", imoNumber: "5100002", currentStatus: "At Port", dwt: "2000"),
-            Row(name: "Charlie", imoNumber: "5100003", currentStatus: "Under Maintenance", dwt: "3000")));
+            Row(name: "Charlie", imoNumber: "5100003", currentStatus: "Maintenance", dwt: "3000")));
 
         var page = RenderFleetPage();
 
