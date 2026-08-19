@@ -1,7 +1,6 @@
 using System.Net;
 using System.Text;
 using Bunit;
-using HarborOps.Web.Api;
 using HarborOps.Web.Api.Documents;
 using HarborOps.Web.Api.Fleet;
 using HarborOps.Web.Components.Pages.Documents;
@@ -716,28 +715,19 @@ public sealed class DocumentsPageTests : BunitContext
             BaseAddress = new Uri("https://api.harborops.test/"),
         };
 
-        var lookupHttpClient = new HttpClient(new StubHttpMessageHandler(request =>
-        {
-            requestedUris.Add(request.RequestUri!);
-
-            return respondToLookup(request);
-        }))
-        {
-            BaseAddress = new Uri("https://api.harborops.test/"),
-        };
-
         var fleetHttpClient = new HttpClient(new StubHttpMessageHandler(request =>
         {
             requestedUris.Add(request.RequestUri!);
 
-            return respondToVesselSearch(request);
+            return request.RequestUri!.AbsolutePath.EndsWith("/lookup", StringComparison.Ordinal)
+                ? respondToLookup(request)
+                : respondToVesselSearch(request);
         }))
         {
             BaseAddress = new Uri("https://api.harborops.test/"),
         };
 
         Services.AddSingleton(new DocumentsApiClient(documentsHttpClient));
-        Services.AddSingleton(new VesselLookupApiClient(lookupHttpClient));
         Services.AddSingleton(new FleetApiClient(fleetHttpClient));
 
         var page = Render<Documents>();

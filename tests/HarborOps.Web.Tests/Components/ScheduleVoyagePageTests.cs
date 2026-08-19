@@ -3,6 +3,7 @@ using System.Security.Claims;
 using System.Text;
 using Bunit;
 using HarborOps.Web.Api;
+using HarborOps.Web.Api.Fleet;
 using HarborOps.Web.Api.Voyages;
 using HarborOps.Web.Components.Pages.Voyages;
 using Microsoft.AspNetCore.Http;

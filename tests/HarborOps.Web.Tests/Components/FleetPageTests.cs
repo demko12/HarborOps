@@ -1,7 +1,8 @@
 using System.Net;
 using System.Text;
 using Bunit;
-using HarborOps.Web.Api;
+using Bunit.TestDoubles;
+using HarborOps.Web.Api.Fleet;
 using HarborOps.Web.Components.Pages.Fleet;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -13,6 +14,21 @@ public sealed class FleetPageTests : BunitContext
 
     private Func<HttpRequestMessage, Task<HttpResponseMessage>> respond =
         _ => Json(HttpStatusCode.OK, Page(Row()));
+
+    public FleetPageTests()
+    {
+        var httpClient = new HttpClient(new StubHttpMessageHandler(request =>
+        {
+            requestedUris.Add(request.RequestUri!);
+
+            return respond(request);
+        }))
+        {
+            BaseAddress = new Uri("https://api.harborops.test/"),
+        };
+
+        Services.AddSingleton(new FleetApiClient(httpClient));
+    }
 
     [Fact]
     public void Vessels_render_with_their_identity_and_type()
@@ -326,22 +342,105 @@ public sealed class FleetPageTests : BunitContext
 
     private IRenderedComponent<Fleet> RenderFleetPage()
     {
-        var httpClient = new HttpClient(new StubHttpMessageHandler(request =>
-        {
-            requestedUris.Add(request.RequestUri!);
-
-            return respond(request);
-        }))
-        {
-            BaseAddress = new Uri("https://api.harborops.test/"),
-        };
-
-        Services.AddSingleton(new FleetApiClient(httpClient));
-
         var page = Render<Fleet>();
         page.WaitForAssertion(() => Assert.NotEmpty(requestedUris));
 
         return page;
+    }
+
+    [Fact]
+    public void A_vessel_row_links_to_its_details_page()
+    {
+        var page = RenderFleetPage();
+
+        var href = page.Find(".fleet-vessel-row").GetAttribute("href");
+
+        Assert.StartsWith("/fleet/40000000-0000-0000-0000-000000000009", href, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void The_details_link_carries_the_applied_filters_as_a_return_address()
+    {
+        var page = RenderFleetPage();
+
+        page.Find(".fleet-input-shell input").Input("Northern");
+        page.Find(".fleet-filters select").Change("At Port");
+
+        page.WaitForAssertion(() =>
+        {
+            var returnTo = ReturnAddressOf(page.Find(".fleet-vessel-row"));
+
+            Assert.Contains("search=Northern", returnTo, StringComparison.Ordinal);
+            Assert.Contains("status=At", returnTo, StringComparison.Ordinal);
+        });
+    }
+
+    [Fact]
+    public void The_details_link_carries_the_current_page_as_a_return_address()
+    {
+        respond = request => Json(HttpStatusCode.OK, Page(
+            request.RequestUri!.Query.Contains("pageNumber=2", StringComparison.Ordinal) ? 2 : 1,
+            60,
+            Row()));
+
+        var page = RenderFleetPage();
+
+        page.FindAll(".fleet-pagination button")[1].Click();
+
+        page.WaitForAssertion(() => Assert.Contains(
+            "page=2",
+            ReturnAddressOf(page.Find(".fleet-vessel-row")),
+            StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void An_unfiltered_directory_returns_to_the_plain_address()
+    {
+        var page = RenderFleetPage();
+
+        Assert.Equal("/fleet", ReturnAddressOf(page.Find(".fleet-vessel-row")));
+    }
+
+    [Fact]
+    public void The_directory_address_keeps_the_applied_filters_for_a_reload()
+    {
+        var page = RenderFleetPage();
+
+        var navigation =
+            Services.GetRequiredService<Microsoft.AspNetCore.Components.NavigationManager>();
+
+        page.Find(".fleet-input-shell input").Input("Northern");
+
+        page.WaitForAssertion(() => Assert.Contains(
+            "search=Northern",
+            navigation.Uri,
+            StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void Filters_are_restored_from_the_address_when_the_directory_opens()
+    {
+        var navigation =
+            Services.GetRequiredService<Microsoft.AspNetCore.Components.NavigationManager>();
+
+        navigation.NavigateTo(
+            "/fleet?search=Northern&status=At%20Port&page=2");
+
+        RenderFleetPage();
+
+        var firstQuery = requestedUris[0].Query;
+
+        Assert.Contains("search=Northern", firstQuery, StringComparison.Ordinal);
+        Assert.Contains("status=At%20Port", firstQuery, StringComparison.Ordinal);
+        Assert.Contains("pageNumber=2", firstQuery, StringComparison.Ordinal);
+    }
+
+    private static string ReturnAddressOf(AngleSharp.Dom.IElement row)
+    {
+        var href = row.GetAttribute("href")!;
+        var marker = href.IndexOf("returnTo=", StringComparison.Ordinal);
+
+        return marker < 0 ? href : Uri.UnescapeDataString(href[(marker + "returnTo=".Length)..]);
     }
 
     private static string Row(
