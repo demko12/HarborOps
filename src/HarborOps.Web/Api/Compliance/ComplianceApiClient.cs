@@ -34,6 +34,15 @@ internal sealed class ComplianceApiClient(HttpClient httpClient)
             () => httpClient.PostAsJsonAsync($"{BasePath}/non-conformities", request, cancellationToken),
             HttpStatusCode.Created, "Unable to register non-conformity", cancellationToken);
 
+    internal Task<ComplianceApiResult<RegisterSurveyAuditResult>> RegisterSurveyAsync(RegisterSurveyAuditRequest request, CancellationToken cancellationToken) =>
+        SendAsync<RegisterSurveyAuditResult>(() => httpClient.PostAsJsonAsync($"{BasePath}/surveys", request, cancellationToken), HttpStatusCode.Created, "Unable to register survey", cancellationToken);
+
+    internal Task<ComplianceApiResult<SurveyAuditList>> GetSurveysAsync(string query, CancellationToken cancellationToken) =>
+        SendAsync<SurveyAuditList>(() => httpClient.GetAsync($"{BasePath}/surveys?{query}", HttpCompletionOption.ResponseHeadersRead, cancellationToken), HttpStatusCode.OK, "Unable to load surveys", cancellationToken);
+
+    internal Task<ComplianceApiResult<SurveyAuditDetails>> GetSurveyAsync(int surveyId, CancellationToken cancellationToken) =>
+        SendAsync<SurveyAuditDetails>(() => httpClient.GetAsync($"{BasePath}/surveys/{surveyId}", HttpCompletionOption.ResponseHeadersRead, cancellationToken), HttpStatusCode.OK, "Unable to load survey details", cancellationToken);
+
     private static async Task<ComplianceApiResult<T>> SendAsync<T>(Func<Task<HttpResponseMessage>> send,
         HttpStatusCode successStatus, string defaultTitle, CancellationToken cancellationToken)
         where T : class

@@ -45,6 +45,30 @@ public partial class Compliance
         ResetNonConformityForm();
     }
 
+    private void OpenCertificateForm()
+    {
+        certificateError = certificateSuccess = null;
+        isCertificateFormOpen = true;
+    }
+
+    private void CloseCertificateForm() => isCertificateFormOpen = false;
+
+    private void OpenPscForm()
+    {
+        pscError = pscSuccess = null;
+        isPscFormOpen = true;
+    }
+
+    private void ClosePscForm() => isPscFormOpen = false;
+
+    private void OpenNonConformityForm()
+    {
+        nonConformityError = nonConformitySuccess = null;
+        isNonConformityFormOpen = true;
+    }
+
+    private void CloseNonConformityForm() => isNonConformityFormOpen = false;
+
     private async Task SelectVesselAsync(Guid? vesselId)
     {
         selectedVesselId = vesselId;
@@ -95,6 +119,7 @@ public partial class Compliance
             if (!result.IsSuccess) { ApplyErrors(result.Failure!, certificateEditContext, certificateMessages, CertificateFieldMap, value => certificateError = value); return; }
             ResetCertificateForm();
             certificateSuccess = "Certificate registered successfully.";
+            isCertificateFormOpen = false;
             await LoadOverviewAsync();
         }
         finally { isSubmittingCertificate = false; }
@@ -115,6 +140,7 @@ public partial class Compliance
             if (!result.IsSuccess) { ApplyErrors(result.Failure!, pscEditContext, pscMessages, PscFieldMap, value => pscError = value); return; }
             ResetPscForm();
             pscSuccess = "PSC inspection registered successfully.";
+            isPscFormOpen = false;
             await LoadOverviewAsync();
         }
         finally { isSubmittingPsc = false; }
@@ -155,6 +181,7 @@ public partial class Compliance
 
             ResetNonConformityForm();
             nonConformitySuccess = "Non-conformity registered successfully.";
+            isNonConformityFormOpen = false;
             await LoadOverviewAsync();
         }
         finally

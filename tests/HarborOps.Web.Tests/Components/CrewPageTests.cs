@@ -33,6 +33,16 @@ public sealed class CrewPageTests : BunitContext
     }
 
     [Fact]
+    public void A_roster_row_links_to_the_crew_member_profile()
+    {
+        var page = RenderCrewPage();
+
+        page.WaitForAssertion(() => Assert.Equal(
+            "/crew/80000000-0000-0000-0000-000000000001",
+            page.Find(".crew-member-row").GetAttribute("href")));
+    }
+
+    [Fact]
     public void An_expired_passport_is_marked_with_wording_not_colour_alone()
     {
         respond = _ => Json(HttpStatusCode.OK, Page(Row(passportExpiry: "2020-01-01")));

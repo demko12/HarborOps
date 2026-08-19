@@ -28,6 +28,36 @@ window.scrollInterop = {
     }
 };
 
+window.outsideClickInterop = {
+    handlers: new WeakMap(),
+
+    register: function (element, dotNetReference) {
+        var existingHandler = this.handlers.get(element);
+        if (existingHandler) {
+            document.removeEventListener('pointerdown', existingHandler, true);
+        }
+
+        var handler = function (event) {
+            if (!element.contains(event.target)) {
+                dotNetReference.invokeMethodAsync('CloseVesselDropdowns');
+            }
+        };
+
+        document.addEventListener('pointerdown', handler, true);
+        this.handlers.set(element, handler);
+    },
+
+    unregister: function (element) {
+        var handler = this.handlers.get(element);
+        if (!handler) {
+            return;
+        }
+
+        document.removeEventListener('pointerdown', handler, true);
+        this.handlers.delete(element);
+    }
+};
+
 window.headerScrollInterop = {
     initialize: function () {
         var header = document.querySelector('.app-topbar');
