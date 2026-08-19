@@ -43,6 +43,24 @@ internal sealed class ComplianceApiClient(HttpClient httpClient)
     internal Task<ComplianceApiResult<SurveyAuditDetails>> GetSurveyAsync(int surveyId, CancellationToken cancellationToken) =>
         SendAsync<SurveyAuditDetails>(() => httpClient.GetAsync($"{BasePath}/surveys/{surveyId}", HttpCompletionOption.ResponseHeadersRead, cancellationToken), HttpStatusCode.OK, "Unable to load survey details", cancellationToken);
 
+    internal Task<ComplianceApiResult<RegisterInsurancePolicyResult>> RegisterInsurancePolicyAsync(
+        RegisterInsurancePolicyRequest request,
+        CancellationToken cancellationToken) =>
+        SendAsync<RegisterInsurancePolicyResult>(
+            () => httpClient.PostAsJsonAsync($"{BasePath}/insurance-policies", request, cancellationToken),
+            HttpStatusCode.Created,
+            "Unable to register insurance policy",
+            cancellationToken);
+
+    internal Task<ComplianceApiResult<InsurancePoliciesPage>> GetInsurancePoliciesAsync(
+        string query,
+        CancellationToken cancellationToken) =>
+        SendAsync<InsurancePoliciesPage>(
+            () => httpClient.GetAsync($"{BasePath}/insurance-policies?{query}", HttpCompletionOption.ResponseHeadersRead, cancellationToken),
+            HttpStatusCode.OK,
+            "Unable to load insurance policies",
+            cancellationToken);
+
     private static async Task<ComplianceApiResult<T>> SendAsync<T>(Func<Task<HttpResponseMessage>> send,
         HttpStatusCode successStatus, string defaultTitle, CancellationToken cancellationToken)
         where T : class

@@ -118,7 +118,9 @@ public partial class VesselPicker : IDisposable
             return;
         }
 
-        await StartSearchAsync(displayText, debounce: false);
+        // A selected vessel remains visible in the input, but focusing it should
+        // still browse the complete register so the user can switch vessels.
+        await StartSearchAsync(string.Empty, debounce: false);
     }
 
     private async Task StartSearchAsync(string search, bool debounce)

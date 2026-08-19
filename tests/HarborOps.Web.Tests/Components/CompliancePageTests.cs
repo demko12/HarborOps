@@ -136,6 +136,38 @@ public sealed class CompliancePageTests : BunitContext
     }
 
     [Fact]
+    public async Task Insurance_policy_registration_posts_the_selected_vessel_and_refreshes_the_overview()
+    {
+        var posts = new List<string>();
+        Services.RemoveAll<ComplianceApiClient>();
+        Services.AddSingleton(new ComplianceApiClient(new HttpClient(new AsyncHandler(async request =>
+        {
+            if (request.RequestUri!.AbsolutePath.EndsWith("/insurance-policies", StringComparison.Ordinal))
+            {
+                posts.Add(await request.Content!.ReadAsStringAsync());
+                return Json(HttpStatusCode.Created, "{\"id\":1}");
+            }
+
+            return DefaultResponse(request);
+        }))
+        { BaseAddress = new("https://localhost/") }));
+
+        var page = Render<Compliance>();
+        await SelectAsync(page, "Aurora");
+        page.WaitForAssertion(() => Assert.Contains("Harbor Mutual", page.Markup));
+
+        page.FindAll(".compliance-actions button")[3].Click();
+        page.Find("#insurance-insurer").Change("Ocean Mutual");
+        page.Find("#insurance-policy-number").Change("OM-2026-001");
+        page.Find("#insurance-coverage").Change("Hull");
+        page.Find("#insurance-expiry").Change("2027-01-01");
+        page.Find(".compliance-form-card form").Submit();
+
+        page.WaitForAssertion(() => Assert.Contains("Insurance policy registered successfully", page.Markup));
+        Assert.Contains($"\"vesselId\":\"{VesselOne}\"", Assert.Single(posts), StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
     public async Task Certificate_duplicate_submit_is_blocked_while_the_first_request_is_in_flight()
     {
         var release = new TaskCompletionSource<HttpResponseMessage>(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -379,8 +411,8 @@ public sealed class CompliancePageTests : BunitContext
         page.Find("#certificate-expires").Change("2027-01-01");
     }
 
-    private static string Overview(string number) => $$"""{"certificates":[{"id":"30000000-0000-0000-0000-000000000003","vesselId":"{{VesselOne}}","certificateType":"Safety Management","certificateNumber":"{{number}}","issuingAuthority":"Flag State","issuedOn":"2020-01-01","expiresOn":"2020-12-31"}],"pscInspections":[{"id":1,"vesselId":"{{VesselOne}}","portId":"40000000-0000-0000-0000-000000000004","inspectionDate":"2026-08-01","inspectingAuthority":"Port Authority","deficiencyCount":2,"vesselDetained":true}],"surveyAudits":[{"id":1,"vesselId":"{{VesselOne}}","date":"2026-07-01","type":"Annual Survey","result":"Pass"}],"openNonConformities":[{"id":1,"vesselId":"{{VesselOne}}","evidenceDocumentId":"50000000-0000-0000-0000-000000000005","severity":"Critical","correctiveActionDeadline":"2026-09-01","closureStatus":"Open"}]}""";
-    private const string EmptyOverview = "{\"certificates\":[],\"pscInspections\":[],\"surveyAudits\":[],\"openNonConformities\":[]}";
+    private static string Overview(string number) => $$"""{"certificates":[{"id":"30000000-0000-0000-0000-000000000003","vesselId":"{{VesselOne}}","certificateType":"Safety Management","certificateNumber":"{{number}}","issuingAuthority":"Flag State","issuedOn":"2020-01-01","expiresOn":"2020-12-31"}],"pscInspections":[{"id":1,"vesselId":"{{VesselOne}}","portId":"40000000-0000-0000-0000-000000000004","inspectionDate":"2026-08-01","inspectingAuthority":"Port Authority","deficiencyCount":2,"vesselDetained":true}],"surveyAudits":[{"id":1,"vesselId":"{{VesselOne}}","date":"2026-07-01","type":"Annual Survey","result":"Pass"}],"openNonConformities":[{"id":1,"vesselId":"{{VesselOne}}","evidenceDocumentId":"50000000-0000-0000-0000-000000000005","severity":"Critical","correctiveActionDeadline":"2026-09-01","closureStatus":"Open"}],"insurancePolicies":[{"id":1,"vesselId":"{{VesselOne}}","insurer":"Harbor Mutual","policyNumber":"HM-2026-001","coverage":"P&I","expiryDate":"2026-08-20","expiryClassification":"Expiring soon"}]}""";
+    private const string EmptyOverview = "{\"certificates\":[],\"pscInspections\":[],\"surveyAudits\":[],\"openNonConformities\":[],\"insurancePolicies\":[]}";
     private const string DocumentsPageJson = """{"items":[{"documentId":"60000000-0000-0000-0000-000000000006","vesselId":"10000000-0000-0000-0000-000000000001","number":"BRZ-2024-0091","documentTypeName":"Bill of Lading","status":"Active","expiryDate":"2027-01-01"}],"pageNumber":1,"pageSize":10,"totalCount":1}""";
     private static HttpResponseMessage Json(HttpStatusCode status, string body) => new(status) { Content = new StringContent(body, Encoding.UTF8, "application/json") };
     private sealed class Handler(Func<HttpRequestMessage, HttpResponseMessage> response) : HttpMessageHandler { protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken token) => Task.FromResult(response(request)); }

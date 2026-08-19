@@ -1,0 +1,78 @@
+@page "/compliance/insurance-policies"
+@attribute [Microsoft.AspNetCore.Authorization.Authorize(Policy = "AccessCompliance")]
+@using HarborOps.Web.Api.Compliance
+@implements IDisposable
+@inject ComplianceApiClient ComplianceApi
+
+<PageTitle>Insurance register | HarborOps</PageTitle>
+
+<section class="insurance-page">
+    <header class="insurance-header">
+        <div><p class="compliance-eyebrow">Compliance operations</p><h1>Insurance register</h1><p>Review vessel coverage and identify expired or near-expiry policies.</p></div>
+    </header>
+    <section class="insurance-card insurance-filter-card">
+        <div class="insurance-filter-grid">
+            <div class="insurance-field"><label>Vessel</label><VesselPicker Value="vesselId" ValueChanged="SetVesselAsync" Disabled="isLoading" /></div>
+            <div class="insurance-field"><label for="insurance-filter-insurer">Insurer</label><input id="insurance-filter-insurer" @bind="insurer" @bind:event="oninput" @bind:after="LoadAsync" placeholder="Search insurer" /></div>
+            <div class="insurance-field"><label for="insurance-filter-coverage">Coverage</label><input id="insurance-filter-coverage" @bind="coverage" @bind:event="oninput" @bind:after="LoadAsync" placeholder="Search coverage" /></div>
+            <div class="insurance-field"><label for="insurance-filter-from">Expiry from</label><InputDate id="insurance-filter-from" @bind-Value="expiryFrom" @bind-Value:after="LoadAsync" /></div>
+            <div class="insurance-field"><label for="insurance-filter-to">Expiry to</label><InputDate id="insurance-filter-to" @bind-Value="expiryTo" @bind-Value:after="LoadAsync" /></div>
+            <label class="insurance-checkbox"><input type="checkbox" @bind="expiredOnly" @bind:after="LoadAsync" /> Expired only</label>
+        </div>
+    </section>
+    <section class="insurance-card insurance-results-card">
+        @if (vesselId is null) { <EmptyState Title="Select a vessel" Message="Choose a vessel to review its insurance policies." /> }
+        else if (isLoading) { <LoadingState Message="Loading insurance policies..." /> }
+        else if (failure is not null) { <ApiErrorState Title="@failure.Title" Message="@failure.Message" OnRetry="LoadAsync" /> }
+        else if (policies is null || policies.Items.Count == 0) { <EmptyState Title="No insurance policies found" Message="Try changing the register filters." /> }
+        else
+        {
+            <div class="insurance-list">
+            @foreach (var policy in policies.Items)
+            {
+                <article class="insurance-row insurance-policy-card">
+                    <div class="insurance-identity">
+                        <span class="insurance-kicker">Insurance policy</span>
+                        <strong>@policy.Insurer</strong>
+                        <span class="insurance-reference">@policy.PolicyNumber</span>
+                    </div>
+                    <div class="insurance-detail">
+                        <span class="insurance-kicker">Coverage</span>
+                        <strong>@policy.Coverage</strong>
+                    </div>
+                    <div class="insurance-expiry">
+                        <span class="compliance-badge @(policy.ExpiryClassification == "Expired" ? "danger" : policy.ExpiryClassification == "Expiring soon" ? "neutral" : "success")">@policy.ExpiryClassification</span>
+                        <span class="insurance-expiry-label">@(policy.ExpiryClassification == "Expired" ? "Expired on" : "Expires on")</span>
+                        <strong>@policy.ExpiryDate.ToString("dd MMM yyyy")</strong>
+                    </div>
+                </article>
+            }
+            </div>
+            <footer class="insurance-paging"><span>Showing @policies.Items.Count of @policies.TotalCount policies</span><button disabled="@(policies.PageNumber == 1)" @onclick="PreviousAsync">Previous</button><span>Page @policies.PageNumber</span><button disabled="@(policies.PageNumber * policies.PageSize >= policies.TotalCount)" @onclick="NextAsync">Next</button></footer>
+        }
+    </section>
+</section>
+
+@code {
+    private Guid? vesselId; private string? insurer; private string? coverage; private DateOnly? expiryFrom; private DateOnly? expiryTo; private bool expiredOnly; private int pageNumber = 1; private InsurancePoliciesPage? policies; private ComplianceApiFailure? failure; private bool isLoading; private CancellationTokenSource? cts;
+    private async Task SetVesselAsync(Guid? value) { vesselId = value; pageNumber = 1; await LoadAsync(); }
+    private async Task PreviousAsync() { pageNumber--; await LoadAsync(); }
+    private async Task NextAsync() { pageNumber++; await LoadAsync(); }
+    private async Task LoadAsync()
+    {
+        if (vesselId is null)
+        {
+            policies = null;
+            failure = null;
+            isLoading = false;
+            return;
+        }
+
+        cts?.Cancel(); cts?.Dispose(); cts = new CancellationTokenSource(); isLoading = true; failure = null;
+        try { var result = await ComplianceApi.GetInsurancePoliciesAsync(BuildQuery(), cts.Token); if (!cts.IsCancellationRequested) { policies = result.Value; failure = result.Failure; } }
+        catch (OperationCanceledException) when (cts.IsCancellationRequested) { }
+        finally { if (!cts.IsCancellationRequested) isLoading = false; }
+    }
+    private string BuildQuery() => string.Join("&", new[] { vesselId is null ? null : $"vesselId={vesselId}", string.IsNullOrWhiteSpace(insurer) ? null : $"insurer={Uri.EscapeDataString(insurer)}", string.IsNullOrWhiteSpace(coverage) ? null : $"coverage={Uri.EscapeDataString(coverage)}", expiryFrom is null ? null : $"expiryFrom={expiryFrom:yyyy-MM-dd}", expiryTo is null ? null : $"expiryTo={expiryTo:yyyy-MM-dd}", $"expiredOnly={expiredOnly}", $"pageNumber={pageNumber}", "pageSize=25" }.Where(value => value is not null)!);
+    public void Dispose() { cts?.Cancel(); cts?.Dispose(); }
+}
