@@ -1,0 +1,48 @@
+@using HarborOps.Web.Api.Documents
+@inject DocumentsApiClient DocumentsApi
+
+<div class="document-picker">
+    <span class="bi bi-search document-picker-search-icon" aria-hidden="true"></span>
+    <input class="document-picker-input"
+           type="text"
+           value="@displayText"
+           placeholder="@(Placeholder ?? DefaultPlaceholder)"
+           disabled="@EffectiveDisabled"
+           autocomplete="off"
+           role="combobox"
+           aria-expanded="@(isDropdownOpen ? "true" : "false")"
+           aria-autocomplete="list"
+           @oninput="OnInputAsync"
+           @onfocus="OnFocusAsync"
+           @onblur="OnBlurAsync" />
+
+    @if (isDropdownOpen)
+    {
+        <ul class="document-picker-dropdown" role="listbox">
+            @if (isSearching)
+            {
+                <li class="document-picker-status">Searching...</li>
+            }
+            else if (searchFailed)
+            {
+                <li class="document-picker-status document-picker-error">Unable to search documents right now</li>
+            }
+            else if (results.Count == 0)
+            {
+                <li class="document-picker-status">No documents found</li>
+            }
+            else
+            {
+                @foreach (var document in results)
+                {
+                    <li role="option">
+                        <button class="document-picker-option" type="button" @onclick="() => SelectDocument(document)">
+                            <strong>@document.Number</strong>
+                            <span class="document-picker-type">@document.DocumentTypeName</span>
+                        </button>
+                    </li>
+                }
+            }
+        </ul>
+    }
+</div>

@@ -57,9 +57,17 @@ internal sealed class CargoBooking
 
     public DateTime CreatedUtc { get; private set; }
 
+    /// <summary>The only status this booking may advance to, or null once it is completed.</summary>
+    internal CargoStatus? NextStatus => NextStatusFor(Status);
+
+    internal static CargoStatus? NextStatusFor(CargoStatus status)
+    {
+        return status == CargoStatus.Completed ? null : status + 1;
+    }
+
     internal void AdvanceStatusTo(CargoStatus requestedStatus)
     {
-        if (requestedStatus != Status + 1)
+        if (requestedStatus != NextStatus)
         {
             throw new CargoStatusTransitionNotAllowedException(Id, Status, requestedStatus);
         }

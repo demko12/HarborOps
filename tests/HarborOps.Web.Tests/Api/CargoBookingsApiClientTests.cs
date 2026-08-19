@@ -10,6 +10,16 @@ public sealed class CargoBookingsApiClientTests
         {"items":[{"cargoBookingId":"20000000-0000-0000-0000-000000000001","bookingNumber":"BK-2026-0143","voyageId":"30000000-0000-0000-0000-000000000002","description":"Ammonium nitrate","cargoType":"Dangerous Goods","weightKg":24000.000,"packageCount":480,"isHazardous":true,"status":"InTransit","createdUtc":"2026-08-11T09:42:00Z"}],"pageNumber":1,"pageSize":25,"totalCount":1}
         """;
 
+    private const string DetailsJson = """
+        {"cargoBookingId":"20000000-0000-0000-0000-000000000001","bookingNumber":"BK-2026-0143","voyageId":"30000000-0000-0000-0000-000000000002","description":"Ammonium nitrate","cargoType":"Dangerous Goods","weightKg":24000.000,"packageCount":480,"isHazardous":true,"status":"Planned","nextStatus":"Loaded","createdUtc":"2026-08-11T09:42:00Z","safetyInfo":{"cargoSafetyInfoId":"40000000-0000-0000-0000-000000000003","imdgClass":"1.4S","unNumber":"UN1234","storageConditions":"Keep below 25 C","handlingNotes":null},"trackingEvents":[{"cargoTrackingEventId":"50000000-0000-0000-0000-000000000004","status":"Planned","occurredUtc":"2026-08-12T06:00:00Z","location":"Yard A","responsibleUserId":"60000000-0000-0000-0000-000000000005"}]}
+        """;
+
+    private static readonly Guid BookingId = Guid.Parse("20000000-0000-0000-0000-000000000001");
+
+    private static readonly Guid VoyageId = Guid.Parse("30000000-0000-0000-0000-000000000002");
+
+    private static readonly DateTime OccurredUtc = new(2026, 8, 12, 6, 0, 0, DateTimeKind.Utc);
+
     [Fact]
     public async Task SearchAsync_reads_every_booking_field()
     {
@@ -183,6 +193,211 @@ public sealed class CargoBookingsApiClientTests
         Assert.False(firstAttempt.IsSuccess);
         Assert.True(retry.IsSuccess);
         Assert.Single(retry.Value!.Items);
+    }
+
+    [Fact]
+    public async Task GetDetailsAsync_reads_the_booking_safety_and_tracking_events()
+    {
+        HttpRequestMessage? captured = null;
+        using var httpClient = CreateHttpClient((request, _) =>
+        {
+            captured = request;
+            return Json(HttpStatusCode.OK, DetailsJson);
+        });
+
+        var result = await CreateClient(httpClient).GetDetailsAsync(BookingId, CancellationToken.None);
+
+        Assert.Equal(HttpMethod.Get, captured!.Method);
+        Assert.Equal($"/api/cargo/bookings/{BookingId}", captured.RequestUri!.AbsolutePath);
+        Assert.True(result.IsSuccess);
+
+        var details = result.Value!;
+
+        Assert.Equal("BK-2026-0143", details.BookingNumber);
+        Assert.Equal("Planned", details.Status);
+        Assert.Equal("Loaded", details.NextStatus);
+        Assert.NotNull(details.SafetyInfo);
+        Assert.Equal("1.4S", details.SafetyInfo.ImdgClass);
+        Assert.Equal("UN1234", details.SafetyInfo.UnNumber);
+        Assert.Null(details.SafetyInfo.HandlingNotes);
+
+        var trackingEvent = Assert.Single(details.TrackingEvents);
+
+        Assert.Equal("Planned", trackingEvent.Status);
+        Assert.Equal("Yard A", trackingEvent.Location);
+    }
+
+    [Fact]
+    public async Task GetDetailsAsync_reads_a_booking_without_safety_or_tracking_records()
+    {
+        using var httpClient = CreateHttpClient((_, _) => Json(
+            HttpStatusCode.OK,
+            """{"cargoBookingId":"20000000-0000-0000-0000-000000000001","bookingNumber":"BK-2026-0144","voyageId":"30000000-0000-0000-0000-000000000002","description":"Steel coils","cargoType":"General Cargo","weightKg":100.000,"packageCount":2,"isHazardous":false,"status":"Completed","nextStatus":null,"createdUtc":"2026-08-11T09:42:00Z","safetyInfo":null,"trackingEvents":[]}"""));
+
+        var result = await CreateClient(httpClient).GetDetailsAsync(BookingId, CancellationToken.None);
+
+        Assert.True(result.IsSuccess);
+        Assert.Null(result.Value!.SafetyInfo);
+        Assert.Null(result.Value.NextStatus);
+        Assert.Empty(result.Value.TrackingEvents);
+    }
+
+    [Fact]
+    public async Task GetDetailsAsync_reports_a_missing_booking()
+    {
+        using var httpClient = CreateHttpClient((_, _) => Json(
+            HttpStatusCode.NotFound,
+            """{"title":"Cargo booking not found.","status":404}"""));
+
+        var result = await CreateClient(httpClient).GetDetailsAsync(BookingId, CancellationToken.None);
+
+        Assert.False(result.IsSuccess);
+        Assert.True(result.Failure!.IsNotFound);
+        Assert.Equal("Cargo booking not found.", result.Failure.Title);
+    }
+
+    [Fact]
+    public async Task RegisterAsync_posts_the_booking_and_reads_the_identifier()
+    {
+        HttpRequestMessage? captured = null;
+        using var httpClient = CreateHttpClient((request, _) =>
+        {
+            captured = request;
+            return Json(HttpStatusCode.Created, $$"""{"id":"{{BookingId}}"}""");
+        });
+
+        var result = await CreateClient(httpClient).RegisterAsync(
+            new RegisterCargoBookingWebRequest(
+                "BK-2026-0145",
+                VoyageId,
+                "Steel coils",
+                "General Cargo",
+                5000.000m,
+                10,
+                false),
+            CancellationToken.None);
+
+        Assert.Equal(HttpMethod.Post, captured!.Method);
+        Assert.Equal("/api/cargo/bookings", captured.RequestUri!.AbsolutePath);
+        Assert.True(result.IsSuccess);
+        Assert.Equal(BookingId, result.Value!.Id);
+    }
+
+    [Fact]
+    public async Task RegisterAsync_reports_a_duplicate_booking_number()
+    {
+        using var httpClient = CreateHttpClient((_, _) => Json(
+            HttpStatusCode.Conflict,
+            """{"title":"A cargo booking with this booking number already exists.","status":409,"errors":{"bookingNumber":["Already used."]}}"""));
+
+        var result = await CreateClient(httpClient).RegisterAsync(
+            new RegisterCargoBookingWebRequest(
+                "BK-2026-0145",
+                VoyageId,
+                "Steel coils",
+                "General Cargo",
+                5000.000m,
+                10,
+                false),
+            CancellationToken.None);
+
+        Assert.False(result.IsSuccess);
+        Assert.True(result.Failure!.IsConflict);
+        Assert.Equal("Already used.", Assert.Single(result.Failure.Errors["bookingNumber"]));
+    }
+
+    [Fact]
+    public async Task DeclareSafetyInformationAsync_posts_to_the_booking_safety_route()
+    {
+        HttpRequestMessage? captured = null;
+        using var httpClient = CreateHttpClient((request, _) =>
+        {
+            captured = request;
+            return Json(HttpStatusCode.Created, $$"""{"id":"{{BookingId}}"}""");
+        });
+
+        var result = await CreateClient(httpClient).DeclareSafetyInformationAsync(
+            BookingId,
+            new DeclareCargoSafetyInfoWebRequest("1.4S", "UN1234", "Keep below 25 C", null),
+            CancellationToken.None);
+
+        Assert.Equal(HttpMethod.Post, captured!.Method);
+        Assert.Equal(
+            $"/api/cargo/bookings/{BookingId}/safety-information",
+            captured.RequestUri!.AbsolutePath);
+        Assert.True(result.IsSuccess);
+    }
+
+    [Fact]
+    public async Task DeclareSafetyInformationAsync_reports_a_non_hazardous_booking()
+    {
+        using var httpClient = CreateHttpClient((_, _) => Json(
+            HttpStatusCode.Conflict,
+            """{"title":"Cargo booking is not hazardous.","status":409}"""));
+
+        var result = await CreateClient(httpClient).DeclareSafetyInformationAsync(
+            BookingId,
+            new DeclareCargoSafetyInfoWebRequest("1.4S", "UN1234", "Keep below 25 C", null),
+            CancellationToken.None);
+
+        Assert.False(result.IsSuccess);
+        Assert.True(result.Failure!.IsConflict);
+        Assert.Equal("Cargo booking is not hazardous.", result.Failure.Title);
+    }
+
+    [Fact]
+    public async Task RecordTrackingEventAsync_posts_to_the_booking_tracking_route()
+    {
+        HttpRequestMessage? captured = null;
+        using var httpClient = CreateHttpClient((request, _) =>
+        {
+            captured = request;
+            return Json(HttpStatusCode.Created, $$"""{"id":"{{BookingId}}","status":"Loaded"}""");
+        });
+
+        var result = await CreateClient(httpClient).RecordTrackingEventAsync(
+            BookingId,
+            new RecordCargoTrackingEventWebRequest("Loaded", OccurredUtc, "Berth 12"),
+            CancellationToken.None);
+
+        Assert.Equal(HttpMethod.Post, captured!.Method);
+        Assert.Equal(
+            $"/api/cargo/bookings/{BookingId}/tracking-events",
+            captured.RequestUri!.AbsolutePath);
+        Assert.True(result.IsSuccess);
+        Assert.Equal("Loaded", result.Value!.Status);
+    }
+
+    [Fact]
+    public async Task RecordTrackingEventAsync_reports_a_rejected_transition()
+    {
+        using var httpClient = CreateHttpClient((_, _) => Json(
+            HttpStatusCode.Conflict,
+            """{"title":"Cargo status transition is not allowed.","status":409}"""));
+
+        var result = await CreateClient(httpClient).RecordTrackingEventAsync(
+            BookingId,
+            new RecordCargoTrackingEventWebRequest("Completed", OccurredUtc, "Berth 12"),
+            CancellationToken.None);
+
+        Assert.False(result.IsSuccess);
+        Assert.True(result.Failure!.IsConflict);
+        Assert.Equal("Cargo status transition is not allowed.", result.Failure.Title);
+    }
+
+    [Fact]
+    public async Task RecordTrackingEventAsync_returns_a_retryable_failure_when_the_api_is_unavailable()
+    {
+        using var httpClient = CreateHttpClient((_, _) => throw new HttpRequestException("Connection failed."));
+
+        var result = await CreateClient(httpClient).RecordTrackingEventAsync(
+            BookingId,
+            new RecordCargoTrackingEventWebRequest("Loaded", OccurredUtc, "Berth 12"),
+            CancellationToken.None);
+
+        Assert.False(result.IsSuccess);
+        Assert.Equal(0, result.Failure!.StatusCode);
+        Assert.Equal("HarborOps API is unavailable", result.Failure.Title);
     }
 
     private static CargoBookingFilter Filter()

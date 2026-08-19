@@ -1,5 +1,6 @@
 using HarborOps.Modules.Cargo.Application;
 using HarborOps.Modules.Cargo.Contracts;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 
@@ -9,9 +10,43 @@ namespace HarborOps.Modules.Cargo.Presentation;
 [Route("api/cargo/bookings")]
 public sealed class CargoBookingsController(
     RegisterCargoBookingService registerCargoBookingService,
-    SearchCargoBookingsQuery searchCargoBookingsQuery)
+    SearchCargoBookingsQuery searchCargoBookingsQuery,
+    GetCargoBookingDetailsQuery getCargoBookingDetailsQuery)
     : ControllerBase
 {
+    // The capability convention reads a single route template and prefers the action's, so an
+    // action that carries its own relative segment never matches the "/api/cargo" prefix and is
+    // left without a capability policy. This route needs the read policy stated explicitly.
+    private const string ReadCargoPolicy = "cargo.read";
+
+    [HttpGet("{bookingId:guid}")]
+    [Authorize(ReadCargoPolicy)]
+    [ProducesResponseType<GetCargoBookingDetailsResponse>(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<GetCargoBookingDetailsResponse>> GetDetails(
+        Guid bookingId,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            var response = await getCargoBookingDetailsQuery.GetDetailsAsync(
+                bookingId,
+                cancellationToken);
+
+            return Ok(response);
+        }
+        catch (CargoBookingNotFoundException exception)
+        {
+            return NotFound(new ProblemDetails
+            {
+                Status = StatusCodes.Status404NotFound,
+                Title = "Cargo booking not found.",
+                Detail = exception.Message,
+            });
+        }
+    }
+
     [HttpGet]
     [ProducesResponseType<SearchCargoBookingsResponse>(StatusCodes.Status200OK)]
     [ProducesResponseType<HttpValidationProblemDetails>(StatusCodes.Status400BadRequest)]

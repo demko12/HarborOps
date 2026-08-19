@@ -1,0 +1,67 @@
+@using HarborOps.Web.Api
+@using HarborOps.Web.Components.Shared
+@inject CrewApiClient CrewApi
+
+<section class="crew-profile-form" aria-labelledby="crew-assignment-form-title">
+    <div class="crew-profile-form-header">
+        <h3 id="crew-assignment-form-title">Assign to vessel</h3>
+    </div>
+
+    @if (conflictMessage is not null)
+    {
+        <div class="crew-profile-form-conflict" role="alert">@conflictMessage</div>
+    }
+
+    @if (generalError is not null)
+    {
+        <div class="crew-profile-form-error" role="alert">@generalError</div>
+    }
+
+    @if (fieldErrors.Count > 0)
+    {
+        <ul class="crew-profile-form-field-errors" role="alert">
+            @foreach (var message in fieldErrors)
+            {
+                <li>@message</li>
+            }
+        </ul>
+    }
+
+    @if (successMessage is not null)
+    {
+        <div class="crew-profile-form-success" role="status">@successMessage</div>
+    }
+
+    <form class="crew-profile-form-grid" @onsubmit="SubmitAsync" @onsubmit:preventDefault="true">
+        <div class="crew-profile-form-field crew-profile-form-field-wide">
+            <label for="assign-vessel">Vessel</label>
+            <VesselPicker @key="vesselPickerResetToken" @bind-Value="model.VesselId" Placeholder="Search vessel by name or IMO..." />
+        </div>
+
+        <div class="crew-profile-form-field">
+            <label for="assign-rank">Rank</label>
+            <select id="assign-rank" value="@(model.RankId?.ToString() ?? string.Empty)" @onchange="OnRankChanged" disabled="@(isLoadingPositions || positionOptions.Count == 0)">
+                <option value="">@RankPlaceholder</option>
+                @foreach (var option in positionOptions)
+                {
+                    <option value="@option.CrewPositionId">@option.RankName (@option.Department)</option>
+                }
+            </select>
+        </div>
+
+        <div class="crew-profile-form-field">
+            <label for="assign-sign-on-date">Sign-on date</label>
+            <input id="assign-sign-on-date" type="date" @bind="model.SignOnDate" min="@FormatIsoDate(today)" />
+        </div>
+
+        <div class="crew-profile-form-field">
+            <label for="assign-planned-sign-off-date">Planned sign-off date</label>
+            <input id="assign-planned-sign-off-date" type="date" @bind="model.PlannedSignOffDate"
+                   min="@(model.SignOnDate is { } signOn ? FormatIsoDate(signOn) : FormatIsoDate(today))" />
+        </div>
+
+        <button type="submit" class="crew-profile-form-submit" disabled="@(isSubmitting || model.VesselId is null)">
+            @(isSubmitting ? "Assigning..." : "Assign to vessel")
+        </button>
+    </form>
+</section>

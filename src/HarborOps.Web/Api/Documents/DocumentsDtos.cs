@@ -24,6 +24,22 @@ internal sealed record ExpiringDocumentsPage(
     int PageSize,
     int TotalCount);
 
+internal sealed record GetDocumentsQuery(Guid? VesselId, string? Search, int? PageNumber, int? PageSize);
+
+internal sealed record DocumentListItem(
+    Guid DocumentId,
+    Guid VesselId,
+    string Number,
+    string DocumentTypeName,
+    string Status,
+    DateOnly ExpiryDate);
+
+internal sealed record DocumentsPage(
+    IReadOnlyList<DocumentListItem> Items,
+    int PageNumber,
+    int PageSize,
+    int TotalCount);
+
 internal sealed record RegisterDocumentRequest
 {
     public Guid? VesselId { get; init; }
@@ -70,6 +86,30 @@ internal sealed record RegisterDocumentTypeRequest
 
 internal sealed record RegisterDocumentTypeResult(int Id);
 
+internal sealed record DocumentDetailsDto(
+    Guid Id,
+    Guid VesselId,
+    int DocumentTypeId,
+    string DocumentTypeName,
+    string Number,
+    DateOnly IssueDate,
+    DateOnly ExpiryDate,
+    string IssuingAuthority,
+    string Status,
+    bool HasFile,
+    string? FileName,
+    string? ContentType,
+    long? SizeBytes,
+    Guid? UploadedBy,
+    DateTime? UploadedAtUtc);
+
+internal sealed record DocumentFileResponseDto(
+    string FileName,
+    string ContentType,
+    long SizeBytes,
+    Guid UploadedBy,
+    DateTime UploadedAtUtc);
+
 internal sealed record DocumentsApiResult<T>(T? Value, DocumentsApiFailure? Failure)
 {
     internal bool IsSuccess => Failure is null;
@@ -88,4 +128,6 @@ internal sealed record DocumentsApiFailure(
     internal bool IsConflict => StatusCode == StatusCodes.Status409Conflict;
 
     internal bool IsNotFound => StatusCode == StatusCodes.Status404NotFound;
+
+    internal bool IsPayloadTooLarge => StatusCode == StatusCodes.Status413PayloadTooLarge;
 }

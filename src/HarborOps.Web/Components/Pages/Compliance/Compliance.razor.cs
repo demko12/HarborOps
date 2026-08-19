@@ -10,6 +10,7 @@ public partial class Compliance
     private ComplianceOverview? overview;
     private ComplianceApiFailure? overviewFailure;
     private bool isOverviewLoading;
+    private string? operationSuccess;
     private CancellationTokenSource? overviewCts;
     private int overviewVersion;
     private bool isCertificateFormOpen;
@@ -29,18 +30,68 @@ public partial class Compliance
     private string? pscSuccess;
     private string? pscError;
 
+    private bool isNonConformityFormOpen;
+    private NonConformityFormModel nonConformityModel = new();
+    private EditContext nonConformityEditContext = null!;
+    private ValidationMessageStore nonConformityMessages = null!;
+    private bool isSubmittingNonConformity;
+    private string? nonConformitySuccess;
+    private string? nonConformityError;
+    private int nonConformityResetToken;
+
+    private bool isInsurancePolicyFormOpen;
+    private InsurancePolicyFormModel insurancePolicyModel = new();
+    private EditContext insurancePolicyEditContext = null!;
+    private ValidationMessageStore insurancePolicyMessages = null!;
+    private bool isSubmittingInsurancePolicy;
+    private string? insurancePolicyError;
+
     protected override void OnInitialized()
     {
         ResetCertificateForm();
         ResetPscForm();
+        ResetNonConformityForm();
+        ResetInsurancePolicyForm();
     }
+
+    private void OpenCertificateForm()
+    {
+        certificateError = certificateSuccess = null;
+        isCertificateFormOpen = true;
+    }
+
+    private void CloseCertificateForm() => isCertificateFormOpen = false;
+
+    private void OpenPscForm()
+    {
+        pscError = pscSuccess = null;
+        isPscFormOpen = true;
+    }
+
+    private void ClosePscForm() => isPscFormOpen = false;
+
+    private void OpenNonConformityForm()
+    {
+        nonConformityError = nonConformitySuccess = null;
+        isNonConformityFormOpen = true;
+    }
+
+    private void CloseNonConformityForm() => isNonConformityFormOpen = false;
+
+    private void OpenInsurancePolicyForm()
+    {
+        insurancePolicyError = null;
+        isInsurancePolicyFormOpen = true;
+    }
+
+    private void CloseInsurancePolicyForm() => isInsurancePolicyFormOpen = false;
 
     private async Task SelectVesselAsync(Guid? vesselId)
     {
         selectedVesselId = vesselId;
         overview = null;
         overviewFailure = null;
-        certificateSuccess = pscSuccess = null;
+        certificateSuccess = pscSuccess = operationSuccess = null;
         if (vesselId is not null) await LoadOverviewAsync();
     }
 
@@ -85,6 +136,8 @@ public partial class Compliance
             if (!result.IsSuccess) { ApplyErrors(result.Failure!, certificateEditContext, certificateMessages, CertificateFieldMap, value => certificateError = value); return; }
             ResetCertificateForm();
             certificateSuccess = "Certificate registered successfully.";
+            operationSuccess = certificateSuccess;
+            isCertificateFormOpen = false;
             await LoadOverviewAsync();
         }
         finally { isSubmittingCertificate = false; }
@@ -105,6 +158,8 @@ public partial class Compliance
             if (!result.IsSuccess) { ApplyErrors(result.Failure!, pscEditContext, pscMessages, PscFieldMap, value => pscError = value); return; }
             ResetPscForm();
             pscSuccess = "PSC inspection registered successfully.";
+            operationSuccess = pscSuccess;
+            isPscFormOpen = false;
             await LoadOverviewAsync();
         }
         finally { isSubmittingPsc = false; }
@@ -119,6 +174,84 @@ public partial class Compliance
     private void ResetPscForm()
     {
         pscModel = new(); pscEditContext = new(pscModel); pscMessages = new(pscEditContext);
+    }
+
+    private async Task SubmitNonConformityAsync()
+    {
+        if (isSubmittingNonConformity || selectedVesselId is not { } vesselId) return;
+        nonConformityMessages.Clear();
+        nonConformityError = nonConformitySuccess = null;
+        if (!nonConformityEditContext.Validate()) return;
+        isSubmittingNonConformity = true;
+        try
+        {
+            var request = new RegisterNonConformityRequest(
+                nonConformityModel.SourceType == "Survey" ? nonConformityModel.SurveyId : null,
+                nonConformityModel.SourceType == "Psc" ? nonConformityModel.PscId : null,
+                nonConformityModel.EvidenceDocumentId,
+                nonConformityModel.Severity,
+                nonConformityModel.CorrectiveActionDeadline);
+            var result = await ComplianceApi.RegisterNonConformityAsync(request, CancellationToken.None);
+            if (!result.IsSuccess)
+            {
+                ApplyErrors(result.Failure!, nonConformityEditContext, nonConformityMessages, NonConformityFieldMap, value => nonConformityError = value);
+                return;
+            }
+
+            ResetNonConformityForm();
+            nonConformitySuccess = "Non-conformity registered successfully.";
+            operationSuccess = nonConformitySuccess;
+            isNonConformityFormOpen = false;
+            await LoadOverviewAsync();
+        }
+        finally
+        {
+            isSubmittingNonConformity = false;
+        }
+    }
+
+    private void ResetNonConformityForm()
+    {
+        nonConformityModel = new();
+        nonConformityEditContext = new(nonConformityModel);
+        nonConformityMessages = new(nonConformityEditContext);
+        nonConformityResetToken++;
+    }
+
+    private async Task SubmitInsurancePolicyAsync()
+    {
+        if (isSubmittingInsurancePolicy || selectedVesselId is not { } vesselId) return;
+        insurancePolicyMessages.Clear();
+        insurancePolicyError = null;
+        if (!insurancePolicyEditContext.Validate()) return;
+        isSubmittingInsurancePolicy = true;
+        try
+        {
+            var result = await ComplianceApi.RegisterInsurancePolicyAsync(
+                new(vesselId, insurancePolicyModel.Insurer, insurancePolicyModel.PolicyNumber, insurancePolicyModel.Coverage, insurancePolicyModel.ExpiryDate),
+                CancellationToken.None);
+            if (!result.IsSuccess)
+            {
+                ApplyErrors(result.Failure!, insurancePolicyEditContext, insurancePolicyMessages, InsurancePolicyFieldMap, value => insurancePolicyError = value);
+                return;
+            }
+
+            ResetInsurancePolicyForm();
+            operationSuccess = "Insurance policy registered successfully.";
+            isInsurancePolicyFormOpen = false;
+            await LoadOverviewAsync();
+        }
+        finally
+        {
+            isSubmittingInsurancePolicy = false;
+        }
+    }
+
+    private void ResetInsurancePolicyForm()
+    {
+        insurancePolicyModel = new();
+        insurancePolicyEditContext = new(insurancePolicyModel);
+        insurancePolicyMessages = new(insurancePolicyEditContext);
     }
 
     private static void ApplyErrors(ComplianceApiFailure failure, EditContext context,
@@ -167,6 +300,21 @@ public partial class Compliance
         ["deficiencyCount"] = nameof(PscFormModel.DeficiencyCount),
         ["vesselDetained"] = nameof(PscFormModel.VesselDetained),
     };
+    private static readonly IReadOnlyDictionary<string, string> NonConformityFieldMap = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+    {
+        ["surveyId"] = nameof(NonConformityFormModel.SurveyId),
+        ["pscId"] = nameof(NonConformityFormModel.PscId),
+        ["evidenceDocumentId"] = nameof(NonConformityFormModel.EvidenceDocumentId),
+        ["severity"] = nameof(NonConformityFormModel.Severity),
+        ["correctiveActionDeadline"] = nameof(NonConformityFormModel.CorrectiveActionDeadline),
+    };
+    private static readonly IReadOnlyDictionary<string, string> InsurancePolicyFieldMap = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+    {
+        ["insurer"] = nameof(InsurancePolicyFormModel.Insurer),
+        ["policyNumber"] = nameof(InsurancePolicyFormModel.PolicyNumber),
+        ["coverage"] = nameof(InsurancePolicyFormModel.Coverage),
+        ["expiryDate"] = nameof(InsurancePolicyFormModel.ExpiryDate),
+    };
 
     public void Dispose() { overviewCts?.Cancel(); overviewCts?.Dispose(); }
 
@@ -186,5 +334,23 @@ public partial class Compliance
         [Required, StringLength(200)] public string? InspectingAuthority { get; set; }
         [Required, Range(0, int.MaxValue)] public int? DeficiencyCount { get; set; }
         public bool VesselDetained { get; set; }
+    }
+
+    private sealed class NonConformityFormModel
+    {
+        public string SourceType { get; set; } = "Survey";
+        public int? SurveyId { get; set; }
+        public int? PscId { get; set; }
+        [Required] public Guid? EvidenceDocumentId { get; set; }
+        [Required] public string? Severity { get; set; }
+        [Required] public DateOnly? CorrectiveActionDeadline { get; set; }
+    }
+
+    private sealed class InsurancePolicyFormModel
+    {
+        [Required, StringLength(200)] public string? Insurer { get; set; }
+        [Required, StringLength(100)] public string? PolicyNumber { get; set; }
+        [Required, StringLength(200)] public string? Coverage { get; set; }
+        [Required] public DateOnly? ExpiryDate { get; set; }
     }
 }

@@ -25,6 +25,61 @@ internal sealed record CargoBookingFilter(
     int PageNumber,
     int PageSize);
 
+internal sealed record CargoBookingDetails(
+    Guid CargoBookingId,
+    string BookingNumber,
+    Guid VoyageId,
+    string Description,
+    string CargoType,
+    decimal WeightKg,
+    int PackageCount,
+    bool IsHazardous,
+    string Status,
+    string? NextStatus,
+    DateTime CreatedUtc,
+    CargoSafetyInformation? SafetyInfo,
+    IReadOnlyList<CargoTrackingEventRow> TrackingEvents);
+
+internal sealed record CargoSafetyInformation(
+    Guid CargoSafetyInfoId,
+    string ImdgClass,
+    string UnNumber,
+    string StorageConditions,
+    string? HandlingNotes);
+
+internal sealed record CargoTrackingEventRow(
+    Guid CargoTrackingEventId,
+    string Status,
+    DateTime OccurredUtc,
+    string Location,
+    Guid ResponsibleUserId);
+
+internal sealed record RegisterCargoBookingWebRequest(
+    string BookingNumber,
+    Guid VoyageId,
+    string Description,
+    string CargoType,
+    decimal WeightKg,
+    int PackageCount,
+    bool IsHazardous);
+
+internal sealed record RegisteredCargoBooking(Guid Id);
+
+internal sealed record DeclareCargoSafetyInfoWebRequest(
+    string ImdgClass,
+    string UnNumber,
+    string StorageConditions,
+    string? HandlingNotes);
+
+internal sealed record DeclaredCargoSafetyInfo(Guid Id);
+
+internal sealed record RecordCargoTrackingEventWebRequest(
+    string Status,
+    DateTime OccurredUtc,
+    string Location);
+
+internal sealed record RecordedCargoTrackingEvent(Guid Id, string Status);
+
 internal sealed record CargoApiResult<T>(T? Value, CargoApiFailure? Failure)
 {
     internal bool IsSuccess => Failure is null;
@@ -39,4 +94,8 @@ internal sealed record CargoApiFailure(
     internal bool IsForbidden => StatusCode == StatusCodes.Status403Forbidden;
 
     internal bool IsValidation => StatusCode == StatusCodes.Status400BadRequest;
+
+    internal bool IsNotFound => StatusCode == StatusCodes.Status404NotFound;
+
+    internal bool IsConflict => StatusCode == StatusCodes.Status409Conflict;
 }

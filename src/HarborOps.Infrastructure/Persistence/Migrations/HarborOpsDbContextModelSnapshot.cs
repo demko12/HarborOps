@@ -805,6 +805,10 @@ namespace HarborOps.Infrastructure.Persistence.Migrations
                     b.Property<Guid>("Id")
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<string>("ContentType")
+                        .HasMaxLength(255)
+                        .HasColumnType("nvarchar(255)");
+
                     b.Property<int>("DocumentTypeId")
                         .HasColumnType("int");
 
@@ -814,10 +818,6 @@ namespace HarborOps.Infrastructure.Persistence.Migrations
                     b.Property<string>("FileName")
                         .HasMaxLength(260)
                         .HasColumnType("nvarchar(260)");
-
-                    b.Property<string>("FileUrl")
-                        .HasMaxLength(2048)
-                        .HasColumnType("nvarchar(2048)");
 
                     b.Property<DateOnly>("IssueDate")
                         .HasColumnType("date");
@@ -842,16 +842,23 @@ namespace HarborOps.Infrastructure.Persistence.Migrations
                         .HasColumnType("datetime2")
                         .HasColumnName("PeriodStart");
 
+                    b.Property<long?>("SizeBytes")
+                        .HasColumnType("bigint");
+
                     b.Property<string>("Status")
                         .IsRequired()
                         .HasMaxLength(50)
                         .HasColumnType("nvarchar(50)");
 
+                    b.Property<string>("StorageKey")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
                     b.Property<DateTime?>("UploadedAtUtc")
                         .HasColumnType("datetime2");
 
-                    b.Property<int?>("UploadedBy")
-                        .HasColumnType("int");
+                    b.Property<Guid?>("UploadedBy")
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<Guid>("VesselId")
                         .HasColumnType("uniqueidentifier");

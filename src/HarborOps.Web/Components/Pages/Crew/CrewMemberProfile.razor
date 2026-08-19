@@ -1,0 +1,207 @@
+@page "/crew/{CrewMemberId:guid}"
+@attribute [Microsoft.AspNetCore.Authorization.Authorize(Policy = "AccessCrew")]
+@using HarborOps.Web.Components.Pages.Crew
+@implements IDisposable
+@inject CrewApiClient CrewApi
+@inject CurrentUserAuthorizationState CurrentUser
+
+<PageTitle>Crew profile | HarborOps</PageTitle>
+
+<section class="crew-profile-page">
+    @if (isLoading)
+    {
+        <LoadingState Message="Loading crew profile..." />
+    }
+    else if (failure is not null)
+    {
+        <ApiErrorState Title="@failure.Title" Message="@failure.Message" OnRetry="LoadProfileAsync" />
+    }
+    else if (profile is not null)
+    {
+        <header class="crew-profile-header">
+            <div>
+                <p class="crew-profile-eyebrow">Crew profile</p>
+                <h1>@profile.Name</h1>
+                <p>@profile.BaseRankName &middot; @profile.Nationality &middot; IMO @profile.ImoSeafarerId</p>
+            </div>
+            <span class="employment-status @GetEmploymentStatusClass(profile.EmploymentStatus)">@profile.EmploymentStatus</span>
+        </header>
+
+        <section class="crew-profile-summary-card" aria-labelledby="crew-profile-summary-title">
+            <div class="crew-profile-card-heading">
+                <h2 id="crew-profile-summary-title">Personal &amp; employment</h2>
+                <span class="bi bi-person-vcard" aria-hidden="true"></span>
+            </div>
+            <dl class="crew-profile-summary-grid">
+                <div><dt>Base rank</dt><dd>@profile.BaseRankName</dd></div>
+                <div><dt>Nationality</dt><dd>@profile.Nationality</dd></div>
+                <div><dt>Employment status</dt><dd>@profile.EmploymentStatus</dd></div>
+                <div><dt>Hire date</dt><dd>@profile.HireDate.ToString("dd MMM yyyy")</dd></div>
+                <div><dt>Passport expiry</dt><dd>@profile.PassportExpiry.ToString("dd MMM yyyy")</dd></div>
+                <div><dt>CDC number</dt><dd>@profile.CdcNumber</dd></div>
+                <div class="crew-profile-sensitive">
+                    <dt>Date of birth</dt>
+                    <dd>
+                        @if (isSensitiveDataRevealed)
+                        {
+                            @profile.DateOfBirth.ToString("dd MMM yyyy")
+                        }
+                        else
+                        {
+                            <span class="crew-profile-masked">••••••••••</span>
+                        }
+                    </dd>
+                </div>
+                <div class="crew-profile-sensitive">
+                    <dt>Passport number</dt>
+                    <dd>
+                        @if (isSensitiveDataRevealed)
+                        {
+                            @profile.PassportNumber
+                        }
+                        else
+                        {
+                            <span class="crew-profile-masked">••••••••••</span>
+                        }
+                    </dd>
+                </div>
+            </dl>
+            <button type="button" class="crew-profile-reveal-button" @onclick="ToggleSensitiveData">
+                <span class="bi @(isSensitiveDataRevealed ? "bi-eye-slash" : "bi-eye")" aria-hidden="true"></span>
+                @(isSensitiveDataRevealed ? "Hide sensitive data" : "Show sensitive data")
+            </button>
+        </section>
+
+        <div class="crew-profile-workspace">
+            <section class="crew-profile-card" aria-labelledby="crew-profile-certificates-title">
+                <div class="crew-profile-card-heading">
+                    <div>
+                        <h2 id="crew-profile-certificates-title">Certificates</h2>
+                        <p>@profile.Certificates.Count on record</p>
+                    </div>
+                    <span class="bi bi-award" aria-hidden="true"></span>
+                </div>
+
+                @if (profile.Certificates.Count == 0)
+                {
+                    <EmptyState Title="No certificates on record" Message="Register a certificate to start tracking qualifications." />
+                }
+                else
+                {
+                    <div class="crew-profile-list">
+                        @foreach (var certificate in profile.Certificates)
+                        {
+                            var state = GetCertificateState(certificate.ExpiryDate);
+                            <article class="crew-profile-row" @key="certificate.CertificateId">
+                                <div class="crew-profile-row-primary">
+                                    <strong>@certificate.Name</strong>
+                                    <span>@certificate.Type &middot; @certificate.IssuingAuthority</span>
+                                </div>
+                                <div class="crew-profile-row-secondary">
+                                    <span>License @certificate.LicenseNumber</span>
+                                    <span>Expires @certificate.ExpiryDate.ToString("dd MMM yyyy")</span>
+                                </div>
+                                <span class="crew-profile-indicator @state.Class">@state.Label</span>
+                            </article>
+                        }
+                    </div>
+                }
+
+                @if (CanManage)
+                {
+                    <RegisterCertificateForm CrewMemberId="CrewMemberId" OnRegistered="OnCertificateRegisteredAsync" />
+                }
+            </section>
+
+            <section class="crew-profile-card" aria-labelledby="crew-profile-assignments-title">
+                <div class="crew-profile-card-heading">
+                    <div>
+                        <h2 id="crew-profile-assignments-title">Assignments</h2>
+                        <p>@profile.Assignments.Count on record</p>
+                    </div>
+                    <span class="bi bi-ship" aria-hidden="true"></span>
+                </div>
+
+                @if (profile.Assignments.Count == 0)
+                {
+                    <EmptyState Title="No assignments on record" Message="Assign this crew member to a vessel to start tracking deployments." />
+                }
+                else
+                {
+                    <div class="crew-profile-list">
+                        @foreach (var assignment in profile.Assignments)
+                        {
+                            var state = GetAssignmentState(assignment);
+                            <button type="button" class="crew-profile-row crew-profile-row-clickable" @key="assignment.AssignmentId" @onclick="() => OpenAssignmentDetails(assignment)">
+                                <div class="crew-profile-row-primary">
+                                    <strong>Vessel @ShortId(assignment.VesselId)</strong>
+                                    <span>@assignment.RankName</span>
+                                </div>
+                                <div class="crew-profile-row-secondary">
+                                    <span>Signed on @assignment.SignOnDate.ToString("dd MMM yyyy")</span>
+                                    <span>
+                                        @(assignment.ActualSignOffDate is { } actual
+                                            ? $"Signed off {actual:dd MMM yyyy}"
+                                            : $"Planned off {assignment.PlannedSignOffDate:dd MMM yyyy}")
+                                    </span>
+                                </div>
+                                <span class="crew-profile-indicator @state.Class">@state.Label</span>
+                            </button>
+                        }
+                    </div>
+                }
+
+                @if (CanManage)
+                {
+                    <AssignToVesselForm CrewMemberId="CrewMemberId" CrewMemberName="@profile.Name" OnRegistered="OnAssignmentRegisteredAsync" />
+                }
+            </section>
+        </div>
+
+        @if (selectedAssignment is not null)
+        {
+            var detailState = GetAssignmentState(selectedAssignment);
+            <div class="crew-assignment-modal-backdrop" @onclick="CloseAssignmentDetails">
+                <section class="crew-assignment-modal" role="dialog" aria-modal="true" aria-labelledby="crew-assignment-detail-title" @onclick:stopPropagation="true">
+                    <div class="crew-profile-card-heading">
+                        <h2 id="crew-assignment-detail-title">Assignment details</h2>
+                        <button type="button" class="crew-assignment-modal-close" @onclick="CloseAssignmentDetails" aria-label="Close assignment details">
+                            <span class="bi bi-x-lg" aria-hidden="true"></span>
+                        </button>
+                    </div>
+
+                    <dl class="crew-assignment-modal-details">
+                        <div><dt>Vessel</dt><dd>Vessel @ShortId(selectedAssignment.VesselId)</dd></div>
+                        <div><dt>Rank</dt><dd>@selectedAssignment.RankName</dd></div>
+                        <div><dt>Sign-on date</dt><dd>@selectedAssignment.SignOnDate.ToString("dd MMM yyyy")</dd></div>
+                        <div><dt>Planned sign-off date</dt><dd>@selectedAssignment.PlannedSignOffDate.ToString("dd MMM yyyy")</dd></div>
+                        @if (selectedAssignment.ActualSignOffDate is { } actualSignOff)
+                        {
+                            <div><dt>Actual sign-off date</dt><dd>@actualSignOff.ToString("dd MMM yyyy")</dd></div>
+                        }
+                        <div><dt>Status</dt><dd><span class="crew-profile-indicator @detailState.Class">@detailState.Label</span></dd></div>
+                    </dl>
+
+                    @if (deleteAssignmentError is not null)
+                    {
+                        <div class="crew-assignment-modal-error" role="alert">@deleteAssignmentError</div>
+                    }
+
+                    @if (CanManage)
+                    {
+                        @if (string.Equals(selectedAssignment.Status, "Planned", StringComparison.OrdinalIgnoreCase))
+                        {
+                            <button type="button" class="crew-assignment-modal-delete" disabled="@isDeletingAssignment" @onclick="DeleteSelectedAssignmentAsync">
+                                @(isDeletingAssignment ? "Deleting..." : "Delete assignment")
+                            </button>
+                        }
+                        else
+                        {
+                            <p class="crew-assignment-modal-hint">Only planned assignments can be deleted.</p>
+                        }
+                    }
+                </section>
+            </div>
+        }
+    }
+</section>

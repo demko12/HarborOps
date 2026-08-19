@@ -1,9 +1,12 @@
 using System.Net;
+using System.Security.Claims;
 using System.Text;
 using Bunit;
 using HarborOps.Web.Api.Documents;
 using HarborOps.Web.Api.Fleet;
 using HarborOps.Web.Components.Pages.Documents;
+using Microsoft.AspNetCore.Components.Forms;
+using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace HarborOps.Web.Tests.Components;
@@ -11,6 +14,8 @@ namespace HarborOps.Web.Tests.Components;
 public sealed class DocumentsPageTests : BunitContext
 {
     private const string VesselId = "40000000-0000-0000-0000-000000000004";
+    private const string DocumentId = "10000000-0000-0000-0000-000000000001";
+    private const string UploaderId = "80000000-0000-0000-0000-000000000008";
 
     private readonly List<Uri> requestedUris = [];
 
@@ -31,6 +36,15 @@ public sealed class DocumentsPageTests : BunitContext
 
     private Func<HttpRequestMessage, Task<HttpResponseMessage>> respondToVesselSearch =
         _ => Json(HttpStatusCode.OK, VesselSearchPage());
+
+    private Func<HttpRequestMessage, Task<HttpResponseMessage>> respondToDocumentDetails =
+        _ => Json(HttpStatusCode.OK, DocumentDetails());
+
+    private Func<HttpRequestMessage, Task<HttpResponseMessage>> respondToUploadFile =
+        _ => Json(HttpStatusCode.Created, FileResponse());
+
+    private Func<HttpRequestMessage, Task<HttpResponseMessage>> respondToReplaceFile =
+        _ => Json(HttpStatusCode.OK, FileResponse());
 
     // ---- Grid ----
 
@@ -654,6 +668,368 @@ public sealed class DocumentsPageTests : BunitContext
             TimeSpan.FromSeconds(3));
     }
 
+    // ---- File panel ----
+
+    [Fact]
+    public void Clicking_the_file_toggle_loads_and_shows_file_details_and_closing_hides_it_again()
+    {
+        respondToExpiring = _ => Json(HttpStatusCode.OK, Page(Row(DocumentId)));
+        respondToDocumentDetails = _ => Json(HttpStatusCode.OK, DocumentDetails(hasFile: false));
+
+        var page = RenderDocumentsPage();
+        page.WaitForAssertion(() => Assert.NotEmpty(page.FindAll(".documents-file-toggle")));
+
+        page.Find(".documents-file-toggle").Click();
+
+        page.WaitForAssertion(() =>
+        {
+            Assert.Contains(requestedUris, IsDocumentDetailsRequest);
+            Assert.Contains("No file attached.", page.Markup, StringComparison.Ordinal);
+            Assert.Equal("Hide", page.Find(".documents-file-toggle").TextContent.Trim());
+        });
+
+        page.Find(".documents-file-toggle").Click();
+
+        page.WaitForAssertion(() =>
+        {
+            Assert.Empty(page.FindAll(".documents-file-panel"));
+            Assert.Equal("File", page.Find(".documents-file-toggle").TextContent.Trim());
+        });
+    }
+
+    [Fact]
+    public void Upload_form_is_shown_for_a_document_without_a_file_and_uploading_shows_success_with_refreshed_metadata()
+    {
+        respondToExpiring = _ => Json(HttpStatusCode.OK, Page(Row(DocumentId)));
+
+        var detailsCallCount = 0;
+        respondToDocumentDetails = _ =>
+        {
+            detailsCallCount++;
+
+            return Json(HttpStatusCode.OK, DocumentDetails(
+                hasFile: detailsCallCount > 1,
+                fileName: detailsCallCount > 1 ? "cert.pdf" : null,
+                contentType: detailsCallCount > 1 ? "application/pdf" : null,
+                sizeBytes: detailsCallCount > 1 ? 2048 : null,
+                uploadedAtUtc: detailsCallCount > 1 ? "2026-08-19T10:00:00Z" : null));
+        };
+
+        string? capturedBody = null;
+        HttpMethod? capturedMethod = null;
+        respondToUploadFile = async request =>
+        {
+            capturedMethod = request.Method;
+            capturedBody = await request.Content!.ReadAsStringAsync();
+
+            return new HttpResponseMessage(HttpStatusCode.Created)
+            {
+                Content = new StringContent(FileResponse(fileName: "cert.pdf"), Encoding.UTF8, "application/json"),
+            };
+        };
+
+        var page = RenderDocumentsPage("documents.manage", "documents.read");
+        page.WaitForAssertion(() => Assert.NotEmpty(page.FindAll(".documents-file-toggle")));
+        page.Find(".documents-file-toggle").Click();
+
+        page.WaitForAssertion(() =>
+        {
+            Assert.Contains("No file attached.", page.Markup, StringComparison.Ordinal);
+            Assert.NotEmpty(page.FindAll(".documents-file-upload-form"));
+        });
+
+        var inputFile = page.FindComponent<InputFile>();
+        inputFile.UploadFiles(InputFileContent.CreateFromText("dummy pdf bytes", "cert.pdf", contentType: "application/pdf"));
+
+        page.Find(".documents-file-upload-form .documents-search-button").Click();
+
+        page.WaitForAssertion(() =>
+        {
+            Assert.Contains("File uploaded.", page.Markup, StringComparison.Ordinal);
+            Assert.Contains("cert.pdf", page.Find(".documents-file-meta").TextContent, StringComparison.Ordinal);
+            Assert.DoesNotContain("No file attached.", page.Markup, StringComparison.Ordinal);
+        });
+
+        Assert.Equal(HttpMethod.Post, capturedMethod);
+        Assert.Contains("cert.pdf", capturedBody, StringComparison.Ordinal);
+        Assert.True(detailsCallCount >= 2);
+    }
+
+    [Fact]
+    public void Uploading_shows_the_busy_upload_indicator_while_the_request_is_pending()
+    {
+        respondToExpiring = _ => Json(HttpStatusCode.OK, Page(Row(DocumentId)));
+        respondToDocumentDetails = _ => Json(HttpStatusCode.OK, DocumentDetails(hasFile: false));
+
+        var pending = new TaskCompletionSource<HttpResponseMessage>();
+        respondToUploadFile = _ => pending.Task;
+
+        var page = RenderDocumentsPage("documents.manage", "documents.read");
+        page.WaitForAssertion(() => Assert.NotEmpty(page.FindAll(".documents-file-toggle")));
+        page.Find(".documents-file-toggle").Click();
+        page.WaitForAssertion(() => Assert.NotEmpty(page.FindAll(".documents-file-upload-form")));
+
+        var inputFile = page.FindComponent<InputFile>();
+        inputFile.UploadFiles(InputFileContent.CreateFromText("dummy pdf bytes", "cert.pdf", contentType: "application/pdf"));
+
+        page.Find(".documents-file-upload-form .documents-search-button").Click();
+
+        page.WaitForAssertion(() =>
+        {
+            Assert.NotEmpty(page.FindAll(".documents-file-progress"));
+            var uploadButton = page.Find(".documents-file-upload-form .documents-search-button");
+            Assert.Equal("Uploading...", uploadButton.TextContent.Trim());
+            Assert.True(uploadButton.HasAttribute("disabled"));
+        });
+
+        pending.SetResult(new HttpResponseMessage(HttpStatusCode.Created)
+        {
+            Content = new StringContent(FileResponse(), Encoding.UTF8, "application/json"),
+        });
+
+        page.WaitForAssertion(() => Assert.Contains("File uploaded.", page.Markup, StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void Replace_file_shows_a_confirmation_before_the_upload_form_and_cancel_returns_without_a_request()
+    {
+        respondToExpiring = _ => Json(HttpStatusCode.OK, Page(Row(DocumentId)));
+        respondToDocumentDetails = _ => Json(HttpStatusCode.OK, DocumentDetails(
+            hasFile: true,
+            fileName: "cert.pdf",
+            contentType: "application/pdf",
+            sizeBytes: 2048,
+            uploadedAtUtc: "2026-08-01T10:00:00Z"));
+
+        var page = RenderDocumentsPage("documents.manage", "documents.read");
+        page.WaitForAssertion(() => Assert.NotEmpty(page.FindAll(".documents-file-toggle")));
+        page.Find(".documents-file-toggle").Click();
+        page.WaitForAssertion(() => Assert.NotEmpty(page.FindAll(".documents-file-replace-button")));
+
+        page.Find(".documents-file-replace-button").Click();
+
+        page.WaitForAssertion(() =>
+        {
+            Assert.Contains("Replace the current file?", page.Markup, StringComparison.Ordinal);
+            Assert.Empty(page.FindAll(".documents-file-upload-form"));
+        });
+
+        var requestsBeforeCancel = requestedUris.Count;
+
+        page.Find(".documents-file-replace-confirm .documents-file-replace-button").Click();
+
+        page.WaitForAssertion(() =>
+        {
+            Assert.Empty(page.FindAll(".documents-file-replace-confirm"));
+            Assert.NotEmpty(page.FindAll(".documents-file-replace-button"));
+        });
+        Assert.Equal(requestsBeforeCancel, requestedUris.Count);
+
+        page.Find(".documents-file-replace-button").Click();
+        page.Find(".documents-file-replace-confirm .documents-search-button").Click();
+
+        page.WaitForAssertion(() => Assert.NotEmpty(page.FindAll(".documents-file-upload-form")));
+    }
+
+    [Fact]
+    public void Replacing_a_file_sends_a_put_request_and_shows_success_with_refreshed_metadata()
+    {
+        respondToExpiring = _ => Json(HttpStatusCode.OK, Page(Row(DocumentId)));
+
+        var detailsCallCount = 0;
+        respondToDocumentDetails = _ =>
+        {
+            detailsCallCount++;
+
+            return Json(HttpStatusCode.OK, DocumentDetails(
+                hasFile: true,
+                fileName: detailsCallCount > 1 ? "replacement.pdf" : "original.pdf",
+                contentType: "application/pdf",
+                sizeBytes: detailsCallCount > 1 ? 4096 : 2048,
+                uploadedAtUtc: "2026-08-19T12:00:00Z"));
+        };
+
+        HttpMethod? capturedMethod = null;
+        respondToReplaceFile = request =>
+        {
+            capturedMethod = request.Method;
+
+            return Json(HttpStatusCode.OK, FileResponse(fileName: "replacement.pdf", sizeBytes: 4096));
+        };
+
+        var page = RenderDocumentsPage("documents.manage", "documents.read");
+        page.WaitForAssertion(() => Assert.NotEmpty(page.FindAll(".documents-file-toggle")));
+        page.Find(".documents-file-toggle").Click();
+        page.WaitForAssertion(() => Assert.Contains("original.pdf", page.Markup, StringComparison.Ordinal));
+
+        page.Find(".documents-file-replace-button").Click();
+        page.Find(".documents-file-replace-confirm .documents-search-button").Click();
+        page.WaitForAssertion(() => Assert.NotEmpty(page.FindAll(".documents-file-upload-form")));
+
+        var inputFile = page.FindComponent<InputFile>();
+        inputFile.UploadFiles(InputFileContent.CreateFromText("new pdf bytes", "replacement.pdf", contentType: "application/pdf"));
+
+        page.Find(".documents-file-upload-form .documents-search-button").Click();
+
+        page.WaitForAssertion(() =>
+        {
+            Assert.Contains("File replaced.", page.Markup, StringComparison.Ordinal);
+            Assert.Contains("replacement.pdf", page.Find(".documents-file-meta").TextContent, StringComparison.Ordinal);
+        });
+
+        Assert.Equal(HttpMethod.Put, capturedMethod);
+        Assert.True(detailsCallCount >= 2);
+    }
+
+    [Fact]
+    public void A_forbidden_response_on_upload_shows_the_server_message()
+    {
+        respondToExpiring = _ => Json(HttpStatusCode.OK, Page(Row(DocumentId)));
+        respondToDocumentDetails = _ => Json(HttpStatusCode.OK, DocumentDetails(hasFile: false));
+        respondToUploadFile = _ => Json(
+            HttpStatusCode.Forbidden,
+            """{"title":"Forbidden","detail":"You are not allowed to upload files for this document.","errors":{}}""");
+
+        var page = RenderDocumentsPage("documents.manage", "documents.read");
+        page.WaitForAssertion(() => Assert.NotEmpty(page.FindAll(".documents-file-toggle")));
+        page.Find(".documents-file-toggle").Click();
+        page.WaitForAssertion(() => Assert.NotEmpty(page.FindAll(".documents-file-upload-form")));
+
+        var inputFile = page.FindComponent<InputFile>();
+        inputFile.UploadFiles(InputFileContent.CreateFromText("dummy pdf bytes", "cert.pdf", contentType: "application/pdf"));
+
+        page.Find(".documents-file-upload-form .documents-search-button").Click();
+
+        page.WaitForAssertion(() =>
+            Assert.Contains(
+                "You are not allowed to upload files for this document.",
+                page.Find(".documents-type-inline-error").TextContent,
+                StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void A_validation_error_on_upload_shows_the_field_error_list()
+    {
+        respondToExpiring = _ => Json(HttpStatusCode.OK, Page(Row(DocumentId)));
+        respondToDocumentDetails = _ => Json(HttpStatusCode.OK, DocumentDetails(hasFile: false));
+        respondToUploadFile = _ => Json(
+            HttpStatusCode.BadRequest,
+            """{"title":"One or more validation errors occurred.","errors":{"file":["The file extension is not allowed."]}}""");
+
+        var page = RenderDocumentsPage("documents.manage", "documents.read");
+        page.WaitForAssertion(() => Assert.NotEmpty(page.FindAll(".documents-file-toggle")));
+        page.Find(".documents-file-toggle").Click();
+        page.WaitForAssertion(() => Assert.NotEmpty(page.FindAll(".documents-file-upload-form")));
+
+        var inputFile = page.FindComponent<InputFile>();
+        inputFile.UploadFiles(InputFileContent.CreateFromText("dummy bytes", "cert.exe", contentType: "application/octet-stream"));
+
+        page.Find(".documents-file-upload-form .documents-search-button").Click();
+
+        page.WaitForAssertion(() =>
+            Assert.Contains(
+                "The file extension is not allowed.",
+                page.Find(".documents-type-field-errors").TextContent,
+                StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void A_payload_too_large_response_from_the_server_shows_the_max_size_message()
+    {
+        respondToExpiring = _ => Json(HttpStatusCode.OK, Page(Row(DocumentId)));
+        respondToDocumentDetails = _ => Json(HttpStatusCode.OK, DocumentDetails(hasFile: false));
+        respondToUploadFile = _ => Json(
+            HttpStatusCode.RequestEntityTooLarge,
+            """{"title":"Payload too large","errors":{}}""");
+
+        var page = RenderDocumentsPage("documents.manage", "documents.read");
+        page.WaitForAssertion(() => Assert.NotEmpty(page.FindAll(".documents-file-toggle")));
+        page.Find(".documents-file-toggle").Click();
+        page.WaitForAssertion(() => Assert.NotEmpty(page.FindAll(".documents-file-upload-form")));
+
+        var inputFile = page.FindComponent<InputFile>();
+        inputFile.UploadFiles(InputFileContent.CreateFromText("dummy pdf bytes", "cert.pdf", contentType: "application/pdf"));
+
+        page.Find(".documents-file-upload-form .documents-search-button").Click();
+
+        page.WaitForAssertion(() =>
+            Assert.Contains(
+                "File is too large. Maximum allowed size is 25 MB.",
+                page.Find(".documents-type-inline-error").TextContent,
+                StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void A_server_error_on_upload_shows_a_generic_inline_error_without_the_page_breaking()
+    {
+        respondToExpiring = _ => Json(HttpStatusCode.OK, Page(Row(DocumentId)));
+        respondToDocumentDetails = _ => Json(HttpStatusCode.OK, DocumentDetails(hasFile: false));
+        respondToUploadFile = _ => Json(
+            HttpStatusCode.InternalServerError,
+            """{"title":"Unable to upload the document file","detail":"The file storage is currently unavailable.","errors":{}}""");
+
+        var page = RenderDocumentsPage("documents.manage", "documents.read");
+        page.WaitForAssertion(() => Assert.NotEmpty(page.FindAll(".documents-file-toggle")));
+        page.Find(".documents-file-toggle").Click();
+        page.WaitForAssertion(() => Assert.NotEmpty(page.FindAll(".documents-file-upload-form")));
+
+        var inputFile = page.FindComponent<InputFile>();
+        inputFile.UploadFiles(InputFileContent.CreateFromText("dummy pdf bytes", "cert.pdf", contentType: "application/pdf"));
+
+        page.Find(".documents-file-upload-form .documents-search-button").Click();
+
+        page.WaitForAssertion(() =>
+            Assert.Contains(
+                "The file storage is currently unavailable.",
+                page.Find(".documents-type-inline-error").TextContent,
+                StringComparison.Ordinal));
+        Assert.Single(page.FindAll(".documents-file-upload-form"));
+    }
+
+    [Fact]
+    public void Manage_only_permission_shows_the_replace_button_but_hides_the_download_link()
+    {
+        respondToExpiring = _ => Json(HttpStatusCode.OK, Page(Row(DocumentId)));
+        respondToDocumentDetails = _ => Json(HttpStatusCode.OK, DocumentDetails(
+            hasFile: true,
+            fileName: "cert.pdf",
+            contentType: "application/pdf",
+            sizeBytes: 2048,
+            uploadedAtUtc: "2026-08-01T10:00:00Z"));
+
+        var page = RenderDocumentsPage("documents.manage");
+        page.WaitForAssertion(() => Assert.NotEmpty(page.FindAll(".documents-file-toggle")));
+        page.Find(".documents-file-toggle").Click();
+
+        page.WaitForAssertion(() =>
+        {
+            Assert.Empty(page.FindAll(".documents-file-download-link"));
+            Assert.NotEmpty(page.FindAll(".documents-file-replace-button"));
+        });
+    }
+
+    [Fact]
+    public void Read_only_permission_shows_the_download_link_but_hides_the_replace_button()
+    {
+        respondToExpiring = _ => Json(HttpStatusCode.OK, Page(Row(DocumentId)));
+        respondToDocumentDetails = _ => Json(HttpStatusCode.OK, DocumentDetails(
+            hasFile: true,
+            fileName: "cert.pdf",
+            contentType: "application/pdf",
+            sizeBytes: 2048,
+            uploadedAtUtc: "2026-08-01T10:00:00Z"));
+
+        var page = RenderDocumentsPage("documents.read");
+        page.WaitForAssertion(() => Assert.NotEmpty(page.FindAll(".documents-file-toggle")));
+        page.Find(".documents-file-toggle").Click();
+
+        page.WaitForAssertion(() =>
+        {
+            Assert.NotEmpty(page.FindAll(".documents-file-download-link"));
+            Assert.Empty(page.FindAll(".documents-file-replace-button"));
+        });
+    }
+
     // ---- Cross-form refresh ----
 
     [Fact]
@@ -697,13 +1073,16 @@ public sealed class DocumentsPageTests : BunitContext
     private static bool IsRegisterDocumentTypeRequest(Uri uri) =>
         uri.AbsolutePath.EndsWith("/types", StringComparison.Ordinal);
 
+    private static bool IsDocumentDetailsRequest(Uri uri) =>
+        uri.AbsolutePath.EndsWith($"/{DocumentId}", StringComparison.OrdinalIgnoreCase);
+
     private static void OpenTypeForm(IRenderedComponent<Documents> page) =>
         page.FindAll(".documents-registration-action")[0].Click();
 
     private static void OpenDocumentForm(IRenderedComponent<Documents> page) =>
         page.FindAll(".documents-registration-action")[1].Click();
 
-    private IRenderedComponent<Documents> RenderDocumentsPage()
+    private IRenderedComponent<Documents> RenderDocumentsPage(params string[] permissions)
     {
         var documentsHttpClient = new HttpClient(new StubHttpMessageHandler(request =>
         {
@@ -729,11 +1108,26 @@ public sealed class DocumentsPageTests : BunitContext
 
         Services.AddSingleton(new DocumentsApiClient(documentsHttpClient));
         Services.AddSingleton(new FleetApiClient(fleetHttpClient));
+        Services.AddSingleton(CreateAuthorizationState(
+            permissions.Length == 0 ? ["documents.read", "documents.manage"] : permissions));
 
         var page = Render<Documents>();
         page.WaitForAssertion(() => Assert.NotEmpty(requestedUris));
 
         return page;
+    }
+
+    private static CurrentUserAuthorizationState CreateAuthorizationState(IEnumerable<string> permissions)
+    {
+        var identity = new ClaimsIdentity("test");
+        foreach (var permission in permissions)
+        {
+            identity.AddClaim(new Claim(CurrentUserAuthorizationState.PermissionClaimType, permission));
+        }
+
+        var context = new DefaultHttpContext { User = new ClaimsPrincipal(identity) };
+
+        return new CurrentUserAuthorizationState(new HttpContextAccessor { HttpContext = context });
     }
 
     private Task<HttpResponseMessage> DispatchDocuments(HttpRequestMessage request)
@@ -750,6 +1144,18 @@ public sealed class DocumentsPageTests : BunitContext
             return request.Method == HttpMethod.Get
                 ? respondToDocumentTypes(request)
                 : respondToRegisterDocumentType(request);
+        }
+
+        if (path.EndsWith("/file", StringComparison.Ordinal))
+        {
+            return request.Method == HttpMethod.Post
+                ? respondToUploadFile(request)
+                : respondToReplaceFile(request);
+        }
+
+        if (request.Method == HttpMethod.Get)
+        {
+            return respondToDocumentDetails(request);
         }
 
         return respondToRegisterDocument(request);
@@ -803,6 +1209,41 @@ public sealed class DocumentsPageTests : BunitContext
     {
         return $$"""
             {"items":[{{string.Join(',', rows)}}],"pageSize":100,"totalCount":{{totalCount}}}
+            """;
+    }
+
+    private static string DocumentDetails(
+        string documentId = DocumentId,
+        bool hasFile = false,
+        string? fileName = null,
+        string? contentType = null,
+        long? sizeBytes = null,
+        string? uploadedAtUtc = null)
+    {
+        var fileNameJson = fileName is null ? "null" : $"\"{fileName}\"";
+        var contentTypeJson = contentType is null ? "null" : $"\"{contentType}\"";
+        var sizeBytesJson = sizeBytes is null ? "null" : sizeBytes.Value.ToString();
+        var uploadedByJson = hasFile ? $"\"{UploaderId}\"" : "null";
+        var uploadedAtJson = uploadedAtUtc is null ? "null" : $"\"{uploadedAtUtc}\"";
+
+        return $$"""
+            {"id":"{{documentId}}","vesselId":"{{VesselId}}","documentTypeId":1,"documentTypeName":"Safety Certificate",
+            "number":"CERT-001","issueDate":"2026-01-01","expiryDate":"2026-12-31","issuingAuthority":"Flag State",
+            "status":"Active","hasFile":{{(hasFile ? "true" : "false")}},"fileName":{{fileNameJson}},
+            "contentType":{{contentTypeJson}},"sizeBytes":{{sizeBytesJson}},"uploadedBy":{{uploadedByJson}},
+            "uploadedAtUtc":{{uploadedAtJson}}}
+            """;
+    }
+
+    private static string FileResponse(
+        string fileName = "certificate.pdf",
+        string contentType = "application/pdf",
+        long sizeBytes = 1024,
+        string uploadedAtUtc = "2026-08-19T10:00:00Z")
+    {
+        return $$"""
+            {"fileName":"{{fileName}}","contentType":"{{contentType}}","sizeBytes":{{sizeBytes}},
+            "uploadedBy":"{{UploaderId}}","uploadedAtUtc":"{{uploadedAtUtc}}"}
             """;
     }
 

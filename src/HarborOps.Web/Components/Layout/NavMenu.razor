@@ -103,49 +103,49 @@
 <aside class="app-sidebar @(mobileMenuOpen ? "open" : string.Empty)">
 	<nav class="sidebar-nav">
 		<div class="nav-pills">
-			<NavLink class="nav-pill" href="" title="Dashboard" Match="NavLinkMatch.All" ActiveClass="active" @onclick="CloseMobileMenu">
+			<NavLink class="nav-pill" href="" Match="NavLinkMatch.All" ActiveClass="active" @onclick="CloseMobileMenu">
 				<span class="bi bi-grid-1x2-fill"></span> <span class="nav-pill-label">Dashboard</span><span class="nav-pill-tooltip">Dashboard</span>
 			</NavLink>
 			@if (AuthorizationState.CanAccessFleet)
 			{
-				<NavLink class="nav-pill" href="fleet" title="Fleet" ActiveClass="active" @onclick="CloseMobileMenu">
+				<NavLink class="nav-pill" href="fleet" ActiveClass="active" @onclick="CloseMobileMenu">
 					<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="nav-icon"><path d="M12 10.189V14"></path><path d="M12 2v3"></path><path d="M19 13V7a2 2 0 0 0-2-2H7a2 2 0 0 0-2 2v6"></path><path d="M19.38 20A11.6 11.6 0 0 0 21 14l-8.188-3.639a2 2 0 0 0-1.624 0L3 14a11.6 11.6 0 0 0 2.81 7.76"></path><path d="M2 21c.6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1s1.2 1 2.5 1c2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1"></path></svg>
 					<span class="nav-pill-label">Fleet</span><span class="nav-pill-tooltip">Fleet</span>
 				</NavLink>
 			}
 			@if (AuthorizationState.CanAccessCrew)
 			{
-				<NavLink class="nav-pill" href="crew" title="Crew" ActiveClass="active" @onclick="CloseMobileMenu"><span class="bi bi-people-fill"></span> <span class="nav-pill-label">Crew</span><span class="nav-pill-tooltip">Crew</span></NavLink>
+				<NavLink class="nav-pill" href="crew" ActiveClass="active" @onclick="CloseMobileMenu"><span class="bi bi-people-fill"></span> <span class="nav-pill-label">Crew</span><span class="nav-pill-tooltip">Crew</span></NavLink>
 			}
 			@if (AuthorizationState.CanAccessVoyages)
 			{
-				<NavLink class="nav-pill" href="voyages" title="Voyages" ActiveClass="active" @onclick="CloseMobileMenu"><span class="bi bi-signpost-split-fill"></span> <span class="nav-pill-label">Voyages</span><span class="nav-pill-tooltip">Voyages</span></NavLink>
+				<NavLink class="nav-pill" href="voyages" ActiveClass="active" @onclick="CloseMobileMenu"><span class="bi bi-signpost-split-fill"></span> <span class="nav-pill-label">Voyages</span><span class="nav-pill-tooltip">Voyages</span></NavLink>
 			}
 			@if (AuthorizationState.CanAccessCargo)
 			{
-				<NavLink class="nav-pill" href="cargo" title="Cargo" ActiveClass="active" @onclick="CloseMobileMenu"><span class="bi bi-box-seam-fill"></span> <span class="nav-pill-label">Cargo</span><span class="nav-pill-tooltip">Cargo</span></NavLink>
+				<NavLink class="nav-pill" href="cargo" ActiveClass="active" @onclick="CloseMobileMenu"><span class="bi bi-box-seam-fill"></span> <span class="nav-pill-label">Cargo</span><span class="nav-pill-tooltip">Cargo</span></NavLink>
 			}
 			@if (AuthorizationState.CanAccessMaintenance)
 			{
-				<NavLink class="nav-pill" href="maintenance" title="Maintenance" ActiveClass="active" @onclick="CloseMobileMenu"><span class="bi bi-tools"></span> <span class="nav-pill-label">Maintenance</span><span class="nav-pill-tooltip">Maintenance</span></NavLink>
+				<NavLink class="nav-pill" href="maintenance" ActiveClass="active" @onclick="CloseMobileMenu"><span class="bi bi-tools"></span> <span class="nav-pill-label">Maintenance</span><span class="nav-pill-tooltip">Maintenance</span></NavLink>
 			}
 			@if (AuthorizationState.CanAccessCompliance)
 			{
-				<NavLink class="nav-pill" href="compliance" title="Compliance" ActiveClass="active" @onclick="CloseMobileMenu"><span class="bi bi-shield-check"></span> <span class="nav-pill-label">Compliance</span><span class="nav-pill-tooltip">Compliance</span></NavLink>
+				<NavLink class="nav-pill" href="compliance" ActiveClass="active" @onclick="CloseMobileMenu"><span class="bi bi-shield-check"></span> <span class="nav-pill-label">Compliance</span><span class="nav-pill-tooltip">Compliance</span></NavLink>
 			}
 			@if (AuthorizationState.CanAccessDocuments)
 			{
-				<NavLink class="nav-pill" href="documents" title="Documents" ActiveClass="active" @onclick="CloseMobileMenu"><span class="bi bi-file-earmark-text-fill"></span> <span class="nav-pill-label">Documents</span><span class="nav-pill-tooltip">Documents</span></NavLink>
+				<NavLink class="nav-pill" href="documents" ActiveClass="active" @onclick="CloseMobileMenu"><span class="bi bi-file-earmark-text-fill"></span> <span class="nav-pill-label">Documents</span><span class="nav-pill-tooltip">Documents</span></NavLink>
 			}
 			@if (AuthorizationState.CanAccessReports)
 			{
-				<NavLink class="nav-pill" href="reports" title="Reports" ActiveClass="active" @onclick="CloseMobileMenu">
+				<NavLink class="nav-pill" href="reports" ActiveClass="active" @onclick="CloseMobileMenu">
 					<span class="bi bi-bar-chart-fill"></span> <span class="nav-pill-label">Reports</span><span class="nav-pill-tooltip">Reports</span>
 				</NavLink>
 			}
 			@if (AuthorizationState.CanManageAdministration)
 			{
-				<NavLink class="nav-pill" href="administration" title="Administration" ActiveClass="active" @onclick="CloseMobileMenu">
+				<NavLink class="nav-pill" href="administration" ActiveClass="active" @onclick="CloseMobileMenu">
 					<span class="bi bi-person-gear"></span> <span class="nav-pill-label">Administration</span><span class="nav-pill-tooltip">Administration</span>
 				</NavLink>
 			}
