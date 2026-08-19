@@ -144,15 +144,17 @@
                                 @foreach (var item in section.Items)
                                 {
                                     <li>
-                                        <span class="dashboard-severity @item.Severity" aria-hidden="true"></span>
-                                        <div>
-                                            <strong>@item.Title</strong>
-                                            <span>@item.Detail</span>
-                                        </div>
-                                        @if (item.DueLabel is not null)
-                                        {
-                                            <time datetime="@item.DueLabel">@GetDueLabel(section.Capability, item.DueLabel, item.Severity)</time>
-                                        }
+                                        <a href="@(item.Link ?? section.Link)" class="dashboard-attention-item">
+                                            <span class="dashboard-severity @item.Severity" aria-hidden="true"></span>
+                                            <div>
+                                                <strong>@item.Title</strong>
+                                                <span>@item.Detail</span>
+                                            </div>
+                                            @if (item.DueLabel is not null)
+                                            {
+                                                <time datetime="@item.DueLabel">@GetDueLabel(section.Capability, item.DueLabel, item.Severity)</time>
+                                            }
+                                        </a>
                                     </li>
                                 }
                             </ul>

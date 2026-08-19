@@ -95,7 +95,8 @@ public sealed class OperationsDashboardService(
                     item.CrewMemberName,
                     $"{item.CredentialName} expires",
                     item.ExpiryDate.ToString("yyyy-MM-dd"),
-                    item.ExpiryDate < asOf ? "critical" : "warning")));
+                    item.ExpiryDate < asOf ? "critical" : "warning",
+                    $"/crew/{item.CrewMemberId}")));
         }
         catch (Exception exception) when (IsSectionFailure(exception, cancellationToken))
         {
@@ -207,8 +208,9 @@ public sealed class OperationsDashboardService(
         string title,
         string detail,
         string? dueLabel,
-        string severity) =>
-        new(title, detail, dueLabel, severity);
+        string severity,
+        string? link = null) =>
+        new(title, detail, dueLabel, severity, link);
 
     private static IReadOnlyList<OperationsDashboardPriorityItemResponse> BuildPriorityItems(
         IReadOnlyList<OperationsDashboardSectionResponse> sections) =>
@@ -221,7 +223,7 @@ public sealed class OperationsDashboardService(
                 item.Detail,
                 item.DueLabel,
                 item.Severity,
-                section.Link)))
+                item.Link ?? section.Link)))
             .OrderBy(item => SeverityOrder(item.Severity))
             .ThenBy(item => item.DueLabel is null ? DateOnly.MaxValue : DateOnly.Parse(item.DueLabel, System.Globalization.CultureInfo.InvariantCulture))
             .ThenBy(item => item.Capability, StringComparer.Ordinal)
