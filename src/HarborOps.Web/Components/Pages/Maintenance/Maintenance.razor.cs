@@ -62,6 +62,13 @@ public partial class Maintenance
 
     private bool isCreateFormOpen;
 
+    private MaintenanceTab activeTab = MaintenanceTab.WorkOrders;
+
+    private void SelectTab(MaintenanceTab tab)
+    {
+        activeTab = tab;
+    }
+
     protected override Task OnInitializedAsync()
     {
         return LoadAsync();

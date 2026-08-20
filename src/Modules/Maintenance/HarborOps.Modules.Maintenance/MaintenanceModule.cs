@@ -22,6 +22,12 @@ public static class MaintenanceModule
         services.AddScoped<IOperationsDashboardMaintenanceQuery, OperationsDashboardMaintenanceQuery>();
         services.AddScoped<GetInventoryItemsQuery>();
         services.AddScoped<GetWorkOrderPartUsagesQuery>();
+        services.AddScoped<RegisterEquipmentService>();
+        services.AddScoped<GetEquipmentQuery>();
+        services.AddScoped<RegisterMaintenanceScheduleService>();
+        services.AddScoped<GetMaintenanceSchedulesQuery>();
+        services.AddScoped<GetMaintenanceScheduleDetailsQuery>();
+        services.AddScoped<UpdateScheduleNextDueService>();
         services.AddScoped<IVesselMaintenanceOverviewQuery>(serviceProvider =>
             serviceProvider.GetRequiredService<GetVesselMaintenanceOverviewService>());
         services.TryAddSingleton(TimeProvider.System);

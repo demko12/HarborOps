@@ -89,4 +89,74 @@ internal static class MaintenanceFormat
     {
         return quantityRequested is { } requested && requested > quantity;
     }
+
+    internal static readonly IReadOnlyList<string> Frequencies =
+        ["Daily", "Weekly", "Monthly", "Quarterly", "SemiAnnual", "Annual", "RunningHours"];
+
+    internal static string FieldLabel(string field)
+    {
+        return field switch
+        {
+            "vesselId" => "Vessel",
+            "name" => "Name",
+            "category" => "Category",
+            "manufacturer" => "Manufacturer",
+            "serialNumber" => "Serial number",
+            "maintenanceType" => "Maintenance type",
+            "frequency" => "Frequency",
+            "nextDueDate" => "Next due date",
+            "nextDueHours" => "Next due hours",
+            "equipmentIds" => "Equipment",
+            "completedOn" => "Completed on",
+            "dueTo" => "Due to",
+            "pageNumber" => "Page number",
+            "pageSize" => "Page size",
+            _ => field,
+        };
+    }
+
+    internal static string OptionalText(string? value)
+    {
+        return string.IsNullOrWhiteSpace(value) ? MissingValue : value;
+    }
+
+    internal static string DueDate(DateOnly? value)
+    {
+        return value is { } dueDate
+            ? dueDate.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture)
+            : MissingValue;
+    }
+
+    internal static string DueHours(int? value)
+    {
+        return value is { } hours
+            ? hours.ToString(CultureInfo.InvariantCulture)
+            : MissingValue;
+    }
+
+    internal static string DueState(bool isOverdue, int? daysUntilDue)
+    {
+        if (isOverdue)
+        {
+            return "Overdue";
+        }
+
+        return daysUntilDue switch
+        {
+            null => "Running hours only",
+            0 => "Due today",
+            1 => "Due in 1 day",
+            _ => $"Due in {daysUntilDue.Value.ToString(CultureInfo.InvariantCulture)} days",
+        };
+    }
+
+    internal static string DueStateModifier(bool isOverdue, int? daysUntilDue)
+    {
+        if (isOverdue)
+        {
+            return "overdue";
+        }
+
+        return daysUntilDue is null ? "hours" : "scheduled";
+    }
 }

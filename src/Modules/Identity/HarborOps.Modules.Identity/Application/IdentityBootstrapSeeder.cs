@@ -47,6 +47,8 @@ public sealed class IdentityBootstrapSeeder(
             Permissions.Voyages.Read,
             Permissions.Voyages.Manage,
             Permissions.Fleet.Read,
+            Permissions.Maintenance.Read,
+            Permissions.Maintenance.Manage,
         })
         {
             var alreadyGranted = existingClaims.Any(claim =>
