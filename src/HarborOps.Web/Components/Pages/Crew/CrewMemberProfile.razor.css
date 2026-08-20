@@ -1,5 +1,4 @@
 .crew-profile-page {
-    --card-shadow: 0 12px 35px rgba(0, 0, 0, .08);
     max-width: 1400px;
     margin: 0 auto;
     padding: 2.5rem 2rem;
@@ -45,7 +44,7 @@ html[data-theme="light"] .employment-inactive { color: #475569; border-color: rg
     margin: 0 0 1rem;
 }
 
-.crew-profile-summary-grid dt { margin: 0 0 .27rem; color: var(--text-muted); font-size: .7rem; font-weight: 700; letter-spacing: .07em; text-transform: uppercase; }
+.crew-profile-summary-grid dt { margin: 0 0 .27rem; color: var(--text-muted); font-size: .7rem; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; }
 .crew-profile-summary-grid dd { margin: 0; color: var(--text-primary); font-size: .88rem; font-weight: 600; }
 
 .crew-profile-masked { color: var(--text-muted); letter-spacing: .12em; }
@@ -134,9 +133,10 @@ html[data-theme="light"] .crew-profile-indicator-neutral { color: #475569; borde
     inset: 0;
     display: grid;
     place-items: center;
-    padding: 1.25rem;
-    background: rgba(2, 6, 23, .64);
-    backdrop-filter: blur(5px);
+    padding: 1.5rem;
+    background: rgba(2, 6, 23, .48);
+    backdrop-filter: blur(3px);
+    -webkit-backdrop-filter: blur(3px);
 }
 
 .crew-assignment-modal {
@@ -160,7 +160,7 @@ html[data-theme="light"] .crew-profile-indicator-neutral { color: #475569; borde
 .crew-assignment-modal-close:hover { color: var(--text-primary); border-color: var(--accent-border); background: var(--accent-bg); }
 
 .crew-assignment-modal-details { display: grid; gap: .7rem; margin: 1rem 0; }
-.crew-assignment-modal-details dt { margin: 0 0 .2rem; color: var(--text-muted); font-size: .7rem; font-weight: 700; letter-spacing: .07em; text-transform: uppercase; }
+.crew-assignment-modal-details dt { margin: 0 0 .2rem; color: var(--text-muted); font-size: .7rem; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; }
 .crew-assignment-modal-details dd { margin: 0; color: var(--text-primary); font-size: .92rem; font-weight: 600; }
 
 .crew-assignment-modal-delete {

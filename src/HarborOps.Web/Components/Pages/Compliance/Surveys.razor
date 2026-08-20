@@ -99,57 +99,58 @@
         </div>
     }
 
+    <div class="surveys-filters">
+        <div class="survey-vessel-filter" @onclick:stopPropagation="true">
+            @if (selectedFilterVessel is not null)
+            {
+                <div class="survey-vessel-selected">
+                    <div>
+                        <strong>@selectedFilterVessel.Name</strong>
+                        <span>IMO @selectedFilterVessel.ImoNumber</span>
+                    </div>
+                    <button class="survey-link" type="button" @onclick="ClearFilterVesselAsync">Change</button>
+                </div>
+            }
+            else
+            {
+                <div class="survey-input-shell">
+                    <span class="bi bi-search" aria-hidden="true"></span>
+                    <input id="survey-filter-vessel-search" class="survey-vessel-search" @bind="filterVesselSearch" @bind:event="oninput"
+                           @bind:after="SearchFilterVesselsAsync" @onfocus="ShowFilterVesselOptionsAsync"
+                           disabled="@isLoading" placeholder="Click to browse vessels, or type to search" aria-label="Filter surveys by vessel" />
+                </div>
+
+                @if (isFilterVesselDropdownOpen && isSearchingFilterVessels)
+                {
+                    <p class="survey-hint">Searching vessels...</p>
+                }
+                else if (isFilterVesselDropdownOpen && filterVesselFailure is not null)
+                {
+                    <p class="survey-hint survey-hint-error">@filterVesselFailure.Title</p>
+                }
+                else if (isFilterVesselDropdownOpen && filterVesselResults.Count > 0)
+                {
+                    <ul class="survey-vessel-results">
+                        @foreach (var vessel in filterVesselResults)
+                        {
+                            <li @key="vessel.VesselId">
+                                <button type="button" @onclick="() => SelectFilterVesselAsync(vessel)">
+                                    <strong>@vessel.Name</strong>
+                                    <span>IMO @vessel.ImoNumber · @vessel.FlagState</span>
+                                </button>
+                            </li>
+                        }
+                    </ul>
+                }
+            }
+        </div>
+        <div class="surveys-input-shell"><span class="bi bi-search" aria-hidden="true"></span><input id="survey-search" @bind="search" @bind:event="oninput" @bind:after="ReloadAsync" placeholder="Search survey type, inspector or findings" aria-label="Search surveys" /></div>
+        <div class="survey-select-shell"><select id="filter-type" @bind="typeFilter" @bind:after="ReloadAsync" aria-label="Filter by type"><option value="">All types</option>@foreach (var type in Types) { <option value="@type">@type</option> }</select><span class="bi bi-chevron-down" aria-hidden="true"></span></div>
+        <div class="survey-select-shell"><select id="filter-result" @bind="resultFilter" @bind:after="ReloadAsync" aria-label="Filter by result"><option value="">All results</option>@foreach (var result in Results) { <option value="@result">@result</option> }</select><span class="bi bi-chevron-down" aria-hidden="true"></span></div>
+    </div>
+
     <section class="survey-card survey-register-card">
         <div class="surveys-list-heading"><div><h2>Survey register</h2><p>@(surveys?.TotalCount ?? 0) surveys and audits found</p></div><span class="survey-panel-icon bi bi-clipboard2-check" aria-hidden="true"></span></div>
-        <div class="surveys-filters">
-            <div class="survey-vessel-filter" @onclick:stopPropagation="true">
-                @if (selectedFilterVessel is not null)
-                {
-                    <div class="survey-vessel-selected">
-                        <div>
-                            <strong>@selectedFilterVessel.Name</strong>
-                            <span>IMO @selectedFilterVessel.ImoNumber</span>
-                        </div>
-                        <button class="survey-link" type="button" @onclick="ClearFilterVesselAsync">Change</button>
-                    </div>
-                }
-                else
-                {
-                    <div class="survey-input-shell">
-                        <span class="bi bi-search" aria-hidden="true"></span>
-                        <input id="survey-filter-vessel-search" class="survey-vessel-search" @bind="filterVesselSearch" @bind:event="oninput"
-                               @bind:after="SearchFilterVesselsAsync" @onfocus="ShowFilterVesselOptionsAsync"
-                               disabled="@isLoading" placeholder="Click to browse vessels, or type to search" aria-label="Filter surveys by vessel" />
-                    </div>
-
-                    @if (isFilterVesselDropdownOpen && isSearchingFilterVessels)
-                    {
-                        <p class="survey-hint">Searching vessels...</p>
-                    }
-                    else if (isFilterVesselDropdownOpen && filterVesselFailure is not null)
-                    {
-                        <p class="survey-hint survey-hint-error">@filterVesselFailure.Title</p>
-                    }
-                    else if (isFilterVesselDropdownOpen && filterVesselResults.Count > 0)
-                    {
-                        <ul class="survey-vessel-results">
-                            @foreach (var vessel in filterVesselResults)
-                            {
-                                <li @key="vessel.VesselId">
-                                    <button type="button" @onclick="() => SelectFilterVesselAsync(vessel)">
-                                        <strong>@vessel.Name</strong>
-                                        <span>IMO @vessel.ImoNumber · @vessel.FlagState</span>
-                                    </button>
-                                </li>
-                            }
-                        </ul>
-                    }
-                }
-            </div>
-            <div class="surveys-input-shell"><span class="bi bi-search" aria-hidden="true"></span><input id="survey-search" @bind="search" @bind:event="oninput" @bind:after="ReloadAsync" placeholder="Search survey type, inspector or findings" aria-label="Search surveys" /></div>
-            <div class="survey-select-shell"><select id="filter-type" @bind="typeFilter" @bind:after="ReloadAsync" aria-label="Filter by type"><option value="">All types</option>@foreach (var type in Types) { <option value="@type">@type</option> }</select><span class="bi bi-chevron-down" aria-hidden="true"></span></div>
-            <div class="survey-select-shell"><select id="filter-result" @bind="resultFilter" @bind:after="ReloadAsync" aria-label="Filter by result"><option value="">All results</option>@foreach (var result in Results) { <option value="@result">@result</option> }</select><span class="bi bi-chevron-down" aria-hidden="true"></span></div>
-        </div>
         @if (isLoading) { <LoadingState Message="Loading surveys and audits..." /> }
         else if (failure is not null) { <ApiErrorState Title="@failure.Title" Message="@failure.Message" OnRetry="ReloadAsync" /> }
         else if (surveys is null || surveys.Items.Count == 0) { <EmptyState Title="No surveys found" Message="Try changing the filters or register the first survey." /> }

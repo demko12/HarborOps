@@ -59,16 +59,17 @@ html[data-theme="light"] .crew-profile-form-field-errors { border-color: rgba(18
 }
 
 .crew-profile-form-field { display: flex; flex-direction: column; gap: .4rem; min-width: 0; }
-.crew-profile-form-field label { color: var(--text-muted); font-size: .7rem; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; }
+.crew-profile-form-field label { color: var(--text-muted); font-size: .7rem; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; }
 
 .crew-profile-form-grid ::deep input {
     width: 100%;
-    height: 2.6rem;
-    padding: 0 .75rem;
+    box-sizing: border-box;
+    height: 2.8rem;
+    padding: 0 .85rem;
     color: var(--text-primary);
     border: 1px solid var(--border-medium);
     border-radius: .65rem;
-    background-color: var(--bg-surface);
+    background-color: var(--control-surface);
     font: inherit;
     font-size: .88rem;
     color-scheme: dark;
@@ -87,20 +88,20 @@ html[data-theme="light"] .crew-profile-form-grid ::deep input { color-scheme: li
 
 .crew-profile-form-submit {
     grid-column: span 2;
-    height: 2.7rem;
-    padding: 0 1.2rem;
-    color: var(--text-primary);
-    border: 1px solid var(--border-medium);
+    height: 2.8rem;
+    padding: 0 1.1rem;
+    color: var(--apply-text);
+    border: 1px solid var(--apply-border);
     border-radius: .6rem;
-    background: var(--bg-surface-strong);
+    background: var(--apply-surface);
     font: inherit;
     font-size: .88rem;
     font-weight: 600;
     cursor: pointer;
-    transition: background .15s ease, border-color .15s ease;
+    transition: border-color .16s ease, background .16s ease, transform .16s ease;
 }
 
-.crew-profile-form-submit:hover:not(:disabled) { border-color: var(--accent-border); background: var(--accent-bg); }
+.crew-profile-form-submit:hover:not(:disabled) { border-color: var(--apply-border-hover); background: var(--apply-surface-hover); transform: translateY(-1px); }
 .crew-profile-form-submit:disabled { opacity: .5; cursor: not-allowed; }
 
 @media (max-width: 620px) {
