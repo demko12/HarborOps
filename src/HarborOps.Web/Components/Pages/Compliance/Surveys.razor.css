@@ -401,7 +401,7 @@ html[data-theme="dark"] .survey-form-vessel-picker .survey-vessel-results {
     height: 2.8rem;
     border: 1px solid var(--border-medium);
     border-radius: .65rem;
-    background: var(--bg-surface-strong);
+    background: var(--survey-control);
 }
 
 .surveys-input-shell:focus-within {

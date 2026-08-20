@@ -3,6 +3,8 @@
     --bg-app: #172033;
     --bg-surface: rgba(255, 255, 255, 0.055);
     --bg-surface-strong: rgba(30, 41, 59, 0.43);
+    /* opaque surface shared by search and filter controls */
+    --control-surface: #131c2b;
     --bg-navbar: rgba(23, 32, 51, 0.62);
     --border-subtle: rgba(255, 255, 255, 0.06);
     --border-medium: rgba(255, 255, 255, 0.09);
@@ -21,6 +23,7 @@
     --bg-app: #e9eef5;
     --bg-surface: rgba(255, 255, 255, 0.16);
     --bg-surface-strong: rgba(255, 255, 255, 0.42);
+    --control-surface: #ffffff;
     --bg-navbar: rgba(248, 250, 252, 0.58);
     --border-subtle: rgba(15, 23, 42, 0.12);
     --border-medium: rgba(15, 23, 42, 0.18);

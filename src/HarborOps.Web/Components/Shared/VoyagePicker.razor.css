@@ -13,14 +13,14 @@
     border: 1px solid var(--border-medium);
     border-radius: 0.65rem;
     outline: 0;
-    background: var(--bg-surface);
+    background: var(--control-surface);
     font-size: 0.92rem;
     transition: border-color 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
 }
 
 .voyage-picker-input:focus {
     border-color: var(--accent);
-    background: var(--bg-surface-strong);
+    background: var(--control-surface);
     box-shadow: 0 0 0 0.2rem var(--accent-bg);
 }
 

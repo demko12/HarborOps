@@ -2,7 +2,7 @@
 @using HarborOps.Web.Api.Fleet
 @using HarborOps.Web.Api.Voyages
 @attribute [Microsoft.AspNetCore.Authorization.Authorize]
-@implements IDisposable
+@implements IAsyncDisposable
 @inject VoyagesApiClient VoyagesApi
 @inject FleetApiClient FleetApi
 @inject CurrentUserAuthorizationState AuthorizationState
@@ -11,7 +11,7 @@
 
 <PageTitle>Schedule voyage | HarborOps</PageTitle>
 
-<section class="schedule-page">
+<section class="schedule-page" @ref="pageElement" @onclick="CloseVesselDropdowns">
     <header class="schedule-header">
         <div>
             <p class="schedule-eyebrow">Voyage operations</p>
@@ -72,7 +72,7 @@
                            placeholder="e.g. VOY-2026-0143" />
                 </div>
 
-                <div class="schedule-field schedule-field-wide">
+                <div class="schedule-field schedule-field-wide schedule-vessel-picker" @onclick:stopPropagation="true">
                     <label for="schedule-vessel-search">Vessel</label>
                     @if (selectedVessel is not null)
                     {
@@ -95,15 +95,15 @@
                                    aria-label="Search vessels by name" />
                         </div>
 
-                        @if (isSearchingVessels)
+                        @if (isVesselDropdownOpen && isSearchingVessels)
                         {
                             <p class="schedule-hint">Searching vessels...</p>
                         }
-                        else if (vesselFailure is not null)
+                        else if (isVesselDropdownOpen && vesselFailure is not null)
                         {
                             <p class="schedule-hint schedule-hint-error">@vesselFailure.Title</p>
                         }
-                        else if (vesselResults.Count > 0)
+                        else if (isVesselDropdownOpen && vesselResults.Count > 0)
                         {
                             <ul class="schedule-vessel-results">
                                 @for (var index = 0; index < vesselResults.Count; index++)
@@ -121,7 +121,7 @@
                                 }
                             </ul>
                         }
-                        else if (vesselSearchVersion > 0)
+                        else if (isVesselDropdownOpen && vesselSearchVersion > 0)
                         {
                             <p class="schedule-hint">
                                 @(string.IsNullOrWhiteSpace(vesselSearch)

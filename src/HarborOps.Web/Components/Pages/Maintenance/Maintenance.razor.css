@@ -835,13 +835,13 @@ html[data-theme="light"] .maintenance-form-grid textarea {
     place-items: center;
     padding: 4.75rem 1.25rem 1.5rem;
     overflow-y: auto;
-    background: rgba(2, 6, 23, .64);
-    backdrop-filter: blur(5px);
-    -webkit-backdrop-filter: blur(5px);
+    background: rgba(2, 6, 23, .48);
+    backdrop-filter: blur(3px);
+    -webkit-backdrop-filter: blur(3px);
 }
 
 html[data-theme="light"] .maintenance-modal-backdrop {
-    background: rgba(15, 23, 42, .3);
+    background: rgba(15, 23, 42, .24);
 }
 
 .maintenance-tabs {
@@ -959,8 +959,15 @@ html[data-theme="light"] .maintenance-modal-backdrop {
 }
 
 .maintenance-modal-backdrop .maintenance-form-card {
-    background: var(--control-surface);
-    border: 1px solid var(--border-strong-hover);
+    border: 1px solid rgba(148, 163, 184, .25);
+    background: #172033;
+    box-shadow: 0 28px 70px rgba(0, 0, 0, .45), 0 0 0 1px rgba(255, 255, 255, .06) inset;
+}
+
+html[data-theme="light"] .maintenance-modal-backdrop .maintenance-form-card {
+    border-color: rgba(148, 163, 184, .42);
+    background: #f8fafc;
+    box-shadow: 0 28px 70px rgba(15, 23, 42, .24), 0 0 0 1px rgba(255, 255, 255, .7) inset;
 }
 .maintenance-header-actions {
     display: flex;
@@ -1363,9 +1370,9 @@ html[data-theme="light"] .maintenance-modal-backdrop {
     place-items: center;
     padding: 4.75rem 1.25rem 1.5rem;
     overflow-y: auto;
-    background: rgba(2, 6, 23, .64);
-    backdrop-filter: blur(5px);
-    -webkit-backdrop-filter: blur(5px);
+    background: rgba(2, 6, 23, .48);
+    backdrop-filter: blur(3px);
+    -webkit-backdrop-filter: blur(3px);
 }
 
 .maintenance-page ::deep .maintenance-form-card {
@@ -1375,10 +1382,10 @@ html[data-theme="light"] .maintenance-modal-backdrop {
     max-height: calc(100vh - 7rem);
     overflow-y: auto;
     padding: 1.4rem;
-    border: 1px solid var(--border-strong-hover);
+    border: 1px solid rgba(148, 163, 184, .25);
     border-radius: 1rem;
-    background: var(--control-surface);
-    box-shadow: 0 24px 70px rgba(0, 0, 0, .42);
+    background: #172033;
+    box-shadow: 0 28px 70px rgba(0, 0, 0, .45), 0 0 0 1px rgba(255, 255, 255, .06) inset;
 }
 
 .maintenance-page ::deep .maintenance-form-card h2 {
@@ -1541,7 +1548,18 @@ html[data-theme="light"] .maintenance-modal-backdrop {
 }
 
 html[data-theme="light"] .maintenance-page ::deep .maintenance-modal-backdrop {
-    background: rgba(15, 23, 42, .3);
+    background: rgba(15, 23, 42, .24);
+}
+
+html[data-theme="light"] .maintenance-page ::deep .filter-field input,
+html[data-theme="light"] .maintenance-page ::deep .filter-field select {
+    color-scheme: light;
+}
+
+html[data-theme="light"] .maintenance-page ::deep .maintenance-form-card {
+    border-color: rgba(148, 163, 184, .42);
+    background: #f8fafc;
+    box-shadow: 0 28px 70px rgba(15, 23, 42, .24), 0 0 0 1px rgba(255, 255, 255, .7) inset;
 }
 
 @media (max-width: 900px) {

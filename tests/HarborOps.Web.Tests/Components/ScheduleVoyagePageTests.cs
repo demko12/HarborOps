@@ -287,6 +287,11 @@ public sealed class ScheduleVoyagePageTests : BunitContext
         });
         Services.AddScoped<CurrentUserAuthorizationState>();
 
+        // The page registers a document-level listener so a click outside the vessel
+        // picker closes its floating option list.
+        JSInterop.SetupVoid("outsideClickInterop.register", _ => true);
+        JSInterop.SetupVoid("outsideClickInterop.unregister", _ => true);
+
         return Render<ScheduleVoyage>();
     }
 

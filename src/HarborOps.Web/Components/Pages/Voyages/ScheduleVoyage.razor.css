@@ -6,6 +6,8 @@
     --apply-surface-hover: #26354b;
     --apply-border: rgba(255, 255, 255, .14);
     --border-strong-hover: rgba(255, 255, 255, .22);
+    --dropdown-surface: rgba(23, 32, 51, .98);
+    --dropdown-shadow: 0 18px 34px rgba(0, 0, 0, .34), inset 0 1px rgba(255, 255, 255, .07);
     max-width: 1400px;
     margin: 0 auto;
     padding: 2.5rem 2rem;
@@ -19,6 +21,8 @@ html[data-theme="light"] .schedule-page {
     --apply-surface-hover: rgba(15, 23, 42, .09);
     --apply-border: var(--border-medium);
     --border-strong-hover: rgba(15, 23, 42, .28);
+    --dropdown-surface: rgba(255, 255, 255, .96);
+    --dropdown-shadow: 0 18px 34px rgba(15, 23, 42, .16), inset 0 1px rgba(255, 255, 255, .85);
 }
 
 .schedule-header {
@@ -209,6 +213,36 @@ html[data-theme="light"] .schedule-stamp input { color-scheme: light; }
 .schedule-vessel-results button:hover { border-color: var(--accent-border); background: var(--accent-bg); }
 .schedule-vessel-results strong { display: block; font-size: .88rem; }
 .schedule-vessel-results span { color: var(--text-muted); font-size: .76rem; }
+
+/* The options float over the form as a single panel, matching the vessel picker
+   on the compliance surveys page, instead of pushing the fields below them down. */
+.schedule-vessel-picker { position: relative; }
+
+.schedule-vessel-picker .schedule-vessel-results {
+    position: absolute;
+    z-index: 10;
+    top: calc(100% + .45rem);
+    right: 0;
+    left: 0;
+    max-height: 13.5rem;
+    margin: 0;
+    padding: .35rem;
+    border: 1px solid var(--border-medium);
+    border-radius: .7rem;
+    background: var(--dropdown-surface);
+    box-shadow: var(--dropdown-shadow);
+}
+
+.schedule-vessel-picker .schedule-vessel-results button {
+    padding: .62rem .7rem;
+    border-color: transparent;
+    border-radius: .52rem;
+    background: transparent;
+}
+
+.schedule-vessel-picker .schedule-vessel-results button:hover { border-color: rgba(37, 99, 235, .18); background: rgba(37, 99, 235, .08); }
+.schedule-vessel-picker .schedule-vessel-results strong { font-size: .84rem; }
+.schedule-vessel-picker .schedule-vessel-results span { margin-top: .14rem; font-size: .74rem; }
 
 .schedule-hint { margin: .5rem 0 0; color: var(--text-muted); font-size: .8rem; }
 .schedule-hint-error { color: #f87171; }
