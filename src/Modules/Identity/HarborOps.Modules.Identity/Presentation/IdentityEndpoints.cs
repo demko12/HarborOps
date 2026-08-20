@@ -20,7 +20,14 @@ public static class IdentityEndpoints
         meGroup.MapGet("/me", async (ClaimsPrincipal principal, UserManager<IdentityUser<Guid>> userManager) =>
         {
             var user = await userManager.GetUserAsync(principal);
-            return user is null
+            if (user is null || user.LockoutEnd > DateTimeOffset.UtcNow)
+            {
+                return Results.Unauthorized();
+            }
+
+            var tokenSecurityStamp = principal.FindFirstValue(userManager.Options.ClaimsIdentity.SecurityStampClaimType);
+            return !string.IsNullOrWhiteSpace(tokenSecurityStamp)
+                   && !string.Equals(tokenSecurityStamp, user.SecurityStamp, StringComparison.Ordinal)
                 ? Results.Unauthorized()
                 : Results.Ok(new AccountResponse(
                     user.Id,

@@ -23,3 +23,6 @@ public sealed class DuplicateRoleNameException(string name)
 
 public sealed class FinalIdentityAdministratorException()
     : Exception("This change would remove the final enabled account able to manage Identity users and roles.");
+
+public sealed class SelfAccountLifecycleException()
+    : Exception("Administrators cannot disable their own account.");

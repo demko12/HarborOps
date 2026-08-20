@@ -1,6 +1,11 @@
 namespace HarborOps.Web.Api;
 
-internal sealed record AdminUserSummary(Guid Id, string Email, IReadOnlyList<string> Roles);
+internal sealed record AdminUserSummary(
+    Guid Id,
+    string Email,
+    IReadOnlyList<string> Roles,
+    bool IsActive,
+    DateTimeOffset? LockoutEndUtc);
 
 internal sealed record AdminUserPage(
     IReadOnlyList<AdminUserSummary> Items,
@@ -15,6 +20,8 @@ internal sealed record CreateAdminUserRequest(string Email, string TemporaryPass
 internal sealed record CreateAdminRoleRequest(string Name);
 
 internal sealed record ReplaceUserRolesRequest(IReadOnlyList<string> RoleNames);
+
+internal sealed record SetAdminTemporaryPasswordRequest(string TemporaryPassword);
 
 internal sealed record ReplaceRolePermissionsRequest(IReadOnlyList<string> Permissions);
 

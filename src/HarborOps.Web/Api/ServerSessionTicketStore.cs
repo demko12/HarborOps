@@ -1,3 +1,5 @@
+using System.Collections.Concurrent;
+using System.Security.Claims;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.Extensions.Caching.Memory;
@@ -9,6 +11,7 @@ internal sealed class ServerSessionTicketStore(IMemoryCache cache) : ITicketStor
 {
     private static readonly TimeSpan SessionLifetime = TimeSpan.FromDays(7);
     private readonly AsyncLocal<string?> currentSessionKey = new();
+    private readonly ConcurrentDictionary<Guid, ConcurrentDictionary<string, byte>> userSessionKeys = new();
 
     public Task<string> StoreAsync(AuthenticationTicket ticket) => StoreAsync(ticket, CancellationToken.None);
 
@@ -22,6 +25,7 @@ internal sealed class ServerSessionTicketStore(IMemoryCache cache) : ITicketStor
     {
         var key = $"harborops-session-{Guid.NewGuid():N}";
         cache.Set(key, ticket, SessionLifetime);
+        IndexTicket(ticket, key);
         return Task.FromResult(key);
     }
 
@@ -40,6 +44,11 @@ internal sealed class ServerSessionTicketStore(IMemoryCache cache) : ITicketStor
 
     public Task RemoveAsync(string key, CancellationToken cancellationToken)
     {
+        if (cache.TryGetValue(key, out AuthenticationTicket? ticket) && ticket is not null)
+        {
+            RemoveTicketIndex(ticket, key);
+        }
+
         cache.Remove(key);
         return Task.CompletedTask;
     }
@@ -61,9 +70,49 @@ internal sealed class ServerSessionTicketStore(IMemoryCache cache) : ITicketStor
         var key = currentSessionKey.Value;
         if (!string.IsNullOrWhiteSpace(key))
         {
+            return RemoveAsync(key, CancellationToken.None);
+        }
+
+        return Task.CompletedTask;
+    }
+
+    internal Task RevokeUserSessionsAsync(Guid userId)
+    {
+        if (!userSessionKeys.TryRemove(userId, out var sessionKeys))
+        {
+            return Task.CompletedTask;
+        }
+
+        foreach (var key in sessionKeys.Keys)
+        {
             cache.Remove(key);
         }
 
         return Task.CompletedTask;
+    }
+
+    private void IndexTicket(AuthenticationTicket ticket, string key)
+    {
+        if (!Guid.TryParse(ticket.Principal.FindFirstValue(ClaimTypes.NameIdentifier), out var userId))
+        {
+            return;
+        }
+
+        userSessionKeys.GetOrAdd(userId, _ => new ConcurrentDictionary<string, byte>())[key] = 0;
+    }
+
+    private void RemoveTicketIndex(AuthenticationTicket ticket, string key)
+    {
+        if (!Guid.TryParse(ticket.Principal.FindFirstValue(ClaimTypes.NameIdentifier), out var userId)
+            || !userSessionKeys.TryGetValue(userId, out var sessionKeys))
+        {
+            return;
+        }
+
+        sessionKeys.TryRemove(key, out _);
+        if (sessionKeys.IsEmpty)
+        {
+            userSessionKeys.TryRemove(userId, out _);
+        }
     }
 }
