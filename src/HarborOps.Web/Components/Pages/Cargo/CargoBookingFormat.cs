@@ -51,9 +51,29 @@ internal static class CargoBookingFormat
 
     internal static string ShortVoyage(Guid voyageId)
     {
-        var text = voyageId.ToString("D", CultureInfo.InvariantCulture);
+        return ShortIdentifier(voyageId);
+    }
+
+    internal static string ShortUser(Guid responsibleUserId)
+    {
+        return ShortIdentifier(responsibleUserId);
+    }
+
+    private static string ShortIdentifier(Guid identifier)
+    {
+        var text = identifier.ToString("D", CultureInfo.InvariantCulture);
 
         return $"{text[..8]}…{text[^4..]}";
+    }
+
+    internal static string StatusModifier(string status)
+    {
+        if (string.Equals(status, "Completed", StringComparison.OrdinalIgnoreCase))
+        {
+            return "done";
+        }
+
+        return LifecycleStep(status) > 1 ? "active" : "pending";
     }
 
     internal static int LifecycleStep(string status)

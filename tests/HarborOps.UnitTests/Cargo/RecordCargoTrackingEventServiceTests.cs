@@ -434,10 +434,114 @@ public sealed class RecordCargoTrackingEventServiceTests
         return new RecordCargoTrackingEventService(dbContext, new FixedTimeProvider(FixedNow));
     }
 
+
+    [Fact]
+    public async Task RecordAsync_rejects_loading_hazardous_cargo_before_safety_information_is_declared()
+    {
+        await using var dbContext = CreateDbContext();
+        var booking = await AddBookingAsync(
+            dbContext,
+            "BK-TRACK-HAZ-1",
+            CargoStatus.Planned,
+            isHazardous: true);
+        var service = CreateService(dbContext);
+
+        var exception = await Assert.ThrowsAsync<CargoSafetyInfoRequiredBeforeLoadingException>(
+            () => service.RecordAsync(
+                booking.Id,
+                ResponsibleUserId,
+                CreateValidRequest(CargoStatus.Loaded),
+                CancellationToken.None));
+
+        var persistedBooking = await dbContext
+            .Set<CargoBooking>()
+            .SingleAsync(candidate => candidate.Id == booking.Id, CancellationToken.None);
+
+        Assert.Equal(booking.Id, exception.CargoBookingId);
+        Assert.Equal(CargoStatus.Planned, persistedBooking.Status);
+        Assert.Empty(await dbContext.Set<CargoTrackingEvent>().ToListAsync(CancellationToken.None));
+    }
+
+    [Fact]
+    public async Task RecordAsync_loads_hazardous_cargo_once_safety_information_is_declared()
+    {
+        await using var dbContext = CreateDbContext();
+        var booking = await AddBookingAsync(
+            dbContext,
+            "BK-TRACK-HAZ-2",
+            CargoStatus.Planned,
+            isHazardous: true);
+        await DeclareSafetyInfoAsync(dbContext, booking.Id);
+        var service = CreateService(dbContext);
+
+        var response = await service.RecordAsync(
+            booking.Id,
+            ResponsibleUserId,
+            CreateValidRequest(CargoStatus.Loaded),
+            CancellationToken.None);
+
+        var persistedBooking = await dbContext
+            .Set<CargoBooking>()
+            .SingleAsync(candidate => candidate.Id == booking.Id, CancellationToken.None);
+
+        Assert.Equal(nameof(CargoStatus.Loaded), response.Status);
+        Assert.Equal(CargoStatus.Loaded, persistedBooking.Status);
+    }
+
+    [Fact]
+    public async Task RecordAsync_loads_non_hazardous_cargo_without_any_safety_information()
+    {
+        await using var dbContext = CreateDbContext();
+        var booking = await AddBookingAsync(dbContext, "BK-TRACK-PLAIN", CargoStatus.Planned);
+        var service = CreateService(dbContext);
+
+        var response = await service.RecordAsync(
+            booking.Id,
+            ResponsibleUserId,
+            CreateValidRequest(CargoStatus.Loaded),
+            CancellationToken.None);
+
+        Assert.Equal(nameof(CargoStatus.Loaded), response.Status);
+    }
+
+    [Fact]
+    public async Task RecordAsync_leaves_the_earlier_steps_open_to_undeclared_hazardous_cargo()
+    {
+        await using var dbContext = CreateDbContext();
+        var booking = await AddBookingAsync(
+            dbContext,
+            "BK-TRACK-HAZ-3",
+            CargoStatus.Registered,
+            isHazardous: true);
+        var service = CreateService(dbContext);
+
+        // The declaration is only due before the cargo reaches the vessel, so planning it is fine.
+        var response = await service.RecordAsync(
+            booking.Id,
+            ResponsibleUserId,
+            CreateValidRequest(CargoStatus.Planned),
+            CancellationToken.None);
+
+        Assert.Equal(nameof(CargoStatus.Planned), response.Status);
+    }
+
+    private static async Task DeclareSafetyInfoAsync(HarborOpsDbContext dbContext, Guid cargoBookingId)
+    {
+        var safetyInfo = CargoSafetyInfo.Declare(
+            cargoBookingId,
+            "5.1",
+            "UN1942",
+            "Keep below 25C",
+            handlingNotes: null);
+
+        await dbContext.Set<CargoSafetyInfo>().AddAsync(safetyInfo, CancellationToken.None);
+        await dbContext.SaveChangesAsync(CancellationToken.None);
+    }
     private static async Task<CargoBooking> AddBookingAsync(
         HarborOpsDbContext dbContext,
         string bookingNumber,
-        CargoStatus status)
+        CargoStatus status,
+        bool isHazardous = false)
     {
         var booking = CargoBooking.Register(
             bookingNumber,
@@ -446,7 +550,7 @@ public sealed class RecordCargoTrackingEventServiceTests
             "General Cargo",
             5000.000m,
             10,
-            isHazardous: false);
+            isHazardous);
 
         while (booking.Status != status)
         {

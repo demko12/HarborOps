@@ -22,3 +22,10 @@ internal sealed class RecordCargoTrackingEventValidationException(
 {
     internal IReadOnlyDictionary<string, string[]> Errors { get; } = errors;
 }
+
+internal sealed class CargoSafetyInfoRequiredBeforeLoadingException(Guid cargoBookingId)
+    : Exception(
+        $"Hazardous cargo booking with ID '{cargoBookingId}' cannot be loaded before its safety information is declared.")
+{
+    internal Guid CargoBookingId { get; } = cargoBookingId;
+}

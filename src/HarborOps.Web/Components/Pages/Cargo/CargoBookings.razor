@@ -3,6 +3,8 @@
 @using HarborOps.Web.Api.Cargo
 @implements IDisposable
 @inject CargoBookingsApiClient CargoApi
+@inject CurrentUserAuthorizationState AuthorizationState
+@inject NavigationManager Navigation
 
 <PageTitle>Cargo bookings | HarborOps</PageTitle>
 
@@ -96,7 +98,18 @@
                 <h2 id="cargo-list-title">Booking register</h2>
                 <p>@totalCount bookings found</p>
             </div>
-            <span class="cargo-card-icon" aria-hidden="true"><span class="bi bi-box-seam-fill"></span></span>
+            <div class="cargo-card-tools">
+                @if (AuthorizationState.CanManageCargo)
+                {
+                    <button id="cargo-register-toggle"
+                            class="cargo-register-button"
+                            type="button"
+                            @onclick="OpenRegisterDialog">
+                        <span aria-hidden="true">+</span> Register booking
+                    </button>
+                }
+                <span class="cargo-card-icon" aria-hidden="true"><span class="bi bi-box-seam-fill"></span></span>
+            </div>
         </div>
 
         @if (isLoading)
@@ -134,7 +147,7 @@
                         {
                             <tr @key="row.CargoBookingId" class="@(row.IsHazardous ? "cargo-hazard-row" : null)">
                                 <td>
-                                    <span class="cargo-booking-no">@row.BookingNumber</span>
+                                    <a class="cargo-booking-no" href="@DetailsHref(row.CargoBookingId)">@row.BookingNumber</a>
                                     <span class="cargo-voyage" title="@row.VoyageId">voyage @CargoBookingFormat.ShortVoyage(row.VoyageId)</span>
                                 </td>
                                 <td class="col-description"><span class="cargo-desc" title="@row.Description">@row.Description</span></td>
@@ -158,8 +171,8 @@
                                     }
                                 </td>
                                 <td>
-                                    <span class="cargo-status @StatusModifier(row.Status)">@row.Status</span>
-                                    <span class="cargo-track @StatusModifier(row.Status)"
+                                    <span class="cargo-status @CargoBookingFormat.StatusModifier(row.Status)">@row.Status</span>
+                                    <span class="cargo-track @CargoBookingFormat.StatusModifier(row.Status)"
                                           role="img"
                                           aria-label="@($"Step {CargoBookingFormat.LifecycleStep(row.Status)} of {CargoBookingFormat.Statuses.Count}")">
                                         @for (var step = 1; step <= CargoBookingFormat.Statuses.Count; step++)
@@ -188,4 +201,94 @@
             </div>
         }
     </section>
+
+    @if (isRegisterOpen)
+    {
+        <div class="cargo-modal-backdrop" @onclick="CloseRegisterDialog">
+            <section class="cargo-modal"
+                     role="dialog"
+                     aria-modal="true"
+                     aria-labelledby="cargo-register-title"
+                     @onclick:stopPropagation="true">
+                <div class="cargo-card-heading">
+                    <div>
+                        <h2 id="cargo-register-title">Register a booking</h2>
+                        <p>Attach cargo to a planned voyage before it sails.</p>
+                    </div>
+                    <button class="cargo-modal-close"
+                            type="button"
+                            @onclick="CloseRegisterDialog"
+                            disabled="@isRegistering"
+                            aria-label="Close register booking dialog">
+                        <span class="bi bi-x-lg" aria-hidden="true"></span>
+                    </button>
+                </div>
+
+                <EditForm EditContext="registerEditContext" OnValidSubmit="SubmitRegistrationAsync">
+                    <DataAnnotationsValidator />
+
+                    @if (registerError is not null)
+                    {
+                        <div class="cargo-register-error" role="alert">@registerError</div>
+                    }
+
+                    <div class="cargo-register-grid">
+                        <div class="filter-field">
+                            <label for="cargo-booking-number">Booking number</label>
+                            <InputText id="cargo-booking-number" @bind-Value="registerModel.BookingNumber" />
+                            <ValidationMessage For="() => registerModel.BookingNumber" />
+                        </div>
+
+                        <div class="filter-field">
+                            <label for="cargo-voyage">Voyage</label>
+                            <VoyagePicker @ref="voyagePicker"
+                                          InputId="cargo-voyage"
+                                          Value="registerModel.VoyageId"
+                                          ValueChanged="@((Guid? voyageId) => registerModel.VoyageId = voyageId)" />
+                            <ValidationMessage For="() => registerModel.VoyageId" />
+                        </div>
+
+                        <div class="filter-field filter-field-grow">
+                            <label for="cargo-description">Description</label>
+                            <InputText id="cargo-description" @bind-Value="registerModel.Description" />
+                            <ValidationMessage For="() => registerModel.Description" />
+                        </div>
+
+                        <div class="filter-field">
+                            <label for="cargo-cargo-type">Cargo type</label>
+                            <InputText id="cargo-cargo-type" @bind-Value="registerModel.CargoType" />
+                            <ValidationMessage For="() => registerModel.CargoType" />
+                        </div>
+
+                        <div class="filter-field">
+                            <label for="cargo-weight">Weight (kg)</label>
+                            <InputNumber id="cargo-weight" @bind-Value="registerModel.WeightKg" />
+                            <ValidationMessage For="() => registerModel.WeightKg" />
+                        </div>
+
+                        <div class="filter-field">
+                            <label for="cargo-packages">Packages</label>
+                            <InputNumber id="cargo-packages" @bind-Value="registerModel.PackageCount" />
+                            <ValidationMessage For="() => registerModel.PackageCount" />
+                        </div>
+
+                        <label class="cargo-hazard-toggle" for="cargo-is-hazardous">
+                            <InputCheckbox id="cargo-is-hazardous" @bind-Value="registerModel.IsHazardous" />
+                            <span class="cargo-placard" aria-hidden="true"></span>
+                            Hazardous cargo
+                        </label>
+                    </div>
+
+                    <div class="cargo-modal-actions">
+                        <button class="cargo-register-submit" type="submit" disabled="@isRegistering">
+                            @(isRegistering ? "Registering..." : "Register booking")
+                        </button>
+                        <button class="cargo-modal-cancel" type="button" @onclick="CloseRegisterDialog" disabled="@isRegistering">
+                            Cancel
+                        </button>
+                    </div>
+                </EditForm>
+            </section>
+        </div>
+    }
 </section>

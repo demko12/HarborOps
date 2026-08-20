@@ -47,6 +47,20 @@ public sealed class RecordCargoTrackingEventService(DbContext dbContext, TimePro
 
         RecordCargoTrackingEventValidator.TryParseStatus(request.Status, out var requestedStatus);
 
+        if (booking.IsHazardous && requestedStatus == CargoStatus.Loaded)
+        {
+            var isDeclared = await dbContext
+                .Set<CargoSafetyInfo>()
+                .AnyAsync(
+                    safetyInfo => safetyInfo.CargoBookingId == cargoBookingId,
+                    cancellationToken);
+
+            if (!isDeclared)
+            {
+                throw new CargoSafetyInfoRequiredBeforeLoadingException(cargoBookingId);
+            }
+        }
+
         try
         {
             booking.AdvanceStatusTo(requestedStatus);

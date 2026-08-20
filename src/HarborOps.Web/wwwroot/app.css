@@ -343,3 +343,63 @@ html[data-theme="dark"] .page:not(.login-layout) :is(
         color: #333333;
     }
 }
+
+/* ---------- Cargo lifecycle and hazard vocabulary ----------
+   Shared by the cargo board and the booking details page, so these rules live here rather
+   than in either page's scoped stylesheet. Hazard is always carried by text and the placard
+   shape as well as colour. */
+.cargo-placard {
+    width: .6rem;
+    height: .6rem;
+    flex: 0 0 auto;
+    border: 1.5px solid currentColor;
+    border-radius: 1px;
+    transform: rotate(45deg);
+}
+
+.cargo-hazard-chip {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: .5rem;
+    min-width: 6.2rem;
+    padding: .18rem .65rem;
+    color: var(--hazard);
+    border: 1px solid color-mix(in srgb, currentColor 28%, transparent);
+    border-radius: 999px;
+    background: var(--hazard-bg);
+    font-size: .76rem;
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+.cargo-no-hazard { color: var(--text-muted); }
+
+.cargo-status {
+    display: inline-flex;
+    justify-content: center;
+    min-width: 6.2rem;
+    padding: .18rem .65rem;
+    border: 1px solid color-mix(in srgb, currentColor 28%, transparent);
+    border-radius: 999px;
+    font-size: .76rem;
+    font-weight: 550;
+    white-space: nowrap;
+}
+
+.cargo-track { display: flex; gap: .2rem; margin-top: .5rem; }
+.cargo-track i { width: .85rem; height: 2px; border-radius: 999px; background: var(--border-medium); }
+.cargo-track i.on { background: currentColor; }
+
+.cargo-status.pending { color: var(--text-secondary); background: var(--bg-surface-strong); }
+.cargo-status.active { color: #93c5fd; background: rgba(96, 165, 250, .14); }
+.cargo-status.done { color: #5eead4; background: rgba(45, 212, 191, .14); }
+.cargo-track.pending { color: var(--text-secondary); }
+.cargo-track.active { color: #93c5fd; }
+.cargo-track.done { color: #5eead4; }
+
+html[data-theme="light"] .cargo-status.active { color: #1d4ed8; background: rgba(37, 99, 235, .12); }
+html[data-theme="light"] .cargo-status.done { color: #0f766e; background: rgba(15, 118, 110, .14); }
+html[data-theme="light"] .cargo-track.active { color: #1d4ed8; }
+html[data-theme="light"] .cargo-track.done { color: #0f766e; }
+

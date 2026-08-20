@@ -263,6 +263,94 @@ public sealed class RecordCargoTrackingEventEndpointTests : IntegrationTestBase
     }
 
     [Fact]
+    public async Task Post_returns_conflict_when_hazardous_cargo_is_loaded_before_it_is_declared()
+    {
+        using var client = await _application.CreateAuthenticatedClientWithPermissionsAsync(Permissions.Cargo.Manage);
+        var bookingId = await RegisterBookingAsync(client, "BK-TRACK-INT-0008", isHazardous: true);
+
+        await AdvanceAsync(client, bookingId, nameof(CargoStatus.Planned));
+
+        using var response = await client.PostAsJsonAsync(
+            TrackingEventsEndpoint(bookingId),
+            CreateValidRequest(nameof(CargoStatus.Loaded)),
+            CancellationToken.None);
+        var problem = await response.Content.ReadFromJsonAsync<ProblemDetails>(
+            CancellationToken.None);
+
+        Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
+        Assert.NotNull(problem);
+        Assert.Equal(StatusCodes.Status409Conflict, problem.Status);
+        Assert.Equal("Cargo safety information is required before loading.", problem.Title);
+
+        await using var scope = _application.Services.CreateAsyncScope();
+        var dbContext = scope.ServiceProvider.GetRequiredService<HarborOpsDbContext>();
+        var booking = await dbContext
+            .Set<CargoBooking>()
+            .SingleAsync(candidate => candidate.Id == bookingId, CancellationToken.None);
+
+        Assert.Equal(CargoStatus.Planned, booking.Status);
+    }
+
+    [Fact]
+    public async Task Post_loads_hazardous_cargo_after_its_safety_information_is_declared()
+    {
+        using var client = await _application.CreateAuthenticatedClientWithPermissionsAsync(Permissions.Cargo.Manage);
+        var bookingId = await RegisterBookingAsync(client, "BK-TRACK-INT-0009", isHazardous: true);
+
+        await AdvanceAsync(client, bookingId, nameof(CargoStatus.Planned));
+        await DeclareSafetyInfoAsync(client, bookingId);
+
+        using var response = await client.PostAsJsonAsync(
+            TrackingEventsEndpoint(bookingId),
+            CreateValidRequest(nameof(CargoStatus.Loaded)),
+            CancellationToken.None);
+
+        Assert.Equal(HttpStatusCode.Created, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task Post_plans_hazardous_cargo_that_has_not_been_declared_yet()
+    {
+        using var client = await _application.CreateAuthenticatedClientWithPermissionsAsync(Permissions.Cargo.Manage);
+        var bookingId = await RegisterBookingAsync(client, "BK-TRACK-INT-0010", isHazardous: true);
+
+        using var response = await client.PostAsJsonAsync(
+            TrackingEventsEndpoint(bookingId),
+            CreateValidRequest(nameof(CargoStatus.Planned)),
+            CancellationToken.None);
+
+        Assert.Equal(HttpStatusCode.Created, response.StatusCode);
+    }
+
+    private static async Task AdvanceAsync(HttpClient client, Guid bookingId, string status)
+    {
+        using var response = await client.PostAsJsonAsync(
+            TrackingEventsEndpoint(bookingId),
+            CreateValidRequest(status),
+            CancellationToken.None);
+
+        Assert.Equal(HttpStatusCode.Created, response.StatusCode);
+    }
+
+    private static async Task DeclareSafetyInfoAsync(HttpClient client, Guid bookingId)
+    {
+        var request = new DeclareCargoSafetyInfoRequest
+        {
+            ImdgClass = "5.1",
+            UnNumber = "UN1942",
+            StorageConditions = "Keep below 25C",
+            HandlingNotes = null,
+        };
+
+        using var response = await client.PostAsJsonAsync(
+            $"{BookingsEndpoint}/{bookingId}/safety-information",
+            request,
+            CancellationToken.None);
+
+        Assert.Equal(HttpStatusCode.Created, response.StatusCode);
+    }
+
+    [Fact]
     public async Task Module_service_and_controller_resolve_from_dependency_injection()
     {
         await using var scope = _application.Services.CreateAsyncScope();
@@ -300,7 +388,10 @@ public sealed class RecordCargoTrackingEventEndpointTests : IntegrationTestBase
         return account.GetProperty("id").GetGuid();
     }
 
-    private static async Task<Guid> RegisterBookingAsync(HttpClient client, string bookingNumber)
+    private static async Task<Guid> RegisterBookingAsync(
+        HttpClient client,
+        string bookingNumber,
+        bool isHazardous = false)
     {
         var request = new RegisterCargoBookingRequest
         {
@@ -310,7 +401,7 @@ public sealed class RecordCargoTrackingEventEndpointTests : IntegrationTestBase
             CargoType = "General Cargo",
             WeightKg = 5000.000m,
             PackageCount = 10,
-            IsHazardous = false,
+            IsHazardous = isHazardous,
         };
 
         using var response = await client.PostAsJsonAsync(

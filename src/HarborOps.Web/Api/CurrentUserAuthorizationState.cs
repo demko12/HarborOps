@@ -54,6 +54,7 @@ internal sealed class CurrentUserAuthorizationState(IHttpContextAccessor httpCon
     internal bool CanAccessCrew => CanAccess(CrewReadPermission, CrewManagePermission);
     internal bool CanAccessVoyages => CanAccess(VoyagesReadPermission, VoyagesManagePermission);
     internal bool CanAccessCargo => CanAccess(CargoReadPermission, CargoManagePermission);
+    internal bool CanManageCargo => HasPermission(CargoManagePermission);
     internal bool CanAccessMaintenance => CanAccess(MaintenanceReadPermission, MaintenanceManagePermission);
     internal bool CanAccessCompliance => CanAccess(ComplianceReadPermission, ComplianceManagePermission);
     internal bool CanManageCompliance => HasPermission(ComplianceManagePermission);

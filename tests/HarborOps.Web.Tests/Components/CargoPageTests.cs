@@ -1,18 +1,34 @@
+using System.Globalization;
 using System.Net;
+using System.Security.Claims;
 using System.Text;
 using Bunit;
+using HarborOps.Web.Api;
 using HarborOps.Web.Api.Cargo;
+using HarborOps.Web.Api.Voyages;
 using HarborOps.Web.Components.Pages.Cargo;
+using Microsoft.AspNetCore.Components;
+using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 
 namespace HarborOps.Web.Tests.Components;
 
 public sealed class CargoPageTests : BunitContext
 {
+    private const string VoyageId = "30000000-0000-0000-0000-000000000002";
+    private const string RegisteredBookingId = "20000000-0000-0000-0000-000000000001";
+    private const string RegisteredBooking = $$"""{"id":"{{RegisteredBookingId}}"}""";
+
     private readonly List<Uri> requestedUris = [];
+    private readonly List<Uri> voyageRequestedUris = [];
+    private readonly List<string> postedBodies = [];
 
     private Func<HttpRequestMessage, Task<HttpResponseMessage>> respond =
         _ => Json(HttpStatusCode.OK, Page());
+
+    private Func<HttpRequestMessage, Task<HttpResponseMessage>> respondToVoyages =
+        _ => Json(HttpStatusCode.OK, VoyagePage(Voyage("VOY-2026-014")));
 
     [Fact]
     public void Hazardous_rows_are_marked_with_text_and_a_placard_not_colour_alone()
@@ -190,7 +206,327 @@ public sealed class CargoPageTests : BunitContext
         Assert.Equal(3, page.FindAll(".cargo-track i.on").Count);
     }
 
-    private IRenderedComponent<CargoBookings> RenderCargoPage()
+
+
+    [Fact]
+    public void The_register_form_stays_closed_until_it_is_asked_for()
+    {
+        var page = RenderCargoPage();
+
+        Assert.Empty(page.FindAll(".cargo-modal"));
+
+        page.Find("#cargo-register-toggle").Click();
+
+        var dialog = page.Find(".cargo-modal");
+
+        Assert.Equal("dialog", dialog.GetAttribute("role"));
+        Assert.Equal("true", dialog.GetAttribute("aria-modal"));
+    }
+
+    [Fact]
+    public void Cancelling_the_register_dialog_discards_what_was_typed()
+    {
+        var page = RenderCargoPage();
+
+        page.Find("#cargo-register-toggle").Click();
+        page.Find("#cargo-booking-number").Change("BK-2026-0145");
+        page.Find(".cargo-modal-cancel").Click();
+
+        Assert.Empty(page.FindAll(".cargo-modal"));
+
+        page.Find("#cargo-register-toggle").Click();
+
+        Assert.True(string.IsNullOrEmpty(page.Find("#cargo-booking-number").GetAttribute("value")));
+    }
+
+    [Fact]
+    public void Clicking_the_backdrop_closes_the_register_dialog()
+    {
+        var page = RenderCargoPage();
+
+        page.Find("#cargo-register-toggle").Click();
+        page.Find(".cargo-modal-backdrop").Click();
+
+        Assert.Empty(page.FindAll(".cargo-modal"));
+    }
+    [Fact]
+    public void The_voyage_picker_offers_only_voyages_that_can_still_load_cargo()
+    {
+        var page = RenderCargoPage();
+
+        page.Find("#cargo-register-toggle").Click();
+        page.Find("#cargo-voyage").Focus();
+
+        page.WaitForAssertion(() => Assert.NotEmpty(voyageRequestedUris));
+
+        var query = voyageRequestedUris[0].Query;
+        var today = DateTime.UtcNow.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
+
+        // Cargo is loaded before departure, so a sailed voyage can never carry a new booking.
+        Assert.Contains("status=Planned", query, StringComparison.Ordinal);
+
+        // Overdue planned voyages sit before the window and are the likeliest urgent bookings.
+        Assert.Contains("includeActive=true", query, StringComparison.Ordinal);
+        Assert.Contains($"from={today}", query, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Searching_the_voyage_picker_sends_the_voyage_number()
+    {
+        var page = RenderCargoPage();
+
+        page.Find("#cargo-register-toggle").Click();
+        page.Find("#cargo-voyage").Input("VOY-2026");
+
+        page.WaitForAssertion(() =>
+            Assert.Contains(
+                voyageRequestedUris,
+                uri => uri.Query.Contains("search=VOY-2026", StringComparison.Ordinal)));
+    }
+
+    [Fact]
+    public void Registering_a_booking_posts_the_selected_voyage_and_opens_it()
+    {
+        respond = CaptureAndRespond(HttpStatusCode.Created, RegisteredBooking);
+
+        var page = RenderCargoPage();
+
+        FillRegisterForm(page);
+        page.Find(".cargo-register-submit").Click();
+
+        page.WaitForAssertion(() => Assert.Single(postedBodies));
+
+        Assert.Contains("\"bookingNumber\":\"BK-2026-0145\"", postedBodies[0], StringComparison.Ordinal);
+        Assert.Contains($"\"voyageId\":\"{VoyageId}\"", postedBodies[0], StringComparison.Ordinal);
+        Assert.Contains("\"isHazardous\":true", postedBodies[0], StringComparison.Ordinal);
+
+        // The API hands back the new booking's identifier, so the operator continues on it
+        // instead of hunting for the row under whatever filter the board still carries.
+        page.WaitForAssertion(() =>
+            Assert.EndsWith(
+                $"/cargo/{RegisteredBookingId}",
+                Services.GetRequiredService<NavigationManager>().Uri,
+                StringComparison.Ordinal));
+
+        Assert.Empty(page.FindAll(".cargo-register-submit"));
+    }
+
+    [Fact]
+    public void The_registered_booking_carries_the_active_filters_so_it_can_return_to_them()
+    {
+        respond = CaptureAndRespond(HttpStatusCode.Created, RegisteredBooking);
+
+        var page = RenderCargoPageAt("/cargo?status=Registered&hazardous=true");
+
+        FillRegisterForm(page);
+        page.Find(".cargo-register-submit").Click();
+
+        page.WaitForAssertion(() =>
+        {
+            var address = Services.GetRequiredService<NavigationManager>().Uri;
+
+            Assert.Contains($"/cargo/{RegisteredBookingId}?from=", address, StringComparison.Ordinal);
+            Assert.Contains("status%3DRegistered", address, StringComparison.Ordinal);
+            Assert.Contains("hazardous%3Dtrue", address, StringComparison.Ordinal);
+        });
+    }
+
+    [Fact]
+    public void A_duplicate_booking_number_is_reported_without_losing_the_form()
+    {
+        respond = CaptureAndRespond(
+            HttpStatusCode.Conflict,
+            """{"title":"A cargo booking with this booking number already exists.","status":409,"errors":{"bookingNumber":["Booking number BK-2026-0145 is already used."]}}""");
+
+        var page = RenderCargoPage();
+
+        FillRegisterForm(page);
+        page.Find(".cargo-register-submit").Click();
+
+        page.WaitForAssertion(() =>
+            Assert.Contains(
+                "Booking number BK-2026-0145 is already used.",
+                page.Markup,
+                StringComparison.Ordinal));
+
+        Assert.Equal("BK-2026-0145", page.Find("#cargo-booking-number").GetAttribute("value"));
+    }
+
+    [Fact]
+    public void An_unreachable_api_reports_the_registration_failure()
+    {
+        respond = CaptureAndRespond(HttpStatusCode.ServiceUnavailable, "not json");
+
+        var page = RenderCargoPage();
+
+        FillRegisterForm(page);
+        page.Find(".cargo-register-submit").Click();
+
+        page.WaitForAssertion(() => Assert.Single(page.FindAll(".cargo-register-error")));
+        Assert.Contains("Unable to register the cargo booking", page.Markup, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void A_booking_without_a_voyage_is_not_sent_to_the_api()
+    {
+        respond = CaptureAndRespond(HttpStatusCode.Created, RegisteredBooking);
+
+        var page = RenderCargoPage();
+
+        FillRegisterForm(page, selectVoyage: false);
+        page.Find(".cargo-register-submit").Click();
+
+        page.WaitForAssertion(() =>
+            Assert.Contains("Select the voyage this cargo sails on.", page.Markup, StringComparison.Ordinal));
+        Assert.Empty(postedBodies);
+    }
+
+    [Fact]
+    public void The_register_form_is_hidden_without_the_cargo_manage_permission()
+    {
+        var page = RenderCargoPage(CurrentUserAuthorizationState.CargoReadPermission);
+
+        Assert.Empty(page.FindAll("#cargo-register-toggle"));
+        Assert.Empty(page.FindAll(".cargo-register-submit"));
+    }
+
+
+    [Fact]
+    public void A_booking_links_to_its_details_page()
+    {
+        respond = _ => Json(HttpStatusCode.OK, Page(Row("BK-0001")));
+
+        var page = RenderCargoPage();
+
+        Assert.Equal(
+            "/cargo/20000000-0000-0000-0000-000000000001",
+            page.Find(".cargo-booking-no").GetAttribute("href"));
+    }
+
+    [Fact]
+    public void A_booking_link_carries_the_active_filters_so_details_can_return_to_them()
+    {
+        respond = _ => Json(HttpStatusCode.OK, Page(Row("BK-0001")));
+
+        var page = RenderCargoPage();
+        page.Find("#cargo-status").Change("Loaded");
+
+        page.WaitForAssertion(() =>
+            Assert.Contains(
+                "from=",
+                page.Find(".cargo-booking-no").GetAttribute("href")!,
+                StringComparison.Ordinal));
+
+        var href = page.Find(".cargo-booking-no").GetAttribute("href")!;
+        var boardQuery = Uri.UnescapeDataString(href[(href.IndexOf("from=", StringComparison.Ordinal) + 5)..]);
+
+        Assert.Equal("status=Loaded", boardQuery);
+    }
+
+    [Fact]
+    public void Applying_a_filter_puts_it_in_the_board_address()
+    {
+        var page = RenderCargoPage();
+
+        page.Find("#cargo-status").Change("InTransit");
+        page.Find("#cargo-hazardous").Change(true);
+
+        page.WaitForAssertion(() =>
+        {
+            var address = Services.GetRequiredService<NavigationManager>().Uri;
+
+            Assert.Contains("status=InTransit", address, StringComparison.Ordinal);
+            Assert.Contains("hazardous=true", address, StringComparison.Ordinal);
+        });
+    }
+
+    [Fact]
+    public void The_board_opens_on_the_filters_carried_in_its_address()
+    {
+        RenderCargoPageAt("/cargo?search=steel&status=Loaded&hazardous=true&page=2");
+
+        var query = requestedUris[0].Query;
+
+        Assert.Contains("search=steel", query, StringComparison.Ordinal);
+        Assert.Contains("status=Loaded", query, StringComparison.Ordinal);
+        Assert.Contains("isHazardous=true", query, StringComparison.Ordinal);
+        Assert.Contains("pageNumber=2", query, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Clearing_the_filters_empties_the_board_address()
+    {
+        var page = RenderCargoPageAt("/cargo?search=steel&status=Loaded");
+        page.Find(".cargo-reset").Click();
+
+        page.WaitForAssertion(() =>
+        {
+            var address = Services.GetRequiredService<NavigationManager>().Uri;
+
+            Assert.DoesNotContain("search=", address, StringComparison.Ordinal);
+            Assert.DoesNotContain("status=", address, StringComparison.Ordinal);
+        });
+    }
+    private void FillRegisterForm(
+        IRenderedComponent<CargoBookings> page,
+        bool selectVoyage = true)
+    {
+        page.Find("#cargo-register-toggle").Click();
+
+        if (selectVoyage)
+        {
+            page.Find("#cargo-voyage").Focus();
+            page.WaitForAssertion(() => Assert.NotEmpty(page.FindAll(".voyage-picker-option")));
+            page.Find(".voyage-picker-option").Click();
+        }
+
+        page.Find("#cargo-booking-number").Change("BK-2026-0145");
+        page.Find("#cargo-description").Change("Ammonium nitrate");
+        page.Find("#cargo-cargo-type").Change("Bulk");
+        page.Find("#cargo-weight").Change("24000.5");
+        page.Find("#cargo-packages").Change("10");
+        page.Find("#cargo-is-hazardous").Change(true);
+    }
+
+    private Func<HttpRequestMessage, Task<HttpResponseMessage>> CaptureAndRespond(
+        HttpStatusCode statusCode,
+        string json)
+    {
+        return async request =>
+        {
+            if (request.Method != HttpMethod.Post)
+            {
+                return await Json(HttpStatusCode.OK, Page());
+            }
+
+            postedBodies.Add(await request.Content!.ReadAsStringAsync(CancellationToken.None));
+
+            return await Json(statusCode, json);
+        };
+    }
+
+    private static string Voyage(string voyageNumber)
+    {
+        return $$"""
+            {"voyageId":"{{VoyageId}}","voyageNumber":"{{voyageNumber}}","vesselId":"40000000-0000-0000-0000-000000000004","departurePortCode":"MEBAR","arrivalPortCode":"ITGOA","status":"Planned","plannedDeparture":"2026-09-02T06:00:00Z","plannedArrival":"2026-09-06T18:00:00Z","actualDeparture":null,"actualArrival":null}
+            """;
+    }
+
+    private static string VoyagePage(params string[] voyages)
+    {
+        return $$"""
+            {"items":[{{string.Join(',', voyages)}}],"pageNumber":1,"pageSize":25,"totalCount":{{voyages.Length}}}
+            """;
+    }
+    private IRenderedComponent<CargoBookings> RenderCargoPage(
+        params string[] permissions)
+    {
+        return RenderCargoPageAt(null, permissions);
+    }
+
+    private IRenderedComponent<CargoBookings> RenderCargoPageAt(
+        string? boardAddress,
+        params string[] permissions)
     {
         var httpClient = new HttpClient(new StubHttpMessageHandler(request =>
         {
@@ -202,12 +538,52 @@ public sealed class CargoPageTests : BunitContext
             BaseAddress = new Uri("https://api.harborops.test/"),
         };
 
+        var voyagesClient = new HttpClient(new StubHttpMessageHandler(request =>
+        {
+            voyageRequestedUris.Add(request.RequestUri!);
+
+            return respondToVoyages(request);
+        }))
+        {
+            BaseAddress = new Uri("https://api.harborops.test/"),
+        };
+
         Services.AddSingleton(new CargoBookingsApiClient(httpClient));
+        Services.AddSingleton(new VoyagesApiClient(voyagesClient));
+        ConfigureAuthorization(permissions.Length == 0
+            ? [CurrentUserAuthorizationState.CargoManagePermission]
+            : permissions);
+
+        if (boardAddress is not null)
+        {
+            // The board reads its filters from the address, so set it before the first render.
+            Services.GetRequiredService<NavigationManager>().NavigateTo(boardAddress);
+        }
 
         var page = Render<CargoBookings>();
         page.WaitForAssertion(() => Assert.NotEmpty(requestedUris));
 
         return page;
+    }
+
+    private void ConfigureAuthorization(params string[] permissions)
+    {
+        Services.RemoveAll<IHttpContextAccessor>();
+        Services.RemoveAll<CurrentUserAuthorizationState>();
+        Services.AddSingleton<IHttpContextAccessor>(new HttpContextAccessor
+        {
+            HttpContext = new DefaultHttpContext
+            {
+                User = new ClaimsPrincipal(new ClaimsIdentity(
+                    permissions
+                        .Select(permission => new Claim(
+                            CurrentUserAuthorizationState.PermissionClaimType,
+                            permission))
+                        .ToArray(),
+                    "TestAuthentication")),
+            },
+        });
+        Services.AddScoped<CurrentUserAuthorizationState>();
     }
 
     private static string Row(

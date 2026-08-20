@@ -1,6 +1,8 @@
 using HarborOps.Web.Components;
 using HarborOps.Web.Components.Pages;
 using AdministrationPage = HarborOps.Web.Components.Pages.Administration.Administration;
+using CargoBookingDetailsPage = HarborOps.Web.Components.Pages.Cargo.CargoBookingDetails;
+using CargoBookingsPage = HarborOps.Web.Components.Pages.Cargo.CargoBookings;
 using CrewPage = HarborOps.Web.Components.Pages.Crew.Crew;
 using FleetPage = HarborOps.Web.Components.Pages.Fleet.Fleet;
 using ReportsPage = HarborOps.Web.Components.Pages.Reports.Reports;
@@ -28,6 +30,8 @@ public sealed class RoutesTests
     [Theory]
     [InlineData(typeof(FleetPage))]
     [InlineData(typeof(CrewPage))]
+    [InlineData(typeof(CargoBookingsPage))]
+    [InlineData(typeof(CargoBookingDetailsPage))]
     [InlineData(typeof(ReportsPage))]
     [InlineData(typeof(AdministrationPage))]
     [InlineData(typeof(AccessDenied))]

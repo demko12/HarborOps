@@ -61,6 +61,15 @@ public sealed class CargoTrackingEventsController(
                 Detail = exception.Message,
             });
         }
+        catch (CargoSafetyInfoRequiredBeforeLoadingException exception)
+        {
+            return Conflict(new ProblemDetails
+            {
+                Status = StatusCodes.Status409Conflict,
+                Title = "Cargo safety information is required before loading.",
+                Detail = exception.Message,
+            });
+        }
         catch (CargoTrackingEventTransitionException exception)
         {
             return Conflict(new ProblemDetails

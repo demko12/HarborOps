@@ -1,0 +1,317 @@
+@page "/cargo/{BookingId:guid}"
+@attribute [Microsoft.AspNetCore.Authorization.Authorize(Policy = "AccessCargo")]
+@using HarborOps.Web.Api.Cargo
+@implements IDisposable
+@inject CargoBookingsApiClient CargoApi
+@inject CurrentUserAuthorizationState AuthorizationState
+
+<PageTitle>@PageHeading | HarborOps</PageTitle>
+
+<section class="booking-page">
+    <header class="booking-header">
+        <div>
+            <a class="booking-back" href="@BackHref">
+                <span class="bi bi-arrow-left" aria-hidden="true"></span>
+                Back to bookings
+            </a>
+            <p class="booking-eyebrow">Cargo operations</p>
+            <h1>@PageHeading</h1>
+            @if (details is not null)
+            {
+                <p>Registered @CargoBookingFormat.CreatedUtcDate(details.CreatedUtc) at @CargoBookingFormat.CreatedUtcTime(details.CreatedUtc) UTC.</p>
+            }
+        </div>
+        <span class="booking-utc" aria-label="All times are shown in UTC">UTC</span>
+    </header>
+
+    @if (isLoading)
+    {
+        <LoadingState Message="Loading the cargo booking..." />
+    }
+    else if (failure is { IsNotFound: true })
+    {
+        <EmptyState Title="Booking not found"
+                    Message="This booking is no longer registered. Return to the board to pick another one." />
+    }
+    else if (failure is { IsForbidden: true })
+    {
+        <EmptyState Title="You cannot view this booking"
+                    Message="Your account does not carry a cargo permission. Ask an administrator for access." />
+    }
+    else if (failure is not null)
+    {
+        <ApiErrorState Title="@failure.Title" Message="@failure.Message" OnRetry="RetryAsync" />
+    }
+    else if (details is not null)
+    {
+        <section class="booking-summary" aria-label="Booking summary">
+            <article class="booking-kpi">
+                <div>
+                    <p class="booking-kpi-label">Status</p>
+                    <p class="booking-kpi-value">@details.Status</p>
+                    <p class="booking-kpi-note">Step @CargoBookingFormat.LifecycleStep(details.Status) of @CargoBookingFormat.Statuses.Count</p>
+                </div>
+                <span class="booking-kpi-icon kpi-icon-status" aria-hidden="true"><span class="bi bi-signpost-split-fill"></span></span>
+            </article>
+            <article class="booking-kpi">
+                <div>
+                    <p class="booking-kpi-label">Hazard</p>
+                    <p class="booking-kpi-value">@CargoBookingFormat.HazardLabel(details.IsHazardous)</p>
+                    <p class="booking-kpi-note">@(details.IsHazardous ? "Requires IMDG handling" : "No declaration required")</p>
+                </div>
+                <span class="booking-kpi-icon @(details.IsHazardous ? "kpi-icon-hazard" : "kpi-icon-clear")" aria-hidden="true"><span class="bi bi-exclamation-triangle-fill"></span></span>
+            </article>
+            <article class="booking-kpi">
+                <div>
+                    <p class="booking-kpi-label">Weight</p>
+                    <p class="booking-kpi-value">@CargoBookingFormat.WeightKg(details.WeightKg)</p>
+                    <p class="booking-kpi-note">@CargoBookingFormat.PackageCount(details.PackageCount) packages</p>
+                </div>
+                <span class="booking-kpi-icon kpi-icon-load" aria-hidden="true"><span class="bi bi-box-seam-fill"></span></span>
+            </article>
+            <article class="booking-kpi">
+                <div>
+                    <p class="booking-kpi-label">Tracking events</p>
+                    <p class="booking-kpi-value">@details.TrackingEvents.Count</p>
+                    <p class="booking-kpi-note">@(details.NextStatus is { } next ? $"Next step {next}" : "Lifecycle complete")</p>
+                </div>
+                <span class="booking-kpi-icon kpi-icon-events" aria-hidden="true"><span class="bi bi-clock-history"></span></span>
+            </article>
+        </section>
+
+        <section class="booking-grid">
+            <article class="booking-card" aria-labelledby="booking-summary-title">
+                <div class="booking-card-heading">
+                    <h2 id="booking-summary-title">Booking summary</h2>
+                    <span class="cargo-status @CargoBookingFormat.StatusModifier(details.Status)">@details.Status</span>
+                </div>
+
+                <dl class="booking-facts">
+                    <div>
+                        <dt>Voyage</dt>
+                        <dd><code class="booking-voyage" title="@details.VoyageId">@details.VoyageId</code></dd>
+                    </div>
+                    <div>
+                        <dt>Description</dt>
+                        <dd>@details.Description</dd>
+                    </div>
+                    <div>
+                        <dt>Cargo type</dt>
+                        <dd>@details.CargoType</dd>
+                    </div>
+                    <div>
+                        <dt>Weight (kg)</dt>
+                        <dd class="booking-num">@CargoBookingFormat.WeightKg(details.WeightKg)</dd>
+                    </div>
+                    <div>
+                        <dt>Packages</dt>
+                        <dd class="booking-num">@CargoBookingFormat.PackageCount(details.PackageCount)</dd>
+                    </div>
+                </dl>
+
+                <div class="booking-lifecycle">
+                    <span class="cargo-track @CargoBookingFormat.StatusModifier(details.Status)"
+                          role="img"
+                          aria-label="@($"Step {CargoBookingFormat.LifecycleStep(details.Status)} of {CargoBookingFormat.Statuses.Count}")">
+                        @for (var step = 1; step <= CargoBookingFormat.Statuses.Count; step++)
+                        {
+                            <i class="@(step <= CargoBookingFormat.LifecycleStep(details.Status) ? "on" : null)"></i>
+                        }
+                    </span>
+                    <span class="booking-lifecycle-label">
+                        Step @CargoBookingFormat.LifecycleStep(details.Status) of @CargoBookingFormat.Statuses.Count
+                    </span>
+                </div>
+            </article>
+
+            <article class="booking-card" aria-labelledby="booking-hazard-title">
+                <div class="booking-card-heading">
+                    <h2 id="booking-hazard-title">Hazardous cargo</h2>
+                    @if (details.IsHazardous)
+                    {
+                        <span class="cargo-hazard-chip">
+                            <span class="cargo-placard" aria-hidden="true"></span>
+                            @CargoBookingFormat.HazardousLabel
+                        </span>
+                    }
+                    else
+                    {
+                        <span class="booking-no-hazard">@CargoBookingFormat.NotHazardousLabel</span>
+                    }
+                </div>
+
+                @if (!details.IsHazardous)
+                {
+                    <p class="booking-note">This cargo carries no IMDG declaration requirement.</p>
+                }
+                else if (details.SafetyInfo is { } safetyInfo)
+                {
+                    <dl class="booking-facts">
+                        <div>
+                            <dt>IMDG class</dt>
+                            <dd>@safetyInfo.ImdgClass</dd>
+                        </div>
+                        <div>
+                            <dt>UN number</dt>
+                            <dd>@safetyInfo.UnNumber</dd>
+                        </div>
+                        <div>
+                            <dt>Storage conditions</dt>
+                            <dd>@safetyInfo.StorageConditions</dd>
+                        </div>
+                        <div>
+                            <dt>Handling notes</dt>
+                            <dd>@(string.IsNullOrWhiteSpace(safetyInfo.HandlingNotes) ? "None recorded" : safetyInfo.HandlingNotes)</dd>
+                        </div>
+                    </dl>
+                }
+                else
+                {
+                    <p class="booking-note booking-note-warning" role="status">
+                        Safety information has not been declared for this hazardous cargo yet.
+                    </p>
+
+                    @if (AuthorizationState.CanManageCargo)
+                    {
+                        <EditForm EditContext="safetyEditContext" OnValidSubmit="SubmitSafetyDeclarationAsync">
+                            <DataAnnotationsValidator />
+
+                            @if (safetyError is not null)
+                            {
+                                <div class="booking-form-error" role="alert">@safetyError</div>
+                            }
+
+                            <div class="booking-form-grid">
+                                <div class="booking-field">
+                                    <label for="safety-imdg-class">IMDG class</label>
+                                    <InputText id="safety-imdg-class" @bind-Value="safetyModel.ImdgClass" />
+                                    <ValidationMessage For="() => safetyModel.ImdgClass" />
+                                </div>
+
+                                <div class="booking-field">
+                                    <label for="safety-un-number">UN number</label>
+                                    <InputText id="safety-un-number" @bind-Value="safetyModel.UnNumber" />
+                                    <ValidationMessage For="() => safetyModel.UnNumber" />
+                                </div>
+
+                                <div class="booking-field booking-field-wide">
+                                    <label for="safety-storage">Storage conditions</label>
+                                    <InputText id="safety-storage" @bind-Value="safetyModel.StorageConditions" />
+                                    <ValidationMessage For="() => safetyModel.StorageConditions" />
+                                </div>
+
+                                <div class="booking-field booking-field-wide">
+                                    <label for="safety-handling-notes">Handling notes (optional)</label>
+                                    <InputTextArea id="safety-handling-notes" rows="2" @bind-Value="safetyModel.HandlingNotes" />
+                                    <ValidationMessage For="() => safetyModel.HandlingNotes" />
+                                </div>
+                            </div>
+
+                            <div class="booking-form-actions">
+                                <button class="booking-submit safety-submit" type="submit" disabled="@isDeclaringSafety">
+                                    @(isDeclaringSafety ? "Declaring..." : "Declare safety information")
+                                </button>
+                            </div>
+                        </EditForm>
+                    }
+                }
+            </article>
+        </section>
+
+        <section class="booking-card" aria-labelledby="booking-tracking-title">
+            <div class="booking-card-heading">
+                <h2 id="booking-tracking-title">Tracking history</h2>
+                <span class="booking-count">@details.TrackingEvents.Count recorded</span>
+            </div>
+
+            @if (AuthorizationState.CanManageCargo)
+            {
+                @if (IsBlockedByMissingSafetyInfo)
+                {
+                    <p class="booking-note booking-note-warning" role="status">
+                        Declare the safety information before this hazardous cargo can be loaded.
+                    </p>
+                }
+                else if (details.NextStatus is { } nextStatus)
+                {
+                    <EditForm EditContext="trackingEditContext" OnValidSubmit="SubmitTrackingEventAsync">
+                        <DataAnnotationsValidator />
+
+                        @if (trackingError is not null)
+                        {
+                            <div class="booking-form-error" role="alert">@trackingError</div>
+                        }
+
+                        <p class="booking-note">Next step for this booking is <strong>@nextStatus</strong>.</p>
+
+                        <div class="booking-form-grid">
+                            <div class="booking-field">
+                                <label for="tracking-occurred">Occurred (UTC)</label>
+                                <InputDate id="tracking-occurred"
+                                           Type="InputDateType.DateTimeLocal"
+                                           @bind-Value="trackingModel.OccurredUtc" />
+                                <ValidationMessage For="() => trackingModel.OccurredUtc" />
+                            </div>
+
+                            <div class="booking-field booking-field-wide">
+                                <label for="tracking-location">Location</label>
+                                <InputText id="tracking-location" @bind-Value="trackingModel.Location" />
+                                <ValidationMessage For="() => trackingModel.Location" />
+                            </div>
+                        </div>
+
+                        <div class="booking-form-actions">
+                            <button class="booking-submit tracking-submit" type="submit" disabled="@isRecordingTrackingEvent">
+                                @(isRecordingTrackingEvent ? "Recording..." : $"Record {nextStatus}")
+                            </button>
+                        </div>
+                    </EditForm>
+                }
+                else
+                {
+                    <p class="booking-note">This booking has reached the end of its lifecycle.</p>
+                }
+            }
+
+            @if (details.TrackingEvents.Count == 0)
+            {
+                <EmptyState Title="No tracking events yet"
+                            Message="Progress is recorded here as the cargo moves through its lifecycle." />
+            }
+            else
+            {
+                <div class="booking-table-scroll">
+                    <table class="booking-table">
+                        <caption class="visually-hidden">Tracking events in the order the cargo moved through its lifecycle</caption>
+                        <thead>
+                            <tr>
+                                <th scope="col">Status</th>
+                                <th scope="col">Occurred (UTC)</th>
+                                <th scope="col">Location</th>
+                                <th scope="col">Recorded by</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var trackingEvent in details.TrackingEvents)
+                            {
+                                <tr class="booking-event-row" @key="trackingEvent.CargoTrackingEventId">
+                                    <td>
+                                        <span class="cargo-status @CargoBookingFormat.StatusModifier(trackingEvent.Status)">@trackingEvent.Status</span>
+                                    </td>
+                                    <td class="booking-event-stamp">
+                                        <span>@CargoBookingFormat.CreatedUtcDate(trackingEvent.OccurredUtc)</span>
+                                        <span class="booking-event-time">@CargoBookingFormat.CreatedUtcTime(trackingEvent.OccurredUtc)</span>
+                                    </td>
+                                    <td>@trackingEvent.Location</td>
+                                    <td class="booking-event-actor" title="@trackingEvent.ResponsibleUserId">
+                                        @CargoBookingFormat.ShortUser(trackingEvent.ResponsibleUserId)
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
+        </section>
+    }
+</section>
