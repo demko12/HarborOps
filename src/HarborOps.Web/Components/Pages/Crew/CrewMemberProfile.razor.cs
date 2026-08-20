@@ -132,6 +132,13 @@ public partial class CrewMemberProfile : IDisposable
         }
     }
 
+    // 6 months matches the common international "6-month passport validity" rule many
+    // countries enforce for entry/visas, so it lines up with when this would actually
+    // start causing travel problems for the crew member, not an arbitrary cutoff.
+    private bool IsPassportExpiringSoon(DateOnly passportExpiry) => passportExpiry <= currentDate.AddMonths(6);
+
+    private bool IsPassportExpired(DateOnly passportExpiry) => passportExpiry < currentDate;
+
     private CertificateState GetCertificateState(DateOnly expiryDate)
     {
         if (expiryDate < currentDate)

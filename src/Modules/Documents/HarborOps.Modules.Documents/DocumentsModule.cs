@@ -23,6 +23,7 @@ public static class DocumentsModule
         services.AddScoped<IGetDocumentTypesQuery, GetDocumentTypesQuery>();
         services.AddScoped<IGetDocumentsQuery, GetDocumentsQuery>();
         services.AddScoped<IOperationsDashboardDocumentsQuery, OperationsDashboardDocumentsQuery>();
+        services.AddScoped<IReportsDocumentsExpiryQuery, ReportsDocumentsExpiryQuery>();
         services.TryAddSingleton<IDateTimeProvider, SystemDateTimeProvider>();
 
         services.Configure<DocumentFileValidationOptions>(

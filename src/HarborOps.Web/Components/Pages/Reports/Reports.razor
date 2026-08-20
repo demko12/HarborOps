@@ -1,16 +1,307 @@
 @page "/reports"
 @attribute [Microsoft.AspNetCore.Authorization.Authorize(Policy = "AccessReports")]
+@using HarborOps.Web.Api.Fleet
+@using HarborOps.Web.Api.Reports
+@implements IDisposable
+@inject ReportsApiClient ReportsApi
+@inject FleetApiClient FleetApi
+@inject CurrentUserAuthorizationState AuthorizationState
 
 <PageTitle>Reports | HarborOps</PageTitle>
 
 <section class="reports-page">
-    <header>
-        <p>Reporting</p>
-        <h1>Reports</h1>
-        <span>Review operational reporting as it becomes available.</span>
+    <header class="reports-header">
+        <div>
+            <p class="reports-eyebrow">Reporting</p>
+            <h1>Reports</h1>
+            <p>Review documents expiry, compliance exposure, and maintenance backlog as of a chosen date.</p>
+        </div>
     </header>
 
-    <section class="reports-card">
-        <EmptyState Title="No reports available yet" Message="Reporting data and saved report views will appear here." />
-    </section>
+    @if (!HasAnyReportAccess)
+    {
+        <section class="reports-card">
+            <EmptyState Title="No reports available" Message="Your account does not have permission to view any report." />
+        </section>
+    }
+    else
+    {
+        <nav class="reports-tabs" aria-label="Report selection">
+            @if (AuthorizationState.CanAccessDocuments)
+            {
+                <button type="button"
+                        class="reports-tab @(selectedReport == ReportKind.DocumentsExpiry ? "is-active" : null)"
+                        aria-pressed="@(selectedReport == ReportKind.DocumentsExpiry ? "true" : "false")"
+                        @onclick='() => SelectReportAsync(ReportKind.DocumentsExpiry)'>
+                    Documents expiry
+                </button>
+            }
+            @if (AuthorizationState.CanAccessCompliance)
+            {
+                <button type="button"
+                        class="reports-tab @(selectedReport == ReportKind.ComplianceExposure ? "is-active" : null)"
+                        aria-pressed="@(selectedReport == ReportKind.ComplianceExposure ? "true" : "false")"
+                        @onclick='() => SelectReportAsync(ReportKind.ComplianceExposure)'>
+                    Compliance exposure
+                </button>
+            }
+            @if (AuthorizationState.CanAccessMaintenance)
+            {
+                <button type="button"
+                        class="reports-tab @(selectedReport == ReportKind.MaintenanceBacklog ? "is-active" : null)"
+                        aria-pressed="@(selectedReport == ReportKind.MaintenanceBacklog ? "true" : "false")"
+                        @onclick='() => SelectReportAsync(ReportKind.MaintenanceBacklog)'>
+                    Maintenance backlog
+                </button>
+            }
+        </nav>
+
+        <section class="reports-filters" aria-label="Report filters">
+            <div class="filter-field">
+                <label for="reports-as-of">As of</label>
+                <input id="reports-as-of" type="date" @bind="asOfFilter" @bind:after="SearchAsync" />
+            </div>
+            <div class="filter-field filter-field-wide">
+                <label for="reports-vessel">Vessel</label>
+                <VesselPicker @key="vesselPickerResetToken" Value="vesselIdFilter" ValueChanged="OnVesselFilterChangedAsync" Placeholder="All vessels" />
+            </div>
+
+            @if (selectedReport == ReportKind.DocumentsExpiry)
+            {
+                <div class="filter-field">
+                    <label for="reports-doc-from">From</label>
+                    <input id="reports-doc-from" type="date" @bind="documentsFromFilter" @bind:after="SearchAsync" />
+                </div>
+                <div class="filter-field">
+                    <label for="reports-doc-to">To</label>
+                    <input id="reports-doc-to" type="date" @bind="documentsToFilter" @bind:after="SearchAsync" />
+                </div>
+                <div class="filter-field">
+                    <label for="reports-doc-status">Status</label>
+                    <input id="reports-doc-status" type="text" maxlength="100"
+                           @bind="documentsStatusFilter" @bind:event="oninput" @bind:after="SearchAsync"
+                           placeholder="Any status" />
+                </div>
+            }
+            else if (selectedReport == ReportKind.ComplianceExposure)
+            {
+                <div class="filter-field">
+                    <label for="reports-category">Category</label>
+                    <select id="reports-category" @bind="complianceCategoryFilter" @bind:after="SearchAsync">
+                        <option value="">All categories</option>
+                        @foreach (var category in ComplianceCategories)
+                        {
+                            <option value="@category">@category</option>
+                        }
+                    </select>
+                </div>
+            }
+            else if (selectedReport == ReportKind.MaintenanceBacklog)
+            {
+                <div class="filter-field">
+                    <label for="reports-priority">Priority</label>
+                    <select id="reports-priority" @bind="maintenancePriorityFilter" @bind:after="SearchAsync">
+                        <option value="">All priorities</option>
+                        @foreach (var priority in MaintenancePriorities)
+                        {
+                            <option value="@priority">@priority</option>
+                        }
+                    </select>
+                </div>
+                <div class="filter-field">
+                    <label for="reports-status">Status</label>
+                    <select id="reports-status" @bind="maintenanceStatusFilter" @bind:after="SearchAsync">
+                        <option value="">All statuses</option>
+                        @foreach (var status in MaintenanceStatuses)
+                        {
+                            <option value="@status">@status</option>
+                        }
+                    </select>
+                </div>
+                <div class="filter-field">
+                    <label for="reports-overdue">Overdue</label>
+                    <select id="reports-overdue" @bind="maintenanceOverdueSelection" @bind:after="SearchAsync">
+                        <option value="">All</option>
+                        <option value="true">Overdue only</option>
+                        <option value="false">Not overdue</option>
+                    </select>
+                </div>
+                <div class="filter-field">
+                    <label for="reports-due-from">Due from</label>
+                    <input id="reports-due-from" type="date" @bind="maintenanceDueFromFilter" @bind:after="SearchAsync" />
+                </div>
+                <div class="filter-field">
+                    <label for="reports-due-to">Due to</label>
+                    <input id="reports-due-to" type="date" @bind="maintenanceDueToFilter" @bind:after="SearchAsync" />
+                </div>
+            }
+
+            <div class="reports-filter-actions">
+                <button type="button" class="reports-reset-button" @onclick="ResetFiltersAsync" disabled="@isLoading">Reset</button>
+            </div>
+        </section>
+
+        @if (filterValidationMessage is not null)
+        {
+            <div class="reports-validation" role="alert">
+                <strong>Check the filters</strong>
+                <ul>
+                    <li>@filterValidationMessage</li>
+                </ul>
+            </div>
+        }
+
+        <section class="reports-card" aria-labelledby="reports-list-title">
+            <div class="reports-card-heading">
+                <div>
+                    <h2 id="reports-list-title">@ReportTitle</h2>
+                    <p>@totalCount records as of @reportAsOf.ToString("dd MMM yyyy")</p>
+                </div>
+                <a class="reports-download-button" href="@BuildDownloadUrl()">
+                    <span class="bi bi-download" aria-hidden="true"></span> Download CSV
+                </a>
+            </div>
+
+            @if (isLoading)
+            {
+                <LoadingState Message="Loading report..." />
+            }
+            else if (failure is not null && !failure.IsValidation)
+            {
+                <ApiErrorState Title="@failure.Title" Message="@failure.Message" OnRetry="RetryAsync" />
+            }
+            else if (CurrentRowCount == 0)
+            {
+                <EmptyState Title="No records match your filters" Message="Widen the date range or clear a filter." />
+            }
+            else if (selectedReport == ReportKind.DocumentsExpiry)
+            {
+                <div class="reports-table-scroll">
+                    <table class="reports-table">
+                        <caption class="visually-hidden">Documents expiring on or before the selected range</caption>
+                        <thead>
+                            <tr>
+                                <th scope="col">Number</th>
+                                <th scope="col">Vessel</th>
+                                <th scope="col">Document type</th>
+                                <th scope="col">Issuing authority</th>
+                                <th scope="col">Issue date</th>
+                                <th scope="col">Expiry date</th>
+                                <th scope="col">Status</th>
+                                <th scope="col" class="reports-num">Days left</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var row in documentsRows)
+                            {
+                                <tr @key="row.DocumentId">
+                                    <td>@row.Number</td>
+                                    <td>@VesselDisplayName(row.VesselId)</td>
+                                    <td class="reports-muted">@row.DocumentTypeName</td>
+                                    <td class="reports-muted">@row.IssuingAuthority</td>
+                                    <td class="reports-muted">@row.IssueDate.ToString("dd MMM yyyy")</td>
+                                    <td>@row.ExpiryDate.ToString("dd MMM yyyy")</td>
+                                    <td>
+                                        <span class="reports-status @(row.IsExpired ? "is-expired" : null)">@DocumentStatusLabel(row)</span>
+                                    </td>
+                                    <td class="reports-num">@DaysUntilExpiryLabel(row)</td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
+            else if (selectedReport == ReportKind.ComplianceExposure)
+            {
+                <div class="reports-table-scroll">
+                    <table class="reports-table">
+                        <caption class="visually-hidden">Certificates, insurance, detentions and open non-conformities</caption>
+                        <thead>
+                            <tr>
+                                <th scope="col">Type</th>
+                                <th scope="col">Vessel</th>
+                                <th scope="col">Reference</th>
+                                <th scope="col">Description</th>
+                                <th scope="col">Relevant date</th>
+                                <th scope="col">Status</th>
+                                <th scope="col">Severity</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var row in complianceRows)
+                            {
+                                <tr @key="@(row.ItemType + row.Reference)">
+                                    <td>@row.ItemType</td>
+                                    <td>@VesselDisplayName(row.VesselId)</td>
+                                    <td>@row.Reference</td>
+                                    <td class="reports-muted">@row.Description</td>
+                                    <td>@row.RelevantDate.ToString("dd MMM yyyy")</td>
+                                    <td>
+                                        <span class="reports-status @(row.Status == "Expired" || row.Status == "Detained" ? "is-expired" : null)">@row.Status</span>
+                                    </td>
+                                    <td class="reports-muted">@(row.Severity ?? "-")</td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
+            else if (selectedReport == ReportKind.MaintenanceBacklog)
+            {
+                <div class="reports-table-scroll">
+                    <table class="reports-table">
+                        <caption class="visually-hidden">Maintenance work orders and their overdue status</caption>
+                        <thead>
+                            <tr>
+                                <th scope="col">Title</th>
+                                <th scope="col">Vessel</th>
+                                <th scope="col">Priority</th>
+                                <th scope="col">Status</th>
+                                <th scope="col">Due date</th>
+                                <th scope="col">Overdue</th>
+                                <th scope="col">Created</th>
+                                <th scope="col">Completed</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var row in maintenanceRows)
+                            {
+                                <tr @key="row.WorkOrderId">
+                                    <td>@row.Title</td>
+                                    <td>@VesselDisplayName(row.VesselId)</td>
+                                    <td>@row.Priority</td>
+                                    <td>@row.Status</td>
+                                    <td>@row.DueUtc.ToString("dd MMM yyyy")</td>
+                                    <td>
+                                        @if (row.IsOverdue)
+                                        {
+                                            <span class="reports-status is-expired">Overdue</span>
+                                        }
+                                        else
+                                        {
+                                            <span class="reports-status">On track</span>
+                                        }
+                                    </td>
+                                    <td class="reports-muted">@row.CreatedUtc.ToString("dd MMM yyyy")</td>
+                                    <td class="reports-muted">@(row.CompletedUtc?.ToString("dd MMM yyyy") ?? "-")</td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
+
+            @if (!isLoading && CurrentRowCount > 0)
+            {
+                <div class="reports-pagination">
+                    <span>Showing @FirstRowNumber&ndash;@LastRowNumber of @totalCount records</span>
+                    <div class="reports-pages">
+                        <button type="button" @onclick="PreviousPageAsync" disabled="@(pageNumber <= 1)">Previous</button>
+                        <span class="reports-page-indicator">Page @pageNumber of @TotalPages</span>
+                        <button type="button" @onclick="NextPageAsync" disabled="@(pageNumber >= TotalPages)">Next</button>
+                    </div>
+                </div>
+            }
+        </section>
+    }
 </section>

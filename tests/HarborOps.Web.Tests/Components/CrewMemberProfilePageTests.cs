@@ -54,12 +54,14 @@ public sealed class CrewMemberProfilePageTests : BunitContext
         page.WaitForAssertion(() => Assert.Contains("Ivan Petrović", page.Markup, StringComparison.Ordinal));
         Assert.DoesNotContain("P1234567", page.Markup, StringComparison.Ordinal);
         Assert.DoesNotContain("14 May 1990", page.Markup, StringComparison.Ordinal);
-        Assert.Equal(2, page.FindAll(".crew-profile-masked").Count);
+        Assert.DoesNotContain("CDC987654", page.Markup, StringComparison.Ordinal);
+        Assert.Equal(3, page.FindAll(".crew-profile-masked").Count);
 
         page.Find(".crew-profile-reveal-button").Click();
 
         Assert.Contains("P1234567", page.Markup, StringComparison.Ordinal);
         Assert.Contains("14 May 1990", page.Markup, StringComparison.Ordinal);
+        Assert.Contains("CDC987654", page.Markup, StringComparison.Ordinal);
 
         page.Find(".crew-profile-reveal-button").Click();
 

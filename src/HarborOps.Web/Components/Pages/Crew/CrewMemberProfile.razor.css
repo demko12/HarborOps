@@ -105,6 +105,7 @@ html[data-theme="light"] .employment-inactive { color: #475569; border-color: rg
 .crew-profile-row-secondary span { color: var(--text-secondary); font-size: .78rem; white-space: nowrap; }
 
 .crew-profile-indicator { display: inline-flex; justify-content: center; padding: .3rem .5rem; border: 1px solid transparent; border-radius: 999px; font-size: .73rem; font-weight: 700; white-space: nowrap; }
+.crew-profile-passport-flag { display: inline-flex; align-items: center; justify-content: center; width: 1.35rem; height: 1.35rem; margin-left: .5rem; border: 1px solid transparent; border-radius: 999px; font-size: .72rem; vertical-align: middle; cursor: help; }
 .crew-profile-indicator-valid { color: #6ee7b7; border-color: rgba(52,211,153,.28); background: rgba(16,185,129,.15); }
 .crew-profile-indicator-warning { color: #fbbf24; border-color: rgba(251,191,36,.28); background: rgba(251,191,36,.14); }
 .crew-profile-indicator-expired { color: #fca5a5; border-color: rgba(252,165,165,.28); background: rgba(239,68,68,.14); }
@@ -134,15 +135,29 @@ html[data-theme="light"] .crew-profile-indicator-neutral { color: #475569; borde
     display: grid;
     place-items: center;
     padding: 1.5rem;
-    background: rgba(2, 6, 23, .48);
+    overflow-y: auto;
+    background: rgba(15, 23, 42, .24);
     backdrop-filter: blur(3px);
     -webkit-backdrop-filter: blur(3px);
 }
 
+html[data-theme="dark"] .crew-assignment-modal-backdrop { background: rgba(2, 6, 23, .48); }
+
 .crew-assignment-modal {
     width: min(100%, 28rem);
+    margin: 0;
     padding: 1.4rem;
+    border: 1px solid #c7d1df;
     border-radius: 1rem;
+    background: #ffffff;
+    box-shadow: 0 28px 64px rgba(15, 23, 42, .28);
+    backdrop-filter: none;
+}
+
+html[data-theme="dark"] .crew-assignment-modal {
+    border-color: rgba(148, 163, 184, .28);
+    background: #172033;
+    box-shadow: 0 28px 64px rgba(0, 0, 0, .5);
 }
 
 .crew-assignment-modal-close {

@@ -65,6 +65,7 @@
                         <div class="crew-rank"><span>Base rank</span><strong>@member.BaseRankName</strong></div>
                         <div class="crew-passport @passportState.Class"><span>Passport expiry</span><strong>@member.PassportExpiry.ToString("dd MMM yyyy")</strong>@if (passportState.IsExpired) { <small><span class="bi bi-exclamation-triangle"></span> Expired</small> }</div>
                         <span class="employment-status @GetEmploymentStatusClass(member.EmploymentStatus)">@member.EmploymentStatus</span>
+                        <span class="bi bi-chevron-right crew-chevron" aria-hidden="true"></span>
                     </a>
                 }
             </div>
