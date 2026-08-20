@@ -1,0 +1,170 @@
+@page "/fleet/{VesselId:guid}"
+@attribute [Microsoft.AspNetCore.Authorization.Authorize(Policy = "AccessFleet")]
+@using HarborOps.Web.Api.Fleet
+@implements IDisposable
+@inject FleetApiClient FleetApi
+@inject CurrentUserAuthorizationState AuthorizationState
+
+<PageTitle>@(details?.Name ?? "Vessel") | HarborOps</PageTitle>
+
+<section class="vessel-details-page">
+	<a class="vessel-details-back" href="@BackToFleetUrl">&larr; Back to fleet</a>
+
+	@if (isLoading)
+	{
+		<LoadingState Message="Loading vessel..." />
+	}
+	else if (notFound)
+	{
+		<EmptyState Title="Vessel not found" Message="This vessel does not exist or may have been removed." />
+	}
+	else if (loadFailure is not null)
+	{
+		<ApiErrorState Title="@loadFailure.Title" Message="@loadFailure.Message" OnRetry="LoadDetailsAsync" />
+	}
+	else if (details is not null)
+	{
+		<header class="vessel-details-header">
+			<div>
+				<p class="vessel-details-eyebrow">Fleet operations</p>
+				<h1>@details.Name</h1>
+				<p>IMO @details.ImoNumber &middot; @details.VesselTypeName &middot; @details.FlagState</p>
+			</div>
+			<span class="vessel-status @GetStatusClass(details.CurrentStatus)">@details.CurrentStatus</span>
+		</header>
+
+		<div class="vessel-details-grid">
+			<section class="vessel-details-card" aria-labelledby="vessel-identity-title">
+				<h2 id="vessel-identity-title">Identity</h2>
+				<dl>
+					<div><dt>Name</dt><dd>@details.Name</dd></div>
+					<div><dt>IMO number</dt><dd>@details.ImoNumber</dd></div>
+					<div><dt>MMSI</dt><dd>@(details.Mmsi ?? "—")</dd></div>
+					<div><dt>Call sign</dt><dd>@(details.CallSign ?? "—")</dd></div>
+					<div><dt>Flag state</dt><dd>@details.FlagState</dd></div>
+					<div><dt>Vessel type</dt><dd>@details.VesselTypeName</dd></div>
+				</dl>
+			</section>
+
+			<section class="vessel-details-card" aria-labelledby="vessel-specs-title">
+				<h2 id="vessel-specs-title">Specifications</h2>
+				<dl>
+					<div><dt>DWT</dt><dd>@FormatMeasurement(details.Dwt)</dd></div>
+					<div><dt>GT</dt><dd>@FormatMeasurement(details.Gt)</dd></div>
+					<div><dt>LOA</dt><dd>@FormatMeasurement(details.Loa)</dd></div>
+					<div><dt>Beam</dt><dd>@FormatMeasurement(details.Beam)</dd></div>
+					<div><dt>Draft</dt><dd>@FormatMeasurement(details.Draft)</dd></div>
+					<div><dt>Port of registry</dt><dd>@(details.PortOfRegistry ?? "—")</dd></div>
+					<div><dt>Classification society</dt><dd>@(details.ClassificationSociety ?? "—")</dd></div>
+					<div><dt>Lifecycle stage</dt><dd>@(details.LifecycleStage ?? "—")</dd></div>
+				</dl>
+			</section>
+
+			<section class="vessel-details-card" aria-labelledby="vessel-assignment-title">
+				<h2 id="vessel-assignment-title">Fleet assignment</h2>
+				@if (details.FleetId is null)
+				{
+					<p class="vessel-details-muted">Unassigned</p>
+				}
+				else
+				{
+					<p><strong>@details.FleetName</strong></p>
+				}
+			</section>
+
+			@if (CanManageFleet)
+			{
+				<section class="vessel-details-card vessel-status-form-card" aria-labelledby="vessel-status-form-title">
+					<h2 id="vessel-status-form-title">Record a status change</h2>
+
+					@if (submitSuccessMessage is not null)
+					{
+						<div class="vessel-status-success" role="status">@submitSuccessMessage</div>
+					}
+
+					@if (submitFailure is { IsValidation: true, Errors.Count: > 0 })
+					{
+						<div class="vessel-status-alert" role="alert">
+							<strong>@submitFailure.Title</strong>
+							<ul>
+								@foreach (var entry in submitFailure.Errors)
+								{
+									@foreach (var message in entry.Value)
+									{
+										<li>@message</li>
+									}
+								}
+							</ul>
+						</div>
+					}
+					else if (submitFailure is { IsConflict: true })
+					{
+						<div class="vessel-status-alert" role="alert">
+							<strong>@submitFailure.Title</strong>
+							<p>@submitFailure.Message</p>
+						</div>
+					}
+					else if (submitFailure is { IsForbidden: true })
+					{
+						<div class="vessel-status-alert" role="alert">
+							<strong>@submitFailure.Title</strong>
+							<p>@submitFailure.Message</p>
+						</div>
+					}
+					else if (submitFailure is not null)
+					{
+						<ApiErrorState Title="@submitFailure.Title" Message="@submitFailure.Message" OnRetry="SubmitStatusChangeAsync" />
+					}
+
+					<form class="vessel-status-form" @onsubmit="SubmitStatusChangeAsync" @onsubmit:preventDefault="true">
+						<div class="vessel-status-field">
+							<label for="vessel-status-select">New status</label>
+							<select id="vessel-status-select" @bind="selectedStatus">
+								@foreach (var option in FleetStatusOptions.All)
+								{
+									<option value="@option">@option</option>
+								}
+							</select>
+						</div>
+						<div class="vessel-status-field">
+							<label for="vessel-status-notes">Notes (optional)</label>
+							<textarea id="vessel-status-notes" @bind="notes" maxlength="1000"></textarea>
+						</div>
+						<button class="vessel-status-button" type="submit" disabled="@isSubmitting">
+							@(isSubmitting ? "Saving..." : "Save status change")
+						</button>
+					</form>
+				</section>
+			}
+
+			<section class="vessel-details-card vessel-details-history" aria-labelledby="vessel-history-title">
+				<h2 id="vessel-history-title">Status history</h2>
+				@if (details.StatusHistory.Count == 0)
+				{
+					<EmptyState Title="No status changes yet" Message="Status changes will appear here once recorded." />
+				}
+				else
+				{
+					<ul class="vessel-history-list">
+						@foreach (var entry in details.StatusHistory)
+						{
+							<li @key="entry.Id">
+								<div class="vessel-history-status">
+									<span class="vessel-status @GetStatusClass(entry.Status)">@entry.Status</span>
+									<span class="vessel-history-when">@entry.ChangedAtUtc.ToLocalTime().ToString("dd MMM yyyy, HH:mm")</span>
+								</div>
+								<div class="vessel-history-meta">
+									<span>@entry.ChangedBy</span>
+									@if (!string.IsNullOrWhiteSpace(entry.Notes))
+									{
+										<p>@entry.Notes</p>
+									}
+								</div>
+							</li>
+						}
+					</ul>
+				}
+			</section>
+		</div>
+	}
+</section>

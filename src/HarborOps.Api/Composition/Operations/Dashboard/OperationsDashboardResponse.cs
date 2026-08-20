@@ -18,7 +18,8 @@ public sealed record OperationsDashboardAttentionItemResponse(
     string Title,
     string Detail,
     string? DueLabel,
-    string Severity);
+    string Severity,
+    string? Link = null);
 
 public sealed record OperationsDashboardPriorityItemResponse(
     string Capability,

@@ -1,0 +1,64 @@
+@using HarborOps.Web.Api
+@inject CrewApiClient CrewApi
+
+<section class="crew-profile-form" aria-labelledby="crew-certificate-form-title">
+    <div class="crew-profile-form-header">
+        <h3 id="crew-certificate-form-title">Register certificate</h3>
+    </div>
+
+    @if (conflictMessage is not null)
+    {
+        <div class="crew-profile-form-conflict" role="alert">@conflictMessage</div>
+    }
+
+    @if (generalError is not null)
+    {
+        <div class="crew-profile-form-error" role="alert">@generalError</div>
+    }
+
+    @if (fieldErrors.Count > 0)
+    {
+        <ul class="crew-profile-form-field-errors" role="alert">
+            @foreach (var message in fieldErrors)
+            {
+                <li>@message</li>
+            }
+        </ul>
+    }
+
+    @if (successMessage is not null)
+    {
+        <div class="crew-profile-form-success" role="status">@successMessage</div>
+    }
+
+    <form class="crew-profile-form-grid" @onsubmit="SubmitAsync" @onsubmit:preventDefault="true">
+        <div class="crew-profile-form-field">
+            <label for="cert-type">Type</label>
+            <input id="cert-type" @bind="model.Type" maxlength="100" />
+        </div>
+        <div class="crew-profile-form-field">
+            <label for="cert-name">Name</label>
+            <input id="cert-name" @bind="model.Name" maxlength="200" />
+        </div>
+        <div class="crew-profile-form-field">
+            <label for="cert-authority">Issuing authority</label>
+            <input id="cert-authority" @bind="model.IssuingAuthority" maxlength="200" />
+        </div>
+        <div class="crew-profile-form-field">
+            <label for="cert-license">License number</label>
+            <input id="cert-license" @bind="model.LicenseNumber" maxlength="100" />
+        </div>
+        <div class="crew-profile-form-field">
+            <label for="cert-issue-date">Issue date</label>
+            <input id="cert-issue-date" type="date" @bind="model.IssueDate" />
+        </div>
+        <div class="crew-profile-form-field">
+            <label for="cert-expiry-date">Expiry date</label>
+            <input id="cert-expiry-date" type="date" @bind="model.ExpiryDate" />
+        </div>
+
+        <button type="submit" class="crew-profile-form-submit" disabled="@isSubmitting">
+            @(isSubmitting ? "Registering..." : "Register certificate")
+        </button>
+    </form>
+</section>

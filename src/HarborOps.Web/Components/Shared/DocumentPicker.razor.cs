@@ -6,7 +6,6 @@ namespace HarborOps.Web.Components.Shared;
 
 public partial class DocumentPicker : IDisposable
 {
-    private const int MinimumSearchLength = 2;
     private const int DebounceMilliseconds = 300;
     private const int BlurCloseDelayMilliseconds = 200;
     private const int MaxResults = 10;
@@ -18,6 +17,7 @@ public partial class DocumentPicker : IDisposable
     private bool isSearching;
     private bool searchFailed;
     private CancellationTokenSource? searchCts;
+    private Guid? loadedVesselId;
 
     // Required context: the document search is always scoped to a single vessel, never
     // a free cross-vessel search. No built-in reset when this changes - matches
@@ -46,6 +46,26 @@ public partial class DocumentPicker : IDisposable
     // with, not replacing, the explicit Disabled parameter.
     private bool EffectiveDisabled => Disabled || VesselId is null;
 
+    protected override void OnParametersSet()
+    {
+        if (loadedVesselId == VesselId)
+        {
+            return;
+        }
+
+        // A document is meaningful only for the currently selected vessel. Never
+        // carry cached options or the display value over to another vessel.
+        loadedVesselId = VesselId;
+        searchCts?.Cancel();
+        searchCts?.Dispose();
+        searchCts = null;
+        displayText = string.Empty;
+        results = [];
+        isDropdownOpen = false;
+        isSearching = false;
+        searchFailed = false;
+    }
+
     private async Task OnInputAsync(ChangeEventArgs e)
     {
         displayText = e.Value?.ToString() ?? string.Empty;
@@ -62,7 +82,7 @@ public partial class DocumentPicker : IDisposable
         searchCts?.Dispose();
         searchCts = null;
 
-        if (VesselId is not { } vesselId || displayText.Length < MinimumSearchLength)
+        if (VesselId is not { } vesselId)
         {
             isDropdownOpen = false;
             isSearching = false;
@@ -71,25 +91,7 @@ public partial class DocumentPicker : IDisposable
             return;
         }
 
-        isDropdownOpen = true;
-        isSearching = true;
-        searchFailed = false;
-        results = [];
-
-        var cts = new CancellationTokenSource();
-        searchCts = cts;
-        var search = displayText;
-
-        try
-        {
-            await Task.Delay(DebounceMilliseconds, cts.Token);
-        }
-        catch (TaskCanceledException)
-        {
-            return;
-        }
-
-        await SearchAsync(vesselId, search, cts);
+        await StartSearchAsync(vesselId, displayText, debounce: true);
     }
 
     private async Task SearchAsync(Guid vesselId, string search, CancellationTokenSource cts)
@@ -144,17 +146,46 @@ public partial class DocumentPicker : IDisposable
         await ValueChanged.InvokeAsync(Value);
     }
 
-    private void OnFocus()
+    private async Task OnFocusAsync()
     {
         if (EffectiveDisabled)
         {
             return;
         }
 
-        if (displayText.Length >= MinimumSearchLength && (results.Count > 0 || isSearching || searchFailed))
+        isDropdownOpen = true;
+
+        if (VesselId is not { } vesselId || results.Count > 0 || isSearching || searchFailed)
         {
-            isDropdownOpen = true;
+            return;
         }
+
+        await StartSearchAsync(vesselId, displayText, debounce: false);
+    }
+
+    private async Task StartSearchAsync(Guid vesselId, string search, bool debounce)
+    {
+        isDropdownOpen = true;
+        isSearching = true;
+        searchFailed = false;
+        results = [];
+
+        var cts = new CancellationTokenSource();
+        searchCts = cts;
+
+        if (debounce)
+        {
+            try
+            {
+                await Task.Delay(DebounceMilliseconds, cts.Token);
+            }
+            catch (TaskCanceledException)
+            {
+                return;
+            }
+        }
+
+        await SearchAsync(vesselId, search, cts);
     }
 
     private async Task OnBlurAsync()

@@ -4,7 +4,9 @@
 @using HarborOps.Web.Api.Fleet
 @implements IDisposable
 @inject DocumentsApiClient DocumentsApi
-@inject VesselLookupApiClient VesselLookupApi
+@inject FleetApiClient VesselLookupApi
+@inject CurrentUserAuthorizationState AuthorizationState
+@inject FleetApiClient FleetApi
 
 <PageTitle>Documents | HarborOps</PageTitle>
 
@@ -110,6 +112,7 @@
                             <th scope="col" class="col-expiry">Expiry date</th>
                             <th scope="col" class="col-status">Status</th>
                             <th scope="col" class="documents-num col-days">Days left</th>
+                            <th scope="col" class="col-file">File</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -124,7 +127,134 @@
                                 <td class="col-expiry">@row.ExpiryDate.ToString("dd MMM yyyy")</td>
                                 <td class="col-status"><span class="documents-status">@row.Status</span></td>
                                 <td class="documents-num col-days">@row.DaysUntilExpiry</td>
+                                <td class="col-file">
+                                    <button type="button" class="documents-file-toggle"
+                                            @onclick="() => ToggleFilePanelAsync(row.DocumentId)">
+                                        @(expandedDocumentId == row.DocumentId ? "Hide" : "File")
+                                    </button>
+                                </td>
                             </tr>
+
+                            @if (expandedDocumentId == row.DocumentId)
+                            {
+                                <tr class="documents-file-panel-row" @key="@($"file-panel-{row.DocumentId}")">
+                                    <td colspan="9">
+                                        <div class="documents-file-panel">
+                                            @if (isLoadingFileDetails)
+                                            {
+                                                <span class="documents-file-panel-loading">Loading file details...</span>
+                                            }
+                                            else if (fileDetailsFailure is not null)
+                                            {
+                                                <div class="documents-type-inline-error" role="alert">@fileDetailsFailure.Message</div>
+                                            }
+                                            else if (fileDetails is not null)
+                                            {
+                                                @if (uploadSuccessMessage is not null)
+                                                {
+                                                    <div class="documents-type-success" role="status">@uploadSuccessMessage</div>
+                                                }
+
+                                                @if (!fileDetails.HasFile)
+                                                {
+                                                    <p class="documents-file-empty">No file attached.</p>
+                                                }
+                                                else
+                                                {
+                                                    <dl class="documents-file-meta">
+                                                        <div>
+                                                            <dt>File name</dt>
+                                                            <dd>@fileDetails.FileName</dd>
+                                                        </div>
+                                                        <div>
+                                                            <dt>Size</dt>
+                                                            <dd>@FormatBytes(fileDetails.SizeBytes)</dd>
+                                                        </div>
+                                                        <div>
+                                                            <dt>Content type</dt>
+                                                            <dd>@fileDetails.ContentType</dd>
+                                                        </div>
+                                                        <div>
+                                                            <dt>Uploaded</dt>
+                                                            <dd>@FormatUploadedAt(fileDetails.UploadedAtUtc)</dd>
+                                                        </div>
+                                                    </dl>
+
+                                                    <div class="documents-file-actions">
+                                                        @if (AuthorizationState.HasPermission("documents.read"))
+                                                        {
+                                                            <a class="documents-file-download-link"
+                                                               href="/documents/@row.DocumentId/file/download"
+                                                               target="_blank"
+                                                               rel="noopener">Download</a>
+                                                        }
+
+                                                        @if (AuthorizationState.HasPermission("documents.manage")
+                                                            && !isConfirmingReplace && !isReplaceFormOpen)
+                                                        {
+                                                            <button type="button" class="documents-file-replace-button"
+                                                                    @onclick="OpenReplaceConfirmation">
+                                                                Replace file
+                                                            </button>
+                                                        }
+                                                    </div>
+
+                                                    @if (isConfirmingReplace)
+                                                    {
+                                                        <div class="documents-file-replace-confirm">
+                                                            <p>Replace the current file? This cannot be undone.</p>
+                                                            <button type="button" class="documents-search-button"
+                                                                    @onclick="ConfirmReplace">
+                                                                Yes, choose new file
+                                                            </button>
+                                                            <button type="button" class="documents-file-replace-button"
+                                                                    @onclick="CancelReplaceConfirmation">
+                                                                Cancel
+                                                            </button>
+                                                        </div>
+                                                    }
+                                                }
+
+                                                @if ((!fileDetails.HasFile && AuthorizationState.HasPermission("documents.manage"))
+                                                    || (fileDetails.HasFile && isReplaceFormOpen))
+                                                {
+                                                    <div class="documents-file-upload-form">
+                                                        <InputFile OnChange="OnFileSelected" />
+
+                                                        @if (isUploading)
+                                                        {
+                                                            <progress class="documents-file-progress" max="100" value="@uploadProgress"></progress>
+                                                            <span class="documents-file-progress-label">@($"{uploadProgress:0}%")</span>
+                                                        }
+
+                                                        <button type="button" class="documents-search-button"
+                                                                disabled="@(isUploading || selectedUploadFile is null)"
+                                                                @onclick="() => SubmitFileAsync(row.DocumentId, fileDetails.HasFile)">
+                                                            @(isUploading ? "Uploading..." : fileDetails.HasFile ? "Upload replacement" : "Upload")
+                                                        </button>
+
+                                                        @if (IsUploadValidationFailure)
+                                                        {
+                                                            <ul class="documents-type-field-errors" role="alert">
+                                                                @foreach (var message in UploadValidationMessages)
+                                                                {
+                                                                    <li>@message</li>
+                                                                }
+                                                            </ul>
+                                                        }
+                                                        else if (uploadFailure is not null)
+                                                        {
+                                                            <div class="documents-type-inline-error" role="alert">
+                                                                @UploadFailureMessageText(fileDetails.HasFile)
+                                                            </div>
+                                                        }
+                                                    </div>
+                                                }
+                                            }
+                                        </div>
+                                    </td>
+                                </tr>
+                            }
                         }
                     </tbody>
                 </table>

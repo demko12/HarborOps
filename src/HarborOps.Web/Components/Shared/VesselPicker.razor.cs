@@ -1,4 +1,4 @@
-using HarborOps.Web.Api;
+using HarborOps.Web.Api.Fleet;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Web;
 
@@ -6,11 +6,10 @@ namespace HarborOps.Web.Components.Shared;
 
 public partial class VesselPicker : IDisposable
 {
-    private const int MinimumSearchLength = 2;
     private const int DebounceMilliseconds = 300;
     private const int BlurCloseDelayMilliseconds = 200;
     private const int MaxResults = 10;
-    private const string DefaultPlaceholder = "Search vessel by name or IMO...";
+    private const string DefaultPlaceholder = "Click to browse vessels, or type to search";
 
     private string displayText = string.Empty;
     private IReadOnlyList<VesselListItemResponse> results = [];
@@ -51,34 +50,7 @@ public partial class VesselPicker : IDisposable
         searchCts?.Dispose();
         searchCts = null;
 
-        if (displayText.Length < MinimumSearchLength)
-        {
-            isDropdownOpen = false;
-            isSearching = false;
-            searchFailed = false;
-            results = [];
-            return;
-        }
-
-        isDropdownOpen = true;
-        isSearching = true;
-        searchFailed = false;
-        results = [];
-
-        var cts = new CancellationTokenSource();
-        searchCts = cts;
-        var search = displayText;
-
-        try
-        {
-            await Task.Delay(DebounceMilliseconds, cts.Token);
-        }
-        catch (TaskCanceledException)
-        {
-            return;
-        }
-
-        await SearchAsync(search, cts);
+        await StartSearchAsync(displayText, debounce: true);
     }
 
     private async Task SearchAsync(string search, CancellationTokenSource cts)
@@ -132,17 +104,48 @@ public partial class VesselPicker : IDisposable
         await ValueChanged.InvokeAsync(Value);
     }
 
-    private void OnFocus()
+    private async Task OnFocus()
     {
         if (Disabled)
         {
             return;
         }
 
-        if (displayText.Length >= MinimumSearchLength && (results.Count > 0 || isSearching || searchFailed))
+        isDropdownOpen = true;
+
+        if (results.Count > 0 || isSearching || searchFailed)
         {
-            isDropdownOpen = true;
+            return;
         }
+
+        // A selected vessel remains visible in the input, but focusing it should
+        // still browse the complete register so the user can switch vessels.
+        await StartSearchAsync(string.Empty, debounce: false);
+    }
+
+    private async Task StartSearchAsync(string search, bool debounce)
+    {
+        isDropdownOpen = true;
+        isSearching = true;
+        searchFailed = false;
+        results = [];
+
+        var cts = new CancellationTokenSource();
+        searchCts = cts;
+
+        if (debounce)
+        {
+            try
+            {
+                await Task.Delay(DebounceMilliseconds, cts.Token);
+            }
+            catch (TaskCanceledException)
+            {
+                return;
+            }
+        }
+
+        await SearchAsync(search, cts);
     }
 
     private async Task OnBlurAsync()

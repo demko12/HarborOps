@@ -1,7 +1,10 @@
+using System.Security.Claims;
 using HarborOps.Modules.Documents.Application;
 using HarborOps.Modules.Documents.Contracts;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Options;
+using Microsoft.Net.Http.Headers;
 
 namespace HarborOps.Modules.Documents.Presentation;
 
@@ -12,9 +15,16 @@ public sealed class DocumentsController(
     RegisterDocumentTypeService registerDocumentTypeService,
     IGetExpiringDocumentsQuery getExpiringDocumentsQuery,
     IGetDocumentTypesQuery getDocumentTypesQuery,
-    IGetDocumentsQuery getDocumentsQuery)
+    IGetDocumentsQuery getDocumentsQuery,
+    IGetDocumentByIdQuery getDocumentByIdQuery,
+    IUploadDocumentFileService uploadDocumentFileService,
+    IReplaceDocumentFileService replaceDocumentFileService,
+    IGetDocumentFileQuery getDocumentFileQuery,
+    IOptions<DocumentFileValidationOptions> documentFileValidationOptions)
     : ControllerBase
 {
+    private const string FileField = "file";
+
     [HttpGet("expiring")]
     [ProducesResponseType<GetExpiringDocumentsResponse>(StatusCodes.Status200OK)]
     [ProducesResponseType<HttpValidationProblemDetails>(StatusCodes.Status400BadRequest)]
@@ -92,6 +102,30 @@ public sealed class DocumentsController(
             {
                 Status = StatusCodes.Status400BadRequest,
                 Title = "One or more validation errors occurred.",
+            });
+        }
+    }
+
+    [HttpGet("/api/documents/{documentId:guid}")]
+    [ProducesResponseType<DocumentDetailsResponse>(StatusCodes.Status200OK)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<DocumentDetailsResponse>> GetById(
+        Guid documentId,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            var response = await getDocumentByIdQuery.GetByIdAsync(documentId, cancellationToken);
+
+            return Ok(response);
+        }
+        catch (DocumentNotFoundException exception)
+        {
+            return NotFound(new ProblemDetails
+            {
+                Status = StatusCodes.Status404NotFound,
+                Title = "Document not found.",
+                Detail = exception.Message,
             });
         }
     }
@@ -184,6 +218,268 @@ public sealed class DocumentsController(
             {
                 Status = StatusCodes.Status409Conflict,
                 Title = "A document type with this name already exists.",
+            });
+        }
+    }
+
+    [HttpPost("/api/documents/{documentId:guid}/file")]
+    [ProducesResponseType<DocumentFileResponse>(StatusCodes.Status201Created)]
+    [ProducesResponseType<HttpValidationProblemDetails>(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status413PayloadTooLarge)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status500InternalServerError)]
+    public async Task<ActionResult<DocumentFileResponse>> UploadFile(
+        Guid documentId,
+        [FromForm] IFormFile? file,
+        CancellationToken cancellationToken)
+    {
+        if (Request.ContentLength is { } contentLength &&
+            contentLength > documentFileValidationOptions.Value.MaxSizeBytes)
+        {
+            return StatusCode(StatusCodes.Status413PayloadTooLarge, new ProblemDetails
+            {
+                Status = StatusCodes.Status413PayloadTooLarge,
+                Title = "File is too large.",
+                Detail = $"The request body exceeds the maximum allowed size of " +
+                    $"{documentFileValidationOptions.Value.MaxSizeBytes} bytes.",
+            });
+        }
+
+        if (file is null || file.Length == 0)
+        {
+            return BadRequest(new HttpValidationProblemDetails(
+                new Dictionary<string, string[]>
+                {
+                    [FileField] = ["A non-empty file is required."],
+                })
+            {
+                Status = StatusCodes.Status400BadRequest,
+                Title = "One or more validation errors occurred.",
+            });
+        }
+
+        if (!Guid.TryParse(User.FindFirstValue(ClaimTypes.NameIdentifier), out var uploadedBy))
+        {
+            return Unauthorized();
+        }
+
+        try
+        {
+            await using var content = file.OpenReadStream();
+            var request = new UploadDocumentFileRequest(
+                documentId,
+                file.FileName,
+                file.ContentType,
+                file.Length,
+                content,
+                uploadedBy);
+
+            var response = await uploadDocumentFileService.UploadAsync(request, cancellationToken);
+
+            return CreatedAtAction(nameof(GetById), new { documentId }, response);
+        }
+        catch (DocumentNotFoundException exception)
+        {
+            return NotFound(new ProblemDetails
+            {
+                Status = StatusCodes.Status404NotFound,
+                Title = "Document not found.",
+                Detail = exception.Message,
+            });
+        }
+        catch (DocumentAlreadyHasFileException exception)
+        {
+            return Conflict(new ProblemDetails
+            {
+                Status = StatusCodes.Status409Conflict,
+                Title = "Document already has an attached file.",
+                Detail = exception.Message,
+            });
+        }
+        catch (FileTooLargeException exception)
+        {
+            return StatusCode(StatusCodes.Status413PayloadTooLarge, new ProblemDetails
+            {
+                Status = StatusCodes.Status413PayloadTooLarge,
+                Title = "File is too large.",
+                Detail = exception.Message,
+            });
+        }
+        catch (UploadDocumentFileValidationException exception)
+        {
+            return BadRequest(new HttpValidationProblemDetails(
+                exception.Errors.ToDictionary(
+                    error => error.Key,
+                    error => error.Value,
+                    StringComparer.Ordinal))
+            {
+                Status = StatusCodes.Status400BadRequest,
+                Title = "One or more validation errors occurred.",
+            });
+        }
+        catch (DocumentFileStorageException)
+        {
+            return StatusCode(StatusCodes.Status500InternalServerError, new ProblemDetails
+            {
+                Status = StatusCodes.Status500InternalServerError,
+                Title = "An error occurred while processing the file.",
+            });
+        }
+    }
+
+    [HttpPut("/api/documents/{documentId:guid}/file")]
+    [ProducesResponseType<DocumentFileResponse>(StatusCodes.Status200OK)]
+    [ProducesResponseType<HttpValidationProblemDetails>(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status413PayloadTooLarge)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status500InternalServerError)]
+    public async Task<ActionResult<DocumentFileResponse>> ReplaceFile(
+        Guid documentId,
+        [FromForm] IFormFile? file,
+        CancellationToken cancellationToken)
+    {
+        if (Request.ContentLength is { } contentLength &&
+            contentLength > documentFileValidationOptions.Value.MaxSizeBytes)
+        {
+            return StatusCode(StatusCodes.Status413PayloadTooLarge, new ProblemDetails
+            {
+                Status = StatusCodes.Status413PayloadTooLarge,
+                Title = "File is too large.",
+                Detail = $"The request body exceeds the maximum allowed size of " +
+                    $"{documentFileValidationOptions.Value.MaxSizeBytes} bytes.",
+            });
+        }
+
+        if (file is null || file.Length == 0)
+        {
+            return BadRequest(new HttpValidationProblemDetails(
+                new Dictionary<string, string[]>
+                {
+                    [FileField] = ["A non-empty file is required."],
+                })
+            {
+                Status = StatusCodes.Status400BadRequest,
+                Title = "One or more validation errors occurred.",
+            });
+        }
+
+        if (!Guid.TryParse(User.FindFirstValue(ClaimTypes.NameIdentifier), out var uploadedBy))
+        {
+            return Unauthorized();
+        }
+
+        try
+        {
+            await using var content = file.OpenReadStream();
+            var request = new UploadDocumentFileRequest(
+                documentId,
+                file.FileName,
+                file.ContentType,
+                file.Length,
+                content,
+                uploadedBy);
+
+            var response = await replaceDocumentFileService.ReplaceAsync(request, cancellationToken);
+
+            return Ok(response);
+        }
+        catch (DocumentNotFoundException exception)
+        {
+            return NotFound(new ProblemDetails
+            {
+                Status = StatusCodes.Status404NotFound,
+                Title = "Document not found.",
+                Detail = exception.Message,
+            });
+        }
+        catch (DocumentFileNotFoundException exception)
+        {
+            return NotFound(new ProblemDetails
+            {
+                Status = StatusCodes.Status404NotFound,
+                Title = "Document does not have an attached file.",
+                Detail = exception.Message,
+            });
+        }
+        catch (FileTooLargeException exception)
+        {
+            return StatusCode(StatusCodes.Status413PayloadTooLarge, new ProblemDetails
+            {
+                Status = StatusCodes.Status413PayloadTooLarge,
+                Title = "File is too large.",
+                Detail = exception.Message,
+            });
+        }
+        catch (UploadDocumentFileValidationException exception)
+        {
+            return BadRequest(new HttpValidationProblemDetails(
+                exception.Errors.ToDictionary(
+                    error => error.Key,
+                    error => error.Value,
+                    StringComparer.Ordinal))
+            {
+                Status = StatusCodes.Status400BadRequest,
+                Title = "One or more validation errors occurred.",
+            });
+        }
+        catch (DocumentFileStorageException)
+        {
+            return StatusCode(StatusCodes.Status500InternalServerError, new ProblemDetails
+            {
+                Status = StatusCodes.Status500InternalServerError,
+                Title = "An error occurred while processing the file.",
+            });
+        }
+    }
+
+    [HttpGet("/api/documents/{documentId:guid}/file")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status500InternalServerError)]
+    public async Task<IActionResult> DownloadFile(
+        Guid documentId,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            var file = await getDocumentFileQuery.GetFileAsync(documentId, cancellationToken);
+
+            var contentDisposition = new ContentDispositionHeaderValue("attachment")
+            {
+                FileName = file.FileName,
+            };
+            Response.Headers.Append("Content-Disposition", contentDisposition.ToString());
+            Response.Headers.Append("X-Content-Type-Options", "nosniff");
+
+            return new FileStreamResult(file.Content, file.ContentType);
+        }
+        catch (DocumentNotFoundException exception)
+        {
+            return NotFound(new ProblemDetails
+            {
+                Status = StatusCodes.Status404NotFound,
+                Title = "Document not found.",
+                Detail = exception.Message,
+            });
+        }
+        catch (DocumentFileNotFoundException exception)
+        {
+            return NotFound(new ProblemDetails
+            {
+                Status = StatusCodes.Status404NotFound,
+                Title = "Document does not have an attached file.",
+                Detail = exception.Message,
+            });
+        }
+        catch (DocumentFileStorageException)
+        {
+            return StatusCode(StatusCodes.Status500InternalServerError, new ProblemDetails
+            {
+                Status = StatusCodes.Status500InternalServerError,
+                Title = "An error occurred while processing the file.",
             });
         }
     }

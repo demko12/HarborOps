@@ -177,7 +177,7 @@ public partial class Maintenance
         int requestVersion)
     {
         var vesselIds = items.Select(item => item.VesselId).Distinct().ToArray();
-        var vesselNames = await VesselLookupApi.LookupVesselNamesAsync(vesselIds, cancellationToken);
+        var vesselNames = await FleetApi.LookupVesselNamesAsync(vesselIds, cancellationToken);
 
         if (disposeCancellation.IsCancellationRequested || requestVersion != loadVersion)
         {

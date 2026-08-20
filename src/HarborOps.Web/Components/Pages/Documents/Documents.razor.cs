@@ -32,6 +32,13 @@ public partial class Documents
 
     private const int DocumentTypeOptionsPageSize = 100;
 
+    // Same known, documented coupling as DocumentsApiClient.MaxUploadSizeBytes - mirrors
+    // DocumentFileValidationOptions.MaxSizeBytes (server default, 25 MB), duplicated here
+    // for display purposes only ("Maximum allowed size is X") since Api/Documents/* is out
+    // of scope for this step. Also used to reject an oversized file before it ever reaches
+    // DocumentsApiClient - see the comment in SubmitFileAsync for why that pre-check exists.
+    private const long MaxUploadSizeBytesForDisplay = 26_214_400;
+
     // Field names exactly as sent by RegisterDocumentTypeValidator (Application layer) -
     // case-sensitive, matched with StringComparer.Ordinal below.
     private const string NameFieldKey = "name";
@@ -67,6 +74,9 @@ public partial class Documents
             [ExpiryDateFieldKey] = nameof(RegisterDocumentFormModel.ExpiryDate),
             [IssuingAuthorityFieldKey] = nameof(RegisterDocumentFormModel.IssuingAuthority),
         };
+
+    private static readonly IReadOnlyDictionary<string, string[]> EmptyFileErrors =
+        new Dictionary<string, string[]>(StringComparer.Ordinal);
 
     private RegisterDocumentTypeFormModel registerTypeModel = new();
 
@@ -131,6 +141,21 @@ public partial class Documents
     private int totalCount;
     private bool isLoading = true;
 
+    // File detail panel: only one row's panel can be open at a time, so all of this state
+    // is shared/reset per toggle rather than tracked per-document-id.
+    private Guid? expandedDocumentId;
+    private bool isLoadingFileDetails;
+    private DocumentDetailsDto? fileDetails;
+    private DocumentsApiFailure? fileDetailsFailure;
+
+    private bool isConfirmingReplace;
+    private bool isReplaceFormOpen;
+    private IBrowserFile? selectedUploadFile;
+    private bool isUploading;
+    private double uploadProgress;
+    private DocumentsApiFailure? uploadFailure;
+    private string? uploadSuccessMessage;
+
     private bool IsAllActive => appliedFrom is null && appliedTo is null && appliedVesselId is null;
 
     private int TotalPages => totalCount == 0 ? 1 : (totalCount + pageSize - 1) / pageSize;
@@ -138,6 +163,11 @@ public partial class Documents
     private int FirstRowNumber => rows.Count == 0 ? 0 : ((pageNumber - 1) * pageSize) + 1;
 
     private int LastRowNumber => FirstRowNumber + rows.Count - 1;
+
+    private bool IsUploadValidationFailure => uploadFailure is { IsValidation: true };
+
+    private IEnumerable<string> UploadValidationMessages =>
+        uploadFailure?.Errors.SelectMany(entry => entry.Value) ?? [];
 
     protected override void OnInitialized()
     {
@@ -267,7 +297,7 @@ public partial class Documents
         int requestVersion)
     {
         var vesselIds = items.Select(item => item.VesselId).Distinct().ToArray();
-        var vesselNames = await VesselLookupApi.LookupVesselNamesAsync(vesselIds, cancellationToken);
+        var vesselNames = await FleetApi.LookupVesselNamesAsync(vesselIds, cancellationToken);
 
         if (disposeCancellation.IsCancellationRequested || requestVersion != loadVersion)
         {
@@ -512,6 +542,189 @@ public partial class Documents
 
         return unmapped;
     }
+
+    private async Task ToggleFilePanelAsync(Guid documentId)
+    {
+        if (expandedDocumentId == documentId)
+        {
+            expandedDocumentId = null;
+
+            return;
+        }
+
+        expandedDocumentId = documentId;
+        ResetFilePanelState();
+
+        await LoadFileDetailsAsync(documentId);
+    }
+
+    private void ResetFilePanelState()
+    {
+        fileDetails = null;
+        fileDetailsFailure = null;
+        isConfirmingReplace = false;
+        isReplaceFormOpen = false;
+        selectedUploadFile = null;
+        uploadFailure = null;
+        uploadSuccessMessage = null;
+        isUploading = false;
+        uploadProgress = 0;
+    }
+
+    private async Task LoadFileDetailsAsync(Guid documentId)
+    {
+        isLoadingFileDetails = true;
+        fileDetailsFailure = null;
+        fileDetails = null;
+
+        var result = await DocumentsApi.GetDocumentByIdAsync(documentId, disposeCancellation.Token);
+
+        isLoadingFileDetails = false;
+
+        if (!result.IsSuccess)
+        {
+            fileDetailsFailure = result.Failure;
+
+            return;
+        }
+
+        fileDetails = result.Value;
+    }
+
+    private void OpenReplaceConfirmation()
+    {
+        isConfirmingReplace = true;
+    }
+
+    private void ConfirmReplace()
+    {
+        isConfirmingReplace = false;
+        isReplaceFormOpen = true;
+        selectedUploadFile = null;
+        uploadFailure = null;
+        uploadSuccessMessage = null;
+    }
+
+    private void CancelReplaceConfirmation()
+    {
+        isConfirmingReplace = false;
+    }
+
+    private void OnFileSelected(InputFileChangeEventArgs e)
+    {
+        selectedUploadFile = e.File;
+        uploadFailure = null;
+        uploadSuccessMessage = null;
+    }
+
+    private async Task SubmitFileAsync(Guid documentId, bool isReplace)
+    {
+        if (selectedUploadFile is null || isUploading)
+        {
+            return;
+        }
+
+        // IBrowserFile.OpenReadStream enforces maxAllowedSize by throwing IOException
+        // synchronously as soon as it's called, which DocumentsApiClient's
+        // Upload/ReplaceDocumentFileAsync do not catch (Api/Documents/* is frozen for this
+        // step). Reject an oversized file here first so that path is never reached.
+        if (selectedUploadFile.Size > MaxUploadSizeBytesForDisplay)
+        {
+            uploadFailure = new DocumentsApiFailure(
+                StatusCodes.Status413PayloadTooLarge,
+                "File is too large.",
+                "File is too large.",
+                EmptyFileErrors);
+
+            return;
+        }
+
+        isUploading = true;
+        uploadProgress = 0;
+        uploadFailure = null;
+        uploadSuccessMessage = null;
+
+        var progress = new Progress<double>(p =>
+        {
+            uploadProgress = p;
+            InvokeAsync(StateHasChanged);
+        });
+
+        try
+        {
+            var result = isReplace
+                ? await DocumentsApi.ReplaceDocumentFileAsync(documentId, selectedUploadFile, progress, CancellationToken.None)
+                : await DocumentsApi.UploadDocumentFileAsync(documentId, selectedUploadFile, progress, CancellationToken.None);
+
+            if (!result.IsSuccess)
+            {
+                uploadFailure = result.Failure;
+
+                return;
+            }
+
+            uploadSuccessMessage = isReplace ? "File replaced." : "File uploaded.";
+            selectedUploadFile = null;
+            isReplaceFormOpen = false;
+            isConfirmingReplace = false;
+
+            await LoadFileDetailsAsync(documentId);
+        }
+        finally
+        {
+            isUploading = false;
+        }
+    }
+
+    private string? UploadFailureMessageText(bool isReplace)
+    {
+        if (uploadFailure is null || uploadFailure.IsValidation)
+        {
+            return null;
+        }
+
+        if (uploadFailure.IsPayloadTooLarge)
+        {
+            return $"File is too large. Maximum allowed size is {FormatBytes(MaxUploadSizeBytesForDisplay)}.";
+        }
+
+        if (!isReplace && uploadFailure.IsConflict)
+        {
+            return "Document already has a file.";
+        }
+
+        if (isReplace && uploadFailure.IsNotFound)
+        {
+            return "No file to replace.";
+        }
+
+        return uploadFailure.Message;
+    }
+
+    private static string FormatBytes(long? bytes)
+    {
+        if (bytes is not { } value || value < 0)
+        {
+            return "-";
+        }
+
+        string[] units = ["B", "KB", "MB", "GB"];
+        double size = value;
+        var unitIndex = 0;
+
+        while (size >= 1024 && unitIndex < units.Length - 1)
+        {
+            size /= 1024;
+            unitIndex++;
+        }
+
+        return unitIndex == 0
+            ? $"{size:0} {units[unitIndex]}"
+            : $"{size:0.#} {units[unitIndex]}";
+    }
+
+    private static string FormatUploadedAt(DateTime? uploadedAtUtc) =>
+        uploadedAtUtc is { } value ? $"{value:dd MMM yyyy HH:mm} UTC" : "-";
 
     public void Dispose()
     {

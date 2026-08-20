@@ -1,5 +1,5 @@
 using System.Globalization;
-using HarborOps.Web.Api;
+using HarborOps.Web.Api.Fleet;
 using HarborOps.Web.Api.Voyages;
 using Microsoft.AspNetCore.Components.Web;
 using Microsoft.JSInterop;

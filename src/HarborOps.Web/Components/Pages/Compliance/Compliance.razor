@@ -9,9 +9,15 @@
 
 <section class="compliance-page">
     <header class="compliance-header">
-        <p class="compliance-eyebrow">Compliance operations</p>
-        <h1>Vessel compliance</h1>
-        <p>Review certificates, inspections, and open non-conformities for a vessel.</p>
+        <div>
+            <p class="compliance-eyebrow">Compliance operations</p>
+            <h1>Vessel compliance</h1>
+            <p>Review certificates, inspections, and open non-conformities for a vessel.</p>
+        </div>
+        <div class="compliance-header-actions">
+            <a class="compliance-header-action" href="/compliance/surveys"><span class="bi bi-clipboard2-check"></span> Surveys and audits</a>
+            <a class="compliance-header-action" href="/compliance/insurance-policies"><span class="bi bi-shield-check"></span> Insurance register</a>
+        </div>
     </header>
 
     <section class="compliance-selector" aria-label="Vessel selection">
@@ -36,18 +42,27 @@
     else if (overview is not null)
     {
         <div class="compliance-actions">
-            <button type="button" @onclick="() => isCertificateFormOpen = !isCertificateFormOpen">Register certificate</button>
-            <button type="button" @onclick="() => isPscFormOpen = !isPscFormOpen">Register PSC inspection</button>
+            <button type="button" @onclick="OpenCertificateForm"><span class="bi bi-patch-check"></span> Register certificate</button>
+            <button type="button" @onclick="OpenPscForm"><span class="bi bi-clipboard2-check"></span> Register PSC inspection</button>
             @if (AuthorizationState.CanManageCompliance)
             {
-                <button type="button" @onclick="() => isNonConformityFormOpen = !isNonConformityFormOpen">Register non-conformity</button>
+                <button type="button" @onclick="OpenNonConformityForm"><span class="bi bi-exclamation-diamond"></span> Register non-conformity</button>
+            }
+            @if (AuthorizationState.CanManageCompliance)
+            {
+                <button type="button" @onclick="OpenInsurancePolicyForm"><span class="bi bi-shield-plus"></span> Register insurance policy</button>
             }
         </div>
+        @if (operationSuccess is not null)
+        {
+            <div class="compliance-success" role="status">@operationSuccess</div>
+        }
 
         @if (isCertificateFormOpen)
         {
-            <section class="compliance-card compliance-form-card">
-                <h2>Register certificate</h2>
+            <div class="compliance-modal-backdrop" role="presentation" @onclick="CloseCertificateForm">
+            <section class="compliance-card compliance-form-card compliance-registration-modal" role="dialog" aria-modal="true" aria-labelledby="certificate-form-title" @onclick:stopPropagation="true">
+                <div class="compliance-modal-heading"><div><h2 id="certificate-form-title">Register certificate</h2><p>Add a certificate for the selected vessel.</p></div></div>
                 @if (certificateSuccess is not null) { <div class="compliance-success" role="status">@certificateSuccess</div> }
                 @if (certificateError is not null) { <div class="compliance-error" role="alert">@certificateError</div> }
                 <EditForm EditContext="certificateEditContext" OnSubmit="SubmitCertificateAsync">
@@ -59,15 +74,17 @@
                         <div class="compliance-field"><label for="certificate-issued">Issued on</label><InputDate id="certificate-issued" @bind-Value="certificateModel.IssuedOn" /><ValidationMessage For="() => certificateModel.IssuedOn" /></div>
                         <div class="compliance-field"><label for="certificate-expires">Expires on</label><InputDate id="certificate-expires" @bind-Value="certificateModel.ExpiresOn" /><ValidationMessage For="() => certificateModel.ExpiresOn" /></div>
                     </div>
-                    <button class="compliance-submit" type="submit" disabled="@isSubmittingCertificate">@(isSubmittingCertificate ? "Registering..." : "Register certificate")</button>
+                    <div class="compliance-modal-actions"><button class="compliance-submit" type="submit" disabled="@isSubmittingCertificate">@(isSubmittingCertificate ? "Registering..." : "Register certificate")</button><button class="compliance-cancel" type="button" @onclick="CloseCertificateForm">Cancel</button></div>
                 </EditForm>
             </section>
+            </div>
         }
 
         @if (isPscFormOpen)
         {
-            <section class="compliance-card compliance-form-card">
-                <h2>Register PSC inspection</h2>
+            <div class="compliance-modal-backdrop" role="presentation" @onclick="ClosePscForm">
+            <section class="compliance-card compliance-form-card compliance-registration-modal" role="dialog" aria-modal="true" aria-labelledby="psc-form-title" @onclick:stopPropagation="true">
+                <div class="compliance-modal-heading"><div><h2 id="psc-form-title">Register PSC inspection</h2><p>Record the port state control inspection for the selected vessel.</p></div></div>
                 @if (pscSuccess is not null) { <div class="compliance-success" role="status">@pscSuccess</div> }
                 @if (pscError is not null) { <div class="compliance-error" role="alert">@pscError</div> }
                 <EditForm EditContext="pscEditContext" OnSubmit="SubmitPscAsync">
@@ -79,15 +96,17 @@
                         <div class="compliance-field"><label for="psc-deficiencies">Deficiency count</label><InputNumber id="psc-deficiencies" @bind-Value="pscModel.DeficiencyCount" /><ValidationMessage For="() => pscModel.DeficiencyCount" /></div>
                         <div class="compliance-field"><label><InputCheckbox @bind-Value="pscModel.VesselDetained" /> Vessel detained</label></div>
                     </div>
-                    <button class="compliance-submit" type="submit" disabled="@isSubmittingPsc">@(isSubmittingPsc ? "Registering..." : "Register PSC inspection")</button>
+                    <div class="compliance-modal-actions"><button class="compliance-submit" type="submit" disabled="@isSubmittingPsc">@(isSubmittingPsc ? "Registering..." : "Register PSC inspection")</button><button class="compliance-cancel" type="button" @onclick="ClosePscForm">Cancel</button></div>
                 </EditForm>
             </section>
+            </div>
         }
 
         @if (isNonConformityFormOpen)
         {
-            <section class="compliance-card compliance-form-card">
-                <h2>Register non-conformity</h2>
+            <div class="compliance-modal-backdrop" role="presentation" @onclick="CloseNonConformityForm">
+            <section class="compliance-card compliance-form-card compliance-registration-modal" role="dialog" aria-modal="true" aria-labelledby="non-conformity-form-title" @onclick:stopPropagation="true">
+                <div class="compliance-modal-heading"><div><h2 id="non-conformity-form-title">Register non-conformity</h2><p>Record an open compliance issue for the selected vessel.</p></div></div>
                 @if (nonConformitySuccess is not null) { <div class="compliance-success" role="status">@nonConformitySuccess</div> }
                 @if (nonConformityError is not null) { <div class="compliance-error" role="alert">@nonConformityError</div> }
                 <EditForm EditContext="nonConformityEditContext" OnSubmit="SubmitNonConformityAsync">
@@ -147,9 +166,30 @@
                             <ValidationMessage For="() => nonConformityModel.CorrectiveActionDeadline" />
                         </div>
                     </div>
-                    <button class="compliance-submit" type="submit" disabled="@isSubmittingNonConformity">@(isSubmittingNonConformity ? "Registering..." : "Register non-conformity")</button>
+                    <div class="compliance-modal-actions"><button class="compliance-submit" type="submit" disabled="@isSubmittingNonConformity">@(isSubmittingNonConformity ? "Registering..." : "Register non-conformity")</button><button class="compliance-cancel" type="button" @onclick="CloseNonConformityForm">Cancel</button></div>
                 </EditForm>
             </section>
+            </div>
+        }
+
+        @if (isInsurancePolicyFormOpen)
+        {
+            <div class="compliance-modal-backdrop" role="presentation" @onclick="CloseInsurancePolicyForm">
+            <section class="compliance-card compliance-form-card compliance-registration-modal" role="dialog" aria-modal="true" aria-labelledby="insurance-policy-form-title" @onclick:stopPropagation="true">
+                <div class="compliance-modal-heading"><div><h2 id="insurance-policy-form-title">Register insurance policy</h2><p>Expiry dates must be today or later.</p></div></div>
+                @if (insurancePolicyError is not null) { <div class="compliance-error" role="alert">@insurancePolicyError</div> }
+                <EditForm EditContext="insurancePolicyEditContext" OnSubmit="SubmitInsurancePolicyAsync">
+                    <DataAnnotationsValidator />
+                    <div class="compliance-form-grid">
+                        <div class="compliance-field"><label for="insurance-insurer">Insurer</label><InputText id="insurance-insurer" @bind-Value="insurancePolicyModel.Insurer" /><ValidationMessage For="() => insurancePolicyModel.Insurer" /></div>
+                        <div class="compliance-field"><label for="insurance-policy-number">Policy number</label><InputText id="insurance-policy-number" @bind-Value="insurancePolicyModel.PolicyNumber" /><ValidationMessage For="() => insurancePolicyModel.PolicyNumber" /></div>
+                        <div class="compliance-field"><label for="insurance-coverage">Coverage</label><InputText id="insurance-coverage" @bind-Value="insurancePolicyModel.Coverage" /><ValidationMessage For="() => insurancePolicyModel.Coverage" /></div>
+                        <div class="compliance-field"><label for="insurance-expiry">Expiry date</label><InputDate id="insurance-expiry" @bind-Value="insurancePolicyModel.ExpiryDate" /><ValidationMessage For="() => insurancePolicyModel.ExpiryDate" /></div>
+                    </div>
+                    <div class="compliance-modal-actions"><button class="compliance-submit" type="submit" disabled="@isSubmittingInsurancePolicy">@(isSubmittingInsurancePolicy ? "Registering..." : "Register insurance policy")</button><button class="compliance-cancel" type="button" @onclick="CloseInsurancePolicyForm">Cancel</button></div>
+                </EditForm>
+            </section>
+            </div>
         }
 
         <ComplianceSection Title="Certificates" EmptyTitle="No certificates recorded" IsEmpty="@(overview.Certificates.Count == 0)">
@@ -171,6 +211,16 @@
                         <span class="record-label">Expires</span>
                         <strong>@item.ExpiresOn.ToString("dd MMM yyyy")</strong>
                     </div>
+                </article>
+            }
+        </ComplianceSection>
+        <ComplianceSection Title="Insurance policies" EmptyTitle="No insurance policies recorded" IsEmpty="@(overview.InsurancePolicies.Count == 0)">
+            @foreach (var item in overview.InsurancePolicies)
+            {
+                <article class="compliance-record certificate-card @(item.ExpiryClassification == "Expired" ? "is-expired" : null)">
+                    <div class="record-identity"><span class="record-kicker">@item.Coverage</span><strong>@item.Insurer</strong><span class="record-reference">@item.PolicyNumber</span></div>
+                    <div class="record-detail"><span class="record-label">Coverage</span><span>@item.Coverage</span></div>
+                    <div class="record-status-block"><span class="compliance-badge @(item.ExpiryClassification == "Expired" ? "danger" : item.ExpiryClassification == "Expiring soon" ? "neutral" : "success")">@item.ExpiryClassification</span><span class="record-label">Expires</span><strong>@item.ExpiryDate.ToString("dd MMM yyyy")</strong></div>
                 </article>
             }
         </ComplianceSection>

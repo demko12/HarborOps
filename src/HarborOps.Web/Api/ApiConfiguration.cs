@@ -47,12 +47,6 @@ internal static class ApiConfiguration
             client.Timeout = TimeSpan.FromSeconds(10);
         }).AddHttpMessageHandler<BearerTokenHandler>();
 
-        services.AddHttpClient<VesselLookupApiClient>(client =>
-        {
-            client.BaseAddress = baseAddress;
-            client.Timeout = TimeSpan.FromSeconds(10);
-        }).AddHttpMessageHandler<BearerTokenHandler>();
-
         services.AddHttpClient<IdentityAdministrationApiClient>(client =>
         {
             client.BaseAddress = baseAddress;

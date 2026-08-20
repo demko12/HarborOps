@@ -438,7 +438,7 @@ public sealed class MaintenancePageTests : BunitContext
         };
 
         Services.AddSingleton(new MaintenanceApiClient(maintenanceHttpClient));
-        Services.AddSingleton(new VesselLookupApiClient(lookupHttpClient));
+        Services.AddSingleton(new FleetApiClient(lookupHttpClient));
         Services.AddSingleton(CreateAuthorizationState(
             permissions.Length == 0 ? ["maintenance.manage"] : permissions));
 
