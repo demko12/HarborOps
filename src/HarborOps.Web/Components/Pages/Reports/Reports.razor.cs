@@ -8,6 +8,7 @@ public partial class Reports : IDisposable
     private const int PageSize = 25;
 
     private static readonly string[] ComplianceCategories = ["Certificate", "Insurance", "Detention", "NonConformity"];
+    private static readonly string[] DocumentStatuses = ["Active", "Valid", "Expired", "Suspended"];
     private static readonly string[] MaintenancePriorities = ["Low", "Medium", "High", "Critical"];
     private static readonly string[] MaintenanceStatuses = ["Open", "InProgress", "Completed", "Canceled"];
 

@@ -50,7 +50,7 @@ public sealed class ReportsPageTests : BunitContext
         page.WaitForAssertion(() =>
         {
             Assert.Contains(requestedUris, IsDocumentsExpiryRequest);
-            Assert.Contains("is-active", page.Find(".reports-tab").ClassList);
+            Assert.Contains("active", page.Find(".workspace-tab").ClassList);
             Assert.Contains("asOf=", requestedUris.Last(IsDocumentsExpiryRequest).Query, StringComparison.Ordinal);
         });
     }
@@ -81,7 +81,7 @@ public sealed class ReportsPageTests : BunitContext
 
         Assert.Contains("No reports available", page.Markup, StringComparison.Ordinal);
         Assert.Empty(requestedUris);
-        Assert.Empty(page.FindAll(".reports-tab"));
+        Assert.Empty(page.FindAll(".workspace-tab"));
     }
 
     [Fact]
@@ -90,7 +90,7 @@ public sealed class ReportsPageTests : BunitContext
         var page = RenderReportsPage();
         page.WaitForAssertion(() => Assert.Contains(requestedUris, IsDocumentsExpiryRequest));
 
-        page.FindAll(".reports-tab")[1].Click();
+        page.FindAll(".workspace-tab")[1].Click();
 
         page.WaitForAssertion(() => Assert.Contains(requestedUris, IsComplianceExposureRequest));
     }
@@ -216,7 +216,7 @@ public sealed class ReportsPageTests : BunitContext
         page.Find("#reports-as-of").Change("2026-08-15");
         page.Find("#reports-doc-from").Change("2026-08-01");
         page.Find("#reports-doc-to").Change("2026-08-31");
-        page.Find("#reports-doc-status").Input("Active");
+        page.Find("#reports-doc-status").Change("Active");
         page.Find(".reports-filters .vessel-picker-input").Input("Auro");
 
         page.WaitForAssertion(
@@ -246,19 +246,14 @@ public sealed class ReportsPageTests : BunitContext
     }
 
     [Fact]
-    public void Typing_in_the_status_filter_searches_on_every_keystroke_without_a_search_button()
+    public void Selecting_a_status_filter_applies_it_without_a_search_button()
     {
         var page = RenderReportsPage();
         page.WaitForAssertion(() => Assert.Contains(requestedUris, IsDocumentsExpiryRequest));
 
         Assert.Empty(page.FindAll(".reports-search-button"));
 
-        page.Find("#reports-doc-status").Input("Act");
-
-        page.WaitForAssertion(() =>
-            Assert.Contains("status=Act", requestedUris.Last(IsDocumentsExpiryRequest).Query, StringComparison.Ordinal));
-
-        page.Find("#reports-doc-status").Input("Active");
+        page.Find("#reports-doc-status").Change("Active");
 
         page.WaitForAssertion(() =>
             Assert.Contains("status=Active", requestedUris.Last(IsDocumentsExpiryRequest).Query, StringComparison.Ordinal));
@@ -291,7 +286,7 @@ public sealed class ReportsPageTests : BunitContext
         var page = RenderReportsPage();
         page.WaitForAssertion(() => Assert.Contains(requestedUris, IsDocumentsExpiryRequest));
 
-        page.FindAll(".reports-tab")[2].Click();
+        page.FindAll(".workspace-tab")[2].Click();
         page.WaitForAssertion(() => Assert.Contains(requestedUris, IsMaintenanceBacklogRequest));
 
         page.Find("#reports-priority").Change("Critical");
@@ -318,7 +313,7 @@ public sealed class ReportsPageTests : BunitContext
         var page = RenderReportsPage();
         page.WaitForAssertion(() => Assert.Contains(requestedUris, IsDocumentsExpiryRequest));
 
-        page.FindAll(".reports-tab")[1].Click();
+        page.FindAll(".workspace-tab")[1].Click();
         page.WaitForAssertion(() => Assert.Contains(requestedUris, IsComplianceExposureRequest));
 
         page.Find("#reports-category").Change("Insurance");
@@ -341,7 +336,7 @@ public sealed class ReportsPageTests : BunitContext
         page.WaitForAssertion(() =>
             Assert.Contains("from=2026-08-01", requestedUris.Last(IsDocumentsExpiryRequest).Query, StringComparison.Ordinal));
 
-        page.Find(".reports-reset-button").Click();
+        page.Find(".workspace-filter-reset").Click();
 
         page.WaitForAssertion(() =>
         {
@@ -388,7 +383,7 @@ public sealed class ReportsPageTests : BunitContext
         page.WaitForAssertion(() => Assert.Contains(requestedUris, IsDocumentsExpiryRequest));
 
         page.Find("#reports-as-of").Change("2026-08-15");
-        page.Find("#reports-doc-status").Input("Active");
+        page.Find("#reports-doc-status").Change("Active");
 
         page.WaitForAssertion(() =>
         {
@@ -410,7 +405,7 @@ public sealed class ReportsPageTests : BunitContext
             page.Find(".reports-download-button").GetAttribute("href"),
             StringComparison.Ordinal);
 
-        page.FindAll(".reports-tab")[2].Click();
+        page.FindAll(".workspace-tab")[2].Click();
         page.WaitForAssertion(() => Assert.Contains(requestedUris, IsMaintenanceBacklogRequest));
 
         Assert.Contains(

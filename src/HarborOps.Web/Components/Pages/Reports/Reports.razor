@@ -26,11 +26,11 @@
     }
     else
     {
-        <nav class="reports-tabs" aria-label="Report selection">
+        <nav class="workspace-tabs" aria-label="Report selection">
             @if (AuthorizationState.CanAccessDocuments)
             {
                 <button type="button"
-                        class="reports-tab @(selectedReport == ReportKind.DocumentsExpiry ? "is-active" : null)"
+                        class="workspace-tab @(selectedReport == ReportKind.DocumentsExpiry ? "active" : null)"
                         aria-pressed="@(selectedReport == ReportKind.DocumentsExpiry ? "true" : "false")"
                         @onclick='() => SelectReportAsync(ReportKind.DocumentsExpiry)'>
                     Documents expiry
@@ -39,7 +39,7 @@
             @if (AuthorizationState.CanAccessCompliance)
             {
                 <button type="button"
-                        class="reports-tab @(selectedReport == ReportKind.ComplianceExposure ? "is-active" : null)"
+                        class="workspace-tab @(selectedReport == ReportKind.ComplianceExposure ? "active" : null)"
                         aria-pressed="@(selectedReport == ReportKind.ComplianceExposure ? "true" : "false")"
                         @onclick='() => SelectReportAsync(ReportKind.ComplianceExposure)'>
                     Compliance exposure
@@ -48,7 +48,7 @@
             @if (AuthorizationState.CanAccessMaintenance)
             {
                 <button type="button"
-                        class="reports-tab @(selectedReport == ReportKind.MaintenanceBacklog ? "is-active" : null)"
+                        class="workspace-tab @(selectedReport == ReportKind.MaintenanceBacklog ? "active" : null)"
                         aria-pressed="@(selectedReport == ReportKind.MaintenanceBacklog ? "true" : "false")"
                         @onclick='() => SelectReportAsync(ReportKind.MaintenanceBacklog)'>
                     Maintenance backlog
@@ -78,9 +78,13 @@
                 </div>
                 <div class="filter-field">
                     <label for="reports-doc-status">Status</label>
-                    <input id="reports-doc-status" type="text" maxlength="100"
-                           @bind="documentsStatusFilter" @bind:event="oninput" @bind:after="SearchAsync"
-                           placeholder="Any status" />
+                    <select id="reports-doc-status" @bind="documentsStatusFilter" @bind:after="SearchAsync">
+                        <option value="">All statuses</option>
+                        @foreach (var status in DocumentStatuses)
+                        {
+                            <option value="@status">@status</option>
+                        }
+                    </select>
                 </div>
             }
             else if (selectedReport == ReportKind.ComplianceExposure)
@@ -137,7 +141,7 @@
             }
 
             <div class="reports-filter-actions">
-                <button type="button" class="reports-reset-button" @onclick="ResetFiltersAsync" disabled="@isLoading">Reset</button>
+                <button type="button" class="workspace-filter-reset" @onclick="ResetFiltersAsync" disabled="@isLoading">Reset</button>
             </div>
         </section>
 
