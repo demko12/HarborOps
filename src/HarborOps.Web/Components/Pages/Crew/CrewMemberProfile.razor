@@ -37,8 +37,32 @@
                 <div><dt>Nationality</dt><dd>@profile.Nationality</dd></div>
                 <div><dt>Employment status</dt><dd>@profile.EmploymentStatus</dd></div>
                 <div><dt>Hire date</dt><dd>@profile.HireDate.ToString("dd MMM yyyy")</dd></div>
-                <div><dt>Passport expiry</dt><dd>@profile.PassportExpiry.ToString("dd MMM yyyy")</dd></div>
-                <div><dt>CDC number</dt><dd>@profile.CdcNumber</dd></div>
+                <div>
+                    <dt>Passport expiry</dt>
+                    <dd>
+                        @profile.PassportExpiry.ToString("dd MMM yyyy")
+                        @if (IsPassportExpiringSoon(profile.PassportExpiry))
+                        {
+                            <span class="crew-profile-passport-flag @(IsPassportExpired(profile.PassportExpiry) ? "crew-profile-indicator-expired" : "crew-profile-indicator-warning")"
+                                  title="@(IsPassportExpired(profile.PassportExpiry) ? "Passport has expired" : "Passport expires within 6 months")">
+                                <span class="bi bi-exclamation-triangle" aria-hidden="true"></span>
+                            </span>
+                        }
+                    </dd>
+                </div>
+                <div class="crew-profile-sensitive">
+                    <dt>CDC number</dt>
+                    <dd>
+                        @if (isSensitiveDataRevealed)
+                        {
+                            @profile.CdcNumber
+                        }
+                        else
+                        {
+                            <span class="crew-profile-masked">••••••••••</span>
+                        }
+                    </dd>
+                </div>
                 <div class="crew-profile-sensitive">
                     <dt>Date of birth</dt>
                     <dd>

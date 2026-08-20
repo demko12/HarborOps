@@ -3,6 +3,7 @@ using HarborOps.Web.Api.Compliance;
 using HarborOps.Web.Api.Documents;
 using HarborOps.Web.Api.Fleet;
 using HarborOps.Web.Api.Maintenance;
+using HarborOps.Web.Api.Reports;
 using HarborOps.Web.Api.Voyages;
 
 namespace HarborOps.Web.Api;
@@ -80,6 +81,12 @@ internal static class ApiConfiguration
         {
             client.BaseAddress = baseAddress;
             client.Timeout = TimeSpan.FromSeconds(15);
+        }).AddHttpMessageHandler<BearerTokenHandler>();
+
+        services.AddHttpClient<ReportsApiClient>(client =>
+        {
+            client.BaseAddress = baseAddress;
+            client.Timeout = TimeSpan.FromSeconds(30);
         }).AddHttpMessageHandler<BearerTokenHandler>();
 
         services.AddHttpContextAccessor();

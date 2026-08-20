@@ -69,6 +69,7 @@ app.UseAuthentication();
 app.UseAuthorization();
 app.MapWebAuthenticationEndpoints();
 app.MapDocumentFileDownloadEndpoints();
+app.MapReportsDownloadEndpoints();
 app.MapStaticAssets();
 app.MapRazorComponents<App>()
     .AddInteractiveServerRenderMode();

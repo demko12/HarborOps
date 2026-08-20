@@ -54,7 +54,7 @@
         </div>
         <div class="crew-profile-form-field">
             <label for="cert-expiry-date">Expiry date</label>
-            <input id="cert-expiry-date" type="date" @bind="model.ExpiryDate" />
+            <input id="cert-expiry-date" type="date" @bind="model.ExpiryDate" min="@FormatIsoDate(today)" />
         </div>
 
         <button type="submit" class="crew-profile-form-submit" disabled="@isSubmitting">
