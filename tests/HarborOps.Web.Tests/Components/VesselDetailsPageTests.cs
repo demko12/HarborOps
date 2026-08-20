@@ -69,10 +69,12 @@ public sealed class VesselDetailsPageTests : BunitContext
 
         var page = RenderDetailsPage();
 
-        var badge = page.Find(".vessel-details-header .vessel-status");
+        var status = page.Find(".vessel-operational-state strong");
+        var statusIndicator = page.Find(".vessel-status-orb");
 
-        Assert.Equal("At Port", badge.TextContent.Trim());
-        Assert.Contains("vessel-status-port", badge.ClassName, StringComparison.Ordinal);
+        Assert.Equal("At Port", status.TextContent.Trim());
+        Assert.Contains("vessel-status-port", statusIndicator.ClassName, StringComparison.Ordinal);
+        Assert.Contains("bi-geo-alt", statusIndicator.InnerHtml, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -339,7 +341,7 @@ public sealed class VesselDetailsPageTests : BunitContext
         {
             Assert.Contains("Status updated to At Port.", page.Find(".vessel-status-success").TextContent, StringComparison.Ordinal);
             Assert.True(reads >= 2);
-            Assert.Equal("At Port", page.Find(".vessel-details-header .vessel-status").TextContent.Trim());
+            Assert.Equal("At Port", page.Find(".vessel-operational-state strong").TextContent.Trim());
         });
     }
 

@@ -131,9 +131,21 @@ public partial class VesselDetails : IDisposable
         _ => "vessel-status-neutral",
     };
 
+    internal static string GetStatusIcon(string status) => status.ToLowerInvariant() switch
+    {
+        "active" => "bi-check2-circle",
+        "en route" => "bi-compass",
+        "at port" => "bi-geo-alt",
+        "maintenance" => "bi-tools",
+        _ => "bi-info-circle",
+    };
+
     internal static string FormatMeasurement(decimal? value) => value is null
         ? "—"
         : value.Value.ToString("0.##", CultureInfo.InvariantCulture);
+
+    private static string FormatTimestamp(DateTime timestamp) =>
+        timestamp.ToLocalTime().ToString("dd MMM yyyy, HH:mm", CultureInfo.InvariantCulture);
 
     public void Dispose()
     {
