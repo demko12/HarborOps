@@ -191,6 +191,7 @@ public class MaintenanceWorkOrdersController(
     }
 
     [HttpGet("{workOrderId:guid}/part-usages")]
+    [Authorize("maintenance.read")]
     [ProducesResponseType<GetWorkOrderPartUsagesResponse>(StatusCodes.Status200OK)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
     public async Task<ActionResult<GetWorkOrderPartUsagesResponse>> GetPartUsages(

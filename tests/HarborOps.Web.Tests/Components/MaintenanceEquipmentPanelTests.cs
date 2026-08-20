@@ -289,19 +289,15 @@ public sealed class MaintenanceEquipmentPanelTests : BunitContext
             BaseAddress = new Uri("https://api.harborops.test/"),
         };
 
-        var lookupHttpClient = new HttpClient(new StubHttpMessageHandler((request, _) => respondToLookup(request)))
-        {
-            BaseAddress = new Uri("https://api.harborops.test/"),
-        };
-
-        var fleetHttpClient = new HttpClient(new StubHttpMessageHandler(
-            (_, _) => Json(HttpStatusCode.OK, """{"items":[],"pageNumber":1,"pageSize":10,"totalCount":0}""")))
+        var fleetHttpClient = new HttpClient(new StubHttpMessageHandler((request, _) =>
+            IsVesselLookup(request)
+                ? respondToLookup(request)
+                : Json(HttpStatusCode.OK, """{"items":[],"pageNumber":1,"pageSize":10,"totalCount":0}""")))
         {
             BaseAddress = new Uri("https://api.harborops.test/"),
         };
 
         Services.AddSingleton(new MaintenanceApiClient(maintenanceHttpClient));
-        Services.AddSingleton(new VesselLookupApiClient(lookupHttpClient));
         Services.AddSingleton(new FleetApiClient(fleetHttpClient));
         Services.AddSingleton(CreateAuthorizationState(
             permissions.Length == 0 ? ["maintenance.manage"] : permissions));
@@ -343,6 +339,11 @@ public sealed class MaintenanceEquipmentPanelTests : BunitContext
         return $$"""
             {"items":[{{string.Join(',', items)}}],"pageNumber":1,"pageSize":25,"totalCount":{{items.Length}}}
             """;
+    }
+
+    private static bool IsVesselLookup(HttpRequestMessage request)
+    {
+        return request.RequestUri!.AbsolutePath.EndsWith("/lookup", StringComparison.Ordinal);
     }
 
     private static Task<HttpResponseMessage> Json(HttpStatusCode statusCode, string json)

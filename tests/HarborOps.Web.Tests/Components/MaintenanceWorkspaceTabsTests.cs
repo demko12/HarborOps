@@ -66,20 +66,15 @@ public sealed class MaintenanceWorkspaceTabsTests : BunitContext
             BaseAddress = new Uri("https://api.harborops.test/"),
         };
 
-        var lookupHttpClient = new HttpClient(new StubHttpMessageHandler(
-            _ => Json(HttpStatusCode.OK, """{"vessels":[]}""")))
-        {
-            BaseAddress = new Uri("https://api.harborops.test/"),
-        };
-
         var fleetHttpClient = new HttpClient(new StubHttpMessageHandler(
-            _ => Json(HttpStatusCode.OK, EmptyPage())))
+            request => IsVesselLookup(request)
+                ? Json(HttpStatusCode.OK, """{"vessels":[]}""")
+                : Json(HttpStatusCode.OK, EmptyPage())))
         {
             BaseAddress = new Uri("https://api.harborops.test/"),
         };
 
         Services.AddSingleton(new MaintenanceApiClient(maintenanceHttpClient));
-        Services.AddSingleton(new VesselLookupApiClient(lookupHttpClient));
         Services.AddSingleton(new FleetApiClient(fleetHttpClient));
         Services.AddSingleton(CreateAuthorizationState());
 
@@ -99,6 +94,11 @@ public sealed class MaintenanceWorkspaceTabsTests : BunitContext
     private static string EmptyPage()
     {
         return """{"items":[],"pageNumber":1,"pageSize":25,"totalCount":0}""";
+    }
+
+    private static bool IsVesselLookup(HttpRequestMessage request)
+    {
+        return request.RequestUri!.AbsolutePath.EndsWith("/lookup", StringComparison.Ordinal);
     }
 
     private static Task<HttpResponseMessage> Json(HttpStatusCode statusCode, string json)
