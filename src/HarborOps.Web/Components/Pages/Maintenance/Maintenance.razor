@@ -19,20 +19,20 @@
 		<span class="maintenance-utc" aria-label="All times are shown in UTC">UTC</span>
 	</header>
 
-	<nav class="maintenance-tabs" role="tablist" aria-label="Maintenance workspace">
+	<nav class="maintenance-tabs workspace-tabs" role="tablist" aria-label="Maintenance workspace">
 		<button type="button"
 				role="tab"
-				class="maintenance-tab @(activeTab == MaintenanceTab.WorkOrders ? "active" : null)"
+				class="workspace-tab @(activeTab == MaintenanceTab.WorkOrders ? "active" : null)"
 				aria-selected="@(activeTab == MaintenanceTab.WorkOrders)"
 				@onclick="() => SelectTab(MaintenanceTab.WorkOrders)">Work orders</button>
 		<button type="button"
 				role="tab"
-				class="maintenance-tab @(activeTab == MaintenanceTab.Equipment ? "active" : null)"
+				class="workspace-tab @(activeTab == MaintenanceTab.Equipment ? "active" : null)"
 				aria-selected="@(activeTab == MaintenanceTab.Equipment)"
 				@onclick="() => SelectTab(MaintenanceTab.Equipment)">Equipment</button>
 		<button type="button"
 				role="tab"
-				class="maintenance-tab @(activeTab == MaintenanceTab.PreventiveSchedules ? "active" : null)"
+				class="workspace-tab @(activeTab == MaintenanceTab.PreventiveSchedules ? "active" : null)"
 				aria-selected="@(activeTab == MaintenanceTab.PreventiveSchedules)"
 				@onclick="() => SelectTab(MaintenanceTab.PreventiveSchedules)">Preventive schedules</button>
 	</nav>
@@ -71,9 +71,13 @@
 	</section>
 
 	<section class="maintenance-filters" aria-label="Work order filters">
-		<div class="filter-field">
-			<label for="maintenance-vessel">Vessel ID</label>
-			<input id="maintenance-vessel" @bind="vesselIdFilterText" @bind:event="oninput" @bind:after="ApplyFiltersAsync" placeholder="e.g. 3fa85f64-..." />
+		<div class="filter-field maintenance-filter-vessel">
+			<label>Vessel</label>
+			<VesselPicker @key="filterVesselPickerResetToken"
+						  Value="vesselIdFilter"
+						  ValueChanged="SelectVesselFilterAsync"
+						  Placeholder="Search vessels by name or IMO..."
+						  Disabled="isLoading" />
 		</div>
 		<div class="filter-field">
 			<label for="maintenance-status">Status</label>

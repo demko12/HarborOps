@@ -624,3 +624,90 @@ html[data-theme="light"] .cargo-status.done { color: #0f766e; background: rgba(1
 html[data-theme="light"] .cargo-track.active { color: #1d4ed8; }
 html[data-theme="light"] .cargo-track.done { color: #0f766e; }
 
+/* Shared workspace navigation: Documents, Maintenance, and Compliance use this exact control. */
+.workspace-tabs {
+    display: flex;
+    flex-wrap: wrap;
+    gap: .6rem;
+    margin-bottom: 1rem;
+}
+
+.workspace-tab {
+    display: inline-flex;
+    width: 12rem;
+    height: 2.75rem;
+    align-items: center;
+    justify-content: center;
+    padding: .6rem;
+    color: var(--apply-text);
+    border: 1px solid var(--apply-border);
+    border-radius: .6rem;
+    background: var(--apply-surface);
+    box-shadow: none;
+    font: inherit;
+    font-size: .86rem;
+    font-weight: 600;
+    letter-spacing: .01em;
+    text-align: center;
+    text-decoration: none;
+    white-space: nowrap;
+    cursor: pointer;
+    transition: border-color .16s ease, background .16s ease, color .16s ease;
+}
+
+.workspace-tab:hover {
+    border-color: var(--apply-border-hover);
+    background: var(--apply-surface-hover);
+    transform: translateY(-1px);
+}
+
+.workspace-tab:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+}
+
+.workspace-tab.active {
+    color: var(--accent);
+    border-color: var(--accent);
+    background: var(--accent-bg);
+    box-shadow: 0 0 0 .18rem var(--accent-bg);
+}
+
+.page-breadcrumb {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: .4rem;
+    margin: 0 0 .4rem;
+    color: var(--accent);
+    font-size: .72rem;
+    font-weight: 700;
+    letter-spacing: .14em;
+    text-transform: uppercase;
+}
+
+.page-breadcrumb a {
+    color: var(--accent);
+    text-decoration: none;
+}
+
+.page-breadcrumb a:hover,
+.page-breadcrumb a:focus-visible {
+    text-decoration: underline;
+    text-underline-offset: .18rem;
+}
+
+.page-breadcrumb span:last-child {
+    color: var(--text-muted);
+}
+
+@media (max-width: 760px) {
+    .workspace-tabs {
+        display: grid;
+        grid-template-columns: 1fr;
+    }
+
+    .workspace-tab {
+        width: 100%;
+    }
+}

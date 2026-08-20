@@ -197,6 +197,53 @@ html[data-theme="dark"] .compliance-actions button:hover {
     transform: translateY(-1px);
 }
 
+/* Matches the compact Documents action tabs. */
+.compliance-tabs {
+    display: flex;
+    flex-wrap: wrap;
+    gap: .6rem;
+    margin: 0 0 1rem;
+}
+
+.compliance-tabs ::deep .compliance-tab {
+    display: inline-flex;
+    width: 12rem;
+    min-height: 2.65rem;
+    align-items: center;
+    justify-content: center;
+    padding: .6rem .9rem;
+    color: var(--apply-text);
+    border: 1px solid var(--apply-border);
+    border-radius: .6rem;
+    background: var(--apply-surface);
+    box-shadow: none;
+    font: inherit;
+    font-size: .86rem;
+    font-weight: 600;
+    letter-spacing: .01em;
+    text-align: center;
+    text-decoration: none;
+    transition: border-color .16s ease, background .16s ease, color .16s ease;
+}
+
+.compliance-tabs ::deep .compliance-tab:hover {
+    border-color: var(--apply-border-hover);
+    background: var(--apply-surface-hover);
+    transform: translateY(-1px);
+}
+
+.compliance-tabs ::deep .compliance-tab:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+}
+
+.compliance-tabs ::deep .compliance-tab.active {
+    color: var(--accent);
+    border-color: var(--accent);
+    background: var(--accent-bg);
+    box-shadow: 0 0 0 .18rem var(--accent-bg);
+}
+
 .compliance-page ::deep .compliance-section {
     padding: 1.3rem;
     margin-top: 1.25rem;
@@ -228,4 +275,4 @@ html[data-theme="dark"] .compliance-page ::deep .compliance-section {
 }
 @media(prefers-reduced-motion:reduce){.compliance-record{transition:none}.compliance-record:hover{transform:none}}
 @media(max-width:1050px){.compliance-list{grid-template-columns:1fr}}
-@media(max-width:760px){.compliance-page{padding:1.25rem 1rem}.compliance-header{align-items:flex-start;flex-direction:column}.compliance-actions,.compliance-form-grid{grid-template-columns:1fr}.compliance-section{padding:1rem}.certificate-card,.inspection-card,.issue-card{grid-template-columns:1fr}.record-status-block,.deadline-block{align-items:flex-start;text-align:left}.inspection-metric{width:max-content;align-items:flex-start;text-align:left}.record-metadata{align-items:flex-start;flex-direction:column;gap:.25rem}.record-metadata code{width:100%}}
+@media(max-width:760px){.compliance-page{padding:1.25rem 1rem}.compliance-header{align-items:flex-start;flex-direction:column}.compliance-tabs{display:grid;grid-template-columns:1fr}.compliance-tabs ::deep .compliance-tab{width:100%}.compliance-actions,.compliance-form-grid{grid-template-columns:1fr}.compliance-section{padding:1rem}.certificate-card,.inspection-card,.issue-card{grid-template-columns:1fr}.record-status-block,.deadline-block{align-items:flex-start;text-align:left}.inspection-metric{width:max-content;align-items:flex-start;text-align:left}.record-metadata{align-items:flex-start;flex-direction:column;gap:.25rem}.record-metadata code{width:100%}}

@@ -8,8 +8,6 @@
 <PageTitle>@(details?.Name ?? "Vessel") | HarborOps</PageTitle>
 
 <section class="vessel-details-page">
-	<a class="vessel-details-back" href="@BackToFleetUrl">&larr; Back to fleet</a>
-
 	@if (isLoading)
 	{
 		<LoadingState Message="Loading vessel..." />
@@ -26,7 +24,7 @@
 	{
 		<header class="vessel-details-header">
 			<div>
-				<p class="vessel-details-eyebrow">Fleet operations</p>
+				<nav class="page-breadcrumb" aria-label="Breadcrumb"><a href="/fleet">Fleet operations</a><span aria-hidden="true">/</span><span>Vessel details</span></nav>
 				<h1>@details.Name</h1>
 				<p>IMO @details.ImoNumber &middot; @details.VesselTypeName &middot; @details.FlagState</p>
 			</div>

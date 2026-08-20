@@ -19,35 +19,36 @@
         </div>
     </header>
 
+	<section class="documents-tabs workspace-tabs" aria-label="Document registration actions">
+		<button type="button" class="workspace-tab @(isRegisterTypeFormOpen ? "active" : null)" @onclick="ToggleRegisterTypeForm">
+			Register document type
+		</button>
+		<button type="button" class="workspace-tab @(isRegisterDocumentFormOpen ? "active" : null)" @onclick="ToggleRegisterDocumentForm">
+			Register document
+		</button>
+	</section>
+
     <section class="documents-filters" aria-label="Document filters">
-        <button class="documents-all-button @(IsAllActive ? "is-active" : null)"
-                type="button"
-                aria-pressed="@(IsAllActive ? "true" : "false")"
-                @onclick="ShowAllAsync"
-                disabled="@isLoading">All</button>
+        <div class="filter-field filter-field-wide">
+            <label>Vessel</label>
+            <VesselPicker @key="filterVesselPickerResetToken"
+                          Value="vesselIdFilter"
+                          ValueChanged="SelectFilterVesselAsync"
+                          Placeholder="Search vessels by name or IMO..."
+                          Disabled="isLoading" />
+        </div>
         <div class="filter-field">
             <label for="documents-from">From</label>
-            <input id="documents-from" type="date" @bind="fromFilter" />
+            <input id="documents-from" type="date" @bind="fromFilter" @bind:after="ScheduleFilterSearchAsync" />
         </div>
         <div class="filter-field">
             <label for="documents-to">To</label>
-            <input id="documents-to" type="date" @bind="toFilter" />
+            <input id="documents-to" type="date" @bind="toFilter" @bind:after="ScheduleFilterSearchAsync" />
         </div>
-        <div class="filter-field filter-field-wide">
-            <label for="documents-vessel">Vessel</label>
-            <VesselPicker @key="filterVesselPickerResetToken" @bind-Value="vesselIdFilter" Placeholder="All vessels" />
-        </div>
-        <button class="documents-search-button" type="button" @onclick="SearchAsync" disabled="@isLoading">Search</button>
+        <button class="documents-filter-reset" type="button" @onclick="ClearFiltersAsync" disabled="@isLoading">Reset</button>
     </section>
 
-    <section class="documents-registration-actions" aria-label="Document registration actions">
-        <button type="button" class="documents-registration-action" @onclick="ToggleRegisterTypeForm">
-            Register document type
-        </button>
-        <button type="button" class="documents-registration-action" @onclick="ToggleRegisterDocumentForm">
-            Register document
-        </button>
-    </section>
+
 
     @if (filterValidationMessage is not null)
     {
@@ -125,7 +126,7 @@
                                 <td class="documents-muted col-authority">@row.IssuingAuthority</td>
                                 <td class="documents-muted col-issue">@row.IssueDate.ToString("dd MMM yyyy")</td>
                                 <td class="col-expiry">@row.ExpiryDate.ToString("dd MMM yyyy")</td>
-                                <td class="col-status"><span class="documents-status">@row.Status</span></td>
+                                <td class="col-status"><span class="documents-status @GetDocumentStatusClass(row.Status)">@row.Status</span></td>
                                 <td class="documents-num col-days">@row.DaysUntilExpiry</td>
                                 <td class="col-file">
                                     <button type="button" class="documents-file-toggle"
@@ -273,7 +274,8 @@
 
     @if (isRegisterTypeFormOpen)
     {
-    <section class="documents-type-form-card documents-inline-form" aria-labelledby="documents-type-form-title">
+    <div class="documents-modal-backdrop" role="presentation" @onclick="CloseRegisterTypeForm">
+    <section class="documents-type-form-card documents-modal" role="dialog" aria-modal="true" aria-labelledby="documents-type-form-title" @onclick:stopPropagation="true">
         <div class="documents-inline-form-header">
             <h2 id="documents-type-form-title">Register document type</h2>
         </div>
@@ -334,16 +336,21 @@
                 </div>
             </div>
 
-            <button type="submit" class="documents-search-button" disabled="@isRegisteringType">
-                @(isRegisteringType ? "Registering..." : "Register type")
-            </button>
+            <div class="documents-modal-actions">
+                <button type="submit" class="documents-search-button" disabled="@isRegisteringType">
+                    @(isRegisteringType ? "Registering..." : "Register type")
+                </button>
+                <button type="button" class="documents-modal-cancel" @onclick="CloseRegisterTypeForm" disabled="@isRegisteringType">Cancel</button>
+            </div>
         </EditForm>
     </section>
+    </div>
     }
 
     @if (isRegisterDocumentFormOpen)
     {
-    <section class="documents-form-card documents-inline-form" aria-labelledby="documents-form-title">
+    <div class="documents-modal-backdrop" role="presentation" @onclick="CloseRegisterDocumentForm">
+    <section class="documents-form-card documents-modal documents-modal-wide" role="dialog" aria-modal="true" aria-labelledby="documents-form-title" @onclick:stopPropagation="true">
         <div class="documents-inline-form-header">
             <h2 id="documents-form-title">Register document</h2>
         </div>
@@ -415,10 +422,14 @@
                 </div>
             </div>
 
-            <button type="submit" class="documents-search-button" disabled="@isRegisteringDocument">
-                @(isRegisteringDocument ? "Registering..." : "Register document")
-            </button>
+            <div class="documents-modal-actions">
+                <button type="submit" class="documents-search-button" disabled="@isRegisteringDocument">
+                    @(isRegisteringDocument ? "Registering..." : "Register document")
+                </button>
+                <button type="button" class="documents-modal-cancel" @onclick="CloseRegisterDocumentForm" disabled="@isRegisteringDocument">Cancel</button>
+            </div>
         </EditForm>
     </section>
+    </div>
     }
 </section>

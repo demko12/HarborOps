@@ -62,8 +62,6 @@ public sealed class DocumentsPageTests : BunitContext
             Assert.DoesNotContain("vesselId=", initialQuery, StringComparison.Ordinal);
             Assert.Null(page.Find("#documents-from").GetAttribute("value"));
             Assert.Null(page.Find("#documents-to").GetAttribute("value"));
-            Assert.Contains("is-active", page.Find(".documents-all-button").ClassList);
-            Assert.Equal("true", page.Find(".documents-all-button").GetAttribute("aria-pressed"));
         });
     }
 
@@ -79,6 +77,21 @@ public sealed class DocumentsPageTests : BunitContext
             Assert.Contains("Aurora Borealis", page.Markup, StringComparison.Ordinal);
             Assert.Contains("CERT-001", page.Markup, StringComparison.Ordinal);
         });
+    }
+
+    [Theory]
+    [InlineData("Active", "documents-status-active")]
+    [InlineData("Valid", "documents-status-valid")]
+    [InlineData("Expired", "documents-status-expired")]
+    [InlineData("Suspended", "documents-status-neutral")]
+    public void Status_column_uses_the_matching_colored_badge(string status, string expectedClass)
+    {
+        respondToExpiring = _ => Json(HttpStatusCode.OK, Page(Row("10000000-0000-0000-0000-000000000001", status: status)));
+
+        var page = RenderDocumentsPage();
+
+        page.WaitForAssertion(() =>
+            Assert.Contains(expectedClass, page.Find(".documents-status").ClassName, StringComparison.Ordinal));
     }
 
     [Fact]
@@ -144,7 +157,7 @@ public sealed class DocumentsPageTests : BunitContext
     }
 
     [Fact]
-    public async Task Changing_filters_and_clicking_search_sends_them_and_resets_to_page_one()
+    public async Task Changing_filters_automatically_sends_them_and_resets_to_page_one()
     {
         var page = RenderDocumentsPage();
         page.WaitForAssertion(() => Assert.Contains(requestedUris, IsExpiringRequest));
@@ -163,8 +176,6 @@ public sealed class DocumentsPageTests : BunitContext
         // UnknownEventHandlerIdException) before a plain .Find().Click() reaches it.
         await page.InvokeAsync(() => page.Find(".documents-filters .vessel-picker-option").Click());
 
-        page.Find(".documents-search-button").Click();
-
         page.WaitForAssertion(
             () =>
             {
@@ -179,26 +190,23 @@ public sealed class DocumentsPageTests : BunitContext
     }
 
     [Fact]
-    public void Search_with_only_from_sends_the_lower_bound_and_deactivates_all()
+    public void Changing_only_from_automatically_sends_the_lower_bound()
     {
         var page = RenderDocumentsPage();
         page.WaitForAssertion(() => Assert.Contains(requestedUris, IsExpiringRequest));
 
         page.Find("#documents-from").Change("2026-02-01");
-        page.Find(".documents-search-button").Click();
 
         page.WaitForAssertion(() =>
         {
             var lastQuery = requestedUris.Last(IsExpiringRequest).Query;
             Assert.Contains("from=2026-02-01", lastQuery, StringComparison.Ordinal);
             Assert.DoesNotContain("to=", lastQuery, StringComparison.Ordinal);
-            Assert.DoesNotContain("is-active", page.Find(".documents-all-button").ClassList);
-            Assert.Equal("false", page.Find(".documents-all-button").GetAttribute("aria-pressed"));
-        });
+        }, TimeSpan.FromSeconds(3));
     }
 
     [Fact]
-    public void All_clears_date_filters_resets_paging_and_reloads_unfiltered_results()
+    public void Reset_clears_date_filters_resets_paging_and_reloads_unfiltered_results()
     {
         respondToExpiring = request =>
         {
@@ -214,13 +222,14 @@ public sealed class DocumentsPageTests : BunitContext
 
         page.Find("#documents-from").Change("2026-02-01");
         page.Find("#documents-to").Change("2026-02-28");
-        page.Find(".documents-search-button").Click();
-        page.WaitForAssertion(() => Assert.Contains("from=2026-02-01", requestedUris.Last(IsExpiringRequest).Query, StringComparison.Ordinal));
+        page.WaitForAssertion(
+            () => Assert.Contains("from=2026-02-01", requestedUris.Last(IsExpiringRequest).Query, StringComparison.Ordinal),
+            TimeSpan.FromSeconds(3));
 
         page.FindAll(".documents-pages button")[1].Click();
         page.WaitForAssertion(() => Assert.Contains("pageNumber=2", requestedUris.Last(IsExpiringRequest).Query, StringComparison.Ordinal));
 
-        page.Find(".documents-all-button").Click();
+        page.Find(".documents-filter-reset").Click();
 
         page.WaitForAssertion(() =>
         {
@@ -231,7 +240,6 @@ public sealed class DocumentsPageTests : BunitContext
             Assert.Contains("pageNumber=1", lastQuery, StringComparison.Ordinal);
             Assert.Null(page.Find("#documents-from").GetAttribute("value"));
             Assert.Null(page.Find("#documents-to").GetAttribute("value"));
-            Assert.Contains("is-active", page.Find(".documents-all-button").ClassList);
         });
     }
 
@@ -245,13 +253,15 @@ public sealed class DocumentsPageTests : BunitContext
 
         page.Find("#documents-from").Change("2026-06-01");
         page.Find("#documents-to").Change("2026-01-01");
-        page.Find(".documents-search-button").Click();
 
-        Assert.Contains(
-            "\"To\" date must be on or after the \"From\" date.",
-            page.Find(".documents-validation").TextContent,
-            StringComparison.Ordinal);
-        Assert.Equal(requestsBeforeSearch, requestedUris.Count(IsExpiringRequest));
+        page.WaitForAssertion(() =>
+        {
+            Assert.Contains(
+                "\"To\" date must be on or after the \"From\" date.",
+                page.Find(".documents-validation").TextContent,
+                StringComparison.Ordinal);
+            Assert.Equal(requestsBeforeSearch, requestedUris.Count(IsExpiringRequest));
+        }, TimeSpan.FromSeconds(3));
     }
 
     [Fact]
@@ -285,7 +295,7 @@ public sealed class DocumentsPageTests : BunitContext
     // ---- Register document type form ----
 
     [Fact]
-    public void Registration_actions_reveal_inline_forms_without_a_modal_dialog()
+    public void Registration_actions_reveal_modal_forms()
     {
         var page = RenderDocumentsPage();
 
@@ -294,12 +304,12 @@ public sealed class DocumentsPageTests : BunitContext
 
         OpenTypeForm(page);
         Assert.Single(page.FindAll("form.documents-type-form"));
-        Assert.Empty(page.FindAll("[role=dialog]"));
-        Assert.Empty(page.FindAll(".documents-modal-backdrop"));
+        Assert.Single(page.FindAll("[role=dialog]"));
+        Assert.NotNull(page.Find(".documents-modal-backdrop"));
 
         OpenDocumentForm(page);
         Assert.Single(page.FindAll("form.documents-form"));
-        Assert.Empty(page.FindAll("[role=dialog]"));
+        Assert.Single(page.FindAll("[role=dialog]"));
 
         OpenDocumentForm(page);
         Assert.Empty(page.FindAll("form.documents-form"));
@@ -587,7 +597,6 @@ public sealed class DocumentsPageTests : BunitContext
             () => Assert.Single(page.FindAll(".documents-filters .vessel-picker-option")),
             TimeSpan.FromSeconds(3));
         await page.InvokeAsync(() => page.Find(".documents-filters .vessel-picker-option").Click());
-        page.Find(".documents-search-button").Click();
         page.WaitForAssertion(() =>
             Assert.Contains("from=2026-01-01", requestedUris.Last(IsExpiringRequest).Query, StringComparison.Ordinal));
 
@@ -1038,8 +1047,6 @@ public sealed class DocumentsPageTests : BunitContext
     {
         var page = RenderDocumentsPage();
         OpenTypeForm(page);
-        OpenDocumentForm(page);
-        page.WaitForAssertion(() => Assert.NotEmpty(page.FindAll("#doc-type option")));
 
         var typesRequestsBefore = requestedUris.Count(IsDocumentTypesGetRequest);
 
@@ -1058,6 +1065,9 @@ public sealed class DocumentsPageTests : BunitContext
             Assert.Contains("Document type registered.", page.Markup, StringComparison.Ordinal));
 
         Assert.True(requestedUris.Count(IsDocumentTypesGetRequest) > typesRequestsBefore);
+
+        page.Find(".documents-modal-cancel").Click();
+        OpenDocumentForm(page);
         page.WaitForAssertion(() =>
             Assert.Contains("New Survey Report (30 days)", page.Find("#doc-type").TextContent, StringComparison.Ordinal));
     }
@@ -1078,10 +1088,10 @@ public sealed class DocumentsPageTests : BunitContext
         uri.AbsolutePath.EndsWith($"/{DocumentId}", StringComparison.OrdinalIgnoreCase);
 
     private static void OpenTypeForm(IRenderedComponent<Documents> page) =>
-        page.FindAll(".documents-registration-action")[0].Click();
+        page.FindAll(".workspace-tab")[0].Click();
 
     private static void OpenDocumentForm(IRenderedComponent<Documents> page) =>
-        page.FindAll(".documents-registration-action")[1].Click();
+        page.FindAll(".workspace-tab")[1].Click();
 
     private IRenderedComponent<Documents> RenderDocumentsPage(params string[] permissions)
     {

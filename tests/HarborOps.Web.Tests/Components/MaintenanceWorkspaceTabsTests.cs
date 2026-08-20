@@ -30,7 +30,7 @@ public sealed class MaintenanceWorkspaceTabsTests : BunitContext
     {
         var page = RenderWorkspace();
 
-        page.FindAll(".maintenance-tab")[1].Click();
+        page.FindAll(".workspace-tab")[1].Click();
 
         page.WaitForAssertion(() =>
         {
@@ -44,7 +44,7 @@ public sealed class MaintenanceWorkspaceTabsTests : BunitContext
     {
         var page = RenderWorkspace();
 
-        page.FindAll(".maintenance-tab")[2].Click();
+        page.FindAll(".workspace-tab")[2].Click();
 
         page.WaitForAssertion(() =>
         {

@@ -17,7 +17,7 @@
 
 <section class="survey-page" @ref="pageElement" @onclick="CloseVesselDropdowns">
     <header class="survey-header">
-        <div><p class="compliance-eyebrow">Compliance operations</p><h1>Surveys and audits</h1><p>Register and review vessel survey findings and audit outcomes.</p></div>
+        <div><nav class="page-breadcrumb" aria-label="Breadcrumb"><a href="/compliance">Compliance operations</a><span aria-hidden="true">/</span><span>Surveys and audits</span></nav><h1>Surveys and audits</h1><p>Register and review vessel survey findings and audit outcomes.</p></div>
         @if (AuthorizationState.CanManageCompliance) { <button class="survey-register-action" type="button" @onclick="OpenRegistrationForm"><span class="bi bi-plus-lg"></span> Register survey</button> }
     </header>
 

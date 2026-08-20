@@ -311,6 +311,8 @@ html[data-theme="dark"] .survey-page .compliance-field ::deep select {
 }
 
 .surveys-filters {
+    position: relative;
+    z-index: 2;
     display: flex;
     align-items: flex-end;
     flex-wrap: wrap;
@@ -327,13 +329,17 @@ html[data-theme="dark"] .survey-page .compliance-field ::deep select {
     flex: 1.15;
     min-width: 13rem;
     position: relative;
+    z-index: 3;
 }
 
 .survey-vessel-filter .survey-input-shell {
-    background: var(--bg-surface-strong);
+    background: var(--control-surface);
 }
 
-.survey-form-vessel-picker { position: relative; }
+.survey-form-vessel-picker {
+    position: relative;
+    z-index: 3;
+}
 
 .survey-vessel-filter .survey-vessel-results,
 .survey-form-vessel-picker .survey-vessel-results {
@@ -425,7 +431,7 @@ html[data-theme="dark"] .survey-form-vessel-picker .survey-vessel-results {
     border: 1px solid var(--border-medium);
     border-radius: .65rem;
     outline: 0;
-    background: var(--bg-surface-strong);
+    background: var(--control-surface);
     font: inherit;
     font-size: .88rem;
 }

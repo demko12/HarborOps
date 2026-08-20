@@ -11,7 +11,8 @@ public partial class Maintenance
     private IReadOnlyList<MaintenanceWorkOrderRow> rows = [];
     private MaintenanceApiFailure? failure;
 
-    private string? vesselIdFilterText;
+    private Guid? vesselIdFilter;
+    private int filterVesselPickerResetToken;
     private string statusFilter = string.Empty;
     private string priorityFilter = string.Empty;
     private string overdueFilter = string.Empty;
@@ -81,9 +82,17 @@ public partial class Maintenance
         return LoadAsync();
     }
 
+    private Task SelectVesselFilterAsync(Guid? vesselId)
+    {
+        vesselIdFilter = vesselId;
+
+        return ApplyFiltersAsync();
+    }
+
     private Task ClearFiltersAsync()
     {
-        vesselIdFilterText = null;
+        vesselIdFilter = null;
+        filterVesselPickerResetToken++;
         statusFilter = string.Empty;
         priorityFilter = string.Empty;
         overdueFilter = string.Empty;
@@ -129,7 +138,7 @@ public partial class Maintenance
         failure = null;
 
         var filter = new MaintenanceWorkOrderFilter(
-            Guid.TryParse(vesselIdFilterText, out var vesselId) ? vesselId : null,
+            vesselIdFilter,
             string.IsNullOrEmpty(statusFilter) ? null : statusFilter,
             string.IsNullOrEmpty(priorityFilter) ? null : priorityFilter,
             overdueFilter switch { "true" => true, "false" => false, _ => null },

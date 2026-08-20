@@ -36,7 +36,9 @@
 /* Filters */
 
 .documents-filters {
-    order: 2;
+    order: 3;
+    position: relative;
+    z-index: 2;
     display: flex;
     align-items: flex-end;
     flex-wrap: wrap;
@@ -108,7 +110,6 @@ html[data-theme="light"] .filter-field > input {
 
 /* Filter buttons */
 
-.documents-all-button,
 .documents-search-button {
     height: 2.8rem;
     padding: 0 1rem;
@@ -119,29 +120,29 @@ html[data-theme="light"] .filter-field > input {
     cursor: pointer;
 }
 
-.documents-all-button {
-    color: var(--text-secondary);
-    border: 1px solid var(--border-medium);
-    background: var(--control-surface);
-    transition: color .15s ease, background .15s ease, border-color .15s ease;
+.documents-filter-reset {
+    height: 2.8rem;
+    padding: 0 .9rem;
+    color: var(--accent);
+    border: 1px solid transparent;
+    border-radius: .6rem;
+    background: none;
+    font: inherit;
+    font-size: .88rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background .15s ease, border-color .15s ease;
 }
 
-    .documents-all-button:hover:not(:disabled),
-    .documents-all-button.is-active {
-        color: var(--accent);
-        border-color: var(--accent-border);
-        background: var(--accent-bg);
-    }
+.documents-filter-reset:hover:not(:disabled) {
+    border-color: var(--accent-border);
+    background: var(--accent-bg);
+}
 
-    .documents-all-button:disabled {
-        cursor: not-allowed;
-        opacity: .5;
-    }
-
-    .documents-all-button:focus-visible {
-        outline: 2px solid var(--accent);
-        outline-offset: 2px;
-    }
+.documents-filter-reset:disabled {
+    cursor: not-allowed;
+    opacity: .45;
+}
 
 .documents-search-button {
     color: var(--apply-text);
@@ -326,6 +327,34 @@ html[data-theme="light"] .documents-validation {
     white-space: nowrap;
 }
 
+.documents-status-active {
+    color: #1d4ed8;
+    border-color: rgba(37, 99, 235, .3);
+    background: rgba(37, 99, 235, .12);
+}
+
+.documents-status-valid {
+    color: #047857;
+    border-color: rgba(5, 150, 105, .3);
+    background: rgba(5, 150, 105, .12);
+}
+
+.documents-status-expired {
+    color: #b91c1c;
+    border-color: rgba(220, 38, 38, .3);
+    background: rgba(220, 38, 38, .1);
+}
+
+.documents-status-neutral {
+    color: var(--text-secondary);
+    border-color: var(--border-medium);
+    background: var(--bg-surface-strong);
+}
+
+html[data-theme="dark"] .documents-status-active { color: #93c5fd; background: rgba(96, 165, 250, .14); }
+html[data-theme="dark"] .documents-status-valid { color: #6ee7b7; background: rgba(16, 185, 129, .14); }
+html[data-theme="dark"] .documents-status-expired { color: #fca5a5; background: rgba(248, 113, 113, .14); }
+
 /* Pagination */
 
 .documents-pagination {
@@ -384,40 +413,51 @@ html[data-theme="light"] .documents-validation {
 
 /* Registration actions and dialogs */
 
-.documents-registration-actions {
-    order: 3;
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 1rem;
+.documents-tabs {
+    order: 2;
+    display: flex;
+    flex-wrap: wrap;
+    gap: .6rem;
     margin-bottom: 1rem;
 }
 
-.documents-registration-action {
-    width: 100%;
-    min-height: 4rem;
-    padding: 1rem 1.25rem;
-    color: var(--text-primary);
-    border: 1px solid var(--border-medium);
-    border-radius: 1rem;
-    background: linear-gradient(145deg, var(--bg-surface-strong), var(--bg-surface));
-    box-shadow: var(--card-shadow);
+.documents-tab {
+    display: inline-flex;
+    width: 12rem;
+    min-height: 2.65rem;
+    align-items: center;
+    justify-content: center;
+    padding: .6rem .9rem;
+    color: var(--apply-text);
+    border: 1px solid var(--apply-border);
+    border-radius: .6rem;
+    background: var(--apply-surface);
+    box-shadow: none;
     font: inherit;
-    font-size: .95rem;
-    font-weight: 650;
+    font-size: .86rem;
+    font-weight: 600;
+    letter-spacing: .01em;
     cursor: pointer;
     transition: border-color .16s ease, background .16s ease, color .16s ease;
 }
 
-    .documents-registration-action:hover {
-        color: var(--accent);
-        border-color: var(--accent-border);
-        background: linear-gradient(145deg, var(--bg-surface-strong), var(--accent-bg));
+    .documents-tab:hover {
+        border-color: var(--apply-border-hover);
+        background: var(--apply-surface-hover);
+        transform: translateY(-1px);
     }
 
-    .documents-registration-action:focus-visible {
+    .documents-tab:focus-visible {
         outline: 2px solid var(--accent);
         outline-offset: 2px;
     }
+
+.documents-tab.active {
+    color: var(--accent);
+    border-color: var(--accent);
+    background: var(--accent-bg);
+    box-shadow: 0 0 0 .18rem var(--accent-bg);
+}
 
 .documents-inline-form {
     order: 4;
@@ -432,6 +472,80 @@ html[data-theme="light"] .documents-validation {
     align-items: center;
     justify-content: space-between;
     gap: 1rem;
+}
+
+.documents-modal-backdrop {
+    position: fixed;
+    z-index: 1200;
+    inset: 0;
+    display: grid;
+    place-items: center;
+    padding: 1.25rem;
+    background: rgba(2, 6, 23, .64);
+    backdrop-filter: blur(5px);
+}
+
+.documents-modal {
+    width: min(100%, 34rem);
+    max-height: calc(100vh - 2.5rem);
+    overflow-y: auto;
+    padding: 1.4rem;
+    border: 1px solid rgba(148, 163, 184, .34);
+    border-radius: 1rem;
+    background: #111c2e;
+    box-shadow: 0 24px 70px rgba(0, 0, 0, .42);
+}
+
+.documents-modal-wide {
+    width: min(100%, 46rem);
+}
+
+.documents-modal .documents-inline-form-header {
+    align-items: flex-start;
+    margin-bottom: 1.35rem;
+}
+
+.documents-modal-actions {
+    display: flex;
+    justify-content: flex-start;
+    gap: .75rem;
+    margin-top: .85rem;
+}
+
+.documents-modal-cancel {
+    height: 2.8rem;
+    padding: 0 1rem;
+    color: var(--text-secondary);
+    border: 1px solid var(--border-medium);
+    border-radius: .6rem;
+    background: var(--bg-surface);
+    font: inherit;
+    font-size: .88rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: transform .16s ease, border-color .16s ease, background .16s ease;
+}
+
+.documents-modal-cancel:hover:not(:disabled) {
+    color: var(--text-primary);
+    border-color: var(--accent-border);
+    background: var(--accent-bg);
+    transform: translateY(-1px);
+}
+
+.documents-modal-cancel:disabled {
+    cursor: not-allowed;
+    opacity: .5;
+}
+
+html[data-theme="light"] .documents-modal-backdrop {
+    background: rgba(15, 23, 42, .3);
+}
+
+html[data-theme="light"] .documents-modal {
+    border-color: #cbd5e1;
+    background: #fff;
+    box-shadow: 0 24px 70px rgba(15, 23, 42, .24);
 }
 
 @keyframes documents-form-reveal {
@@ -638,6 +752,40 @@ html[data-theme="light"] .documents-form-grid ::deep select {
     color-scheme: light;
 }
 
+/* Match the Administration "Create user" dialog exactly. This comes after the
+   document-form card rules above so their card background cannot override it. */
+.documents-modal-backdrop {
+    padding: 1.5rem;
+    background: rgba(15, 23, 42, .24);
+    backdrop-filter: blur(3px);
+    -webkit-backdrop-filter: blur(3px);
+}
+
+.documents-modal.documents-type-form-card,
+.documents-modal.documents-form-card {
+    width: min(100%, 36rem);
+    border-color: #c7d1df !important;
+    background: #f8fafc !important;
+    box-shadow: 0 28px 70px rgba(15, 23, 42, .28), 0 0 0 1px rgba(255, 255, 255, .7) inset !important;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+}
+
+.documents-modal.documents-form-card {
+    width: min(100%, 46rem);
+}
+
+html[data-theme="dark"] .documents-modal-backdrop {
+    background: rgba(2, 6, 23, .48);
+}
+
+html[data-theme="dark"] .documents-modal.documents-type-form-card,
+html[data-theme="dark"] .documents-modal.documents-form-card {
+    border-color: rgba(148, 163, 184, .28) !important;
+    background: #172033 !important;
+    box-shadow: 0 28px 70px rgba(0, 0, 0, .5), 0 0 0 1px rgba(255, 255, 255, .06) inset !important;
+}
+
 /* File detail panel */
 
 .documents-file-toggle {
@@ -811,8 +959,7 @@ html[data-theme="light"] .documents-form-grid ::deep select {
 
 @media (prefers-reduced-motion: reduce) {
     .documents-search-button,
-    .documents-all-button,
-    .documents-registration-action,
+    .documents-tab,
     .documents-table tbody tr,
     .filter-field > input,
     .documents-type-form-grid ::deep input:not([type="radio"]),
@@ -848,12 +995,18 @@ html[data-theme="light"] .documents-form-grid ::deep select {
         align-items: stretch;
     }
 
-    .documents-registration-actions {
+    .documents-tabs {
+        display: grid;
         grid-template-columns: 1fr;
     }
 
+    .documents-tab {
+        width: 100%;
+    }
+
     .filter-field > input,
-    .documents-search-button {
+    .documents-search-button,
+    .documents-filter-reset {
         width: 100%;
     }
 
@@ -879,5 +1032,14 @@ html[data-theme="light"] .documents-form-grid ::deep select {
     .documents-type-form-grid,
     .documents-form-grid {
         grid-template-columns: 1fr;
+    }
+
+    .documents-modal-actions {
+        flex-direction: column-reverse;
+    }
+
+    .documents-modal-actions .documents-search-button,
+    .documents-modal-cancel {
+        width: 100%;
     }
 }
