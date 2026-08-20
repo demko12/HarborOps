@@ -273,8 +273,11 @@
 		<form class="maintenance-form" @onsubmit="SubmitCreateAsync" @onsubmit:preventDefault="true">
 			<div class="maintenance-form-grid">
 				<div class="filter-field">
-					<label for="create-vessel">Vessel ID</label>
-					<input id="create-vessel" @bind="createModel.VesselId" placeholder="Vessel GUID" />
+					<label for="create-vessel">Vessel</label>
+					<VesselPicker InputId="create-vessel"
+								  @bind-Value="createModel.VesselId"
+								  Placeholder="Search vessels by name or IMO..."
+								  Disabled="isCreating" />
 				</div>
 				<div class="filter-field">
 					<label for="create-title">Title</label>
