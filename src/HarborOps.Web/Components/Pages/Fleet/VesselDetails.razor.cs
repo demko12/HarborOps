@@ -31,7 +31,7 @@ public partial class VesselDetails : IDisposable
 
     private bool CanManageFleet => AuthorizationState.HasPermission(CurrentUserAuthorizationState.FleetManagePermission);
 
-    private string BackToFleetUrl => !string.IsNullOrWhiteSpace(ReturnTo)
+    private string FleetHref => !string.IsNullOrWhiteSpace(ReturnTo)
         && ReturnTo.StartsWith("/fleet", StringComparison.Ordinal)
         ? ReturnTo
         : "/fleet";

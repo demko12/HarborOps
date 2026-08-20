@@ -21,9 +21,9 @@ public partial class CargoBookingDetails : IDisposable
     [SupplyParameterFromQuery(Name = "from")]
     public string? BoardQuery { get; set; }
 
-    private string PageHeading => details?.BookingNumber ?? "Cargo booking";
+    private string CargoHref => string.IsNullOrWhiteSpace(BoardQuery) ? "/cargo" : $"/cargo?{BoardQuery}";
 
-    private string BackHref => string.IsNullOrWhiteSpace(BoardQuery) ? "/cargo" : $"/cargo?{BoardQuery}";
+    private string PageHeading => details?.BookingNumber ?? "Cargo booking";
 
     private bool IsBlockedByMissingSafetyInfo =>
         details is { IsHazardous: true, SafetyInfo: null, NextStatus: "Loaded" };

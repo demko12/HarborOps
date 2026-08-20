@@ -404,6 +404,21 @@ public sealed class CargoPageTests : BunitContext
     }
 
     [Fact]
+    public void Clicking_anywhere_on_a_booking_row_opens_its_details()
+    {
+        respond = _ => Json(HttpStatusCode.OK, Page(Row("BK-0001")));
+
+        var page = RenderCargoPage();
+
+        page.Find(".cargo-booking-row").Click();
+
+        Assert.EndsWith(
+            "/cargo/20000000-0000-0000-0000-000000000001",
+            Services.GetRequiredService<NavigationManager>().Uri,
+            StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void A_booking_link_carries_the_active_filters_so_details_can_return_to_them()
     {
         respond = _ => Json(HttpStatusCode.OK, Page(Row("BK-0001")));

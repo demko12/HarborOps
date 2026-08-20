@@ -200,29 +200,29 @@ public sealed class VesselDetailsPageTests : BunitContext
     }
 
     [Fact]
-    public void Back_navigation_defaults_to_the_directory()
+    public void Fleet_breadcrumb_defaults_to_the_directory()
     {
         var page = RenderDetailsPage();
 
-        Assert.Equal("/fleet", page.Find(".vessel-details-back").GetAttribute("href"));
+        Assert.Equal("/fleet", page.Find(".page-breadcrumb a").GetAttribute("href"));
     }
 
     [Fact]
-    public void Back_navigation_preserves_the_directory_filters()
+    public void Fleet_breadcrumb_preserves_the_directory_filters()
     {
         var page = RenderDetailsPage(returnTo: "/fleet?search=Northern&status=At%20Port&page=2");
 
         Assert.Equal(
             "/fleet?search=Northern&status=At%20Port&page=2",
-            page.Find(".vessel-details-back").GetAttribute("href"));
+            page.Find(".page-breadcrumb a").GetAttribute("href"));
     }
 
     [Fact]
-    public void Back_navigation_refuses_a_return_address_that_leaves_the_directory()
+    public void Fleet_breadcrumb_refuses_a_return_address_that_leaves_the_directory()
     {
         var page = RenderDetailsPage(returnTo: "https://elsewhere.test/fleet");
 
-        Assert.Equal("/fleet", page.Find(".vessel-details-back").GetAttribute("href"));
+        Assert.Equal("/fleet", page.Find(".page-breadcrumb a").GetAttribute("href"));
     }
 
     [Fact]
