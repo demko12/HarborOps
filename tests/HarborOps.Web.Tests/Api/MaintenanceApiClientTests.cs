@@ -381,6 +381,321 @@ public sealed class MaintenanceApiClientTests
         Assert.True(result.Failure!.IsConflict);
     }
 
+    private const string EquipmentPageJson = """
+        {"items":[{"equipmentId":"c0000000-0000-0000-0000-00000000000c",
+        "vesselId":"30000000-0000-0000-0000-000000000002","name":"Main engine",
+        "category":"Propulsion","manufacturer":"Wartsila","serialNumber":"SN-1001"}],
+        "pageNumber":1,"pageSize":25,"totalCount":1}
+        """;
+
+    private const string SchedulesPageJson = """
+        {"items":[{"scheduleId":"d0000000-0000-0000-0000-00000000000d",
+        "vesselId":"30000000-0000-0000-0000-000000000002","maintenanceType":"Quarterly inspection",
+        "frequency":"Quarterly","nextDueDate":"2026-09-30","nextDueHours":null,
+        "isOverdue":false,"daysUntilDue":12,"equipmentCount":2}],
+        "pageNumber":1,"pageSize":25,"totalCount":1}
+        """;
+
+    private const string ScheduleDetailsJson = """
+        {"scheduleId":"d0000000-0000-0000-0000-00000000000d",
+        "vesselId":"30000000-0000-0000-0000-000000000002","maintenanceType":"Quarterly inspection",
+        "frequency":"Quarterly","nextDueDate":"2026-09-30","nextDueHours":null,
+        "isOverdue":false,"daysUntilDue":12,
+        "equipment":[{"equipmentId":"c0000000-0000-0000-0000-00000000000c",
+        "vesselId":"30000000-0000-0000-0000-000000000002","name":"Main engine",
+        "category":"Propulsion","manufacturer":null,"serialNumber":null}]}
+        """;
+
+    [Fact]
+    public async Task GetEquipmentAsync_sends_all_filters_and_paging_to_the_endpoint()
+    {
+        HttpRequestMessage? captured = null;
+        using var httpClient = CreateHttpClient((request, _) =>
+        {
+            captured = request;
+            return Json(HttpStatusCode.OK, EquipmentPageJson);
+        });
+
+        var vesselId = Guid.Parse("30000000-0000-0000-0000-000000000002");
+        var filter = new EquipmentFilter(vesselId, "Propulsion", "Wartsila", "SN-1001", 2, 50);
+
+        var result = await CreateClient(httpClient).GetEquipmentAsync(filter, CancellationToken.None);
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal("Main engine", Assert.Single(result.Value!.Items).Name);
+        Assert.Equal(HttpMethod.Get, captured!.Method);
+        Assert.Equal("/api/maintenance/equipment", captured.RequestUri!.AbsolutePath);
+        Assert.Contains($"vesselId={vesselId}", captured.RequestUri.Query, StringComparison.Ordinal);
+        Assert.Contains("category=Propulsion", captured.RequestUri.Query, StringComparison.Ordinal);
+        Assert.Contains("manufacturer=Wartsila", captured.RequestUri.Query, StringComparison.Ordinal);
+        Assert.Contains("search=SN-1001", captured.RequestUri.Query, StringComparison.Ordinal);
+        Assert.Contains("pageNumber=2", captured.RequestUri.Query, StringComparison.Ordinal);
+        Assert.Contains("pageSize=50", captured.RequestUri.Query, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task GetEquipmentAsync_omits_unset_filters()
+    {
+        HttpRequestMessage? captured = null;
+        using var httpClient = CreateHttpClient((request, _) =>
+        {
+            captured = request;
+            return Json(HttpStatusCode.OK, EquipmentPageJson);
+        });
+
+        var filter = new EquipmentFilter(null, null, null, null, 1, 25);
+
+        await CreateClient(httpClient).GetEquipmentAsync(filter, CancellationToken.None);
+
+        Assert.DoesNotContain("vesselId=", captured!.RequestUri!.Query, StringComparison.Ordinal);
+        Assert.DoesNotContain("category=", captured.RequestUri.Query, StringComparison.Ordinal);
+        Assert.DoesNotContain("manufacturer=", captured.RequestUri.Query, StringComparison.Ordinal);
+        Assert.DoesNotContain("search=", captured.RequestUri.Query, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task GetEquipmentAsync_surfaces_a_forbidden_response()
+    {
+        using var httpClient = CreateHttpClient((_, _) => Task.FromResult(
+            new HttpResponseMessage(HttpStatusCode.Forbidden)));
+
+        var result = await CreateClient(httpClient).GetEquipmentAsync(
+            new EquipmentFilter(null, null, null, null, 1, 25), CancellationToken.None);
+
+        Assert.False(result.IsSuccess);
+        Assert.True(result.Failure!.IsForbidden);
+    }
+
+    [Fact]
+    public async Task GetEquipmentAsync_reports_the_api_as_unavailable()
+    {
+        using var httpClient = CreateHttpClient((_, _) => throw new HttpRequestException("boom"));
+
+        var result = await CreateClient(httpClient).GetEquipmentAsync(
+            new EquipmentFilter(null, null, null, null, 1, 25), CancellationToken.None);
+
+        Assert.False(result.IsSuccess);
+        Assert.Equal(0, result.Failure!.StatusCode);
+    }
+
+    [Fact]
+    public async Task GetEquipmentAsync_propagates_cancellation()
+    {
+        using var cancellation = new CancellationTokenSource();
+        using var httpClient = CreateHttpClient((_, token) =>
+        {
+            cancellation.Cancel();
+            token.ThrowIfCancellationRequested();
+
+            return Json(HttpStatusCode.OK, EquipmentPageJson);
+        });
+
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(
+            () => CreateClient(httpClient).GetEquipmentAsync(
+                new EquipmentFilter(null, null, null, null, 1, 25), cancellation.Token));
+    }
+
+    [Fact]
+    public async Task RegisterEquipmentAsync_posts_the_request_and_returns_the_new_id()
+    {
+        HttpRequestMessage? captured = null;
+        using var httpClient = CreateHttpClient((request, _) =>
+        {
+            captured = request;
+            return Json(HttpStatusCode.Created, """{"id":"c0000000-0000-0000-0000-00000000000c"}""");
+        });
+
+        var result = await CreateClient(httpClient).RegisterEquipmentAsync(
+            new RegisterEquipmentRequest
+            {
+                VesselId = Guid.Parse("30000000-0000-0000-0000-000000000002"),
+                Name = "Main engine",
+                Category = "Propulsion",
+            },
+            CancellationToken.None);
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal(Guid.Parse("c0000000-0000-0000-0000-00000000000c"), result.Value!.Id);
+        Assert.Equal(HttpMethod.Post, captured!.Method);
+        Assert.Equal("/api/maintenance/equipment", captured.RequestUri!.AbsolutePath);
+    }
+
+    [Fact]
+    public async Task RegisterEquipmentAsync_surfaces_validation_errors()
+    {
+        using var httpClient = CreateHttpClient((_, _) => Json(
+            HttpStatusCode.BadRequest,
+            """{"title":"One or more validation errors occurred.","errors":{"name":["Name is required."]}}"""));
+
+        var result = await CreateClient(httpClient).RegisterEquipmentAsync(
+            new RegisterEquipmentRequest(), CancellationToken.None);
+
+        Assert.False(result.IsSuccess);
+        Assert.True(result.Failure!.IsValidation);
+        Assert.Contains("name", result.Failure.Errors.Keys);
+    }
+
+    [Fact]
+    public async Task GetSchedulesAsync_sends_all_filters_including_the_due_window()
+    {
+        HttpRequestMessage? captured = null;
+        using var httpClient = CreateHttpClient((request, _) =>
+        {
+            captured = request;
+            return Json(HttpStatusCode.OK, SchedulesPageJson);
+        });
+
+        var vesselId = Guid.Parse("30000000-0000-0000-0000-000000000002");
+        var equipmentId = Guid.Parse("c0000000-0000-0000-0000-00000000000c");
+        var filter = new MaintenanceScheduleFilter(
+            vesselId,
+            equipmentId,
+            new DateOnly(2026, 9, 1),
+            new DateOnly(2026, 10, 1),
+            true,
+            2,
+            50);
+
+        var result = await CreateClient(httpClient).GetSchedulesAsync(filter, CancellationToken.None);
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal(new DateOnly(2026, 9, 30), Assert.Single(result.Value!.Items).NextDueDate);
+        Assert.Equal("/api/maintenance/schedules", captured!.RequestUri!.AbsolutePath);
+        Assert.Contains($"vesselId={vesselId}", captured.RequestUri.Query, StringComparison.Ordinal);
+        Assert.Contains($"equipmentId={equipmentId}", captured.RequestUri.Query, StringComparison.Ordinal);
+        Assert.Contains("dueFrom=2026-09-01", captured.RequestUri.Query, StringComparison.Ordinal);
+        Assert.Contains("dueTo=2026-10-01", captured.RequestUri.Query, StringComparison.Ordinal);
+        Assert.Contains("overdue=true", captured.RequestUri.Query, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task GetScheduleDetailsAsync_returns_the_schedule_with_its_equipment()
+    {
+        HttpRequestMessage? captured = null;
+        using var httpClient = CreateHttpClient((request, _) =>
+        {
+            captured = request;
+            return Json(HttpStatusCode.OK, ScheduleDetailsJson);
+        });
+
+        var scheduleId = Guid.Parse("d0000000-0000-0000-0000-00000000000d");
+
+        var result = await CreateClient(httpClient).GetScheduleDetailsAsync(scheduleId, CancellationToken.None);
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal("Main engine", Assert.Single(result.Value!.Equipment).Name);
+        Assert.Equal($"/api/maintenance/schedules/{scheduleId}", captured!.RequestUri!.AbsolutePath);
+    }
+
+    [Fact]
+    public async Task GetScheduleDetailsAsync_surfaces_not_found()
+    {
+        using var httpClient = CreateHttpClient((_, _) => Json(
+            HttpStatusCode.NotFound,
+            """{"title":"Maintenance schedule not found.","detail":"No schedule with that id."}"""));
+
+        var result = await CreateClient(httpClient).GetScheduleDetailsAsync(
+            Guid.NewGuid(), CancellationToken.None);
+
+        Assert.False(result.IsSuccess);
+        Assert.True(result.Failure!.IsNotFound);
+    }
+
+    [Fact]
+    public async Task RegisterScheduleAsync_surfaces_a_vessel_conflict()
+    {
+        using var httpClient = CreateHttpClient((_, _) => Json(
+            HttpStatusCode.Conflict,
+            """{"title":"Maintenance schedule equipment spans more than one vessel."}"""));
+
+        var result = await CreateClient(httpClient).RegisterScheduleAsync(
+            new RegisterMaintenanceScheduleRequest
+            {
+                MaintenanceType = "Inspection",
+                Frequency = "Monthly",
+                NextDueDate = new DateOnly(2026, 9, 30),
+                EquipmentIds = [Guid.NewGuid(), Guid.NewGuid()],
+            },
+            CancellationToken.None);
+
+        Assert.False(result.IsSuccess);
+        Assert.True(result.Failure!.IsConflict);
+    }
+
+    [Fact]
+    public async Task RegisterScheduleAsync_posts_the_request_and_returns_the_new_id()
+    {
+        HttpRequestMessage? captured = null;
+        using var httpClient = CreateHttpClient((request, _) =>
+        {
+            captured = request;
+            return Json(HttpStatusCode.Created, """{"id":"d0000000-0000-0000-0000-00000000000d"}""");
+        });
+
+        var result = await CreateClient(httpClient).RegisterScheduleAsync(
+            new RegisterMaintenanceScheduleRequest
+            {
+                MaintenanceType = "Inspection",
+                Frequency = "Monthly",
+                NextDueDate = new DateOnly(2026, 9, 30),
+                EquipmentIds = [Guid.NewGuid()],
+            },
+            CancellationToken.None);
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal(Guid.Parse("d0000000-0000-0000-0000-00000000000d"), result.Value!.Id);
+        Assert.Equal(HttpMethod.Post, captured!.Method);
+        Assert.Equal("/api/maintenance/schedules", captured.RequestUri!.AbsolutePath);
+    }
+
+    [Fact]
+    public async Task UpdateScheduleNextDueAsync_posts_to_the_next_due_endpoint()
+    {
+        HttpRequestMessage? captured = null;
+        using var httpClient = CreateHttpClient((request, _) =>
+        {
+            captured = request;
+            return Json(
+                HttpStatusCode.OK,
+                """
+                {"scheduleId":"d0000000-0000-0000-0000-00000000000d","frequency":"Monthly",
+                "nextDueDate":"2026-09-18","nextDueHours":null}
+                """);
+        });
+
+        var scheduleId = Guid.Parse("d0000000-0000-0000-0000-00000000000d");
+
+        var result = await CreateClient(httpClient).UpdateScheduleNextDueAsync(
+            scheduleId,
+            new UpdateScheduleNextDueRequest { CompletedOn = new DateOnly(2026, 8, 18) },
+            CancellationToken.None);
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal(new DateOnly(2026, 9, 18), result.Value!.NextDueDate);
+        Assert.Equal(HttpMethod.Post, captured!.Method);
+        Assert.Equal($"/api/maintenance/schedules/{scheduleId}/next-due", captured.RequestUri!.AbsolutePath);
+    }
+
+    [Fact]
+    public async Task UpdateScheduleNextDueAsync_surfaces_validation_errors()
+    {
+        using var httpClient = CreateHttpClient((_, _) => Json(
+            HttpStatusCode.BadRequest,
+            """
+            {"title":"One or more validation errors occurred.",
+            "errors":{"nextDueHours":["Next due hours is required for a running-hours schedule."]}}
+            """));
+
+        var result = await CreateClient(httpClient).UpdateScheduleNextDueAsync(
+            Guid.NewGuid(),
+            new UpdateScheduleNextDueRequest { CompletedOn = new DateOnly(2026, 8, 18) },
+            CancellationToken.None);
+
+        Assert.False(result.IsSuccess);
+        Assert.True(result.Failure!.IsValidation);
+        Assert.Contains("nextDueHours", result.Failure.Errors.Keys);
+    }
+
     private static MaintenanceApiClient CreateClient(HttpClient httpClient) => new(httpClient);
 
     private static HttpClient CreateHttpClient(

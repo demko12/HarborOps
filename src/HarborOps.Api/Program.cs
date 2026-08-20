@@ -21,7 +21,7 @@ var connectionString = builder.Configuration.GetConnectionString("HarborOpsDatab
 
 builder.Services.AddHarborOpsInfrastructure(connectionString);
 builder.Services.AddCargoModule();
-builder.Services.AddDocumentsModule();
+builder.Services.AddDocumentsModule(builder.Configuration);
 builder.Services.AddFleetModule();
 builder.Services.AddComplianceModule();
 builder.Services.AddCrewModule();

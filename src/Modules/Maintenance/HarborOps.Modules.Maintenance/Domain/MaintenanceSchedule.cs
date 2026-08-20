@@ -39,15 +39,55 @@ internal sealed class MaintenanceSchedule
 
     internal static MaintenanceSchedule Create(
         string maintenanceType,
-        string frequency,
+        MaintenanceFrequency frequency,
         DateOnly? nextDueDate,
         int? nextDueHours)
     {
         return new MaintenanceSchedule(
             Guid.NewGuid(),
             maintenanceType,
-            frequency,
+            frequency.ToString(),
             nextDueDate,
             nextDueHours);
+    }
+
+    internal static bool IsOverdue(DateOnly? nextDueDate, DateOnly today)
+    {
+        return nextDueDate is { } dueDate && dueDate < today;
+    }
+
+    internal static int? DaysUntilDue(DateOnly? nextDueDate, DateOnly today)
+    {
+        return nextDueDate is { } dueDate ? dueDate.DayNumber - today.DayNumber : null;
+    }
+
+    internal bool TryGetFrequency(out MaintenanceFrequency frequency)
+    {
+        return Enum.TryParse(Frequency, ignoreCase: true, out frequency)
+            && Enum.IsDefined(frequency);
+    }
+
+    internal void RecordCompletion(MaintenanceFrequency frequency, DateOnly completedOn, int? nextDueHours)
+    {
+        NextDueDate = NextDueDateAfter(completedOn, frequency) ?? NextDueDate;
+
+        if (nextDueHours.HasValue)
+        {
+            NextDueHours = nextDueHours.Value;
+        }
+    }
+
+    private static DateOnly? NextDueDateAfter(DateOnly completedOn, MaintenanceFrequency frequency)
+    {
+        return frequency switch
+        {
+            MaintenanceFrequency.Daily => completedOn.AddDays(1),
+            MaintenanceFrequency.Weekly => completedOn.AddDays(7),
+            MaintenanceFrequency.Monthly => completedOn.AddMonths(1),
+            MaintenanceFrequency.Quarterly => completedOn.AddMonths(3),
+            MaintenanceFrequency.SemiAnnual => completedOn.AddMonths(6),
+            MaintenanceFrequency.Annual => completedOn.AddYears(1),
+            _ => null,
+        };
     }
 }

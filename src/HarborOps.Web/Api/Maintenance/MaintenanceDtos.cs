@@ -122,3 +122,113 @@ internal sealed record WorkOrderPartUsageListItem(
 
 internal sealed record WorkOrderPartUsagesResult(
     IReadOnlyList<WorkOrderPartUsageListItem> Items);
+
+internal sealed record EquipmentListItem(
+    Guid EquipmentId,
+    Guid VesselId,
+    string Name,
+    string Category,
+    string? Manufacturer,
+    string? SerialNumber);
+
+internal sealed record EquipmentPage(
+    IReadOnlyList<EquipmentListItem> Items,
+    int PageNumber,
+    int PageSize,
+    int TotalCount);
+
+internal sealed record EquipmentFilter(
+    Guid? VesselId,
+    string? Category,
+    string? Manufacturer,
+    string? Search,
+    int PageNumber,
+    int PageSize);
+
+internal sealed record RegisterEquipmentRequest
+{
+    public Guid? VesselId { get; init; }
+
+    public string? Name { get; init; }
+
+    public string? Category { get; init; }
+
+    public string? Manufacturer { get; init; }
+
+    public string? SerialNumber { get; init; }
+}
+
+internal sealed record RegisteredEquipment(Guid Id);
+
+internal sealed record MaintenanceScheduleListItem(
+    Guid ScheduleId,
+    Guid VesselId,
+    string MaintenanceType,
+    string Frequency,
+    DateOnly? NextDueDate,
+    int? NextDueHours,
+    bool IsOverdue,
+    int? DaysUntilDue,
+    int EquipmentCount);
+
+internal sealed record MaintenanceSchedulesPage(
+    IReadOnlyList<MaintenanceScheduleListItem> Items,
+    int PageNumber,
+    int PageSize,
+    int TotalCount);
+
+internal sealed record MaintenanceScheduleFilter(
+    Guid? VesselId,
+    Guid? EquipmentId,
+    DateOnly? DueFrom,
+    DateOnly? DueTo,
+    bool? Overdue,
+    int PageNumber,
+    int PageSize);
+
+internal sealed record RegisterMaintenanceScheduleRequest
+{
+    public string? MaintenanceType { get; init; }
+
+    public string? Frequency { get; init; }
+
+    public DateOnly? NextDueDate { get; init; }
+
+    public int? NextDueHours { get; init; }
+
+    public IReadOnlyList<Guid>? EquipmentIds { get; init; }
+}
+
+internal sealed record RegisteredMaintenanceSchedule(Guid Id);
+
+internal sealed record MaintenanceScheduleEquipmentItem(
+    Guid EquipmentId,
+    Guid VesselId,
+    string Name,
+    string Category,
+    string? Manufacturer,
+    string? SerialNumber);
+
+internal sealed record MaintenanceScheduleDetails(
+    Guid ScheduleId,
+    Guid VesselId,
+    string MaintenanceType,
+    string Frequency,
+    DateOnly? NextDueDate,
+    int? NextDueHours,
+    bool IsOverdue,
+    int? DaysUntilDue,
+    IReadOnlyList<MaintenanceScheduleEquipmentItem> Equipment);
+
+internal sealed record UpdateScheduleNextDueRequest
+{
+    public DateOnly? CompletedOn { get; init; }
+
+    public int? NextDueHours { get; init; }
+}
+
+internal sealed record UpdateScheduleNextDueResult(
+    Guid ScheduleId,
+    string Frequency,
+    DateOnly? NextDueDate,
+    int? NextDueHours);

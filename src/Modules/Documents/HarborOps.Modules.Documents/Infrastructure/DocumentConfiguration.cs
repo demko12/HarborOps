@@ -46,8 +46,13 @@ internal sealed class DocumentConfiguration : IEntityTypeConfiguration<Document>
         builder.Property(d => d.FileName)
             .HasMaxLength(Document.FileNameMaxLength);
 
-        builder.Property(d => d.FileUrl)
-            .HasMaxLength(Document.FileUrlMaxLength);
+        builder.Property(d => d.StorageKey)
+            .HasMaxLength(Document.StorageKeyMaxLength);
+
+        builder.Property(d => d.ContentType)
+            .HasMaxLength(Document.ContentTypeMaxLength);
+
+        builder.Property(d => d.SizeBytes);
 
         builder.HasOne(d => d.DocumentType)
             .WithMany()

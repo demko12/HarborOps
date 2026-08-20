@@ -1,0 +1,395 @@
+@using HarborOps.Web.Api.Fleet
+@using HarborOps.Web.Api.Maintenance
+@implements IDisposable
+@inject MaintenanceApiClient MaintenanceApi
+@inject VesselLookupApiClient VesselLookupApi
+@inject CurrentUserAuthorizationState AuthorizationState
+
+<div class="schedules-panel">
+    <section class="maintenance-summary" aria-label="Preventive schedule summary">
+        <article class="maintenance-summary-card">
+            <div>
+                <span>Total schedules</span>
+                <strong>@totalCount</strong>
+                <small>Matching the current filters</small>
+            </div>
+            <span class="summary-icon summary-icon-blue" aria-hidden="true"><span class="bi bi-calendar-check"></span></span>
+        </article>
+        <article class="maintenance-summary-card">
+            <div>
+                <span>Overdue on this page</span>
+                <strong>@OverdueCount</strong>
+                <small>Past due and still planned</small>
+            </div>
+            <span class="summary-icon summary-icon-amber" aria-hidden="true"><span class="bi bi-exclamation-triangle-fill"></span></span>
+        </article>
+    </section>
+
+    <section class="maintenance-filters" aria-label="Preventive schedule filters">
+        <div class="filter-field filter-field-vessel">
+            <label for="schedules-vessel">Vessel</label>
+            <VesselPicker Value="vesselFilter" ValueChanged="SelectVesselFilterAsync" Disabled="isLoading" />
+        </div>
+        <div class="filter-field">
+            <label for="schedules-due-from">Due from</label>
+            <input id="schedules-due-from" type="date" @bind="dueFromFilter" @bind:after="ApplyFiltersAsync" />
+        </div>
+        <div class="filter-field">
+            <label for="schedules-due-to">Due to</label>
+            <input id="schedules-due-to" type="date" @bind="dueToFilter" @bind:after="ApplyFiltersAsync" />
+        </div>
+        <div class="filter-field">
+            <label for="schedules-overdue">Due status</label>
+            <select id="schedules-overdue" @bind="overdueFilter" @bind:after="ApplyFiltersAsync">
+                <option value="">All</option>
+                <option value="true">Overdue only</option>
+                <option value="false">Not overdue</option>
+            </select>
+        </div>
+        <div class="filter-field">
+            <label for="schedules-page-size">Per page</label>
+            <select id="schedules-page-size" @bind="pageSize" @bind:after="ApplyFiltersAsync">
+                <option value="25">25</option>
+                <option value="50">50</option>
+                <option value="100">100</option>
+            </select>
+        </div>
+        <button class="maintenance-reset schedules-clear" type="button" @onclick="ClearFiltersAsync" disabled="@isLoading">Reset</button>
+    </section>
+
+    @if (registerSuccessMessage is not null)
+    {
+        <div class="maintenance-toast schedules-success" role="status" aria-live="polite">
+            <span class="bi bi-check-circle-fill" aria-hidden="true"></span>
+            <span>@registerSuccessMessage</span>
+        </div>
+    }
+
+    <section class="maintenance-card" aria-labelledby="schedules-list-title">
+        <div class="maintenance-card-heading">
+            <div>
+                <h2 id="schedules-list-title">Preventive schedule board</h2>
+                <p>@totalCount schedules found</p>
+            </div>
+            <div class="maintenance-card-heading-actions">
+                @if (CanManage)
+                {
+                    <button type="button" class="maintenance-button schedules-register-toggle" @onclick="OpenRegisterForm">Register schedule</button>
+                }
+                <span class="maintenance-card-icon" aria-hidden="true"><span class="bi bi-calendar-check"></span></span>
+            </div>
+        </div>
+
+        @if (isLoading)
+        {
+            <LoadingState Message="Loading preventive schedules..." />
+        }
+        else if (failure is not null)
+        {
+            <ApiErrorState Title="@failure.Title" Message="@failure.Message" OnRetry="RetryAsync" />
+        }
+        else if (rows.Count == 0)
+        {
+            <EmptyState Title="No preventive schedules match your filters"
+                        Message="Widen the due window or clear the vessel and due status selections." />
+        }
+        else
+        {
+            <div class="maintenance-table-scroll">
+                <table class="maintenance-table schedules-table">
+                    <caption class="visually-hidden">Preventive maintenance schedules, ordered by next due date</caption>
+                    <thead>
+                        <tr>
+                            <th scope="col">Maintenance type</th>
+                            <th scope="col">Frequency</th>
+                            <th scope="col">Next due</th>
+                            <th scope="col">Next due hours</th>
+                            <th scope="col">Equipment</th>
+                            <th scope="col" class="col-vessel">Vessel</th>
+                            <th scope="col">Due status</th>
+                            <th scope="col" class="col-actions"></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var row in rows)
+                        {
+                            <tr class="schedules-row @(row.IsOverdue ? "maintenance-overdue-row" : null)" @key="row.ScheduleId">
+                                <td><span class="maintenance-title">@row.MaintenanceType</span></td>
+                                <td>@row.Frequency</td>
+                                <td>@MaintenanceFormat.DueDate(row.NextDueDate)</td>
+                                <td class="maintenance-muted">@MaintenanceFormat.DueHours(row.NextDueHours)</td>
+                                <td class="maintenance-muted">@row.EquipmentCount</td>
+                                <td class="schedules-vessel col-vessel" title="@row.VesselId">@row.VesselDisplayName</td>
+                                <td>
+                                    <span class="schedules-due-badge schedules-due-@MaintenanceFormat.DueStateModifier(row.IsOverdue, row.DaysUntilDue)">
+                                        @MaintenanceFormat.DueState(row.IsOverdue, row.DaysUntilDue)
+                                    </span>
+                                </td>
+                                <td class="col-actions">
+                                    <button type="button" class="maintenance-usage-button schedules-details" @onclick="() => OpenDetailsAsync(row.ScheduleId)">Details</button>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="maintenance-pagination">
+                <span>Showing @FirstRowNumber&ndash;@LastRowNumber of @totalCount schedules</span>
+                <div class="maintenance-pages">
+                    <button type="button" @onclick="PreviousPageAsync" disabled="@(pageNumber <= 1)">Previous</button>
+                    <span class="maintenance-page-indicator">Page @pageNumber of @TotalPages</span>
+                    <button type="button" @onclick="NextPageAsync" disabled="@(pageNumber >= TotalPages)">Next</button>
+                </div>
+            </div>
+        }
+    </section>
+
+    @if (isRegisterFormOpen)
+    {
+        <div class="maintenance-modal-backdrop" @onclick="CloseRegisterForm">
+            <section class="maintenance-form-card schedules-form-card"
+                     role="dialog"
+                     aria-modal="true"
+                     aria-labelledby="schedules-register-title"
+                     @onclick:stopPropagation="true">
+                <div class="maintenance-modal-header">
+                    <h2 id="schedules-register-title">Register preventive schedule</h2>
+                    <button type="button"
+                            class="maintenance-modal-close"
+                            aria-label="Close register schedule dialog"
+                            disabled="@isRegistering"
+                            @onclick="CloseRegisterForm">&times;</button>
+                </div>
+                <form class="maintenance-form schedules-form" @onsubmit="SubmitRegisterAsync" @onsubmit:preventDefault="true">
+                    @if (registerFailure is { IsValidation: true })
+                    {
+                        <div class="maintenance-field-errors schedules-field-errors" role="alert">
+                            <strong>Please correct the following before saving</strong>
+                            <ul>
+                                @foreach (var entry in registerFailure.Errors)
+                                {
+                                    @foreach (var message in entry.Value)
+                                    {
+                                        <li>
+                                            <span class="maintenance-error-field">@MaintenanceFormat.FieldLabel(entry.Key)</span>
+                                            <span>@message</span>
+                                        </li>
+                                    }
+                                }
+                            </ul>
+                        </div>
+                    }
+                    @if (registerFailure is { IsValidation: false })
+                    {
+                        <div class="maintenance-inline-error schedules-inline-error" role="alert">@registerFailure.Message</div>
+                    }
+
+                    <div class="maintenance-form-grid">
+                        <div class="filter-field filter-field-wide">
+                            <label for="schedule-vessel">Vessel <span class="required-marker" aria-hidden="true">*</span></label>
+                            <VesselPicker Value="registerModel.VesselId" ValueChanged="SelectRegisterVesselAsync" Disabled="isRegistering" />
+                        </div>
+                        <div class="filter-field">
+                            <label for="schedule-type">Maintenance type <span class="required-marker" aria-hidden="true">*</span></label>
+                            <input id="schedule-type" @bind="registerModel.MaintenanceType" maxlength="100" />
+                        </div>
+                        <div class="filter-field">
+                            <label for="schedule-frequency">Frequency <span class="required-marker" aria-hidden="true">*</span></label>
+                            <select id="schedule-frequency" @bind="registerModel.Frequency">
+                                <option value="">Select...</option>
+                                @foreach (var option in MaintenanceFormat.Frequencies)
+                                {
+                                    <option value="@option">@option</option>
+                                }
+                            </select>
+                        </div>
+                        <div class="filter-field">
+                            <label for="schedule-next-due-date">Next due date</label>
+                            <input id="schedule-next-due-date" type="date" @bind="registerModel.NextDueDate" />
+                        </div>
+                        <div class="filter-field">
+                            <label for="schedule-next-due-hours">Next due hours</label>
+                            <input id="schedule-next-due-hours" type="number" min="0" @bind="registerModel.NextDueHours" />
+                        </div>
+                    </div>
+
+                    <div class="schedules-equipment-picker">
+                        <span class="schedules-equipment-label">Equipment <span class="required-marker" aria-hidden="true">*</span></span>
+                        @if (registerModel.VesselId is null)
+                        {
+                            <p class="schedules-equipment-hint">Select a vessel to list its equipment.</p>
+                        }
+                        else if (isEquipmentLoading)
+                        {
+                            <LoadingState Message="Loading equipment..." />
+                        }
+                        else if (equipmentFailure is not null)
+                        {
+                            <div class="maintenance-inline-error schedules-equipment-error" role="alert">@equipmentFailure.Message</div>
+                        }
+                        else if (equipmentOptions.Count == 0)
+                        {
+                            <p class="schedules-equipment-hint">This vessel has no registered equipment yet.</p>
+                        }
+                        else
+                        {
+                            <ul class="schedules-equipment-options">
+                                @foreach (var option in equipmentOptions)
+                                {
+                                    <li class="schedules-equipment-option" @key="option.EquipmentId">
+                                        <label>
+                                            <input type="checkbox"
+                                                   checked="@selectedEquipmentIds.Contains(option.EquipmentId)"
+                                                   @onchange="args => ToggleEquipment(option.EquipmentId, args.Value is true)" />
+                                            @option.Name <span class="schedules-equipment-category">(@option.Category)</span>
+                                        </label>
+                                    </li>
+                                }
+                            </ul>
+                        }
+                    </div>
+
+                    <div class="maintenance-form-actions">
+                        <button type="submit" class="maintenance-button schedules-submit" disabled="@isRegistering">
+                            @(isRegistering ? "Registering..." : "Register schedule")
+                        </button>
+                        <button type="button" class="maintenance-reset" @onclick="CloseRegisterForm">Cancel</button>
+                    </div>
+                </form>
+            </section>
+        </div>
+    }
+
+    @if (detailsScheduleId is not null)
+    {
+        <div class="maintenance-modal-backdrop" @onclick="CloseDetails">
+            <section class="maintenance-form-card schedules-details-card"
+                     role="dialog"
+                     aria-modal="true"
+                     aria-labelledby="schedules-details-title"
+                     @onclick:stopPropagation="true">
+                <div class="maintenance-modal-header">
+                    <h2 id="schedules-details-title">Schedule details</h2>
+                    <button type="button"
+                            class="maintenance-modal-close"
+                            aria-label="Close schedule details dialog"
+                            disabled="@isRecordingCompletion"
+                            @onclick="CloseDetails">&times;</button>
+                </div>
+
+                @if (isDetailsLoading)
+                {
+                    <LoadingState Message="Loading schedule details..." />
+                }
+                else if (detailsFailure is not null)
+                {
+                    <div class="maintenance-inline-error schedules-details-error" role="alert">@detailsFailure.Message</div>
+                }
+                else if (details is not null)
+                {
+                    <dl class="schedules-details-summary">
+                        <dt>Maintenance type</dt>
+                        <dd class="schedules-details-type">@details.MaintenanceType</dd>
+                        <dt>Frequency</dt>
+                        <dd class="schedules-details-frequency">@details.Frequency</dd>
+                        <dt>Next due date</dt>
+                        <dd class="schedules-details-date">@MaintenanceFormat.DueDate(details.NextDueDate)</dd>
+                        <dt>Next due hours</dt>
+                        <dd class="schedules-details-hours">@MaintenanceFormat.DueHours(details.NextDueHours)</dd>
+                        <dt>Due status</dt>
+                        <dd>
+                            <span class="schedules-due-badge schedules-due-@MaintenanceFormat.DueStateModifier(details.IsOverdue, details.DaysUntilDue)">
+                                @MaintenanceFormat.DueState(details.IsOverdue, details.DaysUntilDue)
+                            </span>
+                        </dd>
+                    </dl>
+
+                    <div class="maintenance-table-scroll">
+                        <table class="maintenance-table schedules-equipment-table">
+                            <caption class="visually-hidden">Equipment covered by this schedule</caption>
+                            <thead>
+                                <tr>
+                                    <th scope="col">Equipment</th>
+                                    <th scope="col">Category</th>
+                                    <th scope="col">Manufacturer</th>
+                                    <th scope="col">Serial number</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var item in details.Equipment)
+                                {
+                                    <tr class="schedules-equipment-row" @key="item.EquipmentId">
+                                        <td>@item.Name</td>
+                                        <td>@item.Category</td>
+                                        <td class="maintenance-muted">@MaintenanceFormat.OptionalText(item.Manufacturer)</td>
+                                        <td class="maintenance-muted">@MaintenanceFormat.OptionalText(item.SerialNumber)</td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+
+                    @if (completionSuccessMessage is not null)
+                    {
+                        <div class="maintenance-toast schedules-completion-success" role="status" aria-live="polite">
+                            <span class="bi bi-check-circle-fill" aria-hidden="true"></span>
+                            <span>@completionSuccessMessage</span>
+                        </div>
+                    }
+
+                    @if (CanManage)
+                    {
+                        <form class="maintenance-form schedules-completion-form" @onsubmit="SubmitCompletionAsync" @onsubmit:preventDefault="true">
+                            <h3 class="schedules-completion-title">Record completion</h3>
+
+                            @if (completionFailure is { IsValidation: true })
+                            {
+                                <div class="maintenance-field-errors schedules-completion-errors" role="alert">
+                                    <strong>Please correct the following before saving</strong>
+                                    <ul>
+                                        @foreach (var entry in completionFailure.Errors)
+                                        {
+                                            @foreach (var message in entry.Value)
+                                            {
+                                                <li>
+                                                    <span class="maintenance-error-field">@MaintenanceFormat.FieldLabel(entry.Key)</span>
+                                                    <span>@message</span>
+                                                </li>
+                                            }
+                                        }
+                                    </ul>
+                                </div>
+                            }
+                            @if (completionFailure is { IsValidation: false })
+                            {
+                                <div class="maintenance-inline-error schedules-completion-error" role="alert">@completionFailure.Message</div>
+                            }
+
+                            <div class="maintenance-form-grid">
+                                <div class="filter-field">
+                                    <label for="completion-date">Completed on <span class="required-marker" aria-hidden="true">*</span></label>
+                                    <input id="completion-date" type="date" @bind="completionModel.CompletedOn" />
+                                </div>
+                                <div class="filter-field">
+                                    <label for="completion-hours">Next due hours</label>
+                                    <input id="completion-hours" type="number" min="0" @bind="completionModel.NextDueHours" />
+                                </div>
+                            </div>
+
+                            <div class="maintenance-form-actions">
+                                <button type="submit" class="maintenance-button schedules-completion-submit" disabled="@isRecordingCompletion">
+                                    @(isRecordingCompletion ? "Updating..." : "Record completion")
+                                </button>
+                            </div>
+                        </form>
+                    }
+                }
+
+                <div class="maintenance-form-actions">
+                    <button type="button" class="maintenance-reset schedules-details-close" @onclick="CloseDetails">Close</button>
+                </div>
+            </section>
+        </div>
+    }
+</div>

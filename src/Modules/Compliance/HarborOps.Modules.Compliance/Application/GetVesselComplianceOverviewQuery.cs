@@ -1,10 +1,11 @@
 using HarborOps.Modules.Compliance.Contracts;
 using HarborOps.Modules.Compliance.Domain;
+using HarborOps.SharedKernel;
 using Microsoft.EntityFrameworkCore;
 
 namespace HarborOps.Modules.Compliance.Application;
 
-internal sealed class GetVesselComplianceOverviewQuery(DbContext dbContext)
+internal sealed class GetVesselComplianceOverviewQuery(DbContext dbContext, IDateTimeProvider? dateTimeProvider = null)
     : IGetVesselComplianceOverviewQuery
 {
     internal const int MaxItemsPerCollection = 100;
@@ -59,13 +60,35 @@ internal sealed class GetVesselComplianceOverviewQuery(DbContext dbContext)
             .Where(survey => survey.VesselId == request.VesselId)
             .OrderByDescending(survey => survey.Date)
             .ThenBy(survey => survey.Id)
-            .Take(MaxItemsPerCollection)
+            .Take(10)
             .Select(survey => new SurveyAuditOverviewItem(
                 survey.Id,
                 survey.VesselId,
                 survey.Date,
                 survey.Type,
                 survey.Result))
+            .ToListAsync(cancellationToken);
+
+        var asOf = DateOnly.FromDateTime(dateTimeProvider?.UtcNow ?? DateTime.UtcNow);
+        var nearExpiry = asOf.AddDays(30);
+        var insurancePolicies = await dbContext.Set<InsurancePolicy>()
+            .AsNoTracking()
+            .Where(policy => policy.VesselId == request.VesselId)
+            .OrderBy(policy => policy.ExpiryDate)
+            .ThenBy(policy => policy.Id)
+            .Take(MaxItemsPerCollection)
+            .Select(policy => new InsurancePolicyOverviewItem(
+                policy.Id,
+                policy.VesselId,
+                policy.Insurer,
+                policy.PolicyNumber,
+                policy.Coverage,
+                policy.ExpiryDate,
+                policy.ExpiryDate < asOf
+                    ? "Expired"
+                    : policy.ExpiryDate <= nearExpiry
+                        ? "Expiring soon"
+                        : "Active"))
             .ToListAsync(cancellationToken);
 
         var openNonConformities = await dbContext.Set<NonConformity>()
@@ -92,6 +115,7 @@ internal sealed class GetVesselComplianceOverviewQuery(DbContext dbContext)
             certificates,
             pscInspections,
             surveyAudits,
-            openNonConformities);
+            openNonConformities,
+            insurancePolicies);
     }
 }

@@ -4,7 +4,7 @@
 @using HarborOps.Web.Api.Maintenance
 @implements IDisposable
 @inject MaintenanceApiClient MaintenanceApi
-@inject VesselLookupApiClient VesselLookupApi
+@inject FleetApiClient FleetApi
 @inject CurrentUserAuthorizationState AuthorizationState
 
 <PageTitle>Maintenance | HarborOps</PageTitle>
@@ -18,6 +18,38 @@
 		</div>
 		<span class="maintenance-utc" aria-label="All times are shown in UTC">UTC</span>
 	</header>
+
+	<nav class="maintenance-tabs" role="tablist" aria-label="Maintenance workspace">
+		<button type="button"
+				role="tab"
+				class="maintenance-tab @(activeTab == MaintenanceTab.WorkOrders ? "active" : null)"
+				aria-selected="@(activeTab == MaintenanceTab.WorkOrders)"
+				@onclick="() => SelectTab(MaintenanceTab.WorkOrders)">Work orders</button>
+		<button type="button"
+				role="tab"
+				class="maintenance-tab @(activeTab == MaintenanceTab.Equipment ? "active" : null)"
+				aria-selected="@(activeTab == MaintenanceTab.Equipment)"
+				@onclick="() => SelectTab(MaintenanceTab.Equipment)">Equipment</button>
+		<button type="button"
+				role="tab"
+				class="maintenance-tab @(activeTab == MaintenanceTab.PreventiveSchedules ? "active" : null)"
+				aria-selected="@(activeTab == MaintenanceTab.PreventiveSchedules)"
+				@onclick="() => SelectTab(MaintenanceTab.PreventiveSchedules)">Preventive schedules</button>
+	</nav>
+
+	@if (activeTab == MaintenanceTab.Equipment)
+	{
+		<EquipmentPanel />
+	}
+
+	@if (activeTab == MaintenanceTab.PreventiveSchedules)
+	{
+		<PreventiveSchedulesPanel />
+	}
+
+	@if (activeTab == MaintenanceTab.WorkOrders)
+	{
+	<div class="maintenance-tabpanel" role="tabpanel">
 
 	<section class="maintenance-summary" aria-label="Work order summary">
 		<article class="maintenance-summary-card">
@@ -359,10 +391,10 @@
 						<label for="usage-search">Search parts</label>
 						<input id="usage-search" @bind="inventorySearchText" placeholder="Name or part number" />
 					</div>
-					<div class="filter-field">
-						<label for="usage-low-stock">
+					<div class="filter-field filter-field-check">
+						<label class="maintenance-checkbox" for="usage-low-stock">
 							<input id="usage-low-stock" type="checkbox" @bind="inventoryLowStockOnly" />
-							Low stock only
+							<span>Low stock only</span>
 						</label>
 					</div>
 					<button class="maintenance-button" type="submit" disabled="@isInventoryLoading">Search</button>
@@ -515,5 +547,8 @@
 			</div>
 		</section>
 		</div>
+	}
+
+	</div>
 	}
 </section>

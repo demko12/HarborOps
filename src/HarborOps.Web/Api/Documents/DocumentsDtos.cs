@@ -86,6 +86,30 @@ internal sealed record RegisterDocumentTypeRequest
 
 internal sealed record RegisterDocumentTypeResult(int Id);
 
+internal sealed record DocumentDetailsDto(
+    Guid Id,
+    Guid VesselId,
+    int DocumentTypeId,
+    string DocumentTypeName,
+    string Number,
+    DateOnly IssueDate,
+    DateOnly ExpiryDate,
+    string IssuingAuthority,
+    string Status,
+    bool HasFile,
+    string? FileName,
+    string? ContentType,
+    long? SizeBytes,
+    Guid? UploadedBy,
+    DateTime? UploadedAtUtc);
+
+internal sealed record DocumentFileResponseDto(
+    string FileName,
+    string ContentType,
+    long SizeBytes,
+    Guid UploadedBy,
+    DateTime UploadedAtUtc);
+
 internal sealed record DocumentsApiResult<T>(T? Value, DocumentsApiFailure? Failure)
 {
     internal bool IsSuccess => Failure is null;
@@ -104,4 +128,6 @@ internal sealed record DocumentsApiFailure(
     internal bool IsConflict => StatusCode == StatusCodes.Status409Conflict;
 
     internal bool IsNotFound => StatusCode == StatusCodes.Status404NotFound;
+
+    internal bool IsPayloadTooLarge => StatusCode == StatusCodes.Status413PayloadTooLarge;
 }

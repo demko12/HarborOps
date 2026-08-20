@@ -7,7 +7,9 @@ namespace HarborOps.Modules.Crew.Presentation;
 
 [ApiController]
 [Route("api/crew/assignments")]
-public sealed class CrewAssignmentsController(RegisterCrewAssignmentService registerCrewAssignmentService)
+public sealed class CrewAssignmentsController(
+    RegisterCrewAssignmentService registerCrewAssignmentService,
+    DeleteCrewAssignmentService deleteCrewAssignmentService)
     : ControllerBase
 {
     [HttpPost]
@@ -61,6 +63,42 @@ public sealed class CrewAssignmentsController(RegisterCrewAssignmentService regi
             {
                 Status = StatusCodes.Status409Conflict,
                 Title = "Crew member already has an open assignment.",
+                Detail = exception.Message,
+            });
+        }
+    }
+
+    // Uses an absolute route for the same reason as CrewMembersController.GetProfile:
+    // CapabilityAuthorizationConvention reads the action's own AttributeRouteModel.Template
+    // before controller/action route combination runs, so a relative "{assignmentId:guid}"
+    // here would never match "/api/crew" and would silently drop the crew.manage policy.
+    [HttpDelete("/api/crew/assignments/{assignmentId:guid}")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]
+    public async Task<IActionResult> Delete(Guid assignmentId, CancellationToken cancellationToken)
+    {
+        try
+        {
+            await deleteCrewAssignmentService.DeleteAsync(assignmentId, cancellationToken);
+
+            return NoContent();
+        }
+        catch (CrewAssignmentNotFoundException exception)
+        {
+            return NotFound(new ProblemDetails
+            {
+                Status = StatusCodes.Status404NotFound,
+                Title = "Crew assignment not found.",
+                Detail = exception.Message,
+            });
+        }
+        catch (CrewAssignmentNotDeletableException exception)
+        {
+            return Conflict(new ProblemDetails
+            {
+                Status = StatusCodes.Status409Conflict,
+                Title = "Crew assignment cannot be deleted.",
                 Detail = exception.Message,
             });
         }

@@ -1,0 +1,205 @@
+@using HarborOps.Web.Api.Fleet
+@using HarborOps.Web.Api.Maintenance
+@implements IDisposable
+@inject MaintenanceApiClient MaintenanceApi
+@inject VesselLookupApiClient VesselLookupApi
+@inject CurrentUserAuthorizationState AuthorizationState
+
+<div class="equipment-panel">
+    <section class="maintenance-summary" aria-label="Equipment summary">
+        <article class="maintenance-summary-card">
+            <div>
+                <span>Total equipment</span>
+                <strong>@totalCount</strong>
+                <small>Matching the current filters</small>
+            </div>
+            <span class="summary-icon summary-icon-blue" aria-hidden="true"><span class="bi bi-gear-wide-connected"></span></span>
+        </article>
+        <article class="maintenance-summary-card">
+            <div>
+                <span>Vessels on this page</span>
+                <strong>@DistinctVesselCount</strong>
+                <small>Distinct vessels listed</small>
+            </div>
+            <span class="summary-icon summary-icon-amber" aria-hidden="true"><span class="bi bi-water"></span></span>
+        </article>
+    </section>
+
+    <section class="maintenance-filters" aria-label="Equipment filters">
+        <div class="filter-field filter-field-vessel">
+            <label for="equipment-vessel">Vessel</label>
+            <VesselPicker Value="vesselFilter" ValueChanged="SelectVesselFilterAsync" Disabled="isLoading" />
+        </div>
+        <div class="filter-field">
+            <label for="equipment-search">Search</label>
+            <input id="equipment-search" @bind="searchFilter" @bind:event="oninput" @bind:after="ApplyFiltersAsync" placeholder="Name or serial number" />
+        </div>
+        <div class="filter-field">
+            <label for="equipment-category">Category</label>
+            <input id="equipment-category" @bind="categoryFilter" @bind:event="oninput" @bind:after="ApplyFiltersAsync" placeholder="e.g. Propulsion" />
+        </div>
+        <div class="filter-field">
+            <label for="equipment-manufacturer">Manufacturer</label>
+            <input id="equipment-manufacturer" @bind="manufacturerFilter" @bind:event="oninput" @bind:after="ApplyFiltersAsync" placeholder="e.g. Wartsila" />
+        </div>
+        <div class="filter-field">
+            <label for="equipment-page-size">Per page</label>
+            <select id="equipment-page-size" @bind="pageSize" @bind:after="ApplyFiltersAsync">
+                <option value="25">25</option>
+                <option value="50">50</option>
+                <option value="100">100</option>
+            </select>
+        </div>
+        <button class="maintenance-reset equipment-clear" type="button" @onclick="ClearFiltersAsync" disabled="@isLoading">Reset</button>
+    </section>
+
+    @if (registerSuccessMessage is not null)
+    {
+        <div class="maintenance-toast equipment-success" role="status" aria-live="polite">
+            <span class="bi bi-check-circle-fill" aria-hidden="true"></span>
+            <span>@registerSuccessMessage</span>
+        </div>
+    }
+
+    <section class="maintenance-card" aria-labelledby="equipment-list-title">
+        <div class="maintenance-card-heading">
+            <div>
+                <h2 id="equipment-list-title">Equipment registry</h2>
+                <p>@totalCount equipment found</p>
+            </div>
+            <div class="maintenance-card-heading-actions">
+                @if (CanManage)
+                {
+                    <button type="button" class="maintenance-button equipment-register-toggle" @onclick="OpenRegisterForm">Register equipment</button>
+                }
+                <span class="maintenance-card-icon" aria-hidden="true"><span class="bi bi-gear-wide-connected"></span></span>
+            </div>
+        </div>
+
+        @if (isLoading)
+        {
+            <LoadingState Message="Loading equipment..." />
+        }
+        else if (failure is not null)
+        {
+            <ApiErrorState Title="@failure.Title" Message="@failure.Message" OnRetry="RetryAsync" />
+        }
+        else if (rows.Count == 0)
+        {
+            <EmptyState Title="No equipment matches your filters"
+                        Message="Widen the filters or clear the vessel, category, and manufacturer selections." />
+        }
+        else
+        {
+            <div class="maintenance-table-scroll">
+                <table class="maintenance-table equipment-table">
+                    <caption class="visually-hidden">Vessel equipment, ordered by name</caption>
+                    <thead>
+                        <tr>
+                            <th scope="col">Name</th>
+                            <th scope="col">Category</th>
+                            <th scope="col">Manufacturer</th>
+                            <th scope="col">Serial number</th>
+                            <th scope="col" class="col-vessel">Vessel</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var row in rows)
+                        {
+                            <tr class="equipment-row" @key="row.EquipmentId">
+                                <td><span class="maintenance-title">@row.Name</span></td>
+                                <td>@row.Category</td>
+                                <td class="maintenance-muted">@MaintenanceFormat.OptionalText(row.Manufacturer)</td>
+                                <td class="maintenance-muted">@MaintenanceFormat.OptionalText(row.SerialNumber)</td>
+                                <td class="equipment-vessel col-vessel" title="@row.VesselId">@row.VesselDisplayName</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="maintenance-pagination">
+                <span>Showing @FirstRowNumber&ndash;@LastRowNumber of @totalCount equipment</span>
+                <div class="maintenance-pages">
+                    <button type="button" @onclick="PreviousPageAsync" disabled="@(pageNumber <= 1)">Previous</button>
+                    <span class="maintenance-page-indicator">Page @pageNumber of @TotalPages</span>
+                    <button type="button" @onclick="NextPageAsync" disabled="@(pageNumber >= TotalPages)">Next</button>
+                </div>
+            </div>
+        }
+    </section>
+
+    @if (isRegisterFormOpen)
+    {
+        <div class="maintenance-modal-backdrop" @onclick="CloseRegisterForm">
+            <section class="maintenance-form-card equipment-form-card"
+                     role="dialog"
+                     aria-modal="true"
+                     aria-labelledby="equipment-register-title"
+                     @onclick:stopPropagation="true">
+                <div class="maintenance-modal-header">
+                    <h2 id="equipment-register-title">Register equipment</h2>
+                    <button type="button"
+                            class="maintenance-modal-close"
+                            aria-label="Close register equipment dialog"
+                            disabled="@isRegistering"
+                            @onclick="CloseRegisterForm">&times;</button>
+                </div>
+                <form class="maintenance-form equipment-form" @onsubmit="SubmitRegisterAsync" @onsubmit:preventDefault="true">
+                    @if (registerFailure is { IsValidation: true })
+                    {
+                        <div class="maintenance-field-errors equipment-field-errors" role="alert">
+                            <strong>Please correct the following before saving</strong>
+                            <ul>
+                                @foreach (var entry in registerFailure.Errors)
+                                {
+                                    @foreach (var message in entry.Value)
+                                    {
+                                        <li>
+                                            <span class="maintenance-error-field">@MaintenanceFormat.FieldLabel(entry.Key)</span>
+                                            <span>@message</span>
+                                        </li>
+                                    }
+                                }
+                            </ul>
+                        </div>
+                    }
+                    @if (registerFailure is { IsValidation: false })
+                    {
+                        <div class="maintenance-inline-error equipment-inline-error" role="alert">@registerFailure.Message</div>
+                    }
+
+                    <div class="maintenance-form-grid">
+                        <div class="filter-field filter-field-wide">
+                            <label for="equipment-register-vessel">Vessel <span class="required-marker" aria-hidden="true">*</span></label>
+                            <VesselPicker Value="registerModel.VesselId" ValueChanged="value => registerModel.VesselId = value" Disabled="isRegistering" />
+                        </div>
+                        <div class="filter-field">
+                            <label for="equipment-name">Name <span class="required-marker" aria-hidden="true">*</span></label>
+                            <input id="equipment-name" @bind="registerModel.Name" maxlength="200" />
+                        </div>
+                        <div class="filter-field">
+                            <label for="equipment-category-input">Category <span class="required-marker" aria-hidden="true">*</span></label>
+                            <input id="equipment-category-input" @bind="registerModel.Category" maxlength="100" />
+                        </div>
+                        <div class="filter-field">
+                            <label for="equipment-manufacturer-input">Manufacturer</label>
+                            <input id="equipment-manufacturer-input" @bind="registerModel.Manufacturer" maxlength="100" />
+                        </div>
+                        <div class="filter-field">
+                            <label for="equipment-serial-input">Serial number</label>
+                            <input id="equipment-serial-input" @bind="registerModel.SerialNumber" maxlength="100" />
+                        </div>
+                    </div>
+
+                    <div class="maintenance-form-actions">
+                        <button type="submit" class="maintenance-button equipment-submit" disabled="@isRegistering">
+                            @(isRegistering ? "Registering..." : "Register equipment")
+                        </button>
+                        <button type="button" class="maintenance-reset" @onclick="CloseRegisterForm">Cancel</button>
+                    </div>
+                </form>
+            </section>
+        </div>
+    }
+</div>

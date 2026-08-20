@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Net;
 using System.Text.Json;
 
@@ -281,4 +282,292 @@ internal sealed class MaintenanceApiClient(HttpClient httpClient)
         return $"{InventoryItemsPath}?{string.Join('&', query)}";
     }
 
+    private const string EquipmentPath = "api/maintenance/equipment";
+
+    private const string SchedulesPath = "api/maintenance/schedules";
+
+    internal async Task<MaintenanceApiResult<EquipmentPage>> GetEquipmentAsync(
+        EquipmentFilter filter,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(filter);
+
+        try
+        {
+            using var response = await httpClient.GetAsync(
+                BuildEquipmentPath(filter),
+                HttpCompletionOption.ResponseHeadersRead,
+                cancellationToken);
+
+            if (!response.IsSuccessStatusCode)
+            {
+                return new MaintenanceApiResult<EquipmentPage>(
+                    null, await ReadFailureAsync(response, "Unable to load equipment", cancellationToken));
+            }
+
+            var page = await response.Content.ReadFromJsonAsync<EquipmentPage>(cancellationToken);
+
+            return new MaintenanceApiResult<EquipmentPage>(page, null);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (HttpRequestException)
+        {
+            return new MaintenanceApiResult<EquipmentPage>(null, Unavailable());
+        }
+        catch (TaskCanceledException) when (!cancellationToken.IsCancellationRequested)
+        {
+            return new MaintenanceApiResult<EquipmentPage>(null, Unavailable());
+        }
+    }
+
+    internal async Task<MaintenanceApiResult<RegisteredEquipment>> RegisterEquipmentAsync(
+        RegisterEquipmentRequest request,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+
+        try
+        {
+            using var response = await httpClient.PostAsJsonAsync(EquipmentPath, request, cancellationToken);
+
+            if (response.StatusCode != HttpStatusCode.Created)
+            {
+                return new MaintenanceApiResult<RegisteredEquipment>(
+                    null, await ReadFailureAsync(response, "Unable to register the equipment", cancellationToken));
+            }
+
+            var created = await response.Content.ReadFromJsonAsync<RegisteredEquipment>(cancellationToken);
+
+            return new MaintenanceApiResult<RegisteredEquipment>(created, null);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (HttpRequestException)
+        {
+            return new MaintenanceApiResult<RegisteredEquipment>(null, Unavailable());
+        }
+        catch (TaskCanceledException) when (!cancellationToken.IsCancellationRequested)
+        {
+            return new MaintenanceApiResult<RegisteredEquipment>(null, Unavailable());
+        }
+    }
+
+    internal async Task<MaintenanceApiResult<MaintenanceSchedulesPage>> GetSchedulesAsync(
+        MaintenanceScheduleFilter filter,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(filter);
+
+        try
+        {
+            using var response = await httpClient.GetAsync(
+                BuildSchedulesPath(filter),
+                HttpCompletionOption.ResponseHeadersRead,
+                cancellationToken);
+
+            if (!response.IsSuccessStatusCode)
+            {
+                return new MaintenanceApiResult<MaintenanceSchedulesPage>(
+                    null, await ReadFailureAsync(response, "Unable to load preventive schedules", cancellationToken));
+            }
+
+            var page = await response.Content.ReadFromJsonAsync<MaintenanceSchedulesPage>(cancellationToken);
+
+            return new MaintenanceApiResult<MaintenanceSchedulesPage>(page, null);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (HttpRequestException)
+        {
+            return new MaintenanceApiResult<MaintenanceSchedulesPage>(null, Unavailable());
+        }
+        catch (TaskCanceledException) when (!cancellationToken.IsCancellationRequested)
+        {
+            return new MaintenanceApiResult<MaintenanceSchedulesPage>(null, Unavailable());
+        }
+    }
+
+    internal async Task<MaintenanceApiResult<MaintenanceScheduleDetails>> GetScheduleDetailsAsync(
+        Guid scheduleId,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            using var response = await httpClient.GetAsync(
+                $"{SchedulesPath}/{scheduleId}",
+                HttpCompletionOption.ResponseHeadersRead,
+                cancellationToken);
+
+            if (!response.IsSuccessStatusCode)
+            {
+                return new MaintenanceApiResult<MaintenanceScheduleDetails>(
+                    null, await ReadFailureAsync(response, "Unable to load the schedule", cancellationToken));
+            }
+
+            var details = await response.Content.ReadFromJsonAsync<MaintenanceScheduleDetails>(cancellationToken);
+
+            return new MaintenanceApiResult<MaintenanceScheduleDetails>(details, null);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (HttpRequestException)
+        {
+            return new MaintenanceApiResult<MaintenanceScheduleDetails>(null, Unavailable());
+        }
+        catch (TaskCanceledException) when (!cancellationToken.IsCancellationRequested)
+        {
+            return new MaintenanceApiResult<MaintenanceScheduleDetails>(null, Unavailable());
+        }
+    }
+
+    internal async Task<MaintenanceApiResult<RegisteredMaintenanceSchedule>> RegisterScheduleAsync(
+        RegisterMaintenanceScheduleRequest request,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+
+        try
+        {
+            using var response = await httpClient.PostAsJsonAsync(SchedulesPath, request, cancellationToken);
+
+            if (response.StatusCode != HttpStatusCode.Created)
+            {
+                return new MaintenanceApiResult<RegisteredMaintenanceSchedule>(
+                    null, await ReadFailureAsync(response, "Unable to register the schedule", cancellationToken));
+            }
+
+            var created = await response.Content.ReadFromJsonAsync<RegisteredMaintenanceSchedule>(cancellationToken);
+
+            return new MaintenanceApiResult<RegisteredMaintenanceSchedule>(created, null);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (HttpRequestException)
+        {
+            return new MaintenanceApiResult<RegisteredMaintenanceSchedule>(null, Unavailable());
+        }
+        catch (TaskCanceledException) when (!cancellationToken.IsCancellationRequested)
+        {
+            return new MaintenanceApiResult<RegisteredMaintenanceSchedule>(null, Unavailable());
+        }
+    }
+
+    internal async Task<MaintenanceApiResult<UpdateScheduleNextDueResult>> UpdateScheduleNextDueAsync(
+        Guid scheduleId,
+        UpdateScheduleNextDueRequest request,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+
+        try
+        {
+            using var response = await httpClient.PostAsJsonAsync(
+                $"{SchedulesPath}/{scheduleId}/next-due", request, cancellationToken);
+
+            if (!response.IsSuccessStatusCode)
+            {
+                return new MaintenanceApiResult<UpdateScheduleNextDueResult>(
+                    null, await ReadFailureAsync(response, "Unable to update the next due values", cancellationToken));
+            }
+
+            var result = await response.Content.ReadFromJsonAsync<UpdateScheduleNextDueResult>(cancellationToken);
+
+            return new MaintenanceApiResult<UpdateScheduleNextDueResult>(result, null);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (HttpRequestException)
+        {
+            return new MaintenanceApiResult<UpdateScheduleNextDueResult>(null, Unavailable());
+        }
+        catch (TaskCanceledException) when (!cancellationToken.IsCancellationRequested)
+        {
+            return new MaintenanceApiResult<UpdateScheduleNextDueResult>(null, Unavailable());
+        }
+    }
+
+    private static string BuildEquipmentPath(EquipmentFilter filter)
+    {
+        var query = new List<string>
+        {
+            $"pageNumber={filter.PageNumber}",
+            $"pageSize={filter.PageSize}",
+        };
+
+        if (filter.VesselId is { } vesselId)
+        {
+            query.Add($"vesselId={vesselId}");
+        }
+
+        if (!string.IsNullOrWhiteSpace(filter.Category))
+        {
+            query.Add($"category={Uri.EscapeDataString(filter.Category)}");
+        }
+
+        if (!string.IsNullOrWhiteSpace(filter.Manufacturer))
+        {
+            query.Add($"manufacturer={Uri.EscapeDataString(filter.Manufacturer)}");
+        }
+
+        if (!string.IsNullOrWhiteSpace(filter.Search))
+        {
+            query.Add($"search={Uri.EscapeDataString(filter.Search)}");
+        }
+
+        return $"{EquipmentPath}?{string.Join('&', query)}";
+    }
+
+    private static string BuildSchedulesPath(MaintenanceScheduleFilter filter)
+    {
+        var query = new List<string>
+        {
+            $"pageNumber={filter.PageNumber}",
+            $"pageSize={filter.PageSize}",
+        };
+
+        if (filter.VesselId is { } vesselId)
+        {
+            query.Add($"vesselId={vesselId}");
+        }
+
+        if (filter.EquipmentId is { } equipmentId)
+        {
+            query.Add($"equipmentId={equipmentId}");
+        }
+
+        if (filter.DueFrom is { } dueFrom)
+        {
+            query.Add($"dueFrom={FormatDate(dueFrom)}");
+        }
+
+        if (filter.DueTo is { } dueTo)
+        {
+            query.Add($"dueTo={FormatDate(dueTo)}");
+        }
+
+        if (filter.Overdue is { } overdue)
+        {
+            query.Add($"overdue={(overdue ? "true" : "false")}");
+        }
+
+        return $"{SchedulesPath}?{string.Join('&', query)}";
+    }
+
+    private static string FormatDate(DateOnly value)
+    {
+        return value.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
+    }
 }

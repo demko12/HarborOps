@@ -2,6 +2,7 @@
 @inject DocumentsApiClient DocumentsApi
 
 <div class="document-picker">
+    <span class="bi bi-search document-picker-search-icon" aria-hidden="true"></span>
     <input class="document-picker-input"
            type="text"
            value="@displayText"
@@ -12,7 +13,7 @@
            aria-expanded="@(isDropdownOpen ? "true" : "false")"
            aria-autocomplete="list"
            @oninput="OnInputAsync"
-           @onfocus="OnFocus"
+           @onfocus="OnFocusAsync"
            @onblur="OnBlurAsync" />
 
     @if (isDropdownOpen)
@@ -34,8 +35,11 @@
             {
                 @foreach (var document in results)
                 {
-                    <li class="document-picker-option" role="option" @onclick="() => SelectDocument(document)">
-                        @document.Number <span class="document-picker-type">&mdash; @document.DocumentTypeName</span>
+                    <li role="option">
+                        <button class="document-picker-option" type="button" @onclick="() => SelectDocument(document)">
+                            <strong>@document.Number</strong>
+                            <span class="document-picker-type">@document.DocumentTypeName</span>
+                        </button>
                     </li>
                 }
             }

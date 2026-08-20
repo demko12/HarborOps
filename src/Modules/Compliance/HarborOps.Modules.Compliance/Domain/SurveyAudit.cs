@@ -2,6 +2,20 @@ namespace HarborOps.Modules.Compliance.Domain;
 
 public sealed class SurveyAudit
 {
+    public const string TypeAnnualSurvey = "Annual survey";
+    public const string TypeIntermediateSurvey = "Intermediate survey";
+    public const string TypeInternalAudit = "Internal audit";
+    public const string TypeExternalAudit = "External audit";
+    public const string TypeFlagStateInspection = "Flag state inspection";
+    public const string ResultSatisfactory = "Satisfactory";
+    public const string ResultFindingsRaised = "Findings raised";
+    public const string ResultUnsatisfactory = "Unsatisfactory";
+
+    public static IReadOnlyList<string> SupportedTypes { get; } =
+        [TypeAnnualSurvey, TypeIntermediateSurvey, TypeInternalAudit, TypeExternalAudit, TypeFlagStateInspection];
+
+    public static IReadOnlyList<string> SupportedResults { get; } =
+        [ResultSatisfactory, ResultFindingsRaised, ResultUnsatisfactory];
     internal const int TypeMaxLength = 100;
     internal const int InspectorNameMaxLength = 200;
     internal const int ResultMaxLength = 100;

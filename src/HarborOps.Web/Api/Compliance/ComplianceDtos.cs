@@ -4,7 +4,8 @@ internal sealed record ComplianceOverview(
     IReadOnlyList<ComplianceCertificateItem> Certificates,
     IReadOnlyList<PscInspectionItem> PscInspections,
     IReadOnlyList<SurveyAuditItem> SurveyAudits,
-    IReadOnlyList<OpenNonConformityItem> OpenNonConformities);
+    IReadOnlyList<OpenNonConformityItem> OpenNonConformities,
+    IReadOnlyList<InsurancePolicyItem> InsurancePolicies);
 
 internal sealed record ComplianceCertificateItem(Guid Id, Guid VesselId, string CertificateType,
     string CertificateNumber, string IssuingAuthority, DateOnly IssuedOn, DateOnly ExpiresOn);
@@ -35,6 +36,17 @@ internal sealed record RegisterComplianceCertificateResult(Guid Id);
 internal sealed record RegisterPscInspectionResult(int Id);
 
 internal sealed record RegisterNonConformityResult(int Id);
+
+internal sealed record RegisterSurveyAuditRequest(Guid? VesselId, DateOnly? SurveyDate, string? Type, string? InspectorName, string? Result, string? Findings, Guid? DocumentId);
+internal sealed record RegisterSurveyAuditResult(int Id);
+internal sealed record SurveyAuditList(IReadOnlyList<SurveyAuditListItem> Items, int TotalCount, int PageNumber, int PageSize);
+internal sealed record SurveyAuditListItem(int Id, Guid VesselId, DateOnly SurveyDate, string Type, string? InspectorName, string Result, Guid? DocumentId);
+internal sealed record SurveyAuditDetails(int Id, Guid VesselId, DateOnly SurveyDate, string Type, string? InspectorName, string Result, string Findings, Guid? DocumentId);
+
+internal sealed record RegisterInsurancePolicyRequest(Guid? VesselId, string? Insurer, string? PolicyNumber, string? Coverage, DateOnly? ExpiryDate);
+internal sealed record RegisterInsurancePolicyResult(int Id);
+internal sealed record InsurancePolicyItem(int Id, Guid VesselId, string Insurer, string PolicyNumber, string Coverage, DateOnly ExpiryDate, string ExpiryClassification);
+internal sealed record InsurancePoliciesPage(IReadOnlyList<InsurancePolicyItem> Items, int TotalCount, int PageNumber, int PageSize);
 
 internal sealed record ComplianceApiResult<T>(T? Value, ComplianceApiFailure? Failure)
 {

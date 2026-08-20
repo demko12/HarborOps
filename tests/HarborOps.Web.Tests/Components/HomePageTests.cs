@@ -31,6 +31,23 @@ public sealed class HomePageTests : BunitContext
     }
 
     [Fact]
+    public void Home_links_crew_priority_items_to_the_crew_member_profile()
+    {
+        var crewMemberId = "5c376ddd-cac5-4f68-85c0-5d798cf2a2ed";
+        ConfigureClients($$"""
+            {"asOf":"2026-08-17","sections":[{"capability":"crew","title":"Crew","summaryLabel":"Credentials expiring within 30 days","count":1,"link":"/crew","items":[{"title":"Jamie Carter","detail":"Passport expires","dueLabel":"2026-08-20","severity":"warning","link":"/crew/{{crewMemberId}}"}],"isUnavailable":false}],"priorityItems":[{"capability":"crew","capabilityTitle":"Crew","title":"Jamie Carter","detail":"Passport expires","dueLabel":"2026-08-20","severity":"warning","link":"/crew/{{crewMemberId}}"}]}
+            """);
+
+        var page = Render<Home>();
+
+        page.WaitForAssertion(() =>
+        {
+            Assert.Equal(2, page.FindAll($"a[href='/crew/{crewMemberId}']").Count);
+            Assert.Contains("Jamie Carter", page.Markup, StringComparison.Ordinal);
+        });
+    }
+
+    [Fact]
     public void Home_shows_an_empty_state_when_the_session_has_no_module_permissions()
     {
         ConfigureClients("""{"asOf":"2026-08-17","sections":[],"priorityItems":[]}""");
