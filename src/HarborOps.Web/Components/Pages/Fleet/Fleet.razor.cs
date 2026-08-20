@@ -6,7 +6,7 @@ namespace HarborOps.Web.Components.Pages.Fleet;
 
 public partial class Fleet : IDisposable
 {
-    
+
     private readonly CancellationTokenSource disposeCancellation = new();
     private int loadVersion;
     private VesselPageResponse? page;

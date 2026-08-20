@@ -1,6 +1,7 @@
 using System.Security.Claims;
 using HarborOps.Modules.Fleet.Application;
 using HarborOps.Modules.Fleet.Contracts;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 
@@ -16,6 +17,13 @@ public sealed class VesselsController(
     RecordVesselStatusChangeService recordVesselStatusChangeService)
     : ControllerBase
 {
+    // The capability convention reads a single route template and prefers the action's, so an
+    // action that carries its own relative segment never matches the "/api/fleet" prefix and is
+    // left without a capability policy. These routes state their policy explicitly.
+    private const string ReadFleetPolicy = "fleet.read";
+
+    private const string ManageFleetPolicy = "fleet.manage";
+
     [HttpGet]
     [ProducesResponseType<SearchVesselsResponse>(StatusCodes.Status200OK)]
     [ProducesResponseType<HttpValidationProblemDetails>(StatusCodes.Status400BadRequest)]
@@ -124,7 +132,9 @@ public sealed class VesselsController(
     }
 
     [HttpGet("{vesselId:guid}")]
+    [Authorize(ReadFleetPolicy)]
     [ProducesResponseType<VesselDetailsResponse>(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<ActionResult<VesselDetailsResponse>> GetDetails(
         Guid vesselId,
@@ -136,9 +146,11 @@ public sealed class VesselsController(
     }
 
     [HttpPost("{vesselId:guid}/status-changes")]
+    [Authorize(ManageFleetPolicy)]
     [ProducesResponseType<RecordVesselStatusChangeResponse>(StatusCodes.Status201Created)]
     [ProducesResponseType<HttpValidationProblemDetails>(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]
     public async Task<ActionResult<RecordVesselStatusChangeResponse>> RecordStatusChange(

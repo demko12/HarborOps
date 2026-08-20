@@ -100,6 +100,20 @@ public sealed class VesselDetailsEndpointTests : IntegrationTestBase
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
     }
 
+    [Fact]
+    public async Task Get_without_the_read_permission_returns_403()
+    {
+        using var client = await _application.CreateAuthenticatedClientWithPermissionsAsync(Permissions.Crew.Read);
+        var vesselTypeId = await SeedVesselTypeAsync();
+        var vessel = await SeedVesselAsync(vesselTypeId, "North Star", "1234567");
+
+        using var response = await client.GetAsync(
+            $"/api/fleet/vessels/{vessel.Id}",
+            CancellationToken.None);
+
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+    }
+
     private async Task<Guid> SeedVesselTypeAsync()
     {
         await using var scope = _application.Services.CreateAsyncScope();

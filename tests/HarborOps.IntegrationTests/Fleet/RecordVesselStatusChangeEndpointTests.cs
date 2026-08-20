@@ -125,6 +125,28 @@ public sealed class RecordVesselStatusChangeEndpointTests : IntegrationTestBase
         Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
     }
 
+    [Fact]
+    public async Task Post_without_the_manage_permission_returns_403()
+    {
+        using var client = await _application.CreateAuthenticatedClientWithPermissionsAsync(Permissions.Fleet.Read);
+        var vesselTypeId = await SeedVesselTypeAsync();
+        var vessel = await SeedVesselAsync(vesselTypeId, "Active");
+
+        using var response = await client.PostAsJsonAsync(
+            $"/api/fleet/vessels/{vessel.Id}/status-changes",
+            new RecordVesselStatusChangeRequest { Status = "En Route", Notes = "Departed port" },
+            CancellationToken.None);
+
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+
+        await using var scope = _application.Services.CreateAsyncScope();
+        var dbContext = scope.ServiceProvider.GetRequiredService<HarborOpsDbContext>();
+        var persisted = await dbContext.Set<Vessel>().SingleAsync(v => v.Id == vessel.Id);
+
+        Assert.Equal("Active", persisted.CurrentStatus);
+        Assert.Equal(0, await dbContext.Set<VesselStatusHistory>().CountAsync());
+    }
+
     private async Task<Guid> SeedVesselTypeAsync()
     {
         await using var scope = _application.Services.CreateAsyncScope();
