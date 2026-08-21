@@ -28,6 +28,12 @@ public static class MaintenanceModule
         services.AddScoped<GetMaintenanceSchedulesQuery>();
         services.AddScoped<GetMaintenanceScheduleDetailsQuery>();
         services.AddScoped<UpdateScheduleNextDueService>();
+        services.AddScoped<RegisterSupplierService>();
+        services.AddScoped<GetSuppliersQuery>();
+        services.AddScoped<CreatePurchaseOrderService>();
+        services.AddScoped<GetPurchaseOrdersQuery>();
+        services.AddScoped<GetPurchaseOrderDetailsQuery>();
+        services.AddScoped<ChangePurchaseOrderStatusService>();
         services.AddScoped<IVesselMaintenanceOverviewQuery>(serviceProvider =>
             serviceProvider.GetRequiredService<GetVesselMaintenanceOverviewService>());
         services.TryAddSingleton(TimeProvider.System);

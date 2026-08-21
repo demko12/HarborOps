@@ -87,4 +87,16 @@ internal sealed class InventoryItem
         }
         Quantity -= quantityUsed;
     }
+
+    internal void IncreaseStock(decimal quantityReceived)
+    {
+        if (quantityReceived <= 0)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(quantityReceived),
+                "Quantity received must be greater than zero.");
+        }
+
+        Quantity += quantityReceived;
+    }
 }

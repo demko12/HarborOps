@@ -40,11 +40,36 @@ internal sealed class PurchaseOrderLine
         decimal quantityOrdered,
         decimal unitCost)
     {
+        if (quantityOrdered <= 0)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(quantityOrdered),
+                "Ordered quantity must be greater than zero.");
+        }
+
+        if (unitCost < 0)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(unitCost),
+                "Unit cost must not be negative.");
+        }
         return new PurchaseOrderLine(
             Guid.NewGuid(),
             purchaseOrderId,
             partId,
             quantityOrdered,
             unitCost);
+    }
+
+    internal decimal LineTotal()
+    {
+        return QuantityOrdered * UnitCost;
+    }
+
+    internal static decimal OrderTotal(IEnumerable<PurchaseOrderLine> lines)
+    {
+        ArgumentNullException.ThrowIfNull(lines);
+
+        return lines.Sum(line => line.LineTotal());
     }
 }

@@ -46,4 +46,41 @@ internal sealed class PurchaseOrder
             expectedDelivery,
             PurchaseOrderStatus.Draft);
     }
+
+    internal static IReadOnlyList<PurchaseOrderStatus> AllowedTransitions(PurchaseOrderStatus status)
+    {
+        return status switch
+        {
+            PurchaseOrderStatus.Draft =>
+                [PurchaseOrderStatus.Ordered, PurchaseOrderStatus.Cancelled],
+            PurchaseOrderStatus.Ordered =>
+                [PurchaseOrderStatus.Received, PurchaseOrderStatus.Cancelled],
+            _ => [],
+        };
+    }
+
+    internal static bool CanTransition(PurchaseOrderStatus from, PurchaseOrderStatus to)
+    {
+        return AllowedTransitions(from).Contains(to);
+    }
+
+    internal static bool IsOverdue(
+        DateOnly? expectedDelivery,
+        PurchaseOrderStatus status,
+        DateOnly today)
+    {
+        return expectedDelivery is { } dueDate
+            && dueDate < today
+            && status is PurchaseOrderStatus.Draft or PurchaseOrderStatus.Ordered;
+    }
+
+    internal void ChangeStatusTo(PurchaseOrderStatus target)
+    {
+        if (!CanTransition(Status, target))
+        {
+            throw new PurchaseOrderTransitionException(Id, Status, target);
+        }
+
+        Status = target;
+    }
 }
