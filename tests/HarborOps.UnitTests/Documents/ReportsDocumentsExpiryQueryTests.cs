@@ -121,6 +121,58 @@ public sealed class ReportsDocumentsExpiryQueryTests
     }
 
     [Fact]
+    public async Task SearchAsync_filters_by_status_expired_using_the_as_of_date_not_a_literal_status_match()
+    {
+        await using var dbContext = CreateDbContext();
+        var documentTypeId = await SeedDocumentTypeAsync(dbContext);
+        var vesselId = Guid.NewGuid();
+
+        // Overdue by date but the record's own Status was never updated - still counts
+        // as "Expired" for this filter.
+        var overdueButStillActive = await SeedDocumentAsync(
+            dbContext, vesselId, documentTypeId, "OVERDUE-ACTIVE", AsOf.AddDays(-1), status: "Active");
+
+        // Literally has "Expired" in its Status column but is not yet past its expiry
+        // date - must NOT match, since the filter means "past due", not "labeled Expired".
+        await SeedDocumentAsync(
+            dbContext, vesselId, documentTypeId, "LABELED-EXPIRED", AsOf.AddDays(10), status: "Expired");
+
+        var query = new ReportsDocumentsExpiryQuery(dbContext);
+
+        var result = await query.SearchAsync(
+            new ReportsDocumentsExpiryRequest { AsOf = AsOf, Status = "Expired" },
+            CancellationToken.None);
+
+        Assert.Equal(1, result.TotalCount);
+        Assert.Equal(overdueButStillActive.Id, Assert.Single(result.Items).DocumentId);
+    }
+
+    [Fact]
+    public async Task SearchAsync_filters_by_a_real_status_exclude_documents_that_are_already_expired()
+    {
+        await using var dbContext = CreateDbContext();
+        var documentTypeId = await SeedDocumentTypeAsync(dbContext);
+        var vesselId = Guid.NewGuid();
+
+        // Stored as "Active" but past its expiry date - the row would display an
+        // "Expired" badge (see DaysUntilExpiryLabel/IsExpired), so an "Active" filter
+        // must not return it: the filter and the badge it produces must agree.
+        await SeedDocumentAsync(
+            dbContext, vesselId, documentTypeId, "OVERDUE-ACTIVE", AsOf.AddDays(-1), status: "Active");
+        var stillActive = await SeedDocumentAsync(
+            dbContext, vesselId, documentTypeId, "STILL-ACTIVE", AsOf.AddDays(10), status: "Active");
+
+        var query = new ReportsDocumentsExpiryQuery(dbContext);
+
+        var result = await query.SearchAsync(
+            new ReportsDocumentsExpiryRequest { AsOf = AsOf, Status = "Active" },
+            CancellationToken.None);
+
+        Assert.Equal(1, result.TotalCount);
+        Assert.Equal(stillActive.Id, Assert.Single(result.Items).DocumentId);
+    }
+
+    [Fact]
     public async Task SearchAsync_orders_by_expiry_date_then_document_id()
     {
         await using var dbContext = CreateDbContext();
