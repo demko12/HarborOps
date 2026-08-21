@@ -2,7 +2,12 @@ using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text.Json;
+using HarborOps.IntegrationTests.Authentication;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.Routing;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace HarborOps.IntegrationTests.Identity;
 
@@ -17,67 +22,49 @@ public sealed class IdentityEndpointsTests : IntegrationTestBase
     }
 
     [Fact]
-    public async Task Register_with_valid_data_succeeds_and_persists_the_account()
+    public async Task Register_is_unavailable_for_anonymous_and_authenticated_callers_and_does_not_persist_an_account()
     {
         using var client = _application.CreateClient();
         var email = UniqueEmail();
 
-        using var response = await client.PostAsJsonAsync(
+        using var anonymousResponse = await client.PostAsJsonAsync(
+            "/api/identity/register",
+            new { email, password = ValidPassword },
+            CancellationToken.None);
+        using var authenticatedClient = await _application.CreateAuthenticatedClientAsync();
+        using var authenticatedResponse = await authenticatedClient.PostAsJsonAsync(
             "/api/identity/register",
             new { email, password = ValidPassword },
             CancellationToken.None);
 
-        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, anonymousResponse.StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, authenticatedResponse.StatusCode);
 
-        // Confirm the account can actually authenticate afterwards, proving persistence
-        // rather than just a 200 response.
-        using var loginResponse = await client.PostAsJsonAsync(
-            "/api/identity/login",
-            new { email, password = ValidPassword },
-            CancellationToken.None);
-
-        Assert.Equal(HttpStatusCode.OK, loginResponse.StatusCode);
+        await using var scope = _application.Services.CreateAsyncScope();
+        var userManager = scope.ServiceProvider.GetRequiredService<UserManager<IdentityUser<Guid>>>();
+        Assert.Null(await userManager.FindByEmailAsync(email));
     }
 
     [Fact]
-    public async Task Register_with_duplicate_email_fails_safely()
+    public async Task Unsupported_account_recovery_endpoints_are_unavailable()
     {
         using var client = _application.CreateClient();
-        var email = UniqueEmail();
+        var requests = new[]
+        {
+            new HttpRequestMessage(HttpMethod.Get, "/api/identity/confirmEmail"),
+            new HttpRequestMessage(HttpMethod.Post, "/api/identity/resendConfirmationEmail"),
+            new HttpRequestMessage(HttpMethod.Post, "/api/identity/forgotPassword"),
+            new HttpRequestMessage(HttpMethod.Post, "/api/identity/resetPassword"),
+        };
 
-        using var firstResponse = await client.PostAsJsonAsync(
-            "/api/identity/register",
-            new { email, password = ValidPassword },
-            CancellationToken.None);
-        Assert.Equal(HttpStatusCode.OK, firstResponse.StatusCode);
-
-        using var secondResponse = await client.PostAsJsonAsync(
-            "/api/identity/register",
-            new { email, password = ValidPassword },
-            CancellationToken.None);
-
-        Assert.Equal(HttpStatusCode.BadRequest, secondResponse.StatusCode);
-
-        var problem = await secondResponse.Content.ReadFromJsonAsync<HttpValidationProblemDetails>(
-            CancellationToken.None);
-        Assert.NotNull(problem);
-    }
-
-    [Fact]
-    public async Task Register_with_invalid_password_fails_safely()
-    {
-        using var client = _application.CreateClient();
-
-        using var response = await client.PostAsJsonAsync(
-            "/api/identity/register",
-            new { email = UniqueEmail(), password = "weak" },
-            CancellationToken.None);
-
-        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
-
-        var problem = await response.Content.ReadFromJsonAsync<HttpValidationProblemDetails>(
-            CancellationToken.None);
-        Assert.NotNull(problem);
+        foreach (var request in requests)
+        {
+            using (request)
+            using (var response = await client.SendAsync(request, CancellationToken.None))
+            {
+                Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+            }
+        }
     }
 
     [Fact]
@@ -85,7 +72,7 @@ public sealed class IdentityEndpointsTests : IntegrationTestBase
     {
         using var client = _application.CreateClient();
         var email = UniqueEmail();
-        await RegisterAsync(client, email, ValidPassword);
+        await SeedUserAsync(email, ValidPassword);
 
         using var response = await client.PostAsJsonAsync(
             "/api/identity/login",
@@ -107,7 +94,7 @@ public sealed class IdentityEndpointsTests : IntegrationTestBase
     {
         using var client = _application.CreateClient();
         var registeredEmail = UniqueEmail();
-        await RegisterAsync(client, registeredEmail, ValidPassword);
+        await SeedUserAsync(registeredEmail, ValidPassword);
 
         using var wrongPasswordResponse = await client.PostAsJsonAsync(
             "/api/identity/login",
@@ -131,7 +118,7 @@ public sealed class IdentityEndpointsTests : IntegrationTestBase
     {
         using var client = _application.CreateClient();
         var email = UniqueEmail();
-        await RegisterAsync(client, email, ValidPassword);
+        await SeedUserAsync(email, ValidPassword);
 
         using var loginResponse = await client.PostAsJsonAsync(
             "/api/identity/login",
@@ -156,7 +143,7 @@ public sealed class IdentityEndpointsTests : IntegrationTestBase
     {
         using var client = _application.CreateClient();
         var email = UniqueEmail();
-        await RegisterAsync(client, email, ValidPassword);
+        await SeedUserAsync(email, ValidPassword);
 
         using var loginResponse = await client.PostAsJsonAsync(
             "/api/identity/login",
@@ -183,19 +170,30 @@ public sealed class IdentityEndpointsTests : IntegrationTestBase
         Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
     }
 
+    [Fact]
+    public void Only_login_and_refresh_identity_endpoints_are_marked_anonymous()
+    {
+        using var client = _application.CreateClient();
+        var anonymousIdentityEndpoints = _application.Services
+            .GetServices<EndpointDataSource>()
+            .SelectMany(source => source.Endpoints)
+            .OfType<RouteEndpoint>()
+            .Where(endpoint => endpoint.DisplayName?.Contains("/api/identity/", StringComparison.OrdinalIgnoreCase) == true)
+            .Where(endpoint => endpoint.Metadata.OfType<IAllowAnonymous>().Any())
+            .Select(endpoint => endpoint.DisplayName!)
+            .ToArray();
+
+        Assert.Equal(2, anonymousIdentityEndpoints.Length);
+        Assert.Contains(anonymousIdentityEndpoints, endpoint => endpoint.EndsWith("/api/identity/login", StringComparison.Ordinal));
+        Assert.Contains(anonymousIdentityEndpoints, endpoint => endpoint.EndsWith("/api/identity/refresh", StringComparison.Ordinal));
+    }
+
     private const string ValidPassword = "P@ssw0rd!2026";
 
     private static string UniqueEmail() => $"master.mariner.{Guid.NewGuid():N}@harborops.test";
 
-    private static async Task RegisterAsync(HttpClient client, string email, string password)
-    {
-        using var response = await client.PostAsJsonAsync(
-            "/api/identity/register",
-            new { email, password },
-            CancellationToken.None);
-
-        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-    }
+    private Task SeedUserAsync(string email, string password) =>
+        _application.CreateTestUserAsync(email, password);
 
     private static async Task<HttpResponseMessage> GetMeAsync(HttpClient client, string accessToken)
     {
