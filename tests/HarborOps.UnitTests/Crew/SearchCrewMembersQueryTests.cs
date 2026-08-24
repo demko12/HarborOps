@@ -34,7 +34,7 @@ public sealed class SearchCrewMembersQueryTests
     }
 
     [Fact]
-    public async Task Search_orders_by_name_then_id()
+    public async Task Search_orders_by_passport_expiry_then_name_and_id()
     {
         await using var dbContext = CreateDbContext();
         var rankId = await SeedCrewPositionAsync(dbContext, "Able Seafarer");
@@ -56,6 +56,20 @@ public sealed class SearchCrewMembersQueryTests
         Assert.Equal(expectedMarkoIds[0], response.Items[0].CrewMemberId);
         Assert.Equal(expectedMarkoIds[1], response.Items[1].CrewMemberId);
         Assert.Equal("Nikola Jovanovic", response.Items[2].Name);
+    }
+
+    [Fact]
+    public async Task Search_prioritizes_the_earliest_passport_expiry()
+    {
+        await using var dbContext = CreateDbContext();
+        var rankId = await SeedCrewPositionAsync(dbContext, "Able Seafarer");
+        await SeedCrewMemberAsync(dbContext, rankId, "Zoran Later", "IMO00001", passportExpiry: new DateOnly(2030, 1, 1));
+        await SeedCrewMemberAsync(dbContext, rankId, "Ana Expiring", "IMO00002", passportExpiry: new DateOnly(2026, 9, 1));
+        await SeedCrewMemberAsync(dbContext, rankId, "Marko Soon", "IMO00003", passportExpiry: new DateOnly(2027, 1, 1));
+
+        var response = await new SearchCrewMembersQuery(dbContext).SearchAsync(new SearchCrewMembersRequest(), CancellationToken.None);
+
+        Assert.Equal(["Ana Expiring", "Marko Soon", "Zoran Later"], response.Items.Select(item => item.Name));
     }
 
     [Fact]
