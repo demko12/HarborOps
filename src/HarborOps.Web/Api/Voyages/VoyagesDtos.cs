@@ -53,3 +53,21 @@ internal sealed record VoyagesApiFailure(
 
     internal bool IsConflict => StatusCode == StatusCodes.Status409Conflict;
 }
+
+internal sealed record PortPage(
+    IReadOnlyList<PortListItemModel> Items,
+    int PageNumber,
+    int PageSize,
+    int TotalCount);
+
+internal sealed record PortListItemModel(
+    Guid PortId,
+    string Name,
+    string? City,
+    string Country,
+    string? UnLocode,
+    string? ShipyardName);
+
+internal sealed record PortLookupItemModel(Guid Id, string Name, string Country);
+
+internal sealed record PortLookupPayload(IReadOnlyList<PortLookupItemModel> Ports);

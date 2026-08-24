@@ -1706,3 +1706,234 @@ html[data-theme="light"] .maintenance-page ::deep .maintenance-toast {
     color: #f87171;
     font-weight: 700;
 }
+
+/* ---------- Pieces the child panels render ----------
+   Equipment, preventive schedules, and dry docks live in child components, so
+   their markup carries a different scope id than this page. Every rule below is
+   therefore written with ::deep, which still reaches this component's own markup
+   because each of those elements sits inside .maintenance-page. */
+
+.maintenance-page ::deep .maintenance-card-icon {
+    display: grid;
+    flex: 0 0 auto;
+    width: 2rem;
+    height: 2rem;
+    place-items: center;
+    color: var(--accent);
+    border: 1px solid var(--accent-border);
+    border-radius: .65rem;
+    background: var(--accent-bg);
+    font-size: .9rem;
+}
+
+.maintenance-page ::deep .maintenance-page-indicator {
+    color: var(--text-secondary);
+    font-variant-numeric: tabular-nums;
+}
+
+.maintenance-page ::deep .maintenance-priority,
+.maintenance-page ::deep .maintenance-status,
+.maintenance-page ::deep .maintenance-overdue-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: .25rem;
+    padding: .18rem .65rem;
+    border: 1px solid color-mix(in srgb, currentColor 28%, transparent);
+    border-radius: 999px;
+    font-size: .76rem;
+    font-weight: 550;
+    white-space: nowrap;
+}
+
+.maintenance-page ::deep .visually-hidden {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    margin: -1px;
+    padding: 0;
+    overflow: hidden;
+    border: 0;
+    clip-path: inset(50%);
+    white-space: nowrap;
+}
+
+/* A filter expressed as a checkbox still has to line up with the inputs beside
+   it, so it borrows their height and surface instead of floating bare. */
+
+.maintenance-page ::deep .filter-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: .5rem;
+    height: 2.8rem;
+    padding: 0 .95rem;
+    color: var(--text-secondary);
+    border: 1px solid var(--border-medium);
+    border-radius: .65rem;
+    background-color: var(--control-surface);
+    font-size: .84rem;
+    white-space: nowrap;
+    cursor: pointer;
+    transition: border-color .16s ease, color .16s ease, background-color .16s ease;
+}
+
+.maintenance-page ::deep .filter-toggle:hover {
+    color: var(--text-primary);
+    border-color: var(--border-strong-hover);
+}
+
+.maintenance-page ::deep .filter-toggle:has(input:checked) {
+    color: var(--accent);
+    border-color: var(--accent-border);
+    background-color: var(--accent-bg);
+}
+
+.maintenance-page ::deep .filter-toggle input[type="checkbox"] {
+    width: 1rem;
+    height: 1rem;
+    margin: 0;
+    accent-color: var(--accent);
+    cursor: pointer;
+}
+
+/* ---------- Dry docks ---------- */
+
+.maintenance-page ::deep .maintenance-status.pending {
+    color: #94a3b8;
+    background: rgba(148, 163, 184, .14);
+}
+
+.maintenance-page ::deep .maintenance-status.active {
+    color: #fbbf24;
+    background: rgba(251, 191, 36, .14);
+}
+
+.maintenance-page ::deep .maintenance-status.done {
+    color: #5eead4;
+    background: rgba(45, 212, 191, .14);
+}
+
+.maintenance-page ::deep .maintenance-status.cancelled {
+    color: #f87171;
+    background: rgba(248, 113, 113, .14);
+}
+
+html[data-theme="light"] .maintenance-page ::deep .maintenance-status.pending {
+    color: #475569;
+    background: rgba(71, 85, 105, .12);
+}
+
+html[data-theme="light"] .maintenance-page ::deep .maintenance-status.active {
+    color: #b45309;
+    background: rgba(180, 83, 9, .12);
+}
+
+html[data-theme="light"] .maintenance-page ::deep .maintenance-status.done {
+    color: #0f766e;
+    background: rgba(15, 118, 110, .12);
+}
+
+html[data-theme="light"] .maintenance-page ::deep .maintenance-status.cancelled {
+    color: #b91c1c;
+    background: rgba(185, 28, 28, .1);
+}
+
+.maintenance-page ::deep .dry-dock-table .maintenance-status {
+    min-width: 6.4rem;
+}
+
+.maintenance-page ::deep .dry-dock-link {
+    color: var(--text-primary);
+    font-weight: 600;
+    text-decoration: none;
+}
+
+.maintenance-page ::deep .dry-dock-link:hover,
+.maintenance-page ::deep .dry-dock-link:focus-visible {
+    color: var(--accent);
+    text-decoration: underline;
+}
+
+.maintenance-page ::deep .dry-dock-port {
+    color: var(--text-secondary);
+}
+
+/* The start cell carries the date on top and how it reads against today below. */
+
+.maintenance-page ::deep .dry-dock-timing {
+    display: block;
+    margin-top: .2rem;
+    font-size: .74rem;
+}
+
+.maintenance-page ::deep .dry-dock-timing.overdue {
+    color: #f87171;
+    font-weight: 600;
+}
+
+.maintenance-page ::deep .dry-dock-timing.scheduled {
+    color: var(--text-muted);
+}
+
+html[data-theme="light"] .maintenance-page ::deep .dry-dock-timing.overdue {
+    color: #b91c1c;
+}
+
+.maintenance-page ::deep .dry-dock-tasks {
+    max-width: 22rem;
+    overflow: hidden;
+    color: var(--text-secondary);
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.maintenance-page ::deep .dry-dock-cost {
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+}
+
+/* The header cell has to follow the figures it labels, and the shared
+   .maintenance-table th rule would otherwise keep it left. */
+
+.maintenance-page ::deep .maintenance-table th.dry-dock-cost {
+    text-align: right;
+}
+
+.maintenance-page ::deep .dry-dock-form-card {
+    width: min(100%, 42rem);
+}
+
+/* The panels render their dialogs outside this component, so the multi-line
+   field needs its own reach; inputs and selects there are already covered by the
+   .filter-field rules above. */
+
+.maintenance-page ::deep .maintenance-form-grid textarea {
+    width: 100%;
+    min-height: 7rem;
+    padding: .7rem .85rem;
+    color: var(--text-primary);
+    border: 1px solid var(--border-medium);
+    border-radius: .65rem;
+    background: var(--control-surface);
+    font: inherit;
+    font-size: .88rem;
+    resize: vertical;
+    transition: border-color .16s ease, box-shadow .16s ease;
+}
+
+.maintenance-page ::deep .maintenance-form-grid textarea:hover {
+    border-color: var(--border-strong-hover);
+}
+
+.maintenance-page ::deep .maintenance-form-grid textarea:focus {
+    border-color: var(--accent);
+    outline: 0;
+    box-shadow: 0 0 0 .22rem var(--accent-bg);
+}
+
+/* Vessel, port, and the task list each read better across the whole dialog than
+   squeezed into one column beside a date. */
+
+.maintenance-page ::deep .dry-dock-form .filter-field-wide {
+    grid-column: 1 / -1;
+}

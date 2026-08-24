@@ -1,0 +1,56 @@
+@using HarborOps.Web.Api.Voyages
+@implements IDisposable
+@inject VoyagesApiClient VoyagesApi
+
+<div class="port-picker">
+    <span class="bi bi-search port-picker-search-icon" aria-hidden="true"></span>
+    <input class="port-picker-input"
+           id="@InputId"
+           type="text"
+           value="@displayText"
+           placeholder="@(Placeholder ?? DefaultPlaceholder)"
+           disabled="@Disabled"
+           autocomplete="off"
+           role="combobox"
+           aria-expanded="@(isDropdownOpen ? "true" : "false")"
+           aria-autocomplete="list"
+           @oninput="OnInputAsync"
+           @onfocus="OnFocusAsync"
+           @onblur="OnBlurAsync" />
+
+    @if (isDropdownOpen)
+    {
+        <ul class="port-picker-dropdown" role="listbox">
+            @if (isSearching)
+            {
+                <li class="port-picker-status">Searching...</li>
+            }
+            else if (searchFailed)
+            {
+                <li class="port-picker-status port-picker-error">Unable to search ports right now</li>
+            }
+            else if (results.Count == 0)
+            {
+                <li class="port-picker-status">No ports found</li>
+            }
+            else
+            {
+                @foreach (var port in results)
+                {
+                    <li role="option">
+                        <button class="port-picker-option" type="button" @onclick="() => SelectPortAsync(port)">
+                            <strong>@port.Name</strong>
+                            <span class="port-picker-detail">
+                                @PortLocation(port)
+                                @if (!string.IsNullOrWhiteSpace(port.ShipyardName))
+                                {
+                                    <span class="port-picker-shipyard">@port.ShipyardName</span>
+                                }
+                            </span>
+                        </button>
+                    </li>
+                }
+            }
+        </ul>
+    }
+</div>

@@ -5,7 +5,9 @@ using Bunit;
 using HarborOps.Web.Api;
 using HarborOps.Web.Api.Fleet;
 using HarborOps.Web.Api.Maintenance;
+using HarborOps.Web.Api.Voyages;
 using HarborOps.Web.Components.Pages.Maintenance;
+using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -53,7 +55,25 @@ public sealed class MaintenanceWorkspaceTabsTests : BunitContext
         });
     }
 
-    private IRenderedComponent<Maintenance> RenderWorkspace()
+    [Fact]
+    public void The_tab_in_the_address_opens_the_dry_dock_board()
+    {
+        var page = RenderWorkspace("/maintenance?tab=dry-docks&status=Planned");
+
+        Assert.NotNull(page.Find(".dry-dock-panel"));
+        Assert.Empty(page.FindAll(".maintenance-tabpanel"));
+    }
+
+    [Fact]
+    public void An_unknown_tab_in_the_address_falls_back_to_the_work_orders()
+    {
+        var page = RenderWorkspace("/maintenance?tab=nonsense");
+
+        Assert.NotNull(page.Find(".maintenance-tabpanel"));
+        Assert.Empty(page.FindAll(".dry-dock-panel"));
+    }
+
+    private IRenderedComponent<Maintenance> RenderWorkspace(string? workspaceUrl = null)
     {
         var maintenanceHttpClient = new HttpClient(new StubHttpMessageHandler(request =>
             request.RequestUri!.AbsolutePath switch
@@ -74,9 +94,24 @@ public sealed class MaintenanceWorkspaceTabsTests : BunitContext
             BaseAddress = new Uri("https://api.harborops.test/"),
         };
 
+        var voyagesHttpClient = new HttpClient(new StubHttpMessageHandler(
+            request => IsVesselLookup(request)
+                ? Json(HttpStatusCode.OK, """{"ports":[]}""")
+                : Json(HttpStatusCode.OK, EmptyPage())))
+        {
+            BaseAddress = new Uri("https://api.harborops.test/"),
+        };
+
         Services.AddSingleton(new MaintenanceApiClient(maintenanceHttpClient));
         Services.AddSingleton(new FleetApiClient(fleetHttpClient));
+        Services.AddSingleton(new VoyagesApiClient(voyagesHttpClient));
         Services.AddSingleton(CreateAuthorizationState());
+
+        if (workspaceUrl is not null)
+        {
+            // A query string can only reach the workspace through the address bar.
+            Services.GetRequiredService<NavigationManager>().NavigateTo(workspaceUrl);
+        }
 
         return Render<Maintenance>();
     }

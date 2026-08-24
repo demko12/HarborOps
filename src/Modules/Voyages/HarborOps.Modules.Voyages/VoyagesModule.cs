@@ -19,6 +19,8 @@ public static class VoyagesModule
         services.AddScoped<RecordVoyageDepartureService>();
         services.AddScoped<RecordVoyageArrivalService>();
         services.AddScoped<IGetVoyagesQuery, GetVoyagesQuery>();
+        services.AddScoped<SearchPortsQuery>();
+        services.AddScoped<PortLookupService>();
         services.AddScoped<IOperationsDashboardVoyagesQuery, OperationsDashboardVoyagesQuery>();
         services.AddControllers()
             .AddApplicationPart(Assembly);

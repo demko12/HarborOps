@@ -1,5 +1,6 @@
 using HarborOps.Web.Api.Fleet;
 using HarborOps.Web.Api.Maintenance;
+using Microsoft.AspNetCore.WebUtilities;
 
 namespace HarborOps.Web.Components.Pages.Maintenance;
 
@@ -72,7 +73,27 @@ public partial class Maintenance
 
     protected override Task OnInitializedAsync()
     {
+        RestoreTabFromQuery();
+
         return LoadAsync();
+    }
+
+    private void RestoreTabFromQuery()
+    {
+        var query = QueryHelpers.ParseQuery(new Uri(Navigation.Uri).Query);
+
+        if (!query.TryGetValue("tab", out var tabValues))
+        {
+            return;
+        }
+
+        activeTab = tabValues.ToString() switch
+        {
+            "dry-docks" => MaintenanceTab.DryDocks,
+            "equipment" => MaintenanceTab.Equipment,
+            "schedules" => MaintenanceTab.PreventiveSchedules,
+            _ => MaintenanceTab.WorkOrders,
+        };
     }
 
     private Task ApplyFiltersAsync()

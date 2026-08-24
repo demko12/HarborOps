@@ -1,0 +1,292 @@
+@page "/maintenance/dry-docks/{DryDockId:guid}"
+@attribute [Microsoft.AspNetCore.Authorization.Authorize(Policy = "AccessMaintenance")]
+@using HarborOps.Web.Api.Fleet
+@using HarborOps.Web.Api.Maintenance
+@using HarborOps.Web.Api.Voyages
+@implements IDisposable
+@inject MaintenanceApiClient MaintenanceApi
+@inject FleetApiClient VesselLookupApi
+@inject VoyagesApiClient VoyagesApi
+@inject CurrentUserAuthorizationState AuthorizationState
+
+<PageTitle>@PageHeading | HarborOps</PageTitle>
+
+<section class="dry-dock-details-page">
+    <header class="dry-dock-details-header">
+        <div>
+            <a class="dry-dock-details-back" href="@BackHref">
+                <span class="bi bi-arrow-left" aria-hidden="true"></span>
+                Back to maintenance
+            </a>
+            <p class="dry-dock-details-eyebrow">Maintenance operations</p>
+            <h1>@PageHeading</h1>
+            @if (details is not null)
+            {
+                <p class="dry-dock-details-port" title="@details.PortId">@PortDisplayName</p>
+            }
+        </div>
+        @if (details is not null)
+        {
+            <div class="dry-dock-details-state">
+                <span class="dry-dock-status @MaintenanceFormat.DryDockStatusModifier(details.Status)">
+                    @MaintenanceFormat.DryDockStatusLabel(details.Status)
+                </span>
+                <span class="dry-dock-track @MaintenanceFormat.DryDockStatusModifier(details.Status)"
+                      role="img"
+                      aria-label="@LifecycleLabel">
+                    @for (var step = 1; step <= MaintenanceFormat.DryDockLifecycleStepCount; step++)
+                    {
+                        <i class="@(step <= LifecycleStep ? "on" : null)"></i>
+                    }
+                </span>
+            </div>
+        }
+    </header>
+
+    @if (isLoading)
+    {
+        <LoadingState Message="Loading the dry dock..." />
+    }
+    else if (failure is { IsNotFound: true })
+    {
+        <EmptyState Title="Dry dock not found"
+                    Message="This dry dock is no longer recorded. Return to the workspace to pick another one." />
+    }
+    else if (failure is { IsForbidden: true })
+    {
+        <EmptyState Title="You cannot view this dry dock"
+                    Message="Your account does not carry a maintenance permission. Ask an administrator for access." />
+    }
+    else if (failure is not null)
+    {
+        <ApiErrorState Title="@failure.Title" Message="@failure.Message" OnRetry="RetryAsync" />
+    }
+    else if (details is not null)
+    {
+        <section class="dry-dock-summary" aria-label="Dry dock summary">
+            <article class="dry-dock-kpi">
+                <div>
+                    <p class="dry-dock-kpi-label">Start date</p>
+                    <p class="dry-dock-kpi-value">@MaintenanceFormat.StartDate(details.StartDate)</p>
+                    <p class="dry-dock-kpi-note @MaintenanceFormat.DueStateModifier(details.IsOverdue, details.DaysUntilStart)">
+                        @MaintenanceFormat.DryDockTiming(details.Status, details.IsOverdue, details.DaysUntilStart)
+                    </p>
+                </div>
+                <span class="dry-dock-kpi-icon kpi-icon-start" aria-hidden="true"><span class="bi bi-calendar-event"></span></span>
+            </article>
+            <article class="dry-dock-kpi">
+                <div>
+                    <p class="dry-dock-kpi-label">End date</p>
+                    <p class="dry-dock-kpi-value">@MaintenanceFormat.EndDate(details.EndDate)</p>
+                    <p class="dry-dock-kpi-note">Recorded when the work is completed</p>
+                </div>
+                <span class="dry-dock-kpi-icon kpi-icon-end" aria-hidden="true"><span class="bi bi-calendar-check"></span></span>
+            </article>
+            <article class="dry-dock-kpi">
+                <div>
+                    <p class="dry-dock-kpi-label">Actual cost</p>
+                    <p class="dry-dock-kpi-value dry-dock-details-cost">@MaintenanceFormat.ActualCost(details.ActualCost)</p>
+                    <p class="dry-dock-kpi-note">Captured at completion</p>
+                </div>
+                <span class="dry-dock-kpi-icon kpi-icon-cost" aria-hidden="true"><span class="bi bi-cash-coin"></span></span>
+            </article>
+        </section>
+
+        <div class="dry-dock-details-grid">
+            <section class="dry-dock-card" aria-labelledby="dry-dock-work-title">
+                <div class="dry-dock-card-heading">
+                    <div>
+                        <h2 id="dry-dock-work-title">Planned tasks</h2>
+                        <p>What this dry dock was scheduled to cover</p>
+                    </div>
+                    <span class="dry-dock-card-icon" aria-hidden="true"><span class="bi bi-list-check"></span></span>
+                </div>
+
+                <p class="dry-dock-details-tasks">@details.PlannedTasks</p>
+            </section>
+
+            <section class="dry-dock-card" aria-labelledby="dry-dock-record-title">
+                <div class="dry-dock-card-heading">
+                    <div>
+                        <h2 id="dry-dock-record-title">Record</h2>
+                        <p>The vessel and yard this work belongs to</p>
+                    </div>
+                    <span class="dry-dock-card-icon" aria-hidden="true"><span class="bi bi-info-circle"></span></span>
+                </div>
+
+                <dl class="dry-dock-details-facts">
+                    <div>
+                        <dt>Vessel</dt>
+                        <dd title="@details.VesselId">@VesselDisplayName</dd>
+                    </div>
+                    <div>
+                        <dt>Port</dt>
+                        <dd title="@details.PortId">@PortDisplayName</dd>
+                    </div>
+                </dl>
+            </section>
+        </div>
+
+        <section class="dry-dock-card" aria-labelledby="dry-dock-actions-title">
+            <div class="dry-dock-card-heading">
+                <div>
+                    <h2 id="dry-dock-actions-title">Status actions</h2>
+                    <p>@StateSummary</p>
+                </div>
+                <span class="dry-dock-card-icon" aria-hidden="true"><span class="bi bi-signpost-split-fill"></span></span>
+            </div>
+
+            @if (actionFailure is { IsValidation: true })
+            {
+                <div class="dry-dock-details-field-errors" role="alert">
+                    <strong>Please correct the following before saving</strong>
+                    <ul>
+                        @foreach (var entry in actionFailure.Errors)
+                        {
+                            @foreach (var message in entry.Value)
+                            {
+                                <li>
+                                    <span class="dry-dock-error-field">@MaintenanceFormat.FieldLabel(entry.Key)</span>
+                                    <span>@message</span>
+                                </li>
+                            }
+                        }
+                    </ul>
+                </div>
+            }
+            @if (actionFailure is { IsValidation: false })
+            {
+                <div class="dry-dock-details-error" role="alert">@actionFailure.Message</div>
+            }
+
+            @if (!CanManage)
+            {
+                <p class="dry-dock-details-note dry-dock-details-readonly">
+                    Your account can view this dry dock but not change its status.
+                    Ask an administrator for the maintenance management permission.
+                </p>
+            }
+            else if (details.AllowedNextStatuses.Count == 0)
+            {
+                <p class="dry-dock-details-note dry-dock-details-closed">@ClosedSummary</p>
+            }
+            else
+            {
+                <div class="dry-dock-details-actions">
+                    @if (CanStart)
+                    {
+                        <div class="dry-dock-action">
+                            <button type="button"
+                                    class="dry-dock-button dry-dock-start"
+                                    disabled="@isActing"
+                                    @onclick="() => AskToConfirm(StartStatus)">Start dry dock</button>
+                            <p class="dry-dock-action-note">
+                                Records the vessel as under work.
+                                <strong>Once started, the dry dock can only be completed &mdash; it can no longer be canceled.</strong>
+                            </p>
+                        </div>
+                    }
+                    @if (CanComplete)
+                    {
+                        <div class="dry-dock-action">
+                            <button type="button"
+                                    class="dry-dock-button dry-dock-complete"
+                                    disabled="@isActing"
+                                    @onclick="OpenCompleteForm">Complete dry dock</button>
+                            <p class="dry-dock-action-note">
+                                Asks for the end date and the actual cost, then closes the record.
+                            </p>
+                        </div>
+                    }
+                    @if (CanCancel)
+                    {
+                        <div class="dry-dock-action">
+                            <button type="button"
+                                    class="dry-dock-quiet-button dry-dock-cancel"
+                                    disabled="@isActing"
+                                    @onclick="() => AskToConfirm(CancelStatus)">Cancel dry dock</button>
+                            <p class="dry-dock-action-note">
+                                No work will be done. The plan is kept for history.
+                            </p>
+                        </div>
+                    }
+                </div>
+            }
+        </section>
+
+        @if (pendingAction is { } action)
+        {
+            <div class="dry-dock-modal-backdrop" @onclick="DismissConfirmation">
+                <section class="dry-dock-modal dry-dock-modal-narrow dry-dock-confirm-card"
+                         role="alertdialog"
+                         aria-modal="true"
+                         aria-labelledby="dry-dock-confirm-title"
+                         @onclick:stopPropagation="true">
+                    <div class="dry-dock-modal-header">
+                        <h2 id="dry-dock-confirm-title">Confirm</h2>
+                        <button type="button"
+                                class="dry-dock-modal-close"
+                                aria-label="Close confirmation dialog"
+                                disabled="@isActing"
+                                @onclick="DismissConfirmation">&times;</button>
+                    </div>
+                    <p class="dry-dock-confirm-question">@ConfirmationQuestion(action)</p>
+                    <div class="dry-dock-form-actions">
+                        <button type="button"
+                                class="dry-dock-button dry-dock-confirm"
+                                disabled="@isActing"
+                                @onclick="ConfirmPendingActionAsync">
+                            @(isActing ? "Working..." : "Yes, continue")
+                        </button>
+                        <button type="button"
+                                class="dry-dock-quiet-button dry-dock-confirm-dismiss"
+                                @onclick="DismissConfirmation">Keep as is</button>
+                    </div>
+                </section>
+            </div>
+        }
+
+        @if (isCompleteFormOpen)
+        {
+            <div class="dry-dock-modal-backdrop" @onclick="CloseCompleteForm">
+                <section class="dry-dock-modal"
+                         role="dialog"
+                         aria-modal="true"
+                         aria-labelledby="dry-dock-complete-title"
+                         @onclick:stopPropagation="true">
+                    <div class="dry-dock-modal-header">
+                        <h2 id="dry-dock-complete-title">Complete dry dock</h2>
+                        <button type="button"
+                                class="dry-dock-modal-close"
+                                aria-label="Close complete dry dock dialog"
+                                disabled="@isActing"
+                                @onclick="CloseCompleteForm">&times;</button>
+                    </div>
+                    <form class="dry-dock-form dry-dock-complete-form" @onsubmit="SubmitCompletionAsync" @onsubmit:preventDefault="true">
+                        <p class="dry-dock-modal-note">
+                            Closing out @VesselDisplayName at @PortDisplayName. Both values are stored on the record.
+                        </p>
+
+                        <div class="dry-dock-form-grid">
+                            <div class="dry-dock-field">
+                                <label for="dry-dock-end-date">End date <span class="dry-dock-required" aria-hidden="true">*</span></label>
+                                <input id="dry-dock-end-date" type="date" @bind="completeModel.EndDate" />
+                            </div>
+                            <div class="dry-dock-field">
+                                <label for="dry-dock-actual-cost">Actual cost <span class="dry-dock-required" aria-hidden="true">*</span></label>
+                                <input id="dry-dock-actual-cost" type="number" step="0.01" min="0" @bind="completeModel.ActualCost" />
+                            </div>
+                        </div>
+
+                        <div class="dry-dock-form-actions">
+                            <button type="submit" class="dry-dock-button" disabled="@isActing">
+                                @(isActing ? "Completing..." : "Complete dry dock")
+                            </button>
+                            <button type="button" class="dry-dock-quiet-button" @onclick="CloseCompleteForm">Cancel</button>
+                        </div>
+                    </form>
+                </section>
+            </div>
+        }
+    }
+</section>

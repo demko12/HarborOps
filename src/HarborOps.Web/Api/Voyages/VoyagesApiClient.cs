@@ -144,4 +144,98 @@ internal sealed class VoyagesApiClient(HttpClient httpClient)
                 NoErrors));
         }
     }
+
+    private const string PortsPath = "api/voyages/ports";
+
+    internal async Task<VoyagesApiResult<PortPage>> SearchPortsAsync(
+        string? search,
+        bool shipyardsOnly,
+        int pageNumber,
+        int pageSize,
+        CancellationToken cancellationToken)
+    {
+        var path = string.Create(
+            CultureInfo.InvariantCulture,
+            $"{PortsPath}?search={Uri.EscapeDataString(search ?? string.Empty)}&shipyardsOnly={(shipyardsOnly ? "true" : "false")}&pageNumber={pageNumber}&pageSize={pageSize}");
+
+        try
+        {
+            using var response = await httpClient.GetAsync(
+                path,
+                HttpCompletionOption.ResponseHeadersRead,
+                cancellationToken);
+
+            if (response.IsSuccessStatusCode)
+            {
+                var page = await response.Content.ReadFromJsonAsync<PortPage>(cancellationToken);
+
+                return new VoyagesApiResult<PortPage>(page, null);
+            }
+
+            ApiProblemDetails? problem = null;
+            try
+            {
+                problem = await response.Content.ReadFromJsonAsync<ApiProblemDetails>(cancellationToken);
+            }
+            catch (JsonException)
+            {
+            }
+
+            return new VoyagesApiResult<PortPage>(null, new VoyagesApiFailure(
+                (int)response.StatusCode,
+                problem?.Title ?? "Unable to load ports",
+                problem?.Detail ?? "Please review the values and try again.",
+                problem?.Errors ?? NoErrors));
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (HttpRequestException)
+        {
+            return new VoyagesApiResult<PortPage>(null, new VoyagesApiFailure(
+                0,
+                "HarborOps API is unavailable",
+                "The port directory could not be reached.",
+                NoErrors));
+        }
+    }
+
+    internal async Task<IReadOnlyDictionary<Guid, string>> LookupPortNamesAsync(
+        IReadOnlyCollection<Guid> portIds,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(portIds);
+
+        if (portIds.Count == 0)
+        {
+            return new Dictionary<Guid, string>();
+        }
+
+        try
+        {
+            using var response = await httpClient.PostAsJsonAsync(
+                $"{PortsPath}/lookup",
+                new { portIds },
+                cancellationToken);
+
+            if (!response.IsSuccessStatusCode)
+            {
+                return new Dictionary<Guid, string>();
+            }
+
+            var payload = await response.Content.ReadFromJsonAsync<PortLookupPayload>(cancellationToken);
+
+            return payload?.Ports.ToDictionary(port => port.Id, port => port.Name)
+                ?? new Dictionary<Guid, string>();
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (HttpRequestException)
+        {
+            return new Dictionary<Guid, string>();
+        }
+    }
 }

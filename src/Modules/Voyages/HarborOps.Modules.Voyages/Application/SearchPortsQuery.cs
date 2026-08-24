@@ -1,0 +1,58 @@
+using HarborOps.Modules.Voyages.Contracts;
+using HarborOps.Modules.Voyages.Domain;
+using Microsoft.EntityFrameworkCore;
+
+namespace HarborOps.Modules.Voyages.Application;
+
+public sealed class SearchPortsQuery(DbContext dbContext)
+{
+    public async Task<SearchPortsResponse> SearchAsync(
+        SearchPortsRequest request,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+
+        var errors = SearchPortsValidator.Validate(request);
+        if (errors.Count > 0)
+        {
+            throw new SearchPortsValidationException(errors);
+        }
+
+        var pageNumber = request.PageNumber ?? SearchPortsValidator.DefaultPageNumber;
+        var pageSize = request.PageSize ?? SearchPortsValidator.DefaultPageSize;
+
+        var ports = dbContext.Set<Port>().AsNoTracking();
+
+        if (!string.IsNullOrWhiteSpace(request.Search))
+        {
+            var search = request.Search.Trim();
+            ports = ports.Where(port =>
+                port.Name.Contains(search)
+                || (port.City != null && port.City.Contains(search))
+                || (port.UnLocode != null && port.UnLocode.Contains(search)));
+        }
+
+        if (request.ShipyardsOnly == true)
+        {
+            ports = ports.Where(port => port.ShipyardName != null);
+        }
+
+        var totalCount = await ports.CountAsync(cancellationToken);
+
+        var items = await ports
+            .OrderBy(port => port.Name)
+            .ThenBy(port => port.Id)
+            .Skip((pageNumber - 1) * pageSize)
+            .Take(pageSize)
+            .Select(port => new PortListItem(
+                port.Id,
+                port.Name,
+                port.City,
+                port.Country,
+                port.UnLocode,
+                port.ShipyardName))
+            .ToListAsync(cancellationToken);
+
+        return new SearchPortsResponse(items, pageNumber, pageSize, totalCount);
+    }
+}

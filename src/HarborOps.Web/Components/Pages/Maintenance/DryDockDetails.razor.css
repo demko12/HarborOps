@@ -1,0 +1,650 @@
+/* The dry dock record is its own page, so it cannot borrow the maintenance
+   workspace stylesheet. It repeats that workspace's shell — page width, header,
+   KPI row, cards — so a planner moving from the board to a record stays in the
+   same visual language. */
+
+.dry-dock-details-page {
+    --card-shadow: 0 18px 40px rgba(0, 0, 0, .38), inset 0 1px 0 rgba(255, 255, 255, .045);
+    --control-surface: #131c2b;
+    --border-strong-hover: rgba(255, 255, 255, .22);
+    --button-surface: #1e2a3d;
+    --button-surface-hover: #26354b;
+    --button-border: rgba(255, 255, 255, .14);
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 2.5rem 2rem;
+}
+
+html[data-theme="light"] .dry-dock-details-page {
+    --card-shadow: 0 14px 34px rgba(15, 23, 42, .1), inset 0 1px 0 rgba(255, 255, 255, .9);
+    --control-surface: #ffffff;
+    --border-strong-hover: rgba(15, 23, 42, .28);
+    --button-surface: rgba(15, 23, 42, .05);
+    --button-surface-hover: rgba(15, 23, 42, .09);
+    --button-border: var(--border-medium);
+}
+
+/* Header */
+
+.dry-dock-details-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 1rem;
+    margin-bottom: 1.75rem;
+}
+
+.dry-dock-details-back {
+    display: inline-flex;
+    align-items: center;
+    gap: .4rem;
+    color: var(--text-secondary);
+    font-size: .85rem;
+    text-decoration: none;
+}
+
+.dry-dock-details-back:hover,
+.dry-dock-details-back:focus-visible {
+    color: var(--accent);
+    text-decoration: underline;
+}
+
+.dry-dock-details-eyebrow {
+    margin: .55rem 0 .4rem;
+    color: var(--accent);
+    font-size: .72rem;
+    font-weight: 700;
+    letter-spacing: .14em;
+    text-transform: uppercase;
+}
+
+.dry-dock-details-header h1 {
+    margin: 0;
+    font-size: clamp(1.75rem, 3vw, 2.25rem);
+    letter-spacing: -.04em;
+}
+
+.dry-dock-details-port {
+    margin: .4rem 0 0;
+    color: var(--text-secondary);
+}
+
+.dry-dock-details-state {
+    display: flex;
+    flex: 0 0 auto;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: .5rem;
+}
+
+/* Status and lifecycle. The step track repeats the status in shape as well as
+   colour, so the state never rests on colour alone. */
+
+.dry-dock-status {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 7rem;
+    padding: .28rem .8rem;
+    border: 1px solid color-mix(in srgb, currentColor 28%, transparent);
+    border-radius: 999px;
+    font-size: .78rem;
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+.dry-dock-status.pending { color: #94a3b8; background: rgba(148, 163, 184, .14); }
+.dry-dock-status.active { color: #fbbf24; background: rgba(251, 191, 36, .14); }
+.dry-dock-status.done { color: #5eead4; background: rgba(45, 212, 191, .14); }
+.dry-dock-status.cancelled { color: #f87171; background: rgba(248, 113, 113, .14); }
+
+html[data-theme="light"] .dry-dock-status.pending { color: #475569; background: rgba(71, 85, 105, .12); }
+html[data-theme="light"] .dry-dock-status.active { color: #b45309; background: rgba(180, 83, 9, .12); }
+html[data-theme="light"] .dry-dock-status.done { color: #0f766e; background: rgba(15, 118, 110, .12); }
+html[data-theme="light"] .dry-dock-status.cancelled { color: #b91c1c; background: rgba(185, 28, 28, .1); }
+
+.dry-dock-track {
+    display: flex;
+    gap: .2rem;
+}
+
+.dry-dock-track i {
+    width: 1.4rem;
+    height: 2px;
+    border-radius: 999px;
+    background: var(--border-medium);
+}
+
+.dry-dock-track i.on { background: currentColor; }
+
+.dry-dock-track.pending { color: #94a3b8; }
+.dry-dock-track.active { color: #fbbf24; }
+.dry-dock-track.done { color: #5eead4; }
+.dry-dock-track.cancelled { color: #f87171; }
+
+html[data-theme="light"] .dry-dock-track.pending { color: #475569; }
+html[data-theme="light"] .dry-dock-track.active { color: #b45309; }
+html[data-theme="light"] .dry-dock-track.done { color: #0f766e; }
+html[data-theme="light"] .dry-dock-track.cancelled { color: #b91c1c; }
+
+/* Summary */
+
+.dry-dock-summary {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 1rem;
+    margin-bottom: 1rem;
+}
+
+.dry-dock-kpi {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 1rem;
+    min-height: 8.2rem;
+    padding: 1.2rem;
+    border: 1px solid var(--border-medium);
+    border-radius: 1rem;
+    background: linear-gradient(145deg, var(--bg-surface-strong), var(--bg-surface));
+    box-shadow: var(--card-shadow);
+}
+
+.dry-dock-kpi-label {
+    margin: 0;
+    color: var(--text-muted);
+    font-size: .7rem;
+    font-weight: 700;
+    letter-spacing: .07em;
+    text-transform: uppercase;
+}
+
+.dry-dock-kpi-value {
+    margin: .3rem 0 0;
+    font-size: 1.6rem;
+    font-weight: 650;
+    line-height: 1.05;
+    letter-spacing: -.04em;
+    font-variant-numeric: tabular-nums;
+    overflow-wrap: anywhere;
+}
+
+.dry-dock-kpi-note {
+    margin: .25rem 0 0;
+    color: var(--text-secondary);
+    font-size: .74rem;
+}
+
+.dry-dock-kpi-note.overdue {
+    color: #f87171;
+    font-weight: 600;
+}
+
+.dry-dock-kpi-note.scheduled {
+    color: var(--text-muted);
+}
+
+html[data-theme="light"] .dry-dock-kpi-note.overdue {
+    color: #b91c1c;
+}
+
+.dry-dock-kpi-icon {
+    display: grid;
+    flex: 0 0 auto;
+    width: 2rem;
+    height: 2rem;
+    place-items: center;
+    color: var(--accent);
+    border: 1px solid var(--accent-border);
+    border-radius: .65rem;
+    background: var(--accent-bg);
+    font-size: .9rem;
+}
+
+.dry-dock-kpi-icon.kpi-icon-start { color: #93c5fd; border-color: rgba(96, 165, 250, .28); background: rgba(96, 165, 250, .14); }
+.dry-dock-kpi-icon.kpi-icon-end { color: #5eead4; border-color: rgba(45, 212, 191, .28); background: rgba(45, 212, 191, .14); }
+.dry-dock-kpi-icon.kpi-icon-cost { color: #fbbf24; border-color: rgba(251, 191, 36, .28); background: rgba(251, 191, 36, .14); }
+
+html[data-theme="light"] .dry-dock-kpi-icon.kpi-icon-start { color: #1d4ed8; border-color: rgba(37, 99, 235, .3); background: rgba(37, 99, 235, .12); }
+html[data-theme="light"] .dry-dock-kpi-icon.kpi-icon-end { color: #0f766e; border-color: rgba(15, 118, 110, .3); background: rgba(15, 118, 110, .12); }
+html[data-theme="light"] .dry-dock-kpi-icon.kpi-icon-cost { color: #b45309; border-color: rgba(180, 83, 9, .3); background: rgba(180, 83, 9, .12); }
+
+/* Cards */
+
+.dry-dock-details-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr);
+    gap: 1rem;
+    margin-bottom: 1rem;
+}
+
+.dry-dock-card {
+    padding: 1.35rem;
+    border: 1px solid var(--border-medium);
+    border-radius: 1rem;
+    background: linear-gradient(145deg, var(--bg-surface-strong), var(--bg-surface));
+    box-shadow: var(--card-shadow);
+}
+
+.dry-dock-card-heading {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 1rem;
+    margin-bottom: 1.1rem;
+}
+
+.dry-dock-card-heading h2 {
+    margin: 0;
+    font-size: 1.05rem;
+}
+
+.dry-dock-card-heading p {
+    margin: .25rem 0 0;
+    color: var(--text-secondary);
+    font-size: .82rem;
+}
+
+.dry-dock-card-icon {
+    display: grid;
+    flex: 0 0 auto;
+    width: 2rem;
+    height: 2rem;
+    place-items: center;
+    color: var(--accent);
+    border: 1px solid var(--accent-border);
+    border-radius: .65rem;
+    background: var(--accent-bg);
+    font-size: .9rem;
+}
+
+/* The task list is planner-authored free text, so its line breaks are kept. */
+
+.dry-dock-details-tasks {
+    margin: 0;
+    color: var(--text-primary);
+    font-size: .9rem;
+    line-height: 1.6;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+}
+
+.dry-dock-details-facts {
+    display: flex;
+    flex-direction: column;
+    gap: .7rem;
+    margin: 0;
+}
+
+.dry-dock-details-facts > div {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 1rem;
+}
+
+.dry-dock-details-facts dt {
+    color: var(--text-muted);
+    font-size: .7rem;
+    font-weight: 700;
+    letter-spacing: .07em;
+    text-transform: uppercase;
+}
+
+.dry-dock-details-facts dd {
+    margin: 0;
+    color: var(--text-primary);
+    font-size: .88rem;
+    text-align: right;
+    overflow-wrap: anywhere;
+}
+
+/* Actions */
+
+.dry-dock-details-actions {
+    display: flex;
+    flex-direction: column;
+    gap: .85rem;
+}
+
+/* Button on the left, its consequence beside it. The button keeps a fixed width so
+   the explanations line up into a readable column. */
+
+.dry-dock-action {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: .3rem .95rem;
+}
+
+.dry-dock-action > button {
+    flex: 0 0 auto;
+    min-width: 12.5rem;
+}
+
+.dry-dock-action-note {
+    flex: 1 1 20rem;
+    margin: 0;
+    color: var(--text-secondary);
+    font-size: .82rem;
+    line-height: 1.5;
+}
+
+.dry-dock-action-note strong {
+    color: var(--text-primary);
+    font-weight: 600;
+}
+
+.dry-dock-details-note {
+    margin: 0;
+    color: var(--text-secondary);
+    font-size: .88rem;
+}
+
+.dry-dock-button {
+    height: 2.8rem;
+    padding: 0 1.05rem;
+    color: var(--text-primary);
+    border: 1px solid var(--button-border);
+    border-radius: .6rem;
+    background: var(--button-surface);
+    font: inherit;
+    font-size: .92rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background .15s ease, border-color .15s ease;
+}
+
+.dry-dock-button:hover:not(:disabled) {
+    background: var(--button-surface-hover);
+    border-color: var(--border-strong-hover);
+}
+
+.dry-dock-button:disabled {
+    cursor: not-allowed;
+    opacity: .5;
+}
+
+.dry-dock-quiet-button {
+    height: 2.8rem;
+    padding: 0 .9rem;
+    color: var(--accent);
+    border: 1px solid transparent;
+    border-radius: .6rem;
+    background: none;
+    font: inherit;
+    font-size: .92rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background .15s ease, border-color .15s ease;
+}
+
+.dry-dock-quiet-button:hover:not(:disabled) {
+    background: var(--accent-bg);
+    border-color: var(--accent-border);
+}
+
+.dry-dock-quiet-button:disabled {
+    cursor: not-allowed;
+    opacity: .45;
+}
+
+/* Cancelling ends the record, so it reads as the destructive choice it is. */
+
+.dry-dock-cancel {
+    color: #f87171;
+}
+
+.dry-dock-cancel:hover:not(:disabled) {
+    border-color: rgba(248, 113, 113, .35);
+    background: rgba(248, 113, 113, .12);
+}
+
+html[data-theme="light"] .dry-dock-cancel {
+    color: #b91c1c;
+}
+
+html[data-theme="light"] .dry-dock-cancel:hover:not(:disabled) {
+    border-color: rgba(185, 28, 28, .3);
+    background: rgba(185, 28, 28, .08);
+}
+
+.dry-dock-button:focus-visible,
+.dry-dock-quiet-button:focus-visible,
+.dry-dock-modal-close:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+}
+
+/* Errors */
+
+.dry-dock-details-field-errors {
+    margin-bottom: 1rem;
+    padding: .85rem 1.05rem;
+    border: 1px solid rgba(248, 113, 113, .35);
+    border-radius: .75rem;
+    background: rgba(127, 29, 29, .18);
+    font-size: .85rem;
+}
+
+html[data-theme="light"] .dry-dock-details-field-errors {
+    border-color: rgba(185, 28, 28, .3);
+    background: rgba(185, 28, 28, .08);
+}
+
+.dry-dock-details-field-errors strong {
+    display: block;
+    margin-bottom: .4rem;
+    font-size: .82rem;
+}
+
+.dry-dock-details-field-errors ul {
+    display: flex;
+    flex-direction: column;
+    gap: .25rem;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.dry-dock-details-field-errors li {
+    display: flex;
+    gap: .5rem;
+    color: var(--text-secondary);
+}
+
+.dry-dock-error-field {
+    color: var(--text-primary);
+    font-size: .7rem;
+    font-weight: 700;
+    letter-spacing: .07em;
+    text-transform: uppercase;
+}
+
+.dry-dock-details-error {
+    margin-bottom: 1rem;
+    color: #f87171;
+    font-size: .88rem;
+}
+
+html[data-theme="light"] .dry-dock-details-error {
+    color: #b91c1c;
+}
+
+/* Dialogs */
+
+.dry-dock-modal-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 1200;
+    display: grid;
+    place-items: center;
+    padding: 4.75rem 1.25rem 1.5rem;
+    overflow-y: auto;
+    background: rgba(2, 6, 23, .64);
+    backdrop-filter: blur(5px);
+    -webkit-backdrop-filter: blur(5px);
+}
+
+.dry-dock-modal {
+    width: min(100%, 34rem);
+    max-height: calc(100vh - 7rem);
+    overflow-y: auto;
+    padding: 1.4rem;
+    border: 1px solid var(--border-strong-hover);
+    border-radius: 1rem;
+    background: var(--control-surface);
+    box-shadow: 0 24px 70px rgba(0, 0, 0, .42);
+}
+
+.dry-dock-modal-narrow {
+    width: min(100%, 28rem);
+}
+
+.dry-dock-modal-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+}
+
+.dry-dock-modal-header h2 {
+    margin: 0;
+    font-size: 1.05rem;
+}
+
+.dry-dock-modal-close {
+    display: grid;
+    width: 2rem;
+    height: 2rem;
+    place-items: center;
+    color: var(--text-secondary);
+    border: 1px solid var(--border-medium);
+    border-radius: .6rem;
+    background: var(--bg-surface);
+    font-size: 1.1rem;
+    line-height: 1;
+    cursor: pointer;
+}
+
+.dry-dock-modal-close:hover:not(:disabled) {
+    color: var(--text-primary);
+    border-color: var(--accent-border);
+    background: var(--accent-bg);
+}
+
+.dry-dock-modal-note,
+.dry-dock-confirm-question {
+    margin: 1.1rem 0 0;
+    color: var(--text-secondary);
+    font-size: .88rem;
+    line-height: 1.55;
+}
+
+/* Completion form */
+
+.dry-dock-form-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
+    margin-top: 1.15rem;
+}
+
+.dry-dock-field {
+    display: flex;
+    flex-direction: column;
+    gap: .4rem;
+}
+
+.dry-dock-field label {
+    color: var(--text-muted);
+    font-size: .7rem;
+    font-weight: 700;
+    letter-spacing: .12em;
+    text-transform: uppercase;
+}
+
+.dry-dock-field input {
+    width: 100%;
+    height: 2.8rem;
+    box-sizing: border-box;
+    padding: 0 .85rem;
+    color: var(--text-primary);
+    border: 1px solid var(--border-medium);
+    border-radius: .65rem;
+    background: var(--control-surface);
+    font: inherit;
+    font-size: .88rem;
+    color-scheme: dark;
+    transition: border-color .16s ease, box-shadow .16s ease;
+}
+
+html[data-theme="light"] .dry-dock-field input {
+    color-scheme: light;
+}
+
+.dry-dock-field input:hover {
+    border-color: var(--border-strong-hover);
+}
+
+.dry-dock-field input:focus {
+    border-color: var(--accent);
+    outline: 0;
+    box-shadow: 0 0 0 .22rem var(--accent-bg);
+}
+
+.dry-dock-field input::-webkit-calendar-picker-indicator {
+    cursor: pointer;
+    opacity: .55;
+    transition: opacity .16s ease;
+}
+
+.dry-dock-field input:hover::-webkit-calendar-picker-indicator {
+    opacity: 1;
+}
+
+.dry-dock-required {
+    color: #f87171;
+    font-weight: 700;
+}
+
+.dry-dock-form-actions {
+    display: flex;
+    gap: .5rem;
+    margin-top: 1.25rem;
+}
+
+@media (max-width: 1100px) {
+    .dry-dock-details-grid {
+        grid-template-columns: minmax(0, 1fr);
+    }
+}
+
+@media (max-width: 760px) {
+    .dry-dock-details-page {
+        padding: 1.5rem 1rem;
+    }
+
+    .dry-dock-details-header {
+        flex-direction: column;
+    }
+
+    .dry-dock-details-state {
+        align-items: flex-start;
+    }
+
+    .dry-dock-summary {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    .dry-dock-form-grid {
+        grid-template-columns: minmax(0, 1fr);
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .dry-dock-button,
+    .dry-dock-quiet-button,
+    .dry-dock-field input {
+        transition: none;
+    }
+}

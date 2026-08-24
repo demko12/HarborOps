@@ -5,4 +5,5 @@ internal enum MaintenanceTab
     WorkOrders,
     Equipment,
     PreventiveSchedules,
+    DryDocks,
 }

@@ -329,8 +329,8 @@ html[data-theme="dark"] .page:not(.login-layout) .maintenance-modal-backdrop .ma
     .cargo-modal,
     .compliance-registration-modal,
     .crew-assignment-modal,
-    .survey-registration-modal) :is(input:not([type="checkbox"]):not([type="radio"]), select, textarea):not(.vessel-picker-input):not(.document-picker-input):not(.survey-vessel-search),
-.page:not(.login-layout) .maintenance-modal-backdrop :is(input:not([type="checkbox"]):not([type="radio"]), select, textarea):not(.vessel-picker-input):not(.document-picker-input):not(.survey-vessel-search) {
+    .survey-registration-modal) :is(input:not([type="checkbox"]):not([type="radio"]), select, textarea):not(.vessel-picker-input):not(.port-picker-input):not(.document-picker-input):not(.survey-vessel-search),
+.page:not(.login-layout) .maintenance-modal-backdrop :is(input:not([type="checkbox"]):not([type="radio"]), select, textarea):not(.vessel-picker-input):not(.port-picker-input):not(.document-picker-input):not(.survey-vessel-search) {
     box-sizing: border-box;
     width: 100%;
     min-height: 2.8rem;
@@ -351,8 +351,8 @@ html[data-theme="dark"] .page:not(.login-layout) :is(
     .cargo-modal,
     .compliance-registration-modal,
     .crew-assignment-modal,
-    .survey-registration-modal) :is(input:not([type="checkbox"]):not([type="radio"]), select, textarea):not(.vessel-picker-input):not(.document-picker-input):not(.survey-vessel-search),
-html[data-theme="dark"] .page:not(.login-layout) .maintenance-modal-backdrop :is(input:not([type="checkbox"]):not([type="radio"]), select, textarea):not(.vessel-picker-input):not(.document-picker-input):not(.survey-vessel-search) {
+    .survey-registration-modal) :is(input:not([type="checkbox"]):not([type="radio"]), select, textarea):not(.vessel-picker-input):not(.port-picker-input):not(.document-picker-input):not(.survey-vessel-search),
+html[data-theme="dark"] .page:not(.login-layout) .maintenance-modal-backdrop :is(input:not([type="checkbox"]):not([type="radio"]), select, textarea):not(.vessel-picker-input):not(.port-picker-input):not(.document-picker-input):not(.survey-vessel-search) {
     color-scheme: dark;
 }
 

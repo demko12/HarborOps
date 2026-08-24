@@ -29,6 +29,12 @@ public static class MaintenanceModule
         services.AddScoped<GetMaintenanceSchedulesQuery>();
         services.AddScoped<GetMaintenanceScheduleDetailsQuery>();
         services.AddScoped<UpdateScheduleNextDueService>();
+        services.AddScoped<ScheduleDryDockService>();
+        services.AddScoped<GetDryDocksQuery>();
+        services.AddScoped<GetDryDockDetailsQuery>();
+        services.AddScoped<StartDryDockService>();
+        services.AddScoped<CompleteDryDockService>();
+        services.AddScoped<CancelDryDockService>();
         services.AddScoped<IVesselMaintenanceOverviewQuery>(serviceProvider =>
             serviceProvider.GetRequiredService<GetVesselMaintenanceOverviewService>());
         services.TryAddSingleton(TimeProvider.System);

@@ -232,3 +232,72 @@ internal sealed record UpdateScheduleNextDueResult(
     string Frequency,
     DateOnly? NextDueDate,
     int? NextDueHours);
+
+internal sealed record DryDockFilter
+{
+    internal Guid? VesselId { get; init; }
+
+    internal Guid? PortId { get; init; }
+
+    internal string? Status { get; init; }
+
+    internal DateOnly? StartFrom { get; init; }
+
+    internal DateOnly? StartTo { get; init; }
+
+    internal bool? Overdue { get; init; }
+
+    internal string? Search { get; init; }
+
+    internal int PageNumber { get; init; } = 1;
+
+    internal int PageSize { get; init; } = 25;
+}
+
+internal sealed record DryDocksPage(
+    IReadOnlyList<DryDockRow> Items,
+    int PageNumber,
+    int PageSize,
+    int TotalCount);
+
+internal sealed record DryDockRow(
+    Guid DryDockId,
+    Guid VesselId,
+    Guid PortId,
+    DateOnly StartDate,
+    DateOnly? EndDate,
+    string PlannedTasks,
+    decimal? ActualCost,
+    string Status,
+    bool IsOverdue,
+    int? DaysUntilStart);
+
+internal sealed record DryDockDetailsModel(
+    Guid DryDockId,
+    Guid VesselId,
+    Guid PortId,
+    DateOnly StartDate,
+    DateOnly? EndDate,
+    string PlannedTasks,
+    decimal? ActualCost,
+    string Status,
+    IReadOnlyList<string> AllowedNextStatuses,
+    bool IsOverdue,
+    int? DaysUntilStart);
+
+internal sealed record ScheduleDryDockWebRequest(
+    Guid VesselId,
+    Guid PortId,
+    DateOnly StartDate,
+    string PlannedTasks);
+
+internal sealed record ScheduledDryDock(Guid Id);
+
+internal sealed record CompleteDryDockWebRequest(DateOnly EndDate, decimal ActualCost);
+
+internal sealed record DryDockTransition(
+    Guid DryDockId,
+    string Status,
+    IReadOnlyList<string> AllowedNextStatuses,
+    DateOnly? EndDate,
+    decimal? ActualCost);
