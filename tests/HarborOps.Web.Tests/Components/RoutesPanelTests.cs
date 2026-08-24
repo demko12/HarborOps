@@ -82,11 +82,11 @@ public sealed class RoutesPanelTests : BunitContext
         var panel = RenderPanel();
 
         panel.Find(".routes-table .voyages-row-action").Click();
-        panel.WaitForAssertion(() => Assert.NotNull(panel.Find(".route-details-card")));
+        panel.WaitForAssertion(() => Assert.NotNull(panel.Find(".route-details-modal")));
 
-        panel.Find(".route-details-card .voyages-reset").Click();
+        panel.Find(".route-details-modal .voyages-modal-close").Click();
 
-        Assert.Empty(panel.FindAll(".route-details-card"));
+        Assert.Empty(panel.FindAll(".route-details-modal"));
     }
 
     [Fact]
@@ -104,7 +104,7 @@ public sealed class RoutesPanelTests : BunitContext
 
         panel.WaitForAssertion(() => Assert.Contains(
             "The requested route was not found.",
-            panel.Find(".route-details-card .api-error-state").TextContent,
+            panel.Find(".route-details-modal .api-error-state").TextContent,
             StringComparison.Ordinal));
     }
 

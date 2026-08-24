@@ -31,9 +31,18 @@ public partial class Voyages
     internal const string DepartAction = "depart";
     internal const string ArriveAction = "arrive";
 
+    internal const int MasterDataKpiPortLookupTake = 50;
+    internal const int MasterDataKpiRouteSampleSize = 100;
+
     private readonly List<VoyageListItemModel> voyages = [];
     private readonly Dictionary<string, int?> statusCounts = new(StringComparer.Ordinal);
     private readonly CancellationTokenSource actionCancellation = new();
+
+    private bool masterDataKpiRequested;
+    private int? portsKpiCount;
+    private int? berthsKpiCount;
+    private int? routesKpiCount;
+    private decimal? avgRouteDistanceKpi;
 
     private readonly CancellationTokenSource disposeCancellation = new();
     private int loadVersion;
@@ -84,14 +93,102 @@ public partial class Voyages
         if (string.Equals(RequestedTab, RoutesTab, StringComparison.OrdinalIgnoreCase))
         {
             activeTab = VoyagesTab.Routes;
+            masterDataKpiRequested = true;
+
+            return Task.WhenAll(LoadAsync(), LoadMasterDataKpisAsync());
         }
 
         return LoadAsync();
     }
 
-    private void SelectTab(VoyagesTab tab)
+    private Task SelectTab(VoyagesTab tab)
     {
         activeTab = tab;
+
+        if (masterDataKpiRequested || tab == VoyagesTab.Board)
+        {
+            return Task.CompletedTask;
+        }
+
+        masterDataKpiRequested = true;
+
+        return LoadMasterDataKpisAsync();
+    }
+
+    private async Task LoadMasterDataKpisAsync()
+    {
+        var cancellationToken = disposeCancellation.Token;
+
+        var portsTask = VoyagesApi.GetPortsAsync(null, null, 1, 1, cancellationToken);
+        var routesTask = VoyagesApi.GetRoutesAsync(null, 1, MasterDataKpiRouteSampleSize, cancellationToken);
+        var portLookupTask = VoyagesApi.LookupPortsAsync(null, MasterDataKpiPortLookupTake, cancellationToken);
+
+        try
+        {
+            await Task.WhenAll(portsTask, routesTask, portLookupTask);
+        }
+        catch (OperationCanceledException) when (disposeCancellation.IsCancellationRequested)
+        {
+            return;
+        }
+
+        if (disposeCancellation.IsCancellationRequested)
+        {
+            return;
+        }
+
+        var portsResult = portsTask.Result;
+        var routesResult = routesTask.Result;
+        var portLookupResult = portLookupTask.Result;
+
+        portsKpiCount = portsResult.IsSuccess ? portsResult.Value!.TotalCount : null;
+
+        if (routesResult.IsSuccess)
+        {
+            routesKpiCount = routesResult.Value!.TotalCount;
+            var sampledRoutes = routesResult.Value!.Items;
+            avgRouteDistanceKpi = sampledRoutes.Count > 0
+                ? sampledRoutes.Average(route => route.EstimatedDistance)
+                : 0m;
+        }
+        else
+        {
+            routesKpiCount = null;
+            avgRouteDistanceKpi = null;
+        }
+
+        if (!portLookupResult.IsSuccess)
+        {
+            berthsKpiCount = null;
+
+            return;
+        }
+
+        VoyagesApiResult<BerthPage>[] berthResults;
+
+        try
+        {
+            berthResults = await Task.WhenAll(portLookupResult.Value!.Items
+                .Select(port => VoyagesApi.GetBerthsAsync(port.PortId, null, null, 1, 1, cancellationToken)));
+        }
+        catch (OperationCanceledException) when (disposeCancellation.IsCancellationRequested)
+        {
+            return;
+        }
+
+        if (disposeCancellation.IsCancellationRequested)
+        {
+            return;
+        }
+
+        berthsKpiCount = berthResults.All(result => result.IsSuccess)
+            ? berthResults.Sum(result => result.Value!.TotalCount)
+            : null;
+    }
+
+    internal static string FormatAvgDistance(decimal? value)
+    {
+        return value is { } distance ? MasterDataFormat.DistanceNm(distance) : MissingValue;
     }
 
     private string AriaSelected(VoyagesTab tab)

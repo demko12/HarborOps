@@ -24,18 +24,31 @@ public sealed class BerthsPanelTests : BunitContext
     private Func<HttpRequestMessage, CancellationToken, Task<HttpResponseMessage>>? respondWithToken;
 
     [Fact]
-    public void The_directory_lists_the_berths_of_the_first_looked_up_port()
+    public void No_port_is_selected_by_default()
     {
         var panel = RenderPanel();
+
+        panel.WaitForAssertion(() => Assert.NotEmpty(panel.Find("#berths-port").QuerySelectorAll("option")));
+
+        Assert.Contains("Select a port", panel.Find(".empty-state").TextContent, StringComparison.Ordinal);
+        Assert.Empty(panel.FindAll(".berths-table"));
+        Assert.DoesNotContain(
+            requestedUris,
+            uri => uri.AbsolutePath == "/api/voyages/berths");
+    }
+
+    [Fact]
+    public void Selecting_a_port_lists_its_berths()
+    {
+        var panel = RenderPanelWithPortSelected();
 
         panel.WaitForAssertion(() =>
         {
             var cells = panel.Find(".berths-table tbody tr").QuerySelectorAll("td");
 
             Assert.Equal("Berth 1", cells[0].TextContent);
-            Assert.Equal("210", cells[1].TextContent);
-            Assert.Equal("12", cells[2].TextContent);
-            Assert.Equal("Available", cells[3].TextContent);
+            Assert.Equal("210 m · 12 m draft", cells[1].TextContent);
+            Assert.Equal("Available", cells[2].TextContent);
         });
 
         Assert.Contains(
@@ -67,9 +80,7 @@ public sealed class BerthsPanelTests : BunitContext
     [Fact]
     public void Choosing_another_port_reloads_its_berths()
     {
-        var panel = RenderPanel();
-
-        panel.WaitForAssertion(() => Assert.NotEmpty(panel.FindAll(".berths-table tbody tr")));
+        var panel = RenderPanelWithPortSelected();
 
         panel.Find("#berths-port").Change(KotorId);
 
@@ -95,9 +106,7 @@ public sealed class BerthsPanelTests : BunitContext
     [Fact]
     public void Filters_are_sent_to_the_api()
     {
-        var panel = RenderPanel();
-
-        panel.WaitForAssertion(() => Assert.NotEmpty(panel.FindAll(".berths-table tbody tr")));
+        var panel = RenderPanelWithPortSelected();
 
         panel.Find("#berths-search").Input("Tanker");
         panel.Find("#berths-status").Change("Out of service");
@@ -118,7 +127,7 @@ public sealed class BerthsPanelTests : BunitContext
             ? Json(HttpStatusCode.OK, PortLookup())
             : Json(HttpStatusCode.OK, BerthPage(Berth(status: "Out of service")));
 
-        var panel = RenderPanel();
+        var panel = RenderPanelWithPortSelected();
 
         panel.WaitForAssertion(() =>
         {
@@ -132,7 +141,7 @@ public sealed class BerthsPanelTests : BunitContext
     [Fact]
     public void Both_status_pickers_offer_the_four_statuses_in_circulation()
     {
-        var panel = RenderPanel();
+        var panel = RenderPanelWithPortSelected();
 
         panel.WaitForAssertion(() => Assert.NotEmpty(panel.FindAll(".voyages-schedule-button")));
 
@@ -156,9 +165,7 @@ public sealed class BerthsPanelTests : BunitContext
                 ? Json(HttpStatusCode.OK, PortLookup())
                 : Json(HttpStatusCode.OK, BerthPage(Berth()));
 
-        var panel = RenderPanel();
-
-        panel.WaitForAssertion(() => Assert.NotEmpty(panel.FindAll(".voyages-schedule-button")));
+        var panel = RenderPanelWithPortSelected();
 
         panel.Find(".voyages-schedule-button").Click();
         panel.Find("#berth-port").Change(KotorId);
@@ -184,7 +191,7 @@ public sealed class BerthsPanelTests : BunitContext
     [Fact]
     public void The_register_action_is_offered_for_the_selected_port()
     {
-        var panel = RenderPanel();
+        var panel = RenderPanelWithPortSelected();
 
         panel.WaitForAssertion(() => Assert.Contains(
             "Register berth",
@@ -201,9 +208,7 @@ public sealed class BerthsPanelTests : BunitContext
                 ? Json(HttpStatusCode.OK, PortLookup())
                 : Json(HttpStatusCode.OK, BerthPage(Berth()));
 
-        var panel = RenderPanel();
-
-        panel.WaitForAssertion(() => Assert.NotEmpty(panel.FindAll(".voyages-schedule-button")));
+        var panel = RenderPanelWithPortSelected();
 
         panel.Find(".voyages-schedule-button").Click();
 
@@ -239,9 +244,7 @@ public sealed class BerthsPanelTests : BunitContext
                 ? Json(HttpStatusCode.OK, PortLookup())
                 : Json(HttpStatusCode.OK, BerthPage(Berth()));
 
-        var panel = RenderPanel();
-
-        panel.WaitForAssertion(() => Assert.NotEmpty(panel.FindAll(".voyages-schedule-button")));
+        var panel = RenderPanelWithPortSelected();
 
         panel.Find(".voyages-schedule-button").Click();
         panel.Find(".berths-form").Submit();
@@ -261,9 +264,7 @@ public sealed class BerthsPanelTests : BunitContext
     [Fact]
     public void The_register_action_is_hidden_without_the_manage_permission()
     {
-        var panel = RenderPanel("voyages.read");
-
-        panel.WaitForAssertion(() => Assert.NotEmpty(panel.FindAll(".berths-table tbody tr")));
+        var panel = RenderPanelWithPortSelected("voyages.read");
 
         Assert.Empty(panel.FindAll(".voyages-schedule-button"));
     }
@@ -290,7 +291,7 @@ public sealed class BerthsPanelTests : BunitContext
             ? Json(HttpStatusCode.OK, PortLookup())
             : Json(HttpStatusCode.OK, BerthPage());
 
-        var panel = RenderPanel();
+        var panel = RenderPanelWithPortSelected();
 
         panel.WaitForAssertion(() => Assert.Contains(
             "No berths",
@@ -307,7 +308,7 @@ public sealed class BerthsPanelTests : BunitContext
                 HttpStatusCode.Forbidden,
                 """{"title":"You do not have access to voyages","detail":"Missing permission."}""");
 
-        var panel = RenderPanel();
+        var panel = RenderPanelWithPortSelected();
 
         panel.WaitForAssertion(() => Assert.Contains(
             "You do not have access to voyages",
@@ -345,6 +346,21 @@ public sealed class BerthsPanelTests : BunitContext
 
         var panel = Render<BerthsPanel>();
         panel.WaitForAssertion(() => Assert.NotEmpty(requestedUris));
+
+        return panel;
+    }
+
+    private IRenderedComponent<BerthsPanel> RenderPanelWithPortSelected(params string[] permissions)
+    {
+        var panel = RenderPanel(permissions);
+
+        panel.WaitForAssertion(() => Assert.NotEmpty(panel.Find("#berths-port").QuerySelectorAll("option")));
+        panel.Find("#berths-port").Change(BarId);
+
+        panel.WaitForAssertion(() => Assert.Contains(
+            requestedUris,
+            uri => uri.AbsolutePath == "/api/voyages/berths"
+                && uri.Query.Contains($"portId={BarId}", StringComparison.OrdinalIgnoreCase)));
 
         return panel;
     }

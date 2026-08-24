@@ -38,6 +38,11 @@ internal static class MasterDataFormat
         return $"{Decimal(value)} nm";
     }
 
+    internal static string LengthMeters(decimal value)
+    {
+        return $"{Decimal(value)} m";
+    }
+
     internal static string DurationHours(int value)
     {
         return $"{Number(value)} h";
