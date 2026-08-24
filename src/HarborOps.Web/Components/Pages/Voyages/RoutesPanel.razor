@@ -1,0 +1,152 @@
+@using HarborOps.Web.Api.Voyages
+@implements IDisposable
+@inject VoyagesApiClient VoyagesApi
+@inject CurrentUserAuthorizationState AuthorizationState
+
+<div class="routes-panel" role="tabpanel" aria-label="Route directory">
+    <div class="voyages-filters" role="search">
+        <div class="filter-field filter-field-wide">
+            <label for="routes-search">Search</label>
+            <input id="routes-search" @bind="searchFilter" @bind:event="oninput" @bind:after="ApplyFiltersAsync"
+                   placeholder="Route name" />
+        </div>
+        <div class="filter-field">
+            <label for="routes-page-size">Per page</label>
+            <select id="routes-page-size" @bind="pageSize" @bind:after="ApplyFiltersAsync">
+                <option value="25">25</option>
+                <option value="50">50</option>
+                <option value="100">100</option>
+            </select>
+        </div>
+        <button class="voyages-reset" type="button" @onclick="ClearFiltersAsync" disabled="@isLoading">Reset</button>
+    </div>
+
+    <section class="voyages-card" aria-labelledby="routes-list-title">
+        <div class="voyages-card-heading">
+            <div>
+                <h2 id="routes-list-title">Route directory</h2>
+                <p>@totalCount routes found</p>
+            </div>
+            <div class="voyages-card-tools">
+                @if (CanManage)
+                {
+                    <a class="voyages-schedule-button" href="/voyages/routes/register">
+                        <span aria-hidden="true">+</span> Register route
+                    </a>
+                }
+                <span class="voyages-card-icon" aria-hidden="true"><span class="bi bi-diagram-3-fill"></span></span>
+            </div>
+        </div>
+
+        @if (isLoading)
+        {
+            <LoadingState Message="Loading routes..." />
+        }
+        else if (failure is not null)
+        {
+            <ApiErrorState Title="@failure.Title" Message="@failure.Message" RetryLabel="Retry" OnRetry="RetryAsync" />
+        }
+        else if (rows.Count == 0)
+        {
+            <EmptyState Title="No routes match your filters"
+                        Message="Clear the search filter, or register the first route." />
+        }
+        else
+        {
+            <div class="voyages-table-scroll">
+                <table class="voyages-table routes-table">
+                    <caption class="visually-hidden">Registered routes, ordered by name</caption>
+                    <thead>
+                        <tr>
+                            <th scope="col">Route</th>
+                            <th scope="col">Description</th>
+                            <th scope="col">Stops</th>
+                            <th scope="col">Estimated distance (nm)</th>
+                            <th scope="col">Estimated duration (h)</th>
+                            <th scope="col">Legs</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var row in rows)
+                        {
+                            <tr @key="row.RouteId" class="@(selectedRouteId == row.RouteId ? "route-row-selected" : null)">
+                                <td><span class="master-data-title">@row.Name</span></td>
+                                <td class="master-data-muted">@MasterDataFormat.OptionalText(row.Description)</td>
+                                <td class="master-data-number">@MasterDataFormat.Number(row.StopCount)</td>
+                                <td class="master-data-number">@MasterDataFormat.DistanceNm(row.EstimatedDistance)</td>
+                                <td class="master-data-number">@MasterDataFormat.DurationHours(row.EstimatedDuration)</td>
+                                <td>
+                                    <button class="voyages-row-action" type="button"
+                                            @onclick="() => SelectRouteAsync(row.RouteId)">View legs</button>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="voyages-pagination">
+                <span>Showing @FirstRowNumber&ndash;@LastRowNumber of @totalCount routes</span>
+                <div>
+                    <button type="button" @onclick="PreviousPageAsync" disabled="@(pageNumber <= 1)">Previous</button>
+                    <span class="voyages-page-indicator">Page @pageNumber of @TotalPages</span>
+                    <button type="button" @onclick="NextPageAsync" disabled="@(pageNumber >= TotalPages)">Next</button>
+                </div>
+            </div>
+        }
+    </section>
+
+    @if (selectedRouteId is not null)
+    {
+        <section class="voyages-card route-details-card" aria-labelledby="route-details-title">
+            <div class="voyages-card-heading">
+                <div>
+                    <h2 id="route-details-title">@(details?.Name ?? "Route legs")</h2>
+                    <p>@MasterDataFormat.OptionalText(details?.Description)</p>
+                </div>
+                <div class="voyages-card-tools">
+                    <button class="voyages-reset" type="button" @onclick="CloseDetails">Close</button>
+                </div>
+            </div>
+
+            @if (isDetailsLoading)
+            {
+                <LoadingState Message="Loading route legs..." />
+            }
+            else if (detailsFailure is not null)
+            {
+                <ApiErrorState Title="@detailsFailure.Title" Message="@detailsFailure.Message"
+                               RetryLabel="Retry" OnRetry="RetryDetailsAsync" />
+            }
+            else if (details is not null)
+            {
+                <div class="voyages-table-scroll">
+                    <table class="voyages-table route-legs-table">
+                        <caption class="visually-hidden">Route stops in sailing order</caption>
+                        <thead>
+                            <tr>
+                                <th scope="col">Stop</th>
+                                <th scope="col">Port</th>
+                                <th scope="col">Country</th>
+                                <th scope="col">Distance from previous (nm)</th>
+                                <th scope="col">Duration from previous (h)</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var stop in details.Stops)
+                            {
+                                <tr @key="stop.PortId">
+                                    <td class="master-data-number">@MasterDataFormat.Number(stop.StopOrder)</td>
+                                    <td><span class="master-data-title">@MasterDataFormat.PortLabel(stop.PortName, stop.UnLocode)</span></td>
+                                    <td class="master-data-muted">@stop.PortCountry</td>
+                                    <td class="master-data-number">@MasterDataFormat.DistanceNm(stop.DistanceFromPrevious)</td>
+                                    <td class="master-data-number">@MasterDataFormat.DurationHours(stop.EstimatedDurationFromPrevious)</td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
+        </section>
+    }
+</div>

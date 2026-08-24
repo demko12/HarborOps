@@ -127,13 +127,10 @@ public sealed class ReportsDocumentsExpiryQueryTests
         var documentTypeId = await SeedDocumentTypeAsync(dbContext);
         var vesselId = Guid.NewGuid();
 
-        // Overdue by date but the record's own Status was never updated - still counts
-        // as "Expired" for this filter.
+
         var overdueButStillActive = await SeedDocumentAsync(
             dbContext, vesselId, documentTypeId, "OVERDUE-ACTIVE", AsOf.AddDays(-1), status: "Active");
 
-        // Literally has "Expired" in its Status column but is not yet past its expiry
-        // date - must NOT match, since the filter means "past due", not "labeled Expired".
         await SeedDocumentAsync(
             dbContext, vesselId, documentTypeId, "LABELED-EXPIRED", AsOf.AddDays(10), status: "Expired");
 
@@ -154,9 +151,6 @@ public sealed class ReportsDocumentsExpiryQueryTests
         var documentTypeId = await SeedDocumentTypeAsync(dbContext);
         var vesselId = Guid.NewGuid();
 
-        // Stored as "Active" but past its expiry date - the row would display an
-        // "Expired" badge (see DaysUntilExpiryLabel/IsExpired), so an "Active" filter
-        // must not return it: the filter and the badge it produces must agree.
         await SeedDocumentAsync(
             dbContext, vesselId, documentTypeId, "OVERDUE-ACTIVE", AsOf.AddDays(-1), status: "Active");
         var stillActive = await SeedDocumentAsync(

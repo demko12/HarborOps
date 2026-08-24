@@ -681,7 +681,7 @@ public sealed class DocumentsPageTests : BunitContext
     // ---- File panel ----
 
     [Fact]
-    public void Clicking_the_file_toggle_loads_and_shows_file_details_and_closing_hides_it_again()
+    public void Clicking_the_file_toggle_opens_a_dialog_with_the_file_details_and_closing_dismisses_it()
     {
         respondToExpiring = _ => Json(HttpStatusCode.OK, Page(Row(DocumentId)));
         respondToDocumentDetails = _ => Json(HttpStatusCode.OK, DocumentDetails(hasFile: false));
@@ -695,16 +695,33 @@ public sealed class DocumentsPageTests : BunitContext
         {
             Assert.Contains(requestedUris, IsDocumentDetailsRequest);
             Assert.Contains("No file attached.", page.Markup, StringComparison.Ordinal);
-            Assert.Equal("Hide", page.Find(".documents-file-toggle").TextContent.Trim());
+
+            var dialog = page.Find(".documents-modal-backdrop .documents-file-form-card");
+
+            Assert.Equal("dialog", dialog.GetAttribute("role"));
+            Assert.Equal("true", dialog.GetAttribute("aria-modal"));
         });
+
+        page.Find(".documents-file-close-button").Click();
+
+        page.WaitForAssertion(() => Assert.Empty(page.FindAll(".documents-file-form-card")));
+    }
+
+    [Fact]
+    public void Clicking_the_dialog_backdrop_closes_the_file_dialog()
+    {
+        respondToExpiring = _ => Json(HttpStatusCode.OK, Page(Row(DocumentId)));
+        respondToDocumentDetails = _ => Json(HttpStatusCode.OK, DocumentDetails(hasFile: false));
+
+        var page = RenderDocumentsPage();
+        page.WaitForAssertion(() => Assert.NotEmpty(page.FindAll(".documents-file-toggle")));
 
         page.Find(".documents-file-toggle").Click();
+        page.WaitForAssertion(() => Assert.NotEmpty(page.FindAll(".documents-file-form-card")));
 
-        page.WaitForAssertion(() =>
-        {
-            Assert.Empty(page.FindAll(".documents-file-panel"));
-            Assert.Equal("File", page.Find(".documents-file-toggle").TextContent.Trim());
-        });
+        page.Find(".documents-modal-backdrop").Click();
+
+        Assert.Empty(page.FindAll(".documents-file-form-card"));
     }
 
     [Fact]
@@ -751,7 +768,7 @@ public sealed class DocumentsPageTests : BunitContext
         var inputFile = page.FindComponent<InputFile>();
         inputFile.UploadFiles(InputFileContent.CreateFromText("dummy pdf bytes", "cert.pdf", contentType: "application/pdf"));
 
-        page.Find(".documents-file-upload-form .documents-search-button").Click();
+        page.Find(".documents-file-upload-button").Click();
 
         page.WaitForAssertion(() =>
         {
@@ -782,12 +799,12 @@ public sealed class DocumentsPageTests : BunitContext
         var inputFile = page.FindComponent<InputFile>();
         inputFile.UploadFiles(InputFileContent.CreateFromText("dummy pdf bytes", "cert.pdf", contentType: "application/pdf"));
 
-        page.Find(".documents-file-upload-form .documents-search-button").Click();
+        page.Find(".documents-file-upload-button").Click();
 
         page.WaitForAssertion(() =>
         {
             Assert.NotEmpty(page.FindAll(".documents-file-progress"));
-            var uploadButton = page.Find(".documents-file-upload-form .documents-search-button");
+            var uploadButton = page.Find(".documents-file-upload-button");
             Assert.Equal("Uploading...", uploadButton.TextContent.Trim());
             Assert.True(uploadButton.HasAttribute("disabled"));
         });
@@ -826,7 +843,7 @@ public sealed class DocumentsPageTests : BunitContext
 
         var requestsBeforeCancel = requestedUris.Count;
 
-        page.Find(".documents-file-replace-confirm .documents-file-replace-button").Click();
+        page.Find(".documents-file-replace-cancel-button").Click();
 
         page.WaitForAssertion(() =>
         {
@@ -836,7 +853,7 @@ public sealed class DocumentsPageTests : BunitContext
         Assert.Equal(requestsBeforeCancel, requestedUris.Count);
 
         page.Find(".documents-file-replace-button").Click();
-        page.Find(".documents-file-replace-confirm .documents-search-button").Click();
+        page.Find(".documents-file-replace-confirm-button").Click();
 
         page.WaitForAssertion(() => Assert.NotEmpty(page.FindAll(".documents-file-upload-form")));
     }
@@ -873,13 +890,13 @@ public sealed class DocumentsPageTests : BunitContext
         page.WaitForAssertion(() => Assert.Contains("original.pdf", page.Markup, StringComparison.Ordinal));
 
         page.Find(".documents-file-replace-button").Click();
-        page.Find(".documents-file-replace-confirm .documents-search-button").Click();
+        page.Find(".documents-file-replace-confirm-button").Click();
         page.WaitForAssertion(() => Assert.NotEmpty(page.FindAll(".documents-file-upload-form")));
 
         var inputFile = page.FindComponent<InputFile>();
         inputFile.UploadFiles(InputFileContent.CreateFromText("new pdf bytes", "replacement.pdf", contentType: "application/pdf"));
 
-        page.Find(".documents-file-upload-form .documents-search-button").Click();
+        page.Find(".documents-file-upload-button").Click();
 
         page.WaitForAssertion(() =>
         {
@@ -908,7 +925,7 @@ public sealed class DocumentsPageTests : BunitContext
         var inputFile = page.FindComponent<InputFile>();
         inputFile.UploadFiles(InputFileContent.CreateFromText("dummy pdf bytes", "cert.pdf", contentType: "application/pdf"));
 
-        page.Find(".documents-file-upload-form .documents-search-button").Click();
+        page.Find(".documents-file-upload-button").Click();
 
         page.WaitForAssertion(() =>
             Assert.Contains(
@@ -934,7 +951,7 @@ public sealed class DocumentsPageTests : BunitContext
         var inputFile = page.FindComponent<InputFile>();
         inputFile.UploadFiles(InputFileContent.CreateFromText("dummy bytes", "cert.exe", contentType: "application/octet-stream"));
 
-        page.Find(".documents-file-upload-form .documents-search-button").Click();
+        page.Find(".documents-file-upload-button").Click();
 
         page.WaitForAssertion(() =>
             Assert.Contains(
@@ -960,7 +977,7 @@ public sealed class DocumentsPageTests : BunitContext
         var inputFile = page.FindComponent<InputFile>();
         inputFile.UploadFiles(InputFileContent.CreateFromText("dummy pdf bytes", "cert.pdf", contentType: "application/pdf"));
 
-        page.Find(".documents-file-upload-form .documents-search-button").Click();
+        page.Find(".documents-file-upload-button").Click();
 
         page.WaitForAssertion(() =>
             Assert.Contains(
@@ -986,7 +1003,7 @@ public sealed class DocumentsPageTests : BunitContext
         var inputFile = page.FindComponent<InputFile>();
         inputFile.UploadFiles(InputFileContent.CreateFromText("dummy pdf bytes", "cert.pdf", contentType: "application/pdf"));
 
-        page.Find(".documents-file-upload-form .documents-search-button").Click();
+        page.Find(".documents-file-upload-button").Click();
 
         page.WaitForAssertion(() =>
             Assert.Contains(

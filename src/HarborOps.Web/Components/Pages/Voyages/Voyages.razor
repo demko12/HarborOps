@@ -17,6 +17,48 @@
         <span class="voyages-utc" aria-label="All times are shown in UTC">UTC</span>
     </header>
 
+    <nav class="voyages-tabs workspace-tabs" role="tablist" aria-label="Voyages workspace">
+        <button type="button"
+                role="tab"
+                class="workspace-tab @(activeTab == VoyagesTab.Board ? "active" : null)"
+                aria-selected="@AriaSelected(VoyagesTab.Board)"
+                @onclick="() => SelectTab(VoyagesTab.Board)">Voyage board</button>
+        <button type="button"
+                role="tab"
+                class="workspace-tab @(activeTab == VoyagesTab.Ports ? "active" : null)"
+                aria-selected="@AriaSelected(VoyagesTab.Ports)"
+                @onclick="() => SelectTab(VoyagesTab.Ports)">Ports</button>
+        <button type="button"
+                role="tab"
+                class="workspace-tab @(activeTab == VoyagesTab.Berths ? "active" : null)"
+                aria-selected="@AriaSelected(VoyagesTab.Berths)"
+                @onclick="() => SelectTab(VoyagesTab.Berths)">Berths</button>
+        <button type="button"
+                role="tab"
+                class="workspace-tab @(activeTab == VoyagesTab.Routes ? "active" : null)"
+                aria-selected="@AriaSelected(VoyagesTab.Routes)"
+                @onclick="() => SelectTab(VoyagesTab.Routes)">Routes</button>
+    </nav>
+
+    @if (activeTab == VoyagesTab.Ports)
+    {
+        <PortsPanel />
+    }
+
+    @if (activeTab == VoyagesTab.Berths)
+    {
+        <BerthsPanel />
+    }
+
+    @if (activeTab == VoyagesTab.Routes)
+    {
+        <RoutesPanel />
+    }
+
+    @if (activeTab == VoyagesTab.Board)
+    {
+    <div class="voyages-tabpanel" role="tabpanel">
+
     <section class="voyages-summary" aria-label="Voyage summary">
         <article class="voyages-kpi">
             <div>
@@ -284,4 +326,7 @@
             </div>
         }
     </section>
+
+    </div>
+    }
 </section>

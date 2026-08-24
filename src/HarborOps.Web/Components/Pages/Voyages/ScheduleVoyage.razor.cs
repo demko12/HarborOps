@@ -93,16 +93,12 @@ public partial class ScheduleVoyage
         }
     }
 
-    // The option list floats over the form, so a click anywhere outside the picker has
-    // to put it away again rather than leave it covering the fields underneath it.
     [JSInvokable]
     public void CloseVesselDropdowns()
     {
         isVesselDropdownOpen = false;
     }
 
-    // Focusing the field lists vessels straight away, so a planner who does not
-    // know the name can browse instead of having to guess a first letter.
     private Task ShowVesselOptionsAsync()
     {
         isVesselDropdownOpen = true;
@@ -260,7 +256,6 @@ public partial class ScheduleVoyage
             }
             catch (JSDisconnectedException)
             {
-                // The circuit has already ended; there is no browser listener left to remove.
             }
 
             outsideClickReference.Dispose();

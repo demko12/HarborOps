@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Net;
 using System.Net.Http.Json;
 
@@ -165,6 +166,198 @@ internal sealed class CrewApiClient(HttpClient httpClient)
         }
     }
 
+    internal async Task<CrewApiResult<CrewRotationsPageResponse>> GetRotationsAsync(
+        Guid? vesselId,
+        DateOnly? from,
+        DateOnly? to,
+        bool? overdueOnly,
+        int pageNumber,
+        int pageSize,
+        CancellationToken cancellationToken)
+    {
+        var query = new List<string> { $"pageNumber={pageNumber}", $"pageSize={pageSize}" };
+
+        if (vesselId is { } vessel)
+        {
+            query.Add($"vesselId={vessel}");
+        }
+
+        if (from is { } fromDate)
+        {
+            query.Add($"from={FormatIsoDate(fromDate)}");
+        }
+
+        if (to is { } toDate)
+        {
+            query.Add($"to={FormatIsoDate(toDate)}");
+        }
+
+        if (overdueOnly is { } overdue)
+        {
+            query.Add($"overdueOnly={(overdue ? "true" : "false")}");
+        }
+
+        var path = $"api/crew/rotations?{string.Join('&', query)}";
+
+        try
+        {
+            using var response = await httpClient.GetAsync(path, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
+            if (response.IsSuccessStatusCode)
+            {
+                return new CrewApiResult<CrewRotationsPageResponse>(
+                    await response.Content.ReadFromJsonAsync<CrewRotationsPageResponse>(cancellationToken), null);
+            }
+
+            var problem = await TryReadProblemAsync(response, cancellationToken);
+            var isForbidden = response.StatusCode == HttpStatusCode.Forbidden;
+            return new CrewApiResult<CrewRotationsPageResponse>(null, new CrewApiFailure(
+                (int)response.StatusCode,
+                problem?.Title ?? (isForbidden ? "Crew access denied" : "Unable to load crew rotations"),
+                problem?.Detail ?? (isForbidden ? "Your account does not have permission to view crew rotations." : "Please try again.")));
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (HttpRequestException)
+        {
+            return new CrewApiResult<CrewRotationsPageResponse>(null, new CrewApiFailure(0, "HarborOps API is unavailable", "Please try again."));
+        }
+    }
+
+    internal async Task<CrewApiResult<CrewRotationListItemResponse>> GetRotationAsync(
+        Guid assignmentId,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            using var response = await httpClient.GetAsync(
+                $"api/crew/assignments/{assignmentId}/rotation",
+                HttpCompletionOption.ResponseHeadersRead,
+                cancellationToken);
+
+            if (response.IsSuccessStatusCode)
+            {
+                return new CrewApiResult<CrewRotationListItemResponse>(
+                    await response.Content.ReadFromJsonAsync<CrewRotationListItemResponse>(cancellationToken), null);
+            }
+
+            var problem = await TryReadProblemAsync(response, cancellationToken);
+            var isForbidden = response.StatusCode == HttpStatusCode.Forbidden;
+            var isNotFound = response.StatusCode == HttpStatusCode.NotFound;
+            return new CrewApiResult<CrewRotationListItemResponse>(null, new CrewApiFailure(
+                (int)response.StatusCode,
+                problem?.Title ?? (isForbidden ? "Crew access denied" : isNotFound ? "No rotation planned" : "Unable to load the crew rotation"),
+                problem?.Detail ?? (isForbidden ? "Your account does not have permission to view this rotation." : "Please try again.")));
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (HttpRequestException)
+        {
+            return new CrewApiResult<CrewRotationListItemResponse>(null, new CrewApiFailure(0, "HarborOps API is unavailable", "Please try again."));
+        }
+    }
+
+    internal async Task<CrewApiWriteResult<PlanCrewRotationResponse>> PlanRotationAsync(
+        Guid assignmentId,
+        PlanCrewRotationRequest request,
+        CancellationToken cancellationToken)
+    {
+        return await PostAsync<PlanCrewRotationRequest, PlanCrewRotationResponse>(
+            $"api/crew/assignments/{assignmentId}/rotation", request, cancellationToken);
+    }
+
+    internal async Task<CrewApiWriteResult<UpdateCrewRotationResponse>> UpdateRotationAsync(
+        Guid assignmentId,
+        UpdateCrewRotationRequest request,
+        CancellationToken cancellationToken)
+    {
+        return await PutAsync<UpdateCrewRotationRequest, UpdateCrewRotationResponse>(
+            $"api/crew/assignments/{assignmentId}/rotation", request, cancellationToken);
+    }
+
+    internal async Task<CrewApiWriteResult<ExecuteCrewRotationResponse>> ExecuteRotationAsync(
+        Guid assignmentId,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            using var response = await httpClient.PostAsync(
+                $"api/crew/assignments/{assignmentId}/rotation/execute", null, cancellationToken);
+
+            if (response.IsSuccessStatusCode)
+            {
+                return new CrewApiWriteResult<ExecuteCrewRotationResponse>(
+                    await response.Content.ReadFromJsonAsync<ExecuteCrewRotationResponse>(cancellationToken), null);
+            }
+
+            var problem = await TryReadProblemAsync(response, cancellationToken);
+            var isForbidden = response.StatusCode == HttpStatusCode.Forbidden;
+            var isNotFound = response.StatusCode == HttpStatusCode.NotFound;
+            var isConflict = response.StatusCode == HttpStatusCode.Conflict;
+
+            return new CrewApiWriteResult<ExecuteCrewRotationResponse>(default, new CrewApiFailure(
+                (int)response.StatusCode,
+                problem?.Title ?? (isForbidden ? "Crew access denied"
+                    : isNotFound ? "Related record not found"
+                    : isConflict ? "Conflict"
+                    : "Unable to execute the rotation"),
+                problem?.Detail ?? "Please try again.",
+                problem?.Errors ?? EmptyErrors));
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (HttpRequestException)
+        {
+            return new CrewApiWriteResult<ExecuteCrewRotationResponse>(default, new CrewApiFailure(0, "HarborOps API is unavailable", "Please try again.", EmptyErrors));
+        }
+    }
+
+    internal static string FormatIsoDate(DateOnly value) => value.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
+
+    private async Task<CrewApiWriteResult<TResponse>> PutAsync<TRequest, TResponse>(
+        string path,
+        TRequest request,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            using var response = await httpClient.PutAsJsonAsync(path, request, cancellationToken);
+
+            if (response.IsSuccessStatusCode)
+            {
+                return new CrewApiWriteResult<TResponse>(
+                    await response.Content.ReadFromJsonAsync<TResponse>(cancellationToken), null);
+            }
+
+            var problem = await TryReadProblemAsync(response, cancellationToken);
+            var isForbidden = response.StatusCode == HttpStatusCode.Forbidden;
+            var isNotFound = response.StatusCode == HttpStatusCode.NotFound;
+            var isConflict = response.StatusCode == HttpStatusCode.Conflict;
+
+            return new CrewApiWriteResult<TResponse>(default, new CrewApiFailure(
+                (int)response.StatusCode,
+                problem?.Title ?? (isForbidden ? "Crew access denied"
+                    : isNotFound ? "Related record not found"
+                    : isConflict ? "Conflict"
+                    : "Unable to save"),
+                problem?.Detail ?? "Please try again.",
+                problem?.Errors ?? EmptyErrors));
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (HttpRequestException)
+        {
+            return new CrewApiWriteResult<TResponse>(default, new CrewApiFailure(0, "HarborOps API is unavailable", "Please try again.", EmptyErrors));
+        }
+    }
+
     private async Task<CrewApiWriteResult<TResponse>> PostAsync<TRequest, TResponse>(
     string path,
     TRequest request,
@@ -309,3 +502,45 @@ internal sealed record CrewApiWriteResult<T>(T? Value, CrewApiFailure? Failure)
 {
     internal bool IsSuccess => Failure is null;
 }
+
+internal sealed record CrewRotationsPageResponse(
+    IReadOnlyList<CrewRotationListItemResponse> Items, int PageNumber, int PageSize, int TotalCount);
+
+internal sealed record CrewRotationListItemResponse(
+    Guid RotationId,
+    Guid AssignmentId,
+    Guid VesselId,
+    Guid CrewMemberId,
+    string CrewMemberName,
+    Guid RankId,
+    string RankName,
+    Guid? RelievingCrewMemberId,
+    string? RelievingCrewMemberName,
+    string RotationPattern,
+    DateOnly PlannedReliefDate,
+    bool IsOverdue);
+
+internal sealed record PlanCrewRotationRequest
+{
+    public Guid? RelievingCrewMemberId { get; init; }
+    public string? RotationPattern { get; init; }
+    public DateOnly? PlannedReliefDate { get; init; }
+}
+
+internal sealed record UpdateCrewRotationRequest
+{
+    public Guid? RelievingCrewMemberId { get; init; }
+    public string? RotationPattern { get; init; }
+    public DateOnly? PlannedReliefDate { get; init; }
+}
+
+internal sealed record PlanCrewRotationResponse(Guid Id);
+
+internal sealed record UpdateCrewRotationResponse(Guid Id);
+
+internal sealed record ExecuteCrewRotationResponse(
+    Guid AssignmentId,
+    DateOnly ActualSignOffDate,
+    Guid ReplacementAssignmentId,
+    DateOnly ReplacementSignOnDate,
+    DateOnly ReplacementPlannedSignOffDate);

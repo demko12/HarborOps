@@ -1,0 +1,48 @@
+@using HarborOps.Web.Api
+@inject CrewApiClient CrewApi
+
+<div class="relieving-member-picker">
+    <span class="bi bi-search relieving-member-picker-search-icon" aria-hidden="true"></span>
+    <input class="relieving-member-picker-input"
+           id="@InputId"
+           type="text"
+           value="@displayText"
+           placeholder="@(Placeholder ?? DefaultPlaceholder)"
+           disabled="@Disabled"
+           autocomplete="off"
+           role="combobox"
+           aria-expanded="@(isDropdownOpen ? "true" : "false")"
+           aria-autocomplete="list"
+           @oninput="OnInputAsync"
+           @onfocus="OnFocus"
+           @onblur="OnBlurAsync" />
+
+    @if (isDropdownOpen)
+    {
+        <ul class="relieving-member-picker-dropdown" role="listbox">
+            @if (isSearching)
+            {
+                <li class="relieving-member-picker-status">Searching...</li>
+            }
+            else if (searchFailed)
+            {
+                <li class="relieving-member-picker-status relieving-member-picker-error">Unable to search crew members right now</li>
+            }
+            else if (results.Count == 0)
+            {
+                <li class="relieving-member-picker-status">No crew members found</li>
+            }
+            else
+            {
+                @foreach (var member in results)
+                {
+                    <li role="option">
+                        <button class="relieving-member-picker-option" type="button" @onclick="() => SelectMember(member)">
+                            <strong>@member.Name</strong><span class="relieving-member-picker-rank">@member.BaseRankName &middot; @member.Nationality</span>
+                        </button>
+                    </li>
+                }
+            }
+        </ul>
+    }
+</div>

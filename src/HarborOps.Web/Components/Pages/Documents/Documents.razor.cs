@@ -163,6 +163,11 @@ public partial class Documents
 
     private bool IsUploadValidationFailure => uploadFailure is { IsValidation: true };
 
+    private bool ShowUploadForm =>
+        fileDetails is not null
+        && ((!fileDetails.HasFile && AuthorizationState.HasPermission("documents.manage"))
+            || (fileDetails.HasFile && isReplaceFormOpen));
+
     private IEnumerable<string> UploadValidationMessages =>
         uploadFailure?.Errors.SelectMany(entry => entry.Value) ?? [];
 
@@ -602,19 +607,23 @@ public partial class Documents
         return unmapped;
     }
 
-    private async Task ToggleFilePanelAsync(Guid documentId)
+    private async Task OpenFilePanelAsync(Guid documentId)
     {
-        if (expandedDocumentId == documentId)
-        {
-            expandedDocumentId = null;
-
-            return;
-        }
-
         expandedDocumentId = documentId;
         ResetFilePanelState();
 
         await LoadFileDetailsAsync(documentId);
+    }
+
+    private void CloseFilePanel()
+    {
+        if (isUploading)
+        {
+            return;
+        }
+
+        expandedDocumentId = null;
+        ResetFilePanelState();
     }
 
     private void ResetFilePanelState()

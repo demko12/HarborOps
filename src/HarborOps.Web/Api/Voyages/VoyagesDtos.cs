@@ -53,3 +53,105 @@ internal sealed record VoyagesApiFailure(
 
     internal bool IsConflict => StatusCode == StatusCodes.Status409Conflict;
 }
+
+internal sealed record PortListItemModel(
+    Guid PortId,
+    string Name,
+    string Country,
+    string? City,
+    string? UnLocode,
+    decimal? Latitude,
+    decimal? Longitude);
+
+internal sealed record PortPage(
+    IReadOnlyList<PortListItemModel> Items,
+    int PageNumber,
+    int PageSize,
+    int TotalCount);
+
+internal sealed record PortLookupItemModel(
+    Guid PortId,
+    string Name,
+    string Country,
+    string? UnLocode);
+
+internal sealed record PortLookupResult(IReadOnlyList<PortLookupItemModel> Items);
+
+internal sealed record RegisterPortWebRequest(
+    string? Name,
+    string? Country,
+    string? City,
+    string? UnLocode,
+    decimal? Latitude,
+    decimal? Longitude);
+
+internal sealed record RegisteredPort(Guid Id);
+
+internal sealed record BerthListItemModel(
+    Guid BerthId,
+    Guid PortId,
+    string Name,
+    decimal Length,
+    decimal MaxDraft,
+    string Status);
+
+internal sealed record BerthPage(
+    IReadOnlyList<BerthListItemModel> Items,
+    int PageNumber,
+    int PageSize,
+    int TotalCount);
+
+internal sealed record RegisterBerthWebRequest(
+    Guid? PortId,
+    string? Name,
+    decimal? Length,
+    decimal? MaxDraft,
+    string? Status);
+
+internal sealed record RegisteredBerth(Guid Id);
+
+internal sealed record RouteListItemModel(
+    Guid RouteId,
+    string Name,
+    string? Description,
+    decimal EstimatedDistance,
+    int EstimatedDuration,
+    int StopCount);
+
+internal sealed record RoutePage(
+    IReadOnlyList<RouteListItemModel> Items,
+    int PageNumber,
+    int PageSize,
+    int TotalCount);
+
+internal sealed record RouteStopModel(
+    Guid PortId,
+    string PortName,
+    string PortCountry,
+    string? UnLocode,
+    int StopOrder,
+    decimal DistanceFromPrevious,
+    int EstimatedDurationFromPrevious);
+
+internal sealed record RouteDetails(
+    Guid RouteId,
+    string Name,
+    string? Description,
+    decimal EstimatedDistance,
+    int EstimatedDuration,
+    IReadOnlyList<RouteStopModel> Stops);
+
+internal sealed record RegisterRouteStopWebRequest(
+    Guid? PortId,
+    int StopOrder,
+    decimal? DistanceFromPrevious,
+    int? EstimatedDurationFromPrevious);
+
+internal sealed record RegisterRouteWebRequest(
+    string? Name,
+    string? Description,
+    decimal? EstimatedDistance,
+    int? EstimatedDuration,
+    IReadOnlyList<RegisterRouteStopWebRequest> Stops);
+
+internal sealed record RegisteredRoute(Guid Id);
