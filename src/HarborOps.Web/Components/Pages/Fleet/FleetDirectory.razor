@@ -1,0 +1,17 @@
+@page "/fleet/fleets"
+@attribute [Microsoft.AspNetCore.Authorization.Authorize(Policy = "AccessFleet")]
+@using HarborOps.Web.Api.Fleet
+@implements IDisposable
+@inject FleetApiClient FleetApi
+@inject CurrentUserAuthorizationState AuthorizationState
+
+<PageTitle>Fleets | HarborOps</PageTitle>
+<section class="fleet-directory-page">
+    <header class="fleet-directory-header"><nav class="page-breadcrumb" aria-label="Breadcrumb"><a href="/fleet">Fleet operations</a><span aria-hidden="true">/</span><span>Fleets</span></nav><h1>Fleet directory</h1><p>Create fleets, review their active vessels, and keep the operating structure current.</p></header>
+    @if (CanManage) { <section class="fleet-directory-create"><div class="fleet-directory-section-heading"><div><p class="fleet-directory-eyebrow">Fleet management</p><h2>Create a fleet</h2></div><span class="fleet-directory-icon bi bi-diagram-3" aria-hidden="true"></span></div><form @onsubmit="CreateAsync" @onsubmit:preventDefault="true"><div class="fleet-directory-field"><label for="fleet-name">Name</label><input id="fleet-name" @bind="newFleetName" maxlength="200" placeholder="e.g. Atlantic Operations Fleet" /></div><div class="fleet-directory-field"><label for="fleet-description">Description</label><input id="fleet-description" @bind="newFleetDescription" maxlength="1000" placeholder="Describe this fleet's operating scope" /></div><button type="submit" disabled="@isCreating">@(isCreating ? "Creating..." : "Create fleet")</button></form>@if (createFailure is not null) { <p class="fleet-directory-error" role="alert">@createFailure.Message</p> }</section> }
+    <section class="fleet-directory-filter"><div class="fleet-directory-field"><label for="fleet-directory-search">Search</label><div class="fleet-directory-search-input"><span class="bi bi-search" aria-hidden="true"></span><input id="fleet-directory-search" @bind="search" @bind:after="SearchAsync" placeholder="Search fleets by name or description" /></div></div><button type="button" @onclick="ResetAsync" disabled="@isLoading">Reset</button></section>
+    @if (isLoading) { <LoadingState Message="Loading fleets..." /> }
+    else if (failure is not null) { <ApiErrorState Title="@failure.Title" Message="@failure.Message" OnRetry="LoadAsync" /> }
+    else if (directory is null || directory.Items.Count == 0) { <EmptyState Title="No fleets found" Message="Create a fleet or search with another term." /> }
+    else { <section class="fleet-directory-results"><div class="fleet-directory-results-heading"><div><h2>Fleets</h2><p>@directory.TotalCount fleet@(directory.TotalCount == 1 ? string.Empty : "s") found</p></div></div><div class="fleet-directory-grid">@foreach (var fleet in directory.Items) { <a class="fleet-directory-card" href="@($"/fleet/fleets/{fleet.FleetId}")"><span class="fleet-directory-card-icon bi bi-diagram-3" aria-hidden="true"></span><div><h2>@fleet.Name</h2><p>@fleet.Description</p></div><dl><div><dt>Active vessels</dt><dd>@fleet.ActiveVesselCount</dd></div><div><dt>Created</dt><dd>@fleet.CreatedAtUtc.ToLocalTime().ToString("dd MMM yyyy")</dd></div></dl><span class="bi bi-chevron-right" aria-hidden="true"></span></a> }</div></section> }
+</section>

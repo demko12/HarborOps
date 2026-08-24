@@ -122,7 +122,7 @@ public sealed class GetWorkOrderPartUsagesEndpointTests : IntegrationTestBase
     [Fact]
     public async Task Get_with_authentication_but_no_read_permission_returns_403()
     {
-        using var client = await _application.CreateAuthenticatedClientAsync();
+        using var client = await _application.CreateAuthenticatedClientAsync(roleNames: []);
 
         using var response = await client.GetAsync(
             new Uri(

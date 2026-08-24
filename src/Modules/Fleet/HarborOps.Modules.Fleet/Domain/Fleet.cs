@@ -31,12 +31,16 @@ internal sealed class Fleet
 
     internal static Fleet Register(
         string name,
-        string description)
+        string description,
+        DateTime createdAtUtc)
     {
         return new Fleet(
             Guid.NewGuid(),
             name,
             description,
-            DateTime.UtcNow);
+            createdAtUtc);
     }
+
+    internal static Fleet Register(string name, string description) =>
+        Register(name, description, DateTime.UtcNow);
 }

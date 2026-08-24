@@ -90,7 +90,7 @@ public sealed class SearchCrewPositionsEndpointTests : IntegrationTestBase
     [Fact]
     public async Task Get_without_crew_permission_returns_403()
     {
-        using var client = await _application.CreateAuthenticatedClientAsync();
+        using var client = await _application.CreateAuthenticatedClientAsync(roleNames: []);
 
         using var response = await client.GetAsync(
             new Uri("/api/crew/positions", UriKind.Relative),

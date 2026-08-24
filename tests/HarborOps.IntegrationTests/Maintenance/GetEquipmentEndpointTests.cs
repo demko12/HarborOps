@@ -104,7 +104,7 @@ public sealed class GetEquipmentEndpointTests : IntegrationTestBase
     [Fact]
     public async Task Get_without_the_read_permission_returns_403()
     {
-        using var client = await _application.CreateAuthenticatedClientAsync();
+        using var client = await _application.CreateAuthenticatedClientAsync(roleNames: []);
 
         using var response = await client.GetAsync(
             new Uri("/api/maintenance/equipment", UriKind.Relative),

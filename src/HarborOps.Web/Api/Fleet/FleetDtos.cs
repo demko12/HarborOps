@@ -27,6 +27,48 @@ internal sealed record VesselLookupWebRequest(IReadOnlyCollection<Guid> VesselId
 
 internal sealed record VesselLookupWebResponse(IReadOnlyList<VesselLookupItem> Vessels);
 
+internal sealed record FleetDirectoryWebModel(
+    IReadOnlyList<FleetDirectoryItemWebModel> Items,
+    int TotalCount,
+    int PageNumber,
+    int PageSize);
+
+internal sealed record FleetDirectoryItemWebModel(
+    Guid FleetId,
+    string Name,
+    string Description,
+    DateTime CreatedAtUtc,
+    int ActiveVesselCount);
+
+internal sealed record CreateFleetWebRequest(string Name, string Description);
+
+internal sealed record CreateFleetWebResponse(Guid FleetId);
+
+internal sealed record FleetDetailsWebModel(
+    Guid FleetId,
+    string Name,
+    string Description,
+    DateTime CreatedAtUtc,
+    IReadOnlyList<FleetAssignedVesselWebModel> ActiveVessels);
+
+internal sealed record FleetAssignedVesselWebModel(
+    Guid VesselId,
+    string Name,
+    string ImoNumber,
+    string CurrentStatus,
+    DateTime AssignedFromUtc);
+
+internal sealed record FleetAssignmentHistoryWebModel(IReadOnlyList<FleetAssignmentHistoryItemWebModel> Items);
+
+internal sealed record FleetAssignmentHistoryItemWebModel(
+    Guid FleetId,
+    string FleetName,
+    DateTime AssignedFromUtc,
+    DateTime? AssignedToUtc,
+    bool IsActive);
+
+internal sealed record AssignFleetWebRequest(Guid FleetId);
+
 internal sealed record FleetApiResult<T>(T? Value, FleetApiFailure? Failure)
 {
     internal bool IsSuccess => Failure is null;

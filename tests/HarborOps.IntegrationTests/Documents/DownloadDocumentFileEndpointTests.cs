@@ -93,7 +93,7 @@ public sealed class DownloadDocumentFileEndpointTests : DocumentFileStorageInteg
     [Fact]
     public async Task Get_with_no_permissions_returns_403()
     {
-        using var client = await TestUserSetup.CreateAuthenticatedClientAsync(_application);
+        using var client = await TestUserSetup.CreateAuthenticatedClientAsync(_application, roleNames: []);
         var documentTypeId = await SeedDocumentTypeAsync(_application);
         var documentId = await SeedDocumentAsync(_application, documentTypeId);
 

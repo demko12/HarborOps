@@ -33,18 +33,24 @@ internal sealed class FleetAssignment
 
     internal static FleetAssignment Register(
         Guid vesselId,
-        Guid fleetId)
+        Guid fleetId,
+        DateTime assignedFromUtc)
     {
         return new FleetAssignment(
             Guid.NewGuid(),
             vesselId,
             fleetId,
-            DateTime.UtcNow);
+            assignedFromUtc);
     }
 
-    internal void End()
+    internal static FleetAssignment Register(Guid vesselId, Guid fleetId) =>
+        Register(vesselId, fleetId, DateTime.UtcNow);
+
+    internal void End(DateTime assignedToUtc)
     {
-        AssignedToUtc = DateTime.UtcNow;
+        AssignedToUtc = assignedToUtc;
         IsActive = false;
     }
+
+    internal void End() => End(DateTime.UtcNow);
 }

@@ -1,0 +1,24 @@
+@page "/fleet/fleets/{FleetId:guid}"
+@attribute [Microsoft.AspNetCore.Authorization.Authorize(Policy = "AccessFleet")]
+@using HarborOps.Web.Api.Fleet
+@implements IDisposable
+@inject FleetApiClient FleetApi
+
+<PageTitle>@(fleet?.Name ?? "Fleet") | HarborOps</PageTitle>
+<section class="fleet-directory-page fleet-details-page">
+    @if (isLoading) { <LoadingState Message="Loading fleet..." /> }
+    else if (failure is not null) { <ApiErrorState Title="@failure.Title" Message="@failure.Message" OnRetry="LoadAsync" /> }
+    else if (fleet is null) { <EmptyState Title="Fleet not found" Message="This fleet does not exist." /> }
+    else
+    {
+        <header class="fleet-directory-header fleet-details-header">
+            <nav class="page-breadcrumb" aria-label="Breadcrumb"><a href="/fleet">Fleet operations</a><span>/</span><a href="/fleet/fleets">Fleets</a><span>/</span><span>@fleet.Name</span></nav>
+            <div class="fleet-details-title-row"><div><h1>@fleet.Name</h1><p>@fleet.Description</p></div><dl class="fleet-details-summary"><div><dt>Active vessels</dt><dd>@fleet.ActiveVessels.Count</dd></div><div><dt>Created</dt><dd>@fleet.CreatedAtUtc.ToLocalTime().ToString("dd MMM yyyy")</dd></div></dl></div>
+        </header>
+        <section class="fleet-details-register" aria-labelledby="fleet-vessels-title">
+            <div class="fleet-directory-results-heading"><div><p class="fleet-directory-eyebrow">Fleet register</p><h2 id="fleet-vessels-title">Active vessels</h2><p>@fleet.ActiveVessels.Count vessel@(fleet.ActiveVessels.Count == 1 ? string.Empty : "s") currently assigned</p></div><span class="fleet-directory-icon bi bi-water" aria-hidden="true"></span></div>
+            @if (fleet.ActiveVessels.Count == 0) { <EmptyState Title="No active vessels" Message="Assign a vessel from its details page to add it to this fleet." /> }
+            else { <div class="fleet-details-vessels">@foreach (var vessel in fleet.ActiveVessels) { <a href="@($"/fleet/{vessel.VesselId}?returnTo=/fleet/fleets/{FleetId}")" aria-label="@($"Open {vessel.Name} details")"><span class="fleet-details-vessel-icon bi bi-water" aria-hidden="true"></span><div class="fleet-details-vessel-primary"><strong>@vessel.Name</strong><span>IMO @vessel.ImoNumber</span></div><span class="vessel-status @GetStatusClass(vessel.CurrentStatus)">@vessel.CurrentStatus</span><div class="fleet-details-assigned"><span>Assigned</span><strong>@vessel.AssignedFromUtc.ToLocalTime().ToString("dd MMM yyyy")</strong></div><span class="bi bi-chevron-right fleet-details-chevron" aria-hidden="true"></span></a> }</div> }
+        </section>
+    }
+</section>
