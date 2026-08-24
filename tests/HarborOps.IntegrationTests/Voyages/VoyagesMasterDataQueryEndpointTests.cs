@@ -187,7 +187,7 @@ public sealed class VoyagesMasterDataQueryEndpointTests : IntegrationTestBase
     [InlineData("/api/voyages/routes/lookup")]
     public async Task Queries_without_the_read_permission_return_403(string path)
     {
-        using var client = await _application.CreateAuthenticatedClientAsync();
+        using var client = await _application.CreateAuthenticatedClientAsync(roleNames: []);
 
         using var response = await client.GetAsync(new Uri(path, UriKind.Relative), CancellationToken.None);
 
@@ -197,7 +197,7 @@ public sealed class VoyagesMasterDataQueryEndpointTests : IntegrationTestBase
     [Fact]
     public async Task Route_details_without_the_read_permission_return_403()
     {
-        using var client = await _application.CreateAuthenticatedClientAsync();
+        using var client = await _application.CreateAuthenticatedClientAsync(roleNames: []);
 
         using var response = await client.GetAsync(
             new Uri($"/api/voyages/routes/{Guid.NewGuid()}", UriKind.Relative),
