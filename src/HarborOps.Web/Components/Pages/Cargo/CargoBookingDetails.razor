@@ -4,6 +4,7 @@
 @implements IDisposable
 @inject CargoBookingsApiClient CargoApi
 @inject CurrentUserAuthorizationState AuthorizationState
+@inject IJSRuntime JS
 
 <PageTitle>@PageHeading | HarborOps</PageTitle>
 
@@ -85,7 +86,16 @@
                 <dl class="booking-facts">
                     <div>
                         <dt>Voyage</dt>
-                        <dd><code class="booking-voyage" title="@details.VoyageId">@details.VoyageId</code></dd>
+                        <dd class="booking-voyage-cell">
+                            <code class="booking-voyage" title="@details.VoyageId">@details.VoyageId</code>
+                            <button type="button"
+                                    class="booking-copy"
+                                    title="@(voyageIdCopied ? "Copied" : "Copy voyage ID")"
+                                    aria-label="Copy voyage ID"
+                                    @onclick="CopyVoyageIdAsync">
+                                <span class="bi @(voyageIdCopied ? "bi-check2" : "bi-clipboard")" aria-hidden="true"></span>
+                            </button>
+                        </dd>
                     </div>
                     <div>
                         <dt>Description</dt>
@@ -265,7 +275,13 @@
                 }
                 else
                 {
-                    <p class="booking-note">This booking has reached the end of its lifecycle.</p>
+                    <div class="booking-complete" role="status">
+                        <span class="booking-complete-icon" aria-hidden="true"><span class="bi bi-check-circle-fill"></span></span>
+                        <div>
+                            <p class="booking-complete-title">Lifecycle complete</p>
+                            <p class="booking-complete-note">All tracking steps have been recorded for this booking.</p>
+                        </div>
+                    </div>
                 }
             }
 

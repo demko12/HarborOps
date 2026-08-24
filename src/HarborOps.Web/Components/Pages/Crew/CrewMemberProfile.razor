@@ -141,7 +141,7 @@
                 <div class="crew-profile-card-heading">
                     <div>
                         <h2 id="crew-profile-assignments-title">Assignments</h2>
-                        <p>@profile.Assignments.Count on record</p>
+                        <p>@profile.Assignments.Count on record @(profile.Assignments.Count > 0 ? "· click one to view details or plan a relief" : "")</p>
                     </div>
                     <span class="bi bi-ship" aria-hidden="true"></span>
                 </div>
@@ -229,27 +229,31 @@
 
                                 @if (rotationExists && selectedRotation is not null)
                                 {
-                                    <dl class="crew-assignment-modal-details">
-                                        <div>
-                                            <dt>Relieving member</dt>
-                                            <dd>
-                                                @if (selectedRotation.RelievingCrewMemberId is { } relievingId)
-                                                {
-                                                    <a href="@($"/crew/{relievingId}")">@selectedRotation.RelievingCrewMemberName</a>
-                                                }
-                                                else
-                                                {
-                                                    <span>Not selected</span>
-                                                }
-                                            </dd>
+                                    <div class="crew-rotation-summary">
+                                        <div class="crew-rotation-summary-row">
+                                            <span>Relieving member</span>
+                                            @if (selectedRotation.RelievingCrewMemberId is { } relievingId)
+                                            {
+                                                <a href="@($"/crew/{relievingId}")">@selectedRotation.RelievingCrewMemberName</a>
+                                            }
+                                            else
+                                            {
+                                                <strong>Not selected</strong>
+                                            }
                                         </div>
-                                        <div><dt>Rotation pattern</dt><dd>@selectedRotation.RotationPattern</dd></div>
-                                        <div><dt>Planned relief date</dt><dd>@selectedRotation.PlannedReliefDate.ToString("dd MMM yyyy")</dd></div>
+                                        <div class="crew-rotation-summary-row"><span>Pattern</span><strong>@selectedRotation.RotationPattern</strong></div>
+                                        <div class="crew-rotation-summary-row"><span>Planned relief</span><strong>@selectedRotation.PlannedReliefDate.ToString("dd MMM yyyy")</strong></div>
                                         @if (selectedRotation.IsOverdue)
                                         {
-                                            <div><dt>Status</dt><dd><span class="crew-profile-indicator crew-profile-indicator-expired">Overdue</span></dd></div>
+                                            <span class="crew-profile-indicator crew-profile-indicator-expired">Overdue</span>
                                         }
-                                    </dl>
+                                        @if (CanManage)
+                                        {
+                                            <button type="button" class="crew-rotation-edit-toggle" @onclick="ToggleEditRotation">
+                                                @(isEditingRotation ? "Cancel" : "Edit")
+                                            </button>
+                                        }
+                                    </div>
                                 }
 
                                 @if (rotationConflictMessage is not null)
@@ -277,7 +281,7 @@
                                     <div class="crew-profile-form-success" role="status">@rotationSuccessMessage</div>
                                 }
 
-                                @if (CanManage)
+                                @if (CanManage && (!rotationExists || isEditingRotation))
                                 {
                                     <form class="crew-profile-form-grid" @onsubmit="SaveRotationAsync" @onsubmit:preventDefault="true">
                                         <div class="crew-profile-form-field crew-profile-form-field-wide">
@@ -286,7 +290,13 @@
                                         </div>
                                         <div class="crew-profile-form-field">
                                             <label for="rotation-pattern">Rotation pattern</label>
-                                            <input id="rotation-pattern" type="text" maxlength="100" @bind="rotationForm.RotationPattern" placeholder="e.g. 2-2" />
+                                            <select id="rotation-pattern" @bind="rotationForm.RotationPattern">
+                                                <option value="">Select...</option>
+                                                @foreach (var option in RotationPatternOptions)
+                                                {
+                                                    <option value="@option">@option</option>
+                                                }
+                                            </select>
                                         </div>
                                         <div class="crew-profile-form-field">
                                             <label for="rotation-planned-relief-date">Planned relief date</label>
@@ -296,18 +306,18 @@
                                             @(isSavingRotation ? "Saving..." : rotationExists ? "Update rotation" : "Plan rotation")
                                         </button>
                                     </form>
+                                }
 
-                                    @if (rotationExists && rotationForm.RelievingCrewMemberId is not null)
+                                @if (CanManage && rotationExists && !isEditingRotation && rotationForm.RelievingCrewMemberId is not null)
+                                {
+                                    @if (executeRotationError is not null)
                                     {
-                                        @if (executeRotationError is not null)
-                                        {
-                                            <div class="crew-assignment-modal-error" role="alert">@executeRotationError</div>
-                                        }
-
-                                        <button type="button" class="crew-rotation-execute" disabled="@isExecutingRotation" @onclick="ExecuteRotationAsync">
-                                            @(isExecutingRotation ? "Executing..." : "Execute relief")
-                                        </button>
+                                        <div class="crew-assignment-modal-error" role="alert">@executeRotationError</div>
                                     }
+
+                                    <button type="button" class="crew-rotation-execute" disabled="@isExecutingRotation" @onclick="ExecuteRotationAsync">
+                                        @(isExecutingRotation ? "Executing..." : "Execute relief")
+                                    </button>
                                 }
                             }
                         </div>

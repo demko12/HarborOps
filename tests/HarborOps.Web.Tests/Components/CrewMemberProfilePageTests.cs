@@ -553,6 +553,25 @@ public sealed class CrewMemberProfilePageTests : BunitContext
     }
 
     [Fact]
+    public void The_plan_form_defaults_the_relief_date_to_the_assignments_planned_sign_off_date()
+    {
+        respondToProfile = _ => Json(
+            HttpStatusCode.OK,
+            Profile(certificates: [], assignments: [Assignment(status: "Active")]));
+
+        var page = RenderProfilePage(
+            CurrentUserAuthorizationState.CrewReadPermission,
+            CurrentUserAuthorizationState.CrewManagePermission);
+
+        page.WaitForAssertion(() => Assert.NotEmpty(page.FindAll(".crew-profile-row-clickable")));
+        page.Find(".crew-profile-row-clickable").Click();
+
+        page.WaitForAssertion(() => Assert.Equal(
+            "2026-06-01",
+            page.Find("#rotation-planned-relief-date").GetAttribute("value")));
+    }
+
+    [Fact]
     public void Without_the_manage_permission_no_rotation_form_is_offered()
     {
         respondToProfile = _ => Json(
@@ -604,14 +623,48 @@ public sealed class CrewMemberProfilePageTests : BunitContext
 
         page.WaitForAssertion(() =>
         {
-            Assert.Contains("Relief Member", page.Find(".crew-assignment-modal").TextContent, StringComparison.Ordinal);
-            Assert.Equal("2-2", page.Find("#rotation-pattern").GetAttribute("value"));
-            Assert.Contains(
-                "Update rotation",
-                page.Find(".crew-assignment-modal .crew-profile-form-submit").TextContent,
-                StringComparison.Ordinal);
+            var summary = page.Find(".crew-rotation-summary");
+            Assert.Contains("Relief Member", summary.TextContent, StringComparison.Ordinal);
+            Assert.Contains("4 months on / 2 months off", summary.TextContent, StringComparison.Ordinal);
             Assert.NotEmpty(page.FindAll(".crew-rotation-execute"));
         });
+
+        Assert.Empty(page.FindAll("#rotation-pattern"));
+
+        page.Find(".crew-rotation-edit-toggle").Click();
+
+        Assert.Equal("4 months on / 2 months off", page.Find("#rotation-pattern").GetAttribute("value"));
+        Assert.Contains(
+            "Update rotation",
+            page.Find(".crew-assignment-modal .crew-profile-form-submit").TextContent,
+            StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Canceling_the_edit_hides_the_form_again_without_saving()
+    {
+        respondToProfile = _ => Json(
+            HttpStatusCode.OK,
+            Profile(certificates: [], assignments: [Assignment(status: "Active")]));
+        respondToGetRotation = _ => Json(HttpStatusCode.OK, Rotation());
+
+        var page = RenderProfilePage(
+            CurrentUserAuthorizationState.CrewReadPermission,
+            CurrentUserAuthorizationState.CrewManagePermission);
+
+        page.WaitForAssertion(() => Assert.NotEmpty(page.FindAll(".crew-profile-row-clickable")));
+        page.Find(".crew-profile-row-clickable").Click();
+
+        page.WaitForAssertion(() => Assert.NotEmpty(page.FindAll(".crew-rotation-edit-toggle")));
+        page.Find(".crew-rotation-edit-toggle").Click();
+
+        Assert.NotEmpty(page.FindAll("#rotation-pattern"));
+        page.Find("#rotation-pattern").Change("2 months on / 2 months off");
+
+        page.Find(".crew-rotation-edit-toggle").Click();
+
+        Assert.Empty(page.FindAll("#rotation-pattern"));
+        Assert.Contains("4 months on / 2 months off", page.Find(".crew-rotation-summary").TextContent, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -664,7 +717,7 @@ public sealed class CrewMemberProfilePageTests : BunitContext
             TimeSpan.FromSeconds(3));
         await page.InvokeAsync(() => page.Find(".relieving-member-picker-option").Click());
 
-        page.Find("#rotation-pattern").Change("2-2");
+        page.Find("#rotation-pattern").Change("2 months on / 2 months off");
         page.Find("#rotation-planned-relief-date").Change("2026-07-01");
         Closest(page, "#rotation-pattern", "form").Submit();
 
@@ -690,7 +743,7 @@ public sealed class CrewMemberProfilePageTests : BunitContext
         page.Find(".crew-profile-row-clickable").Click();
 
         page.WaitForAssertion(() => Assert.NotEmpty(page.FindAll("#rotation-pattern")));
-        page.Find("#rotation-pattern").Change("2-2");
+        page.Find("#rotation-pattern").Change("2 months on / 2 months off");
         page.Find("#rotation-planned-relief-date").Change("2026-07-01");
         Closest(page, "#rotation-pattern", "form").Submit();
 
@@ -936,7 +989,7 @@ public sealed class CrewMemberProfilePageTests : BunitContext
         {"rotationId":"81000000-0000-0000-0000-000000000001","assignmentId":"31000000-0000-0000-0000-000000000001",
         "vesselId":"{{VesselId}}","crewMemberId":"{{MemberId}}","crewMemberName":"Ivan Petrović",
         "rankId":"{{RankId}}","rankName":"Bosun","relievingCrewMemberId":"20000000-0000-0000-0000-000000000002",
-        "relievingCrewMemberName":"Relief Member","rotationPattern":"2-2","plannedReliefDate":"2026-07-01",
+        "relievingCrewMemberName":"Relief Member","rotationPattern":"4 months on / 2 months off","plannedReliefDate":"2026-07-01",
         "isOverdue":{{(isOverdue ? "true" : "false")}}}
         """;
 

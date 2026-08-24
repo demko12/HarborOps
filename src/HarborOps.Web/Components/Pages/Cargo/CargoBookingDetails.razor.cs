@@ -2,6 +2,7 @@ using System.ComponentModel.DataAnnotations;
 using HarborOps.Web.Api.Cargo;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Forms;
+using Microsoft.JSInterop;
 
 using CargoBookingDetailsModel = HarborOps.Web.Api.Cargo.CargoBookingDetails;
 
@@ -27,6 +28,33 @@ public partial class CargoBookingDetails : IDisposable
 
     private bool IsBlockedByMissingSafetyInfo =>
         details is { IsHazardous: true, SafetyInfo: null, NextStatus: "Loaded" };
+
+    private bool voyageIdCopied;
+
+    private async Task CopyVoyageIdAsync()
+    {
+        if (details is null)
+        {
+            return;
+        }
+
+        await JS.InvokeVoidAsync("navigator.clipboard.writeText", details.VoyageId.ToString());
+
+        voyageIdCopied = true;
+        StateHasChanged();
+
+        try
+        {
+            await Task.Delay(1500, disposeCancellation.Token);
+        }
+        catch (OperationCanceledException) when (disposeCancellation.IsCancellationRequested)
+        {
+            return;
+        }
+
+        voyageIdCopied = false;
+        StateHasChanged();
+    }
 
     protected override void OnInitialized()
     {
