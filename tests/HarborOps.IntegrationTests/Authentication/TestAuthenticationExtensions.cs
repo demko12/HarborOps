@@ -15,7 +15,15 @@ public static class TestAuthenticationExtensions
 
     public static Task<HttpClient> CreateAuthenticatedClientAsync(this HarborOpsApiFactory application)
     {
-        return application.CreateAuthenticatedClientAsync(roleNames: []);
+        return application.CreateAuthenticatedClientWithPermissionsAsync(
+            Permissions.Fleet.Manage,
+            Permissions.Crew.Manage,
+            Permissions.Voyages.Manage,
+            Permissions.Cargo.Manage,
+            Permissions.Maintenance.Manage,
+            Permissions.Compliance.Manage,
+            Permissions.Documents.Manage,
+            Permissions.Reports.Manage);
     }
 
 

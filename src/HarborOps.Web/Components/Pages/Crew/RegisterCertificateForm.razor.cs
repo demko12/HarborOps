@@ -1,3 +1,4 @@
+using System.Globalization;
 using HarborOps.Web.Api;
 using Microsoft.AspNetCore.Components;
 
@@ -7,6 +8,8 @@ public partial class RegisterCertificateForm
 {
     private static readonly IReadOnlyDictionary<string, string[]> EmptyErrors =
         new Dictionary<string, string[]>(StringComparer.OrdinalIgnoreCase);
+
+    private readonly DateOnly today = DateOnly.FromDateTime(DateTime.Today);
 
     [Parameter, EditorRequired]
     public Guid CrewMemberId { get; set; }
@@ -20,6 +23,8 @@ public partial class RegisterCertificateForm
     private string? conflictMessage;
     private string? generalError;
     private IReadOnlyList<string> fieldErrors = [];
+
+    internal static string FormatIsoDate(DateOnly value) => value.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
 
     private async Task SubmitAsync()
     {

@@ -20,6 +20,7 @@ public static class MaintenanceModule
         services.AddScoped<RecordInventoryItemUsageService>();
         services.AddScoped<GetMaintenanceWorkOrdersQuery>();
         services.AddScoped<IOperationsDashboardMaintenanceQuery, OperationsDashboardMaintenanceQuery>();
+        services.AddScoped<IReportsMaintenanceBacklogQuery, ReportsMaintenanceBacklogQuery>();
         services.AddScoped<GetInventoryItemsQuery>();
         services.AddScoped<GetWorkOrderPartUsagesQuery>();
         services.AddScoped<RegisterEquipmentService>();
@@ -28,6 +29,12 @@ public static class MaintenanceModule
         services.AddScoped<GetMaintenanceSchedulesQuery>();
         services.AddScoped<GetMaintenanceScheduleDetailsQuery>();
         services.AddScoped<UpdateScheduleNextDueService>();
+        services.AddScoped<ScheduleDryDockService>();
+        services.AddScoped<GetDryDocksQuery>();
+        services.AddScoped<GetDryDockDetailsQuery>();
+        services.AddScoped<StartDryDockService>();
+        services.AddScoped<CompleteDryDockService>();
+        services.AddScoped<CancelDryDockService>();
         services.AddScoped<RegisterSupplierService>();
         services.AddScoped<GetSuppliersQuery>();
         services.AddScoped<CreatePurchaseOrderService>();

@@ -1,3 +1,4 @@
+using System.Security.Claims;
 using HarborOps.Modules.Identity.Application;
 using HarborOps.Modules.Identity.Contracts;
 using Microsoft.AspNetCore.Builder;
@@ -128,8 +129,98 @@ public static class IdentityAdminEndpoints
         })
             .RequireAuthorization(Permissions.IdentityRoles.Manage);
 
+        group.MapPost("/users/{userId:guid}/disable", async (
+                Guid userId,
+                ClaimsPrincipal principal,
+                UserAdministrationService service,
+                CancellationToken cancellationToken) =>
+        {
+            try
+            {
+                await service.DisableAsync(userId, GetActingAdministratorId(principal), cancellationToken);
+                return Results.NoContent();
+            }
+            catch (UserNotFoundException)
+            {
+                return Results.NotFound();
+            }
+            catch (SelfAccountLifecycleException exception)
+            {
+                return Conflict("Account lifecycle safeguard.", exception.Message);
+            }
+            catch (FinalIdentityAdministratorException exception)
+            {
+                return Conflict("Final administrator protection.", exception.Message);
+            }
+        })
+            .RequireAuthorization(Permissions.IdentityUsers.Manage);
+
+        group.MapPost("/users/{userId:guid}/reactivate", async (
+                Guid userId,
+                ClaimsPrincipal principal,
+                UserAdministrationService service,
+                CancellationToken cancellationToken) =>
+        {
+            try
+            {
+                await service.ReactivateAsync(userId, GetActingAdministratorId(principal), cancellationToken);
+                return Results.NoContent();
+            }
+            catch (UserNotFoundException)
+            {
+                return Results.NotFound();
+            }
+        })
+            .RequireAuthorization(Permissions.IdentityUsers.Manage);
+
+        group.MapPost("/users/{userId:guid}/temporary-password", async (
+                Guid userId,
+                SetTemporaryPasswordRequest request,
+                ClaimsPrincipal principal,
+                UserAdministrationService service,
+                CancellationToken cancellationToken) =>
+        {
+            try
+            {
+                await service.SetTemporaryPasswordAsync(userId, GetActingAdministratorId(principal), request, cancellationToken);
+                return Results.NoContent();
+            }
+            catch (UserNotFoundException)
+            {
+                return Results.NotFound();
+            }
+            catch (AdminValidationException exception)
+            {
+                return ValidationProblem(exception);
+            }
+        })
+            .RequireAuthorization(Permissions.IdentityUsers.Manage);
+
+        group.MapPost("/users/{userId:guid}/revoke-sessions", async (
+                Guid userId,
+                ClaimsPrincipal principal,
+                UserAdministrationService service,
+                CancellationToken cancellationToken) =>
+        {
+            try
+            {
+                await service.RevokeSessionsAsync(userId, GetActingAdministratorId(principal), cancellationToken);
+                return Results.NoContent();
+            }
+            catch (UserNotFoundException)
+            {
+                return Results.NotFound();
+            }
+        })
+            .RequireAuthorization(Permissions.IdentityUsers.Manage);
+
         return app;
     }
+
+    private static Guid GetActingAdministratorId(ClaimsPrincipal principal) =>
+        Guid.TryParse(principal.FindFirstValue(ClaimTypes.NameIdentifier), out var userId)
+            ? userId
+            : throw new InvalidOperationException("Authenticated administrator identity is unavailable.");
 
     private static IResult ValidationProblem(AdminValidationException exception)
     {

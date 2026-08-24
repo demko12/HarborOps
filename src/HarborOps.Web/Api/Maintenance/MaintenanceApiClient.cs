@@ -147,7 +147,6 @@ internal sealed class MaintenanceApiClient(HttpClient httpClient)
         }
         catch (JsonException)
         {
-            // Not every failure carries a problem details body; keep the page retryable.
         }
 
         return new MaintenanceApiFailure(
@@ -569,6 +568,206 @@ internal sealed class MaintenanceApiClient(HttpClient httpClient)
     private static string FormatDate(DateOnly value)
     {
         return value.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
+    }
+
+    private const string DryDocksPath = "api/maintenance/dry-docks";
+
+    internal async Task<MaintenanceApiResult<DryDocksPage>> GetDryDocksAsync(
+        DryDockFilter filter,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(filter);
+
+        try
+        {
+            using var response = await httpClient.GetAsync(
+                BuildDryDocksPath(filter),
+                HttpCompletionOption.ResponseHeadersRead,
+                cancellationToken);
+
+            if (!response.IsSuccessStatusCode)
+            {
+                return new MaintenanceApiResult<DryDocksPage>(
+                    null, await ReadFailureAsync(response, "Unable to load dry docks", cancellationToken));
+            }
+
+            var page = await response.Content.ReadFromJsonAsync<DryDocksPage>(cancellationToken);
+
+            return new MaintenanceApiResult<DryDocksPage>(page, null);
+        }
+        catch (HttpRequestException)
+        {
+            return new MaintenanceApiResult<DryDocksPage>(null, Unavailable());
+        }
+        catch (TaskCanceledException) when (!cancellationToken.IsCancellationRequested)
+        {
+            return new MaintenanceApiResult<DryDocksPage>(null, Unavailable());
+        }
+    }
+
+    internal async Task<MaintenanceApiResult<DryDockDetailsModel>> GetDryDockDetailsAsync(
+        Guid dryDockId,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            using var response = await httpClient.GetAsync(
+                $"{DryDocksPath}/{dryDockId}",
+                HttpCompletionOption.ResponseHeadersRead,
+                cancellationToken);
+
+            if (!response.IsSuccessStatusCode)
+            {
+                return new MaintenanceApiResult<DryDockDetailsModel>(
+                    null, await ReadFailureAsync(response, "Unable to load the dry dock", cancellationToken));
+            }
+
+            var details = await response.Content.ReadFromJsonAsync<DryDockDetailsModel>(cancellationToken);
+
+            return new MaintenanceApiResult<DryDockDetailsModel>(details, null);
+        }
+        catch (HttpRequestException)
+        {
+            return new MaintenanceApiResult<DryDockDetailsModel>(null, Unavailable());
+        }
+        catch (TaskCanceledException) when (!cancellationToken.IsCancellationRequested)
+        {
+            return new MaintenanceApiResult<DryDockDetailsModel>(null, Unavailable());
+        }
+    }
+
+    internal async Task<MaintenanceApiResult<ScheduledDryDock>> ScheduleDryDockAsync(
+        ScheduleDryDockWebRequest request,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+
+        try
+        {
+            using var response = await httpClient.PostAsJsonAsync(DryDocksPath, request, cancellationToken);
+
+            if (response.StatusCode != HttpStatusCode.Created)
+            {
+                return new MaintenanceApiResult<ScheduledDryDock>(
+                    null, await ReadFailureAsync(response, "Unable to schedule the dry dock", cancellationToken));
+            }
+
+            var created = await response.Content.ReadFromJsonAsync<ScheduledDryDock>(cancellationToken);
+
+            return new MaintenanceApiResult<ScheduledDryDock>(created, null);
+        }
+        catch (HttpRequestException)
+        {
+            return new MaintenanceApiResult<ScheduledDryDock>(null, Unavailable());
+        }
+    }
+
+    internal Task<MaintenanceApiResult<DryDockTransition>> StartDryDockAsync(
+        Guid dryDockId,
+        CancellationToken cancellationToken)
+    {
+        return PostDryDockActionAsync(dryDockId, "start", content: null, cancellationToken);
+    }
+
+    internal Task<MaintenanceApiResult<DryDockTransition>> CancelDryDockAsync(
+        Guid dryDockId,
+        CancellationToken cancellationToken)
+    {
+        return PostDryDockActionAsync(dryDockId, "cancel", content: null, cancellationToken);
+    }
+
+    internal Task<MaintenanceApiResult<DryDockTransition>> CompleteDryDockAsync(
+        Guid dryDockId,
+        CompleteDryDockWebRequest request,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+
+        return PostDryDockActionAsync(
+            dryDockId,
+            "complete",
+            JsonContent.Create(request),
+            cancellationToken);
+    }
+
+    private async Task<MaintenanceApiResult<DryDockTransition>> PostDryDockActionAsync(
+        Guid dryDockId,
+        string action,
+        HttpContent? content,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            using var response = await httpClient.PostAsync(
+                $"{DryDocksPath}/{dryDockId}/{action}",
+                content,
+                cancellationToken);
+
+            if (!response.IsSuccessStatusCode)
+            {
+                return new MaintenanceApiResult<DryDockTransition>(
+                    null,
+                    await ReadFailureAsync(response, "Unable to update the dry dock", cancellationToken));
+            }
+
+            var transition = await response.Content.ReadFromJsonAsync<DryDockTransition>(cancellationToken);
+
+            return new MaintenanceApiResult<DryDockTransition>(transition, null);
+        }
+        catch (HttpRequestException)
+        {
+            return new MaintenanceApiResult<DryDockTransition>(null, Unavailable());
+        }
+        finally
+        {
+            content?.Dispose();
+        }
+    }
+
+    private static string BuildDryDocksPath(DryDockFilter filter)
+    {
+        var query = new List<string>
+        {
+            $"pageNumber={filter.PageNumber.ToString(CultureInfo.InvariantCulture)}",
+            $"pageSize={filter.PageSize.ToString(CultureInfo.InvariantCulture)}",
+        };
+
+        if (filter.VesselId is { } vesselId)
+        {
+            query.Add($"vesselId={vesselId}");
+        }
+
+        if (filter.PortId is { } portId)
+        {
+            query.Add($"portId={portId}");
+        }
+
+        if (!string.IsNullOrWhiteSpace(filter.Status))
+        {
+            query.Add($"status={Uri.EscapeDataString(filter.Status)}");
+        }
+
+        if (filter.StartFrom is { } startFrom)
+        {
+            query.Add($"startFrom={startFrom.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture)}");
+        }
+
+        if (filter.StartTo is { } startTo)
+        {
+            query.Add($"startTo={startTo.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture)}");
+        }
+
+        if (filter.Overdue is { } overdue)
+        {
+            query.Add($"overdue={(overdue ? "true" : "false")}");
+        }
+
+        if (!string.IsNullOrWhiteSpace(filter.Search))
+        {
+            query.Add($"search={Uri.EscapeDataString(filter.Search.Trim())}");
+        }
+
+        return $"{DryDocksPath}?{string.Join('&', query)}";
     }
 
     private const string SuppliersPath = "api/maintenance/suppliers";

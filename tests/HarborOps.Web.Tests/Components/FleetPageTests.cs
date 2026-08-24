@@ -160,11 +160,24 @@ public sealed class FleetPageTests : BunitContext
     {
         var page = RenderFleetPage();
 
-        page.Find(".fleet-input-shell input").Input("Northern");
+        page.Find(".fleet-vessel-search .vessel-picker-input").Input("Northern");
 
         page.WaitForAssertion(() => Assert.Contains(
             requestedUris,
             uri => uri.Query.Contains("search=Northern", StringComparison.Ordinal)));
+    }
+
+    [Fact]
+    public void Searching_lists_matching_vessels_in_the_picker()
+    {
+        respond = _ => Json(HttpStatusCode.OK, Page(Row(name: "Northern Star")));
+
+        var page = RenderFleetPage();
+        page.Find(".fleet-vessel-search .vessel-picker-input").Input("Northern");
+
+        page.WaitForAssertion(
+            () => Assert.Contains("Northern Star", page.Find(".fleet-vessel-search .vessel-picker-option").TextContent, StringComparison.Ordinal),
+            TimeSpan.FromSeconds(3));
     }
 
     [Fact]
@@ -194,7 +207,7 @@ public sealed class FleetPageTests : BunitContext
             requestedUris,
             uri => uri.Query.Contains("pageNumber=2", StringComparison.Ordinal)));
 
-        page.Find(".fleet-input-shell input").Input("Northern");
+        page.Find(".fleet-vessel-search .vessel-picker-input").Input("Northern");
 
         page.WaitForAssertion(() =>
         {
@@ -210,7 +223,7 @@ public sealed class FleetPageTests : BunitContext
     {
         var page = RenderFleetPage();
 
-        page.Find(".fleet-input-shell input").Input("Northern");
+        page.Find(".fleet-vessel-search .vessel-picker-input").Input("Northern");
         page.Find(".fleet-filters select").Change("At Port");
         page.WaitForAssertion(() => Assert.Contains(
             requestedUris,
@@ -296,7 +309,7 @@ public sealed class FleetPageTests : BunitContext
     {
         var page = RenderFleetPage();
 
-        page.Find(".fleet-input-shell input").Input("Northern");
+        page.Find(".fleet-vessel-search .vessel-picker-input").Input("Northern");
         page.Find(".fleet-filters select").Change("At Port");
 
         page.WaitForAssertion(() =>
@@ -363,7 +376,7 @@ public sealed class FleetPageTests : BunitContext
     {
         var page = RenderFleetPage();
 
-        page.Find(".fleet-input-shell input").Input("Northern");
+        page.Find(".fleet-vessel-search .vessel-picker-input").Input("Northern");
         page.Find(".fleet-filters select").Change("At Port");
 
         page.WaitForAssertion(() =>
@@ -409,7 +422,7 @@ public sealed class FleetPageTests : BunitContext
         var navigation =
             Services.GetRequiredService<Microsoft.AspNetCore.Components.NavigationManager>();
 
-        page.Find(".fleet-input-shell input").Input("Northern");
+        page.Find(".fleet-vessel-search .vessel-picker-input").Input("Northern");
 
         page.WaitForAssertion(() => Assert.Contains(
             "search=Northern",

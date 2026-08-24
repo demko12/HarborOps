@@ -1,10 +1,14 @@
 using HarborOps.Modules.Identity.Contracts;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 
 namespace HarborOps.Modules.Identity.Application;
 
-internal sealed class UserAdministrationService(UserManager<IdentityUser<Guid>> userManager)
+internal sealed class UserAdministrationService(
+    UserManager<IdentityUser<Guid>> userManager,
+    IdentityAdministratorGuard administratorGuard,
+    ILogger<UserAdministrationService> logger)
 {
     public async Task<SearchUsersResponse> SearchAsync(
         SearchUsersRequest request,
@@ -44,7 +48,13 @@ internal sealed class UserAdministrationService(UserManager<IdentityUser<Guid>> 
         foreach (var user in pageOfUsers)
         {
             var roles = await userManager.GetRolesAsync(user);
-            items.Add(new UserSummaryResponse(user.Id, user.Email!, roles.ToArray()));
+            var lockoutEnd = user.LockoutEnd;
+            items.Add(new UserSummaryResponse(
+                user.Id,
+                user.Email!,
+                roles.ToArray(),
+                lockoutEnd is null || lockoutEnd <= DateTimeOffset.UtcNow,
+                lockoutEnd));
         }
 
         return new SearchUsersResponse(items, pageNumber, pageSize, totalCount);
@@ -92,5 +102,74 @@ internal sealed class UserAdministrationService(UserManager<IdentityUser<Guid>> 
         }
 
         return new CreateUserResponse(user.Id, user.Email!);
+    }
+
+    public async Task DisableAsync(Guid userId, Guid actingAdministratorId, CancellationToken cancellationToken)
+    {
+        if (userId == actingAdministratorId)
+        {
+            throw new SelfAccountLifecycleException();
+        }
+
+        var user = await FindUserAsync(userId);
+        await administratorGuard.EnsureFinalAdministratorPreservedForUserDisableAsync(user, cancellationToken);
+        EnsureSucceeded(await userManager.SetLockoutEndDateAsync(user, DateTimeOffset.MaxValue));
+        EnsureSucceeded(await userManager.UpdateSecurityStampAsync(user));
+        logger.LogInformation("Identity account disabled. TargetUserId: {TargetUserId}; ActingAdministratorId: {ActingAdministratorId}", userId, actingAdministratorId);
+    }
+
+    public async Task ReactivateAsync(Guid userId, Guid actingAdministratorId, CancellationToken cancellationToken)
+    {
+        var user = await FindUserAsync(userId);
+        EnsureSucceeded(await userManager.SetLockoutEndDateAsync(user, null));
+        EnsureSucceeded(await userManager.UpdateSecurityStampAsync(user));
+        logger.LogInformation("Identity account reactivated. TargetUserId: {TargetUserId}; ActingAdministratorId: {ActingAdministratorId}", userId, actingAdministratorId);
+    }
+
+    public async Task SetTemporaryPasswordAsync(
+        Guid userId,
+        Guid actingAdministratorId,
+        SetTemporaryPasswordRequest request,
+        CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(request.TemporaryPassword))
+        {
+            throw new AdminValidationException(new Dictionary<string, string[]>
+            {
+                [nameof(request.TemporaryPassword)] = ["Temporary password is required."],
+            });
+        }
+
+        var user = await FindUserAsync(userId);
+        var resetToken = await userManager.GeneratePasswordResetTokenAsync(user);
+        var result = await userManager.ResetPasswordAsync(user, resetToken, request.TemporaryPassword);
+        if (!result.Succeeded)
+        {
+            throw new AdminValidationException(new Dictionary<string, string[]>
+            {
+                [nameof(request.TemporaryPassword)] = result.Errors.Select(error => error.Description).ToArray(),
+            });
+        }
+
+        EnsureSucceeded(await userManager.UpdateSecurityStampAsync(user));
+        logger.LogInformation("Identity account temporary password assigned. TargetUserId: {TargetUserId}; ActingAdministratorId: {ActingAdministratorId}", userId, actingAdministratorId);
+    }
+
+    public async Task RevokeSessionsAsync(Guid userId, Guid actingAdministratorId, CancellationToken cancellationToken)
+    {
+        var user = await FindUserAsync(userId);
+        EnsureSucceeded(await userManager.UpdateSecurityStampAsync(user));
+        logger.LogInformation("Identity account sessions revoked. TargetUserId: {TargetUserId}; ActingAdministratorId: {ActingAdministratorId}", userId, actingAdministratorId);
+    }
+
+    private async Task<IdentityUser<Guid>> FindUserAsync(Guid userId) =>
+        await userManager.FindByIdAsync(userId.ToString()) ?? throw new UserNotFoundException(userId);
+
+    private static void EnsureSucceeded(IdentityResult result)
+    {
+        if (!result.Succeeded)
+        {
+            throw new InvalidOperationException("The account lifecycle operation could not be completed.");
+        }
     }
 }

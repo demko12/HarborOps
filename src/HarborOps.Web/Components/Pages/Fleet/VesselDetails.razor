@@ -8,8 +8,6 @@
 <PageTitle>@(details?.Name ?? "Vessel") | HarborOps</PageTitle>
 
 <section class="vessel-details-page">
-	<a class="vessel-details-back" href="@BackToFleetUrl">&larr; Back to fleet</a>
-
 	@if (isLoading)
 	{
 		<LoadingState Message="Loading vessel..." />
@@ -26,16 +24,44 @@
 	{
 		<header class="vessel-details-header">
 			<div>
-				<p class="vessel-details-eyebrow">Fleet operations</p>
-				<h1>@details.Name</h1>
-				<p>IMO @details.ImoNumber &middot; @details.VesselTypeName &middot; @details.FlagState</p>
+				<nav class="page-breadcrumb" aria-label="Breadcrumb"><a href="@FleetHref">Fleet operations</a><span aria-hidden="true">/</span><span>Vessel details</span></nav>
+				<div class="vessel-title-row">
+					<div>
+						<p class="vessel-details-eyebrow">Vessel overview</p>
+						<h1>@details.Name</h1>
+						<p>IMO @details.ImoNumber &middot; @details.VesselTypeName &middot; @details.FlagState</p>
+					</div>
+				</div>
 			</div>
-			<span class="vessel-status @GetStatusClass(details.CurrentStatus)">@details.CurrentStatus</span>
+			<dl class="vessel-header-summary">
+				<div><dt>Fleet</dt><dd>@(details.FleetName ?? "Unassigned")</dd></div>
+				<div><dt>Lifecycle</dt><dd>@(details.LifecycleStage ?? "—")</dd></div>
+				<div><dt>Updated</dt><dd>@FormatTimestamp(details.UpdatedAtUtc)</dd></div>
+			</dl>
 		</header>
 
-		<div class="vessel-details-grid">
-			<section class="vessel-details-card" aria-labelledby="vessel-identity-title">
-				<h2 id="vessel-identity-title">Identity</h2>
+		<div class="vessel-overview-grid">
+			<section class="vessel-details-card vessel-operational-card" aria-labelledby="vessel-operational-title">
+				<div class="vessel-card-heading">
+					<div><p>Operational overview</p><h2 id="vessel-operational-title">Vessel status</h2></div>
+					<span class="vessel-card-icon" aria-hidden="true"><span class="bi bi-activity"></span></span>
+				</div>
+				<div class="vessel-operational-state">
+					<span class="vessel-status-orb @GetStatusClass(details.CurrentStatus)" aria-hidden="true"><span class="bi @GetStatusIcon(details.CurrentStatus)"></span></span>
+					<div><strong>@details.CurrentStatus</strong><p>Current reported operating state</p></div>
+				</div>
+				<dl class="vessel-operational-facts">
+					<div><dt>Fleet</dt><dd>@(details.FleetName ?? "Unassigned")</dd></div>
+					<div><dt>Registry</dt><dd>@(details.PortOfRegistry ?? "—")</dd></div>
+					<div><dt>Class</dt><dd>@(details.ClassificationSociety ?? "—")</dd></div>
+				</dl>
+			</section>
+
+			<section class="vessel-details-card vessel-identity-card" aria-labelledby="vessel-identity-title">
+				<div class="vessel-card-heading">
+					<div><p>Registration</p><h2 id="vessel-identity-title">Vessel identity</h2></div>
+					<span class="vessel-card-icon" aria-hidden="true"><span class="bi bi-water"></span></span>
+				</div>
 				<dl>
 					<div><dt>Name</dt><dd>@details.Name</dd></div>
 					<div><dt>IMO number</dt><dd>@details.ImoNumber</dd></div>
@@ -46,8 +72,11 @@
 				</dl>
 			</section>
 
-			<section class="vessel-details-card" aria-labelledby="vessel-specs-title">
-				<h2 id="vessel-specs-title">Specifications</h2>
+			<section class="vessel-details-card vessel-specifications-card" aria-labelledby="vessel-specs-title">
+				<div class="vessel-card-heading">
+					<div><p>Technical profile</p><h2 id="vessel-specs-title">Specifications</h2></div>
+					<span class="vessel-card-icon" aria-hidden="true"><span class="bi bi-rulers"></span></span>
+				</div>
 				<dl>
 					<div><dt>DWT</dt><dd>@FormatMeasurement(details.Dwt)</dd></div>
 					<div><dt>GT</dt><dd>@FormatMeasurement(details.Gt)</dd></div>
@@ -60,22 +89,39 @@
 				</dl>
 			</section>
 
-			<section class="vessel-details-card" aria-labelledby="vessel-assignment-title">
-				<h2 id="vessel-assignment-title">Fleet assignment</h2>
+			<section class="vessel-details-card vessel-assignment-card" aria-labelledby="vessel-assignment-title">
+				<div class="vessel-card-heading">
+					<div><p>Organisation</p><h2 id="vessel-assignment-title">Fleet assignment</h2></div>
+					<span class="vessel-card-icon" aria-hidden="true"><span class="bi bi-diagram-3"></span></span>
+				</div>
 				@if (details.FleetId is null)
 				{
-					<p class="vessel-details-muted">Unassigned</p>
+					<p class="vessel-assignment-value vessel-details-muted">Unassigned</p>
 				}
 				else
 				{
-					<p><strong>@details.FleetName</strong></p>
+					<p class="vessel-assignment-value"><strong>@details.FleetName</strong></p>
 				}
+				<p class="vessel-assignment-note">@details.FlagState &middot; @details.VesselTypeName</p>
+				@if (CanManageFleet && fleets?.Items?.Count > 0)
+				{
+					<div class="vessel-assignment-actions">
+						<select @bind="selectedFleetId" aria-label="Select fleet"><option value="">Select a fleet</option>@foreach (var fleet in fleets.Items) { <option value="@fleet.FleetId">@fleet.Name</option> }</select>
+						<button type="button" @onclick="BeginAssignConfirmation" disabled="@(isAssigning || selectedFleetId is null)">@(details.FleetId is null ? "Assign" : "Reassign")</button>
+						@if (details.FleetId is not null) { <button type="button" @onclick="BeginEndConfirmation" disabled="@isAssigning">Unassign</button> }
+					</div>
+					@if (pendingAssignmentAction is not null) { <div class="vessel-assignment-confirmation"><span>Confirm @(pendingAssignmentAction == "end" ? "unassigning this vessel" : "updating this fleet assignment")?</span><button type="button" @onclick="ConfirmAssignmentAsync">Confirm</button><button type="button" @onclick="CancelAssignmentConfirmation">Cancel</button></div> }
+				}
+				@if (assignmentFailure is not null) { <p class="vessel-assignment-error" role="alert">@assignmentFailure.Message</p> }
 			</section>
+		</div>
 
 			@if (CanManageFleet)
 			{
 				<section class="vessel-details-card vessel-status-form-card" aria-labelledby="vessel-status-form-title">
-					<h2 id="vessel-status-form-title">Record a status change</h2>
+					<div class="vessel-card-heading vessel-status-form-heading">
+						<div><p>Operational update</p><h2 id="vessel-status-form-title">Record a status change</h2></div>
+					</div>
 
 					@if (submitSuccessMessage is not null)
 					{
@@ -138,7 +184,10 @@
 			}
 
 			<section class="vessel-details-card vessel-details-history" aria-labelledby="vessel-history-title">
-				<h2 id="vessel-history-title">Status history</h2>
+				<div class="vessel-card-heading">
+					<div><p>Latest activity</p><h2 id="vessel-history-title">Status history</h2></div>
+					<span class="vessel-card-icon" aria-hidden="true"><span class="bi bi-clock-history"></span></span>
+				</div>
 				@if (details.StatusHistory.Count == 0)
 				{
 					<EmptyState Title="No status changes yet" Message="Status changes will appear here once recorded." />
@@ -165,6 +214,10 @@
 					</ul>
 				}
 			</section>
-		</div>
+
+			<section class="vessel-details-card vessel-details-history" aria-labelledby="fleet-assignment-history-title">
+				<div class="vessel-card-heading"><div><p>Organisation</p><h2 id="fleet-assignment-history-title">Fleet assignment history</h2></div><span class="vessel-card-icon" aria-hidden="true"><span class="bi bi-diagram-3"></span></span></div>
+				@if (assignmentHistory?.Items?.Count > 0) { <ul class="vessel-history-list">@foreach (var entry in assignmentHistory.Items) { <li><div class="vessel-history-status"><strong>@entry.FleetName</strong><span class="vessel-status @(entry.IsActive ? "vessel-status-active" : "vessel-status-neutral")">@(entry.IsActive ? "Active" : "Ended")</span></div><div class="vessel-history-meta"><span>Assigned @FormatTimestamp(entry.AssignedFromUtc) @if (entry.AssignedToUtc is not null) { <text>&middot; Ended @FormatTimestamp(entry.AssignedToUtc.Value)</text> }</span></div></li> }</ul> } else { <p class="vessel-details-muted">No fleet assignments recorded.</p> }
+			</section>
 	}
 </section>

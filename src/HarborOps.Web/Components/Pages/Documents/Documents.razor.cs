@@ -119,14 +119,13 @@ public partial class Documents
             : "Select...";
 
     private readonly CancellationTokenSource disposeCancellation = new();
+    private CancellationTokenSource? filterSearchCancellation;
     private int loadVersion;
 
     private IReadOnlyList<ExpiringDocumentRow> rows = [];
     private DocumentsApiFailure? failure;
     private string? filterValidationMessage;
 
-    // Inputs the user can freely edit; only copied into the applied-filter fields
-    // (and used to build a request) when Search is clicked.
     private DateOnly? fromFilter;
     private DateOnly? toFilter;
     private Guid? vesselIdFilter;
@@ -156,8 +155,6 @@ public partial class Documents
     private DocumentsApiFailure? uploadFailure;
     private string? uploadSuccessMessage;
 
-    private bool IsAllActive => appliedFrom is null && appliedTo is null && appliedVesselId is null;
-
     private int TotalPages => totalCount == 0 ? 1 : (totalCount + pageSize - 1) / pageSize;
 
     private int FirstRowNumber => rows.Count == 0 ? 0 : ((pageNumber - 1) * pageSize) + 1;
@@ -165,6 +162,11 @@ public partial class Documents
     private int LastRowNumber => FirstRowNumber + rows.Count - 1;
 
     private bool IsUploadValidationFailure => uploadFailure is { IsValidation: true };
+
+    private bool ShowUploadForm =>
+        fileDetails is not null
+        && ((!fileDetails.HasFile && AuthorizationState.HasPermission("documents.manage"))
+            || (fileDetails.HasFile && isReplaceFormOpen));
 
     private IEnumerable<string> UploadValidationMessages =>
         uploadFailure?.Errors.SelectMany(entry => entry.Value) ?? [];
@@ -183,7 +185,45 @@ public partial class Documents
         return Task.WhenAll(LoadAsync(), LoadDocumentTypeOptionsAsync());
     }
 
-    private Task SearchAsync()
+    private Task SelectFilterVesselAsync(Guid? vesselId)
+    {
+        vesselIdFilter = vesselId;
+
+        return ScheduleFilterSearchAsync();
+    }
+
+    private async Task ScheduleFilterSearchAsync()
+    {
+        var previousCancellation = filterSearchCancellation;
+        previousCancellation?.Cancel();
+
+        var cancellation = CancellationTokenSource.CreateLinkedTokenSource(disposeCancellation.Token);
+        filterSearchCancellation = cancellation;
+
+        try
+        {
+            await Task.Delay(TimeSpan.FromMilliseconds(300), cancellation.Token);
+
+            if (!cancellation.IsCancellationRequested)
+            {
+                await InvokeAsync(ApplyFiltersAsync);
+            }
+        }
+        catch (OperationCanceledException) when (cancellation.IsCancellationRequested)
+        {
+        }
+        finally
+        {
+            if (ReferenceEquals(filterSearchCancellation, cancellation))
+            {
+                filterSearchCancellation = null;
+            }
+
+            cancellation.Dispose();
+        }
+    }
+
+    private Task ApplyFiltersAsync()
     {
         var validationMessage = ValidateFilterRange(fromFilter, toFilter);
 
@@ -203,8 +243,9 @@ public partial class Documents
         return LoadAsync();
     }
 
-    private Task ShowAllAsync()
+    private Task ClearFiltersAsync()
     {
+        filterSearchCancellation?.Cancel();
         fromFilter = null;
         toFilter = null;
         vesselIdFilter = null;
@@ -330,6 +371,15 @@ public partial class Documents
 
     private static string ShortVesselReference(Guid vesselId) => $"Vessel {vesselId.ToString()[..8]}";
 
+    private static string GetDocumentStatusClass(string status) => status.Trim().ToUpperInvariant() switch
+    {
+        "ACTIVE" => "documents-status-active",
+        "VALID" => "documents-status-valid",
+        "EXPIRED" => "documents-status-expired",
+        "SUSPENDED" or "INACTIVE" => "documents-status-neutral",
+        _ => "documents-status-neutral",
+    };
+
     private async Task LoadDocumentTypeOptionsAsync()
     {
         isLoadingDocumentTypes = true;
@@ -359,12 +409,26 @@ public partial class Documents
     private void ToggleRegisterTypeForm()
     {
         isRegisterTypeFormOpen = !isRegisterTypeFormOpen;
+
+        if (isRegisterTypeFormOpen)
+        {
+            isRegisterDocumentFormOpen = false;
+        }
     }
 
     private void ToggleRegisterDocumentForm()
     {
         isRegisterDocumentFormOpen = !isRegisterDocumentFormOpen;
+
+        if (isRegisterDocumentFormOpen)
+        {
+            isRegisterTypeFormOpen = false;
+        }
     }
+
+    private void CloseRegisterTypeForm() => isRegisterTypeFormOpen = false;
+
+    private void CloseRegisterDocumentForm() => isRegisterDocumentFormOpen = false;
 
     private async Task SubmitDocumentTypeAsync()
     {
@@ -543,19 +607,23 @@ public partial class Documents
         return unmapped;
     }
 
-    private async Task ToggleFilePanelAsync(Guid documentId)
+    private async Task OpenFilePanelAsync(Guid documentId)
     {
-        if (expandedDocumentId == documentId)
-        {
-            expandedDocumentId = null;
-
-            return;
-        }
-
         expandedDocumentId = documentId;
         ResetFilePanelState();
 
         await LoadFileDetailsAsync(documentId);
+    }
+
+    private void CloseFilePanel()
+    {
+        if (isUploading)
+        {
+            return;
+        }
+
+        expandedDocumentId = null;
+        ResetFilePanelState();
     }
 
     private void ResetFilePanelState()
@@ -728,6 +796,8 @@ public partial class Documents
 
     public void Dispose()
     {
+        filterSearchCancellation?.Cancel();
+        filterSearchCancellation?.Dispose();
         disposeCancellation.Cancel();
         disposeCancellation.Dispose();
     }

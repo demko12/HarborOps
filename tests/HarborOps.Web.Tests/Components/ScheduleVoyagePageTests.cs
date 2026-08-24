@@ -287,6 +287,9 @@ public sealed class ScheduleVoyagePageTests : BunitContext
         });
         Services.AddScoped<CurrentUserAuthorizationState>();
 
+        JSInterop.SetupVoid("outsideClickInterop.register", _ => true);
+        JSInterop.SetupVoid("outsideClickInterop.unregister", _ => true);
+
         return Render<ScheduleVoyage>();
     }
 

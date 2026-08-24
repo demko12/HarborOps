@@ -13,14 +13,14 @@
     border: 1px solid var(--border-medium);
     border-radius: 0.65rem;
     outline: 0;
-    background: var(--bg-surface);
+    background: var(--control-surface);
     font-size: 0.92rem;
     transition: border-color 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
 }
 
 .voyage-picker-input:focus {
     border-color: var(--accent);
-    background: var(--bg-surface-strong);
+    background: var(--control-surface);
     box-shadow: 0 0 0 0.2rem var(--accent-bg);
 }
 
@@ -41,9 +41,9 @@
     overflow-y: auto;
     list-style: none;
     border: 1px solid var(--border-medium);
-    border-radius: 0.65rem;
-    background: var(--bg-surface-strong);
-    box-shadow: 0 12px 35px rgba(0, 0, 0, 0.25);
+    border-radius: 0.7rem;
+    background: rgba(255, 255, 255, .96);
+    box-shadow: 0 18px 34px rgba(15, 23, 42, .16), inset 0 1px rgba(255, 255, 255, .85);
 }
 
 .voyage-picker-option {
@@ -81,4 +81,9 @@
     color: var(--text-muted);
     font-size: 0.78rem;
     font-variant-numeric: tabular-nums;
+}
+
+html[data-theme="dark"] .voyage-picker-dropdown {
+    background: rgba(23, 32, 51, .98);
+    box-shadow: 0 18px 34px rgba(0, 0, 0, .34), inset 0 1px rgba(255, 255, 255, .07);
 }

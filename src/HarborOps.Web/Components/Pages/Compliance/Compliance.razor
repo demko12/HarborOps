@@ -14,11 +14,12 @@
             <h1>Vessel compliance</h1>
             <p>Review certificates, inspections, and open non-conformities for a vessel.</p>
         </div>
-        <div class="compliance-header-actions">
-            <a class="compliance-header-action" href="/compliance/surveys"><span class="bi bi-clipboard2-check"></span> Surveys and audits</a>
-            <a class="compliance-header-action" href="/compliance/insurance-policies"><span class="bi bi-shield-check"></span> Insurance register</a>
-        </div>
     </header>
+
+    <nav class="compliance-tabs workspace-tabs" aria-label="Compliance workspace">
+        <NavLink class="workspace-tab" href="/compliance/surveys">Surveys and audits</NavLink>
+        <NavLink class="workspace-tab" href="/compliance/insurance-policies">Insurance register</NavLink>
+    </nav>
 
     <section class="compliance-selector" aria-label="Vessel selection">
         <div class="compliance-field compliance-vessel-field">

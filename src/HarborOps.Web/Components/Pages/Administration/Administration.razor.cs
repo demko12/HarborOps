@@ -45,6 +45,8 @@ public partial class Administration
     private string? userFormMessage;
     private string? roleFormMessage;
     private string? editorMessage;
+    private string lifecycleTemporaryPassword = string.Empty;
+    private string lifecycleTemporaryPasswordConfirmation = string.Empty;
     private string userFormMessageClass = string.Empty;
     private string roleFormMessageClass = string.Empty;
     private string editorMessageClass = string.Empty;
@@ -62,6 +64,8 @@ public partial class Administration
     private bool confirmUserRoles;
     private bool confirmRolePermissions;
     private bool forbidden;
+    private bool isSavingLifecycle;
+    private LifecycleAction? lifecycleAction;
 
     protected override async Task OnInitializedAsync()
     {
@@ -119,6 +123,10 @@ public partial class Administration
         users = value.Items.ToList();
         pageNumber = value.PageNumber;
         totalUsers = value.TotalCount;
+        if (selectedUser is not null)
+        {
+            selectedUser = users.SingleOrDefault(user => user.Id == selectedUser.Id);
+        }
     }
 
     private async Task LoadRolesAsync()
@@ -354,15 +362,134 @@ public partial class Administration
         editorMessage = null;
         confirmUserRoles = false;
         confirmRolePermissions = false;
+        CancelLifecycleConfirmation();
     }
+
+    private void BeginLifecycleConfirmation(LifecycleAction action)
+    {
+        editorMessage = null;
+        lifecycleAction = action;
+    }
+
+    private void CancelLifecycleConfirmation()
+    {
+        lifecycleTemporaryPassword = string.Empty;
+        lifecycleTemporaryPasswordConfirmation = string.Empty;
+        lifecycleAction = null;
+    }
+
+    private async Task ConfirmLifecycleActionAsync()
+    {
+        if (selectedUser is null || lifecycleAction is null)
+        {
+            return;
+        }
+
+        if (lifecycleAction == LifecycleAction.ResetPassword
+            && lifecycleTemporaryPassword != lifecycleTemporaryPasswordConfirmation)
+        {
+            editorMessage = "Temporary passwords do not match.";
+            editorMessageClass = "error";
+            return;
+        }
+
+        var action = lifecycleAction.Value;
+        var password = lifecycleTemporaryPassword;
+        lifecycleTemporaryPassword = string.Empty;
+        lifecycleTemporaryPasswordConfirmation = string.Empty;
+        isSavingLifecycle = true;
+
+        try
+        {
+            AdminApiResult<object> result = action switch
+            {
+                LifecycleAction.Disable => await AdministrationApi.DisableUserAsync(selectedUser.Id, CancellationToken.None),
+                LifecycleAction.Reactivate => await AdministrationApi.ReactivateUserAsync(selectedUser.Id, CancellationToken.None),
+                LifecycleAction.ResetPassword => await AdministrationApi.SetTemporaryPasswordAsync(
+                    selectedUser.Id,
+                    new SetAdminTemporaryPasswordRequest(password),
+                    CancellationToken.None),
+                LifecycleAction.RevokeSessions => await AdministrationApi.RevokeUserSessionsAsync(selectedUser.Id, CancellationToken.None),
+                _ => throw new InvalidOperationException("Unknown account lifecycle action."),
+            };
+
+            if (!result.IsSuccess)
+            {
+                SetEditorMessage(result.Failure!);
+                return;
+            }
+
+            if (action is LifecycleAction.Disable or LifecycleAction.ResetPassword or LifecycleAction.RevokeSessions)
+            {
+                await SessionTicketStore.RevokeUserSessionsAsync(selectedUser.Id);
+            }
+
+            editorMessage = action switch
+            {
+                LifecycleAction.Disable => "Account disabled and active sessions revoked.",
+                LifecycleAction.Reactivate => "Account reactivated successfully.",
+                LifecycleAction.ResetPassword => "Temporary password assigned and previous access revoked.",
+                LifecycleAction.RevokeSessions => "Active HarborOps sessions revoked.",
+                _ => "Account updated successfully.",
+            };
+            editorMessageClass = "success";
+            CancelLifecycleConfirmation();
+            await LoadUsersAsync();
+        }
+        finally
+        {
+            password = string.Empty;
+            isSavingLifecycle = false;
+        }
+    }
+
+    private string LifecycleConfirmationTitle => lifecycleAction switch
+    {
+        LifecycleAction.Disable => "Disable this account?",
+        LifecycleAction.Reactivate => "Reactivate this account?",
+        LifecycleAction.ResetPassword => "Assign a new temporary password?",
+        LifecycleAction.RevokeSessions => "Revoke this user's sessions?",
+        _ => string.Empty,
+    };
+
+    private string LifecycleConfirmationMessage => lifecycleAction switch
+    {
+        LifecycleAction.Disable => "The user will be unable to sign in and their current HarborOps sessions will be revoked.",
+        LifecycleAction.Reactivate => "The user will be allowed to sign in again.",
+        LifecycleAction.ResetPassword => "This replaces the current password and invalidates existing refresh capability. Share the new password securely.",
+        LifecycleAction.RevokeSessions => "This signs the user out of HarborOps without disabling the account.",
+        _ => string.Empty,
+    };
+
+    private string LifecycleConfirmationButton => lifecycleAction switch
+    {
+        LifecycleAction.Disable => "Disable account",
+        LifecycleAction.Reactivate => "Reactivate account",
+        LifecycleAction.ResetPassword => "Set temporary password",
+        LifecycleAction.RevokeSessions => "Revoke sessions",
+        _ => "Confirm",
+    };
+
+    private static string FormatLockout(DateTimeOffset? lockoutEndUtc) =>
+        lockoutEndUtc == DateTimeOffset.MaxValue ? "further notice" : lockoutEndUtc?.ToString("dd MMM yyyy") ?? "further notice";
 
     public void Dispose()
     {
         newUser.TemporaryPassword = string.Empty;
         newUser.Confirmation = string.Empty;
+        lifecycleTemporaryPassword = string.Empty;
+        lifecycleTemporaryPasswordConfirmation = string.Empty;
     }
 
     private sealed record PermissionOption(string Name, string Capability, string Action);
+
+    private enum LifecycleAction
+    {
+        Disable,
+        Reactivate,
+        ResetPassword,
+        RevokeSessions,
+    }
 
     private sealed class CreateUserModel
     {

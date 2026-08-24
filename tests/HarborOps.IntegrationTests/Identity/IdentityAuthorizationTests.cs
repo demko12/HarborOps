@@ -28,7 +28,7 @@ public sealed class IdentityAuthorizationTests : IntegrationTestBase
     [Fact]
     public async Task Admin_endpoint_returns_403_when_authenticated_without_permission()
     {
-        using var client = await _application.CreateAuthenticatedClientAsync();
+        using var client = await _application.CreateAuthenticatedClientAsync(roleNames: []);
 
         using var response = await client.GetAsync("/api/identity/admin/users", CancellationToken.None);
 

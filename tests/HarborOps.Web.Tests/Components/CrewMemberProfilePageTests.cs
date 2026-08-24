@@ -44,6 +44,32 @@ public sealed class CrewMemberProfilePageTests : BunitContext
     private Func<HttpRequestMessage, Task<HttpResponseMessage>> respondToVesselSearch =
         _ => Json(HttpStatusCode.OK, VesselPageJson);
 
+    private Func<HttpRequestMessage, Task<HttpResponseMessage>> respondToGetRotation =
+        _ => Task.FromResult(new HttpResponseMessage(HttpStatusCode.NotFound));
+
+    private Func<HttpRequestMessage, Task<HttpResponseMessage>> respondToPlanRotation =
+        _ => Json(HttpStatusCode.Created, """{"id":"80000000-0000-0000-0000-000000000001"}""");
+
+    private Func<HttpRequestMessage, Task<HttpResponseMessage>> respondToUpdateRotation =
+        _ => Json(HttpStatusCode.OK, """{"id":"80000000-0000-0000-0000-000000000001"}""");
+
+    private Func<HttpRequestMessage, Task<HttpResponseMessage>> respondToExecuteRotation = _ => Json(
+        HttpStatusCode.OK,
+        """
+        {"assignmentId":"31000000-0000-0000-0000-000000000001","actualSignOffDate":"2026-07-01",
+        "replacementAssignmentId":"32000000-0000-0000-0000-000000000001","replacementSignOnDate":"2026-07-01",
+        "replacementPlannedSignOffDate":"2026-12-31"}
+        """);
+
+    private Func<HttpRequestMessage, Task<HttpResponseMessage>> respondToMemberSearch = _ => Json(
+        HttpStatusCode.OK,
+        """
+        {"items":[{"crewMemberId":"20000000-0000-0000-0000-000000000002","name":"Relief Member",
+        "nationality":"Montenegro","imoSeafarerId":"IMO200002","baseRankId":"50000000-0000-0000-0000-000000000001",
+        "baseRankName":"Bosun","employmentStatus":"Active","passportExpiry":"2030-01-01","hireDate":"2020-01-01"}],
+        "pageNumber":1,"pageSize":10,"totalCount":1}
+        """);
+
     // ---- Personal / employment summary ----
 
     [Fact]
@@ -54,12 +80,14 @@ public sealed class CrewMemberProfilePageTests : BunitContext
         page.WaitForAssertion(() => Assert.Contains("Ivan Petrović", page.Markup, StringComparison.Ordinal));
         Assert.DoesNotContain("P1234567", page.Markup, StringComparison.Ordinal);
         Assert.DoesNotContain("14 May 1990", page.Markup, StringComparison.Ordinal);
-        Assert.Equal(2, page.FindAll(".crew-profile-masked").Count);
+        Assert.DoesNotContain("CDC987654", page.Markup, StringComparison.Ordinal);
+        Assert.Equal(3, page.FindAll(".crew-profile-masked").Count);
 
         page.Find(".crew-profile-reveal-button").Click();
 
         Assert.Contains("P1234567", page.Markup, StringComparison.Ordinal);
         Assert.Contains("14 May 1990", page.Markup, StringComparison.Ordinal);
+        Assert.Contains("CDC987654", page.Markup, StringComparison.Ordinal);
 
         page.Find(".crew-profile-reveal-button").Click();
 
@@ -499,6 +527,235 @@ public sealed class CrewMemberProfilePageTests : BunitContext
         Assert.NotEmpty(page.FindAll(".crew-assignment-modal"));
     }
 
+
+    [Fact]
+    public void An_open_assignment_with_no_plan_offers_the_plan_form_when_manage_is_granted()
+    {
+        respondToProfile = _ => Json(
+            HttpStatusCode.OK,
+            Profile(certificates: [], assignments: [Assignment(status: "Active")]));
+
+        var page = RenderProfilePage(
+            CurrentUserAuthorizationState.CrewReadPermission,
+            CurrentUserAuthorizationState.CrewManagePermission);
+
+        page.WaitForAssertion(() => Assert.NotEmpty(page.FindAll(".crew-profile-row-clickable")));
+        page.Find(".crew-profile-row-clickable").Click();
+
+        page.WaitForAssertion(() =>
+        {
+            Assert.Contains(
+                "Plan rotation",
+                page.Find(".crew-assignment-modal .crew-profile-form-submit").TextContent,
+                StringComparison.Ordinal);
+            Assert.Empty(page.FindAll(".crew-rotation-execute"));
+        });
+    }
+
+    [Fact]
+    public void Without_the_manage_permission_no_rotation_form_is_offered()
+    {
+        respondToProfile = _ => Json(
+            HttpStatusCode.OK,
+            Profile(certificates: [], assignments: [Assignment(status: "Active")]));
+
+        var page = RenderProfilePage(CurrentUserAuthorizationState.CrewReadPermission);
+
+        page.WaitForAssertion(() => Assert.NotEmpty(page.FindAll(".crew-profile-row-clickable")));
+        page.Find(".crew-profile-row-clickable").Click();
+
+        page.WaitForAssertion(() => Assert.NotEmpty(page.FindAll(".crew-assignment-modal")));
+        Assert.Empty(page.FindAll(".crew-assignment-modal .crew-profile-form-submit"));
+    }
+
+    [Fact]
+    public void A_closed_assignment_offers_no_rotation_section()
+    {
+        respondToProfile = _ => Json(
+            HttpStatusCode.OK,
+            Profile(certificates: [], assignments: [Assignment(status: "Active", actualSignOffDate: "2026-06-01")]));
+
+        var page = RenderProfilePage(
+            CurrentUserAuthorizationState.CrewReadPermission,
+            CurrentUserAuthorizationState.CrewManagePermission);
+
+        page.WaitForAssertion(() => Assert.NotEmpty(page.FindAll(".crew-profile-row-clickable")));
+        page.Find(".crew-profile-row-clickable").Click();
+
+        page.WaitForAssertion(() => Assert.NotEmpty(page.FindAll(".crew-assignment-modal")));
+        Assert.Empty(page.FindAll(".crew-assignment-modal .crew-profile-form-submit"));
+        Assert.DoesNotContain("Relief planning", page.Find(".crew-assignment-modal").TextContent, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void An_existing_plan_shows_its_summary_and_the_update_form()
+    {
+        respondToProfile = _ => Json(
+            HttpStatusCode.OK,
+            Profile(certificates: [], assignments: [Assignment(status: "Active")]));
+        respondToGetRotation = _ => Json(HttpStatusCode.OK, Rotation());
+
+        var page = RenderProfilePage(
+            CurrentUserAuthorizationState.CrewReadPermission,
+            CurrentUserAuthorizationState.CrewManagePermission);
+
+        page.WaitForAssertion(() => Assert.NotEmpty(page.FindAll(".crew-profile-row-clickable")));
+        page.Find(".crew-profile-row-clickable").Click();
+
+        page.WaitForAssertion(() =>
+        {
+            Assert.Contains("Relief Member", page.Find(".crew-assignment-modal").TextContent, StringComparison.Ordinal);
+            Assert.Equal("2-2", page.Find("#rotation-pattern").GetAttribute("value"));
+            Assert.Contains(
+                "Update rotation",
+                page.Find(".crew-assignment-modal .crew-profile-form-submit").TextContent,
+                StringComparison.Ordinal);
+            Assert.NotEmpty(page.FindAll(".crew-rotation-execute"));
+        });
+    }
+
+    [Fact]
+    public void An_overdue_plan_shows_the_overdue_indicator()
+    {
+        respondToProfile = _ => Json(
+            HttpStatusCode.OK,
+            Profile(certificates: [], assignments: [Assignment(status: "Active")]));
+        respondToGetRotation = _ => Json(HttpStatusCode.OK, Rotation(isOverdue: true));
+
+        var page = RenderProfilePage(
+            CurrentUserAuthorizationState.CrewReadPermission,
+            CurrentUserAuthorizationState.CrewManagePermission);
+
+        page.WaitForAssertion(() => Assert.NotEmpty(page.FindAll(".crew-profile-row-clickable")));
+        page.Find(".crew-profile-row-clickable").Click();
+
+        page.WaitForAssertion(() => Assert.Contains(
+            "Overdue",
+            page.Find(".crew-assignment-modal .crew-profile-indicator-expired").TextContent,
+            StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public async Task Planning_a_rotation_selects_a_relieving_member_and_shows_success()
+    {
+        var callCount = 0;
+        respondToGetRotation = _ =>
+        {
+            callCount++;
+            return callCount == 1
+                ? Task.FromResult(new HttpResponseMessage(HttpStatusCode.NotFound))
+                : Json(HttpStatusCode.OK, Rotation());
+        };
+        respondToProfile = _ => Json(
+            HttpStatusCode.OK,
+            Profile(certificates: [], assignments: [Assignment(status: "Active")]));
+
+        var page = RenderProfilePage(
+            CurrentUserAuthorizationState.CrewReadPermission,
+            CurrentUserAuthorizationState.CrewManagePermission);
+
+        page.WaitForAssertion(() => Assert.NotEmpty(page.FindAll(".crew-profile-row-clickable")));
+        page.Find(".crew-profile-row-clickable").Click();
+
+        page.WaitForAssertion(() => Assert.NotEmpty(page.FindAll(".relieving-member-picker-input")));
+        page.Find(".relieving-member-picker-input").Input("Relief");
+        page.WaitForAssertion(
+            () => Assert.Single(page.FindAll(".relieving-member-picker-option")),
+            TimeSpan.FromSeconds(3));
+        await page.InvokeAsync(() => page.Find(".relieving-member-picker-option").Click());
+
+        page.Find("#rotation-pattern").Change("2-2");
+        page.Find("#rotation-planned-relief-date").Change("2026-07-01");
+        Closest(page, "#rotation-pattern", "form").Submit();
+
+        page.WaitForAssertion(() =>
+            Assert.Contains("Rotation planned.", page.Markup, StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void A_duplicate_rotation_plan_shows_a_conflict_banner()
+    {
+        respondToProfile = _ => Json(
+            HttpStatusCode.OK,
+            Profile(certificates: [], assignments: [Assignment(status: "Active")]));
+        respondToPlanRotation = _ => Json(
+            HttpStatusCode.Conflict,
+            """{"title":"Crew assignment already has a planned rotation.","status":409,"detail":"Crew assignment already has a planned rotation."}""");
+
+        var page = RenderProfilePage(
+            CurrentUserAuthorizationState.CrewReadPermission,
+            CurrentUserAuthorizationState.CrewManagePermission);
+
+        page.WaitForAssertion(() => Assert.NotEmpty(page.FindAll(".crew-profile-row-clickable")));
+        page.Find(".crew-profile-row-clickable").Click();
+
+        page.WaitForAssertion(() => Assert.NotEmpty(page.FindAll("#rotation-pattern")));
+        page.Find("#rotation-pattern").Change("2-2");
+        page.Find("#rotation-planned-relief-date").Change("2026-07-01");
+        Closest(page, "#rotation-pattern", "form").Submit();
+
+        page.WaitForAssertion(() => Assert.Contains(
+            "Crew assignment already has a planned rotation.",
+            page.Find(".crew-profile-form-conflict").TextContent,
+            StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void Executing_a_relief_closes_the_popup_and_refreshes_the_assignments_list()
+    {
+        var callCount = 0;
+        respondToProfile = _ =>
+        {
+            callCount++;
+            return callCount == 1
+                ? Json(HttpStatusCode.OK, Profile(certificates: [], assignments: [Assignment(status: "Active")]))
+                : Json(HttpStatusCode.OK, Profile(
+                    certificates: [],
+                    assignments: [Assignment(assignmentId: Guid.Parse("33000000-0000-0000-0000-000000000001"), status: "Active")]));
+        };
+        respondToGetRotation = _ => Json(HttpStatusCode.OK, Rotation());
+
+        var page = RenderProfilePage(
+            CurrentUserAuthorizationState.CrewReadPermission,
+            CurrentUserAuthorizationState.CrewManagePermission);
+
+        page.WaitForAssertion(() => Assert.NotEmpty(page.FindAll(".crew-profile-row-clickable")));
+        page.Find(".crew-profile-row-clickable").Click();
+
+        page.WaitForAssertion(() => Assert.NotEmpty(page.FindAll(".crew-rotation-execute")));
+        page.Find(".crew-rotation-execute").Click();
+
+        page.WaitForAssertion(() => Assert.Empty(page.FindAll(".crew-assignment-modal")));
+    }
+
+    [Fact]
+    public void An_execution_conflict_is_shown_and_the_popup_stays_open()
+    {
+        respondToProfile = _ => Json(
+            HttpStatusCode.OK,
+            Profile(certificates: [], assignments: [Assignment(status: "Active")]));
+        respondToGetRotation = _ => Json(HttpStatusCode.OK, Rotation());
+        respondToExecuteRotation = _ => Json(
+            HttpStatusCode.Conflict,
+            """{"title":"Crew rotation cannot be executed.","status":409,"detail":"No relieving crew member is selected."}""");
+
+        var page = RenderProfilePage(
+            CurrentUserAuthorizationState.CrewReadPermission,
+            CurrentUserAuthorizationState.CrewManagePermission);
+
+        page.WaitForAssertion(() => Assert.NotEmpty(page.FindAll(".crew-profile-row-clickable")));
+        page.Find(".crew-profile-row-clickable").Click();
+
+        page.WaitForAssertion(() => Assert.NotEmpty(page.FindAll(".crew-rotation-execute")));
+        page.Find(".crew-rotation-execute").Click();
+
+        page.WaitForAssertion(() => Assert.Contains(
+            "No relieving crew member is selected.",
+            page.Find(".crew-assignment-modal-error").TextContent,
+            StringComparison.Ordinal));
+        Assert.NotEmpty(page.FindAll(".crew-assignment-modal"));
+    }
+
     // ---- Helpers ----
 
     private static void FillCertificateForm(IRenderedComponent<CrewMemberProfile> page)
@@ -558,6 +815,11 @@ public sealed class CrewMemberProfilePageTests : BunitContext
                 return respondToRegisterCertificate(request);
             }
 
+            if (path.EndsWith("/members", StringComparison.Ordinal) && request.Method == HttpMethod.Get)
+            {
+                return respondToMemberSearch(request);
+            }
+
             if (path.EndsWith("/assignments", StringComparison.Ordinal) && request.Method == HttpMethod.Post)
             {
                 return respondToRegisterAssignment(request);
@@ -566,6 +828,29 @@ public sealed class CrewMemberProfilePageTests : BunitContext
             if (path.Contains("/assignments/", StringComparison.Ordinal) && request.Method == HttpMethod.Delete)
             {
                 return respondToDeleteAssignment(request);
+            }
+
+            if (path.EndsWith("/rotation/execute", StringComparison.Ordinal) && request.Method == HttpMethod.Post)
+            {
+                return respondToExecuteRotation(request);
+            }
+
+            if (path.EndsWith("/rotation", StringComparison.Ordinal))
+            {
+                if (request.Method == HttpMethod.Get)
+                {
+                    return respondToGetRotation(request);
+                }
+
+                if (request.Method == HttpMethod.Post)
+                {
+                    return respondToPlanRotation(request);
+                }
+
+                if (request.Method == HttpMethod.Put)
+                {
+                    return respondToUpdateRotation(request);
+                }
             }
 
             throw new InvalidOperationException($"Unexpected request: {request.Method} {path}");
@@ -646,6 +931,14 @@ public sealed class CrewMemberProfilePageTests : BunitContext
             "plannedSignOffDate":"2026-06-01","actualSignOffDate":{{actual}},"status":"{{status}}"}
             """;
     }
+
+    private static string Rotation(bool isOverdue = false) => $$"""
+        {"rotationId":"81000000-0000-0000-0000-000000000001","assignmentId":"31000000-0000-0000-0000-000000000001",
+        "vesselId":"{{VesselId}}","crewMemberId":"{{MemberId}}","crewMemberName":"Ivan Petrović",
+        "rankId":"{{RankId}}","rankName":"Bosun","relievingCrewMemberId":"20000000-0000-0000-0000-000000000002",
+        "relievingCrewMemberName":"Relief Member","rotationPattern":"2-2","plannedReliefDate":"2026-07-01",
+        "isOverdue":{{(isOverdue ? "true" : "false")}}}
+        """;
 
     private static string Positions(params string[] rows) =>
         $$"""{"items":[{{string.Join(',', rows)}}]}""";

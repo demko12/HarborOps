@@ -5,6 +5,7 @@
 @implements IDisposable
 @inject MaintenanceApiClient MaintenanceApi
 @inject FleetApiClient FleetApi
+@inject NavigationManager Navigation
 @inject CurrentUserAuthorizationState AuthorizationState
 
 <PageTitle>Maintenance | HarborOps</PageTitle>
@@ -19,22 +20,27 @@
 		<span class="maintenance-utc" aria-label="All times are shown in UTC">UTC</span>
 	</header>
 
-	<nav class="maintenance-tabs" role="tablist" aria-label="Maintenance workspace">
+	<nav class="maintenance-tabs workspace-tabs" role="tablist" aria-label="Maintenance workspace">
 		<button type="button"
 				role="tab"
-				class="maintenance-tab @(activeTab == MaintenanceTab.WorkOrders ? "active" : null)"
+				class="workspace-tab @(activeTab == MaintenanceTab.WorkOrders ? "active" : null)"
 				aria-selected="@(activeTab == MaintenanceTab.WorkOrders)"
 				@onclick="() => SelectTab(MaintenanceTab.WorkOrders)">Work orders</button>
 		<button type="button"
 				role="tab"
-				class="maintenance-tab @(activeTab == MaintenanceTab.Equipment ? "active" : null)"
+				class="workspace-tab @(activeTab == MaintenanceTab.Equipment ? "active" : null)"
 				aria-selected="@(activeTab == MaintenanceTab.Equipment)"
 				@onclick="() => SelectTab(MaintenanceTab.Equipment)">Equipment</button>
 		<button type="button"
 				role="tab"
-				class="maintenance-tab @(activeTab == MaintenanceTab.PreventiveSchedules ? "active" : null)"
+				class="workspace-tab @(activeTab == MaintenanceTab.PreventiveSchedules ? "active" : null)"
 				aria-selected="@(activeTab == MaintenanceTab.PreventiveSchedules)"
 				@onclick="() => SelectTab(MaintenanceTab.PreventiveSchedules)">Preventive schedules</button>
+			<button type="button"
+				role="tab"
+				class="workspace-tab @(activeTab == MaintenanceTab.DryDocks ? "active" : null)"
+				aria-selected="@(activeTab == MaintenanceTab.DryDocks)"
+				@onclick="() => SelectTab(MaintenanceTab.DryDocks)">Dry docks</button>
 		<button type="button"
 				role="tab"
 				class="maintenance-tab @(activeTab == MaintenanceTab.PurchaseOrders ? "active" : null)"
@@ -66,6 +72,11 @@
 		<SuppliersPanel />
 	}
 
+	@if (activeTab == MaintenanceTab.DryDocks)
+	{
+		<DryDocksPanel />
+	}
+
 	@if (activeTab == MaintenanceTab.WorkOrders)
 	{
 	<div class="maintenance-tabpanel" role="tabpanel">
@@ -90,9 +101,13 @@
 	</section>
 
 	<section class="maintenance-filters" aria-label="Work order filters">
-		<div class="filter-field">
-			<label for="maintenance-vessel">Vessel ID</label>
-			<input id="maintenance-vessel" @bind="vesselIdFilterText" @bind:event="oninput" @bind:after="ApplyFiltersAsync" placeholder="e.g. 3fa85f64-..." />
+		<div class="filter-field maintenance-filter-vessel">
+			<label>Vessel</label>
+			<VesselPicker @key="filterVesselPickerResetToken"
+						  Value="vesselIdFilter"
+						  ValueChanged="SelectVesselFilterAsync"
+						  Placeholder="Search vessels by name or IMO..."
+						  Disabled="isLoading" />
 		</div>
 		<div class="filter-field">
 			<label for="maintenance-status">Status</label>
@@ -288,8 +303,11 @@
 		<form class="maintenance-form" @onsubmit="SubmitCreateAsync" @onsubmit:preventDefault="true">
 			<div class="maintenance-form-grid">
 				<div class="filter-field">
-					<label for="create-vessel">Vessel ID</label>
-					<input id="create-vessel" @bind="createModel.VesselId" placeholder="Vessel GUID" />
+					<label for="create-vessel">Vessel</label>
+					<VesselPicker InputId="create-vessel"
+								  @bind-Value="createModel.VesselId"
+								  Placeholder="Search vessels by name or IMO..."
+								  Disabled="isCreating" />
 				</div>
 				<div class="filter-field">
 					<label for="create-title">Title</label>

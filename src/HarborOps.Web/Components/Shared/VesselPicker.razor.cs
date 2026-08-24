@@ -29,7 +29,16 @@ public partial class VesselPicker : IDisposable
     public EventCallback<Guid?> ValueChanged { get; set; }
 
     [Parameter]
+    public EventCallback<string> SearchTextChanged { get; set; }
+
+    [Parameter]
+    public EventCallback<string> SelectedTextChanged { get; set; }
+
+    [Parameter]
     public string? Placeholder { get; set; }
+
+    [Parameter]
+    public string? InputId { get; set; }
 
     [Parameter]
     public bool Disabled { get; set; }
@@ -37,6 +46,8 @@ public partial class VesselPicker : IDisposable
     private async Task OnInputAsync(ChangeEventArgs e)
     {
         displayText = e.Value?.ToString() ?? string.Empty;
+
+        await SearchTextChanged.InvokeAsync(displayText);
 
         // Any manual edit invalidates a previously selected vessel so Value never
         // stays bound to a name the user has since typed over.
@@ -102,6 +113,7 @@ public partial class VesselPicker : IDisposable
         results = [];
 
         await ValueChanged.InvokeAsync(Value);
+        await SelectedTextChanged.InvokeAsync(vessel.Name);
     }
 
     private async Task OnFocus()

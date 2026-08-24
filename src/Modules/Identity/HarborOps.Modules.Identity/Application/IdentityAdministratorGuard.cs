@@ -17,9 +17,9 @@ internal sealed class IdentityAdministratorGuard(
         var roleGrants = await BuildRolePermissionMapAsync(cancellationToken);
 
         var countBefore = await CountQualifyingAdministratorsAsync(
-            roleGrants, overrideUserId: null, overrideRoleNames: null, cancellationToken);
+            roleGrants, overrideUserId: null, overrideRoleNames: null, disabledUserId: null, cancellationToken);
         var countAfter = await CountQualifyingAdministratorsAsync(
-            roleGrants, overrideUserId: user.Id, overrideRoleNames: newRoleNames, cancellationToken);
+            roleGrants, overrideUserId: user.Id, overrideRoleNames: newRoleNames, disabledUserId: null, cancellationToken);
 
         if (countBefore > 0 && countAfter == 0)
         {
@@ -35,14 +35,30 @@ internal sealed class IdentityAdministratorGuard(
         var roleGrants = await BuildRolePermissionMapAsync(cancellationToken);
 
         var countBefore = await CountQualifyingAdministratorsAsync(
-            roleGrants, overrideUserId: null, overrideRoleNames: null, cancellationToken);
+            roleGrants, overrideUserId: null, overrideRoleNames: null, disabledUserId: null, cancellationToken);
 
         var modifiedGrants = new Dictionary<string, HashSet<string>>(roleGrants, StringComparer.OrdinalIgnoreCase)
         {
             [role.Name!] = newPermissions.ToHashSet(StringComparer.Ordinal),
         };
         var countAfter = await CountQualifyingAdministratorsAsync(
-            modifiedGrants, overrideUserId: null, overrideRoleNames: null, cancellationToken);
+            modifiedGrants, overrideUserId: null, overrideRoleNames: null, disabledUserId: null, cancellationToken);
+
+        if (countBefore > 0 && countAfter == 0)
+        {
+            throw new FinalIdentityAdministratorException();
+        }
+    }
+
+    public async Task EnsureFinalAdministratorPreservedForUserDisableAsync(
+        IdentityUser<Guid> user,
+        CancellationToken cancellationToken)
+    {
+        var roleGrants = await BuildRolePermissionMapAsync(cancellationToken);
+        var countBefore = await CountQualifyingAdministratorsAsync(
+            roleGrants, overrideUserId: null, overrideRoleNames: null, disabledUserId: null, cancellationToken);
+        var countAfter = await CountQualifyingAdministratorsAsync(
+            roleGrants, overrideUserId: null, overrideRoleNames: null, disabledUserId: user.Id, cancellationToken);
 
         if (countBefore > 0 && countAfter == 0)
         {
@@ -72,6 +88,7 @@ internal sealed class IdentityAdministratorGuard(
          Dictionary<string, HashSet<string>> roleGrants,
          Guid? overrideUserId,
          IReadOnlyCollection<string>? overrideRoleNames,
+         Guid? disabledUserId,
          CancellationToken cancellationToken)
     {
         var users = await userManager.Users.ToListAsync(cancellationToken);
@@ -79,6 +96,11 @@ internal sealed class IdentityAdministratorGuard(
 
         foreach (var candidate in users)
         {
+            if (candidate.Id == disabledUserId || candidate.LockoutEnd > DateTimeOffset.UtcNow)
+            {
+                continue;
+            }
+
             string[] roleNames;
             if (candidate.Id == overrideUserId && overrideRoleNames is not null)
             {

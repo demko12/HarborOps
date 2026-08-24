@@ -36,6 +36,21 @@ internal sealed class IdentityAdministrationApiClient(HttpClient httpClient)
         CancellationToken cancellationToken) =>
         SendAsync<object>(HttpMethod.Put, $"{BasePath}/users/{userId}/roles", request, cancellationToken);
 
+    internal Task<AdminApiResult<object>> DisableUserAsync(Guid userId, CancellationToken cancellationToken) =>
+        SendAsync<object>(HttpMethod.Post, $"{BasePath}/users/{userId}/disable", null, cancellationToken);
+
+    internal Task<AdminApiResult<object>> ReactivateUserAsync(Guid userId, CancellationToken cancellationToken) =>
+        SendAsync<object>(HttpMethod.Post, $"{BasePath}/users/{userId}/reactivate", null, cancellationToken);
+
+    internal Task<AdminApiResult<object>> SetTemporaryPasswordAsync(
+        Guid userId,
+        SetAdminTemporaryPasswordRequest request,
+        CancellationToken cancellationToken) =>
+        SendAsync<object>(HttpMethod.Post, $"{BasePath}/users/{userId}/temporary-password", request, cancellationToken);
+
+    internal Task<AdminApiResult<object>> RevokeUserSessionsAsync(Guid userId, CancellationToken cancellationToken) =>
+        SendAsync<object>(HttpMethod.Post, $"{BasePath}/users/{userId}/revoke-sessions", null, cancellationToken);
+
     internal Task<AdminApiResult<object>> ReplaceRolePermissionsAsync(
         Guid roleId,
         ReplaceRolePermissionsRequest request,

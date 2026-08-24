@@ -27,7 +27,7 @@ public sealed class VesselLookupEndpointTests : IntegrationTestBase
     [Fact]
     public async Task Post_returns_names_for_requested_vessels()
     {
-        using var client = await _application.CreateAuthenticatedClientWithPermissionsAsync(Permissions.Fleet.Read);
+        using var client = await _application.CreateAuthenticatedClientWithPermissionsAsync(Permissions.Fleet.Manage);
         var vessel = await SeedVesselAsync("Aurora Borealis", "5200001");
 
         using var response = await client.PostAsJsonAsync(
@@ -47,7 +47,7 @@ public sealed class VesselLookupEndpointTests : IntegrationTestBase
     [Fact]
     public async Task Post_returns_empty_for_unknown_ids()
     {
-        using var client = await _application.CreateAuthenticatedClientWithPermissionsAsync(Permissions.Fleet.Read);
+        using var client = await _application.CreateAuthenticatedClientWithPermissionsAsync(Permissions.Fleet.Manage);
 
         using var response = await client.PostAsJsonAsync(
             "/api/fleet/vessels/lookup",
@@ -64,7 +64,7 @@ public sealed class VesselLookupEndpointTests : IntegrationTestBase
     [Fact]
     public async Task Post_returns_validation_problem_for_missing_vessel_ids()
     {
-        using var client = await _application.CreateAuthenticatedClientWithPermissionsAsync(Permissions.Fleet.Read);
+        using var client = await _application.CreateAuthenticatedClientWithPermissionsAsync(Permissions.Fleet.Manage);
 
         using var response = await client.PostAsJsonAsync(
             "/api/fleet/vessels/lookup",

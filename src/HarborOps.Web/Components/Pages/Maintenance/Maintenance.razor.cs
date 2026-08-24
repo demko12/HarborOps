@@ -1,5 +1,6 @@
 using HarborOps.Web.Api.Fleet;
 using HarborOps.Web.Api.Maintenance;
+using Microsoft.AspNetCore.WebUtilities;
 
 namespace HarborOps.Web.Components.Pages.Maintenance;
 
@@ -11,7 +12,8 @@ public partial class Maintenance
     private IReadOnlyList<MaintenanceWorkOrderRow> rows = [];
     private MaintenanceApiFailure? failure;
 
-    private string? vesselIdFilterText;
+    private Guid? vesselIdFilter;
+    private int filterVesselPickerResetToken;
     private string statusFilter = string.Empty;
     private string priorityFilter = string.Empty;
     private string overdueFilter = string.Empty;
@@ -71,7 +73,27 @@ public partial class Maintenance
 
     protected override Task OnInitializedAsync()
     {
+        RestoreTabFromQuery();
+
         return LoadAsync();
+    }
+
+    private void RestoreTabFromQuery()
+    {
+        var query = QueryHelpers.ParseQuery(new Uri(Navigation.Uri).Query);
+
+        if (!query.TryGetValue("tab", out var tabValues))
+        {
+            return;
+        }
+
+        activeTab = tabValues.ToString() switch
+        {
+            "dry-docks" => MaintenanceTab.DryDocks,
+            "equipment" => MaintenanceTab.Equipment,
+            "schedules" => MaintenanceTab.PreventiveSchedules,
+            _ => MaintenanceTab.WorkOrders,
+        };
     }
 
     private Task ApplyFiltersAsync()
@@ -81,9 +103,17 @@ public partial class Maintenance
         return LoadAsync();
     }
 
+    private Task SelectVesselFilterAsync(Guid? vesselId)
+    {
+        vesselIdFilter = vesselId;
+
+        return ApplyFiltersAsync();
+    }
+
     private Task ClearFiltersAsync()
     {
-        vesselIdFilterText = null;
+        vesselIdFilter = null;
+        filterVesselPickerResetToken++;
         statusFilter = string.Empty;
         priorityFilter = string.Empty;
         overdueFilter = string.Empty;
@@ -129,7 +159,7 @@ public partial class Maintenance
         failure = null;
 
         var filter = new MaintenanceWorkOrderFilter(
-            Guid.TryParse(vesselIdFilterText, out var vesselId) ? vesselId : null,
+            vesselIdFilter,
             string.IsNullOrEmpty(statusFilter) ? null : statusFilter,
             string.IsNullOrEmpty(priorityFilter) ? null : priorityFilter,
             overdueFilter switch { "true" => true, "false" => false, _ => null },
@@ -215,7 +245,7 @@ public partial class Maintenance
 
         var request = new CreateMaintenanceWorkOrderRequest
         {
-            VesselId = Guid.TryParse(createModel.VesselId, out var vesselId) ? vesselId : null,
+            VesselId = createModel.VesselId,
             Title = createModel.Title,
             Description = createModel.Description,
             Priority = string.IsNullOrEmpty(createModel.Priority) ? null : createModel.Priority,
@@ -309,7 +339,7 @@ public partial class Maintenance
 
     private sealed class CreateWorkOrderModel
     {
-        public string? VesselId { get; set; }
+        public Guid? VesselId { get; set; }
 
         public string? Title { get; set; }
 

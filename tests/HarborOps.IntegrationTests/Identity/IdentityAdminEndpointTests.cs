@@ -211,6 +211,194 @@ public sealed class IdentityAdminEndpointTests : IntegrationTestBase
         Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
     }
 
+    [Fact]
+    public async Task Account_lifecycle_actions_require_manage_permission()
+    {
+        using var readOnlyClient = await _application.CreateAuthenticatedClientWithPermissionsAsync(
+            Permissions.IdentityUsers.Read);
+
+        using var response = await readOnlyClient.PostAsync(
+            $"/api/identity/admin/users/{Guid.NewGuid()}/disable",
+            content: null,
+            CancellationToken.None);
+
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task Disable_and_reactivate_update_account_state_and_invalidate_existing_access()
+    {
+        using var administratorClient = await _application.CreateAuthenticatedClientWithPermissionsAsync(
+            Permissions.IdentityUsers.Manage,
+            Permissions.IdentityRoles.Manage);
+        var email = $"lifecycle.{Guid.NewGuid():N}@harborops.test";
+        const string password = "P@ssw0rd!2026";
+        await _application.CreateTestUserAsync(email, password);
+        var userId = await GetUserIdAsync(administratorClient, email);
+
+        using var userClient = _application.CreateClient();
+        using var loginResponse = await userClient.PostAsJsonAsync(
+            "/api/identity/login",
+            new { email, password },
+            CancellationToken.None);
+        var accessToken = (await loginResponse.Content.ReadFromJsonAsync<System.Text.Json.JsonElement>(CancellationToken.None))
+            .GetProperty("accessToken")
+            .GetString();
+        userClient.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", accessToken);
+
+        using var disableResponse = await administratorClient.PostAsync(
+            $"/api/identity/admin/users/{userId}/disable",
+            content: null,
+            CancellationToken.None);
+        Assert.Equal(HttpStatusCode.NoContent, disableResponse.StatusCode);
+
+        using var disabledAccessResponse = await userClient.GetAsync("/api/identity/me", CancellationToken.None);
+        Assert.Equal(HttpStatusCode.Unauthorized, disabledAccessResponse.StatusCode);
+
+        using var reactivateResponse = await administratorClient.PostAsync(
+            $"/api/identity/admin/users/{userId}/reactivate",
+            content: null,
+            CancellationToken.None);
+        Assert.Equal(HttpStatusCode.NoContent, reactivateResponse.StatusCode);
+
+        using var reloginResponse = await userClient.PostAsJsonAsync(
+            "/api/identity/login",
+            new { email, password },
+            CancellationToken.None);
+        Assert.Equal(HttpStatusCode.OK, reloginResponse.StatusCode);
+    }
+
+    [Fact]
+    public async Task Temporary_password_replaces_the_old_password()
+    {
+        using var administratorClient = await _application.CreateAuthenticatedClientWithPermissionsAsync(
+            Permissions.IdentityUsers.Manage);
+        var email = $"password-reset.{Guid.NewGuid():N}@harborops.test";
+        const string oldPassword = "P@ssw0rd!2026";
+        const string newPassword = "NewTemp0rary!Passw0rd";
+        await _application.CreateTestUserAsync(email, oldPassword);
+        var userId = await GetUserIdAsync(administratorClient, email);
+
+        using var resetResponse = await administratorClient.PostAsJsonAsync(
+            $"/api/identity/admin/users/{userId}/temporary-password",
+            new SetTemporaryPasswordRequest(newPassword),
+            CancellationToken.None);
+        Assert.Equal(HttpStatusCode.NoContent, resetResponse.StatusCode);
+
+        using var signInClient = _application.CreateClient();
+        using var oldPasswordResponse = await signInClient.PostAsJsonAsync(
+            "/api/identity/login",
+            new { email, password = oldPassword },
+            CancellationToken.None);
+        Assert.Equal(HttpStatusCode.Unauthorized, oldPasswordResponse.StatusCode);
+
+        using var newPasswordResponse = await signInClient.PostAsJsonAsync(
+            "/api/identity/login",
+            new { email, password = newPassword },
+            CancellationToken.None);
+        Assert.Equal(HttpStatusCode.OK, newPasswordResponse.StatusCode);
+    }
+
+    [Fact]
+    public async Task Revoke_sessions_invalidates_existing_access_without_disabling_the_account()
+    {
+        using var administratorClient = await _application.CreateAuthenticatedClientWithPermissionsAsync(
+            Permissions.IdentityUsers.Manage);
+        var email = $"revoke.{Guid.NewGuid():N}@harborops.test";
+        const string password = "P@ssw0rd!2026";
+        await _application.CreateTestUserAsync(email, password);
+        var userId = await GetUserIdAsync(administratorClient, email);
+
+        using var userClient = _application.CreateClient();
+        using var loginResponse = await userClient.PostAsJsonAsync(
+            "/api/identity/login",
+            new { email, password },
+            CancellationToken.None);
+        var accessToken = (await loginResponse.Content.ReadFromJsonAsync<System.Text.Json.JsonElement>(CancellationToken.None))
+            .GetProperty("accessToken")
+            .GetString();
+        userClient.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", accessToken);
+
+        using var revokeResponse = await administratorClient.PostAsync(
+            $"/api/identity/admin/users/{userId}/revoke-sessions",
+            content: null,
+            CancellationToken.None);
+        Assert.Equal(HttpStatusCode.NoContent, revokeResponse.StatusCode);
+
+        using var revokedAccessResponse = await userClient.GetAsync("/api/identity/me", CancellationToken.None);
+        Assert.Equal(HttpStatusCode.Unauthorized, revokedAccessResponse.StatusCode);
+
+        using var reloginResponse = await userClient.PostAsJsonAsync(
+            "/api/identity/login",
+            new { email, password },
+            CancellationToken.None);
+        Assert.Equal(HttpStatusCode.OK, reloginResponse.StatusCode);
+    }
+
+    [Fact]
+    public async Task Disable_rejects_an_administrators_own_account()
+    {
+        var roleName = $"self-lifecycle-{Guid.NewGuid():N}";
+        var email = $"self.lifecycle.{Guid.NewGuid():N}@harborops.test";
+        const string password = "P@ssw0rd!2026";
+        await _application.CreateTestRoleAsync(roleName, Permissions.IdentityUsers.Manage);
+        await _application.CreateTestUserAsync(email, password, roleName);
+
+        using var client = _application.CreateClient();
+        using var loginResponse = await client.PostAsJsonAsync(
+            "/api/identity/login",
+            new { email, password },
+            CancellationToken.None);
+        var accessToken = (await loginResponse.Content.ReadFromJsonAsync<System.Text.Json.JsonElement>(CancellationToken.None))
+            .GetProperty("accessToken")
+            .GetString();
+        client.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", accessToken);
+        var userId = await GetUserIdAsync(client, email);
+
+        using var response = await client.PostAsync(
+            $"/api/identity/admin/users/{userId}/disable",
+            content: null,
+            CancellationToken.None);
+
+        Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task Disable_preserves_the_last_effective_identity_administrator()
+    {
+        var operatorRoleName = $"lifecycle-operator-{Guid.NewGuid():N}";
+        var administratorRoleName = $"lifecycle-last-admin-{Guid.NewGuid():N}";
+        var operatorEmail = $"lifecycle.operator.{Guid.NewGuid():N}@harborops.test";
+        var administratorEmail = $"lifecycle.admin.{Guid.NewGuid():N}@harborops.test";
+        const string password = "P@ssw0rd!2026";
+        await _application.CreateTestRoleAsync(operatorRoleName, Permissions.IdentityUsers.Manage);
+        await _application.CreateTestRoleAsync(
+            administratorRoleName,
+            Permissions.IdentityUsers.Manage,
+            Permissions.IdentityRoles.Manage);
+        await _application.CreateTestUserAsync(operatorEmail, password, operatorRoleName);
+        await _application.CreateTestUserAsync(administratorEmail, password, administratorRoleName);
+
+        using var operatorClient = _application.CreateClient();
+        using var loginResponse = await operatorClient.PostAsJsonAsync(
+            "/api/identity/login",
+            new { email = operatorEmail, password },
+            CancellationToken.None);
+        var accessToken = (await loginResponse.Content.ReadFromJsonAsync<System.Text.Json.JsonElement>(CancellationToken.None))
+            .GetProperty("accessToken")
+            .GetString();
+        operatorClient.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", accessToken);
+        var administratorId = await GetUserIdAsync(operatorClient, administratorEmail);
+
+        using var response = await operatorClient.PostAsync(
+            $"/api/identity/admin/users/{administratorId}/disable",
+            content: null,
+            CancellationToken.None);
+
+        Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
+    }
+
+
     private static async Task<Guid> GetRoleIdAsync(HttpClient client, string roleName)
     {
         var roles = await GetRolesAsync(client);

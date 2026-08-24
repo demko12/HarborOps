@@ -240,7 +240,7 @@ public sealed class MaintenancePageTests : BunitContext
 
         page.Find("button.maintenance-button").Click();
 
-        page.Find("#create-vessel").Change(VesselId);
+        SelectCreateVessel(page);
         page.Find("#create-title").Change("Replace filter");
         page.Find("#create-priority").Change("High");
         page.Find("#create-due").Change("2026-12-01T10:00");
@@ -270,7 +270,7 @@ public sealed class MaintenancePageTests : BunitContext
 
         page.Find("button.maintenance-button").Click();
 
-        page.Find("#create-vessel").Change(VesselId);
+        SelectCreateVessel(page);
         page.Find("form.maintenance-form").Submit();
 
         page.WaitForAssertion(() =>
@@ -280,7 +280,7 @@ public sealed class MaintenancePageTests : BunitContext
                 StringComparison.Ordinal));
 
         Assert.Equal(
-            VesselId,
+            "Aurora Borealis",
             page.Find("#create-vessel").GetAttribute("value"));
     }
 
@@ -415,6 +415,15 @@ public sealed class MaintenancePageTests : BunitContext
         });
     }
 
+    private static void SelectCreateVessel(IRenderedComponent<Maintenance> page)
+    {
+        page.Find("#create-vessel").Input("Aurora");
+        page.WaitForAssertion(
+            () => Assert.Single(page.FindAll(".vessel-picker-option")),
+            TimeSpan.FromSeconds(3));
+        page.Find(".vessel-picker-option").Click();
+    }
+
     private IRenderedComponent<Maintenance> RenderMaintenancePage(params string[] permissions)
     {
         var maintenanceHttpClient = new HttpClient(new StubHttpMessageHandler(request =>
@@ -431,7 +440,9 @@ public sealed class MaintenancePageTests : BunitContext
         {
             requestedUris.Add(request.RequestUri!);
 
-            return respondToLookup(request);
+            return request.RequestUri!.AbsolutePath.EndsWith("/lookup", StringComparison.Ordinal)
+                ? respondToLookup(request)
+                : Json(HttpStatusCode.OK, VesselPickerPage());
         }))
         {
             BaseAddress = new Uri("https://api.harborops.test/"),
@@ -473,8 +484,12 @@ public sealed class MaintenancePageTests : BunitContext
             "description":"Routine task","priority":"{{priority}}","status":"{{status}}",
             "dueUtc":"{{dueUtc}}","assignedEngineerId":null,
             "createdUtc":"2026-08-01T08:00:00Z","completedUtc":null}
-            """;
+        """;
     }
+
+    private static string VesselPickerPage() => $$"""
+        {"items":[{"vesselId":"{{VesselId}}","name":"Aurora Borealis","imoNumber":"1234567","flagState":"Montenegro","currentStatus":"Active","vesselTypeId":"40000000-0000-0000-0000-000000000004","vesselTypeName":"Bulk carrier","companyId":"50000000-0000-0000-0000-000000000005","dwt":null,"updatedAtUtc":"2026-08-01T08:00:00Z","lifecycleStage":null,"fleetId":null,"fleetName":null}],"pageNumber":1,"pageSize":10,"totalCount":1}
+        """;
 
     private static string Page(params string[] rows) => Page(1, rows.Length, rows);
 

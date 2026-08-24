@@ -48,6 +48,28 @@ internal sealed class DryDock
 
     public DryDockStatus Status { get; private set; }
 
+    internal IReadOnlyList<DryDockStatus> AllowedNextStatuses => AllowedNextStatusesFor(Status);
+
+    internal static IReadOnlyList<DryDockStatus> AllowedNextStatusesFor(DryDockStatus status)
+    {
+        return status switch
+        {
+            DryDockStatus.Planned => [DryDockStatus.InProgress, DryDockStatus.Canceled],
+            DryDockStatus.InProgress => [DryDockStatus.Completed],
+            _ => [],
+        };
+    }
+
+    internal static bool IsOverdue(DryDockStatus status, DateOnly startDate, DateOnly today)
+    {
+        return status == DryDockStatus.Planned && startDate < today;
+    }
+
+    internal static int? DaysUntilStart(DryDockStatus status, DateOnly startDate, DateOnly today)
+    {
+        return status == DryDockStatus.Planned ? startDate.DayNumber - today.DayNumber : null;
+    }
+
     internal static DryDock Schedule(
         Guid vesselId,
         Guid portId,
@@ -63,5 +85,53 @@ internal sealed class DryDock
             plannedTasks,
             null,
             DryDockStatus.Planned);
+    }
+
+    internal void Start()
+    {
+        MoveTo(DryDockStatus.InProgress);
+    }
+
+    internal void Complete(DateOnly endDate, decimal actualCost)
+    {
+        EnsureCanMoveTo(DryDockStatus.Completed);
+
+        if (endDate < StartDate)
+        {
+            throw new DryDockCompletionInvalidException(
+                Id,
+                $"the end date '{endDate:yyyy-MM-dd}' is before the start date '{StartDate:yyyy-MM-dd}'.");
+        }
+
+        if (actualCost < 0m)
+        {
+            throw new DryDockCompletionInvalidException(
+                Id,
+                $"the actual cost '{actualCost}' is negative.");
+        }
+
+        Status = DryDockStatus.Completed;
+        EndDate = endDate;
+        ActualCost = actualCost;
+    }
+
+    internal void Cancel()
+    {
+        MoveTo(DryDockStatus.Canceled);
+    }
+
+    private void MoveTo(DryDockStatus requestedStatus)
+    {
+        EnsureCanMoveTo(requestedStatus);
+
+        Status = requestedStatus;
+    }
+
+    private void EnsureCanMoveTo(DryDockStatus requestedStatus)
+    {
+        if (!AllowedNextStatuses.Contains(requestedStatus))
+        {
+            throw new DryDockTransitionNotAllowedException(Id, Status, requestedStatus);
+        }
     }
 }

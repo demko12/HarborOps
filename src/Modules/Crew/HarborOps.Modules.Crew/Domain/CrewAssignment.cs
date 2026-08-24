@@ -64,4 +64,14 @@ internal sealed class CrewAssignment
             actualSignOffDate: null,
             PlannedStatus);
     }
+
+    internal void Activate()
+    {
+        Status = ActiveStatus;
+    }
+
+    internal void SignOff(DateOnly actualSignOffDate)
+    {
+        ActualSignOffDate = actualSignOffDate;
+    }
 }

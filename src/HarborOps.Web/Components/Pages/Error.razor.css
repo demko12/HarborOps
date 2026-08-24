@@ -73,8 +73,8 @@
     transition: background-color .15s ease, filter .15s ease;
 }
 
-.error-primary { color: #fff; background: linear-gradient(135deg, #3b82f6, #2563eb); }
-.error-primary:hover { filter: brightness(1.08); }
+.error-primary { color: var(--apply-text); border: 1px solid var(--apply-border) !important; background: var(--apply-surface); }
+.error-primary:hover { border-color: var(--apply-border-hover) !important; background: var(--apply-surface-hover); }
 .error-secondary { color: var(--text-secondary); border: 1px solid var(--border-medium) !important; background: var(--bg-navbar); }
 .error-secondary:hover { color: var(--text-primary); background: var(--icon-hover-bg); }
 

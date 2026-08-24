@@ -111,6 +111,13 @@ internal static class MaintenanceFormat
             "dueTo" => "Due to",
             "pageNumber" => "Page number",
             "pageSize" => "Page size",
+            "portId" => "Port",
+            "startDate" => "Start date",
+            "startTo" => "Start to",
+            "plannedTasks" => "Planned tasks",
+            "endDate" => "End date",
+            "actualCost" => "Actual cost",
+            "status" => "Status",
             _ => field,
         };
     }
@@ -158,5 +165,81 @@ internal static class MaintenanceFormat
         }
 
         return daysUntilDue is null ? "hours" : "scheduled";
+    }
+
+    internal static readonly IReadOnlyList<string> DryDockStatuses =
+        ["Planned", "InProgress", "Completed", "Canceled"];
+
+    internal static string DryDockStatusLabel(string status)
+    {
+        return string.Equals(status, "InProgress", StringComparison.Ordinal) ? "In progress" : status;
+    }
+
+    internal const int DryDockLifecycleStepCount = 3;
+
+    internal static int DryDockLifecycleStep(string status)
+    {
+        return status switch
+        {
+            "InProgress" => 2,
+            "Completed" => DryDockLifecycleStepCount,
+            "Canceled" => 0,
+            _ => 1,
+        };
+    }
+
+    internal static string DryDockStatusModifier(string status)
+    {
+        return status switch
+        {
+            "Completed" => "done",
+            "Canceled" => "cancelled",
+            "InProgress" => "active",
+            _ => "pending",
+        };
+    }
+
+    internal static string StartDate(DateOnly value)
+    {
+        return value.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
+    }
+
+    internal static string EndDate(DateOnly? value)
+    {
+        return value is { } endDate
+            ? endDate.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture)
+            : MissingValue;
+    }
+
+    internal static string ActualCost(decimal? value)
+    {
+        return value is { } cost
+            ? cost.ToString("N2", CultureInfo.InvariantCulture)
+            : MissingValue;
+    }
+
+    internal static string DryDockTiming(string status, bool isOverdue, int? daysUntilStart)
+    {
+        if (isOverdue)
+        {
+            return "Overdue";
+        }
+
+        if (daysUntilStart is null)
+        {
+            return DryDockStatusLabel(status);
+        }
+
+        return daysUntilStart.Value switch
+        {
+            0 => "Starts today",
+            1 => "Starts in 1 day",
+            _ => $"Starts in {daysUntilStart.Value.ToString(CultureInfo.InvariantCulture)} days",
+        };
+    }
+
+    internal static string ShortPortReference(Guid portId)
+    {
+        return $"Port {ShortId(portId)}";
     }
 }

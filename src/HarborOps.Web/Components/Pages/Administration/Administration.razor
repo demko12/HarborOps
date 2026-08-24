@@ -3,6 +3,7 @@
 @implements IDisposable
 @inject IdentityAdministrationApiClient AdministrationApi
 @inject CurrentUserAuthorizationState AuthorizationState
+@inject ServerSessionTicketStore SessionTicketStore
 
 <PageTitle>Administration | HarborOps</PageTitle>
 
@@ -58,7 +59,7 @@
                     {
                         <button type="button" class="user-row @(selectedUser?.Id == user.Id ? "selected" : string.Empty)" @onclick="() => SelectUser(user)">
                             <span><strong>@user.Email</strong><small>@(user.Roles.Count == 0 ? "No roles assigned" : string.Join(", ", user.Roles))</small></span>
-                            <span class="bi bi-chevron-right" aria-hidden="true"></span>
+                            <span class="user-row-trailing"><span class="account-status @(user.IsActive ? "active" : "disabled")">@(user.IsActive ? "Active" : "Disabled")</span><span class="bi bi-chevron-right" aria-hidden="true"></span></span>
                         </button>
                     }
                 </div>
@@ -92,6 +93,36 @@
                 @if (editorMessage is not null) { <p class="form-message @editorMessageClass">@editorMessage</p> }
                 @if (confirmUserRoles) { <div class="confirmation"><strong>Replace user roles?</strong><p>This will remove any unselected roles.</p><button class="admin-button" @onclick="SaveUserRolesAsync">Confirm replacement</button><button class="admin-button-link" @onclick="() => confirmUserRoles = false">Cancel</button></div> }
                 else { <button class="admin-button" disabled="@(isSaving || roles.Count == 0)" @onclick="() => confirmUserRoles = true">Replace roles</button> }
+
+                <section class="account-lifecycle" aria-labelledby="account-lifecycle-title">
+                    <div><h3 id="account-lifecycle-title">Account lifecycle</h3><p>@(selectedUser.IsActive ? "This account can currently sign in." : $"Disabled until {FormatLockout(selectedUser.LockoutEndUtc)}.")</p></div>
+                    <div class="account-lifecycle-actions">
+                        @if (selectedUser.IsActive)
+                        {
+                            <button class="admin-button" type="button" disabled="@(AuthorizationState.UserId == selectedUser.Id)" @onclick="() => BeginLifecycleConfirmation(LifecycleAction.Disable)">Disable account</button>
+                        }
+                        else
+                        {
+                            <button class="admin-button" type="button" @onclick="() => BeginLifecycleConfirmation(LifecycleAction.Reactivate)">Reactivate account</button>
+                        }
+                        <button class="admin-button" type="button" @onclick="() => BeginLifecycleConfirmation(LifecycleAction.ResetPassword)">Set temporary password</button>
+                        <button class="admin-button" type="button" @onclick="() => BeginLifecycleConfirmation(LifecycleAction.RevokeSessions)">Revoke sessions</button>
+                    </div>
+                    @if (lifecycleAction is not null)
+                    {
+                        <div class="confirmation lifecycle-confirmation">
+                            <strong>@LifecycleConfirmationTitle</strong>
+                            <p>@LifecycleConfirmationMessage</p>
+                            @if (lifecycleAction == LifecycleAction.ResetPassword)
+                            {
+                                <div class="form-field"><label for="lifecycle-password">Temporary password</label><div class="input-shell"><span class="bi bi-key" aria-hidden="true"></span><input id="lifecycle-password" @bind="lifecycleTemporaryPassword" type="password" autocomplete="new-password" /></div></div>
+                                <div class="form-field"><label for="lifecycle-password-confirmation">Confirm temporary password</label><div class="input-shell"><span class="bi bi-check2-circle" aria-hidden="true"></span><input id="lifecycle-password-confirmation" @bind="lifecycleTemporaryPasswordConfirmation" type="password" autocomplete="new-password" /></div></div>
+                            }
+                            <button class="admin-button" type="button" disabled="@isSavingLifecycle" @onclick="ConfirmLifecycleActionAsync">@(isSavingLifecycle ? "Applying..." : LifecycleConfirmationButton)</button>
+                            <button class="admin-button-link" type="button" disabled="@isSavingLifecycle" @onclick="CancelLifecycleConfirmation">Cancel</button>
+                        </div>
+                    }
+                </section>
             }
             else if (selectedRole is not null)
             {

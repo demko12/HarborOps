@@ -23,6 +23,7 @@ public static class ComplianceModule
         services.AddScoped<IGetVesselComplianceOverviewQuery, GetVesselComplianceOverviewQuery>();
         services.AddScoped<IOperationsDashboardComplianceQuery, OperationsDashboardComplianceQuery>();
         services.TryAddSingleton<IDateTimeProvider, SystemDateTimeProvider>();
+        services.AddScoped<IReportsComplianceExposureQuery, ReportsComplianceExposureQuery>();
         services.AddControllers()
             .AddApplicationPart(Assembly);
 

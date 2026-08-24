@@ -1,0 +1,251 @@
+@using HarborOps.Web.Api.Fleet
+@using HarborOps.Web.Api.Maintenance
+@using HarborOps.Web.Api.Voyages
+@using HarborOps.Web.Components.Shared
+@implements IDisposable
+@inject MaintenanceApiClient MaintenanceApi
+@inject FleetApiClient VesselLookupApi
+@inject VoyagesApiClient VoyagesApi
+@inject NavigationManager Navigation
+@inject CurrentUserAuthorizationState AuthorizationState
+
+<div class="dry-dock-panel">
+    <section class="maintenance-summary" aria-label="Dry dock summary">
+        <article class="maintenance-summary-card">
+            <div>
+                <span>Total dry docks</span>
+                <strong>@totalCount</strong>
+                <small>Matching the current filters</small>
+            </div>
+            <span class="summary-icon summary-icon-blue" aria-hidden="true"><span class="bi bi-tools"></span></span>
+        </article>
+        <article class="maintenance-summary-card">
+            <div>
+                <span>Overdue on this page</span>
+                <strong>@OverdueCount</strong>
+                <small>Planned but past their start date</small>
+            </div>
+            <span class="summary-icon summary-icon-amber" aria-hidden="true"><span class="bi bi-exclamation-triangle-fill"></span></span>
+        </article>
+    </section>
+
+    <section class="maintenance-filters" aria-label="Dry dock filters">
+        <div class="filter-field filter-field-vessel">
+            <label for="dry-dock-vessel">Vessel</label>
+            <VesselPicker InputId="dry-dock-vessel"
+                          Value="vesselFilter"
+                          ValueChanged="SelectVesselFilterAsync"
+                          Placeholder="Search vessels by name or IMO"
+                          Disabled="isLoading" />
+        </div>
+        <div class="filter-field">
+            <label for="dry-dock-port">Port</label>
+            <select id="dry-dock-port" @bind="portFilter" @bind:after="ApplyFiltersAsync" disabled="@isLoading">
+                <option value="">All ports</option>
+                @foreach (var port in portOptions)
+                {
+                    <option value="@port.PortId">@PortOptionLabel(port)</option>
+                }
+            </select>
+        </div>
+        <div class="filter-field">
+            <label for="dry-dock-status">Status</label>
+            <select id="dry-dock-status" @bind="statusFilter" @bind:after="ApplyFiltersAsync">
+                <option value="">All statuses</option>
+                @foreach (var status in MaintenanceFormat.DryDockStatuses)
+                {
+                    <option value="@status">@MaintenanceFormat.DryDockStatusLabel(status)</option>
+                }
+            </select>
+        </div>
+        <div class="filter-field">
+            <label for="dry-dock-search">Search</label>
+            <input id="dry-dock-search"
+                   @bind="searchFilter"
+                   @bind:event="oninput"
+                   @bind:after="ApplyFiltersAsync"
+                   placeholder="Planned tasks" />
+        </div>
+        <div class="filter-field">
+            <label for="dry-dock-page-size">Per page</label>
+            <select id="dry-dock-page-size" @bind="pageSize" @bind:after="ApplyFiltersAsync">
+                <option value="25">25</option>
+                <option value="50">50</option>
+                <option value="100">100</option>
+            </select>
+        </div>
+        <label class="filter-toggle dry-dock-overdue-toggle">
+            <input type="checkbox" @bind="overdueOnlyFilter" @bind:after="ApplyFiltersAsync" />
+            <span>Overdue only</span>
+        </label>
+        <button class="maintenance-reset dry-dock-clear" type="button" @onclick="ClearFiltersAsync" disabled="@isLoading">Reset</button>
+    </section>
+
+    @if (scheduleSuccessMessage is not null)
+    {
+        <div class="maintenance-toast dry-dock-success" role="status" aria-live="polite">
+            <span class="bi bi-check-circle-fill" aria-hidden="true"></span>
+            <span>@scheduleSuccessMessage</span>
+        </div>
+    }
+
+    <section class="maintenance-card" aria-labelledby="dry-dock-list-title">
+        <div class="maintenance-card-heading">
+            <div>
+                <h2 id="dry-dock-list-title">Dry docks</h2>
+                <p>@totalCount dry docks found</p>
+            </div>
+            <div class="maintenance-card-heading-actions">
+                @if (CanManage)
+                {
+                    <button type="button" class="maintenance-button dry-dock-schedule-toggle" @onclick="OpenScheduleForm">Schedule dry dock</button>
+                }
+                <span class="maintenance-card-icon" aria-hidden="true"><span class="bi bi-tools"></span></span>
+            </div>
+        </div>
+
+        @if (isLoading)
+        {
+            <LoadingState Message="Loading dry docks..." />
+        }
+        else if (failure is not null)
+        {
+            <ApiErrorState Title="@failure.Title" Message="@failure.Message" OnRetry="RetryAsync" />
+        }
+        else if (rows.Count == 0)
+        {
+            <EmptyState Title="No dry docks match your filters"
+                        Message="Widen the filters or clear the vessel, port, and status selections." />
+        }
+        else
+        {
+            <div class="maintenance-table-scroll">
+                <table class="maintenance-table dry-dock-table">
+                    <caption class="visually-hidden">Dry docks, ordered by start date</caption>
+                    <thead>
+                        <tr>
+                            <th scope="col">Vessel</th>
+                            <th scope="col">Port</th>
+                            <th scope="col">Start</th>
+                            <th scope="col">End</th>
+                            <th scope="col">Planned tasks</th>
+                            <th scope="col" class="dry-dock-cost">Actual cost</th>
+                            <th scope="col">Status</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var row in rows)
+                        {
+                            <tr class="dry-dock-row" @key="row.DryDockId">
+                                <td class="dry-dock-vessel" title="@row.VesselId">
+                                    <a class="dry-dock-link" href="@DetailsHref(row.DryDockId)">@row.VesselDisplayName</a>
+                                </td>
+                                <td class="dry-dock-port" title="@row.PortId">@row.PortDisplayName</td>
+                                <td>
+                                    <span class="maintenance-title">@MaintenanceFormat.StartDate(row.StartDate)</span>
+                                    <span class="dry-dock-timing @MaintenanceFormat.DueStateModifier(row.IsOverdue, row.DaysUntilStart)">
+                                        @MaintenanceFormat.DryDockTiming(row.Status, row.IsOverdue, row.DaysUntilStart)
+                                    </span>
+                                </td>
+                                <td class="maintenance-muted">@MaintenanceFormat.EndDate(row.EndDate)</td>
+                                <td class="dry-dock-tasks" title="@row.PlannedTasks">@row.PlannedTasks</td>
+                                <td class="dry-dock-cost">@MaintenanceFormat.ActualCost(row.ActualCost)</td>
+                                <td>
+                                    <span class="maintenance-status @MaintenanceFormat.DryDockStatusModifier(row.Status)">
+                                        @MaintenanceFormat.DryDockStatusLabel(row.Status)
+                                    </span>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="maintenance-pagination">
+                <span>Showing @FirstRowNumber&ndash;@LastRowNumber of @totalCount dry docks</span>
+                <div class="maintenance-pages">
+                    <button type="button" @onclick="PreviousPageAsync" disabled="@(pageNumber <= 1)">Previous</button>
+                    <span class="maintenance-page-indicator">Page @pageNumber of @TotalPages</span>
+                    <button type="button" @onclick="NextPageAsync" disabled="@(pageNumber >= TotalPages)">Next</button>
+                </div>
+            </div>
+        }
+    </section>
+
+    @if (isScheduleFormOpen)
+    {
+        <div class="maintenance-modal-backdrop" @onclick="CloseScheduleForm">
+            <section class="maintenance-form-card dry-dock-form-card"
+                     role="dialog"
+                     aria-modal="true"
+                     aria-labelledby="dry-dock-schedule-title"
+                     @onclick:stopPropagation="true">
+                <div class="maintenance-modal-header">
+                    <h2 id="dry-dock-schedule-title">Schedule dry dock</h2>
+                    <button type="button"
+                            class="maintenance-modal-close"
+                            aria-label="Close schedule dry dock dialog"
+                            disabled="@isScheduling"
+                            @onclick="CloseScheduleForm">&times;</button>
+                </div>
+                <form class="maintenance-form dry-dock-form" @onsubmit="SubmitScheduleAsync" @onsubmit:preventDefault="true">
+                    @if (scheduleFailure is { IsValidation: true })
+                    {
+                        <div class="maintenance-field-errors dry-dock-field-errors" role="alert">
+                            <strong>Please correct the following before saving</strong>
+                            <ul>
+                                @foreach (var entry in scheduleFailure.Errors)
+                                {
+                                    @foreach (var message in entry.Value)
+                                    {
+                                        <li>
+                                            <span class="maintenance-error-field">@MaintenanceFormat.FieldLabel(entry.Key)</span>
+                                            <span>@message</span>
+                                        </li>
+                                    }
+                                }
+                            </ul>
+                        </div>
+                    }
+                    @if (scheduleFailure is { IsValidation: false })
+                    {
+                        <div class="maintenance-inline-error dry-dock-inline-error" role="alert">@scheduleFailure.Message</div>
+                    }
+
+                    <div class="maintenance-form-grid">
+                        <div class="filter-field filter-field-wide">
+                            <label for="dry-dock-schedule-vessel">Vessel <span class="required-marker" aria-hidden="true">*</span></label>
+                            <VesselPicker Value="scheduleModel.VesselId"
+                                          ValueChanged="value => scheduleModel.VesselId = value"
+                                          Disabled="isScheduling" />
+                        </div>
+                        <div class="filter-field filter-field-wide">
+                            <label for="dry-dock-schedule-port">Port <span class="required-marker" aria-hidden="true">*</span></label>
+                            <PortPicker @ref="schedulePortPicker"
+                                        InputId="dry-dock-schedule-port"
+                                        Value="scheduleModel.PortId"
+                                        ValueChanged="value => scheduleModel.PortId = value"
+                                        Placeholder="Search ports"
+                                        Disabled="isScheduling" />
+                        </div>
+                        <div class="filter-field">
+                            <label for="dry-dock-start-date">Start date <span class="required-marker" aria-hidden="true">*</span></label>
+                            <input id="dry-dock-start-date" type="date" @bind="scheduleModel.StartDate" />
+                        </div>
+                        <div class="filter-field filter-field-wide">
+                            <label for="dry-dock-planned-tasks">Planned tasks <span class="required-marker" aria-hidden="true">*</span></label>
+                            <textarea id="dry-dock-planned-tasks" rows="3" maxlength="4000" @bind="scheduleModel.PlannedTasks"></textarea>
+                        </div>
+                    </div>
+
+                    <div class="maintenance-form-actions">
+                        <button type="submit" class="maintenance-button dry-dock-submit" disabled="@isScheduling">
+                            @(isScheduling ? "Scheduling..." : "Schedule dry dock")
+                        </button>
+                        <button type="button" class="maintenance-reset" @onclick="CloseScheduleForm">Cancel</button>
+                    </div>
+                </form>
+            </section>
+        </div>
+    }
+</div>

@@ -69,10 +69,12 @@ public sealed class VesselDetailsPageTests : BunitContext
 
         var page = RenderDetailsPage();
 
-        var badge = page.Find(".vessel-details-header .vessel-status");
+        var status = page.Find(".vessel-operational-state strong");
+        var statusIndicator = page.Find(".vessel-status-orb");
 
-        Assert.Equal("At Port", badge.TextContent.Trim());
-        Assert.Contains("vessel-status-port", badge.ClassName, StringComparison.Ordinal);
+        Assert.Equal("At Port", status.TextContent.Trim());
+        Assert.Contains("vessel-status-port", statusIndicator.ClassName, StringComparison.Ordinal);
+        Assert.Contains("bi-geo-alt", statusIndicator.InnerHtml, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -200,29 +202,29 @@ public sealed class VesselDetailsPageTests : BunitContext
     }
 
     [Fact]
-    public void Back_navigation_defaults_to_the_directory()
+    public void Fleet_breadcrumb_defaults_to_the_directory()
     {
         var page = RenderDetailsPage();
 
-        Assert.Equal("/fleet", page.Find(".vessel-details-back").GetAttribute("href"));
+        Assert.Equal("/fleet", page.Find(".page-breadcrumb a").GetAttribute("href"));
     }
 
     [Fact]
-    public void Back_navigation_preserves_the_directory_filters()
+    public void Fleet_breadcrumb_preserves_the_directory_filters()
     {
         var page = RenderDetailsPage(returnTo: "/fleet?search=Northern&status=At%20Port&page=2");
 
         Assert.Equal(
             "/fleet?search=Northern&status=At%20Port&page=2",
-            page.Find(".vessel-details-back").GetAttribute("href"));
+            page.Find(".page-breadcrumb a").GetAttribute("href"));
     }
 
     [Fact]
-    public void Back_navigation_refuses_a_return_address_that_leaves_the_directory()
+    public void Fleet_breadcrumb_refuses_a_return_address_that_leaves_the_directory()
     {
         var page = RenderDetailsPage(returnTo: "https://elsewhere.test/fleet");
 
-        Assert.Equal("/fleet", page.Find(".vessel-details-back").GetAttribute("href"));
+        Assert.Equal("/fleet", page.Find(".page-breadcrumb a").GetAttribute("href"));
     }
 
     [Fact]
@@ -339,7 +341,7 @@ public sealed class VesselDetailsPageTests : BunitContext
         {
             Assert.Contains("Status updated to At Port.", page.Find(".vessel-status-success").TextContent, StringComparison.Ordinal);
             Assert.True(reads >= 2);
-            Assert.Equal("At Port", page.Find(".vessel-details-header .vessel-status").TextContent.Trim());
+            Assert.Equal("At Port", page.Find(".vessel-operational-state strong").TextContent.Trim());
         });
     }
 

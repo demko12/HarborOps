@@ -1,0 +1,177 @@
+@page "/crew/rotations"
+@attribute [Microsoft.AspNetCore.Authorization.Authorize(Policy = "AccessCrew")]
+@using HarborOps.Web.Api.Fleet
+@using HarborOps.Web.Components.Shared
+@implements IDisposable
+@inject CrewApiClient CrewApi
+@inject FleetApiClient FleetApi
+
+<PageTitle>Crew rotations | HarborOps</PageTitle>
+
+<section class="crew-rotations-page">
+    <header class="crew-rotations-header">
+        <div>
+            <nav class="page-breadcrumb" aria-label="Breadcrumb"><a href="/crew">Crewing operations</a><span aria-hidden="true">/</span><span>Rotations</span></nav>
+            <h1>Crew rotations</h1>
+            <p>Plan reliefs for assigned crew and spot overdue handovers before they become staffing gaps.</p>
+        </div>
+    </header>
+
+    <div class="crew-rotations-filters">
+        <div class="filter-field filter-field-wide">
+            <label for="crew-rotations-vessel">Vessel</label>
+            <VesselPicker @key="vesselPickerResetToken" InputId="crew-rotations-vessel" Value="vesselIdFilter" ValueChanged="OnVesselFilterChangedAsync" Placeholder="All vessels" />
+        </div>
+        <div class="filter-field">
+            <label for="crew-rotations-from">Relief from</label>
+            <input id="crew-rotations-from" type="date" @bind="fromFilter" @bind:after="SearchAsync" />
+        </div>
+        <div class="filter-field">
+            <label for="crew-rotations-to">Relief to</label>
+            <input id="crew-rotations-to" type="date" @bind="toFilter" @bind:after="SearchAsync" />
+        </div>
+        <div class="filter-field">
+            <label for="crew-rotations-overdue">Overdue</label>
+            <select id="crew-rotations-overdue" @bind="overdueSelection" @bind:after="SearchAsync">
+                <option value="">All</option>
+                <option value="true">Overdue only</option>
+            </select>
+        </div>
+        <div class="crew-rotations-filter-actions">
+            <button type="button" class="crew-reset-button" @onclick="ResetFiltersAsync" disabled="@isLoading">Reset</button>
+        </div>
+    </div>
+
+    @if (filterValidationMessage is not null)
+    {
+        <div class="crew-rotations-validation" role="alert">@filterValidationMessage</div>
+    }
+
+    <section class="crew-card" aria-labelledby="crew-rotations-list-title">
+        <div class="crew-card-heading">
+            <div><h2 id="crew-rotations-list-title">Planned reliefs</h2><p>@totalCount rotations found</p></div>
+            <span class="bi bi-arrow-repeat" aria-hidden="true"></span>
+        </div>
+
+        @if (isLoading)
+        {
+            <LoadingState Message="Loading crew rotations..." />
+        }
+        else if (failure is not null)
+        {
+            <ApiErrorState Title="@failure.Title" Message="@failure.Message" OnRetry="LoadAsync" />
+        }
+        else if (rotations.Count == 0)
+        {
+            <EmptyState Title="No rotations found" Message="Plan a relief from a crew member's profile to see it here." />
+        }
+        else
+        {
+            <div class="crew-rotations-table-scroll">
+                <table class="crew-rotations-table">
+                    <caption class="visually-hidden">Planned crew reliefs</caption>
+                    <thead>
+                        <tr>
+                            <th scope="col">Vessel</th>
+                            <th scope="col">Assigned crew member</th>
+                            <th scope="col">Rank</th>
+                            <th scope="col">Relieving crew member</th>
+                            <th scope="col">Pattern</th>
+                            <th scope="col">Planned relief date</th>
+                            <th scope="col">Status</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var rotation in rotations)
+                        {
+                            <tr @key="rotation.RotationId">
+                                <td>@VesselDisplayName(rotation.VesselId)</td>
+                                <td><a href="@($"/crew/{rotation.CrewMemberId}")">@rotation.CrewMemberName</a></td>
+                                <td class="crew-rotations-muted">@rotation.RankName</td>
+                                <td>
+                                    @if (rotation.RelievingCrewMemberId is { } relievingId)
+                                    {
+                                        <a href="@($"/crew/{relievingId}")">@rotation.RelievingCrewMemberName</a>
+                                    }
+                                    else
+                                    {
+                                        <span class="crew-rotations-muted">Not selected</span>
+                                    }
+                                </td>
+                                <td class="crew-rotations-muted">@rotation.RotationPattern</td>
+                                <td>@rotation.PlannedReliefDate.ToString("dd MMM yyyy")</td>
+                                <td>
+                                    @if (rotation.IsOverdue)
+                                    {
+                                        <span class="crew-rotations-status crew-rotations-status-overdue">Overdue</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="crew-rotations-status crew-rotations-status-planned">Planned</span>
+                                    }
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="crew-rotations-cards">
+                @foreach (var rotation in rotations)
+                {
+                    var isExpanded = expandedCardIds.Contains(rotation.RotationId);
+                    <article class="crew-rotation-card" @key="rotation.RotationId">
+                        <button type="button" class="crew-rotation-card-heading" aria-expanded="@(isExpanded ? "true" : "false")" @onclick="() => ToggleCardExpanded(rotation.RotationId)">
+                            <span class="crew-rotation-card-name">@rotation.CrewMemberName</span>
+                            @if (rotation.IsOverdue)
+                            {
+                                <span class="crew-rotations-status crew-rotations-status-overdue">Overdue</span>
+                            }
+                            else
+                            {
+                                <span class="crew-rotations-status crew-rotations-status-planned">Planned</span>
+                            }
+                            <span class="bi bi-chevron-down crew-rotation-card-chevron" aria-hidden="true"></span>
+                        </button>
+
+                        @if (isExpanded)
+                        {
+                            <dl class="crew-rotation-card-details">
+                                <div>
+                                    <dt>Assigned crew member</dt>
+                                    <dd><a href="@($"/crew/{rotation.CrewMemberId}")">@rotation.CrewMemberName</a></dd>
+                                </div>
+                                <div><dt>Vessel</dt><dd>@VesselDisplayName(rotation.VesselId)</dd></div>
+                                <div><dt>Rank</dt><dd>@rotation.RankName</dd></div>
+                                <div>
+                                    <dt>Relieving crew member</dt>
+                                    <dd>
+                                        @if (rotation.RelievingCrewMemberId is { } cardRelievingId)
+                                        {
+                                            <a href="@($"/crew/{cardRelievingId}")">@rotation.RelievingCrewMemberName</a>
+                                        }
+                                        else
+                                        {
+                                            <span>Not selected</span>
+                                        }
+                                    </dd>
+                                </div>
+                                <div><dt>Pattern</dt><dd>@rotation.RotationPattern</dd></div>
+                                <div><dt>Planned relief date</dt><dd>@rotation.PlannedReliefDate.ToString("dd MMM yyyy")</dd></div>
+                            </dl>
+                        }
+                    </article>
+                }
+            </div>
+
+            <div class="crew-pagination">
+                <span>Showing @FirstRowNumber&ndash;@LastRowNumber of @totalCount rotations</span>
+                <div>
+                    <button type="button" @onclick="PreviousPageAsync" disabled="@(pageNumber <= 1)">Previous</button>
+                    <span class="crew-page-indicator">Page @pageNumber of @TotalPages</span>
+                    <button type="button" @onclick="NextPageAsync" disabled="@(pageNumber >= TotalPages)">Next</button>
+                </div>
+            </div>
+        }
+    </section>
+</section>

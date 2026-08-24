@@ -1,0 +1,148 @@
+@page "/voyages/routes/register"
+@using HarborOps.Web.Api.Voyages
+@attribute [Microsoft.AspNetCore.Authorization.Authorize]
+@implements IDisposable
+@inject VoyagesApiClient VoyagesApi
+@inject CurrentUserAuthorizationState AuthorizationState
+@inject NavigationManager Navigation
+
+<PageTitle>Register route | HarborOps</PageTitle>
+
+<section class="register-route-page">
+    <header class="register-route-header">
+        <div>
+            <nav class="page-breadcrumb" aria-label="Breadcrumb">
+                <a href="@Voyages.RoutesTabUrl">Voyage operations</a><span aria-hidden="true">/</span><span>Register route</span>
+            </nav>
+            <h1>Register route</h1>
+            <p>Order the ports a voyage calls at. Every stop after the first adds a leg from the previous port.</p>
+        </div>
+    </header>
+
+    @if (!CanManageVoyages)
+    {
+        <section class="register-route-card register-route-denied" role="alert">
+            <span class="bi bi-shield-lock-fill" aria-hidden="true"></span>
+            <div>
+                <strong>Voyage management permission required</strong>
+                <p>Your account cannot register routes. Ask an administrator for the voyages manage permission.</p>
+            </div>
+        </section>
+    }
+    else
+    {
+        <section class="register-route-card" aria-labelledby="register-route-form-title">
+            <div class="register-route-card-heading">
+                <div>
+                    <h2 id="register-route-form-title">Route details</h2>
+                    <p>The estimated distance and duration are the sum of the legs below.</p>
+                </div>
+                <span class="register-route-card-icon" aria-hidden="true"><span class="bi bi-diagram-3-fill"></span></span>
+            </div>
+
+            @if (failure is not null)
+            {
+                <div class="register-route-failure" role="alert">
+                    <strong>@failure.Title</strong>
+                    @if (failure.Errors.Count > 0)
+                    {
+                        <ul>
+                            @foreach (var entry in failure.Errors)
+                            {
+                                @foreach (var message in entry.Value)
+                                {
+                                    <li>@message</li>
+                                }
+                            }
+                        </ul>
+                    }
+                    else
+                    {
+                        <p>@failure.Message</p>
+                    }
+                </div>
+            }
+
+            <form class="register-route-form" @onsubmit="SubmitAsync" @onsubmit:preventDefault="true">
+                <div class="register-route-field">
+                    <label for="register-route-name">Name</label>
+                    <input id="register-route-name" @bind="name" maxlength="200"
+                           placeholder="e.g. Adriatic feeder" />
+                </div>
+
+                <div class="register-route-field register-route-field-wide">
+                    <label for="register-route-description">Description</label>
+                    <textarea id="register-route-description" @bind="description" maxlength="1000"></textarea>
+                </div>
+
+                <div class="route-builder register-route-field-wide" aria-label="Ordered route stops">
+                    <div class="route-builder-heading">
+                        <h3>Ordered stops</h3>
+                        <p>A route needs at least @MinimumStops ports. Use the arrows to change the sailing order.</p>
+                    </div>
+
+                    @for (var index = 0; index < stops.Count; index++)
+                    {
+                        var stopIndex = index;
+                        var stop = stops[stopIndex];
+                        var isFirstStop = stopIndex == 0;
+
+                        <div class="route-builder-stop" @key="stop">
+                            <span class="route-builder-order" aria-hidden="true">@(stopIndex + 1)</span>
+                            <div class="register-route-field route-builder-port">
+                                <label for="@($"route-stop-port-{stopIndex}")">Port</label>
+                                <PortPicker InputId="@($"route-stop-port-{stopIndex}")"
+                                            Value="stop.PortId"
+                                            ValueChanged="value => stop.PortId = value"
+                                            Placeholder="Search a port by name or UN/LOCODE" />
+                            </div>
+                            <div class="register-route-field">
+                                <label for="@($"route-stop-distance-{stopIndex}")">Distance from previous (nm)</label>
+                                <input id="@($"route-stop-distance-{stopIndex}")" type="number" step="0.01"
+                                       value="@(isFirstStop ? 0m : stop.DistanceFromPrevious)"
+                                       disabled="@isFirstStop"
+                                       @onchange="args => stop.DistanceFromPrevious = decimal.TryParse(args.Value?.ToString(), System.Globalization.NumberStyles.Number, System.Globalization.CultureInfo.InvariantCulture, out var distance) ? distance : null" />
+                            </div>
+                            <div class="register-route-field">
+                                <label for="@($"route-stop-duration-{stopIndex}")">Duration from previous (h)</label>
+                                <input id="@($"route-stop-duration-{stopIndex}")" type="number" step="1"
+                                       value="@(isFirstStop ? 0 : stop.EstimatedDurationFromPrevious)"
+                                       disabled="@isFirstStop"
+                                       @onchange="args => stop.EstimatedDurationFromPrevious = int.TryParse(args.Value?.ToString(), System.Globalization.NumberStyles.Integer, System.Globalization.CultureInfo.InvariantCulture, out var duration) ? duration : null" />
+                            </div>
+                            <div class="route-builder-actions">
+                                <button type="button" class="register-route-step" aria-label="@($"Move stop {stopIndex + 1} up")"
+                                        disabled="@(stopIndex == 0)" @onclick="() => MoveStopUp(stopIndex)">&uarr;</button>
+                                <button type="button" class="register-route-step" aria-label="@($"Move stop {stopIndex + 1} down")"
+                                        disabled="@(stopIndex == stops.Count - 1)" @onclick="() => MoveStopDown(stopIndex)">&darr;</button>
+                                <button type="button" class="register-route-step" aria-label="@($"Remove stop {stopIndex + 1}")"
+                                        disabled="@(stops.Count <= MinimumStops)" @onclick="() => RemoveStop(stopIndex)">&times;</button>
+                            </div>
+                        </div>
+                    }
+
+                    <div class="route-builder-footer">
+                        <button type="button" class="register-route-link route-builder-add" @onclick="AddStop">Add stop</button>
+                        <dl class="route-builder-totals">
+                            <div>
+                                <dt>Estimated distance</dt>
+                                <dd>@MasterDataFormat.DistanceNm(TotalDistance)</dd>
+                            </div>
+                            <div>
+                                <dt>Estimated duration</dt>
+                                <dd>@MasterDataFormat.DurationHours(TotalDuration)</dd>
+                            </div>
+                        </dl>
+                    </div>
+                </div>
+
+                <div class="register-route-actions">
+                    <button class="register-route-button" type="submit" disabled="@isSubmitting">
+                        @(isSubmitting ? "Registering..." : "Register route")
+                    </button>
+                    <a class="register-route-link" href="@Voyages.RoutesTabUrl">Cancel</a>
+                </div>
+            </form>
+        </section>
+    }
+</section>

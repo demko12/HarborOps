@@ -27,11 +27,12 @@ public static class IdentityModule
         });
 
         services.AddAuthorization(IdentityAuthorizationPolicies.Configure);
-        services.AddSingleton<IAuthorizationHandler, PermissionAuthorizationHandler>();
+        services.AddScoped<IAuthorizationHandler, PermissionAuthorizationHandler>();
 
         services.AddScoped<UserAdministrationService>();
         services.AddScoped<RoleAdministrationService>();
         services.AddScoped<IdentityAdministratorGuard>();
+        services.AddSingleton<IAuthorizationMiddlewareResultHandler, IdentityAccountStateAuthorizationResultHandler>();
         services.AddHostedService<IdentityBootstrapSeeder>();
 
         return identityBuilder;

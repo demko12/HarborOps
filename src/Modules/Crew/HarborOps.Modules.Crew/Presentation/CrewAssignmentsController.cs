@@ -68,11 +68,7 @@ public sealed class CrewAssignmentsController(
         }
     }
 
-    // Uses an absolute route for the same reason as CrewMembersController.GetProfile:
-    // CapabilityAuthorizationConvention reads the action's own AttributeRouteModel.Template
-    // before controller/action route combination runs, so a relative "{assignmentId:guid}"
-    // here would never match "/api/crew" and would silently drop the crew.manage policy.
-    [HttpDelete("/api/crew/assignments/{assignmentId:guid}")]
+    [HttpDelete("{assignmentId:guid}")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]

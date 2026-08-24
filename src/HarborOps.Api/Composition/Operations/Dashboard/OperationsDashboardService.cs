@@ -77,7 +77,12 @@ public sealed class OperationsDashboardService(
         {
             var result = await fleetQuery.GetActiveVesselsAsync(MaximumItemsPerSection, cancellationToken);
             return Section("fleet", "Fleet", "Active vessels", result.ActiveVesselCount, "/fleet?status=Active",
-                result.Items.Select(item => Item(item.Name, item.CurrentStatus, null, "normal")));
+                result.Items.Select(item => Item(
+                    item.Name,
+                    item.CurrentStatus,
+                    null,
+                    "normal",
+                    $"/fleet/{item.VesselId}")));
         }
         catch (Exception exception) when (IsSectionFailure(exception, cancellationToken))
         {

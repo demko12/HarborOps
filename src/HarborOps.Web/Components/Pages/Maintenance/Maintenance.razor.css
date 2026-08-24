@@ -1,28 +1,7 @@
 .maintenance-page {
-    --control-surface: #131c2b;
-    --control-popup: #131c2b;
-    --border-strong-hover: rgba(255, 255, 255, .22);
-    --card-shadow: 0 18px 40px rgba(0, 0, 0, .38), inset 0 1px 0 rgba(255, 255, 255, .045);
-    --button-shadow: 0 1px 2px rgba(0, 0, 0, .3);
-    --apply-surface: #1e2a3d;
-    --apply-surface-hover: #26354b;
-    --apply-border: rgba(255, 255, 255, .14);
-    --apply-text: var(--text-primary);
     max-width: 1400px;
     margin: 0 auto;
     padding: 2.5rem 2rem;
-}
-
-html[data-theme="light"] .maintenance-page {
-    --control-surface: #ffffff;
-    --control-popup: #ffffff;
-    --border-strong-hover: rgba(15, 23, 42, .28);
-    --card-shadow: 0 14px 34px rgba(15, 23, 42, .1), inset 0 1px 0 rgba(255, 255, 255, .9);
-    --button-shadow: 0 1px 2px rgba(15, 23, 42, .08);
-    --apply-surface: rgba(15, 23, 42, .05);
-    --apply-surface-hover: rgba(15, 23, 42, .09);
-    --apply-border: var(--border-medium);
-    --apply-text: var(--text-primary);
 }
 
 /* Header */
@@ -103,7 +82,7 @@ html[data-theme="light"] .maintenance-page {
         color: var(--text-muted);
         font-size: .72rem;
         font-weight: 700;
-        letter-spacing: .12em;
+        letter-spacing: .1em;
         text-transform: uppercase;
     }
 
@@ -134,6 +113,8 @@ html[data-theme="light"] .maintenance-page {
 /* Filters */
 
 .maintenance-filters {
+    position: relative;
+    z-index: 2;
     display: flex;
     align-items: flex-end;
     flex-wrap: wrap;
@@ -156,16 +137,21 @@ html[data-theme="light"] .maintenance-page {
     width: 100%;
 }
 
+.maintenance-filter-vessel {
+    flex: 1 1 22rem;
+    min-width: 18rem;
+}
+
 .filter-field label {
     color: var(--text-muted);
     font-size: .7rem;
     font-weight: 700;
-    letter-spacing: .12em;
+    letter-spacing: .1em;
     text-transform: uppercase;
 }
 
-.filter-field input,
-.filter-field select {
+.filter-field > input,
+.filter-field > select {
     min-width: 9.5rem;
     height: 2.8rem;
     padding: 0 .85rem;
@@ -179,19 +165,19 @@ html[data-theme="light"] .maintenance-page {
     transition: border-color .16s ease, box-shadow .16s ease, background-color .16s ease;
 }
 
-    .filter-field input:hover,
-    .filter-field select:hover {
+    .filter-field > input:hover,
+    .filter-field > select:hover {
         border-color: var(--border-strong-hover);
     }
 
-    .filter-field input:focus,
-    .filter-field select:focus {
+    .filter-field > input:focus,
+    .filter-field > select:focus {
         border-color: var(--accent);
         outline: 0;
         box-shadow: 0 0 0 .22rem var(--accent-bg);
     }
 
-.filter-field select {
+.filter-field > select {
     appearance: none;
     padding-right: 2.5rem;
     background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 16 16' fill='none'%3E%3Cpath d='m4 6 4 4 4-4' stroke='%2394a3b8' stroke-width='1.7' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
@@ -201,18 +187,18 @@ html[data-theme="light"] .maintenance-page {
     cursor: pointer;
 }
 
-    .filter-field select option {
+    .filter-field > select option {
         color: var(--text-primary);
         background-color: var(--control-popup);
     }
 
-.filter-field input::-webkit-calendar-picker-indicator {
+.filter-field > input::-webkit-calendar-picker-indicator {
     cursor: pointer;
     opacity: .55;
     transition: opacity .16s ease;
 }
 
-.filter-field input:hover::-webkit-calendar-picker-indicator {
+.filter-field > input:hover::-webkit-calendar-picker-indicator {
     opacity: 1;
 }
 
@@ -220,22 +206,23 @@ html[data-theme="light"] .maintenance-page {
 
 .maintenance-button {
     height: 2.8rem;
-    padding: 0 1.05rem;
+    padding: 0 1rem;
     color: var(--apply-text);
     border: 1px solid var(--apply-border);
     border-radius: .6rem;
     background: var(--apply-surface);
     font: inherit;
-    font-size: .92rem;
+    font-size: .88rem;
     font-weight: 600;
     cursor: pointer;
     box-shadow: var(--button-shadow);
-    transition: background .15s ease, border-color .15s ease;
+    transition: border-color .16s ease, background .16s ease, transform .16s ease;
 }
 
     .maintenance-button:hover:not(:disabled) {
         background: var(--apply-surface-hover);
-        border-color: var(--border-strong-hover);
+        border-color: var(--apply-border-hover);
+        transform: translateY(-1px);
     }
 
     .maintenance-button:disabled {
@@ -252,7 +239,7 @@ html[data-theme="light"] .maintenance-page {
     border-radius: .6rem;
     background: none;
     font: inherit;
-    font-size: .92rem;
+    font-size: .88rem;
     font-weight: 600;
     cursor: pointer;
     transition: background .15s ease, border-color .15s ease;
@@ -418,7 +405,7 @@ html[data-theme="light"] .maintenance-page {
         border-bottom: 1px solid var(--border-medium);
         font-size: .7rem;
         font-weight: 700;
-        letter-spacing: .12em;
+        letter-spacing: .1em;
         text-transform: uppercase;
     }
 
@@ -596,19 +583,21 @@ html[data-theme="light"] .maintenance-page {
 }
 
 .maintenance-pagination button {
-    padding: .4rem .8rem;
+    height: 2.45rem;
+    padding: 0 .8rem;
     color: var(--text-primary);
     border: 1px solid var(--border-medium);
-    border-radius: .6rem;
-    background: var(--bg-surface);
+    border-radius: .55rem;
+    background: var(--bg-surface-strong);
     font: inherit;
-    font-size: .8rem;
+    font-size: .82rem;
+    font-weight: 600;
     cursor: pointer;
-    transition: background .15s ease, color .15s ease;
+    transition: border-color .16s ease, background .16s ease;
 }
 
     .maintenance-pagination button:hover:not(:disabled) {
-        color: var(--accent);
+        border-color: var(--accent-border);
         background: var(--accent-bg);
     }
 
@@ -730,8 +719,8 @@ html[data-theme="light"] .maintenance-field-errors {
     background: rgba(185, 28, 28, .08);
 }
 
-html[data-theme="light"] .filter-field input,
-html[data-theme="light"] .filter-field select,
+html[data-theme="light"] .filter-field > input,
+html[data-theme="light"] .filter-field > select,
 html[data-theme="light"] .maintenance-form-grid input,
 html[data-theme="light"] .maintenance-form-grid select,
 html[data-theme="light"] .maintenance-form-grid textarea {
@@ -744,8 +733,8 @@ html[data-theme="light"] .maintenance-form-grid textarea {
 @media (prefers-reduced-motion: reduce) {
     .maintenance-button,
     .maintenance-table tbody tr,
-    .filter-field input,
-    .filter-field select,
+    .filter-field > input,
+    .filter-field > select,
     .maintenance-form-grid input,
     .maintenance-form-grid select,
     .maintenance-form-grid textarea,
@@ -784,9 +773,10 @@ html[data-theme="light"] .maintenance-form-grid textarea {
     }
 
     .maintenance-summary-card,
-    .filter-field input,
-    .filter-field select,
-    .maintenance-button {
+    .filter-field > input,
+    .filter-field > select,
+    .maintenance-button,
+    .maintenance-tab {
         width: 100%;
     }
 
@@ -835,42 +825,46 @@ html[data-theme="light"] .maintenance-form-grid textarea {
     place-items: center;
     padding: 4.75rem 1.25rem 1.5rem;
     overflow-y: auto;
-    background: rgba(2, 6, 23, .64);
-    backdrop-filter: blur(5px);
-    -webkit-backdrop-filter: blur(5px);
+    background: rgba(2, 6, 23, .48);
+    backdrop-filter: blur(3px);
+    -webkit-backdrop-filter: blur(3px);
 }
 
 html[data-theme="light"] .maintenance-modal-backdrop {
-    background: rgba(15, 23, 42, .3);
+    background: rgba(15, 23, 42, .24);
 }
 
 .maintenance-tabs {
     display: flex;
     flex-wrap: wrap;
     gap: .6rem;
-    margin-bottom: 1.25rem;
+    margin-bottom: 1rem;
 }
 
 .maintenance-tab {
-    min-height: 3.1rem;
-    padding: .85rem 1.5rem;
-    color: var(--text-secondary);
-    border: 1px solid var(--border-medium);
-    border-radius: 1rem;
-    background: linear-gradient(145deg, var(--bg-surface-strong), var(--bg-surface));
-    box-shadow: var(--card-shadow);
+    display: inline-flex;
+    width: 12rem;
+    min-height: 2.65rem;
+    align-items: center;
+    justify-content: center;
+    padding: .6rem .9rem;
+    color: var(--apply-text);
+    border: 1px solid var(--apply-border);
+    border-radius: .6rem;
+    background: var(--apply-surface);
+    box-shadow: none;
     font: inherit;
-    font-size: .98rem;
-    font-weight: 650;
+    font-size: .86rem;
+    font-weight: 600;
     letter-spacing: .01em;
     cursor: pointer;
     transition: border-color .16s ease, background .16s ease, color .16s ease;
 }
 
 .maintenance-tab:hover {
-    color: var(--accent);
-    border-color: var(--accent-border);
-    background: linear-gradient(145deg, var(--bg-surface-strong), var(--accent-bg));
+    border-color: var(--apply-border-hover);
+    background: var(--apply-surface-hover);
+    transform: translateY(-1px);
 }
 
 .maintenance-tab:focus-visible {
@@ -959,8 +953,15 @@ html[data-theme="light"] .maintenance-modal-backdrop {
 }
 
 .maintenance-modal-backdrop .maintenance-form-card {
-    background: var(--control-surface);
-    border: 1px solid var(--border-strong-hover);
+    border: 1px solid rgba(148, 163, 184, .25);
+    background: #172033;
+    box-shadow: 0 28px 70px rgba(0, 0, 0, .45), 0 0 0 1px rgba(255, 255, 255, .06) inset;
+}
+
+html[data-theme="light"] .maintenance-modal-backdrop .maintenance-form-card {
+    border-color: rgba(148, 163, 184, .42);
+    background: #f8fafc;
+    box-shadow: 0 28px 70px rgba(15, 23, 42, .24), 0 0 0 1px rgba(255, 255, 255, .7) inset;
 }
 .maintenance-header-actions {
     display: flex;
@@ -1008,7 +1009,7 @@ html[data-theme="light"] .maintenance-modal-backdrop {
     color: var(--text-muted);
     font-size: .72rem;
     font-weight: 700;
-    letter-spacing: .12em;
+    letter-spacing: .1em;
     text-transform: uppercase;
 }
 
@@ -1037,6 +1038,8 @@ html[data-theme="light"] .maintenance-modal-backdrop {
 }
 
 .maintenance-page ::deep .maintenance-filters {
+    position: relative;
+    z-index: 2;
     display: flex;
     align-items: flex-end;
     flex-wrap: wrap;
@@ -1063,14 +1066,21 @@ html[data-theme="light"] .maintenance-modal-backdrop {
     min-width: 16rem;
 }
 
+.maintenance-page ::deep .maintenance-filter-vessel {
+    flex: 1 1 22rem;
+    min-width: 18rem;
+}
+
 .maintenance-page ::deep .filter-field label {
     color: var(--text-muted);
     font-size: .7rem;
     font-weight: 700;
-    letter-spacing: .12em;
+    letter-spacing: .1em;
     text-transform: uppercase;
 }
 
+.maintenance-page ::deep .filter-field > input,
+.maintenance-page ::deep .filter-field > select {
 .maintenance-page ::deep .filter-field input,
 .maintenance-page ::deep .filter-field select,
 .maintenance-page ::deep .procurement-line-table input,
@@ -1088,6 +1098,7 @@ html[data-theme="light"] .maintenance-modal-backdrop {
     transition: border-color .16s ease, box-shadow .16s ease, background-color .16s ease;
 }
 
+.maintenance-page ::deep .filter-field > select {
 .maintenance-page ::deep .filter-field select,
 .maintenance-page ::deep .procurement-line-table select {
     appearance: none;
@@ -1099,34 +1110,35 @@ html[data-theme="light"] .maintenance-modal-backdrop {
     cursor: pointer;
 }
 
-.maintenance-page ::deep .filter-field input::-webkit-calendar-picker-indicator {
+.maintenance-page ::deep .filter-field > input::-webkit-calendar-picker-indicator {
     cursor: pointer;
     opacity: .55;
     transition: opacity .16s ease;
 }
 
-.maintenance-page ::deep .filter-field input:hover::-webkit-calendar-picker-indicator {
+.maintenance-page ::deep .filter-field > input:hover::-webkit-calendar-picker-indicator {
     opacity: 1;
 }
 
 .maintenance-page ::deep .maintenance-button {
     height: 2.8rem;
-    padding: 0 1.05rem;
+    padding: 0 1rem;
     color: var(--apply-text);
     border: 1px solid var(--apply-border);
     border-radius: .6rem;
     background: var(--apply-surface);
     font: inherit;
-    font-size: .92rem;
+    font-size: .88rem;
     font-weight: 600;
     cursor: pointer;
     box-shadow: var(--button-shadow);
-    transition: background .15s ease, border-color .15s ease;
+    transition: border-color .16s ease, background .16s ease, transform .16s ease;
 }
 
 .maintenance-page ::deep .maintenance-button:hover:not(:disabled) {
     background: var(--apply-surface-hover);
-    border-color: var(--border-strong-hover);
+    border-color: var(--apply-border-hover);
+    transform: translateY(-1px);
 }
 
 .maintenance-page ::deep .maintenance-button:disabled {
@@ -1143,7 +1155,7 @@ html[data-theme="light"] .maintenance-modal-backdrop {
     border-radius: .6rem;
     background: none;
     font: inherit;
-    font-size: .92rem;
+    font-size: .88rem;
     font-weight: 600;
     cursor: pointer;
     transition: background .15s ease, border-color .15s ease;
@@ -1242,7 +1254,7 @@ html[data-theme="light"] .maintenance-modal-backdrop {
     border-bottom: 1px solid var(--border-medium);
     font-size: .7rem;
     font-weight: 700;
-    letter-spacing: .12em;
+    letter-spacing: .1em;
     text-transform: uppercase;
 }
 
@@ -1337,19 +1349,21 @@ html[data-theme="light"] .maintenance-modal-backdrop {
 }
 
 .maintenance-page ::deep .maintenance-pagination button {
-    padding: .4rem .8rem;
+    height: 2.45rem;
+    padding: 0 .8rem;
     color: var(--text-primary);
     border: 1px solid var(--border-medium);
-    border-radius: .6rem;
-    background: var(--bg-surface);
+    border-radius: .55rem;
+    background: var(--bg-surface-strong);
     font: inherit;
-    font-size: .8rem;
+    font-size: .82rem;
+    font-weight: 600;
     cursor: pointer;
-    transition: background .15s ease, color .15s ease;
+    transition: border-color .16s ease, background .16s ease;
 }
 
 .maintenance-page ::deep .maintenance-pagination button:hover:not(:disabled) {
-    color: var(--accent);
+    border-color: var(--accent-border);
     background: var(--accent-bg);
 }
 
@@ -1366,9 +1380,9 @@ html[data-theme="light"] .maintenance-modal-backdrop {
     place-items: center;
     padding: 4.75rem 1.25rem 1.5rem;
     overflow-y: auto;
-    background: rgba(2, 6, 23, .64);
-    backdrop-filter: blur(5px);
-    -webkit-backdrop-filter: blur(5px);
+    background: rgba(2, 6, 23, .48);
+    backdrop-filter: blur(3px);
+    -webkit-backdrop-filter: blur(3px);
 }
 
 .maintenance-page ::deep .maintenance-form-card {
@@ -1378,10 +1392,10 @@ html[data-theme="light"] .maintenance-modal-backdrop {
     max-height: calc(100vh - 7rem);
     overflow-y: auto;
     padding: 1.4rem;
-    border: 1px solid var(--border-strong-hover);
+    border: 1px solid rgba(148, 163, 184, .25);
     border-radius: 1rem;
-    background: var(--control-surface);
-    box-shadow: 0 24px 70px rgba(0, 0, 0, .42);
+    background: #172033;
+    box-shadow: 0 28px 70px rgba(0, 0, 0, .45), 0 0 0 1px rgba(255, 255, 255, .06) inset;
 }
 
 .maintenance-page ::deep .maintenance-form-card h2 {
@@ -1470,7 +1484,7 @@ html[data-theme="light"] .maintenance-modal-backdrop {
     color: var(--text-muted);
     font-size: .7rem;
     font-weight: 700;
-    letter-spacing: .12em;
+    letter-spacing: .1em;
     text-transform: uppercase;
 }
 
@@ -1539,12 +1553,23 @@ html[data-theme="light"] .maintenance-modal-backdrop {
     color: var(--text-secondary);
     font-size: .78rem;
     font-weight: 700;
-    letter-spacing: .12em;
+    letter-spacing: .1em;
     text-transform: uppercase;
 }
 
 html[data-theme="light"] .maintenance-page ::deep .maintenance-modal-backdrop {
-    background: rgba(15, 23, 42, .3);
+    background: rgba(15, 23, 42, .24);
+}
+
+html[data-theme="light"] .maintenance-page ::deep .filter-field > input,
+html[data-theme="light"] .maintenance-page ::deep .filter-field > select {
+    color-scheme: light;
+}
+
+html[data-theme="light"] .maintenance-page ::deep .maintenance-form-card {
+    border-color: rgba(148, 163, 184, .42);
+    background: #f8fafc;
+    box-shadow: 0 28px 70px rgba(15, 23, 42, .24), 0 0 0 1px rgba(255, 255, 255, .7) inset;
 }
 
 @media (max-width: 900px) {
@@ -1564,6 +1589,8 @@ html[data-theme="light"] .maintenance-page ::deep .maintenance-modal-backdrop {
     }
 }
 
+.maintenance-page ::deep .filter-field > input:hover,
+.maintenance-page ::deep .filter-field > select:hover {
 .maintenance-page ::deep .filter-field input:hover,
 .maintenance-page ::deep .filter-field select:hover,
 .maintenance-page ::deep .procurement-line-table input:hover,
@@ -1571,6 +1598,8 @@ html[data-theme="light"] .maintenance-page ::deep .maintenance-modal-backdrop {
     border-color: var(--border-strong-hover);
 }
 
+.maintenance-page ::deep .filter-field > input:focus,
+.maintenance-page ::deep .filter-field > select:focus {
 .maintenance-page ::deep .filter-field input:focus,
 .maintenance-page ::deep .filter-field select:focus,
 .maintenance-page ::deep .procurement-line-table input:focus,
@@ -1580,6 +1609,7 @@ html[data-theme="light"] .maintenance-page ::deep .maintenance-modal-backdrop {
     box-shadow: 0 0 0 .22rem var(--accent-bg);
 }
 
+.maintenance-page ::deep .filter-field > select option {
 .maintenance-page ::deep .filter-field select option,
 .maintenance-page ::deep .procurement-line-table select option {
     color: var(--text-primary);
@@ -1691,6 +1721,237 @@ html[data-theme="light"] .maintenance-page ::deep .maintenance-toast {
 .maintenance-page ::deep .required-marker {
     color: #f87171;
     font-weight: 700;
+}
+
+/* ---------- Pieces the child panels render ----------
+   Equipment, preventive schedules, and dry docks live in child components, so
+   their markup carries a different scope id than this page. Every rule below is
+   therefore written with ::deep, which still reaches this component's own markup
+   because each of those elements sits inside .maintenance-page. */
+
+.maintenance-page ::deep .maintenance-card-icon {
+    display: grid;
+    flex: 0 0 auto;
+    width: 2rem;
+    height: 2rem;
+    place-items: center;
+    color: var(--accent);
+    border: 1px solid var(--accent-border);
+    border-radius: .65rem;
+    background: var(--accent-bg);
+    font-size: .9rem;
+}
+
+.maintenance-page ::deep .maintenance-page-indicator {
+    color: var(--text-secondary);
+    font-variant-numeric: tabular-nums;
+}
+
+.maintenance-page ::deep .maintenance-priority,
+.maintenance-page ::deep .maintenance-status,
+.maintenance-page ::deep .maintenance-overdue-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: .25rem;
+    padding: .18rem .65rem;
+    border: 1px solid color-mix(in srgb, currentColor 28%, transparent);
+    border-radius: 999px;
+    font-size: .76rem;
+    font-weight: 550;
+    white-space: nowrap;
+}
+
+.maintenance-page ::deep .visually-hidden {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    margin: -1px;
+    padding: 0;
+    overflow: hidden;
+    border: 0;
+    clip-path: inset(50%);
+    white-space: nowrap;
+}
+
+/* A filter expressed as a checkbox still has to line up with the inputs beside
+   it, so it borrows their height and surface instead of floating bare. */
+
+.maintenance-page ::deep .filter-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: .5rem;
+    height: 2.8rem;
+    padding: 0 .95rem;
+    color: var(--text-secondary);
+    border: 1px solid var(--border-medium);
+    border-radius: .65rem;
+    background-color: var(--control-surface);
+    font-size: .84rem;
+    white-space: nowrap;
+    cursor: pointer;
+    transition: border-color .16s ease, color .16s ease, background-color .16s ease;
+}
+
+.maintenance-page ::deep .filter-toggle:hover {
+    color: var(--text-primary);
+    border-color: var(--border-strong-hover);
+}
+
+.maintenance-page ::deep .filter-toggle:has(input:checked) {
+    color: var(--accent);
+    border-color: var(--accent-border);
+    background-color: var(--accent-bg);
+}
+
+.maintenance-page ::deep .filter-toggle input[type="checkbox"] {
+    width: 1rem;
+    height: 1rem;
+    margin: 0;
+    accent-color: var(--accent);
+    cursor: pointer;
+}
+
+/* ---------- Dry docks ---------- */
+
+.maintenance-page ::deep .maintenance-status.pending {
+    color: #94a3b8;
+    background: rgba(148, 163, 184, .14);
+}
+
+.maintenance-page ::deep .maintenance-status.active {
+    color: #fbbf24;
+    background: rgba(251, 191, 36, .14);
+}
+
+.maintenance-page ::deep .maintenance-status.done {
+    color: #5eead4;
+    background: rgba(45, 212, 191, .14);
+}
+
+.maintenance-page ::deep .maintenance-status.cancelled {
+    color: #f87171;
+    background: rgba(248, 113, 113, .14);
+}
+
+html[data-theme="light"] .maintenance-page ::deep .maintenance-status.pending {
+    color: #475569;
+    background: rgba(71, 85, 105, .12);
+}
+
+html[data-theme="light"] .maintenance-page ::deep .maintenance-status.active {
+    color: #b45309;
+    background: rgba(180, 83, 9, .12);
+}
+
+html[data-theme="light"] .maintenance-page ::deep .maintenance-status.done {
+    color: #0f766e;
+    background: rgba(15, 118, 110, .12);
+}
+
+html[data-theme="light"] .maintenance-page ::deep .maintenance-status.cancelled {
+    color: #b91c1c;
+    background: rgba(185, 28, 28, .1);
+}
+
+.maintenance-page ::deep .dry-dock-table .maintenance-status {
+    min-width: 6.4rem;
+}
+
+.maintenance-page ::deep .dry-dock-link {
+    color: var(--text-primary);
+    font-weight: 600;
+    text-decoration: none;
+}
+
+.maintenance-page ::deep .dry-dock-link:hover,
+.maintenance-page ::deep .dry-dock-link:focus-visible {
+    color: var(--accent);
+    text-decoration: underline;
+}
+
+.maintenance-page ::deep .dry-dock-port {
+    color: var(--text-secondary);
+}
+
+/* The start cell carries the date on top and how it reads against today below. */
+
+.maintenance-page ::deep .dry-dock-timing {
+    display: block;
+    margin-top: .2rem;
+    font-size: .74rem;
+}
+
+.maintenance-page ::deep .dry-dock-timing.overdue {
+    color: #f87171;
+    font-weight: 600;
+}
+
+.maintenance-page ::deep .dry-dock-timing.scheduled {
+    color: var(--text-muted);
+}
+
+html[data-theme="light"] .maintenance-page ::deep .dry-dock-timing.overdue {
+    color: #b91c1c;
+}
+
+.maintenance-page ::deep .dry-dock-tasks {
+    max-width: 22rem;
+    overflow: hidden;
+    color: var(--text-secondary);
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.maintenance-page ::deep .dry-dock-cost {
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+}
+
+/* The header cell has to follow the figures it labels, and the shared
+   .maintenance-table th rule would otherwise keep it left. */
+
+.maintenance-page ::deep .maintenance-table th.dry-dock-cost {
+    text-align: right;
+}
+
+.maintenance-page ::deep .dry-dock-form-card {
+    width: min(100%, 42rem);
+}
+
+/* The panels render their dialogs outside this component, so the multi-line
+   field needs its own reach; inputs and selects there are already covered by the
+   .filter-field rules above. */
+
+.maintenance-page ::deep .maintenance-form-grid textarea {
+    width: 100%;
+    min-height: 7rem;
+    padding: .7rem .85rem;
+    color: var(--text-primary);
+    border: 1px solid var(--border-medium);
+    border-radius: .65rem;
+    background: var(--control-surface);
+    font: inherit;
+    font-size: .88rem;
+    resize: vertical;
+    transition: border-color .16s ease, box-shadow .16s ease;
+}
+
+.maintenance-page ::deep .maintenance-form-grid textarea:hover {
+    border-color: var(--border-strong-hover);
+}
+
+.maintenance-page ::deep .maintenance-form-grid textarea:focus {
+    border-color: var(--accent);
+    outline: 0;
+    box-shadow: 0 0 0 .22rem var(--accent-bg);
+}
+
+/* Vessel, port, and the task list each read better across the whole dialog than
+   squeezed into one column beside a date. */
+
+.maintenance-page ::deep .dry-dock-form .filter-field-wide {
+    grid-column: 1 / -1;
 }
 
 /* Procurement — purchase orders and suppliers */

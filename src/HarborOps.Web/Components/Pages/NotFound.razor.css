@@ -73,8 +73,8 @@
     transition: background-color .15s ease, filter .15s ease;
 }
 
-.not-found-primary { color: #fff; background: linear-gradient(135deg, #3b82f6, #2563eb); }
-.not-found-primary:hover { filter: brightness(1.08); }
+.not-found-primary { color: var(--apply-text); border: 1px solid var(--apply-border) !important; background: var(--apply-surface); }
+.not-found-primary:hover { border-color: var(--apply-border-hover) !important; background: var(--apply-surface-hover); }
 .not-found-secondary { color: var(--text-secondary); border: 1px solid var(--border-medium) !important; background: var(--bg-navbar); }
 .not-found-secondary:hover { color: var(--text-primary); background: var(--icon-hover-bg); }
 

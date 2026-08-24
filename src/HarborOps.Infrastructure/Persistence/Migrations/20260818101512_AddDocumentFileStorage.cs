@@ -11,27 +11,31 @@ namespace HarborOps.Infrastructure.Persistence.Migrations
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
         {
-            // Documents is a system-versioned temporal table. SQL Server allows ADD/DROP
-            // COLUMN directly, but a genuine data-type change (UploadedBy int -> uniqueidentifier)
-            // requires system versioning to be off first. Group everything in one OFF/ON
-            // block, matching the precedent in ChangeDocumentIdToGuid.cs.
-            migrationBuilder.Sql(
-                "ALTER TABLE [documents].[Documents] SET (SYSTEM_VERSIONING = OFF);");
-
+            // Documents is a system-versioned temporal table. Unlike ChangeDocumentIdToGuid.cs
+            // (which is 100% raw SQL), this migration uses the typed DropColumn/AlterColumn/
+            // AddColumn operations below — EF Core's SQL Server migrations generator detects
+            // that they target a temporal table and automatically wraps them in its own
+            // SYSTEM_VERSIONING OFF/ON, so no manual Sql() toggle is needed (or wanted) here.
             migrationBuilder.DropColumn(
                 name: "FileUrl",
                 schema: "documents",
                 table: "Documents");
 
-            migrationBuilder.AlterColumn<Guid>(
+            // SQL Server has no conversion from int to uniqueidentifier in either direction,
+            // so AlterColumn cannot be used here. Drop and re-add the column as a nullable
+            // uniqueidentifier with no data — this is destructive for existing UploadedBy
+            // values, the same accepted tradeoff as the rollback in Down().
+            migrationBuilder.DropColumn(
+                name: "UploadedBy",
+                schema: "documents",
+                table: "Documents");
+
+            migrationBuilder.AddColumn<Guid>(
                 name: "UploadedBy",
                 schema: "documents",
                 table: "Documents",
                 type: "uniqueidentifier",
-                nullable: true,
-                oldClrType: typeof(int),
-                oldType: "int",
-                oldNullable: true);
+                nullable: true);
 
             migrationBuilder.AddColumn<string>(
                 name: "ContentType",
@@ -55,18 +59,11 @@ namespace HarborOps.Infrastructure.Persistence.Migrations
                 type: "nvarchar(200)",
                 maxLength: 200,
                 nullable: true);
-
-            migrationBuilder.Sql(
-                "ALTER TABLE [documents].[Documents] SET (SYSTEM_VERSIONING = ON " +
-                "(HISTORY_TABLE = [documents].[DocumentsHistory], DATA_CONSISTENCY_CHECK = OFF));");
         }
 
         /// <inheritdoc />
         protected override void Down(MigrationBuilder migrationBuilder)
         {
-            migrationBuilder.Sql(
-                "ALTER TABLE [documents].[Documents] SET (SYSTEM_VERSIONING = OFF);");
-
             migrationBuilder.DropColumn(
                 name: "ContentType",
                 schema: "documents",
@@ -105,10 +102,6 @@ namespace HarborOps.Infrastructure.Persistence.Migrations
                 type: "nvarchar(2048)",
                 maxLength: 2048,
                 nullable: true);
-
-            migrationBuilder.Sql(
-                "ALTER TABLE [documents].[Documents] SET (SYSTEM_VERSIONING = ON " +
-                "(HISTORY_TABLE = [documents].[DocumentsHistory], DATA_CONSISTENCY_CHECK = OFF));");
         }
     }
 }

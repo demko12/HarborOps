@@ -3,6 +3,7 @@ using HarborOps.Web.Api.Cargo;
 using HarborOps.Web.Components.Shared;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Forms;
+using Microsoft.AspNetCore.Components.Web;
 
 namespace HarborOps.Web.Components.Pages.Cargo;
 
@@ -85,6 +86,19 @@ public partial class CargoBookings
         return query.Length == 0
             ? $"/cargo/{cargoBookingId}"
             : $"/cargo/{cargoBookingId}?from={Uri.EscapeDataString(query)}";
+    }
+
+    private void OpenBookingDetails(Guid cargoBookingId)
+    {
+        Navigation.NavigateTo(DetailsHref(cargoBookingId));
+    }
+
+    private void HandleBookingRowKeyDown(KeyboardEventArgs args, Guid cargoBookingId)
+    {
+        if (args.Key is "Enter" or " ")
+        {
+            OpenBookingDetails(cargoBookingId);
+        }
     }
 
     private void SyncBoardAddress()

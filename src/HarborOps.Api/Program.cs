@@ -1,6 +1,9 @@
 using HarborOps.Api.Composition.Authorization;
 using HarborOps.Api.Composition.Operations.Dashboard;
 using HarborOps.Api.Composition.Operations.FleetVessel;
+using HarborOps.Api.Composition.Reports.ComplianceExposure;
+using HarborOps.Api.Composition.Reports.DocumentsExpiry;
+using HarborOps.Api.Composition.Reports.MaintenanceBacklog;
 using HarborOps.Infrastructure;
 using HarborOps.Modules.Cargo;
 using HarborOps.Modules.Compliance;
@@ -29,6 +32,9 @@ builder.Services.AddVoyagesModule();
 builder.Services.AddScoped<FleetVesselOverviewService>();
 builder.Services.AddScoped<OperationsDashboardService>();
 builder.Services.AddMaintenanceModule();
+builder.Services.AddScoped<DocumentsExpiryReportService>();
+builder.Services.AddScoped<ComplianceExposureReportService>();
+builder.Services.AddScoped<MaintenanceBacklogReportService>();
 
 
 builder.Services.AddHealthChecks();
@@ -39,6 +45,10 @@ builder.Services.Configure<MvcOptions>(options =>
 
 builder.Services.AddAuthorization(options =>
 {
+    options.AddPolicy(
+        IdentityEndpoints.UnavailableEndpointPolicy,
+        policy => policy.RequireAssertion(_ => true));
+
     options.FallbackPolicy = new AuthorizationPolicyBuilder()
         .RequireAuthenticatedUser()
         .Build();

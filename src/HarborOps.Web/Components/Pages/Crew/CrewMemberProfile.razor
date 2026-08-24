@@ -20,7 +20,7 @@
     {
         <header class="crew-profile-header">
             <div>
-                <p class="crew-profile-eyebrow">Crew profile</p>
+                <nav class="page-breadcrumb" aria-label="Breadcrumb"><a href="/crew">Crewing operations</a><span aria-hidden="true">/</span><span>Crew profile</span></nav>
                 <h1>@profile.Name</h1>
                 <p>@profile.BaseRankName &middot; @profile.Nationality &middot; IMO @profile.ImoSeafarerId</p>
             </div>
@@ -37,8 +37,32 @@
                 <div><dt>Nationality</dt><dd>@profile.Nationality</dd></div>
                 <div><dt>Employment status</dt><dd>@profile.EmploymentStatus</dd></div>
                 <div><dt>Hire date</dt><dd>@profile.HireDate.ToString("dd MMM yyyy")</dd></div>
-                <div><dt>Passport expiry</dt><dd>@profile.PassportExpiry.ToString("dd MMM yyyy")</dd></div>
-                <div><dt>CDC number</dt><dd>@profile.CdcNumber</dd></div>
+                <div>
+                    <dt>Passport expiry</dt>
+                    <dd>
+                        @profile.PassportExpiry.ToString("dd MMM yyyy")
+                        @if (IsPassportExpiringSoon(profile.PassportExpiry))
+                        {
+                            <span class="crew-profile-passport-flag @(IsPassportExpired(profile.PassportExpiry) ? "crew-profile-indicator-expired" : "crew-profile-indicator-warning")"
+                                  title="@(IsPassportExpired(profile.PassportExpiry) ? "Passport has expired" : "Passport expires within 6 months")">
+                                <span class="bi bi-exclamation-triangle" aria-hidden="true"></span>
+                            </span>
+                        }
+                    </dd>
+                </div>
+                <div class="crew-profile-sensitive">
+                    <dt>CDC number</dt>
+                    <dd>
+                        @if (isSensitiveDataRevealed)
+                        {
+                            @profile.CdcNumber
+                        }
+                        else
+                        {
+                            <span class="crew-profile-masked">••••••••••</span>
+                        }
+                    </dd>
+                </div>
                 <div class="crew-profile-sensitive">
                     <dt>Date of birth</dt>
                     <dd>
@@ -132,7 +156,7 @@
                         @foreach (var assignment in profile.Assignments)
                         {
                             var state = GetAssignmentState(assignment);
-                            <button type="button" class="crew-profile-row crew-profile-row-clickable" @key="assignment.AssignmentId" @onclick="() => OpenAssignmentDetails(assignment)">
+                            <button type="button" class="crew-profile-row crew-profile-row-clickable" @key="assignment.AssignmentId" @onclick="() => OpenAssignmentDetailsAsync(assignment)">
                                 <div class="crew-profile-row-primary">
                                     <strong>Vessel @ShortId(assignment.VesselId)</strong>
                                     <span>@assignment.RankName</span>
@@ -185,6 +209,108 @@
                     @if (deleteAssignmentError is not null)
                     {
                         <div class="crew-assignment-modal-error" role="alert">@deleteAssignmentError</div>
+                    }
+
+                    @if (selectedAssignment.ActualSignOffDate is null)
+                    {
+                        <div class="crew-rotation-section">
+                            <h3>Relief planning</h3>
+
+                            @if (isLoadingRotation)
+                            {
+                                <p class="crew-assignment-modal-hint">Loading rotation...</p>
+                            }
+                            else
+                            {
+                                @if (rotationLoadError is not null)
+                                {
+                                    <div class="crew-assignment-modal-error" role="alert">@rotationLoadError</div>
+                                }
+
+                                @if (rotationExists && selectedRotation is not null)
+                                {
+                                    <dl class="crew-assignment-modal-details">
+                                        <div>
+                                            <dt>Relieving member</dt>
+                                            <dd>
+                                                @if (selectedRotation.RelievingCrewMemberId is { } relievingId)
+                                                {
+                                                    <a href="@($"/crew/{relievingId}")">@selectedRotation.RelievingCrewMemberName</a>
+                                                }
+                                                else
+                                                {
+                                                    <span>Not selected</span>
+                                                }
+                                            </dd>
+                                        </div>
+                                        <div><dt>Rotation pattern</dt><dd>@selectedRotation.RotationPattern</dd></div>
+                                        <div><dt>Planned relief date</dt><dd>@selectedRotation.PlannedReliefDate.ToString("dd MMM yyyy")</dd></div>
+                                        @if (selectedRotation.IsOverdue)
+                                        {
+                                            <div><dt>Status</dt><dd><span class="crew-profile-indicator crew-profile-indicator-expired">Overdue</span></dd></div>
+                                        }
+                                    </dl>
+                                }
+
+                                @if (rotationConflictMessage is not null)
+                                {
+                                    <div class="crew-profile-form-conflict" role="alert">@rotationConflictMessage</div>
+                                }
+
+                                @if (rotationGeneralError is not null)
+                                {
+                                    <div class="crew-profile-form-error" role="alert">@rotationGeneralError</div>
+                                }
+
+                                @if (rotationFieldErrors.Count > 0)
+                                {
+                                    <ul class="crew-profile-form-field-errors" role="alert">
+                                        @foreach (var message in rotationFieldErrors)
+                                        {
+                                            <li>@message</li>
+                                        }
+                                    </ul>
+                                }
+
+                                @if (rotationSuccessMessage is not null)
+                                {
+                                    <div class="crew-profile-form-success" role="status">@rotationSuccessMessage</div>
+                                }
+
+                                @if (CanManage)
+                                {
+                                    <form class="crew-profile-form-grid" @onsubmit="SaveRotationAsync" @onsubmit:preventDefault="true">
+                                        <div class="crew-profile-form-field crew-profile-form-field-wide">
+                                            <label for="rotation-relieving-member">Relieving member</label>
+                                            <RelievingMemberPicker @key="relievingMemberPickerResetToken" InputId="rotation-relieving-member" @bind-Value="rotationForm.RelievingCrewMemberId" ExcludeCrewMemberId="CrewMemberId" Placeholder="Search crew member by name..." />
+                                        </div>
+                                        <div class="crew-profile-form-field">
+                                            <label for="rotation-pattern">Rotation pattern</label>
+                                            <input id="rotation-pattern" type="text" maxlength="100" @bind="rotationForm.RotationPattern" placeholder="e.g. 2-2" />
+                                        </div>
+                                        <div class="crew-profile-form-field">
+                                            <label for="rotation-planned-relief-date">Planned relief date</label>
+                                            <input id="rotation-planned-relief-date" type="date" @bind="rotationForm.PlannedReliefDate" min="@AssignToVesselForm.FormatIsoDate(selectedAssignment.SignOnDate)" />
+                                        </div>
+                                        <button type="submit" class="crew-profile-form-submit" disabled="@isSavingRotation">
+                                            @(isSavingRotation ? "Saving..." : rotationExists ? "Update rotation" : "Plan rotation")
+                                        </button>
+                                    </form>
+
+                                    @if (rotationExists && rotationForm.RelievingCrewMemberId is not null)
+                                    {
+                                        @if (executeRotationError is not null)
+                                        {
+                                            <div class="crew-assignment-modal-error" role="alert">@executeRotationError</div>
+                                        }
+
+                                        <button type="button" class="crew-rotation-execute" disabled="@isExecutingRotation" @onclick="ExecuteRotationAsync">
+                                            @(isExecutingRotation ? "Executing..." : "Execute relief")
+                                        </button>
+                                    }
+                                }
+                            }
+                        </div>
                     }
 
                     @if (CanManage)

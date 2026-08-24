@@ -145,7 +145,13 @@
                     <tbody>
                         @foreach (var row in rows)
                         {
-                            <tr @key="row.CargoBookingId" class="@(row.IsHazardous ? "cargo-hazard-row" : null)">
+                            <tr @key="row.CargoBookingId"
+                                class="cargo-booking-row @(row.IsHazardous ? "cargo-hazard-row" : null)"
+                                role="link"
+                                tabindex="0"
+                                aria-label="@($"Open {row.BookingNumber} booking details")"
+                                @onclick="() => OpenBookingDetails(row.CargoBookingId)"
+                                @onkeydown="(args) => HandleBookingRowKeyDown(args, row.CargoBookingId)">
                                 <td>
                                     <a class="cargo-booking-no" href="@DetailsHref(row.CargoBookingId)">@row.BookingNumber</a>
                                     <span class="cargo-voyage" title="@row.VoyageId">voyage @CargoBookingFormat.ShortVoyage(row.VoyageId)</span>
@@ -239,7 +245,7 @@
                             <ValidationMessage For="() => registerModel.BookingNumber" />
                         </div>
 
-                        <div class="filter-field">
+                        <div class="filter-field cargo-register-voyage">
                             <label for="cargo-voyage">Voyage</label>
                             <VoyagePicker @ref="voyagePicker"
                                           InputId="cargo-voyage"

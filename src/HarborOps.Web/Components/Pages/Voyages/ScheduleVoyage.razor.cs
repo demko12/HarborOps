@@ -1,6 +1,7 @@
 using System.Globalization;
 using HarborOps.Web.Api.Fleet;
 using HarborOps.Web.Api.Voyages;
+using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Web;
 using Microsoft.JSInterop;
 
@@ -33,6 +34,10 @@ public partial class ScheduleVoyage
 
     private int highlightedVessel = -1;
     private int vesselSearchVersion;
+
+    private bool isVesselDropdownOpen;
+    private ElementReference pageElement;
+    private DotNetObjectReference<ScheduleVoyage>? outsideClickReference;
 
     private bool CanManageVoyages => AuthorizationState.HasPermission(ManageVoyagesPermission);
 
@@ -79,10 +84,25 @@ public partial class ScheduleVoyage
         return value.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
     }
 
-    // Focusing the field lists vessels straight away, so a planner who does not
-    // know the name can browse instead of having to guess a first letter.
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            outsideClickReference = DotNetObjectReference.Create(this);
+            await JS.InvokeVoidAsync("outsideClickInterop.register", pageElement, outsideClickReference);
+        }
+    }
+
+    [JSInvokable]
+    public void CloseVesselDropdowns()
+    {
+        isVesselDropdownOpen = false;
+    }
+
     private Task ShowVesselOptionsAsync()
     {
+        isVesselDropdownOpen = true;
+
         return vesselResults.Count > 0
             ? Task.CompletedTask
             : LoadVesselsAsync(vesselSearch);
@@ -90,6 +110,8 @@ public partial class ScheduleVoyage
 
     private Task SearchVesselsAsync()
     {
+        isVesselDropdownOpen = true;
+
         return LoadVesselsAsync(vesselSearch);
     }
 
@@ -132,6 +154,7 @@ public partial class ScheduleVoyage
         vesselResults = [];
         vesselSearch = null;
         highlightedVessel = -1;
+        isVesselDropdownOpen = false;
     }
 
     internal static string VesselOptionId(int index)
@@ -164,6 +187,7 @@ public partial class ScheduleVoyage
             case "Escape":
                 vesselResults = [];
                 highlightedVessel = -1;
+                isVesselDropdownOpen = false;
                 break;
         }
     }
@@ -220,9 +244,23 @@ public partial class ScheduleVoyage
         }
     }
 
-    public void Dispose()
+    public async ValueTask DisposeAsync()
     {
         pageCancellation.Cancel();
+
+        if (outsideClickReference is not null)
+        {
+            try
+            {
+                await JS.InvokeVoidAsync("outsideClickInterop.unregister", pageElement);
+            }
+            catch (JSDisconnectedException)
+            {
+            }
+
+            outsideClickReference.Dispose();
+        }
+
         pageCancellation.Dispose();
     }
 }

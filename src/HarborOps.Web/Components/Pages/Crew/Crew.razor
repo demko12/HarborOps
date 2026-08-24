@@ -7,8 +7,10 @@
 
 <section class="crew-page">
     <header class="crew-header">
-        <div><p class="crew-eyebrow">Crewing operations</p><h1>Crew roster</h1><p>Find crew members and identify passport expiry issues.</p></div>
-        <PrintButton Label="Print the crew roster" />
+        <div><p class="crew-eyebrow">Crewing operations</p><h1>Crew roster</h1><p>Find crew members and identify passport expiry issues.</p><a class="crew-rotations-link" href="/crew/rotations" title="View crew rotations"><span class="bi bi-arrow-left-right" aria-hidden="true"></span> Rotations</a></div>
+        <div class="crew-header-actions">
+            <PrintButton Label="Print the crew roster" />
+        </div>
     </header>
 
     <section class="print-only print-summary crew-print-summary">
@@ -31,15 +33,15 @@
         </section>
     }
 
+    <div class="crew-filters">
+        <div class="crew-input-shell"><span class="bi bi-search" aria-hidden="true"></span><input @bind="search" @bind:event="oninput" @bind:after="SearchAsync" placeholder="Search name or IMO seafarer ID" aria-label="Search crew members" /></div>
+        <select @bind="employmentStatus" @bind:after="SearchAsync" aria-label="Filter by employment status"><option value="">All statuses</option><option value="Active">Active</option><option value="Inactive">Inactive</option></select>
+        <button type="button" class="crew-reset-button" @onclick="ResetFiltersAsync" disabled="@isLoading">Reset</button>
+    </div>
+
     <div class="crew-workspace">
     <section class="crew-card" aria-labelledby="crew-roster-title">
         <div class="crew-card-heading"><div><h2 id="crew-roster-title">Personnel register</h2><p>@(roster?.TotalCount ?? 0) crew members found</p></div><span class="bi bi-people" aria-hidden="true"></span></div>
-        <div class="crew-filters">
-            <div class="crew-input-shell"><span class="bi bi-search" aria-hidden="true"></span><input @bind="search" @bind:event="oninput" @bind:after="SearchAsync" placeholder="Search name or IMO seafarer ID" aria-label="Search crew members" /></div>
-            <select @bind="employmentStatus" @bind:after="SearchAsync" aria-label="Filter by employment status"><option value="">All statuses</option><option value="Active">Active</option><option value="Inactive">Inactive</option></select>
-            <button type="button" class="crew-reset-button" @onclick="ResetFiltersAsync" disabled="@isLoading">Reset</button>
-        </div>
-
         @if (isLoading)
         {
             <LoadingState Message="Loading crew roster..." />
@@ -65,6 +67,7 @@
                         <div class="crew-rank"><span>Base rank</span><strong>@member.BaseRankName</strong></div>
                         <div class="crew-passport @passportState.Class"><span>Passport expiry</span><strong>@member.PassportExpiry.ToString("dd MMM yyyy")</strong>@if (passportState.IsExpired) { <small><span class="bi bi-exclamation-triangle"></span> Expired</small> }</div>
                         <span class="employment-status @GetEmploymentStatusClass(member.EmploymentStatus)">@member.EmploymentStatus</span>
+                        <span class="bi bi-chevron-right crew-chevron" aria-hidden="true"></span>
                     </a>
                 }
             </div>

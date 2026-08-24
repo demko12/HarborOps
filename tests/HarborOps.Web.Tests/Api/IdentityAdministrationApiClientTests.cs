@@ -62,6 +62,47 @@ public sealed class IdentityAdministrationApiClientTests
     }
 
     [Fact]
+    public async Task SetTemporaryPasswordAsync_uses_the_lifecycle_endpoint_without_exposing_a_confirmation_value()
+    {
+        HttpRequestMessage? captured = null;
+        using var httpClient = CreateHttpClient(async (request, cancellationToken) =>
+        {
+            captured = request;
+            var content = await request.Content!.ReadAsStringAsync(cancellationToken);
+            Assert.Contains("temporaryPassword", content, StringComparison.OrdinalIgnoreCase);
+            Assert.DoesNotContain("confirmation", content, StringComparison.OrdinalIgnoreCase);
+            return await Json(HttpStatusCode.NoContent, string.Empty);
+        });
+        var userId = Guid.NewGuid();
+
+        var result = await CreateClient(httpClient).SetTemporaryPasswordAsync(
+            userId,
+            new SetAdminTemporaryPasswordRequest("Temporary!42"),
+            CancellationToken.None);
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal(HttpMethod.Post, captured!.Method);
+        Assert.Equal($"/api/identity/admin/users/{userId}/temporary-password", captured.RequestUri!.AbsolutePath);
+    }
+
+    [Fact]
+    public async Task RevokeUserSessionsAsync_uses_the_account_specific_endpoint()
+    {
+        HttpRequestMessage? captured = null;
+        using var httpClient = CreateHttpClient((request, _) =>
+        {
+            captured = request;
+            return Json(HttpStatusCode.NoContent, string.Empty);
+        });
+        var userId = Guid.NewGuid();
+
+        var result = await CreateClient(httpClient).RevokeUserSessionsAsync(userId, CancellationToken.None);
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal($"/api/identity/admin/users/{userId}/revoke-sessions", captured!.RequestUri!.AbsolutePath);
+    }
+
+    [Fact]
     public async Task ListRolesAsync_returns_retryable_failure_when_api_is_unavailable()
     {
         using var httpClient = CreateHttpClient((_, _) => throw new HttpRequestException("Connection failed."));

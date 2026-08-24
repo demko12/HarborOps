@@ -8,11 +8,11 @@
 
 <section class="insurance-page">
     <header class="insurance-header">
-        <div><p class="compliance-eyebrow">Compliance operations</p><h1>Insurance register</h1><p>Review vessel coverage and identify expired or near-expiry policies.</p></div>
+        <div><nav class="page-breadcrumb" aria-label="Breadcrumb"><a href="/compliance">Compliance operations</a><span aria-hidden="true">/</span><span>Insurance register</span></nav><h1>Insurance register</h1><p>Review vessel coverage and identify expired or near-expiry policies.</p></div>
     </header>
     <section class="insurance-card insurance-filter-card">
         <div class="insurance-filter-grid">
-            <div class="insurance-field"><label>Vessel</label><VesselPicker Value="vesselId" ValueChanged="SetVesselAsync" Disabled="isLoading" /></div>
+            <div class="insurance-field insurance-vessel-field"><label>Vessel</label><VesselPicker Value="vesselId" ValueChanged="SetVesselAsync" Disabled="isLoading" /></div>
             <div class="insurance-field"><label for="insurance-filter-insurer">Insurer</label><input id="insurance-filter-insurer" @bind="insurer" @bind:event="oninput" @bind:after="LoadAsync" placeholder="Search insurer" /></div>
             <div class="insurance-field"><label for="insurance-filter-coverage">Coverage</label><input id="insurance-filter-coverage" @bind="coverage" @bind:event="oninput" @bind:after="LoadAsync" placeholder="Search coverage" /></div>
             <div class="insurance-field"><label for="insurance-filter-from">Expiry from</label><InputDate id="insurance-filter-from" @bind-Value="expiryFrom" @bind-Value:after="LoadAsync" /></div>

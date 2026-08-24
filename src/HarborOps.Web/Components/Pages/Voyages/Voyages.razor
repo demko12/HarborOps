@@ -17,6 +17,98 @@
         <span class="voyages-utc" aria-label="All times are shown in UTC">UTC</span>
     </header>
 
+    <nav class="voyages-tabs workspace-tabs" role="tablist" aria-label="Voyages workspace">
+        <button type="button"
+                role="tab"
+                class="workspace-tab @(activeTab == VoyagesTab.Board ? "active" : null)"
+                aria-selected="@AriaSelected(VoyagesTab.Board)"
+                @onclick="() => SelectTab(VoyagesTab.Board)">Voyage board</button>
+        <button type="button"
+                role="tab"
+                class="workspace-tab @(activeTab == VoyagesTab.Ports ? "active" : null)"
+                aria-selected="@AriaSelected(VoyagesTab.Ports)"
+                @onclick="() => SelectTab(VoyagesTab.Ports)">Ports</button>
+        <button type="button"
+                role="tab"
+                class="workspace-tab @(activeTab == VoyagesTab.Berths ? "active" : null)"
+                aria-selected="@AriaSelected(VoyagesTab.Berths)"
+                @onclick="() => SelectTab(VoyagesTab.Berths)">Berths</button>
+        <button type="button"
+                role="tab"
+                class="workspace-tab @(activeTab == VoyagesTab.Routes ? "active" : null)"
+                aria-selected="@AriaSelected(VoyagesTab.Routes)"
+                @onclick="() => SelectTab(VoyagesTab.Routes)">Routes</button>
+    </nav>
+
+    @if (activeTab == VoyagesTab.Ports)
+    {
+        <section class="voyages-summary-scoped" aria-label="Port summary">
+            <article class="voyages-kpi">
+                <div>
+                    <p class="voyages-kpi-label">Ports</p>
+                    <p class="voyages-kpi-value">@FormatCount(portsKpiCount)</p>
+                    <p class="voyages-kpi-note">Registered in directory</p>
+                </div>
+                <span class="voyages-kpi-icon kpi-icon-planned" aria-hidden="true"><span class="bi bi-geo-alt-fill"></span></span>
+            </article>
+        </section>
+    }
+
+    @if (activeTab == VoyagesTab.Berths)
+    {
+        <section class="voyages-summary-scoped" aria-label="Berth summary">
+            <article class="voyages-kpi">
+                <div>
+                    <p class="voyages-kpi-label">Berths</p>
+                    <p class="voyages-kpi-value">@FormatCount(berthsKpiCount)</p>
+                    <p class="voyages-kpi-note">Across all ports</p>
+                </div>
+                <span class="voyages-kpi-icon kpi-icon-progress" aria-hidden="true"><span class="bi bi-bounding-box"></span></span>
+            </article>
+        </section>
+    }
+
+    @if (activeTab == VoyagesTab.Routes)
+    {
+        <section class="voyages-summary-scoped" aria-label="Route summary">
+            <article class="voyages-kpi">
+                <div>
+                    <p class="voyages-kpi-label">Routes</p>
+                    <p class="voyages-kpi-value">@FormatCount(routesKpiCount)</p>
+                    <p class="voyages-kpi-note">Active in the directory</p>
+                </div>
+                <span class="voyages-kpi-icon kpi-icon-completed" aria-hidden="true"><span class="bi bi-diagram-3-fill"></span></span>
+            </article>
+            <article class="voyages-kpi">
+                <div>
+                    <p class="voyages-kpi-label">Avg. route distance</p>
+                    <p class="voyages-kpi-value">@FormatAvgDistance(avgRouteDistanceKpi)</p>
+                    <p class="voyages-kpi-note">Mean of registered routes</p>
+                </div>
+                <span class="voyages-kpi-icon kpi-icon-delayed" aria-hidden="true"><span class="bi bi-rulers"></span></span>
+            </article>
+        </section>
+    }
+
+    @if (activeTab == VoyagesTab.Ports)
+    {
+        <PortsPanel />
+    }
+
+    @if (activeTab == VoyagesTab.Berths)
+    {
+        <BerthsPanel />
+    }
+
+    @if (activeTab == VoyagesTab.Routes)
+    {
+        <RoutesPanel />
+    }
+
+    @if (activeTab == VoyagesTab.Board)
+    {
+    <div class="voyages-tabpanel" role="tabpanel">
+
     <section class="voyages-summary" aria-label="Voyage summary">
         <article class="voyages-kpi">
             <div>
@@ -284,4 +376,7 @@
             </div>
         }
     </section>
+
+    </div>
+    }
 </section>

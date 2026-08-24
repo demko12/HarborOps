@@ -12,6 +12,7 @@ public partial class Fleet : IDisposable
     private VesselPageResponse? page;
     private FleetApiFailure? failure;
     private string? search;
+    private int vesselPickerResetToken;
     private string? status;
     private int pageNumber = 1;
     private bool isLoading = true;
@@ -68,9 +69,22 @@ public partial class Fleet : IDisposable
         await LoadVesselsAsync();
     }
 
+    private async Task SearchByTextAsync(string value)
+    {
+        search = value;
+        await SearchAsync();
+    }
+
+    private async Task SelectVesselFromSearchAsync(string vesselName)
+    {
+        search = vesselName;
+        await SearchAsync();
+    }
+
     private async Task ResetFiltersAsync()
     {
         search = null;
+        vesselPickerResetToken++;
         status = null;
         await SearchAsync();
     }

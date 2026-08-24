@@ -217,11 +217,20 @@ public sealed class CargoBookingDetailsPageTests : BunitContext
     }
 
     [Fact]
-    public void The_page_links_back_to_the_cargo_board()
+    public void The_page_uses_the_cargo_breadcrumb_without_a_duplicate_back_link()
     {
         var page = RenderDetailsPage();
 
-        Assert.Equal("/cargo", page.Find(".booking-back").GetAttribute("href"));
+        Assert.Equal("/cargo", page.Find(".page-breadcrumb a").GetAttribute("href"));
+        Assert.Empty(page.FindAll(".booking-back"));
+    }
+
+    [Fact]
+    public void The_cargo_breadcrumb_preserves_the_board_filters()
+    {
+        var page = RenderDetailsPageFrom("search=steel&status=Loaded&page=2");
+
+        Assert.Equal("/cargo?search=steel&status=Loaded&page=2", page.Find(".page-breadcrumb a").GetAttribute("href"));
     }
 
 
@@ -631,14 +640,6 @@ public sealed class CargoBookingDetailsPageTests : BunitContext
         var page = RenderDetailsPage();
 
         Assert.Contains("Record Loaded", page.Find(".tracking-submit").TextContent, StringComparison.Ordinal);
-    }
-
-    [Fact]
-    public void The_back_link_returns_to_the_board_the_operator_left()
-    {
-        var page = RenderDetailsPageFrom("search=steel&status=Loaded&page=2");
-
-        Assert.Equal("/cargo?search=steel&status=Loaded&page=2", page.Find(".booking-back").GetAttribute("href"));
     }
 
     private static void FillSafetyForm(IRenderedComponent<DetailsPage> page)
