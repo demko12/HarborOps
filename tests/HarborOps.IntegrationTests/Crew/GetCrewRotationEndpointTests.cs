@@ -51,6 +51,16 @@ public sealed class GetCrewRotationEndpointTests : IntegrationTestBase
     }
 
     [Fact]
+    public async Task Get_without_read_permission_returns_403()
+    {
+        using var client = await _application.CreateAuthenticatedClientWithPermissionsAsync(Permissions.Fleet.Read);
+
+        using var response = await client.GetAsync($"/api/crew/assignments/{Guid.NewGuid()}/rotation");
+
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+    }
+
+    [Fact]
     public async Task Get_without_authentication_returns_401()
     {
         using var client = _application.CreateClient();

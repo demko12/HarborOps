@@ -19,6 +19,14 @@ public partial class CrewMemberProfile : IDisposable
     private static readonly IReadOnlyDictionary<string, string[]> EmptyErrors =
         new Dictionary<string, string[]>(StringComparer.OrdinalIgnoreCase);
 
+    private static readonly string[] RotationPatternOptions =
+    [
+        "2 months on / 2 months off",
+        "3 months on / 3 months off",
+        "4 months on / 2 months off",
+        "6 months on / 2 months off",
+    ];
+
     private CrewAssignmentProfileItemResponse? selectedAssignment;
     private bool isDeletingAssignment;
     private string? deleteAssignmentError;
@@ -38,6 +46,8 @@ public partial class CrewMemberProfile : IDisposable
 
     private bool isExecutingRotation;
     private string? executeRotationError;
+
+    private bool isEditingRotation;
 
     private bool CanManage => CurrentUser.HasPermission(CurrentUserAuthorizationState.CrewManagePermission);
 
@@ -137,7 +147,27 @@ public partial class CrewMemberProfile : IDisposable
         rotationFieldErrors = [];
         rotationSuccessMessage = null;
         executeRotationError = null;
+        isEditingRotation = false;
         relievingMemberPickerResetToken++;
+    }
+
+    private void ToggleEditRotation()
+    {
+        if (isEditingRotation && selectedRotation is not null)
+        {
+            rotationForm = new RotationFormModel
+            {
+                RelievingCrewMemberId = selectedRotation.RelievingCrewMemberId,
+                RotationPattern = selectedRotation.RotationPattern,
+                PlannedReliefDate = selectedRotation.PlannedReliefDate,
+            };
+            rotationFieldErrors = [];
+            rotationConflictMessage = null;
+            rotationGeneralError = null;
+            relievingMemberPickerResetToken++;
+        }
+
+        isEditingRotation = !isEditingRotation;
     }
 
     private async Task LoadRotationAsync()
@@ -169,6 +199,7 @@ public partial class CrewMemberProfile : IDisposable
         {
             selectedRotation = null;
             rotationExists = false;
+            rotationForm.PlannedReliefDate = selectedAssignment.PlannedSignOffDate;
         }
         else
         {
@@ -234,6 +265,7 @@ public partial class CrewMemberProfile : IDisposable
             rotationSuccessMessage = "Rotation planned.";
         }
 
+        isEditingRotation = false;
         await LoadRotationAsync();
     }
 

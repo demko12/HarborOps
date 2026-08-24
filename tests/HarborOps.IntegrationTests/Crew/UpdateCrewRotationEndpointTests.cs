@@ -2,9 +2,11 @@ using System.Net;
 using System.Net.Http.Json;
 using HarborOps.Infrastructure.Persistence;
 using HarborOps.IntegrationTests.Authentication;
+using HarborOps.Modules.Crew.Application;
 using HarborOps.Modules.Crew.Contracts;
 using HarborOps.Modules.Crew.Domain;
 using HarborOps.Modules.Identity.Contracts;
+using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace HarborOps.IntegrationTests.Crew;
@@ -28,6 +30,43 @@ public sealed class UpdateCrewRotationEndpointTests : IntegrationTestBase
             CancellationToken.None);
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task Put_returns_validation_problem_for_a_missing_rotation_pattern()
+    {
+        using var client = await _application.CreateAuthenticatedClientWithPermissionsAsync(Permissions.Crew.Manage);
+        var assignment = await SeedAssignmentAsync();
+        await SeedRotationAsync(assignment.Id);
+
+        using var response = await client.PutAsJsonAsync(
+            $"/api/crew/assignments/{assignment.Id}/rotation",
+            new UpdateCrewRotationRequest { PlannedReliefDate = new DateOnly(2026, 7, 1) },
+            CancellationToken.None);
+        var problem = await response.Content.ReadFromJsonAsync<HttpValidationProblemDetails>();
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        Assert.Contains(CrewRotationValidator.RotationPatternField, problem!.Errors);
+    }
+
+    [Fact]
+    public async Task Put_returns_conflict_for_self_relief()
+    {
+        using var client = await _application.CreateAuthenticatedClientWithPermissionsAsync(Permissions.Crew.Manage);
+        var assignment = await SeedAssignmentAsync();
+        await SeedRotationAsync(assignment.Id);
+
+        using var response = await client.PutAsJsonAsync(
+            $"/api/crew/assignments/{assignment.Id}/rotation",
+            new UpdateCrewRotationRequest
+            {
+                RelievingCrewMemberId = assignment.CrewMemberId,
+                RotationPattern = "2-2",
+                PlannedReliefDate = new DateOnly(2026, 7, 1),
+            },
+            CancellationToken.None);
+
+        Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
     }
 
     [Fact]
