@@ -103,8 +103,7 @@
                     <thead>
                         <tr>
                             <th scope="col">Berth</th>
-                            <th scope="col">Length</th>
-                            <th scope="col">Maximum draft</th>
+                            <th scope="col">Length / draft</th>
                             <th scope="col">Status</th>
                         </tr>
                     </thead>
@@ -113,8 +112,7 @@
                         {
                             <tr @key="row.BerthId">
                                 <td><span class="master-data-title">@row.Name</span></td>
-                                <td class="master-data-number">@MasterDataFormat.Decimal(row.Length)</td>
-                                <td class="master-data-number">@MasterDataFormat.Decimal(row.MaxDraft)</td>
+                                <td class="master-data-number"><span class="stat-pair"><b>@MasterDataFormat.LengthMeters(row.Length)</b><span class="stat-pair-sep" aria-hidden="true"> &middot; </span><span class="stat-pair-note">@MasterDataFormat.LengthMeters(row.MaxDraft) draft</span></span></td>
                                 <td><span class="berth-status @StatusModifier(row.Status)">@row.Status</span></td>
                             </tr>
                         }

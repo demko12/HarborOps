@@ -112,18 +112,6 @@ public partial class BerthsPanel : IDisposable
         }
 
         portOptions = result.Value!.Items;
-
-        if (selectedPortId is { } portId && portOptions.All(option => option.PortId != portId))
-        {
-            return;
-        }
-
-        if (selectedPortId is null && portOptions.Count > 0)
-        {
-            selectedPortId = portOptions[0].PortId;
-
-            await LoadAsync();
-        }
     }
 
     private Task SearchPortsAsync()

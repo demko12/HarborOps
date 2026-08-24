@@ -52,6 +52,9 @@
 .voyages-kpi-value { margin: .3rem 0 0; font-size: 1.9rem; font-weight: 650; line-height: 1.05; letter-spacing: -.04em; font-variant-numeric: tabular-nums; }
 .voyages-kpi-note { margin: .2rem 0 0; color: var(--text-secondary); font-size: .74rem; }
 
+.voyages-summary-scoped { display: flex; flex-wrap: wrap; gap: 1rem; margin-bottom: 1rem; }
+.voyages-summary-scoped .voyages-kpi { flex: 0 1 16rem; }
+
 .voyages-kpi-icon,
 .voyages-card-icon {
     display: grid;
@@ -671,6 +674,43 @@ html[data-theme="light"] .voyages-page ::deep .filter-field > select {
 .voyages-page ::deep .master-data-muted { color: var(--text-secondary); }
 .voyages-page ::deep .master-data-number { white-space: nowrap; }
 .voyages-page ::deep .master-data-code { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; color: var(--text-secondary); font-size: .8rem; }
+
+.voyages-page ::deep .stat-pair { display: inline-flex; align-items: baseline; white-space: nowrap; }
+.voyages-page ::deep .stat-pair b { font-weight: 650; }
+.voyages-page ::deep .stat-pair-sep { color: var(--text-muted); }
+.voyages-page ::deep .stat-pair-note { color: var(--text-muted); font-size: .78rem; }
+
+.voyages-page ::deep .route-trail { display: flex; align-items: center; flex-wrap: wrap; gap: .4rem; margin-bottom: 1.2rem; }
+
+.voyages-page ::deep .trail-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: .4rem;
+    padding: .4rem .75rem;
+    border: 1px solid var(--accent-border);
+    border-radius: 999px;
+    background: var(--accent-bg);
+    color: var(--text-primary);
+    font-size: .82rem;
+    font-weight: 600;
+}
+
+.voyages-page ::deep .trail-chip-code { color: var(--accent); font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: .7rem; font-weight: 700; }
+
+.voyages-page ::deep .trail-arrow {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: .1rem;
+    min-width: 3.2rem;
+    color: var(--text-muted);
+    font-size: .68rem;
+    font-variant-numeric: tabular-nums;
+}
+
+.voyages-page ::deep .trail-arrow svg { width: 2.4rem; height: .7rem; }
+
+.voyages-page ::deep .route-details-modal { width: min(60rem, 100%); }
 
 .voyages-page ::deep .berth-status {
     display: inline-flex;

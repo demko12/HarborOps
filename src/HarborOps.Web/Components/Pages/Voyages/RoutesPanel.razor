@@ -98,55 +98,90 @@
 
     @if (selectedRouteId is not null)
     {
-        <section class="voyages-card route-details-card" aria-labelledby="route-details-title">
-            <div class="voyages-card-heading">
-                <div>
-                    <h2 id="route-details-title">@(details?.Name ?? "Route legs")</h2>
-                    <p>@MasterDataFormat.OptionalText(details?.Description)</p>
+        <div class="voyages-modal-backdrop" role="presentation" @onclick="CloseDetails">
+            <section class="voyages-form-card voyages-modal route-details-modal"
+                     role="dialog"
+                     aria-modal="true"
+                     aria-labelledby="route-details-title"
+                     @onclick:stopPropagation="true">
+                <div class="voyages-modal-header">
+                    <div>
+                        <h2 id="route-details-title">@(details?.Name ?? "Route legs")</h2>
+                        <p>@MasterDataFormat.OptionalText(details?.Description)</p>
+                    </div>
+                    <button type="button"
+                            class="voyages-modal-close"
+                            aria-label="Close route legs dialog"
+                            @onclick="CloseDetails">&times;</button>
                 </div>
-                <div class="voyages-card-tools">
-                    <button class="voyages-reset" type="button" @onclick="CloseDetails">Close</button>
-                </div>
-            </div>
 
-            @if (isDetailsLoading)
-            {
-                <LoadingState Message="Loading route legs..." />
-            }
-            else if (detailsFailure is not null)
-            {
-                <ApiErrorState Title="@detailsFailure.Title" Message="@detailsFailure.Message"
-                               RetryLabel="Retry" OnRetry="RetryDetailsAsync" />
-            }
-            else if (details is not null)
-            {
-                <div class="voyages-table-scroll">
-                    <table class="voyages-table route-legs-table">
-                        <caption class="visually-hidden">Route stops in sailing order</caption>
-                        <thead>
-                            <tr>
-                                <th scope="col">Stop</th>
-                                <th scope="col">Port</th>
-                                <th scope="col">Country</th>
-                                <th scope="col">Distance from previous (nm)</th>
-                                <th scope="col">Duration from previous (h)</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            @foreach (var stop in details.Stops)
+                @if (isDetailsLoading)
+                {
+                    <LoadingState Message="Loading route legs..." />
+                }
+                else if (detailsFailure is not null)
+                {
+                    <ApiErrorState Title="@detailsFailure.Title" Message="@detailsFailure.Message"
+                                   RetryLabel="Retry" OnRetry="RetryDetailsAsync" />
+                }
+                else if (details is not null)
+                {
+                    @if (details.Stops.Count > 0)
+                    {
+                        <div class="route-trail">
+                            @{ var orderedStops = details.Stops.OrderBy(stop => stop.StopOrder).ToList(); }
+                            @for (var stopIndex = 0; stopIndex < orderedStops.Count; stopIndex++)
                             {
-                                <tr @key="stop.PortId">
-                                    <td class="master-data-number">@MasterDataFormat.Number(stop.StopOrder)</td>
-                                    <td><span class="master-data-title">@MasterDataFormat.PortLabel(stop.PortName, stop.UnLocode)</span></td>
-                                    <td class="master-data-muted">@stop.PortCountry</td>
-                                    <td class="master-data-number">@MasterDataFormat.DistanceNm(stop.DistanceFromPrevious)</td>
-                                    <td class="master-data-number">@MasterDataFormat.DurationHours(stop.EstimatedDurationFromPrevious)</td>
-                                </tr>
+                                var stop = orderedStops[stopIndex];
+
+                                @if (stopIndex > 0)
+                                {
+                                    <span class="trail-arrow" aria-hidden="true">
+                                        <svg viewBox="0 0 40 10" fill="none">
+                                            <path d="M0 5H36M36 5L30 1M36 5L30 9" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" />
+                                        </svg>
+                                        @MasterDataFormat.DistanceNm(stop.DistanceFromPrevious)
+                                    </span>
+                                }
+                                <span class="trail-chip">
+                                    @if (!string.IsNullOrWhiteSpace(stop.UnLocode))
+                                    {
+                                        <span class="trail-chip-code">@stop.UnLocode</span>
+                                    }
+                                    @stop.PortName
+                                </span>
                             }
-                        </tbody>
-                    </table>
-                </div>
-            }
-        </section>
+                        </div>
+                    }
+
+                    <div class="voyages-table-scroll">
+                        <table class="voyages-table route-legs-table">
+                            <caption class="visually-hidden">Route stops in sailing order</caption>
+                            <thead>
+                                <tr>
+                                    <th scope="col">Stop</th>
+                                    <th scope="col">Port</th>
+                                    <th scope="col">Country</th>
+                                    <th scope="col">Distance from previous (nm)</th>
+                                    <th scope="col">Duration from previous (h)</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var stop in details.Stops)
+                                {
+                                    <tr @key="stop.PortId">
+                                        <td class="master-data-number">@MasterDataFormat.Number(stop.StopOrder)</td>
+                                        <td><span class="master-data-title">@MasterDataFormat.PortLabel(stop.PortName, stop.UnLocode)</span></td>
+                                        <td class="master-data-muted">@stop.PortCountry</td>
+                                        <td class="master-data-number">@MasterDataFormat.DistanceNm(stop.DistanceFromPrevious)</td>
+                                        <td class="master-data-number">@MasterDataFormat.DurationHours(stop.EstimatedDurationFromPrevious)</td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                }
+            </section>
+        </div>
     }
 </div>
