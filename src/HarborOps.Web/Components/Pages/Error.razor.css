@@ -2,7 +2,7 @@
     display: grid;
     min-height: 55vh;
     place-items: center;
-    padding: 2.5rem 2rem;
+    padding: var(--page-padding);
 }
 
 .error-card {
@@ -10,7 +10,7 @@
     padding: 1.5rem;
     color: var(--text-primary);
     border: 1px solid var(--border-medium);
-    border-radius: 1rem;
+    border-radius: var(--radius-card);
     background: linear-gradient(145deg, var(--bg-surface-strong), var(--bg-surface));
     box-shadow: 0 12px 35px rgba(0, 0, 0, .08);
 }
@@ -22,7 +22,7 @@
     place-items: center;
     color: var(--accent);
     border: 1px solid var(--accent-border);
-    border-radius: .65rem;
+    border-radius: var(--radius-control);
     background: var(--accent-bg);
     font-size: 1rem;
 }
@@ -65,7 +65,7 @@
     min-height: 2.35rem;
     padding: 0 .8rem;
     border: 0;
-    border-radius: .65rem;
+    border-radius: var(--radius-control);
     cursor: pointer;
     font-size: .86rem;
     font-weight: 650;
@@ -86,7 +86,7 @@
     margin: 1.35rem 0 0;
     padding: .6rem .75rem;
     border: 1px solid var(--border-subtle);
-    border-radius: .65rem;
+    border-radius: var(--radius-control);
     background: var(--bg-surface);
 }
 
@@ -118,7 +118,7 @@
 .error-help .bi { color: #60a5fa; }
 
 @media (max-width: 520px) {
-    .error-page { min-height: 50vh; padding: 1.25rem 1rem; }
+    .error-page { min-height: 50vh; padding: var(--page-padding-compact); }
     .error-card { padding: 1.7rem; }
     .error-actions { flex-direction: column; }
 }

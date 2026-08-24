@@ -64,11 +64,11 @@ html[data-theme="light"] .crew-profile-form-field-errors { border-color: rgba(18
 .crew-profile-form-grid ::deep input {
     width: 100%;
     box-sizing: border-box;
-    height: 2.8rem;
+    height: var(--control-height);
     padding: 0 .85rem;
     color: var(--text-primary);
     border: 1px solid var(--border-medium);
-    border-radius: .65rem;
+    border-radius: var(--radius-control);
     background-color: var(--control-surface);
     font: inherit;
     font-size: .88rem;
@@ -81,18 +81,18 @@ html[data-theme="light"] .crew-profile-form-field-errors { border-color: rgba(18
 .crew-profile-form-grid ::deep input:focus {
     border-color: var(--accent);
     outline: 0;
-    box-shadow: 0 0 0 .22rem var(--accent-bg);
+    box-shadow: var(--focus-ring);
 }
 
 html[data-theme="light"] .crew-profile-form-grid ::deep input { color-scheme: light; }
 
 .crew-profile-form-submit {
     grid-column: span 2;
-    height: 2.8rem;
+    height: var(--control-height);
     padding: 0 1.1rem;
     color: var(--apply-text);
     border: 1px solid var(--apply-border);
-    border-radius: .6rem;
+    border-radius: var(--radius-button);
     background: var(--apply-surface);
     font: inherit;
     font-size: .88rem;

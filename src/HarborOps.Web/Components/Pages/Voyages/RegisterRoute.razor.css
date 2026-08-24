@@ -1,7 +1,7 @@
 .register-route-page {
-    max-width: 1400px;
+    max-width: var(--page-max-width);
     margin: 0 auto;
-    padding: 2.5rem 2rem;
+    padding: var(--page-padding);
 }
 
 .register-route-header {
@@ -18,7 +18,7 @@
 .register-route-card {
     padding: 1.35rem;
     border: 1px solid var(--border-medium);
-    border-radius: 1rem;
+    border-radius: var(--radius-card);
     background: linear-gradient(145deg, var(--bg-surface-strong), var(--bg-surface));
     box-shadow: var(--card-shadow);
 }
@@ -42,7 +42,7 @@
     place-items: center;
     color: var(--accent);
     border: 1px solid var(--accent-border);
-    border-radius: .65rem;
+    border-radius: var(--radius-control);
     background: var(--accent-bg);
     font-size: .9rem;
 }
@@ -79,11 +79,11 @@ html[data-theme="light"] .register-route-failure { border-color: rgba(185, 28, 2
 .register-route-field > textarea {
     box-sizing: border-box;
     width: 100%;
-    height: 2.8rem;
+    height: var(--control-height);
     padding: 0 .85rem;
     color: var(--text-primary);
     border: 1px solid var(--border-medium);
-    border-radius: .65rem;
+    border-radius: var(--radius-control);
     outline: 0;
     background-color: var(--control-surface);
     font: inherit;
@@ -103,7 +103,7 @@ html[data-theme="light"] .register-route-failure { border-color: rgba(185, 28, 2
 .register-route-field > textarea:hover { border-color: var(--border-strong-hover); }
 
 .register-route-field > input:focus,
-.register-route-field > textarea:focus { border-color: var(--accent); box-shadow: 0 0 0 .22rem var(--accent-bg); }
+.register-route-field > textarea:focus { border-color: var(--accent); box-shadow: var(--focus-ring); }
 
 .register-route-field > input:disabled {
     cursor: not-allowed;
@@ -116,7 +116,7 @@ html[data-theme="light"] .register-route-field > textarea { color-scheme: light;
 .route-builder {
     padding: 1.1rem;
     border: 1px solid var(--border-medium);
-    border-radius: 1rem;
+    border-radius: var(--radius-card);
     background: linear-gradient(145deg, var(--bg-surface-strong), var(--bg-surface));
     box-shadow: var(--card-shadow);
 }
@@ -136,7 +136,7 @@ html[data-theme="light"] .register-route-field > textarea { color-scheme: light;
 .route-builder-order {
     display: grid;
     width: 2rem;
-    height: 2.8rem;
+    height: var(--control-height);
     place-items: center;
     color: var(--accent);
     font-size: .85rem;
@@ -148,7 +148,7 @@ html[data-theme="light"] .register-route-field > textarea { color-scheme: light;
 
 .register-route-step {
     width: 2.4rem;
-    height: 2.8rem;
+    height: var(--control-height);
     color: var(--accent);
     border: 1px solid var(--accent-border);
     border-radius: .55rem;
@@ -181,11 +181,11 @@ html[data-theme="light"] .register-route-field > textarea { color-scheme: light;
 .register-route-actions { grid-column: span 2; display: flex; align-items: center; gap: .75rem; }
 
 .register-route-button {
-    height: 2.8rem;
+    height: var(--control-height);
     padding: 0 1.2rem;
     color: var(--text-primary);
     border: 1px solid var(--apply-border);
-    border-radius: .6rem;
+    border-radius: var(--radius-button);
     background: var(--apply-surface);
     font: inherit;
     font-size: .88rem;
@@ -199,13 +199,13 @@ html[data-theme="light"] .register-route-field > textarea { color-scheme: light;
 .register-route-button:disabled { cursor: not-allowed; opacity: .5; box-shadow: none; }
 
 .register-route-link {
-    height: 2.8rem;
+    height: var(--control-height);
     display: inline-flex;
     align-items: center;
     padding: 0 .9rem;
     color: var(--accent);
     border: 1px solid transparent;
-    border-radius: .6rem;
+    border-radius: var(--radius-button);
     background: none;
     font: inherit;
     font-size: .88rem;
@@ -232,7 +232,7 @@ html[data-theme="light"] .register-route-field > textarea { color-scheme: light;
 }
 
 @media (max-width: 760px) {
-    .register-route-page { padding: 1.25rem 1rem; }
+    .register-route-page { padding: var(--page-padding-compact); }
     .register-route-header { flex-direction: column; }
     .register-route-form { grid-template-columns: 1fr; }
     .register-route-field-wide, .register-route-actions { grid-column: auto; }

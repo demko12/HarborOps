@@ -12,7 +12,7 @@
 
 .api-error-state > span {
     margin-top: 0.1rem;
-    color: #f87171;
+    color: var(--status-danger);
     font-size: 1.25rem;
 }
 
