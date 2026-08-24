@@ -41,4 +41,11 @@ internal sealed class CrewRotation
             rotationPattern,
             plannedReliefDate);
     }
+
+    internal void Update(Guid? relievingCrewMemberId, string rotationPattern, DateOnly plannedReliefDate)
+    {
+        RelievingCrewMemberId = relievingCrewMemberId;
+        RotationPattern = rotationPattern;
+        PlannedReliefDate = plannedReliefDate;
+    }
 }

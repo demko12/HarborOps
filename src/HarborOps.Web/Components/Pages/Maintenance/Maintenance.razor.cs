@@ -224,7 +224,7 @@ public partial class Maintenance
 
         var request = new CreateMaintenanceWorkOrderRequest
         {
-            VesselId = Guid.TryParse(createModel.VesselId, out var vesselId) ? vesselId : null,
+            VesselId = createModel.VesselId,
             Title = createModel.Title,
             Description = createModel.Description,
             Priority = string.IsNullOrEmpty(createModel.Priority) ? null : createModel.Priority,
@@ -318,7 +318,7 @@ public partial class Maintenance
 
     private sealed class CreateWorkOrderModel
     {
-        public string? VesselId { get; set; }
+        public Guid? VesselId { get; set; }
 
         public string? Title { get; set; }
 

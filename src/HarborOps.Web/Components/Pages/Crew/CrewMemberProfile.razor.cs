@@ -16,9 +16,28 @@ public partial class CrewMemberProfile : IDisposable
     private bool isLoading = true;
     private bool isSensitiveDataRevealed;
 
+    private static readonly IReadOnlyDictionary<string, string[]> EmptyErrors =
+        new Dictionary<string, string[]>(StringComparer.OrdinalIgnoreCase);
+
     private CrewAssignmentProfileItemResponse? selectedAssignment;
     private bool isDeletingAssignment;
     private string? deleteAssignmentError;
+
+    private CrewRotationListItemResponse? selectedRotation;
+    private bool rotationExists;
+    private bool isLoadingRotation;
+    private string? rotationLoadError;
+
+    private RotationFormModel rotationForm = new();
+    private bool isSavingRotation;
+    private string? rotationConflictMessage;
+    private string? rotationGeneralError;
+    private IReadOnlyList<string> rotationFieldErrors = [];
+    private string? rotationSuccessMessage;
+    private int relievingMemberPickerResetToken;
+
+    private bool isExecutingRotation;
+    private string? executeRotationError;
 
     private bool CanManage => CurrentUser.HasPermission(CurrentUserAuthorizationState.CrewManagePermission);
 
@@ -90,16 +109,177 @@ public partial class CrewMemberProfile : IDisposable
         }
     }
 
-    private void OpenAssignmentDetails(CrewAssignmentProfileItemResponse assignment)
+    private async Task OpenAssignmentDetailsAsync(CrewAssignmentProfileItemResponse assignment)
     {
         selectedAssignment = assignment;
         deleteAssignmentError = null;
+        ResetRotationFormState();
+
+        await LoadRotationAsync();
     }
 
     private void CloseAssignmentDetails()
     {
         selectedAssignment = null;
         deleteAssignmentError = null;
+        ResetRotationFormState();
+    }
+
+    private void ResetRotationFormState()
+    {
+        selectedRotation = null;
+        rotationExists = false;
+        isLoadingRotation = false;
+        rotationLoadError = null;
+        rotationForm = new RotationFormModel();
+        rotationConflictMessage = null;
+        rotationGeneralError = null;
+        rotationFieldErrors = [];
+        rotationSuccessMessage = null;
+        executeRotationError = null;
+        relievingMemberPickerResetToken++;
+    }
+
+    private async Task LoadRotationAsync()
+    {
+        if (selectedAssignment is null)
+        {
+            return;
+        }
+
+        isLoadingRotation = true;
+        rotationLoadError = null;
+
+        var result = await CrewApi.GetRotationAsync(selectedAssignment.AssignmentId, disposeCancellation.Token);
+
+        isLoadingRotation = false;
+
+        if (result.IsSuccess)
+        {
+            selectedRotation = result.Value;
+            rotationExists = true;
+            rotationForm = new RotationFormModel
+            {
+                RelievingCrewMemberId = result.Value!.RelievingCrewMemberId,
+                RotationPattern = result.Value.RotationPattern,
+                PlannedReliefDate = result.Value.PlannedReliefDate,
+            };
+        }
+        else if (result.Failure!.IsNotFound)
+        {
+            selectedRotation = null;
+            rotationExists = false;
+        }
+        else
+        {
+            rotationLoadError = result.Failure.Message;
+        }
+    }
+
+    private async Task SaveRotationAsync()
+    {
+        if (selectedAssignment is null || isSavingRotation)
+        {
+            return;
+        }
+
+        rotationConflictMessage = null;
+        rotationGeneralError = null;
+        rotationFieldErrors = [];
+        rotationSuccessMessage = null;
+        isSavingRotation = true;
+
+        if (rotationExists)
+        {
+            var result = await CrewApi.UpdateRotationAsync(
+                selectedAssignment.AssignmentId,
+                new UpdateCrewRotationRequest
+                {
+                    RelievingCrewMemberId = rotationForm.RelievingCrewMemberId,
+                    RotationPattern = rotationForm.RotationPattern,
+                    PlannedReliefDate = rotationForm.PlannedReliefDate,
+                },
+                disposeCancellation.Token);
+
+            isSavingRotation = false;
+
+            if (!result.IsSuccess)
+            {
+                HandleRotationFailure(result.Failure!);
+                return;
+            }
+
+            rotationSuccessMessage = "Rotation updated.";
+        }
+        else
+        {
+            var result = await CrewApi.PlanRotationAsync(
+                selectedAssignment.AssignmentId,
+                new PlanCrewRotationRequest
+                {
+                    RelievingCrewMemberId = rotationForm.RelievingCrewMemberId,
+                    RotationPattern = rotationForm.RotationPattern,
+                    PlannedReliefDate = rotationForm.PlannedReliefDate,
+                },
+                disposeCancellation.Token);
+
+            isSavingRotation = false;
+
+            if (!result.IsSuccess)
+            {
+                HandleRotationFailure(result.Failure!);
+                return;
+            }
+
+            rotationSuccessMessage = "Rotation planned.";
+        }
+
+        await LoadRotationAsync();
+    }
+
+    private void HandleRotationFailure(CrewApiFailure failure)
+    {
+        if (failure.IsConflict)
+        {
+            rotationConflictMessage = failure.Message;
+        }
+        else if (failure.IsValidation)
+        {
+            rotationFieldErrors = (failure.Errors ?? EmptyErrors).Values.SelectMany(messages => messages).ToList();
+        }
+        else
+        {
+            rotationGeneralError = failure.Message;
+        }
+    }
+
+    private async Task ExecuteRotationAsync()
+    {
+        if (selectedAssignment is null || isExecutingRotation)
+        {
+            return;
+        }
+
+        isExecutingRotation = true;
+        executeRotationError = null;
+
+        var result = await CrewApi.ExecuteRotationAsync(selectedAssignment.AssignmentId, disposeCancellation.Token);
+
+        isExecutingRotation = false;
+
+        if (!result.IsSuccess)
+        {
+            executeRotationError = result.Failure!.Message;
+            return;
+        }
+
+        CloseAssignmentDetails();
+
+        var refreshed = await CrewApi.GetProfileAsync(CrewMemberId, disposeCancellation.Token);
+        if (refreshed.IsSuccess && refreshed.Value is not null && profile is not null)
+        {
+            profile = profile with { Assignments = refreshed.Value.Assignments };
+        }
     }
 
     private async Task DeleteSelectedAssignmentAsync()
@@ -124,17 +304,12 @@ public partial class CrewMemberProfile : IDisposable
 
         selectedAssignment = null;
 
-        // Same "refresh only the affected section" pattern as OnAssignmentRegisteredAsync.
         var refreshed = await CrewApi.GetProfileAsync(CrewMemberId, disposeCancellation.Token);
         if (refreshed.IsSuccess && refreshed.Value is not null && profile is not null)
         {
             profile = profile with { Assignments = refreshed.Value.Assignments };
         }
     }
-
-    // 6 months matches the common international "6-month passport validity" rule many
-    // countries enforce for entry/visas, so it lines up with when this would actually
-    // start causing travel problems for the crew member, not an arbitrary cutoff.
     private bool IsPassportExpiringSoon(DateOnly passportExpiry) => passportExpiry <= currentDate.AddMonths(6);
 
     private bool IsPassportExpired(DateOnly passportExpiry) => passportExpiry < currentDate;
@@ -177,4 +352,11 @@ public partial class CrewMemberProfile : IDisposable
     private sealed record CertificateState(string Label, string Class);
 
     private sealed record AssignmentState(string Label, string Class);
+
+    private sealed class RotationFormModel
+    {
+        public Guid? RelievingCrewMemberId { get; set; }
+        public string? RotationPattern { get; set; }
+        public DateOnly? PlannedReliefDate { get; set; }
+    }
 }

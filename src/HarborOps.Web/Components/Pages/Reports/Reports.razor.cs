@@ -368,6 +368,20 @@ public partial class Reports : IDisposable
     private static string DocumentStatusLabel(DocumentsExpiryReportRow row) =>
         row.IsExpired ? "Expired" : row.Status;
 
+    // Mirrors Documents.razor's GetDocumentStatusClass so a document's status reads the
+    // same color on this report as it does on the Documents module's own expiring-documents
+    // page - classified on the same label shown in the badge (DocumentStatusLabel), not the
+    // raw row.Status, so an overdue "Active" document still colors as expired here too.
+    private static string DocumentStatusClass(DocumentsExpiryReportRow row) =>
+        DocumentStatusLabel(row).Trim().ToUpperInvariant() switch
+        {
+            "ACTIVE" => "reports-status-active",
+            "VALID" => "reports-status-valid",
+            "EXPIRED" => "reports-status-expired",
+            "SUSPENDED" or "INACTIVE" => "reports-status-neutral",
+            _ => "reports-status-neutral",
+        };
+
     private static string DaysUntilExpiryLabel(DocumentsExpiryReportRow row)
     {
         var days = Math.Abs(row.DaysUntilExpiry);
@@ -380,6 +394,48 @@ public partial class Reports : IDisposable
 
         return row.DaysUntilExpiry == 0 ? "Expires today" : $"{days} {unit} left";
     }
+
+    // "Detained"/"Expired" are the most severe outcomes on this report (red, same as an
+    // expired document); "Expiring" and an open non-conformity both mean "needs attention
+    // soon" (amber) - matching the severity language used everywhere else in the app.
+    private static string ComplianceStatusClass(ComplianceExposureReportRow row) =>
+        row.Status.Trim().ToUpperInvariant() switch
+        {
+            "EXPIRED" or "DETAINED" => "reports-status-expired",
+            "EXPIRING" or "OPEN" => "reports-status-warning",
+            _ => "reports-status-neutral",
+        };
+
+    private static string SeverityClass(string severity) =>
+        severity.Trim().ToUpperInvariant() switch
+        {
+            "CRITICAL" => "reports-status-expired",
+            "MAJOR" => "reports-status-warning",
+            "MINOR" => "reports-status-neutral",
+            _ => "reports-status-neutral",
+        };
+
+    // Mirrors Maintenance.razor's MaintenanceFormat priority/status colors exactly, so a
+    // work order reads the same color here as it does on the Maintenance module's own page.
+    private static string MaintenancePriorityClass(string priority) =>
+        priority.Trim().ToUpperInvariant() switch
+        {
+            "CRITICAL" => "reports-status-expired",
+            "HIGH" => "reports-status-warning",
+            "MEDIUM" => "reports-status-active",
+            "LOW" => "reports-status-low",
+            _ => "reports-status-neutral",
+        };
+
+    private static string MaintenanceStatusClass(string status) =>
+        status.Trim().ToUpperInvariant() switch
+        {
+            "OPEN" => "reports-status-active",
+            "INPROGRESS" => "reports-status-warning",
+            "COMPLETED" => "reports-status-completed",
+            "CANCELED" => "reports-status-expired",
+            _ => "reports-status-neutral",
+        };
 
     private static string? ValidateRange(DateOnly? from, DateOnly? to) =>
         from is { } fromDate && to is { } toDate && toDate < fromDate

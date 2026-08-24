@@ -42,7 +42,10 @@ internal sealed class ReportsDocumentsExpiryQuery(DbContext dbContext) : IReport
         if (!string.IsNullOrWhiteSpace(request.Status))
         {
             var status = request.Status.Trim();
-            documents = documents.Where(document => document.Status == status);
+
+            documents = string.Equals(status, "Expired", StringComparison.OrdinalIgnoreCase)
+                ? documents.Where(document => document.ExpiryDate < request.AsOf)
+                : documents.Where(document => document.Status == status && document.ExpiryDate >= request.AsOf);
         }
 
         var totalCount = await documents.CountAsync(cancellationToken);

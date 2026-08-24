@@ -362,6 +362,8 @@ html[data-theme="light"] .cargo-validation { border-color: rgba(185, 28, 28, .3)
     align-items: flex-end;
 }
 
+.cargo-register-voyage { flex: 1 1 22rem; min-width: 22rem; }
+
 .cargo-register-submit {
     display: inline-flex;
     align-items: center;
@@ -430,7 +432,7 @@ html[data-theme="light"] .cargo-validation { border-color: rgba(185, 28, 28, .3)
 }
 
 .cargo-modal {
-    width: min(100%, 44rem);
+    width: min(100%, 48rem);
     max-height: calc(100vh - 2.5rem);
     overflow-y: auto;
     padding: 1.4rem;
@@ -480,6 +482,7 @@ html[data-theme="light"] .cargo-modal-backdrop { background: rgba(15, 23, 42, .2
 html[data-theme="light"] .cargo-modal { border-color: #cbd5e1; background: #fff; box-shadow: 0 24px 70px rgba(15, 23, 42, .24); }
 
 @media (max-width: 760px) {
+    .cargo-register-voyage { min-width: 0; }
     .cargo-modal-actions { flex-direction: column-reverse; }
     .cargo-modal-actions .cargo-register-submit, .cargo-modal-actions .cargo-modal-cancel { width: 100%; }
 }

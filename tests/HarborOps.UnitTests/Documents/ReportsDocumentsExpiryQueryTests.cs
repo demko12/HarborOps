@@ -121,6 +121,52 @@ public sealed class ReportsDocumentsExpiryQueryTests
     }
 
     [Fact]
+    public async Task SearchAsync_filters_by_status_expired_using_the_as_of_date_not_a_literal_status_match()
+    {
+        await using var dbContext = CreateDbContext();
+        var documentTypeId = await SeedDocumentTypeAsync(dbContext);
+        var vesselId = Guid.NewGuid();
+
+
+        var overdueButStillActive = await SeedDocumentAsync(
+            dbContext, vesselId, documentTypeId, "OVERDUE-ACTIVE", AsOf.AddDays(-1), status: "Active");
+
+        await SeedDocumentAsync(
+            dbContext, vesselId, documentTypeId, "LABELED-EXPIRED", AsOf.AddDays(10), status: "Expired");
+
+        var query = new ReportsDocumentsExpiryQuery(dbContext);
+
+        var result = await query.SearchAsync(
+            new ReportsDocumentsExpiryRequest { AsOf = AsOf, Status = "Expired" },
+            CancellationToken.None);
+
+        Assert.Equal(1, result.TotalCount);
+        Assert.Equal(overdueButStillActive.Id, Assert.Single(result.Items).DocumentId);
+    }
+
+    [Fact]
+    public async Task SearchAsync_filters_by_a_real_status_exclude_documents_that_are_already_expired()
+    {
+        await using var dbContext = CreateDbContext();
+        var documentTypeId = await SeedDocumentTypeAsync(dbContext);
+        var vesselId = Guid.NewGuid();
+
+        await SeedDocumentAsync(
+            dbContext, vesselId, documentTypeId, "OVERDUE-ACTIVE", AsOf.AddDays(-1), status: "Active");
+        var stillActive = await SeedDocumentAsync(
+            dbContext, vesselId, documentTypeId, "STILL-ACTIVE", AsOf.AddDays(10), status: "Active");
+
+        var query = new ReportsDocumentsExpiryQuery(dbContext);
+
+        var result = await query.SearchAsync(
+            new ReportsDocumentsExpiryRequest { AsOf = AsOf, Status = "Active" },
+            CancellationToken.None);
+
+        Assert.Equal(1, result.TotalCount);
+        Assert.Equal(stillActive.Id, Assert.Single(result.Items).DocumentId);
+    }
+
+    [Fact]
     public async Task SearchAsync_orders_by_expiry_date_then_document_id()
     {
         await using var dbContext = CreateDbContext();

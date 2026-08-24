@@ -45,6 +45,10 @@ builder.Services.Configure<MvcOptions>(options =>
 
 builder.Services.AddAuthorization(options =>
 {
+    options.AddPolicy(
+        IdentityEndpoints.UnavailableEndpointPolicy,
+        policy => policy.RequireAssertion(_ => true));
+
     options.FallbackPolicy = new AuthorizationPolicyBuilder()
         .RequireAuthenticatedUser()
         .Build();
