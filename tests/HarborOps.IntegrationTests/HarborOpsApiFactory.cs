@@ -1,12 +1,14 @@
 using HarborOps.Infrastructure.Persistence;
 using HarborOps.IntegrationTests.Documents;
 using HarborOps.SharedKernel;
+using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
+using Microsoft.Extensions.Logging;
 
 namespace HarborOps.IntegrationTests;
 
@@ -18,8 +20,12 @@ public sealed class HarborOpsApiFactory : WebApplicationFactory<Program>
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
+        builder.ConfigureLogging(logging => logging.ClearProviders());
+
         builder.ConfigureServices(services =>
         {
+            services.AddDataProtection().UseEphemeralDataProtectionProvider();
+
             services.RemoveAll<DbContext>();
             services.RemoveAll<HarborOpsDbContext>();
             services.RemoveAll<DbContextOptions<HarborOpsDbContext>>();

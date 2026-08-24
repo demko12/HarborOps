@@ -206,7 +206,7 @@
                                     <td class="reports-muted">@row.IssueDate.ToString("dd MMM yyyy")</td>
                                     <td>@row.ExpiryDate.ToString("dd MMM yyyy")</td>
                                     <td>
-                                        <span class="reports-status @(row.IsExpired ? "is-expired" : null)">@DocumentStatusLabel(row)</span>
+                                        <span class="reports-status @DocumentStatusClass(row)">@DocumentStatusLabel(row)</span>
                                     </td>
                                     <td class="reports-num">@DaysUntilExpiryLabel(row)</td>
                                 </tr>
@@ -241,9 +241,18 @@
                                     <td class="reports-muted">@row.Description</td>
                                     <td>@row.RelevantDate.ToString("dd MMM yyyy")</td>
                                     <td>
-                                        <span class="reports-status @(row.Status == "Expired" || row.Status == "Detained" ? "is-expired" : null)">@row.Status</span>
+                                        <span class="reports-status @ComplianceStatusClass(row)">@row.Status</span>
                                     </td>
-                                    <td class="reports-muted">@(row.Severity ?? "-")</td>
+                                    <td>
+                                        @if (row.Severity is { } severity)
+                                        {
+                                            <span class="reports-status @SeverityClass(severity)">@severity</span>
+                                        }
+                                        else
+                                        {
+                                            <span class="reports-muted">-</span>
+                                        }
+                                    </td>
                                 </tr>
                             }
                         </tbody>
@@ -273,8 +282,8 @@
                                 <tr @key="row.WorkOrderId">
                                     <td>@row.Title</td>
                                     <td>@VesselDisplayName(row.VesselId)</td>
-                                    <td>@row.Priority</td>
-                                    <td>@row.Status</td>
+                                    <td><span class="reports-status @MaintenancePriorityClass(row.Priority)">@row.Priority</span></td>
+                                    <td><span class="reports-status @MaintenanceStatusClass(row.Status)">@row.Status</span></td>
                                     <td>@row.DueUtc.ToString("dd MMM yyyy")</td>
                                     <td>
                                         @if (row.IsOverdue)
@@ -283,7 +292,7 @@
                                         }
                                         else
                                         {
-                                            <span class="reports-status">On track</span>
+                                            <span class="reports-status reports-status-valid">On track</span>
                                         }
                                     </td>
                                     <td class="reports-muted">@row.CreatedUtc.ToString("dd MMM yyyy")</td>

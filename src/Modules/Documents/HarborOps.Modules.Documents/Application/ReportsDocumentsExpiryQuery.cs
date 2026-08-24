@@ -42,7 +42,17 @@ internal sealed class ReportsDocumentsExpiryQuery(DbContext dbContext) : IReport
         if (!string.IsNullOrWhiteSpace(request.Status))
         {
             var status = request.Status.Trim();
-            documents = documents.Where(document => document.Status == status);
+
+            // "Expired" is never a value anyone sets on Document.Status - it is a date
+            // derived from ExpiryDate vs AsOf (see IsExpired below), so filtering by it
+            // means "already past its expiry date", not a literal status match. Every
+            // other status must also exclude already-expired documents: a document
+            // stored as "Active" but past its expiry date displays as "Expired" (see
+            // IsExpired/DaysUntilExpiry below), so an "Active" filter that still
+            // included it would show a result that contradicts its own filter.
+            documents = string.Equals(status, "Expired", StringComparison.OrdinalIgnoreCase)
+                ? documents.Where(document => document.ExpiryDate < request.AsOf)
+                : documents.Where(document => document.Status == status && document.ExpiryDate >= request.AsOf);
         }
 
         var totalCount = await documents.CountAsync(cancellationToken);

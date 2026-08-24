@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.Text;
 using HarborOps.Modules.Maintenance.Application;
 using HarborOps.Modules.Maintenance.Contracts;
-using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 
@@ -191,7 +190,6 @@ public class MaintenanceWorkOrdersController(
     }
 
     [HttpGet("{workOrderId:guid}/part-usages")]
-    [Authorize("maintenance.read")]
     [ProducesResponseType<GetWorkOrderPartUsagesResponse>(StatusCodes.Status200OK)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
     public async Task<ActionResult<GetWorkOrderPartUsagesResponse>> GetPartUsages(

@@ -89,13 +89,7 @@ public sealed class CrewMembersController(
         }
     }
 
-    // Uses an absolute route (rather than a relative "{crewMemberId:guid}/profile" combined with
-    // the controller's [Route("api/crew/members")]) because CapabilityAuthorizationConvention reads
-    // the action's own AttributeRouteModel.Template before controller/action route combination runs.
-    // A relative template here would be evaluated against BusinessCapabilityRouting on its own
-    // (e.g. "{crewMemberId:guid}/profile"), never matching "/api/crew", and silently drop the
-    // crew.read policy from this endpoint.
-    [HttpGet("/api/crew/members/{crewMemberId:guid}/profile")]
+    [HttpGet("{crewMemberId:guid}/profile")]
     [ProducesResponseType<CrewMemberProfileResponse>(StatusCodes.Status200OK)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
     public async Task<ActionResult<CrewMemberProfileResponse>> GetProfile(
