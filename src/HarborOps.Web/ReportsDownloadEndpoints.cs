@@ -82,10 +82,6 @@ internal static class ReportsDownloadEndpoints
         return await BufferAsFileOrProblemAsync(response, cancellationToken);
     }
 
-    // Buffers the response body before returning it: the API already bounds every export
-    // to a few thousand short CSV rows (see *ReportValidator.MaxExportRows), so this stays
-    // small, and buffering sidesteps the HttpResponseMessage/stream disposal ordering
-    // hazard of streaming straight out of a `using`-scoped response.
     private static async Task<IResult> BufferAsFileOrProblemAsync(
         HttpResponseMessage response, CancellationToken cancellationToken)
     {

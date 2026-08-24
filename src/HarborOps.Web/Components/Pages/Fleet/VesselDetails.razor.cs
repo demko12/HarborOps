@@ -21,6 +21,12 @@ public partial class VesselDetails : IDisposable
     private bool isSubmitting;
     private FleetApiFailure? submitFailure;
     private string? submitSuccessMessage;
+    private FleetDirectoryWebModel? fleets;
+    private FleetAssignmentHistoryWebModel? assignmentHistory;
+    private Guid? selectedFleetId;
+    private bool isAssigning;
+    private FleetApiFailure? assignmentFailure;
+    private string? pendingAssignmentAction;
 
     [Parameter]
     public Guid VesselId { get; set; }
@@ -68,6 +74,7 @@ public partial class VesselDetails : IDisposable
             selectedStatus = details is not null && FleetStatusOptions.All.Contains(details.CurrentStatus)
                 ? details.CurrentStatus
                 : FleetStatusOptions.All[0];
+            await LoadAssignmentsAsync();
         }
         else if (result.Failure is { IsNotFound: true })
         {
@@ -80,6 +87,54 @@ public partial class VesselDetails : IDisposable
 
         isLoading = false;
     }
+
+    private async Task LoadAssignmentsAsync()
+    {
+        var directoryResult = await FleetApi.GetFleetsAsync(null, 1, 100, pageCancellation.Token);
+        if (directoryResult.IsSuccess) fleets = directoryResult.Value;
+        var historyResult = await FleetApi.GetFleetAssignmentHistoryAsync(VesselId, pageCancellation.Token);
+        if (historyResult.IsSuccess) assignmentHistory = historyResult.Value;
+    }
+
+    private async Task AssignFleetAsync()
+    {
+        if (isAssigning || selectedFleetId is null) return;
+        isAssigning = true; assignmentFailure = null;
+        try
+        {
+            var result = await FleetApi.AssignFleetAsync(VesselId, new AssignFleetWebRequest(selectedFleetId.Value), pageCancellation.Token);
+            if (result.IsSuccess) { selectedFleetId = null; await LoadDetailsAsync(); } else assignmentFailure = result.Failure;
+        }
+        finally { isAssigning = false; }
+    }
+
+    private async Task EndAssignmentAsync()
+    {
+        if (isAssigning) return;
+        isAssigning = true; assignmentFailure = null;
+        try
+        {
+            var result = await FleetApi.EndFleetAssignmentAsync(VesselId, pageCancellation.Token);
+            if (result.IsSuccess) await LoadDetailsAsync(); else assignmentFailure = result.Failure;
+        }
+        finally { isAssigning = false; }
+    }
+
+    private void BeginAssignConfirmation()
+    {
+        if (selectedFleetId is not null) pendingAssignmentAction = "assign";
+    }
+
+    private void BeginEndConfirmation() => pendingAssignmentAction = "end";
+
+    private async Task ConfirmAssignmentAsync()
+    {
+        var action = pendingAssignmentAction;
+        pendingAssignmentAction = null;
+        if (action == "end") await EndAssignmentAsync(); else if (action == "assign") await AssignFleetAsync();
+    }
+
+    private void CancelAssignmentConfirmation() => pendingAssignmentAction = null;
 
     private async Task SubmitStatusChangeAsync()
     {

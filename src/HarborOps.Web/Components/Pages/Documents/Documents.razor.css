@@ -762,6 +762,7 @@ html[data-theme="light"] .documents-form-grid ::deep select {
 }
 
 .documents-modal.documents-type-form-card,
+.documents-modal.documents-file-form-card,
 .documents-modal.documents-form-card {
     width: min(100%, 36rem);
     border-color: #c7d1df !important;
@@ -775,11 +776,16 @@ html[data-theme="light"] .documents-form-grid ::deep select {
     width: min(100%, 46rem);
 }
 
+.documents-modal.documents-file-form-card {
+    width: min(100%, 32rem);
+}
+
 html[data-theme="dark"] .documents-modal-backdrop {
     background: rgba(2, 6, 23, .48);
 }
 
 html[data-theme="dark"] .documents-modal.documents-type-form-card,
+html[data-theme="dark"] .documents-modal.documents-file-form-card,
 html[data-theme="dark"] .documents-modal.documents-form-card {
     border-color: rgba(148, 163, 184, .28) !important;
     background: #172033 !important;
@@ -811,18 +817,8 @@ html[data-theme="dark"] .documents-modal.documents-form-card {
         outline-offset: 2px;
     }
 
-.documents-file-panel-row td {
-    padding: 0;
-    border-bottom: 1px solid var(--border-subtle);
-}
-
-.documents-file-panel {
-    padding: 1rem 1.25rem;
-    background: var(--control-surface);
-    white-space: normal;
-}
-
 .documents-file-panel-loading {
+    margin: 0;
     color: var(--text-muted);
     font-size: .85rem;
 }
@@ -862,24 +858,10 @@ html[data-theme="dark"] .documents-modal.documents-form-card {
         overflow-wrap: anywhere;
     }
 
-.documents-file-actions {
-    display: flex;
-    align-items: center;
-    flex-wrap: wrap;
-    gap: .75rem;
-    margin-bottom: .75rem;
-}
-
 .documents-file-download-link {
-    padding: .4rem .9rem;
-    color: var(--apply-text);
-    border: 1px solid var(--apply-border);
-    border-radius: .5rem;
-    background: var(--apply-surface);
-    font-size: .85rem;
-    font-weight: 600;
+    display: inline-flex;
+    align-items: center;
     text-decoration: none;
-    transition: border-color .16s ease, background .16s ease, transform .16s ease;
 }
 
     .documents-file-download-link:hover {
@@ -888,55 +870,85 @@ html[data-theme="dark"] .documents-modal.documents-form-card {
         transform: translateY(-1px);
     }
 
-.documents-file-replace-button {
-    padding: .4rem .9rem;
-    color: var(--text-secondary);
-    border: 1px solid var(--border-medium);
-    border-radius: .5rem;
-    background: var(--control-surface);
-    font: inherit;
+.documents-file-replace-confirm {
+    margin: 0 0 .9rem;
+    padding: .75rem .9rem;
+    color: var(--text-primary);
+    border: 1px solid rgba(251, 191, 36, .3);
+    border-radius: .65rem;
+    background: rgba(120, 53, 15, .15);
     font-size: .85rem;
-    font-weight: 600;
-    cursor: pointer;
-    transition: color .15s ease, border-color .15s ease, background .15s ease;
 }
 
-    .documents-file-replace-button:hover {
-        color: var(--accent);
+html[data-theme="light"] .documents-file-replace-confirm {
+    border-color: rgba(180, 83, 9, .3);
+    background: rgba(180, 83, 9, .08);
+}
+
+.documents-file-upload-form {
+    display: flex;
+    flex-direction: column;
+    gap: .4rem;
+    margin-top: .25rem;
+}
+
+    .documents-file-upload-form label {
+        color: var(--text-muted);
+        font-size: .7rem;
+        font-weight: 700;
+        letter-spacing: .1em;
+        text-transform: uppercase;
+    }
+
+    .documents-file-upload-form input[type="file"] {
+        box-sizing: border-box;
+        width: 100%;
+        padding: .5rem .6rem;
+        color: var(--text-primary);
+        border: 1px solid var(--border-medium);
+        border-radius: .65rem;
+        background: var(--control-surface);
+        font: inherit;
+        font-size: .85rem;
+    }
+
+    .documents-file-upload-form input[type="file"]:focus-visible {
+        border-color: var(--accent);
+        outline: 0;
+        box-shadow: 0 0 0 .22rem var(--accent-bg);
+    }
+
+    .documents-file-upload-form input[type="file"]::file-selector-button {
+        height: 2.1rem;
+        margin-right: .75rem;
+        padding: 0 .85rem;
+        color: var(--text-secondary);
+        border: 1px solid var(--border-medium);
+        border-radius: .5rem;
+        background: var(--bg-surface);
+        font: inherit;
+        font-size: .82rem;
+        font-weight: 600;
+        cursor: pointer;
+        transition: color .15s ease, border-color .15s ease, background .15s ease;
+    }
+
+    .documents-file-upload-form input[type="file"]:not(:disabled)::file-selector-button:hover {
+        color: var(--text-primary);
         border-color: var(--accent-border);
         background: var(--accent-bg);
     }
 
-.documents-file-replace-confirm {
+    .documents-file-upload-form input[type="file"]:disabled {
+        cursor: not-allowed;
+        opacity: .55;
+    }
+
+.documents-file-progress-row {
     display: flex;
     align-items: center;
-    flex-wrap: wrap;
     gap: .6rem;
-    margin-bottom: .9rem;
-    padding: .75rem .9rem;
-    border: 1px solid rgba(251, 191, 36, .3);
-    border-radius: .65rem;
-    background: rgba(120, 53, 15, .15);
 }
-
-    .documents-file-replace-confirm p {
-        margin: 0;
-        flex: 1 1 16rem;
-        color: var(--text-primary);
-        font-size: .85rem;
-    }
-
-.documents-file-upload-form {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: .75rem;
-}
-
-    .documents-file-upload-form input[type="file"] {
-        color: var(--text-primary);
-        font-size: .85rem;
-    }
 
 /* <progress> is only themed via accent-color (broadly supported in current evergreen
    browsers for this element) rather than the ::-webkit-progress-bar / ::-webkit-progress-value
@@ -944,13 +956,16 @@ html[data-theme="dark"] .documents-modal.documents-form-card {
    more CSS (and per-engine) for a small, secondary indicator, so it's left at the browser's
    default track styling otherwise. */
 .documents-file-progress {
-    width: 12rem;
+    flex: 1 1 auto;
     height: .5rem;
     accent-color: var(--accent);
 }
 
 .documents-file-progress-label {
     color: var(--text-muted);
+    font-size: .78rem;
+    font-variant-numeric: tabular-nums;
+}
     font-size: .78rem;
     font-variant-numeric: tabular-nums;
 }
@@ -967,7 +982,7 @@ html[data-theme="dark"] .documents-modal.documents-form-card {
     .documents-form-grid ::deep select,
     .documents-pagination button,
     .documents-file-toggle,
-    .documents-file-replace-button {
+    .documents-file-upload-form input[type="file"]::file-selector-button {
         transition: none;
     }
 

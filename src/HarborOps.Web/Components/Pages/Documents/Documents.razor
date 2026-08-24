@@ -130,132 +130,11 @@
                                 <td class="documents-num col-days">@row.DaysUntilExpiry</td>
                                 <td class="col-file">
                                     <button type="button" class="documents-file-toggle"
-                                            @onclick="() => ToggleFilePanelAsync(row.DocumentId)">
-                                        @(expandedDocumentId == row.DocumentId ? "Hide" : "File")
+                                            @onclick="() => OpenFilePanelAsync(row.DocumentId)">
+                                        File
                                     </button>
                                 </td>
                             </tr>
-
-                            @if (expandedDocumentId == row.DocumentId)
-                            {
-                                <tr class="documents-file-panel-row" @key="@($"file-panel-{row.DocumentId}")">
-                                    <td colspan="9">
-                                        <div class="documents-file-panel">
-                                            @if (isLoadingFileDetails)
-                                            {
-                                                <span class="documents-file-panel-loading">Loading file details...</span>
-                                            }
-                                            else if (fileDetailsFailure is not null)
-                                            {
-                                                <div class="documents-type-inline-error" role="alert">@fileDetailsFailure.Message</div>
-                                            }
-                                            else if (fileDetails is not null)
-                                            {
-                                                @if (uploadSuccessMessage is not null)
-                                                {
-                                                    <div class="documents-type-success" role="status">@uploadSuccessMessage</div>
-                                                }
-
-                                                @if (!fileDetails.HasFile)
-                                                {
-                                                    <p class="documents-file-empty">No file attached.</p>
-                                                }
-                                                else
-                                                {
-                                                    <dl class="documents-file-meta">
-                                                        <div>
-                                                            <dt>File name</dt>
-                                                            <dd>@fileDetails.FileName</dd>
-                                                        </div>
-                                                        <div>
-                                                            <dt>Size</dt>
-                                                            <dd>@FormatBytes(fileDetails.SizeBytes)</dd>
-                                                        </div>
-                                                        <div>
-                                                            <dt>Content type</dt>
-                                                            <dd>@fileDetails.ContentType</dd>
-                                                        </div>
-                                                        <div>
-                                                            <dt>Uploaded</dt>
-                                                            <dd>@FormatUploadedAt(fileDetails.UploadedAtUtc)</dd>
-                                                        </div>
-                                                    </dl>
-
-                                                    <div class="documents-file-actions">
-                                                        @if (AuthorizationState.HasPermission("documents.read"))
-                                                        {
-                                                            <a class="documents-file-download-link"
-                                                               href="/documents/@row.DocumentId/file/download"
-                                                               target="_blank"
-                                                               rel="noopener">Download</a>
-                                                        }
-
-                                                        @if (AuthorizationState.HasPermission("documents.manage")
-                                                            && !isConfirmingReplace && !isReplaceFormOpen)
-                                                        {
-                                                            <button type="button" class="documents-file-replace-button"
-                                                                    @onclick="OpenReplaceConfirmation">
-                                                                Replace file
-                                                            </button>
-                                                        }
-                                                    </div>
-
-                                                    @if (isConfirmingReplace)
-                                                    {
-                                                        <div class="documents-file-replace-confirm">
-                                                            <p>Replace the current file? This cannot be undone.</p>
-                                                            <button type="button" class="documents-search-button"
-                                                                    @onclick="ConfirmReplace">
-                                                                Yes, choose new file
-                                                            </button>
-                                                            <button type="button" class="documents-file-replace-button"
-                                                                    @onclick="CancelReplaceConfirmation">
-                                                                Cancel
-                                                            </button>
-                                                        </div>
-                                                    }
-                                                }
-
-                                                @if ((!fileDetails.HasFile && AuthorizationState.HasPermission("documents.manage"))
-                                                    || (fileDetails.HasFile && isReplaceFormOpen))
-                                                {
-                                                    <div class="documents-file-upload-form">
-                                                        <InputFile OnChange="OnFileSelected" />
-
-                                                        @if (isUploading)
-                                                        {
-                                                            <progress class="documents-file-progress" max="100" value="@uploadProgress"></progress>
-                                                            <span class="documents-file-progress-label">@($"{uploadProgress:0}%")</span>
-                                                        }
-
-                                                        <button type="button" class="documents-search-button"
-                                                                disabled="@(isUploading || selectedUploadFile is null)"
-                                                                @onclick="() => SubmitFileAsync(row.DocumentId, fileDetails.HasFile)">
-                                                            @(isUploading ? "Uploading..." : fileDetails.HasFile ? "Upload replacement" : "Upload")
-                                                        </button>
-
-                                                        @if (IsUploadValidationFailure)
-                                                        {
-                                                            <ul class="documents-type-field-errors" role="alert">
-                                                                @foreach (var message in UploadValidationMessages)
-                                                                {
-                                                                    <li>@message</li>
-                                                                }
-                                                            </ul>
-                                                        }
-                                                        else if (uploadFailure is not null)
-                                                        {
-                                                            <div class="documents-type-inline-error" role="alert">
-                                                                @UploadFailureMessageText(fileDetails.HasFile)
-                                                            </div>
-                                                        }
-                                                    </div>
-                                                }
-                                            }
-                                        </div>
-                                    </td>
-                                </tr>
-                            }
                         }
                     </tbody>
                 </table>
@@ -271,6 +150,140 @@
             </div>
         }
     </section>
+
+
+    @if (expandedDocumentId is { } fileDocumentId)
+    {
+    <div class="documents-modal-backdrop" role="presentation" @onclick="CloseFilePanel">
+    <section class="documents-file-form-card documents-modal" role="dialog" aria-modal="true" aria-labelledby="documents-file-title" @onclick:stopPropagation="true">
+        <div class="documents-inline-form-header">
+            <h2 id="documents-file-title">Document file</h2>
+        </div>
+
+        @if (isLoadingFileDetails)
+        {
+            <p class="documents-file-panel-loading">Loading file details...</p>
+        }
+        else if (fileDetailsFailure is not null)
+        {
+            <div class="documents-type-inline-error" role="alert">@fileDetailsFailure.Message</div>
+        }
+        else if (fileDetails is not null)
+        {
+            @if (uploadSuccessMessage is not null)
+            {
+                <div class="documents-type-success" role="status">@uploadSuccessMessage</div>
+            }
+
+            @if (!fileDetails.HasFile)
+            {
+                <p class="documents-file-empty">No file attached.</p>
+            }
+            else
+            {
+                <dl class="documents-file-meta">
+                    <div>
+                        <dt>File name</dt>
+                        <dd>@fileDetails.FileName</dd>
+                    </div>
+                    <div>
+                        <dt>Size</dt>
+                        <dd>@FormatBytes(fileDetails.SizeBytes)</dd>
+                    </div>
+                    <div>
+                        <dt>Content type</dt>
+                        <dd>@fileDetails.ContentType</dd>
+                    </div>
+                    <div>
+                        <dt>Uploaded</dt>
+                        <dd>@FormatUploadedAt(fileDetails.UploadedAtUtc)</dd>
+                    </div>
+                </dl>
+            }
+
+            @if (isConfirmingReplace)
+            {
+                <p class="documents-file-replace-confirm">Replace the current file? This cannot be undone.</p>
+            }
+
+            @if (ShowUploadForm)
+            {
+                <div class="documents-file-upload-form">
+                    <label for="documents-file-input">@(fileDetails.HasFile ? "Replacement file" : "File")</label>
+                    <InputFile id="documents-file-input" OnChange="OnFileSelected" disabled="@isUploading" />
+
+                    @if (isUploading)
+                    {
+                        <div class="documents-file-progress-row">
+                            <progress class="documents-file-progress" max="100" value="@uploadProgress"></progress>
+                            <span class="documents-file-progress-label">@($"{uploadProgress:0}%")</span>
+                        </div>
+                    }
+
+                    @if (IsUploadValidationFailure)
+                    {
+                        <ul class="documents-type-field-errors" role="alert">
+                            @foreach (var message in UploadValidationMessages)
+                            {
+                                <li>@message</li>
+                            }
+                        </ul>
+                    }
+                    else if (uploadFailure is not null)
+                    {
+                        <div class="documents-type-inline-error" role="alert">
+                            @UploadFailureMessageText(fileDetails.HasFile)
+                        </div>
+                    }
+                </div>
+            }
+        }
+
+        <div class="documents-modal-actions">
+            @if (fileDetails is not null && !isConfirmingReplace && !ShowUploadForm)
+            {
+                @if (fileDetails.HasFile && AuthorizationState.HasPermission("documents.read"))
+                {
+                    <a class="documents-search-button documents-file-download-link"
+                       href="/documents/@fileDocumentId/file/download"
+                       target="_blank"
+                       rel="noopener">Download</a>
+                }
+
+                @if (fileDetails.HasFile && AuthorizationState.HasPermission("documents.manage"))
+                {
+                    <button type="button" class="documents-modal-cancel documents-file-replace-button" @onclick="OpenReplaceConfirmation">
+                        Replace file
+                    </button>
+                }
+            }
+
+            @if (isConfirmingReplace)
+            {
+                <button type="button" class="documents-search-button documents-file-replace-confirm-button" @onclick="ConfirmReplace">
+                    Yes, choose new file
+                </button>
+                <button type="button" class="documents-modal-cancel documents-file-replace-cancel-button" @onclick="CancelReplaceConfirmation">
+                    Cancel
+                </button>
+            }
+
+            @if (ShowUploadForm)
+            {
+                <button type="button" class="documents-search-button documents-file-upload-button"
+                        disabled="@(isUploading || selectedUploadFile is null)"
+                        @onclick="() => SubmitFileAsync(fileDocumentId, fileDetails!.HasFile)">
+                    @(isUploading ? "Uploading..." : fileDetails!.HasFile ? "Upload replacement" : "Upload")
+                </button>
+            }
+
+            <button type="button" class="documents-modal-cancel documents-file-close-button" @onclick="CloseFilePanel" disabled="@isUploading">
+                Close
+            </button>
+        </div>
+    </section>
+    </div>
+    }
 
     @if (isRegisterTypeFormOpen)
     {

@@ -3,7 +3,8 @@ namespace HarborOps.Modules.Voyages.Contracts;
 public sealed record PortListItem(
     Guid PortId,
     string Name,
-    string? City,
     string Country,
+    string? City,
     string? UnLocode,
-    string? ShipyardName);
+    decimal? Latitude,
+    decimal? Longitude);

@@ -41,7 +41,8 @@ internal sealed class SearchCrewMembersQuery(DbContext dbContext) : ISearchCrewM
 
         var totalCount = await rows.CountAsync(cancellationToken);
         var items = await rows
-            .OrderBy(row => row.Member.Name)
+            .OrderBy(row => row.Member.PassportExpiry)
+            .ThenBy(row => row.Member.Name)
             .ThenBy(row => row.Member.Id)
             .Skip((pageNumber - 1) * pageSize)
             .Take(pageSize)

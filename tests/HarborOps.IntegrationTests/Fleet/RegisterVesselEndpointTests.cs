@@ -125,7 +125,7 @@ public sealed class RegisterVesselEndpointTests : IntegrationTestBase
     [Fact]
     public async Task Post_with_authentication_but_no_manage_permission_returns_403()
     {
-        using var client = await _application.CreateAuthenticatedClientAsync();
+        using var client = await _application.CreateAuthenticatedClientAsync(roleNames: []);
         var request = CreateValidRequest("2223334", Guid.NewGuid());
 
         using var response = await client.PostAsJsonAsync(

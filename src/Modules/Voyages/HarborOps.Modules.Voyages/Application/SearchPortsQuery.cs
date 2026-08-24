@@ -4,7 +4,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace HarborOps.Modules.Voyages.Application;
 
-public sealed class SearchPortsQuery(DbContext dbContext)
+internal sealed class SearchPortsQuery(DbContext dbContext) : ISearchPortsQuery
 {
     public async Task<SearchPortsResponse> SearchAsync(
         SearchPortsRequest request,
@@ -32,9 +32,10 @@ public sealed class SearchPortsQuery(DbContext dbContext)
                 || (port.UnLocode != null && port.UnLocode.Contains(search)));
         }
 
-        if (request.ShipyardsOnly == true)
+        if (!string.IsNullOrWhiteSpace(request.Country))
         {
-            ports = ports.Where(port => port.ShipyardName != null);
+            var country = request.Country.Trim();
+            ports = ports.Where(port => port.Country == country);
         }
 
         var totalCount = await ports.CountAsync(cancellationToken);
@@ -47,10 +48,11 @@ public sealed class SearchPortsQuery(DbContext dbContext)
             .Select(port => new PortListItem(
                 port.Id,
                 port.Name,
-                port.City,
                 port.Country,
+                port.City,
                 port.UnLocode,
-                port.ShipyardName))
+                port.Latitude,
+                port.Longitude))
             .ToListAsync(cancellationToken);
 
         return new SearchPortsResponse(items, pageNumber, pageSize, totalCount);

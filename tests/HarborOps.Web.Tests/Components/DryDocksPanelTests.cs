@@ -28,15 +28,20 @@ public sealed class DryDocksPanelTests : BunitContext
     private Func<HttpRequestMessage, Task<HttpResponseMessage>> respondToMaintenance =
         _ => Json(HttpStatusCode.OK, DryDockPage(DryDock()));
 
+    private Func<HttpRequestMessage, Task<HttpResponseMessage>> respondToPortNames =
+        _ => Json(HttpStatusCode.OK, $$"""{"ports":[{"portId":"{{PortId}}","name":"Rotterdam","country":"Netherlands"}]}""");
+
     private Func<HttpRequestMessage, Task<HttpResponseMessage>> respondToPortLookup =
-        _ => Json(HttpStatusCode.OK, $$"""{"ports":[{"id":"{{PortId}}","name":"Rotterdam","country":"Netherlands"}]}""");
+        _ => Json(
+            HttpStatusCode.OK,
+            $$"""{"items":[{"portId":"{{PortId}}","name":"Rotterdam","country":"Netherlands","unLocode":"NLRTM"}]}""");
 
     private Func<HttpRequestMessage, Task<HttpResponseMessage>> respondToPortSearch =
         _ => Json(
             HttpStatusCode.OK,
             $$"""
-            {"items":[{"portId":"{{PortId}}","name":"Rotterdam","city":"Rotterdam",
-            "country":"Netherlands","unLocode":"NLRTM","shipyardName":"Damen"}],
+            {"items":[{"portId":"{{PortId}}","name":"Rotterdam","country":"Netherlands",
+            "city":"Rotterdam","unLocode":"NLRTM"}],
             "pageNumber":1,"pageSize":10,"totalCount":1}
             """);
 
@@ -56,7 +61,7 @@ public sealed class DryDocksPanelTests : BunitContext
     [Fact]
     public void A_port_name_falls_back_to_a_short_reference_when_the_lookup_returns_nothing()
     {
-        respondToPortLookup = _ => Json(HttpStatusCode.OK, """{"ports":[]}""");
+        respondToPortNames = _ => Json(HttpStatusCode.OK, """{"ports":[]}""");
 
         var panel = RenderPanel();
 
@@ -68,7 +73,7 @@ public sealed class DryDocksPanelTests : BunitContext
     [Fact]
     public void An_unreachable_port_directory_still_renders_the_board()
     {
-        respondToPortLookup = _ => throw new HttpRequestException("boom");
+        respondToPortNames = _ => throw new HttpRequestException("boom");
 
         var panel = RenderPanel();
 
@@ -277,7 +282,7 @@ public sealed class DryDocksPanelTests : BunitContext
     }
 
     [Fact]
-    public void The_port_picker_asks_only_for_ports_that_carry_a_shipyard()
+    public void The_port_picker_reads_the_voyages_port_lookup()
     {
         var panel = RenderPanel();
 
@@ -286,12 +291,11 @@ public sealed class DryDocksPanelTests : BunitContext
 
         panel.WaitForAssertion(() => Assert.Contains(
             voyagesUris,
-            uri => uri.AbsolutePath.EndsWith("/ports", StringComparison.Ordinal)
-                && uri.Query.Contains("shipyardsOnly=true", StringComparison.Ordinal)));
+            uri => uri.AbsolutePath.EndsWith("/ports/lookup", StringComparison.Ordinal)));
     }
 
     [Fact]
-    public void The_port_picker_shows_the_shipyard_beside_the_port()
+    public void The_port_picker_lists_the_port_it_looked_up()
     {
         var panel = RenderPanel();
 
@@ -303,7 +307,7 @@ public sealed class DryDocksPanelTests : BunitContext
             var option = panel.FindAll(".port-picker-option")[0];
 
             Assert.Contains("Rotterdam", option.TextContent, StringComparison.Ordinal);
-            Assert.Contains("Damen", option.TextContent, StringComparison.Ordinal);
+            Assert.Contains("NLRTM", option.TextContent, StringComparison.Ordinal);
         });
     }
 
@@ -495,7 +499,14 @@ public sealed class DryDocksPanelTests : BunitContext
         {
             voyagesUris.Add(request.RequestUri!);
 
-            return request.RequestUri!.AbsolutePath.EndsWith("/lookup", StringComparison.Ordinal)
+            var path = request.RequestUri!.AbsolutePath;
+
+            if (path.EndsWith("/names", StringComparison.Ordinal))
+            {
+                return respondToPortNames(request);
+            }
+
+            return path.EndsWith("/lookup", StringComparison.Ordinal)
                 ? respondToPortLookup(request)
                 : respondToPortSearch(request);
         }))

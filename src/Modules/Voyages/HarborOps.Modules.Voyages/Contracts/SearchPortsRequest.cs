@@ -4,7 +4,7 @@ public sealed record SearchPortsRequest
 {
     public string? Search { get; init; }
 
-    public bool? ShipyardsOnly { get; init; }
+    public string? Country { get; init; }
 
     public int? PageNumber { get; init; }
 

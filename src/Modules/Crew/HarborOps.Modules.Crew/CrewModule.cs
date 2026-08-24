@@ -27,6 +27,11 @@ public static class CrewModule
             .AddApplicationPart(Assembly);
         services.AddScoped<IGetCrewMemberProfileQuery, GetCrewMemberProfileQuery>();
         services.AddScoped<ISearchCrewPositionsQuery, SearchCrewPositionsQuery>();
+        services.AddScoped<IGetCrewRotationsQuery, GetCrewRotationsQuery>();
+        services.AddScoped<IGetCrewRotationQuery, GetCrewRotationQuery>();
+        services.AddScoped<PlanCrewRotationService>();
+        services.AddScoped<UpdateCrewRotationService>();
+        services.AddScoped<ExecuteCrewRotationService>();
         return services;
     }
 }

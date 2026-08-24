@@ -147,7 +147,6 @@ internal sealed class MaintenanceApiClient(HttpClient httpClient)
         }
         catch (JsonException)
         {
-            // Not every failure carries a problem details body; keep the page retryable.
         }
 
         return new MaintenanceApiFailure(

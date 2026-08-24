@@ -11,17 +11,17 @@ public sealed class PortApiClientTests
 
     private const string PageJson = """
         {"items":[{"portId":"40000000-0000-0000-0000-000000000004","name":"Rotterdam",
-        "city":"Rotterdam","country":"Netherlands","unLocode":"NLRTM","shipyardName":"Damen"}],
+        "country":"Netherlands","city":"Rotterdam","unLocode":"NLRTM"}],
         "pageNumber":1,"pageSize":25,"totalCount":1}
         """;
 
-    private const string LookupJson = """
-        {"ports":[{"id":"40000000-0000-0000-0000-000000000004","name":"Rotterdam","country":"Netherlands"},
-        {"id":"50000000-0000-0000-0000-000000000005","name":"Hamburg","country":"Germany"}]}
+    private const string NamesJson = """
+        {"ports":[{"portId":"40000000-0000-0000-0000-000000000004","name":"Rotterdam","country":"Netherlands"},
+        {"portId":"50000000-0000-0000-0000-000000000005","name":"Hamburg","country":"Germany"}]}
         """;
 
     [Fact]
-    public async Task SearchPortsAsync_sends_the_search_and_the_page()
+    public async Task GetPortsAsync_sends_the_search_and_the_page()
     {
         HttpRequestMessage? captured = null;
         using var httpClient = CreateHttpClient((request, _) =>
@@ -31,9 +31,9 @@ public sealed class PortApiClientTests
             return Json(HttpStatusCode.OK, PageJson);
         });
 
-        var result = await CreateClient(httpClient).SearchPortsAsync(
+        var result = await CreateClient(httpClient).GetPortsAsync(
             "Rotter",
-            shipyardsOnly: true,
+            null,
             pageNumber: 1,
             pageSize: 25,
             CancellationToken.None);
@@ -43,68 +43,29 @@ public sealed class PortApiClientTests
         Assert.True(result.IsSuccess);
         Assert.StartsWith("/api/voyages/ports?", path, StringComparison.Ordinal);
         Assert.Contains("search=Rotter", path, StringComparison.Ordinal);
-        Assert.Contains("shipyardsOnly=true", path, StringComparison.Ordinal);
         Assert.Contains("pageSize=25", path, StringComparison.Ordinal);
+        Assert.Equal(RotterdamId, Assert.Single(result.Value!.Items).PortId);
     }
 
     [Fact]
-    public async Task SearchPortsAsync_reads_every_display_field()
-    {
-        using var httpClient = CreateHttpClient((_, _) => Json(HttpStatusCode.OK, PageJson));
-
-        var result = await CreateClient(httpClient).SearchPortsAsync(
-            null,
-            shipyardsOnly: false,
-            pageNumber: 1,
-            pageSize: 25,
-            CancellationToken.None);
-
-        var item = Assert.Single(result.Value!.Items);
-
-        Assert.Equal(RotterdamId, item.PortId);
-        Assert.Equal("Rotterdam", item.Name);
-        Assert.Equal("Rotterdam", item.City);
-        Assert.Equal("Netherlands", item.Country);
-        Assert.Equal("NLRTM", item.UnLocode);
-        Assert.Equal("Damen", item.ShipyardName);
-    }
-
-    [Fact]
-    public async Task SearchPortsAsync_reports_a_forbidden_directory()
-    {
-        using var httpClient = CreateHttpClient((_, _) => Json(HttpStatusCode.Forbidden, "{}"));
-
-        var result = await CreateClient(httpClient).SearchPortsAsync(
-            null,
-            shipyardsOnly: false,
-            pageNumber: 1,
-            pageSize: 25,
-            CancellationToken.None);
-
-        Assert.False(result.IsSuccess);
-        Assert.Equal((int)HttpStatusCode.Forbidden, result.Failure!.StatusCode);
-    }
-
-    [Fact]
-    public async Task LookupPortNamesAsync_posts_the_identifiers_and_maps_the_names()
+    public async Task LookupPortNamesAsync_requests_the_identifiers_and_maps_the_names()
     {
         HttpRequestMessage? captured = null;
-        string? body = null;
-        using var httpClient = CreateHttpClient(async (request, token) =>
+        using var httpClient = CreateHttpClient((request, _) =>
         {
             captured = request;
-            body = await request.Content!.ReadAsStringAsync(token);
 
-            return await Json(HttpStatusCode.OK, LookupJson);
+            return Json(HttpStatusCode.OK, NamesJson);
         });
 
         var names = await CreateClient(httpClient).LookupPortNamesAsync(
             [RotterdamId, HamburgId],
             CancellationToken.None);
 
-        Assert.Equal(HttpMethod.Post, captured!.Method);
-        Assert.Equal("/api/voyages/ports/lookup", captured.RequestUri!.AbsolutePath);
-        Assert.Contains(RotterdamId.ToString(), body!, StringComparison.OrdinalIgnoreCase);
+        Assert.Equal(HttpMethod.Get, captured!.Method);
+        Assert.Equal("/api/voyages/ports/names", captured.RequestUri!.AbsolutePath);
+        Assert.Contains(RotterdamId.ToString(), captured.RequestUri.Query, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains(HamburgId.ToString(), captured.RequestUri.Query, StringComparison.OrdinalIgnoreCase);
         Assert.Equal("Rotterdam", names[RotterdamId]);
         Assert.Equal("Hamburg", names[HamburgId]);
     }
@@ -117,7 +78,7 @@ public sealed class PortApiClientTests
         {
             called = true;
 
-            return Json(HttpStatusCode.OK, LookupJson);
+            return Json(HttpStatusCode.OK, NamesJson);
         });
 
         var names = await CreateClient(httpClient).LookupPortNamesAsync([], CancellationToken.None);

@@ -62,9 +62,9 @@ public partial class DryDocksPanel : IDisposable
 
         try
         {
-            result = await VoyagesApi.SearchPortsAsync(
+            result = await VoyagesApi.GetPortsAsync(
                 null,
-                shipyardsOnly: true,
+                null,
                 pageNumber: 1,
                 pageSize: PortOptionLimit,
                 disposeCancellation.Token);

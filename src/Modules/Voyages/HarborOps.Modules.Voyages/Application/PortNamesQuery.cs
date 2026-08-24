@@ -4,18 +4,18 @@ using Microsoft.EntityFrameworkCore;
 
 namespace HarborOps.Modules.Voyages.Application;
 
-public sealed class PortLookupService(DbContext dbContext)
+internal sealed class PortNamesQuery(DbContext dbContext) : IPortNamesQuery
 {
-    public async Task<PortLookupResponse> LookupAsync(
-        PortLookupRequest request,
+    public async Task<PortNamesResponse> ResolveAsync(
+        PortNamesRequest request,
         CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(request);
 
-        var errors = PortLookupValidator.Validate(request);
+        var errors = PortNamesValidator.Validate(request);
         if (errors.Count > 0)
         {
-            throw new PortLookupValidationException(errors);
+            throw new PortNamesValidationException(errors);
         }
 
         var portIds = request.PortIds!.Distinct().ToArray();
@@ -23,9 +23,11 @@ public sealed class PortLookupService(DbContext dbContext)
         var ports = await dbContext.Set<Port>()
             .AsNoTracking()
             .Where(port => portIds.Contains(port.Id))
-            .Select(port => new PortLookupItem(port.Id, port.Name, port.Country))
+            .OrderBy(port => port.Name)
+            .ThenBy(port => port.Id)
+            .Select(port => new PortNameItem(port.Id, port.Name, port.Country))
             .ToListAsync(cancellationToken);
 
-        return new PortLookupResponse(ports);
+        return new PortNamesResponse(ports);
     }
 }

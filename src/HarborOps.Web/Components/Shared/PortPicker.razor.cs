@@ -1,5 +1,6 @@
 using HarborOps.Web.Api.Voyages;
 using Microsoft.AspNetCore.Components;
+using Microsoft.AspNetCore.Components.Web;
 
 namespace HarborOps.Web.Components.Shared;
 
@@ -11,7 +12,7 @@ public partial class PortPicker : IDisposable
     private const string DefaultPlaceholder = "Click to browse ports, or type to search";
 
     private string displayText = string.Empty;
-    private IReadOnlyList<PortListItemModel> results = [];
+    private IReadOnlyList<PortLookupItemModel> results = [];
     private bool isDropdownOpen;
     private bool isSearching;
     private bool searchFailed;
@@ -24,37 +25,37 @@ public partial class PortPicker : IDisposable
     public EventCallback<Guid?> ValueChanged { get; set; }
 
     [Parameter]
-    public string? Placeholder { get; set; }
-
-    [Parameter]
-    public bool Disabled { get; set; }
+    public EventCallback<string?> SelectedLabelChanged { get; set; }
 
     [Parameter]
     public string? InputId { get; set; }
 
     [Parameter]
-    public bool ShipyardsOnly { get; set; }
+    public string? Placeholder { get; set; }
 
-    private static string PortLocation(PortListItemModel port)
+    [Parameter]
+    public bool Disabled { get; set; }
+
+    public void Dispose()
     {
-        return string.IsNullOrWhiteSpace(port.City)
-            ? port.Country
-            : $"{port.City}, {port.Country}";
+        searchCts?.Cancel();
+        searchCts?.Dispose();
     }
 
     private async Task OnInputAsync(ChangeEventArgs e)
     {
-        ArgumentNullException.ThrowIfNull(e);
-
         displayText = e.Value?.ToString() ?? string.Empty;
 
         if (Value is not null)
         {
             Value = null;
             await ValueChanged.InvokeAsync(null);
+            await SelectedLabelChanged.InvokeAsync(null);
         }
 
-        CancelSearch();
+        searchCts?.Cancel();
+        searchCts?.Dispose();
+        searchCts = null;
 
         await StartSearchAsync(displayText, debounce: true);
     }
@@ -103,16 +104,11 @@ public partial class PortPicker : IDisposable
 
     private async Task SearchAsync(string search, CancellationTokenSource cts)
     {
-        VoyagesApiResult<PortPage> result;
+        VoyagesApiResult<PortLookupResult> result;
 
         try
         {
-            result = await VoyagesApi.SearchPortsAsync(
-                search,
-                ShipyardsOnly,
-                pageNumber: 1,
-                pageSize: MaxResults,
-                cts.Token);
+            result = await VoyagesApi.LookupPortsAsync(search, MaxResults, cts.Token);
         }
         catch (OperationCanceledException) when (cts.IsCancellationRequested)
         {
@@ -140,18 +136,21 @@ public partial class PortPicker : IDisposable
         StateHasChanged();
     }
 
-    private async Task SelectPortAsync(PortListItemModel port)
+    private async Task SelectPortAsync(PortLookupItemModel port)
     {
-        CancelSearch();
+        searchCts?.Cancel();
+        searchCts?.Dispose();
+        searchCts = null;
 
         Value = port.PortId;
-        displayText = port.Name;
+        displayText = Label(port);
         isDropdownOpen = false;
         isSearching = false;
         searchFailed = false;
         results = [];
 
         await ValueChanged.InvokeAsync(Value);
+        await SelectedLabelChanged.InvokeAsync(displayText);
     }
 
     private async Task OnBlurAsync()
@@ -161,16 +160,11 @@ public partial class PortPicker : IDisposable
         StateHasChanged();
     }
 
-    private void CancelSearch()
+    internal void Reset()
     {
         searchCts?.Cancel();
         searchCts?.Dispose();
         searchCts = null;
-    }
-
-    internal void Reset()
-    {
-        CancelSearch();
         displayText = string.Empty;
         results = [];
         isDropdownOpen = false;
@@ -178,8 +172,10 @@ public partial class PortPicker : IDisposable
         searchFailed = false;
     }
 
-    public void Dispose()
+    private static string Label(PortLookupItemModel port)
     {
-        CancelSearch();
+        return string.IsNullOrWhiteSpace(port.UnLocode)
+            ? port.Name
+            : $"{port.Name} ({port.UnLocode})";
     }
 }

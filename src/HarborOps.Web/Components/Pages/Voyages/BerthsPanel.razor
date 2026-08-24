@@ -1,0 +1,236 @@
+@using HarborOps.Web.Api.Voyages
+@implements IDisposable
+@inject VoyagesApiClient VoyagesApi
+@inject CurrentUserAuthorizationState AuthorizationState
+
+<div class="berths-panel" role="tabpanel" aria-label="Berth directory">
+    <div class="voyages-filters" role="search">
+        <div class="filter-field filter-field-wide">
+            <label for="berths-port">Port</label>
+            <select id="berths-port" value="@selectedPortId" @onchange="SelectPortAsync" disabled="@isPortLookupLoading">
+                <option value="">Select a port</option>
+                @foreach (var option in portOptions)
+                {
+                    <option value="@option.PortId">@MasterDataFormat.PortLabel(option.Name, option.UnLocode)</option>
+                }
+            </select>
+        </div>
+        <div class="filter-field">
+            <label for="berths-port-search">Find port</label>
+            <input id="berths-port-search" @bind="portSearch" @bind:event="oninput" @bind:after="SearchPortsAsync"
+                   placeholder="Port name or UN/LOCODE" />
+        </div>
+        <div class="filter-field">
+            <label for="berths-search">Berth name</label>
+            <input id="berths-search" @bind="searchFilter" @bind:event="oninput" @bind:after="ApplyFiltersAsync"
+                   placeholder="e.g. Berth 1" />
+        </div>
+        <div class="filter-field">
+            <label for="berths-status">Status</label>
+            <select id="berths-status" @bind="statusFilter" @bind:after="ApplyFiltersAsync">
+                <option value="">All statuses</option>
+                @foreach (var option in StatusOptions)
+                {
+                    <option value="@option">@option</option>
+                }
+            </select>
+        </div>
+        <div class="filter-field">
+            <label for="berths-page-size">Per page</label>
+            <select id="berths-page-size" @bind="pageSize" @bind:after="ApplyFiltersAsync">
+                <option value="25">25</option>
+                <option value="50">50</option>
+                <option value="100">100</option>
+            </select>
+        </div>
+        <button class="voyages-reset" type="button" @onclick="ClearFiltersAsync" disabled="@(isLoading || selectedPortId is null)">Reset</button>
+    </div>
+
+    @if (registerSuccessMessage is not null)
+    {
+        <div class="voyages-action-success" role="status">@registerSuccessMessage</div>
+    }
+
+    <section class="voyages-card" aria-labelledby="berths-list-title">
+        <div class="voyages-card-heading">
+            <div>
+                <h2 id="berths-list-title">Berth directory</h2>
+                <p>@totalCount berths found</p>
+            </div>
+            <div class="voyages-card-tools">
+                @if (CanManage && selectedPortId is not null)
+                {
+                    <button class="voyages-schedule-button" type="button" @onclick="OpenRegisterForm">
+                        <span aria-hidden="true">+</span> Register berth
+                    </button>
+                }
+                <span class="voyages-card-icon" aria-hidden="true"><span class="bi bi-bounding-box"></span></span>
+            </div>
+        </div>
+
+        @if (portLookupFailure is not null)
+        {
+            <ApiErrorState Title="@portLookupFailure.Title" Message="@portLookupFailure.Message"
+                           RetryLabel="Retry" OnRetry="SearchPortsAsync" />
+        }
+        else if (isPortLookupLoading)
+        {
+            <LoadingState Message="Loading ports..." />
+        }
+        else if (selectedPortId is null)
+        {
+            <EmptyState Title="Select a port"
+                        Message="Berths are managed per port. Pick a port to see and register its berths." />
+        }
+        else if (isLoading)
+        {
+            <LoadingState Message="Loading berths..." />
+        }
+        else if (failure is not null)
+        {
+            <ApiErrorState Title="@failure.Title" Message="@failure.Message" RetryLabel="Retry" OnRetry="RetryAsync" />
+        }
+        else if (rows.Count == 0)
+        {
+            <EmptyState Title="No berths match your filters"
+                        Message="Clear the search and status filters, or register the first berth for this port." />
+        }
+        else
+        {
+            <div class="voyages-table-scroll">
+                <table class="voyages-table berths-table">
+                    <caption class="visually-hidden">Berths of the selected port, ordered by name</caption>
+                    <thead>
+                        <tr>
+                            <th scope="col">Berth</th>
+                            <th scope="col">Length</th>
+                            <th scope="col">Maximum draft</th>
+                            <th scope="col">Status</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var row in rows)
+                        {
+                            <tr @key="row.BerthId">
+                                <td><span class="master-data-title">@row.Name</span></td>
+                                <td class="master-data-number">@MasterDataFormat.Decimal(row.Length)</td>
+                                <td class="master-data-number">@MasterDataFormat.Decimal(row.MaxDraft)</td>
+                                <td><span class="berth-status @StatusModifier(row.Status)">@row.Status</span></td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="voyages-pagination">
+                <span>Showing @FirstRowNumber&ndash;@LastRowNumber of @totalCount berths</span>
+                <div>
+                    <button type="button" @onclick="PreviousPageAsync" disabled="@(pageNumber <= 1)">Previous</button>
+                    <span class="voyages-page-indicator">Page @pageNumber of @TotalPages</span>
+                    <button type="button" @onclick="NextPageAsync" disabled="@(pageNumber >= TotalPages)">Next</button>
+                </div>
+            </div>
+        }
+    </section>
+
+    @if (isRegisterFormOpen)
+    {
+        <div class="voyages-modal-backdrop" role="presentation" @onclick="CloseRegisterForm">
+            <section class="voyages-form-card voyages-modal"
+                     role="dialog"
+                     aria-modal="true"
+                     aria-labelledby="berth-register-title"
+                     @onclick:stopPropagation="true">
+                <div class="voyages-modal-header">
+                    <h2 id="berth-register-title">Register berth</h2>
+                    <button type="button"
+                            class="voyages-modal-close"
+                            aria-label="Close register berth dialog"
+                            disabled="@isRegistering"
+                            @onclick="CloseRegisterForm">&times;</button>
+                </div>
+
+                <form class="voyages-form berths-form" @onsubmit="SubmitRegisterAsync" @onsubmit:preventDefault="true">
+                    @if (registerFailure is { IsValidation: true, Errors.Count: > 0 })
+                    {
+                        <div class="voyages-validation" role="alert">
+                            <strong>Please correct the following before saving</strong>
+                            <ul>
+                                @foreach (var entry in registerFailure.Errors)
+                                {
+                                    @foreach (var message in entry.Value)
+                                    {
+                                        <li>@message</li>
+                                    }
+                                }
+                            </ul>
+                        </div>
+                    }
+                    else if (registerFailure is not null)
+                    {
+                        <div class="voyages-action-failure" role="alert">
+                            <strong>@registerFailure.Title</strong>
+                            @if (registerFailure.Errors.Count > 0)
+                            {
+                                <ul>
+                                    @foreach (var entry in registerFailure.Errors)
+                                    {
+                                        @foreach (var message in entry.Value)
+                                        {
+                                            <li>@message</li>
+                                        }
+                                    }
+                                </ul>
+                            }
+                            else
+                            {
+                                <p>@registerFailure.Message</p>
+                            }
+                        </div>
+                    }
+
+                    <div class="voyages-form-grid">
+                        <div class="filter-field filter-field-wide">
+                            <label for="berth-port">Port <span class="required-marker" aria-hidden="true">*</span></label>
+                            <select id="berth-port" @bind="registerModel.PortId">
+                                @foreach (var option in portOptions)
+                                {
+                                    <option value="@option.PortId">@MasterDataFormat.PortLabel(option.Name, option.UnLocode)</option>
+                                }
+                            </select>
+                        </div>
+                        <div class="filter-field">
+                            <label for="berth-name">Name <span class="required-marker" aria-hidden="true">*</span></label>
+                            <input id="berth-name" @bind="registerModel.Name" maxlength="100" />
+                        </div>
+                        <div class="filter-field">
+                            <label for="berth-status">Status <span class="required-marker" aria-hidden="true">*</span></label>
+                            <select id="berth-status" @bind="registerModel.Status">
+                                <option value="">Select a status</option>
+                                @foreach (var option in StatusOptions)
+                                {
+                                    <option value="@option">@option</option>
+                                }
+                            </select>
+                        </div>
+                        <div class="filter-field">
+                            <label for="berth-length">Length <span class="required-marker" aria-hidden="true">*</span></label>
+                            <input id="berth-length" type="number" step="0.01" @bind="registerModel.Length" />
+                        </div>
+                        <div class="filter-field">
+                            <label for="berth-max-draft">Maximum draft <span class="required-marker" aria-hidden="true">*</span></label>
+                            <input id="berth-max-draft" type="number" step="0.01" @bind="registerModel.MaxDraft" />
+                        </div>
+                    </div>
+
+                    <div class="voyages-form-actions">
+                        <button type="submit" class="voyages-button berths-submit" disabled="@isRegistering">
+                            @(isRegistering ? "Registering..." : "Register berth")
+                        </button>
+                        <button type="button" class="voyages-reset" @onclick="CloseRegisterForm" disabled="@isRegistering">Cancel</button>
+                    </div>
+                </form>
+            </section>
+        </div>
+    }
+</div>

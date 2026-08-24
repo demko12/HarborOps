@@ -23,7 +23,7 @@ internal static class TestUserSetup
 
     internal static Task<HttpClient> CreateAuthenticatedClientAsync(WebApplicationFactory<Program> application)
     {
-        return CreateAuthenticatedClientAsync(application, roleNames: []);
+        return CreateAuthenticatedClientWithPermissionsAsync(application, Permissions.Documents.Manage);
     }
 
     internal static async Task<HttpClient> CreateAuthenticatedClientAsync(

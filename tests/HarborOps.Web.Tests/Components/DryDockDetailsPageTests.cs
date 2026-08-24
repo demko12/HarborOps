@@ -26,7 +26,7 @@ public sealed class DryDockDetailsPageTests : BunitContext
         _ => Json(HttpStatusCode.OK, Details());
 
     private Func<HttpRequestMessage, Task<HttpResponseMessage>> respondToPortLookup =
-        _ => Json(HttpStatusCode.OK, $$"""{"ports":[{"id":"{{PortId}}","name":"Rotterdam","country":"Netherlands"}]}""");
+        _ => Json(HttpStatusCode.OK, $$"""{"ports":[{"portId":"{{PortId}}","name":"Rotterdam","country":"Netherlands"}]}""");
 
     [Fact]
     public void The_details_are_requested_for_the_dry_dock_in_the_route()

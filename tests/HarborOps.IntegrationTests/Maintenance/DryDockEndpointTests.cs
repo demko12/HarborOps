@@ -299,7 +299,7 @@ public sealed class DryDockEndpointTests : IntegrationTestBase
     [Fact]
     public async Task Reading_is_forbidden_without_a_maintenance_permission()
     {
-        using var client = await _application.CreateAuthenticatedClientAsync();
+        using var client = await _application.CreateAuthenticatedClientAsync(roleNames: []);
         var dryDockId = Guid.NewGuid();
 
         using var list = await client.GetAsync(DryDocksUri, CancellationToken.None);

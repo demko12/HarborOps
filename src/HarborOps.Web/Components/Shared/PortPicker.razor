@@ -37,16 +37,10 @@
             {
                 @foreach (var port in results)
                 {
-                    <li role="option">
+                    <li role="option" @key="port.PortId">
                         <button class="port-picker-option" type="button" @onclick="() => SelectPortAsync(port)">
                             <strong>@port.Name</strong>
-                            <span class="port-picker-detail">
-                                @PortLocation(port)
-                                @if (!string.IsNullOrWhiteSpace(port.ShipyardName))
-                                {
-                                    <span class="port-picker-shipyard">@port.ShipyardName</span>
-                                }
-                            </span>
+                            <span class="port-picker-meta">@port.Country@(string.IsNullOrWhiteSpace(port.UnLocode) ? null : $" · {port.UnLocode}")</span>
                         </button>
                     </li>
                 }

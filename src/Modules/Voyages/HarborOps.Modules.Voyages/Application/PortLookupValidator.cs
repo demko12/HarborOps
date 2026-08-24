@@ -1,34 +1,36 @@
 using HarborOps.Modules.Voyages.Contracts;
+using HarborOps.Modules.Voyages.Domain;
 
 namespace HarborOps.Modules.Voyages.Application;
 
 internal static class PortLookupValidator
 {
-    internal const string PortIdsField = "portIds";
-    internal const int MaxPortIds = 100;
+    internal const string SearchField = "search";
+    internal const string TakeField = "take";
+
+    internal const int DefaultTake = 20;
+    internal const int MaxTake = 50;
+    internal const int MaxSearchLength = Port.NameMaxLength;
 
     internal static IReadOnlyDictionary<string, string[]> Validate(PortLookupRequest request)
     {
         var errors = new Dictionary<string, string[]>(StringComparer.Ordinal);
-        var portIds = request.PortIds;
 
-        if (portIds is null || portIds.Count == 0)
+        if (request.Search is { } search && search.Trim().Length > MaxSearchLength)
         {
-            errors[PortIdsField] = ["At least one port ID is required."];
-
-            return errors;
+            errors[SearchField] = [$"Search must not exceed {MaxSearchLength} characters."];
         }
 
-        if (portIds.Any(portId => portId == Guid.Empty))
+        if (request.Take is { } take)
         {
-            errors[PortIdsField] = ["Port IDs cannot be empty GUIDs."];
-
-            return errors;
-        }
-
-        if (portIds.Distinct().Count() > MaxPortIds)
-        {
-            errors[PortIdsField] = [$"A maximum of {MaxPortIds} port ids is allowed."];
+            if (take < 1)
+            {
+                errors[TakeField] = ["Take must be 1 or greater."];
+            }
+            else if (take > MaxTake)
+            {
+                errors[TakeField] = [$"Take must not exceed {MaxTake}."];
+            }
         }
 
         return errors;
