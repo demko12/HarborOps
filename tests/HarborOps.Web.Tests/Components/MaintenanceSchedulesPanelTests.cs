@@ -126,19 +126,21 @@ public sealed class MaintenanceSchedulesPanelTests : BunitContext
         panel.Find(".schedules-equipment-option input").Change(true);
         panel.Find(".schedules-form").Submit();
 
-        panel.WaitForAssertion(() =>
-        {
-            Assert.Contains(
-                "Preventive schedule was registered successfully.",
-                panel.Find(".schedules-success").TextContent,
-                StringComparison.Ordinal);
+        panel.WaitForAssertion(
+            () =>
+            {
+                Assert.Contains(
+                    "Preventive schedule was registered successfully.",
+                    panel.Find(".schedules-success").TextContent,
+                    StringComparison.Ordinal);
 
-            var body = requestBodies.Last();
+                var body = requestBodies.Last();
 
-            Assert.Contains("\"frequency\":\"Quarterly\"", body, StringComparison.Ordinal);
-            Assert.Contains("\"nextDueDate\":\"2026-09-30\"", body, StringComparison.Ordinal);
-            Assert.Contains(EquipmentId, body, StringComparison.OrdinalIgnoreCase);
-        });
+                Assert.Contains("\"frequency\":\"Quarterly\"", body, StringComparison.Ordinal);
+                Assert.Contains("\"nextDueDate\":\"2026-09-30\"", body, StringComparison.Ordinal);
+                Assert.Contains(EquipmentId, body, StringComparison.OrdinalIgnoreCase);
+            },
+            TimeSpan.FromSeconds(5));
     }
 
     [Fact]

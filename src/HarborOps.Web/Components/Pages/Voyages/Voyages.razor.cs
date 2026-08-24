@@ -14,6 +14,10 @@ public partial class Voyages
     internal const int DefaultWindowDays = 30;
     internal const int ImminentDepartureHours = 24;
 
+    internal const string RoutesTab = "routes";
+
+    internal const string RoutesTabUrl = $"/voyages?tab={RoutesTab}";
+
     internal const string ForbiddenTitle = "You do not have access to voyages";
 
     internal const string ForbiddenMessage =
@@ -33,6 +37,11 @@ public partial class Voyages
 
     private readonly CancellationTokenSource disposeCancellation = new();
     private int loadVersion;
+
+    private VoyagesTab activeTab = VoyagesTab.Board;
+
+    [SupplyParameterFromQuery(Name = "tab")]
+    private string? RequestedTab { get; set; }
 
     private DateOnly fromDate = DefaultFrom();
     private DateOnly toDate = DefaultTo();
@@ -72,7 +81,22 @@ public partial class Voyages
 
     protected override Task OnInitializedAsync()
     {
+        if (string.Equals(RequestedTab, RoutesTab, StringComparison.OrdinalIgnoreCase))
+        {
+            activeTab = VoyagesTab.Routes;
+        }
+
         return LoadAsync();
+    }
+
+    private void SelectTab(VoyagesTab tab)
+    {
+        activeTab = tab;
+    }
+
+    private string AriaSelected(VoyagesTab tab)
+    {
+        return activeTab == tab ? "true" : "false";
     }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)

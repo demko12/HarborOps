@@ -167,6 +167,7 @@ html, body {
     .cargo-filters,
     .cargo-summary-card,
     .compliance-card,
+    .compliance-selector,
     .crew-card,
     .crew-filters,
     .crew-insight-card,
@@ -191,7 +192,9 @@ html, body {
     .maintenance-summary-card,
     .not-found-card,
     .profile-card,
+    .register-route-card,
     .reports-card,
+    .reports-filters,
     .schedule-card,
     .settings-card,
     .survey-card,
@@ -227,6 +230,7 @@ html[data-theme="dark"] .page:not(.login-layout) :is(
     .cargo-filters,
     .cargo-summary-card,
     .compliance-card,
+    .compliance-selector,
     .crew-card,
     .crew-filters,
     .crew-insight-card,
@@ -251,7 +255,9 @@ html[data-theme="dark"] .page:not(.login-layout) :is(
     .maintenance-summary-card,
     .not-found-card,
     .profile-card,
+    .register-route-card,
     .reports-card,
+    .reports-filters,
     .schedule-card,
     .settings-card,
     .survey-card,
@@ -289,7 +295,8 @@ html[data-theme="dark"] .page:not(.login-layout) :is(
     .cargo-modal,
     .crew-assignment-modal,
     .logout-modal,
-    .survey-registration-modal),
+    .survey-registration-modal,
+    .voyages-modal),
 .page:not(.login-layout) .maintenance-modal-backdrop .maintenance-form-card {
     border-color: #c7d1df !important;
     background: #f8fafc !important;
@@ -309,7 +316,8 @@ html[data-theme="dark"] .page:not(.login-layout) :is(
     .cargo-modal,
     .crew-assignment-modal,
     .logout-modal,
-    .survey-registration-modal),
+    .survey-registration-modal,
+    .voyages-modal),
 html[data-theme="dark"] .page:not(.login-layout) .maintenance-modal-backdrop .maintenance-form-card {
     border-color: rgba(148, 163, 184, .28) !important;
     background: #172033 !important;
@@ -327,7 +335,8 @@ html[data-theme="dark"] .page:not(.login-layout) .maintenance-modal-backdrop .ma
     .cargo-modal,
     .compliance-registration-modal,
     .crew-assignment-modal,
-    .survey-registration-modal) :is(input:not([type="checkbox"]):not([type="radio"]), select, textarea):not(.vessel-picker-input):not(.document-picker-input):not(.survey-vessel-search),
+    .survey-registration-modal,
+    .voyages-modal) :is(input:not([type="checkbox"]):not([type="radio"]), select, textarea):not(.vessel-picker-input):not(.document-picker-input):not(.survey-vessel-search),
 .page:not(.login-layout) .maintenance-modal-backdrop :is(input:not([type="checkbox"]):not([type="radio"]), select, textarea):not(.vessel-picker-input):not(.document-picker-input):not(.survey-vessel-search) {
     box-sizing: border-box;
     width: 100%;
@@ -349,7 +358,8 @@ html[data-theme="dark"] .page:not(.login-layout) :is(
     .cargo-modal,
     .compliance-registration-modal,
     .crew-assignment-modal,
-    .survey-registration-modal) :is(input:not([type="checkbox"]):not([type="radio"]), select, textarea):not(.vessel-picker-input):not(.document-picker-input):not(.survey-vessel-search),
+    .survey-registration-modal,
+    .voyages-modal) :is(input:not([type="checkbox"]):not([type="radio"]), select, textarea):not(.vessel-picker-input):not(.document-picker-input):not(.survey-vessel-search),
 html[data-theme="dark"] .page:not(.login-layout) .maintenance-modal-backdrop :is(input:not([type="checkbox"]):not([type="radio"]), select, textarea):not(.vessel-picker-input):not(.document-picker-input):not(.survey-vessel-search) {
     color-scheme: dark;
 }
@@ -359,7 +369,8 @@ html[data-theme="dark"] .page:not(.login-layout) .maintenance-modal-backdrop :is
     .cargo-modal,
     .compliance-registration-modal,
     .crew-assignment-modal,
-    .survey-registration-modal) :is(input, select, textarea):focus,
+    .survey-registration-modal,
+    .voyages-modal) :is(input, select, textarea):focus,
 .page:not(.login-layout) .maintenance-modal-backdrop :is(input, select, textarea):focus {
     border-color: var(--accent);
     box-shadow: 0 0 0 .22rem var(--accent-bg);
@@ -370,7 +381,8 @@ html[data-theme="dark"] .page:not(.login-layout) .maintenance-modal-backdrop :is
     .cargo-modal,
     .compliance-registration-modal,
     .crew-assignment-modal,
-    .survey-registration-modal) textarea,
+    .survey-registration-modal,
+    .voyages-modal) textarea,
 .page:not(.login-layout) .maintenance-modal-backdrop textarea {
     min-height: 7.5rem;
     padding: .75rem .85rem;
@@ -383,7 +395,8 @@ html[data-theme="dark"] .page:not(.login-layout) .maintenance-modal-backdrop :is
     .cargo-modal,
     .compliance-registration-modal,
     .crew-assignment-modal,
-    .survey-registration-modal) label,
+    .survey-registration-modal,
+    .voyages-modal) label,
 .page:not(.login-layout) .maintenance-modal-backdrop label {
     color: var(--text-muted);
     font-size: .7rem;
@@ -409,7 +422,8 @@ html[data-theme="dark"] .page:not(.login-layout) .maintenance-modal-backdrop :is
     .cargo-modal,
     .compliance-registration-modal,
     .crew-assignment-modal,
-    .survey-registration-modal) :is(input[type="checkbox"], input[type="radio"]),
+    .survey-registration-modal,
+    .voyages-modal) :is(input[type="checkbox"], input[type="radio"]),
 .page:not(.login-layout) .maintenance-modal-backdrop :is(input[type="checkbox"], input[type="radio"]) {
     width: 1rem;
     height: 1rem;
@@ -424,7 +438,8 @@ html[data-theme="dark"] .page:not(.login-layout) .maintenance-modal-backdrop :is
     .cargo-modal,
     .compliance-registration-modal,
     .crew-assignment-modal,
-    .survey-registration-modal) label:has(input[type="checkbox"], input[type="radio"]),
+    .survey-registration-modal,
+    .voyages-modal) label:has(input[type="checkbox"], input[type="radio"]),
 .page:not(.login-layout) .maintenance-modal-backdrop label:has(input[type="checkbox"], input[type="radio"]) {
     display: inline-flex;
     align-items: center;
