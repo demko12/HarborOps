@@ -4,8 +4,7 @@
 .crew-header > div > p:last-child, .crew-card-heading p { margin: .4rem 0 0; color: var(--text-secondary); }
 .crew-eyebrow { margin: 0 0 .4rem; color: var(--accent); font-size: .72rem; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; }
 .crew-header-actions { display: flex; align-items: center; gap: .6rem; }
-.crew-rotations-link { display: inline-flex; align-items: center; gap: .45rem; height: 2.55rem; margin-top: 1rem; padding: 0 .95rem; color: var(--apply-text); border: 1px solid var(--apply-border); border-radius: var(--radius-control); background: var(--apply-surface); font-size: .86rem; font-weight: 600; text-decoration: none; white-space: nowrap; transition: border-color .16s ease, background .16s ease, transform .16s ease; }
-.crew-rotations-link:hover { color: var(--apply-text); border-color: var(--apply-border-hover); background: var(--apply-surface-hover); transform: translateY(-1px); }
+.crew-rotations-link { gap: .45rem; margin-top: 1rem; }
 
 .crew-card { min-width: 0; padding: 1.35rem; border: 1px solid var(--border-medium); border-radius: var(--radius-card); background: linear-gradient(145deg, var(--bg-surface-strong), var(--bg-surface)); box-shadow: 0 12px 35px rgba(0,0,0,.08); }
 .crew-card-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem; margin-bottom: 1.15rem; }

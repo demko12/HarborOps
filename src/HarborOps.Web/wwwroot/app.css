@@ -730,7 +730,7 @@ html[data-theme="light"] .cargo-track.done { color: #0f766e; }
     color: var(--accent);
     border-color: var(--accent);
     background: var(--accent-bg);
-    box-shadow: 0 0 0 .18rem var(--accent-bg);
+   
 }
 
 .workspace-filter-reset {
