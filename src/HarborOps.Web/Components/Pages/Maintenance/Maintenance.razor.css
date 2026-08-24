@@ -1080,9 +1080,7 @@ html[data-theme="light"] .maintenance-modal-backdrop .maintenance-form-card {
 }
 
 .maintenance-page ::deep .filter-field > input,
-.maintenance-page ::deep .filter-field > select {
-.maintenance-page ::deep .filter-field input,
-.maintenance-page ::deep .filter-field select,
+.maintenance-page ::deep .filter-field > select,
 .maintenance-page ::deep .procurement-line-table input,
 .maintenance-page ::deep .procurement-line-table select {
     min-width: 9.5rem;
@@ -1098,8 +1096,7 @@ html[data-theme="light"] .maintenance-modal-backdrop .maintenance-form-card {
     transition: border-color .16s ease, box-shadow .16s ease, background-color .16s ease;
 }
 
-.maintenance-page ::deep .filter-field > select {
-.maintenance-page ::deep .filter-field select,
+.maintenance-page ::deep .filter-field > select,
 .maintenance-page ::deep .procurement-line-table select {
     appearance: none;
     padding-right: 2.5rem;
@@ -1590,18 +1587,14 @@ html[data-theme="light"] .maintenance-page ::deep .maintenance-form-card {
 }
 
 .maintenance-page ::deep .filter-field > input:hover,
-.maintenance-page ::deep .filter-field > select:hover {
-.maintenance-page ::deep .filter-field input:hover,
-.maintenance-page ::deep .filter-field select:hover,
+.maintenance-page ::deep .filter-field > select:hover,
 .maintenance-page ::deep .procurement-line-table input:hover,
 .maintenance-page ::deep .procurement-line-table select:hover {
     border-color: var(--border-strong-hover);
 }
 
 .maintenance-page ::deep .filter-field > input:focus,
-.maintenance-page ::deep .filter-field > select:focus {
-.maintenance-page ::deep .filter-field input:focus,
-.maintenance-page ::deep .filter-field select:focus,
+.maintenance-page ::deep .filter-field > select:focus,
 .maintenance-page ::deep .procurement-line-table input:focus,
 .maintenance-page ::deep .procurement-line-table select:focus {
     border-color: var(--accent);
@@ -1609,8 +1602,7 @@ html[data-theme="light"] .maintenance-page ::deep .maintenance-form-card {
     box-shadow: 0 0 0 .22rem var(--accent-bg);
 }
 
-.maintenance-page ::deep .filter-field > select option {
-.maintenance-page ::deep .filter-field select option,
+.maintenance-page ::deep .filter-field > select option,
 .maintenance-page ::deep .procurement-line-table select option {
     color: var(--text-primary);
     background-color: var(--control-popup);
@@ -2271,4 +2263,52 @@ html[data-theme="light"] .maintenance-page ::deep .dry-dock-timing.overdue {
     padding-right: 1.9rem;
     background-position: right .5rem center;
     background-size: .9rem;
+}
+
+/* The page carries a light theme, so the procurement badges and the line editor
+   need the same treatment the work order and dry dock pieces already get. */
+
+html[data-theme="light"] .maintenance-page ::deep .procurement-status-draft {
+    color: #475569;
+    background: rgba(71, 85, 105, .12);
+}
+
+html[data-theme="light"] .maintenance-page ::deep .procurement-status-ordered {
+    color: #1d4ed8;
+    background: rgba(29, 78, 216, .12);
+}
+
+html[data-theme="light"] .maintenance-page ::deep .procurement-status-received {
+    color: #0f766e;
+    background: rgba(15, 118, 110, .12);
+}
+
+html[data-theme="light"] .maintenance-page ::deep .procurement-status-cancelled {
+    color: #b91c1c;
+    background: rgba(185, 28, 28, .1);
+}
+
+html[data-theme="light"] .maintenance-page ::deep .procurement-delivery-overdue {
+    color: #b91c1c;
+    background: rgba(185, 28, 28, .1);
+}
+
+html[data-theme="light"] .maintenance-page ::deep .procurement-delivery-none {
+    color: #475569;
+    background: rgba(71, 85, 105, .12);
+}
+
+html[data-theme="light"] .maintenance-page ::deep .procurement-duplicate-row {
+    background: rgba(185, 28, 28, .08);
+}
+
+html[data-theme="light"] .maintenance-page ::deep .procurement-transition-danger {
+    color: #b91c1c;
+    border-color: rgba(185, 28, 28, .35);
+    background: rgba(185, 28, 28, .1);
+}
+
+html[data-theme="light"] .maintenance-page ::deep .procurement-line-table input,
+html[data-theme="light"] .maintenance-page ::deep .procurement-line-table select {
+    color-scheme: light;
 }

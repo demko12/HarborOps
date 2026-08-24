@@ -43,12 +43,12 @@
 				@onclick="() => SelectTab(MaintenanceTab.DryDocks)">Dry docks</button>
 		<button type="button"
 				role="tab"
-				class="maintenance-tab @(activeTab == MaintenanceTab.PurchaseOrders ? "active" : null)"
+				class="workspace-tab @(activeTab == MaintenanceTab.PurchaseOrders ? "active" : null)"
 				aria-selected="@(activeTab == MaintenanceTab.PurchaseOrders)"
 				@onclick="() => SelectTab(MaintenanceTab.PurchaseOrders)">Purchase orders</button>
 		<button type="button"
 				role="tab"
-				class="maintenance-tab @(activeTab == MaintenanceTab.Suppliers ? "active" : null)"
+				class="workspace-tab @(activeTab == MaintenanceTab.Suppliers ? "active" : null)"
 				aria-selected="@(activeTab == MaintenanceTab.Suppliers)"
 				@onclick="() => SelectTab(MaintenanceTab.Suppliers)">Suppliers</button>
 	</nav>

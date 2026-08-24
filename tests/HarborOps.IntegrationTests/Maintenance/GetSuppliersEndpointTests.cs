@@ -83,7 +83,7 @@ public sealed class GetSuppliersEndpointTests : IntegrationTestBase
     [Fact]
     public async Task Get_without_a_maintenance_permission_returns_403()
     {
-        using var client = await _application.CreateAuthenticatedClientAsync();
+        using var client = await _application.CreateAuthenticatedClientAsync(roleNames: []);
 
         using var response = await client.GetAsync(
             new Uri("/api/maintenance/suppliers", UriKind.Relative),

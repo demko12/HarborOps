@@ -73,13 +73,12 @@ public sealed class MaintenanceWorkspaceTabsTests : BunitContext
         Assert.Empty(page.FindAll(".dry-dock-panel"));
     }
 
-    private IRenderedComponent<Maintenance> RenderWorkspace(string? workspaceUrl = null)
     [Fact]
     public void The_purchase_orders_tab_shows_the_procurement_board()
     {
         var page = RenderWorkspace();
 
-        page.FindAll(".maintenance-tab")[3].Click();
+        page.FindAll(".workspace-tab")[4].Click();
 
         page.WaitForAssertion(() =>
         {
@@ -93,7 +92,7 @@ public sealed class MaintenanceWorkspaceTabsTests : BunitContext
     {
         var page = RenderWorkspace();
 
-        page.FindAll(".maintenance-tab")[4].Click();
+        page.FindAll(".workspace-tab")[5].Click();
 
         page.WaitForAssertion(() =>
         {
@@ -102,7 +101,7 @@ public sealed class MaintenanceWorkspaceTabsTests : BunitContext
         });
     }
 
-    private IRenderedComponent<Maintenance> RenderWorkspace()
+    private IRenderedComponent<Maintenance> RenderWorkspace(string? workspaceUrl = null)
     {
         var maintenanceHttpClient = new HttpClient(new StubHttpMessageHandler(request =>
             request.RequestUri!.AbsolutePath switch
