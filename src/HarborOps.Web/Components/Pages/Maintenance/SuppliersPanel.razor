@@ -1,0 +1,189 @@
+@using HarborOps.Web.Api.Maintenance
+@implements IDisposable
+@inject MaintenanceApiClient MaintenanceApi
+@inject CurrentUserAuthorizationState AuthorizationState
+
+<div class="suppliers-panel">
+	<section class="maintenance-summary" aria-label="Supplier directory summary">
+		<article class="maintenance-summary-card">
+			<div>
+				<span>Total suppliers</span>
+				<strong>@totalCount</strong>
+				<small>Matching the current search</small>
+			</div>
+			<span class="summary-icon summary-icon-blue" aria-hidden="true"><span class="bi bi-truck"></span></span>
+		</article>
+	</section>
+
+	<section class="maintenance-filters" aria-label="Supplier filters">
+		<div class="filter-field">
+			<label for="suppliers-search">Search</label>
+			<input id="suppliers-search"
+				   @bind="searchText"
+				   @bind:event="oninput"
+				   @bind:after="ApplyFiltersAsync"
+				   placeholder="Name or contact person" />
+		</div>
+		<div class="filter-field">
+			<label for="suppliers-page-size">Per page</label>
+			<select id="suppliers-page-size" @bind="pageSize" @bind:after="ApplyFiltersAsync">
+				<option value="25">25</option>
+				<option value="50">50</option>
+				<option value="100">100</option>
+			</select>
+		</div>
+		<button class="maintenance-reset" type="button" @onclick="ClearFiltersAsync" disabled="@isLoading">Reset</button>
+	</section>
+
+	@if (registerSuccessMessage is not null)
+	{
+		<div class="maintenance-toast suppliers-success" role="status" aria-live="polite">
+			<span class="bi bi-check-circle-fill" aria-hidden="true"></span>
+			<span>@registerSuccessMessage</span>
+		</div>
+	}
+
+	<section class="maintenance-card" aria-labelledby="suppliers-list-title">
+		<div class="maintenance-card-heading">
+			<div>
+				<h2 id="suppliers-list-title">Supplier directory</h2>
+				<p>@totalCount suppliers found</p>
+			</div>
+			<div class="maintenance-card-heading-actions">
+				@if (CanManage)
+				{
+					<button type="button" class="maintenance-button suppliers-register-toggle" @onclick="OpenRegisterForm">Register supplier</button>
+				}
+				<span class="maintenance-card-icon" aria-hidden="true"><span class="bi bi-truck"></span></span>
+			</div>
+		</div>
+
+		@if (isLoading)
+		{
+			<LoadingState Message="Loading suppliers..." />
+		}
+		else if (failure is not null)
+		{
+			<ApiErrorState Title="@failure.Title" Message="@failure.Message" OnRetry="RetryAsync" />
+		}
+		else if (rows.Count == 0)
+		{
+			<EmptyState Title="No suppliers match your search"
+						Message="Clear the search box or register a new supplier." />
+		}
+		else
+		{
+			<div class="maintenance-table-scroll">
+				<table class="maintenance-table suppliers-table">
+					<caption class="visually-hidden">Registered suppliers, ordered by name</caption>
+					<thead>
+						<tr>
+							<th scope="col">Supplier</th>
+							<th scope="col">Contact person</th>
+							<th scope="col">Phone or e-mail</th>
+							<th scope="col">Address</th>
+							<th scope="col">Payment terms</th>
+						</tr>
+					</thead>
+					<tbody>
+						@foreach (var row in rows)
+						{
+							<tr @key="row.SupplierId" title="@row.SupplierId">
+								<td><span class="maintenance-title">@row.Name</span></td>
+								<td>@MaintenanceFormat.OptionalText(row.ContactPerson)</td>
+								<td class="maintenance-muted">@MaintenanceFormat.OptionalText(row.PhoneEmail)</td>
+								<td class="maintenance-muted">@MaintenanceFormat.OptionalText(row.Address)</td>
+								<td class="maintenance-muted">@MaintenanceFormat.OptionalText(row.PaymentTerms)</td>
+							</tr>
+						}
+					</tbody>
+				</table>
+			</div>
+
+			<div class="maintenance-pagination">
+				<span>Showing @FirstRowNumber&ndash;@LastRowNumber of @totalCount suppliers</span>
+				<div class="maintenance-pages">
+					<button type="button" @onclick="PreviousPageAsync" disabled="@(pageNumber <= 1)">Previous</button>
+					<span class="maintenance-page-indicator">Page @pageNumber of @TotalPages</span>
+					<button type="button" @onclick="NextPageAsync" disabled="@(pageNumber >= TotalPages)">Next</button>
+				</div>
+			</div>
+		}
+	</section>
+
+	@if (isRegisterFormOpen)
+	{
+		<div class="maintenance-modal-backdrop" @onclick="CloseRegisterForm">
+			<section class="maintenance-form-card suppliers-form-card"
+					 role="dialog"
+					 aria-modal="true"
+					 aria-labelledby="suppliers-register-title"
+					 @onclick:stopPropagation="true">
+				<div class="maintenance-modal-header">
+					<h2 id="suppliers-register-title">Register supplier</h2>
+					<button type="button"
+							class="maintenance-modal-close"
+							aria-label="Close register supplier dialog"
+							disabled="@isRegistering"
+							@onclick="CloseRegisterForm">
+						&times;
+					</button>
+				</div>
+				<form class="maintenance-form suppliers-form" @onsubmit="SubmitRegisterAsync" @onsubmit:preventDefault="true">
+					@if (registerFailure is { IsValidation: true })
+					{
+						<div class="maintenance-field-errors suppliers-field-errors" role="alert">
+							<strong>Please correct the following before saving</strong>
+							<ul>
+								@foreach (var entry in registerFailure.Errors)
+								{
+									@foreach (var message in entry.Value)
+									{
+										<li>
+											<span class="maintenance-error-field">@ProcurementFormat.FieldLabel(entry.Key)</span>
+											<span>@message</span>
+										</li>
+									}
+								}
+							</ul>
+						</div>
+					}
+					@if (registerFailure is { IsValidation: false })
+					{
+						<div class="maintenance-inline-error suppliers-inline-error" role="alert">@registerFailure.Message</div>
+					}
+
+					<div class="maintenance-form-grid">
+						<div class="filter-field">
+							<label for="supplier-name">Name <span class="required-marker" aria-hidden="true">*</span></label>
+							<input id="supplier-name" @bind="registerModel.Name" maxlength="200" />
+						</div>
+						<div class="filter-field">
+							<label for="supplier-contact">Contact person</label>
+							<input id="supplier-contact" @bind="registerModel.ContactPerson" maxlength="200" />
+						</div>
+						<div class="filter-field">
+							<label for="supplier-phone-email">Phone or e-mail</label>
+							<input id="supplier-phone-email" @bind="registerModel.PhoneEmail" maxlength="200" />
+						</div>
+						<div class="filter-field">
+							<label for="supplier-payment-terms">Payment terms</label>
+							<input id="supplier-payment-terms" @bind="registerModel.PaymentTerms" maxlength="200" />
+						</div>
+						<div class="filter-field filter-field-wide">
+							<label for="supplier-address">Address</label>
+							<input id="supplier-address" @bind="registerModel.Address" maxlength="300" />
+						</div>
+					</div>
+
+					<div class="maintenance-form-actions">
+						<button type="submit" class="maintenance-button suppliers-submit" disabled="@isRegistering">
+							@(isRegistering ? "Registering..." : "Register supplier")
+						</button>
+						<button type="button" class="maintenance-reset" @onclick="CloseRegisterForm">Cancel</button>
+					</div>
+				</form>
+			</section>
+		</div>
+	}
+</div>

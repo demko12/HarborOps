@@ -53,6 +53,34 @@ public sealed class MaintenanceWorkspaceTabsTests : BunitContext
         });
     }
 
+    [Fact]
+    public void The_purchase_orders_tab_shows_the_procurement_board()
+    {
+        var page = RenderWorkspace();
+
+        page.FindAll(".maintenance-tab")[3].Click();
+
+        page.WaitForAssertion(() =>
+        {
+            Assert.NotNull(page.Find(".procurement-panel"));
+            Assert.Empty(page.FindAll(".maintenance-tabpanel"));
+        });
+    }
+
+    [Fact]
+    public void The_suppliers_tab_shows_the_supplier_directory()
+    {
+        var page = RenderWorkspace();
+
+        page.FindAll(".maintenance-tab")[4].Click();
+
+        page.WaitForAssertion(() =>
+        {
+            Assert.NotNull(page.Find(".suppliers-panel"));
+            Assert.Empty(page.FindAll(".maintenance-tabpanel"));
+        });
+    }
+
     private IRenderedComponent<Maintenance> RenderWorkspace()
     {
         var maintenanceHttpClient = new HttpClient(new StubHttpMessageHandler(request =>

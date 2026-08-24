@@ -35,6 +35,16 @@
 				class="maintenance-tab @(activeTab == MaintenanceTab.PreventiveSchedules ? "active" : null)"
 				aria-selected="@(activeTab == MaintenanceTab.PreventiveSchedules)"
 				@onclick="() => SelectTab(MaintenanceTab.PreventiveSchedules)">Preventive schedules</button>
+		<button type="button"
+				role="tab"
+				class="maintenance-tab @(activeTab == MaintenanceTab.PurchaseOrders ? "active" : null)"
+				aria-selected="@(activeTab == MaintenanceTab.PurchaseOrders)"
+				@onclick="() => SelectTab(MaintenanceTab.PurchaseOrders)">Purchase orders</button>
+		<button type="button"
+				role="tab"
+				class="maintenance-tab @(activeTab == MaintenanceTab.Suppliers ? "active" : null)"
+				aria-selected="@(activeTab == MaintenanceTab.Suppliers)"
+				@onclick="() => SelectTab(MaintenanceTab.Suppliers)">Suppliers</button>
 	</nav>
 
 	@if (activeTab == MaintenanceTab.Equipment)
@@ -45,6 +55,15 @@
 	@if (activeTab == MaintenanceTab.PreventiveSchedules)
 	{
 		<PreventiveSchedulesPanel />
+	}
+	@if (activeTab == MaintenanceTab.PurchaseOrders)
+	{
+		<PurchaseOrdersPanel />
+	}
+
+	@if (activeTab == MaintenanceTab.Suppliers)
+	{
+		<SuppliersPanel />
 	}
 
 	@if (activeTab == MaintenanceTab.WorkOrders)

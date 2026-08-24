@@ -715,4 +715,230 @@ public sealed class MaintenanceApiClientTests
             HttpRequestMessage request,
             CancellationToken cancellationToken) => responseFactory(request, cancellationToken);
     }
+
+    private const string PurchaseOrdersPageJson = """
+        {"items":[{"purchaseOrderId":"b0000000-0000-0000-0000-00000000000b",
+        "supplierId":"a0000000-0000-0000-0000-00000000000a","supplierName":"Baltic Marine Parts",
+        "orderDate":"2026-08-20","expectedDelivery":"2026-09-01","status":"Ordered",
+        "lineCount":2,"totalCost":302.00,"isOverdue":false,"daysUntilDelivery":6}],
+        "pageNumber":1,"pageSize":25,"totalCount":1}
+        """;
+
+    [Fact]
+    public async Task GetSuppliersAsync_escapes_the_search_term()
+    {
+        HttpRequestMessage? captured = null;
+        using var httpClient = CreateHttpClient((request, _) =>
+        {
+            captured = request;
+            return Json(HttpStatusCode.OK, """{"items":[],"pageNumber":1,"pageSize":25,"totalCount":0}""");
+        });
+
+        var result = await CreateClient(httpClient).GetSuppliersAsync(
+            new SupplierFilter("Baltic & Co", 1, 25),
+            CancellationToken.None);
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal("/api/maintenance/suppliers", captured!.RequestUri!.AbsolutePath);
+        Assert.Contains("search=Baltic%20%26%20Co", captured.RequestUri.Query, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task GetPurchaseOrdersAsync_sends_every_filter_and_the_paging()
+    {
+        HttpRequestMessage? captured = null;
+        using var httpClient = CreateHttpClient((request, _) =>
+        {
+            captured = request;
+            return Json(HttpStatusCode.OK, PurchaseOrdersPageJson);
+        });
+
+        var supplierId = Guid.Parse("a0000000-0000-0000-0000-00000000000a");
+        var filter = new PurchaseOrderFilter(
+            supplierId,
+            "Ordered",
+            new DateOnly(2026, 8, 1),
+            new DateOnly(2026, 8, 31),
+            new DateOnly(2026, 9, 1),
+            new DateOnly(2026, 9, 30),
+            true,
+            2,
+            50);
+
+        var result = await CreateClient(httpClient).GetPurchaseOrdersAsync(filter, CancellationToken.None);
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal("Baltic Marine Parts", result.Value!.Items[0].SupplierName);
+        Assert.Equal("/api/maintenance/purchase-orders", captured!.RequestUri!.AbsolutePath);
+
+        var query = captured.RequestUri.Query;
+        Assert.Contains($"supplierId={supplierId}", query, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("status=Ordered", query, StringComparison.Ordinal);
+        Assert.Contains("orderDateFrom=2026-08-01", query, StringComparison.Ordinal);
+        Assert.Contains("orderDateTo=2026-08-31", query, StringComparison.Ordinal);
+        Assert.Contains("expectedDeliveryFrom=2026-09-01", query, StringComparison.Ordinal);
+        Assert.Contains("expectedDeliveryTo=2026-09-30", query, StringComparison.Ordinal);
+        Assert.Contains("overdue=true", query, StringComparison.Ordinal);
+        Assert.Contains("pageNumber=2", query, StringComparison.Ordinal);
+        Assert.Contains("pageSize=50", query, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task GetPurchaseOrdersAsync_omits_unset_filters()
+    {
+        HttpRequestMessage? captured = null;
+        using var httpClient = CreateHttpClient((request, _) =>
+        {
+            captured = request;
+            return Json(HttpStatusCode.OK, PurchaseOrdersPageJson);
+        });
+
+        await CreateClient(httpClient).GetPurchaseOrdersAsync(
+            new PurchaseOrderFilter(null, null, null, null, null, null, null, 1, 25),
+            CancellationToken.None);
+
+        var query = captured!.RequestUri!.Query;
+
+        Assert.DoesNotContain("supplierId", query, StringComparison.Ordinal);
+        Assert.DoesNotContain("status", query, StringComparison.Ordinal);
+        Assert.DoesNotContain("overdue", query, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task CreatePurchaseOrderAsync_posts_the_lines_and_reads_the_created_order()
+    {
+        string? body = null;
+        using var httpClient = CreateHttpClient(async (request, token) =>
+        {
+            body = await request.Content!.ReadAsStringAsync(token);
+
+            return await Json(
+                HttpStatusCode.Created,
+                """
+                {"purchaseOrderId":"b0000000-0000-0000-0000-00000000000b","status":"Draft",
+                "lineCount":1,"totalCost":102.00}
+                """);
+        });
+
+        var request = new CreatePurchaseOrderRequest
+        {
+            SupplierId = Guid.Parse("a0000000-0000-0000-0000-00000000000a"),
+            OrderDate = new DateOnly(2026, 8, 20),
+            ExpectedDelivery = new DateOnly(2026, 9, 1),
+            Lines =
+            [
+                new CreatePurchaseOrderLineRequest
+                {
+                    InventoryItemId = Guid.Parse("c0000000-0000-0000-0000-00000000000c"),
+                    QuantityOrdered = 4m,
+                    UnitCost = 25.50m,
+                },
+            ],
+        };
+
+        var result = await CreateClient(httpClient).CreatePurchaseOrderAsync(request, CancellationToken.None);
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal("Draft", result.Value!.Status);
+        Assert.Equal(102.00m, result.Value.TotalCost);
+        Assert.Contains("\"orderDate\":\"2026-08-20\"", body!, StringComparison.Ordinal);
+        Assert.Contains("\"quantityOrdered\":4", body!, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task CreatePurchaseOrderAsync_maps_a_missing_item_to_a_not_found_failure()
+    {
+        using var httpClient = CreateHttpClient((_, _) => Json(
+            HttpStatusCode.NotFound,
+            """{"title":"Inventory item not found.","detail":"Inventory items were not found."}"""));
+
+        var result = await CreateClient(httpClient).CreatePurchaseOrderAsync(
+            new CreatePurchaseOrderRequest(),
+            CancellationToken.None);
+
+        Assert.False(result.IsSuccess);
+        Assert.True(result.Failure!.IsNotFound);
+        Assert.Equal("Inventory item not found.", result.Failure.Title);
+    }
+
+    [Fact]
+    public async Task ReceivePurchaseOrderAsync_posts_to_the_receive_action()
+    {
+        HttpRequestMessage? captured = null;
+        using var httpClient = CreateHttpClient((request, _) =>
+        {
+            captured = request;
+
+            return Json(
+                HttpStatusCode.OK,
+                """
+                {"purchaseOrderId":"b0000000-0000-0000-0000-00000000000b","previousStatus":"Ordered",
+                "status":"Received","allowedTransitions":[],
+                "stockAdjustments":[{"inventoryItemId":"c0000000-0000-0000-0000-00000000000c",
+                "quantityReceived":4,"quantityOnHand":14}]}
+                """);
+        });
+
+        var purchaseOrderId = Guid.Parse("b0000000-0000-0000-0000-00000000000b");
+
+        var result = await CreateClient(httpClient).ReceivePurchaseOrderAsync(
+            purchaseOrderId,
+            CancellationToken.None);
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal(HttpMethod.Post, captured!.Method);
+        Assert.Equal($"/api/maintenance/purchase-orders/{purchaseOrderId}/receive", captured.RequestUri!.AbsolutePath);
+        Assert.Equal("Received", result.Value!.Status);
+        Assert.Equal(14m, Assert.Single(result.Value.StockAdjustments).QuantityOnHand);
+        Assert.Empty(result.Value.AllowedTransitions);
+    }
+
+    [Fact]
+    public async Task A_rejected_transition_is_reported_as_a_conflict()
+    {
+        using var httpClient = CreateHttpClient((_, _) => Json(
+            HttpStatusCode.Conflict,
+            """
+            {"title":"Purchase order state conflict.",
+            "detail":"Purchase order cannot move from status 'Received' to 'Received'."}
+            """));
+
+        var result = await CreateClient(httpClient).ReceivePurchaseOrderAsync(
+            Guid.NewGuid(),
+            CancellationToken.None);
+
+        Assert.False(result.IsSuccess);
+        Assert.True(result.Failure!.IsConflict);
+        Assert.Contains("cannot move from status", result.Failure.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task MarkPurchaseOrderOrderedAsync_and_CancelPurchaseOrderAsync_use_their_own_actions()
+    {
+        var paths = new List<string>();
+        using var httpClient = CreateHttpClient((request, _) =>
+        {
+            paths.Add(request.RequestUri!.AbsolutePath);
+
+            return Json(
+                HttpStatusCode.OK,
+                """
+                {"purchaseOrderId":"b0000000-0000-0000-0000-00000000000b","previousStatus":"Draft",
+                "status":"Ordered","allowedTransitions":["Received","Cancelled"],"stockAdjustments":[]}
+                """);
+        });
+
+        var client = CreateClient(httpClient);
+        var purchaseOrderId = Guid.Parse("b0000000-0000-0000-0000-00000000000b");
+
+        await client.MarkPurchaseOrderOrderedAsync(purchaseOrderId, CancellationToken.None);
+        await client.CancelPurchaseOrderAsync(purchaseOrderId, CancellationToken.None);
+
+        Assert.Equal(
+            [
+                $"/api/maintenance/purchase-orders/{purchaseOrderId}/order",
+                $"/api/maintenance/purchase-orders/{purchaseOrderId}/cancel",
+            ],
+            paths);
+    }
 }

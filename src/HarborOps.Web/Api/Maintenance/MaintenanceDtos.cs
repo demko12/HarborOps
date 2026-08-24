@@ -232,3 +232,128 @@ internal sealed record UpdateScheduleNextDueResult(
     string Frequency,
     DateOnly? NextDueDate,
     int? NextDueHours);
+
+internal sealed record SupplierListItem(
+    Guid SupplierId,
+    string Name,
+    string? ContactPerson,
+    string? PhoneEmail,
+    string? Address,
+    string? PaymentTerms);
+
+internal sealed record SuppliersPage(
+    IReadOnlyList<SupplierListItem> Items,
+    int PageNumber,
+    int PageSize,
+    int TotalCount);
+
+internal sealed record SupplierFilter(
+    string? Search,
+    int PageNumber,
+    int PageSize);
+
+internal sealed record RegisterSupplierRequest
+{
+    public string? Name { get; init; }
+
+    public string? ContactPerson { get; init; }
+
+    public string? PhoneEmail { get; init; }
+
+    public string? Address { get; init; }
+
+    public string? PaymentTerms { get; init; }
+}
+
+internal sealed record RegisteredSupplier(Guid SupplierId);
+
+internal sealed record PurchaseOrderListItem(
+    Guid PurchaseOrderId,
+    Guid SupplierId,
+    string SupplierName,
+    DateOnly OrderDate,
+    DateOnly? ExpectedDelivery,
+    string Status,
+    int LineCount,
+    decimal TotalCost,
+    bool IsOverdue,
+    int? DaysUntilDelivery);
+
+internal sealed record PurchaseOrdersPage(
+    IReadOnlyList<PurchaseOrderListItem> Items,
+    int PageNumber,
+    int PageSize,
+    int TotalCount);
+
+internal sealed record PurchaseOrderFilter(
+    Guid? SupplierId,
+    string? Status,
+    DateOnly? OrderDateFrom,
+    DateOnly? OrderDateTo,
+    DateOnly? ExpectedDeliveryFrom,
+    DateOnly? ExpectedDeliveryTo,
+    bool? Overdue,
+    int PageNumber,
+    int PageSize);
+
+internal sealed record CreatePurchaseOrderLineRequest
+{
+    public Guid? InventoryItemId { get; init; }
+
+    public decimal? QuantityOrdered { get; init; }
+
+    public decimal? UnitCost { get; init; }
+}
+
+internal sealed record CreatePurchaseOrderRequest
+{
+    public Guid? SupplierId { get; init; }
+
+    public DateOnly? OrderDate { get; init; }
+
+    public DateOnly? ExpectedDelivery { get; init; }
+
+    public IReadOnlyList<CreatePurchaseOrderLineRequest>? Lines { get; init; }
+}
+
+internal sealed record CreatedPurchaseOrder(
+    Guid PurchaseOrderId,
+    string Status,
+    int LineCount,
+    decimal TotalCost);
+
+internal sealed record PurchaseOrderLineItem(
+    Guid LineId,
+    Guid InventoryItemId,
+    string InventoryItemName,
+    string PartNumber,
+    decimal QuantityOrdered,
+    decimal UnitCost,
+    decimal LineTotal);
+
+internal sealed record PurchaseOrderDetails(
+    Guid PurchaseOrderId,
+    Guid SupplierId,
+    string SupplierName,
+    string? SupplierContactPerson,
+    string? SupplierPhoneEmail,
+    DateOnly OrderDate,
+    DateOnly? ExpectedDelivery,
+    string Status,
+    bool IsOverdue,
+    int? DaysUntilDelivery,
+    decimal TotalCost,
+    IReadOnlyList<string> AllowedTransitions,
+    IReadOnlyList<PurchaseOrderLineItem> Lines);
+
+internal sealed record PurchaseOrderStockAdjustment(
+    Guid InventoryItemId,
+    decimal QuantityReceived,
+    decimal QuantityOnHand);
+
+internal sealed record ChangePurchaseOrderStatusResult(
+    Guid PurchaseOrderId,
+    string PreviousStatus,
+    string Status,
+    IReadOnlyList<string> AllowedTransitions,
+    IReadOnlyList<PurchaseOrderStockAdjustment> StockAdjustments);

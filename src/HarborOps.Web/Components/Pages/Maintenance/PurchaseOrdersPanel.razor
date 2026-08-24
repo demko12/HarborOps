@@ -1,0 +1,487 @@
+@using HarborOps.Web.Api.Maintenance
+@implements IDisposable
+@inject MaintenanceApiClient MaintenanceApi
+@inject CurrentUserAuthorizationState AuthorizationState
+
+<div class="procurement-panel">
+	<section class="maintenance-summary" aria-label="Purchase order summary">
+		<article class="maintenance-summary-card">
+			<div>
+				<span>Total purchase orders</span>
+				<strong>@totalCount</strong>
+				<small>Matching the current filters</small>
+			</div>
+			<span class="summary-icon summary-icon-blue" aria-hidden="true"><span class="bi bi-receipt"></span></span>
+		</article>
+		<article class="maintenance-summary-card">
+			<div>
+				<span>Overdue on this page</span>
+				<strong>@OverdueCount</strong>
+				<small>Past the expected delivery</small>
+			</div>
+			<span class="summary-icon summary-icon-amber" aria-hidden="true"><span class="bi bi-exclamation-triangle-fill"></span></span>
+		</article>
+		<article class="maintenance-summary-card">
+			<div>
+				<span>Value on this page</span>
+				<strong>@ProcurementFormat.Money(PageTotalCost)</strong>
+				<small>Sum of the listed order totals</small>
+			</div>
+			<span class="summary-icon summary-icon-blue" aria-hidden="true"><span class="bi bi-cash-stack"></span></span>
+		</article>
+	</section>
+
+	<section class="maintenance-filters" aria-label="Purchase order filters">
+		<div class="filter-field">
+			<label for="po-supplier">Supplier</label>
+			<select id="po-supplier" @bind="supplierFilterText" @bind:after="ApplyFiltersAsync" disabled="@isLoading">
+				<option value="">All suppliers</option>
+				@foreach (var supplier in supplierOptions)
+				{
+					<option value="@supplier.SupplierId">@supplier.Name</option>
+				}
+			</select>
+		</div>
+		<div class="filter-field">
+			<label for="po-status">Status</label>
+			<select id="po-status" @bind="statusFilter" @bind:after="ApplyFiltersAsync">
+				<option value="">All statuses</option>
+				@foreach (var option in ProcurementFormat.Statuses)
+				{
+					<option value="@option">@option</option>
+				}
+			</select>
+		</div>
+		<div class="filter-field">
+			<label for="po-ordered-from">Ordered from</label>
+			<input id="po-ordered-from" type="date" @bind="orderDateFromFilter" @bind:after="ApplyFiltersAsync" />
+		</div>
+		<div class="filter-field">
+			<label for="po-ordered-to">Ordered to</label>
+			<input id="po-ordered-to" type="date" @bind="orderDateToFilter" @bind:after="ApplyFiltersAsync" />
+		</div>
+		<div class="filter-field">
+			<label for="po-delivery-from">Delivery from</label>
+			<input id="po-delivery-from" type="date" @bind="deliveryFromFilter" @bind:after="ApplyFiltersAsync" />
+		</div>
+		<div class="filter-field">
+			<label for="po-delivery-to">Delivery to</label>
+			<input id="po-delivery-to" type="date" @bind="deliveryToFilter" @bind:after="ApplyFiltersAsync" />
+		</div>
+		<div class="filter-field">
+			<label for="po-overdue">Delivery status</label>
+			<select id="po-overdue" @bind="overdueFilter" @bind:after="ApplyFiltersAsync">
+				<option value="">All</option>
+				<option value="true">Overdue only</option>
+				<option value="false">Not overdue</option>
+			</select>
+		</div>
+		<div class="filter-field">
+			<label for="po-page-size">Per page</label>
+			<select id="po-page-size" @bind="pageSize" @bind:after="ApplyFiltersAsync">
+				<option value="25">25</option>
+				<option value="50">50</option>
+				<option value="100">100</option>
+			</select>
+		</div>
+		<button class="maintenance-reset" type="button" @onclick="ClearFiltersAsync" disabled="@isLoading">Reset</button>
+	</section>
+
+	@if (createSuccessMessage is not null)
+	{
+		<div class="maintenance-toast procurement-success" role="status" aria-live="polite">
+			<span class="bi bi-check-circle-fill" aria-hidden="true"></span>
+			<span>@createSuccessMessage</span>
+		</div>
+	}
+	@if (statusSuccessMessage is not null)
+	{
+		<div class="maintenance-toast procurement-success" role="status" aria-live="polite">
+			<span class="bi bi-check-circle-fill" aria-hidden="true"></span>
+			<span>@statusSuccessMessage</span>
+		</div>
+	}
+	@if (supplierOptionsFailure is not null)
+	{
+		<div class="maintenance-inline-error procurement-inline-error" role="alert">@supplierOptionsFailure.Message</div>
+	}
+
+	<section class="maintenance-card" aria-labelledby="procurement-list-title">
+		<div class="maintenance-card-heading">
+			<div>
+				<h2 id="procurement-list-title">Purchase order board</h2>
+				<p>@totalCount purchase orders found</p>
+			</div>
+			<div class="maintenance-card-heading-actions">
+				@if (CanManage)
+				{
+					<button type="button" class="maintenance-button procurement-create-toggle" @onclick="OpenCreateFormAsync">Create purchase order</button>
+				}
+				<span class="maintenance-card-icon" aria-hidden="true"><span class="bi bi-receipt"></span></span>
+			</div>
+		</div>
+
+		@if (isLoading)
+		{
+			<LoadingState Message="Loading purchase orders..." />
+		}
+		else if (failure is not null)
+		{
+			<ApiErrorState Title="@failure.Title" Message="@failure.Message" OnRetry="RetryAsync" />
+		}
+		else if (rows.Count == 0)
+		{
+			<EmptyState Title="No purchase orders match your filters"
+						Message="Widen the date ranges or clear the supplier and status selections." />
+		}
+		else
+		{
+			<div class="maintenance-table-scroll">
+				<table class="maintenance-table procurement-table">
+					<caption class="visually-hidden">Purchase orders, newest order date first</caption>
+					<thead>
+						<tr>
+							<th scope="col" class="col-po-supplier">Supplier</th>
+							<th scope="col" class="col-po-ordered">Ordered</th>
+							<th scope="col" class="col-po-delivery">Expected delivery</th>
+							<th scope="col" class="col-po-status">Status</th>
+							<th scope="col" class="col-po-lines">Lines</th>
+							<th scope="col" class="col-po-total">Total</th>
+							<th scope="col" class="col-po-delivery-state">Delivery status</th>
+							<th scope="col" class="col-actions"></th>
+						</tr>
+					</thead>
+					<tbody>
+						@foreach (var row in rows)
+						{
+							<tr class="procurement-row @(row.IsOverdue ? "maintenance-overdue-row" : null)" @key="row.PurchaseOrderId">
+								<td class="col-po-supplier" title="@row.SupplierId"><span class="maintenance-title">@row.SupplierName</span></td>
+								<td class="col-po-ordered">@ProcurementFormat.OrderDate(row.OrderDate)</td>
+								<td class="col-po-delivery">
+									<span class="procurement-delivery-cell">
+										<span>@ProcurementFormat.DeliveryDate(row.ExpectedDelivery)</span>
+										@if (row.IsOverdue)
+										{
+											<span class="maintenance-overdue-badge">Overdue</span>
+										}
+									</span>
+								</td>
+								<td class="col-po-status">
+									<span class="procurement-status procurement-status-@ProcurementFormat.StatusModifier(row.Status)">@row.Status</span>
+								</td>
+								<td class="col-po-lines maintenance-muted">@row.LineCount</td>
+								<td class="col-po-total procurement-total">@ProcurementFormat.Money(row.TotalCost)</td>
+								<td class="col-po-delivery-state">
+									<span class="procurement-delivery-badge procurement-delivery-@ProcurementFormat.DeliveryStateModifier(row.IsOverdue, row.DaysUntilDelivery)">
+										@ProcurementFormat.DeliveryState(row.IsOverdue, row.DaysUntilDelivery)
+									</span>
+								</td>
+								<td class="col-actions">
+									<button type="button" class="maintenance-usage-button procurement-details" @onclick="() => OpenDetailsAsync(row.PurchaseOrderId)">Details</button>
+								</td>
+							</tr>
+						}
+					</tbody>
+				</table>
+			</div>
+
+			<div class="maintenance-pagination">
+				<span>Showing @FirstRowNumber&ndash;@LastRowNumber of @totalCount purchase orders</span>
+				<div class="maintenance-pages">
+					<button type="button" @onclick="PreviousPageAsync" disabled="@(pageNumber <= 1)">Previous</button>
+					<span class="maintenance-page-indicator">Page @pageNumber of @TotalPages</span>
+					<button type="button" @onclick="NextPageAsync" disabled="@(pageNumber >= TotalPages)">Next</button>
+				</div>
+			</div>
+		}
+	</section>
+
+	@if (isCreateFormOpen)
+	{
+		<div class="maintenance-modal-backdrop" @onclick="CloseCreateForm">
+			<section class="maintenance-form-card procurement-form-card"
+					 role="dialog"
+					 aria-modal="true"
+					 aria-labelledby="procurement-create-title"
+					 @onclick:stopPropagation="true">
+				<div class="maintenance-modal-header">
+					<h2 id="procurement-create-title">Create purchase order</h2>
+					<button type="button"
+							class="maintenance-modal-close"
+							aria-label="Close create purchase order dialog"
+							disabled="@isCreating"
+							@onclick="CloseCreateForm">
+						&times;
+					</button>
+				</div>
+				<form class="maintenance-form procurement-form" @onsubmit="SubmitCreateAsync" @onsubmit:preventDefault="true">
+					@if (createFailure is { IsValidation: true })
+					{
+						<div class="maintenance-field-errors procurement-field-errors" role="alert">
+							<strong>Please correct the following before saving</strong>
+							<ul>
+								@foreach (var entry in createFailure.Errors)
+								{
+									@foreach (var message in entry.Value)
+									{
+										<li>
+											<span class="maintenance-error-field">@ProcurementFormat.FieldLabel(entry.Key)</span>
+											<span>@message</span>
+										</li>
+									}
+								}
+							</ul>
+						</div>
+					}
+					@if (createFailure is { IsValidation: false })
+					{
+						<div class="maintenance-inline-error procurement-inline-error" role="alert">@createFailure.Message</div>
+					}
+
+					<div class="maintenance-form-grid">
+						<div class="filter-field">
+							<label for="create-po-supplier">Supplier <span class="required-marker" aria-hidden="true">*</span></label>
+							<select id="create-po-supplier" @bind="createModel.SupplierIdText">
+								<option value="">Select...</option>
+								@foreach (var supplier in supplierOptions)
+								{
+									<option value="@supplier.SupplierId">@supplier.Name</option>
+								}
+							</select>
+						</div>
+						<div class="filter-field">
+							<label for="create-po-order-date">Order date <span class="required-marker" aria-hidden="true">*</span></label>
+							<input id="create-po-order-date" type="date" @bind="createModel.OrderDate" />
+						</div>
+						<div class="filter-field">
+							<label for="create-po-delivery">Expected delivery</label>
+							<input id="create-po-delivery" type="date" @bind="createModel.ExpectedDelivery" />
+						</div>
+					</div>
+
+					<div class="procurement-line-editor">
+						<div class="procurement-line-editor-header">
+							<span class="procurement-line-editor-label">Order lines <span class="required-marker" aria-hidden="true">*</span></span>
+							<button type="button" class="maintenance-complete-button procurement-add-line" @onclick="AddLine" disabled="@isCreating">Add line</button>
+						</div>
+
+						<div class="maintenance-filters procurement-item-search">
+							<div class="filter-field">
+								<label for="create-po-item-search">Find inventory items</label>
+								<input id="create-po-item-search" @bind="inventorySearchText" placeholder="Name or part number" />
+							</div>
+							<button class="maintenance-button procurement-item-search-button" type="button" @onclick="SearchInventoryAsync" disabled="@isInventoryLoading">Search</button>
+						</div>
+
+						@if (isInventoryLoading)
+						{
+							<LoadingState Message="Loading inventory items..." />
+						}
+						else if (inventoryFailure is not null)
+						{
+							<div class="maintenance-inline-error procurement-inline-error" role="alert">@inventoryFailure.Message</div>
+						}
+						else if (inventoryOptions.Count == 0)
+						{
+							<p class="procurement-hint">No inventory items loaded yet. Search to pick the parts you want to order.</p>
+						}
+
+						@if (createModel.Lines.Count == 0)
+						{
+							<p class="procurement-hint">Add at least one order line.</p>
+						}
+						else
+						{
+							<table class="maintenance-table procurement-line-table">
+								<caption class="visually-hidden">Purchase order lines being created</caption>
+								<thead>
+									<tr>
+										<th scope="col" class="col-line-item">Item</th>
+										<th scope="col" class="col-line-quantity">Quantity</th>
+										<th scope="col" class="col-line-cost">Unit cost</th>
+										<th scope="col" class="col-line-total">Line total</th>
+										<th scope="col" class="col-actions"></th>
+									</tr>
+								</thead>
+								<tbody>
+									@foreach (var line in createModel.Lines)
+									{
+										<tr @key="line.Key" class="@(IsDuplicateLine(line) ? "procurement-duplicate-row" : null)">
+											<td class="col-line-item">
+												<select @bind="line.InventoryItemIdText" disabled="@isCreating">
+													<option value="">Select...</option>
+													@foreach (var item in inventoryOptions)
+													{
+														<option value="@item.InventoryItemId">@item.Name (@item.PartNumber)</option>
+													}
+												</select>
+												@if (IsDuplicateLine(line))
+												{
+													<span class="maintenance-inline-error">This item is already on another line.</span>
+												}
+											</td>
+											<td class="col-line-quantity"><input type="number" step="0.001" min="0" @bind="line.QuantityOrdered" disabled="@isCreating" /></td>
+											<td class="col-line-cost"><input type="number" step="0.01" min="0" @bind="line.UnitCost" disabled="@isCreating" /></td>
+											<td class="col-line-total procurement-total">@ProcurementFormat.Money(ProcurementFormat.LineTotal(line.QuantityOrdered, line.UnitCost))</td>
+											<td class="col-actions">
+												<button type="button" class="maintenance-reset" @onclick="() => RemoveLine(line)" disabled="@isCreating">Remove</button>
+											</td>
+										</tr>
+									}
+								</tbody>
+								<tfoot>
+									<tr>
+										<th scope="row" colspan="3">Order total</th>
+										<td class="col-line-total procurement-total procurement-grand-total">@ProcurementFormat.Money(CreateTotalCost)</td>
+										<td class="col-actions"></td>
+									</tr>
+								</tfoot>
+							</table>
+						}
+					</div>
+
+					<div class="maintenance-form-actions">
+						<button type="submit" class="maintenance-button procurement-submit" disabled="@isCreating">
+							@(isCreating ? "Creating..." : "Create purchase order")
+						</button>
+						<button type="button" class="maintenance-reset" @onclick="CloseCreateForm">Cancel</button>
+					</div>
+				</form>
+			</section>
+		</div>
+	}
+
+	@if (detailsPurchaseOrderId is not null)
+	{
+		<div class="maintenance-modal-backdrop" @onclick="CloseDetails">
+			<section class="maintenance-form-card procurement-details-card"
+					 role="dialog"
+					 aria-modal="true"
+					 aria-labelledby="procurement-details-title"
+					 @onclick:stopPropagation="true">
+				<div class="maintenance-modal-header">
+					<h2 id="procurement-details-title">Purchase order details</h2>
+					<button type="button"
+							class="maintenance-modal-close"
+							aria-label="Close purchase order details dialog"
+							disabled="@isChangingStatus"
+							@onclick="CloseDetails">
+						&times;
+					</button>
+				</div>
+
+				@if (isDetailsLoading)
+				{
+					<LoadingState Message="Loading purchase order..." />
+				}
+				else if (detailsFailure is not null)
+				{
+					<ApiErrorState Title="@detailsFailure.Title"
+								   Message="@detailsFailure.Message"
+								   OnRetry="@(() => LoadDetailsAsync(detailsPurchaseOrderId!.Value))" />
+				}
+				else if (details is not null)
+				{
+					<dl class="procurement-details-summary">
+						<dt>Supplier</dt>
+						<dd class="procurement-details-supplier">@details.SupplierName</dd>
+						<dt>Contact</dt>
+						<dd>@MaintenanceFormat.OptionalText(details.SupplierContactPerson)</dd>
+						<dt>Phone or e-mail</dt>
+						<dd>@MaintenanceFormat.OptionalText(details.SupplierPhoneEmail)</dd>
+						<dt>Order date</dt>
+						<dd>@ProcurementFormat.OrderDate(details.OrderDate)</dd>
+						<dt>Expected delivery</dt>
+						<dd>@ProcurementFormat.DeliveryDate(details.ExpectedDelivery)</dd>
+						<dt>Status</dt>
+						<dd>
+							<span class="procurement-status procurement-status-@ProcurementFormat.StatusModifier(details.Status)">@details.Status</span>
+						</dd>
+						<dt>Delivery status</dt>
+						<dd>
+							<span class="procurement-delivery-badge procurement-delivery-@ProcurementFormat.DeliveryStateModifier(details.IsOverdue, details.DaysUntilDelivery)">
+								@ProcurementFormat.DeliveryState(details.IsOverdue, details.DaysUntilDelivery)
+							</span>
+						</dd>
+						<dt>Order total</dt>
+						<dd class="procurement-total procurement-grand-total">@ProcurementFormat.Money(details.TotalCost)</dd>
+					</dl>
+
+					<div class="maintenance-table-scroll">
+						<table class="maintenance-table procurement-line-table">
+							<caption class="visually-hidden">Purchase order lines</caption>
+							<thead>
+								<tr>
+									<th scope="col" class="col-line-item">Item</th>
+									<th scope="col" class="col-line-part">Part number</th>
+									<th scope="col" class="col-line-quantity">Quantity</th>
+									<th scope="col" class="col-line-cost">Unit cost</th>
+									<th scope="col" class="col-line-total">Line total</th>
+								</tr>
+							</thead>
+							<tbody>
+								@foreach (var line in details.Lines)
+								{
+									<tr @key="line.LineId">
+										<td class="col-line-item"><span class="maintenance-title">@line.InventoryItemName</span></td>
+										<td class="col-line-part maintenance-muted">@line.PartNumber</td>
+										<td class="col-line-quantity procurement-total">@ProcurementFormat.Quantity(line.QuantityOrdered)</td>
+										<td class="col-line-cost procurement-total">@ProcurementFormat.Money(line.UnitCost)</td>
+										<td class="col-line-total procurement-total">@ProcurementFormat.Money(line.LineTotal)</td>
+									</tr>
+								}
+							</tbody>
+						</table>
+					</div>
+
+					@if (statusFailure is { IsConflict: true } or { IsNotFound: true })
+					{
+						<div class="maintenance-conflict" role="alert">@statusFailure.Message</div>
+					}
+					@if (statusFailure is { IsConflict: false, IsNotFound: false })
+					{
+						<div class="maintenance-inline-error procurement-inline-error" role="alert">@statusFailure.Message</div>
+					}
+
+					@if (CanManage && details.AllowedTransitions.Count > 0)
+					{
+						<div class="procurement-status-actions">
+							@if (pendingTransition is null)
+							{
+								@foreach (var transition in details.AllowedTransitions)
+								{
+									<button type="button"
+											class="maintenance-button procurement-transition procurement-transition-@ProcurementFormat.TransitionModifier(transition)"
+											disabled="@isChangingStatus"
+											@onclick="() => RequestTransition(transition)">
+										@ProcurementFormat.TransitionLabel(transition)
+									</button>
+								}
+							}
+							else
+							{
+								<div class="procurement-confirm" role="alertdialog" aria-live="assertive">
+									<p>@ProcurementFormat.TransitionConfirmation(pendingTransition)</p>
+									<div class="maintenance-form-actions">
+										<button type="button" class="maintenance-button" disabled="@isChangingStatus" @onclick="ConfirmTransitionAsync">
+											@(isChangingStatus ? "Applying..." : $"Yes, {ProcurementFormat.TransitionLabel(pendingTransition).ToLowerInvariant()}")
+										</button>
+										<button type="button" class="maintenance-reset" disabled="@isChangingStatus" @onclick="CancelTransition">Back</button>
+									</div>
+								</div>
+							}
+						</div>
+					}
+					else if (details.AllowedTransitions.Count == 0)
+					{
+						<p class="procurement-hint">This purchase order is final and can no longer change status.</p>
+					}
+
+					<div class="maintenance-form-actions">
+						<button type="button" class="maintenance-reset" @onclick="CloseDetails">Close</button>
+					</div>
+				}
+			</section>
+		</div>
+	}
+</div>

@@ -5,4 +5,6 @@ internal enum MaintenanceTab
     WorkOrders,
     Equipment,
     PreventiveSchedules,
+    PurchaseOrders,
+    Suppliers,
 }

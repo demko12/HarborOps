@@ -1072,7 +1072,9 @@ html[data-theme="light"] .maintenance-modal-backdrop {
 }
 
 .maintenance-page ::deep .filter-field input,
-.maintenance-page ::deep .filter-field select {
+.maintenance-page ::deep .filter-field select,
+.maintenance-page ::deep .procurement-line-table input,
+.maintenance-page ::deep .procurement-line-table select {
     min-width: 9.5rem;
     height: 2.8rem;
     padding: 0 .85rem;
@@ -1086,7 +1088,8 @@ html[data-theme="light"] .maintenance-modal-backdrop {
     transition: border-color .16s ease, box-shadow .16s ease, background-color .16s ease;
 }
 
-.maintenance-page ::deep .filter-field select {
+.maintenance-page ::deep .filter-field select,
+.maintenance-page ::deep .procurement-line-table select {
     appearance: none;
     padding-right: 2.5rem;
     background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 16 16' fill='none'%3E%3Cpath d='m4 6 4 4 4-4' stroke='%2394a3b8' stroke-width='1.7' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
@@ -1562,18 +1565,23 @@ html[data-theme="light"] .maintenance-page ::deep .maintenance-modal-backdrop {
 }
 
 .maintenance-page ::deep .filter-field input:hover,
-.maintenance-page ::deep .filter-field select:hover {
+.maintenance-page ::deep .filter-field select:hover,
+.maintenance-page ::deep .procurement-line-table input:hover,
+.maintenance-page ::deep .procurement-line-table select:hover {
     border-color: var(--border-strong-hover);
 }
 
 .maintenance-page ::deep .filter-field input:focus,
-.maintenance-page ::deep .filter-field select:focus {
+.maintenance-page ::deep .filter-field select:focus,
+.maintenance-page ::deep .procurement-line-table input:focus,
+.maintenance-page ::deep .procurement-line-table select:focus {
     border-color: var(--accent);
     outline: 0;
     box-shadow: 0 0 0 .22rem var(--accent-bg);
 }
 
-.maintenance-page ::deep .filter-field select option {
+.maintenance-page ::deep .filter-field select option,
+.maintenance-page ::deep .procurement-line-table select option {
     color: var(--text-primary);
     background-color: var(--control-popup);
 }
@@ -1683,4 +1691,323 @@ html[data-theme="light"] .maintenance-page ::deep .maintenance-toast {
 .maintenance-page ::deep .required-marker {
     color: #f87171;
     font-weight: 700;
+}
+
+/* Procurement — purchase orders and suppliers */
+
+.maintenance-page ::deep .procurement-status,
+.maintenance-page ::deep .procurement-delivery-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: .18rem .65rem;
+    border: 1px solid color-mix(in srgb, currentColor 28%, transparent);
+    border-radius: 999px;
+    font-size: .76rem;
+    font-weight: 550;
+    white-space: nowrap;
+}
+
+.maintenance-page ::deep .procurement-status-draft {
+    color: #94a3b8;
+    background: rgba(148, 163, 184, .14);
+}
+
+.maintenance-page ::deep .procurement-status-ordered {
+    color: #93c5fd;
+    background: rgba(96, 165, 250, .14);
+}
+
+.maintenance-page ::deep .procurement-status-received {
+    color: #5eead4;
+    background: rgba(45, 212, 191, .14);
+}
+
+.maintenance-page ::deep .procurement-status-cancelled {
+    color: #f87171;
+    background: rgba(248, 113, 113, .14);
+}
+
+.maintenance-page ::deep .procurement-delivery-overdue {
+    color: #f87171;
+    background: rgba(248, 113, 113, .14);
+}
+
+.maintenance-page ::deep .procurement-delivery-scheduled {
+    color: var(--accent);
+    background: var(--accent-bg);
+}
+
+.maintenance-page ::deep .procurement-delivery-none {
+    color: var(--text-muted);
+    background: rgba(148, 163, 184, .14);
+}
+
+.maintenance-page ::deep .procurement-total {
+    font-variant-numeric: tabular-nums;
+    text-align: right;
+    white-space: nowrap;
+}
+
+.maintenance-page ::deep .procurement-grand-total {
+    font-weight: 650;
+    color: var(--text-primary);
+}
+
+.maintenance-page ::deep .procurement-line-editor {
+    margin-bottom: 1rem;
+    padding: .9rem 1.1rem;
+    border: 1px solid var(--border-medium);
+    border-radius: .75rem;
+    background: var(--bg-surface);
+}
+
+.maintenance-page ::deep .procurement-line-editor-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: .75rem;
+    margin-bottom: .6rem;
+}
+
+.maintenance-page ::deep .procurement-line-editor-label {
+    color: var(--text-muted);
+    font-size: .7rem;
+    font-weight: 700;
+    letter-spacing: .12em;
+    text-transform: uppercase;
+}
+
+.maintenance-page ::deep .procurement-line-table input,
+.maintenance-page ::deep .procurement-line-table select {
+    width: 100%;
+}
+
+.maintenance-page ::deep .procurement-duplicate-row {
+    background: rgba(248, 113, 113, .08);
+}
+
+.maintenance-page ::deep .procurement-hint {
+    margin: .4rem 0 0;
+    color: var(--text-muted);
+    font-size: .85rem;
+}
+
+.maintenance-page ::deep .procurement-status-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: .6rem;
+    margin-top: 1rem;
+}
+
+.maintenance-page ::deep .procurement-confirm {
+    flex: 1 1 100%;
+    padding: .85rem 1rem;
+    border: 1px solid var(--border-medium);
+    border-radius: .75rem;
+    background: var(--bg-surface);
+}
+
+    .maintenance-page ::deep .procurement-confirm p {
+        margin: 0 0 .7rem;
+        font-size: .9rem;
+    }
+
+.maintenance-page ::deep .procurement-transition-danger {
+    color: #f87171;
+    border-color: color-mix(in srgb, #f87171 35%, transparent);
+    background: rgba(248, 113, 113, .12);
+}
+
+.maintenance-page ::deep .procurement-details-summary {
+    display: grid;
+    grid-template-columns: minmax(9rem, auto) 1fr;
+    gap: .35rem .9rem;
+    margin: 0 0 1rem;
+    font-size: .9rem;
+}
+
+    .maintenance-page ::deep .procurement-details-summary dt {
+        color: var(--text-muted);
+        font-size: .7rem;
+        font-weight: 700;
+        letter-spacing: .1em;
+        text-transform: uppercase;
+        align-self: center;
+    }
+
+    .maintenance-page ::deep .procurement-details-summary dd {
+        margin: 0;
+        color: var(--text-primary);
+    }
+
+/* Procurement - table columns under table-layout: fixed */
+
+.maintenance-page ::deep .procurement-table .col-po-supplier {
+    width: 18%;
+}
+
+.maintenance-page ::deep .procurement-table .col-po-ordered {
+    width: 11%;
+}
+
+.maintenance-page ::deep .procurement-table .col-po-delivery {
+    width: 14%;
+}
+
+.maintenance-page ::deep .procurement-table .col-po-status {
+    width: 11%;
+}
+
+.maintenance-page ::deep .procurement-table .col-po-lines {
+    width: 7%;
+}
+
+.maintenance-page ::deep .procurement-table .col-po-total {
+    width: 12%;
+}
+
+.maintenance-page ::deep .procurement-table .col-po-delivery-state {
+    width: 15%;
+}
+
+.maintenance-page ::deep .procurement-table .col-actions {
+    width: 12%;
+    text-align: center;
+}
+
+.maintenance-page ::deep .procurement-table .col-actions button {
+    display: block;
+    width: 100%;
+    margin: 0;
+}
+
+.maintenance-page ::deep .procurement-table .col-po-ordered,
+.maintenance-page ::deep .procurement-table .col-po-lines,
+.maintenance-page ::deep .procurement-table .col-po-total {
+    white-space: nowrap;
+}
+
+.maintenance-page ::deep .procurement-table th.col-po-total,
+.maintenance-page ::deep .procurement-line-table th.col-line-quantity,
+.maintenance-page ::deep .procurement-line-table th.col-line-cost,
+.maintenance-page ::deep .procurement-line-table th.col-line-total {
+    text-align: right;
+}
+
+.maintenance-page ::deep .procurement-delivery-cell {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: .25rem;
+}
+
+.maintenance-page ::deep .procurement-table .procurement-status,
+.maintenance-page ::deep .procurement-table .procurement-delivery-badge,
+.maintenance-page ::deep .procurement-table .maintenance-overdue-badge {
+    max-width: 100%;
+    padding: .18rem .55rem;
+    font-size: .72rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.maintenance-page ::deep .procurement-line-table .col-line-item {
+    width: 40%;
+}
+
+.maintenance-page ::deep .procurement-line-table .col-line-part {
+    width: 20%;
+}
+
+.maintenance-page ::deep .procurement-line-table .col-line-quantity {
+    width: 16%;
+}
+
+.maintenance-page ::deep .procurement-line-table .col-line-cost {
+    width: 16%;
+}
+
+.maintenance-page ::deep .procurement-line-table .col-line-total {
+    width: 18%;
+}
+
+.maintenance-page ::deep .procurement-line-table .col-actions {
+    width: 12%;
+    text-align: center;
+}
+
+.maintenance-page ::deep .procurement-line-table th,
+.maintenance-page ::deep .procurement-line-table td {
+    padding: .5rem .45rem;
+}
+
+.maintenance-page ::deep .procurement-line-table td .maintenance-inline-error {
+    display: block;
+    margin-top: .3rem;
+    font-size: .78rem;
+}
+
+@media (max-width: 1100px) {
+    .maintenance-page ::deep .procurement-table .col-po-lines,
+    .maintenance-page ::deep .procurement-table .col-po-delivery-state {
+        display: none;
+    }
+
+    .maintenance-page ::deep .procurement-table .col-po-supplier {
+        width: 26%;
+    }
+
+    .maintenance-page ::deep .procurement-table .col-po-total {
+        width: 16%;
+    }
+
+    .maintenance-page ::deep .procurement-table .col-actions {
+        width: 16%;
+    }
+}
+
+/* Procurement - controls rendered inside the panel component */
+
+.maintenance-page ::deep .maintenance-complete-button {
+    padding: .4rem .8rem;
+    color: var(--text-primary);
+    border: 1px solid var(--border-medium);
+    border-radius: .6rem;
+    background: var(--bg-surface);
+    font: inherit;
+    font-size: .8rem;
+    cursor: pointer;
+    transition: background .15s ease, color .15s ease, border-color .15s ease;
+}
+
+.maintenance-page ::deep .maintenance-complete-button:hover:not(:disabled) {
+    color: var(--accent);
+    border-color: var(--accent-border);
+    background: var(--accent-bg);
+}
+
+.maintenance-page ::deep .maintenance-complete-button:disabled {
+    cursor: not-allowed;
+    opacity: .45;
+}
+
+.maintenance-page ::deep .procurement-add-line {
+    height: 2.4rem;
+    white-space: nowrap;
+}
+
+.maintenance-page ::deep .procurement-line-table input,
+.maintenance-page ::deep .procurement-line-table select {
+    width: 100%;
+    min-width: 0;
+    height: 2.4rem;
+    padding: 0 .55rem;
+    font-size: .85rem;
+}
+
+.maintenance-page ::deep .procurement-line-table select {
+    padding-right: 1.9rem;
+    background-position: right .5rem center;
+    background-size: .9rem;
 }

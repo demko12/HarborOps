@@ -570,4 +570,307 @@ internal sealed class MaintenanceApiClient(HttpClient httpClient)
     {
         return value.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
     }
+
+    private const string SuppliersPath = "api/maintenance/suppliers";
+
+    private const string PurchaseOrdersPath = "api/maintenance/purchase-orders";
+
+    internal async Task<MaintenanceApiResult<SuppliersPage>> GetSuppliersAsync(
+        SupplierFilter filter,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(filter);
+
+        try
+        {
+            using var response = await httpClient.GetAsync(
+                BuildSuppliersPath(filter),
+                HttpCompletionOption.ResponseHeadersRead,
+                cancellationToken);
+
+            if (!response.IsSuccessStatusCode)
+            {
+                return new MaintenanceApiResult<SuppliersPage>(
+                    null, await ReadFailureAsync(response, "Unable to load suppliers", cancellationToken));
+            }
+
+            var page = await response.Content.ReadFromJsonAsync<SuppliersPage>(cancellationToken);
+
+            return new MaintenanceApiResult<SuppliersPage>(page, null);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (HttpRequestException)
+        {
+            return new MaintenanceApiResult<SuppliersPage>(null, Unavailable());
+        }
+        catch (TaskCanceledException) when (!cancellationToken.IsCancellationRequested)
+        {
+            return new MaintenanceApiResult<SuppliersPage>(null, Unavailable());
+        }
+    }
+
+    internal async Task<MaintenanceApiResult<RegisteredSupplier>> RegisterSupplierAsync(
+        RegisterSupplierRequest request,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+
+        try
+        {
+            using var response = await httpClient.PostAsJsonAsync(SuppliersPath, request, cancellationToken);
+
+            if (response.StatusCode != HttpStatusCode.Created)
+            {
+                return new MaintenanceApiResult<RegisteredSupplier>(
+                    null, await ReadFailureAsync(response, "Unable to register the supplier", cancellationToken));
+            }
+
+            var created = await response.Content.ReadFromJsonAsync<RegisteredSupplier>(cancellationToken);
+
+            return new MaintenanceApiResult<RegisteredSupplier>(created, null);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (HttpRequestException)
+        {
+            return new MaintenanceApiResult<RegisteredSupplier>(null, Unavailable());
+        }
+        catch (TaskCanceledException) when (!cancellationToken.IsCancellationRequested)
+        {
+            return new MaintenanceApiResult<RegisteredSupplier>(null, Unavailable());
+        }
+    }
+
+    internal async Task<MaintenanceApiResult<PurchaseOrdersPage>> GetPurchaseOrdersAsync(
+        PurchaseOrderFilter filter,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(filter);
+
+        try
+        {
+            using var response = await httpClient.GetAsync(
+                BuildPurchaseOrdersPath(filter),
+                HttpCompletionOption.ResponseHeadersRead,
+                cancellationToken);
+
+            if (!response.IsSuccessStatusCode)
+            {
+                return new MaintenanceApiResult<PurchaseOrdersPage>(
+                    null, await ReadFailureAsync(response, "Unable to load purchase orders", cancellationToken));
+            }
+
+            var page = await response.Content.ReadFromJsonAsync<PurchaseOrdersPage>(cancellationToken);
+
+            return new MaintenanceApiResult<PurchaseOrdersPage>(page, null);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (HttpRequestException)
+        {
+            return new MaintenanceApiResult<PurchaseOrdersPage>(null, Unavailable());
+        }
+        catch (TaskCanceledException) when (!cancellationToken.IsCancellationRequested)
+        {
+            return new MaintenanceApiResult<PurchaseOrdersPage>(null, Unavailable());
+        }
+    }
+
+    internal async Task<MaintenanceApiResult<PurchaseOrderDetails>> GetPurchaseOrderDetailsAsync(
+        Guid purchaseOrderId,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            using var response = await httpClient.GetAsync(
+                $"{PurchaseOrdersPath}/{purchaseOrderId}",
+                HttpCompletionOption.ResponseHeadersRead,
+                cancellationToken);
+
+            if (!response.IsSuccessStatusCode)
+            {
+                return new MaintenanceApiResult<PurchaseOrderDetails>(
+                    null, await ReadFailureAsync(response, "Unable to load the purchase order", cancellationToken));
+            }
+
+            var details = await response.Content.ReadFromJsonAsync<PurchaseOrderDetails>(cancellationToken);
+
+            return new MaintenanceApiResult<PurchaseOrderDetails>(details, null);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (HttpRequestException)
+        {
+            return new MaintenanceApiResult<PurchaseOrderDetails>(null, Unavailable());
+        }
+        catch (TaskCanceledException) when (!cancellationToken.IsCancellationRequested)
+        {
+            return new MaintenanceApiResult<PurchaseOrderDetails>(null, Unavailable());
+        }
+    }
+
+    internal async Task<MaintenanceApiResult<CreatedPurchaseOrder>> CreatePurchaseOrderAsync(
+        CreatePurchaseOrderRequest request,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+
+        try
+        {
+            using var response = await httpClient.PostAsJsonAsync(PurchaseOrdersPath, request, cancellationToken);
+
+            if (response.StatusCode != HttpStatusCode.Created)
+            {
+                return new MaintenanceApiResult<CreatedPurchaseOrder>(
+                    null, await ReadFailureAsync(response, "Unable to create the purchase order", cancellationToken));
+            }
+
+            var created = await response.Content.ReadFromJsonAsync<CreatedPurchaseOrder>(cancellationToken);
+
+            return new MaintenanceApiResult<CreatedPurchaseOrder>(created, null);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (HttpRequestException)
+        {
+            return new MaintenanceApiResult<CreatedPurchaseOrder>(null, Unavailable());
+        }
+        catch (TaskCanceledException) when (!cancellationToken.IsCancellationRequested)
+        {
+            return new MaintenanceApiResult<CreatedPurchaseOrder>(null, Unavailable());
+        }
+    }
+
+    internal Task<MaintenanceApiResult<ChangePurchaseOrderStatusResult>> MarkPurchaseOrderOrderedAsync(
+        Guid purchaseOrderId,
+        CancellationToken cancellationToken)
+    {
+        return ChangePurchaseOrderStatusAsync(
+            purchaseOrderId, "order", "Unable to mark the purchase order as ordered", cancellationToken);
+    }
+
+    internal Task<MaintenanceApiResult<ChangePurchaseOrderStatusResult>> ReceivePurchaseOrderAsync(
+        Guid purchaseOrderId,
+        CancellationToken cancellationToken)
+    {
+        return ChangePurchaseOrderStatusAsync(
+            purchaseOrderId, "receive", "Unable to receive the purchase order", cancellationToken);
+    }
+
+    internal Task<MaintenanceApiResult<ChangePurchaseOrderStatusResult>> CancelPurchaseOrderAsync(
+        Guid purchaseOrderId,
+        CancellationToken cancellationToken)
+    {
+        return ChangePurchaseOrderStatusAsync(
+            purchaseOrderId, "cancel", "Unable to cancel the purchase order", cancellationToken);
+    }
+    private async Task<MaintenanceApiResult<ChangePurchaseOrderStatusResult>> ChangePurchaseOrderStatusAsync(
+        Guid purchaseOrderId,
+        string action,
+        string defaultTitle,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            using var response = await httpClient.PostAsync(
+                $"{PurchaseOrdersPath}/{purchaseOrderId}/{action}",
+                content: null,
+                cancellationToken);
+
+            if (!response.IsSuccessStatusCode)
+            {
+                return new MaintenanceApiResult<ChangePurchaseOrderStatusResult>(
+                    null, await ReadFailureAsync(response, defaultTitle, cancellationToken));
+            }
+
+            var result = await response.Content
+                .ReadFromJsonAsync<ChangePurchaseOrderStatusResult>(cancellationToken);
+
+            return new MaintenanceApiResult<ChangePurchaseOrderStatusResult>(result, null);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (HttpRequestException)
+        {
+            return new MaintenanceApiResult<ChangePurchaseOrderStatusResult>(null, Unavailable());
+        }
+        catch (TaskCanceledException) when (!cancellationToken.IsCancellationRequested)
+        {
+            return new MaintenanceApiResult<ChangePurchaseOrderStatusResult>(null, Unavailable());
+        }
+    }
+    private static string BuildSuppliersPath(SupplierFilter filter)
+    {
+        var query = new List<string>
+        {
+            $"pageNumber={filter.PageNumber}",
+            $"pageSize={filter.PageSize}",
+        };
+
+        if (!string.IsNullOrWhiteSpace(filter.Search))
+        {
+            query.Add($"search={Uri.EscapeDataString(filter.Search)}");
+        }
+
+        return $"{SuppliersPath}?{string.Join('&', query)}";
+    }
+
+    private static string BuildPurchaseOrdersPath(PurchaseOrderFilter filter)
+    {
+        var query = new List<string>
+        {
+            $"pageNumber={filter.PageNumber}",
+            $"pageSize={filter.PageSize}",
+        };
+
+        if (filter.SupplierId is { } supplierId)
+        {
+            query.Add($"supplierId={supplierId}");
+        }
+
+        if (!string.IsNullOrWhiteSpace(filter.Status))
+        {
+            query.Add($"status={Uri.EscapeDataString(filter.Status)}");
+        }
+
+        if (filter.OrderDateFrom is { } orderDateFrom)
+        {
+            query.Add($"orderDateFrom={FormatDate(orderDateFrom)}");
+        }
+
+        if (filter.OrderDateTo is { } orderDateTo)
+        {
+            query.Add($"orderDateTo={FormatDate(orderDateTo)}");
+        }
+
+        if (filter.ExpectedDeliveryFrom is { } deliveryFrom)
+        {
+            query.Add($"expectedDeliveryFrom={FormatDate(deliveryFrom)}");
+        }
+
+        if (filter.ExpectedDeliveryTo is { } deliveryTo)
+        {
+            query.Add($"expectedDeliveryTo={FormatDate(deliveryTo)}");
+        }
+
+        if (filter.Overdue is { } overdue)
+        {
+            query.Add($"overdue={(overdue ? "true" : "false")}");
+        }
+
+        return $"{PurchaseOrdersPath}?{string.Join('&', query)}";
+    }
 }
