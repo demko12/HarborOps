@@ -30,8 +30,8 @@ public sealed class RoutesPanelTests : BunitContext
         Assert.Equal("Adriatic feeder", cells[0].TextContent);
         Assert.Equal("Bar to Kotor", cells[1].TextContent);
         Assert.Equal("2", cells[2].TextContent);
-        Assert.Equal("60", cells[3].TextContent);
-        Assert.Equal("300", cells[4].TextContent);
+        Assert.Equal("60 nm", cells[3].TextContent);
+        Assert.Equal("300 h", cells[4].TextContent);
     }
 
     [Fact]
@@ -65,10 +65,10 @@ public sealed class RoutesPanelTests : BunitContext
             Assert.Equal(2, rows.Count);
             Assert.Equal("1", rows[0].QuerySelectorAll("td")[0].TextContent);
             Assert.Equal("Port of Bar (MEBAR)", rows[0].QuerySelectorAll("td")[1].TextContent);
-            Assert.Equal("0", rows[0].QuerySelectorAll("td")[3].TextContent);
+            Assert.Equal("0 nm", rows[0].QuerySelectorAll("td")[3].TextContent);
             Assert.Equal("Port of Kotor (MEKOT)", rows[1].QuerySelectorAll("td")[1].TextContent);
-            Assert.Equal("60", rows[1].QuerySelectorAll("td")[3].TextContent);
-            Assert.Equal("300", rows[1].QuerySelectorAll("td")[4].TextContent);
+            Assert.Equal("60 nm", rows[1].QuerySelectorAll("td")[3].TextContent);
+            Assert.Equal("300 h", rows[1].QuerySelectorAll("td")[4].TextContent);
         });
     }
 

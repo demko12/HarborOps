@@ -147,7 +147,6 @@ internal sealed class MaintenanceApiClient(HttpClient httpClient)
         }
         catch (JsonException)
         {
-            
         }
 
         return new MaintenanceApiFailure(

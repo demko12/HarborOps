@@ -139,8 +139,8 @@ public sealed class RegisterRoutePageTests : BunitContext
 
         var totals = page.FindAll(".route-builder-totals dd");
 
-        Assert.Equal("60.5", totals[0].TextContent);
-        Assert.Equal("300", totals[1].TextContent);
+        Assert.Equal("60.5 nm", totals[0].TextContent);
+        Assert.Equal("300 h", totals[1].TextContent);
     }
 
     [Fact]
@@ -157,8 +157,8 @@ public sealed class RegisterRoutePageTests : BunitContext
 
         var totals = page.FindAll(".route-builder-totals dd");
 
-        Assert.Equal("0", totals[0].TextContent);
-        Assert.Equal("0", totals[1].TextContent);
+        Assert.Equal("0 nm", totals[0].TextContent);
+        Assert.Equal("0 h", totals[1].TextContent);
     }
 
     [Fact]
