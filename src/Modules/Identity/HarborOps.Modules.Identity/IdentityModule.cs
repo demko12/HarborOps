@@ -30,6 +30,7 @@ public static class IdentityModule
         services.AddScoped<IAuthorizationHandler, PermissionAuthorizationHandler>();
 
         services.AddScoped<UserAdministrationService>();
+        services.AddScoped<AccountSecurityService>();
         services.AddScoped<RoleAdministrationService>();
         services.AddScoped<IdentityAdministratorGuard>();
         services.AddSingleton<IAuthorizationMiddlewareResultHandler, IdentityAccountStateAuthorizationResultHandler>();
