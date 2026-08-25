@@ -426,7 +426,10 @@ public sealed class CargoBookingDetailsPageTests : BunitContext
         var page = RenderDetailsPage();
 
         Assert.Empty(page.FindAll(".tracking-submit"));
-        Assert.Contains("reached the end of its lifecycle", page.Markup, StringComparison.Ordinal);
+        Assert.Contains(
+            "Lifecycle complete",
+            page.Find(".booking-complete").TextContent,
+            StringComparison.Ordinal);
     }
 
     [Fact]
