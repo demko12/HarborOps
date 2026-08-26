@@ -144,3 +144,34 @@ internal static class FleetStatusOptions
         "Inactive",
     ];
 }
+
+internal sealed record VesselPositionsWebModel(
+    IReadOnlyList<VesselPositionWebModel> Items,
+    int PageNumber,
+    int PageSize,
+    int TotalCount,
+    double StaleAfterHours,
+    DateTime EvaluatedAtUtc);
+
+internal sealed record VesselPositionWebModel(
+    Guid VesselId,
+    string Name,
+    string ImoNumber,
+    string CurrentStatus,
+    Guid? FleetId,
+    string? FleetName,
+    decimal? CurrentLatitude,
+    decimal? CurrentLongitude,
+    DateTime? LastPositionReportedAtUtc,
+    bool IsPositionStale)
+{
+    internal bool HasPosition => CurrentLatitude is not null && CurrentLongitude is not null;
+}
+
+internal sealed record RecordVesselPositionWebRequest(decimal? Latitude, decimal? Longitude);
+
+internal sealed record RecordVesselPositionWebResponse(
+    Guid VesselId,
+    decimal Latitude,
+    decimal Longitude,
+    DateTime ReportedAtUtc);

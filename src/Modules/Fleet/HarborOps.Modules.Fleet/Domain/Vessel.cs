@@ -72,7 +72,7 @@ internal sealed class Vessel
 
     public decimal? CurrentLongitude { get; private set; }
 
-    public DateTime? LastPositionReportedAtUtc {  get; private set; }
+    public DateTime? LastPositionReportedAtUtc { get; private set; }
 
     public string? LifecycleStage { get; private set; }
 

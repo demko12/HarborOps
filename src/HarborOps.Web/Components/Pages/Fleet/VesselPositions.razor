@@ -1,0 +1,298 @@
+@page "/fleet/positions"
+@attribute [Microsoft.AspNetCore.Authorization.Authorize(Policy = "AccessFleet")]
+@using HarborOps.Web.Api.Fleet
+@implements IDisposable
+@inject FleetApiClient FleetApi
+@inject CurrentUserAuthorizationState AuthorizationState
+
+<PageTitle>Vessel positions | HarborOps</PageTitle>
+
+<section class="positions-page">
+	<header class="positions-header">
+		<div>
+			<nav class="page-breadcrumb" aria-label="Breadcrumb">
+				<a href="/fleet">Fleet operations</a><span aria-hidden="true">/</span><span>Vessel positions</span>
+			</nav>
+			<p class="positions-eyebrow">Fleet operations</p>
+			<h1>Vessel positions</h1>
+			<p>Review the latest reported position of every vessel and spot missing or stale reports.</p>
+		</div>
+		<button class="positions-refresh" type="button" @onclick="RefreshAsync" disabled="@isLoading">
+			<span class="bi bi-arrow-clockwise" aria-hidden="true"></span>
+			@(isLoading ? "Refreshing..." : "Refresh")
+		</button>
+	</header>
+
+	<div class="positions-filters">
+		<div class="positions-field">
+			<label for="positions-fleet">Fleet</label>
+			<select id="positions-fleet" @bind="selectedFleetId" @bind:after="ApplyFiltersAsync" disabled="@isLoading">
+				<option value="">All fleets</option>
+				@foreach (var fleet in fleets?.Items ?? [])
+				{
+					<option value="@fleet.FleetId">@fleet.Name</option>
+				}
+			</select>
+		</div>
+		<div class="positions-field">
+			<label for="positions-status">Status</label>
+			<select id="positions-status" @bind="selectedStatus" @bind:after="ApplyFiltersAsync" disabled="@isLoading">
+				<option value="">All statuses</option>
+				@foreach (var option in FleetStatusOptions.All)
+				{
+					<option value="@option">@option</option>
+				}
+			</select>
+		</div>
+		<div class="positions-check">
+			<input id="positions-stale-only" type="checkbox" @bind="staleOnly" @bind:after="ApplyFiltersAsync" disabled="@isLoading" />
+			<label for="positions-stale-only">Missing or stale only</label>
+		</div>
+		<button class="positions-reset" type="button" @onclick="ResetFiltersAsync" disabled="@isLoading">Reset</button>
+	</div>
+
+	@if (positions is not null)
+	{
+		<section class="positions-summary" aria-label="Position summary">
+			<article class="positions-summary-card">
+				<div><span>Vessels</span><strong>@positions.TotalCount</strong><small>Matching the filters</small></div>
+			</article>
+			<article class="positions-summary-card">
+				<div><span>Missing position</span><strong>@MissingCount</strong><small>No coordinates on this page</small></div>
+			</article>
+			<article class="positions-summary-card">
+				<div><span>Stale position</span><strong>@StaleCount</strong><small>Older than @StaleAfterLabel</small></div>
+			</article>
+			<article class="positions-summary-card">
+				<div><span>Current position</span><strong>@CurrentCount</strong><small>Reported recently</small></div>
+			</article>
+		</section>
+	}
+
+	<section class="positions-card" aria-labelledby="positions-table-title">
+		<div class="positions-card-heading">
+			<div>
+				<h2 id="positions-table-title">Reported positions</h2>
+				<p>
+					@(positions?.TotalCount ?? 0) vessels
+					@if (positions is not null)
+					{
+						<span> &middot; positions older than @StaleAfterLabel are marked stale</span>
+					}
+				</p>
+			</div>
+		</div>
+
+		@if (isLoading)
+		{
+			<LoadingState Message="Loading vessel positions..." />
+		}
+		else if (failure is { IsForbidden: true })
+		{
+			<div class="positions-alert" role="alert">
+				<strong>@failure.Title</strong>
+				<p>@failure.Message</p>
+			</div>
+		}
+		else if (failure is { IsValidation: true, Errors.Count: > 0 })
+		{
+			<div class="positions-alert" role="alert">
+				<strong>@failure.Title</strong>
+				<ul>
+					@foreach (var entry in failure.Errors)
+					{
+						@foreach (var message in entry.Value)
+						{
+							<li>@message</li>
+						}
+					}
+				</ul>
+			</div>
+		}
+		else if (failure is not null)
+		{
+			<ApiErrorState Title="@failure.Title" Message="@failure.Message" OnRetry="LoadPositionsAsync" />
+		}
+		else if (positions is null || positions.Items.Count == 0)
+		{
+			<EmptyState Title="No vessels found"
+						Message="No vessel matches these filters. Try another fleet, status, or clear the stale filter." />
+		}
+		else
+		{
+			<section class="positions-overview" aria-labelledby="positions-attention-title">
+				<div class="positions-overview-heading-row">
+					<h3 id="positions-attention-title">Needs a position report</h3>
+					<p>@AttentionCount of @positions.Items.Count vessels on this page are missing or stale.</p>
+				</div>
+
+				@if (AttentionVessels.Count == 0)
+				{
+					<p class="positions-overview-clear">
+						<span class="bi bi-check2-circle" aria-hidden="true"></span>
+						Every vessel on this page reported a position within the last @StaleAfterLabel.
+					</p>
+				}
+				else
+				{
+					<ul class="positions-overview-grid">
+						@foreach (var vessel in AttentionVessels)
+						{
+							<li class="positions-overview-card" @key="vessel.VesselId">
+								<div class="positions-overview-card-heading">
+									<div>
+										<a href="@DetailsUrl(vessel.VesselId)">@vessel.Name</a>
+										<span class="positions-imo">IMO @vessel.ImoNumber</span>
+									</div>
+									<span class="@($"positions-badge {FreshnessClass(vessel)}")">@FreshnessLabel(vessel)</span>
+								</div>
+								<p class="positions-overview-coordinates">
+									@FormatLatitude(vessel.CurrentLatitude), @FormatLongitude(vessel.CurrentLongitude)
+								</p>
+								<p class="positions-overview-meta">
+									@FormatTimestamp(vessel.LastPositionReportedAtUtc) &middot; @(vessel.FleetName ?? "Unassigned")
+								</p>
+							</li>
+						}
+					</ul>
+
+					@if (AttentionCount > AttentionVessels.Count)
+					{
+						<p class="positions-overview-more">
+							@(AttentionCount - AttentionVessels.Count) more listed in the table below.
+						</p>
+					}
+				}
+			</section>
+
+			<div class="positions-table-scroll">
+				<table class="positions-table">
+					<caption>Latest reported position per vessel, stale and missing reports first.</caption>
+					<thead>
+						<tr>
+							<th scope="col">Vessel</th>
+							<th scope="col">Status</th>
+							<th scope="col">Fleet</th>
+							<th scope="col">Latitude</th>
+							<th scope="col">Longitude</th>
+							<th scope="col">Last reported</th>
+							<th scope="col">Position</th>
+						</tr>
+					</thead>
+					<tbody>
+						@foreach (var vessel in positions.Items)
+						{
+							<tr @key="vessel.VesselId">
+								<th scope="row">
+									<a href="@DetailsUrl(vessel.VesselId)">@vessel.Name</a>
+									<span class="positions-imo">IMO @vessel.ImoNumber</span>
+								</th>
+								<td>@vessel.CurrentStatus</td>
+								<td>@(vessel.FleetName ?? "Unassigned")</td>
+								<td class="positions-coordinate">@FormatLatitude(vessel.CurrentLatitude)</td>
+								<td class="positions-coordinate">@FormatLongitude(vessel.CurrentLongitude)</td>
+								<td>@FormatTimestamp(vessel.LastPositionReportedAtUtc)</td>
+								<td>
+									<span class="@($"positions-badge {FreshnessClass(vessel)}")">@FreshnessLabel(vessel)</span>
+								</td>
+							</tr>
+						}
+					</tbody>
+				</table>
+			</div>
+
+			<div class="positions-pagination">
+				<span>Showing @FirstRowNumber&ndash;@LastRowNumber of @positions.TotalCount vessels</span>
+				<div>
+					<button type="button" @onclick="PreviousPageAsync" disabled="@(positions.PageNumber <= 1)">Previous</button>
+					<span class="positions-page-indicator">Page @positions.PageNumber of @TotalPages</span>
+					<button type="button" @onclick="NextPageAsync" disabled="@(positions.PageNumber >= TotalPages)">Next</button>
+				</div>
+			</div>
+		}
+	</section>
+
+	@if (CanManageFleet)
+	{
+		<section class="positions-card positions-form-card" aria-labelledby="positions-form-title">
+			<div class="positions-card-heading">
+				<div>
+					<p>Operational update</p>
+					<h2 id="positions-form-title">Report a current position</h2>
+				</div>
+			</div>
+
+			@if (submitSuccessMessage is not null)
+			{
+				<div class="positions-success" role="status">@submitSuccessMessage</div>
+			}
+
+			@if (submitFailure is { IsValidation: true, Errors.Count: > 0 })
+			{
+				<div class="positions-alert" role="alert">
+					<strong>@submitFailure.Title</strong>
+					<ul>
+						@foreach (var entry in submitFailure.Errors)
+						{
+							@foreach (var message in entry.Value)
+							{
+								<li>@message</li>
+							}
+						}
+					</ul>
+				</div>
+			}
+			else if (submitFailure is { IsForbidden: true } or { IsNotFound: true })
+			{
+				<div class="positions-alert" role="alert">
+					<strong>@submitFailure.Title</strong>
+					<p>@submitFailure.Message</p>
+				</div>
+			}
+			else if (submitFailure is not null)
+			{
+				<ApiErrorState Title="@submitFailure.Title" Message="@submitFailure.Message" OnRetry="SubmitPositionAsync" />
+			}
+
+			@if (positions is null || positions.Items.Count == 0)
+			{
+				<EmptyState Title="No vessel to report for"
+							Message="Clear the filters to load vessels before recording a position." />
+			}
+			else
+			{
+				<form class="positions-form" @onsubmit="SubmitPositionAsync" @onsubmit:preventDefault="true">
+					<div class="positions-field">
+						<label for="positions-vessel">Vessel</label>
+						<select id="positions-vessel" @bind="reportVesselId" aria-describedby="positions-vessel-hint">
+							<option value="">Select a vessel</option>
+							@foreach (var vessel in positions.Items)
+							{
+								<option value="@vessel.VesselId">@vessel.Name (IMO @vessel.ImoNumber)</option>
+							}
+						</select>
+						<small id="positions-vessel-hint">The observation time is assigned by the server.</small>
+					</div>
+					<div class="positions-field">
+						<label for="positions-latitude">Latitude</label>
+						<input id="positions-latitude" type="number" step="0.000001" min="-90" max="90"
+							   @bind="reportLatitude" aria-describedby="positions-latitude-hint" />
+						<small id="positions-latitude-hint">Between -90 and 90 degrees.</small>
+					</div>
+					<div class="positions-field">
+						<label for="positions-longitude">Longitude</label>
+						<input id="positions-longitude" type="number" step="0.000001" min="-180" max="180"
+							   @bind="reportLongitude" aria-describedby="positions-longitude-hint" />
+						<small id="positions-longitude-hint">Between -180 and 180 degrees.</small>
+					</div>
+					<div class="positions-field positions-field-action">
+						<span class="positions-field-spacer" aria-hidden="true">&nbsp;</span>
+						<button class="positions-submit" type="submit" disabled="@(isSubmitting || reportVesselId is null)">
+							@(isSubmitting ? "Saving..." : "Record position")
+						</button>
+					</div>
+				</form>
+			}
+		</section>
+	}
+</section>
