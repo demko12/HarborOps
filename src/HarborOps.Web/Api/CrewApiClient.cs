@@ -129,13 +129,38 @@ internal sealed class CrewApiClient(HttpClient httpClient)
             "api/crew/assignments", request, cancellationToken);
     }
 
-    internal async Task<CrewApiWriteResult<bool>> DeleteAssignmentAsync(
+    internal Task<CrewApiWriteResult<bool>> ActivateAssignmentAsync(
         Guid assignmentId,
         CancellationToken cancellationToken)
+        => PostEmptyAsync($"api/crew/assignments/{assignmentId}/activate", new { }, cancellationToken, "Unable to activate assignment");
+
+    internal Task<CrewApiWriteResult<bool>> CompleteAssignmentAsync(
+        Guid assignmentId,
+        CompleteCrewAssignmentRequest request,
+        CancellationToken cancellationToken)
+        => PostEmptyAsync($"api/crew/assignments/{assignmentId}/complete", request, cancellationToken, "Unable to complete assignment");
+
+    internal Task<CrewApiWriteResult<bool>> CancelAssignmentAsync(
+        Guid assignmentId,
+        CancelCrewAssignmentRequest request,
+        CancellationToken cancellationToken)
+        => PostEmptyAsync($"api/crew/assignments/{assignmentId}/cancel", request, cancellationToken, "Unable to cancel assignment");
+
+    internal Task<CrewApiWriteResult<bool>> CancelRotationAsync(
+        Guid rotationId,
+        CancelCrewRotationRequest request,
+        CancellationToken cancellationToken)
+        => PostEmptyAsync($"api/crew/rotations/{rotationId}/cancel", request, cancellationToken, "Unable to cancel rotation");
+
+    private async Task<CrewApiWriteResult<bool>> PostEmptyAsync<TRequest>(
+        string path,
+        TRequest? request,
+        CancellationToken cancellationToken,
+        string action)
     {
         try
         {
-            using var response = await httpClient.DeleteAsync($"api/crew/assignments/{assignmentId}", cancellationToken);
+            using var response = await httpClient.PostAsJsonAsync(path, request, cancellationToken);
 
             if (response.IsSuccessStatusCode)
             {
@@ -152,7 +177,7 @@ internal sealed class CrewApiClient(HttpClient httpClient)
                 problem?.Title ?? (isForbidden ? "Crew access denied"
                     : isNotFound ? "Crew assignment not found"
                     : isConflict ? "Conflict"
-                    : "Unable to delete"),
+                    : action),
                 problem?.Detail ?? "Please try again.",
                 problem?.Errors ?? EmptyErrors));
         }
@@ -464,7 +489,10 @@ internal sealed record CrewAssignmentProfileItemResponse(
     DateOnly SignOnDate,
     DateOnly PlannedSignOffDate,
     DateOnly? ActualSignOffDate,
-    string Status);
+    string Status,
+    DateTime? CancelledAtUtc = null,
+    Guid? CancelledByUserId = null,
+    string? CancellationNotes = null);
 
 internal sealed record CrewPositionsResponse(IReadOnlyList<CrewPositionListItemResponse> Items);
 
@@ -518,7 +546,30 @@ internal sealed record CrewRotationListItemResponse(
     string? RelievingCrewMemberName,
     string RotationPattern,
     DateOnly PlannedReliefDate,
-    bool IsOverdue);
+    bool IsOverdue,
+    string Status = "Planned",
+    DateTime? ExecutedAtUtc = null,
+    Guid? ExecutedByUserId = null,
+    Guid? ReplacementAssignmentId = null,
+    DateTime? CancelledAtUtc = null,
+    Guid? CancelledByUserId = null,
+    string? CancellationNotes = null);
+
+internal sealed record CompleteCrewAssignmentRequest
+{
+    public DateOnly? ActualSignOffDate { get; init; }
+    public Guid? SignOffPortId { get; init; }
+}
+
+internal sealed record CancelCrewAssignmentRequest
+{
+    public string? Notes { get; init; }
+}
+
+internal sealed record CancelCrewRotationRequest
+{
+    public string? Notes { get; init; }
+}
 
 internal sealed record PlanCrewRotationRequest
 {

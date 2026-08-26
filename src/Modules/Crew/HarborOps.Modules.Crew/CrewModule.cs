@@ -19,7 +19,9 @@ public static class CrewModule
         services.AddScoped<ISearchCrewMembersQuery, SearchCrewMembersQuery>();
         services.AddScoped<IOperationsDashboardCrewQuery, OperationsDashboardCrewQuery>();
         services.AddScoped<RegisterCrewAssignmentService>();
-        services.AddScoped<DeleteCrewAssignmentService>();
+        services.AddScoped<ActivateCrewAssignmentService>();
+        services.AddScoped<CompleteCrewAssignmentService>();
+        services.AddScoped<CancelCrewAssignmentService>();
         services.AddScoped<RegisterCrewCertificateService>();
         services.TryAddSingleton<IDateTimeProvider, SystemDateTimeProvider>();
         services
@@ -32,6 +34,8 @@ public static class CrewModule
         services.AddScoped<PlanCrewRotationService>();
         services.AddScoped<UpdateCrewRotationService>();
         services.AddScoped<ExecuteCrewRotationService>();
+        services.AddScoped<CancelCrewRotationService>();
+        services.TryAddSingleton<TimeProvider>(TimeProvider.System);
         return services;
     }
 }

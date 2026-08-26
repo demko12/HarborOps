@@ -46,15 +46,18 @@ public sealed class ExecuteCrewRotationServiceTests
     }
 
     [Fact]
-    public async Task ExecuteAsync_removes_the_rotation_row()
+    public async Task ExecuteAsync_retains_the_rotation_outcome()
     {
         await using var dbContext = CreateDbContext();
         var (assignment, _) = await SeedRotationReadyForExecutionAsync(dbContext);
         var service = new ExecuteCrewRotationService(dbContext, new FakeDateTimeProvider(Today));
 
-        await service.ExecuteAsync(assignment.Id, CancellationToken.None);
+        var response = await service.ExecuteAsync(assignment.Id, CancellationToken.None);
 
-        Assert.False(await dbContext.Set<CrewRotation>().AnyAsync(r => r.AssignmentId == assignment.Id));
+        var rotation = await dbContext.Set<CrewRotation>().SingleAsync(r => r.AssignmentId == assignment.Id);
+        Assert.Equal(CrewRotation.ExecutedStatus, rotation.Status);
+        Assert.Equal(response.ReplacementAssignmentId, rotation.ReplacementAssignmentId);
+        Assert.NotNull(rotation.ExecutedAtUtc);
     }
 
     [Fact]

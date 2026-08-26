@@ -99,7 +99,7 @@ public sealed class MaintenancePageTests : BunitContext
     }
 
     [Fact]
-    public void A_vessel_with_no_lookup_match_falls_back_to_a_short_id()
+    public void A_vessel_with_no_lookup_match_is_not_rendered_as_an_id()
     {
         respondToLookup = _ => Json(HttpStatusCode.OK, """{"vessels":[]}""");
         respondToMaintenance = _ => Json(HttpStatusCode.OK, Page(
@@ -107,7 +107,7 @@ public sealed class MaintenancePageTests : BunitContext
 
         var page = RenderMaintenancePage();
 
-        Assert.Contains("Vessel 30000000", page.Markup, StringComparison.Ordinal);
+        Assert.Contains("Unknown vessel", page.Markup, StringComparison.Ordinal);
     }
 
     [Fact]

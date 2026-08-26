@@ -26,5 +26,22 @@ internal sealed class CrewRotationConfiguration : IEntityTypeConfiguration<CrewR
 
         builder.Property(crewRotation => crewRotation.PlannedReliefDate)
             .IsRequired();
+
+        builder.Property(crewRotation => crewRotation.Status)
+            .HasMaxLength(CrewRotation.StatusMaxLength)
+            .IsRequired();
+
+        builder.Property(crewRotation => crewRotation.ExecutedAtUtc);
+
+        builder.Property(crewRotation => crewRotation.ExecutedByUserId);
+
+        builder.Property(crewRotation => crewRotation.ReplacementAssignmentId);
+
+        builder.Property(crewRotation => crewRotation.CancelledAtUtc);
+
+        builder.Property(crewRotation => crewRotation.CancelledByUserId);
+
+        builder.Property(crewRotation => crewRotation.CancellationNotes)
+            .HasMaxLength(CrewRotation.CancellationNotesMaxLength);
     }
 }

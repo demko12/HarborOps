@@ -37,7 +37,10 @@ public sealed class UpdateCrewRotationService(DbContext dbContext)
         }
 
         var rotation = await dbContext.Set<CrewRotation>()
-            .SingleOrDefaultAsync(candidate => candidate.AssignmentId == assignmentId, cancellationToken);
+            .SingleOrDefaultAsync(
+                candidate => candidate.AssignmentId == assignmentId
+                    && candidate.Status == CrewRotation.PlannedStatus,
+                cancellationToken);
 
         if (rotation is null)
         {

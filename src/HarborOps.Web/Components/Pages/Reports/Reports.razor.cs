@@ -363,7 +363,7 @@ public partial class Reports : IDisposable
     }
 
     private string VesselDisplayName(Guid vesselId) =>
-        vesselNames.TryGetValue(vesselId, out var name) ? name : $"Vessel {vesselId.ToString()[..8]}";
+        vesselNames.TryGetValue(vesselId, out var name) ? name : "Unknown vessel";
 
     private static string DocumentStatusLabel(DocumentsExpiryReportRow row) =>
         row.IsExpired ? "Expired" : row.Status;

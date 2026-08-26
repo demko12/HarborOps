@@ -1,8 +1,10 @@
 @page "/crew/{CrewMemberId:guid}"
 @attribute [Microsoft.AspNetCore.Authorization.Authorize(Policy = "AccessCrew")]
+@using HarborOps.Web.Api.Fleet
 @using HarborOps.Web.Components.Pages.Crew
 @implements IDisposable
 @inject CrewApiClient CrewApi
+@inject FleetApiClient FleetApi
 @inject CurrentUserAuthorizationState CurrentUser
 
 <PageTitle>Crew profile | HarborOps</PageTitle>
@@ -158,7 +160,7 @@
                             var state = GetAssignmentState(assignment);
                             <button type="button" class="crew-profile-row crew-profile-row-clickable" @key="assignment.AssignmentId" @onclick="() => OpenAssignmentDetailsAsync(assignment)">
                                 <div class="crew-profile-row-primary">
-                                    <strong>Vessel @ShortId(assignment.VesselId)</strong>
+                                    <strong>@VesselDisplayName(assignment.VesselId)</strong>
                                     <span>@assignment.RankName</span>
                                 </div>
                                 <div class="crew-profile-row-secondary">
@@ -187,15 +189,18 @@
             var detailState = GetAssignmentState(selectedAssignment);
             <div class="crew-assignment-modal-backdrop" @onclick="CloseAssignmentDetails">
                 <section class="crew-assignment-modal" role="dialog" aria-modal="true" aria-labelledby="crew-assignment-detail-title" @onclick:stopPropagation="true">
-                    <div class="crew-profile-card-heading">
-                        <h2 id="crew-assignment-detail-title">Assignment details</h2>
+                    <div class="crew-assignment-modal-heading">
+                        <div>
+                            <p class="crew-assignment-modal-eyebrow">Crew assignment</p>
+                            <h2 id="crew-assignment-detail-title">Assignment details</h2>
+                        </div>
                         <button type="button" class="crew-assignment-modal-close" @onclick="CloseAssignmentDetails" aria-label="Close assignment details">
                             <span class="bi bi-x-lg" aria-hidden="true"></span>
                         </button>
                     </div>
 
                     <dl class="crew-assignment-modal-details">
-                        <div><dt>Vessel</dt><dd>Vessel @ShortId(selectedAssignment.VesselId)</dd></div>
+                        <div><dt>Vessel</dt><dd>@VesselDisplayName(selectedAssignment.VesselId)</dd></div>
                         <div><dt>Rank</dt><dd>@selectedAssignment.RankName</dd></div>
                         <div><dt>Sign-on date</dt><dd>@selectedAssignment.SignOnDate.ToString("dd MMM yyyy")</dd></div>
                         <div><dt>Planned sign-off date</dt><dd>@selectedAssignment.PlannedSignOffDate.ToString("dd MMM yyyy")</dd></div>
@@ -206,9 +211,9 @@
                         <div><dt>Status</dt><dd><span class="crew-profile-indicator @detailState.Class">@detailState.Label</span></dd></div>
                     </dl>
 
-                    @if (deleteAssignmentError is not null)
+                    @if (assignmentActionError is not null)
                     {
-                        <div class="crew-assignment-modal-error" role="alert">@deleteAssignmentError</div>
+                        <div class="crew-assignment-modal-error" role="alert">@assignmentActionError</div>
                     }
 
                     @if (selectedAssignment.ActualSignOffDate is null)
@@ -315,9 +320,16 @@
                                         <div class="crew-assignment-modal-error" role="alert">@executeRotationError</div>
                                     }
 
-                                    <button type="button" class="crew-rotation-execute" disabled="@isExecutingRotation" @onclick="ExecuteRotationAsync">
-                                        @(isExecutingRotation ? "Executing..." : "Execute relief")
-                                    </button>
+                                    @if (isConfirmingRotationExecution)
+                                    {
+                                        <div class="crew-assignment-confirmation"><span>Confirm executing this relief?</span><button type="button" @onclick="ExecuteRotationAsync">Confirm</button><button type="button" @onclick="CancelRotationExecution">Cancel</button></div>
+                                    }
+                                    else
+                                    {
+                                        <button type="button" class="crew-rotation-execute" disabled="@isExecutingRotation" @onclick="RequestRotationExecution">
+                                            @(isExecutingRotation ? "Executing..." : "Execute relief")
+                                        </button>
+                                    }
                                 }
                             }
                         </div>
@@ -325,15 +337,38 @@
 
                     @if (CanManage)
                     {
-                        @if (string.Equals(selectedAssignment.Status, "Planned", StringComparison.OrdinalIgnoreCase))
+                        @if (selectedAssignment.Status is "Planned" or "Active")
                         {
-                            <button type="button" class="crew-assignment-modal-delete" disabled="@isDeletingAssignment" @onclick="DeleteSelectedAssignmentAsync">
-                                @(isDeletingAssignment ? "Deleting..." : "Delete assignment")
-                            </button>
+                            <section class="crew-assignment-lifecycle-actions" aria-label="Assignment lifecycle actions">
+                                <div class="crew-assignment-action-heading">
+                                    <div>
+                                        <p>Assignment lifecycle</p>
+                                        <h3>Update assignment</h3>
+                                    </div>
+                                    <span>Changes are retained in the assignment history.</span>
+                                </div>
+                                @if (string.Equals(selectedAssignment.Status, "Planned", StringComparison.OrdinalIgnoreCase))
+                                {
+                                    <button type="button" class="crew-assignment-activate" @onclick="RequestActivation">Activate assignment</button>
+                                }
+                                <div class="crew-assignment-action-row">
+                                    <label>Actual sign-off date <input type="date" @bind="completionDate" min="@AssignToVesselForm.FormatIsoDate(selectedAssignment.SignOnDate)" /></label>
+                                    <button type="button" @onclick="RequestCompletion">Complete assignment</button>
+                                </div>
+                                <div class="crew-assignment-action-row crew-assignment-cancel-row">
+                                    <label>Cancellation notes <input type="text" @bind="cancellationNotes" maxlength="1000" placeholder="Optional note" /></label>
+                                    <button type="button" class="crew-assignment-modal-delete" @onclick="RequestCancellation">Cancel assignment</button>
+                                </div>
+                            </section>
+
+                            @if (pendingAssignmentAction is not null)
+                            {
+                                <div class="crew-assignment-confirmation"><span>Confirm @pendingAssignmentAction this assignment?</span><button type="button" disabled="@isProcessingAssignmentAction" @onclick="ConfirmAssignmentActionAsync">Confirm</button><button type="button" @onclick="CancelAssignmentAction">Cancel</button></div>
+                            }
                         }
                         else
                         {
-                            <p class="crew-assignment-modal-hint">Only planned assignments can be deleted.</p>
+                            <p class="crew-assignment-modal-hint">This @selectedAssignment.Status.ToLowerInvariant() assignment is retained as operational history.</p>
                         }
                     }
                 </section>

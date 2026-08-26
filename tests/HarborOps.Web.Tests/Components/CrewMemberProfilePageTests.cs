@@ -134,7 +134,7 @@ public sealed class CrewMemberProfilePageTests : BunitContext
     [Theory]
     [InlineData("Active", null, "Active", "crew-profile-indicator-valid")]
     [InlineData("Planned", null, "Planned", "crew-profile-indicator-warning")]
-    [InlineData("Active", "2026-01-01", "Closed", "crew-profile-indicator-neutral")]
+    [InlineData("Active", "2026-01-01", "Completed", "crew-profile-indicator-neutral")]
     public void Assignment_rows_show_the_matching_status_indicator(
         string status, string? actualSignOff, string label, string cssClass)
     {
@@ -455,7 +455,7 @@ public sealed class CrewMemberProfilePageTests : BunitContext
     }
 
     [Fact]
-    public void A_non_planned_assignment_offers_no_delete_action()
+    public void An_active_assignment_offers_lifecycle_actions()
     {
         respondToProfile = _ => Json(
             HttpStatusCode.OK,
@@ -468,15 +468,12 @@ public sealed class CrewMemberProfilePageTests : BunitContext
         page.WaitForAssertion(() => Assert.NotEmpty(page.FindAll(".crew-profile-row-clickable")));
         page.Find(".crew-profile-row-clickable").Click();
 
-        Assert.Empty(page.FindAll(".crew-assignment-modal-delete"));
-        Assert.Contains(
-            "Only planned assignments can be deleted.",
-            page.Find(".crew-assignment-modal").TextContent,
-            StringComparison.Ordinal);
+        Assert.NotEmpty(page.FindAll(".crew-assignment-modal-delete"));
+        Assert.Contains("Complete assignment", page.Find(".crew-assignment-modal").TextContent, StringComparison.Ordinal);
     }
 
     [Fact]
-    public void Deleting_a_planned_assignment_closes_the_popup_and_refreshes_the_list()
+    public void Cancelling_a_planned_assignment_closes_the_popup_and_refreshes_the_list()
     {
         var callCount = 0;
         respondToProfile = _ =>
@@ -494,6 +491,7 @@ public sealed class CrewMemberProfilePageTests : BunitContext
         page.WaitForAssertion(() => Assert.NotEmpty(page.FindAll(".crew-profile-row-clickable")));
         page.Find(".crew-profile-row-clickable").Click();
         page.Find(".crew-assignment-modal-delete").Click();
+        page.FindAll(".crew-assignment-confirmation button").First(button => button.TextContent == "Confirm").Click();
 
         page.WaitForAssertion(() =>
         {
@@ -503,14 +501,14 @@ public sealed class CrewMemberProfilePageTests : BunitContext
     }
 
     [Fact]
-    public void A_delete_conflict_is_shown_in_the_popup()
+    public void A_cancellation_conflict_is_shown_in_the_popup()
     {
         respondToProfile = _ => Json(
             HttpStatusCode.OK,
             Profile(certificates: [], assignments: [Assignment(status: "Planned")]));
         respondToDeleteAssignment = _ => Json(
             HttpStatusCode.Conflict,
-            """{"title":"Crew assignment cannot be deleted.","status":409,"detail":"Crew assignment cannot be deleted because it is not in Planned status."}""");
+            """{"title":"Crew assignment cannot be cancelled.","status":409,"detail":"Crew assignment cannot be cancelled because it is already completed."}""");
 
         var page = RenderProfilePage(
             CurrentUserAuthorizationState.CrewReadPermission,
@@ -519,9 +517,10 @@ public sealed class CrewMemberProfilePageTests : BunitContext
         page.WaitForAssertion(() => Assert.NotEmpty(page.FindAll(".crew-profile-row-clickable")));
         page.Find(".crew-profile-row-clickable").Click();
         page.Find(".crew-assignment-modal-delete").Click();
+        page.FindAll(".crew-assignment-confirmation button").First(button => button.TextContent == "Confirm").Click();
 
         page.WaitForAssertion(() => Assert.Contains(
-            "Crew assignment cannot be deleted because it is not in Planned status.",
+            "Crew assignment cannot be cancelled because it is already completed.",
             page.Find(".crew-assignment-modal-error").TextContent,
             StringComparison.Ordinal));
         Assert.NotEmpty(page.FindAll(".crew-assignment-modal"));
@@ -777,6 +776,7 @@ public sealed class CrewMemberProfilePageTests : BunitContext
 
         page.WaitForAssertion(() => Assert.NotEmpty(page.FindAll(".crew-rotation-execute")));
         page.Find(".crew-rotation-execute").Click();
+        page.FindAll(".crew-assignment-confirmation button").First(button => button.TextContent == "Confirm").Click();
 
         page.WaitForAssertion(() => Assert.Empty(page.FindAll(".crew-assignment-modal")));
     }
@@ -801,6 +801,7 @@ public sealed class CrewMemberProfilePageTests : BunitContext
 
         page.WaitForAssertion(() => Assert.NotEmpty(page.FindAll(".crew-rotation-execute")));
         page.Find(".crew-rotation-execute").Click();
+        page.FindAll(".crew-assignment-confirmation button").First(button => button.TextContent == "Confirm").Click();
 
         page.WaitForAssertion(() => Assert.Contains(
             "No relieving crew member is selected.",
@@ -878,7 +879,7 @@ public sealed class CrewMemberProfilePageTests : BunitContext
                 return respondToRegisterAssignment(request);
             }
 
-            if (path.Contains("/assignments/", StringComparison.Ordinal) && request.Method == HttpMethod.Delete)
+            if (path.EndsWith("/cancel", StringComparison.Ordinal) && request.Method == HttpMethod.Post)
             {
                 return respondToDeleteAssignment(request);
             }

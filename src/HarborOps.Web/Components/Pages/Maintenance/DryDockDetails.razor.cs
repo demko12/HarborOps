@@ -50,7 +50,7 @@ public partial class DryDockDetails : IDisposable
         : $"/maintenance?{BoardQuery}";
 
     private string VesselDisplayName =>
-        vesselName ?? MaintenanceFormat.ShortVesselReference(details?.VesselId ?? Guid.Empty);
+        vesselName ?? MaintenanceFormat.UnknownVessel();
 
     private string PortDisplayName =>
         portName ?? MaintenanceFormat.ShortPortReference(details?.PortId ?? Guid.Empty);

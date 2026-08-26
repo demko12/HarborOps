@@ -56,10 +56,7 @@ internal static class MaintenanceFormat
         return assignedEngineerId is { } id ? ShortId(id) : "Unassigned";
     }
 
-    internal static string ShortVesselReference(Guid vesselId)
-    {
-        return $"Vessel {ShortId(vesselId)}";
-    }
+    internal static string UnknownVessel() => "Unknown vessel";
 
     internal static string PriorityModifier(string priority)
     {

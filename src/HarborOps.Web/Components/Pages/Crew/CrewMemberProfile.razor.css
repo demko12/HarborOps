@@ -144,10 +144,11 @@ html[data-theme="light"] .crew-profile-indicator-neutral { color: #475569; borde
 .crew-assignment-modal-backdrop {
     position: fixed;
     z-index: 1200;
-    inset: 0;
+    /* The application topbar is fixed and 3.75rem tall. Keep the dialog below it. */
+    inset: 3.75rem 0 0;
     display: grid;
     place-items: center;
-    padding: 1.5rem;
+    padding: 1rem 1.5rem;
     overflow-y: auto;
     background: rgba(15, 23, 42, .24);
     backdrop-filter: blur(3px);
@@ -157,14 +158,34 @@ html[data-theme="light"] .crew-profile-indicator-neutral { color: #475569; borde
 html[data-theme="dark"] .crew-assignment-modal-backdrop { background: rgba(2, 6, 23, .48); }
 
 .crew-assignment-modal {
-    width: min(100%, 28rem);
+    width: min(100%, 48rem);
+    max-height: calc(100dvh - 5.75rem);
     margin: 0;
-    padding: 1.4rem;
+    padding: 1.35rem;
+    overflow-y: auto;
     border: 1px solid #c7d1df;
     border-radius: var(--radius-card);
     background: #ffffff;
     box-shadow: 0 28px 64px rgba(15, 23, 42, .28);
     backdrop-filter: none;
+}
+
+.crew-assignment-modal-heading {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 1rem;
+    margin-bottom: 1.15rem;
+}
+
+.crew-assignment-modal-heading h2 { margin: 0; font-size: 1.1rem; }
+.crew-assignment-modal-eyebrow {
+    margin: 0 0 .35rem;
+    color: var(--accent);
+    font-size: .7rem;
+    font-weight: 700;
+    letter-spacing: .11em;
+    text-transform: uppercase;
 }
 
 html[data-theme="dark"] .crew-assignment-modal {
@@ -187,7 +208,16 @@ html[data-theme="dark"] .crew-assignment-modal {
 
 .crew-assignment-modal-close:hover { color: var(--text-primary); border-color: var(--accent-border); background: var(--accent-bg); }
 
-.crew-assignment-modal-details { display: grid; gap: .7rem; margin: 1rem 0; }
+.crew-assignment-modal-details {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: .8rem 1.4rem;
+    margin: 0 0 1.1rem;
+    padding: 1rem;
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-control);
+    background: var(--bg-surface);
+}
 .crew-assignment-modal-details dt { margin: 0 0 .2rem; color: var(--text-muted); font-size: .7rem; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; }
 .crew-assignment-modal-details dd { margin: 0; color: var(--text-primary); font-size: .92rem; font-weight: 600; }
 
@@ -328,6 +358,15 @@ html[data-theme="light"] .crew-profile-form-field-errors { border-color: rgba(18
     gap: .9rem;
 }
 
+/* The assignment dialog has enough horizontal space for a compact relief form. */
+.crew-assignment-modal .crew-profile-form-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    align-items: end;
+}
+
+.crew-assignment-modal .crew-profile-form-field-wide,
+.crew-assignment-modal .crew-profile-form-submit { grid-column: 1 / -1; }
+
 .crew-profile-form-field { display: flex; flex-direction: column; gap: .4rem; min-width: 0; }
 .crew-profile-form-field label { color: var(--text-muted); font-size: .7rem; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; }
 
@@ -398,3 +437,50 @@ html[data-theme="light"] .crew-profile-form-grid ::deep input:not(.vessel-picker
 .crew-rotation-execute:hover:not(:disabled) { background: rgba(16, 185, 129, .2); }
 .crew-rotation-execute:disabled { opacity: .5; cursor: not-allowed; }
 html[data-theme="light"] .crew-rotation-execute { color: #047857; border-color: rgba(5, 150, 105, .3); background: rgba(5, 150, 105, .1); }
+
+.crew-assignment-lifecycle-actions {
+    display: grid;
+    gap: .85rem;
+    margin-top: 1rem;
+    padding-top: 1rem;
+    border-top: 1px solid var(--border-subtle);
+}
+
+.crew-assignment-action-heading {
+    display: flex;
+    align-items: end;
+    justify-content: space-between;
+    gap: 1rem;
+}
+
+.crew-assignment-action-heading p { margin: 0 0 .25rem; color: var(--accent); font-size: .68rem; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; }
+.crew-assignment-action-heading h3 { margin: 0; font-size: .95rem; }
+.crew-assignment-action-heading > span { max-width: 16rem; color: var(--text-muted); font-size: .75rem; text-align: right; }
+
+.crew-assignment-action-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: end;
+    gap: .75rem;
+    padding: .85rem;
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-control);
+    background: var(--bg-surface);
+}
+
+.crew-assignment-lifecycle-actions label { display: grid; gap: .35rem; min-width: 0; color: var(--text-muted); font-size: .7rem; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; }
+.crew-assignment-lifecycle-actions input { width: 100%; box-sizing: border-box; height: var(--control-height); padding: 0 .75rem; color: var(--text-primary); border: 1px solid var(--border-medium); border-radius: var(--radius-control); background: var(--control-surface); font: inherit; }
+.crew-assignment-lifecycle-actions button, .crew-assignment-confirmation button { min-height: var(--control-height); padding: .55rem .9rem; color: var(--apply-text); border: 1px solid var(--apply-border); border-radius: var(--radius-button); background: var(--apply-surface); font: inherit; font-weight: 600; cursor: pointer; }
+.crew-assignment-activate { justify-self: start; }
+.crew-assignment-action-row .crew-assignment-modal-delete { width: auto; height: var(--control-height); margin-top: 0; }
+.crew-assignment-confirmation { display: flex; align-items: center; flex-wrap: wrap; gap: .6rem; margin-top: .75rem; padding: .75rem; border: 1px solid var(--accent-border); border-radius: var(--radius-control); background: var(--accent-bg); font-size: .82rem; }
+@media (max-width: 640px) {
+    .crew-assignment-modal-backdrop { place-items: start center; padding: .75rem; }
+    .crew-assignment-modal { max-height: calc(100dvh - 5.25rem); padding: 1rem; }
+    .crew-assignment-modal-details { grid-template-columns: 1fr; }
+    .crew-assignment-action-heading { align-items: start; flex-direction: column; }
+    .crew-assignment-action-heading > span { max-width: none; text-align: left; }
+    .crew-assignment-action-row { grid-template-columns: 1fr; }
+    .crew-assignment-action-row button { width: 100%; }
+    .crew-assignment-modal .crew-profile-form-grid { grid-template-columns: 1fr; }
+}

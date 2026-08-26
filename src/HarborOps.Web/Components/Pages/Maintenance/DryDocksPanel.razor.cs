@@ -298,7 +298,7 @@ public partial class DryDocksPanel : IDisposable
                 item.VesselId,
                 vesselNames.TryGetValue(item.VesselId, out var vesselName)
                     ? vesselName
-                    : MaintenanceFormat.ShortVesselReference(item.VesselId),
+                    : MaintenanceFormat.UnknownVessel(),
                 item.PortId,
                 portNames.TryGetValue(item.PortId, out var portName)
                     ? portName

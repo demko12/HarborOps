@@ -32,7 +32,7 @@ internal sealed class GetCrewRotationQuery(DbContext dbContext, IDateTimeProvide
             join relievingMember in dbContext.Set<CrewMember>().AsNoTracking()
                 on rotation.RelievingCrewMemberId equals relievingMember.Id into relievingJoin
             from relievingMember in relievingJoin.DefaultIfEmpty()
-            where rotation.AssignmentId == assignmentId
+            where rotation.AssignmentId == assignmentId && rotation.Status == CrewRotation.PlannedStatus
             select new
             {
                 rotation.Id,
@@ -47,6 +47,13 @@ internal sealed class GetCrewRotationQuery(DbContext dbContext, IDateTimeProvide
                 rotation.RotationPattern,
                 rotation.PlannedReliefDate,
                 assignment.ActualSignOffDate,
+                rotation.Status,
+                rotation.ExecutedAtUtc,
+                rotation.ExecutedByUserId,
+                rotation.ReplacementAssignmentId,
+                rotation.CancelledAtUtc,
+                rotation.CancelledByUserId,
+                rotation.CancellationNotes,
             })
             .SingleOrDefaultAsync(cancellationToken);
 
@@ -67,6 +74,13 @@ internal sealed class GetCrewRotationQuery(DbContext dbContext, IDateTimeProvide
             row.RelievingCrewMemberName,
             row.RotationPattern,
             row.PlannedReliefDate,
-            row.PlannedReliefDate < today && row.ActualSignOffDate == null);
+            row.PlannedReliefDate < today && row.ActualSignOffDate == null,
+            row.Status,
+            row.ExecutedAtUtc,
+            row.ExecutedByUserId,
+            row.ReplacementAssignmentId,
+            row.CancelledAtUtc,
+            row.CancelledByUserId,
+            row.CancellationNotes);
     }
 }

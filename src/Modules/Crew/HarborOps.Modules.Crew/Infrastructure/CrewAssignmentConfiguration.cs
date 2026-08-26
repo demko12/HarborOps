@@ -44,6 +44,13 @@ internal sealed class CrewAssignmentConfiguration : IEntityTypeConfiguration<Cre
 
         builder.Property(crewAssignment => crewAssignment.ActualSignOffDate);
 
+        builder.Property(crewAssignment => crewAssignment.CancelledAtUtc);
+
+        builder.Property(crewAssignment => crewAssignment.CancelledByUserId);
+
+        builder.Property(crewAssignment => crewAssignment.CancellationNotes)
+            .HasMaxLength(CrewAssignment.CancellationNotesMaxLength);
+
         builder.Property(crewAssignment => crewAssignment.Status)
             .HasMaxLength(CrewAssignment.StatusMaxLength)
             .IsRequired();

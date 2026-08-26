@@ -351,7 +351,7 @@ public partial class Documents
                 item.VesselId,
                 vesselNames.TryGetValue(item.VesselId, out var name)
                     ? name
-                    : ShortVesselReference(item.VesselId),
+                    : "Unknown vessel",
                 item.Number,
                 item.DocumentTypeName,
                 item.IssuingAuthority,
@@ -368,8 +368,6 @@ public partial class Documents
             ? "\"To\" date must be on or after the \"From\" date."
             : null;
     }
-
-    private static string ShortVesselReference(Guid vesselId) => $"Vessel {vesselId.ToString()[..8]}";
 
     private static string GetDocumentStatusClass(string status) => status.Trim().ToUpperInvariant() switch
     {

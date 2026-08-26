@@ -119,7 +119,7 @@
                                 <td>@MaintenanceFormat.DueDate(row.NextDueDate)</td>
                                 <td class="maintenance-muted">@MaintenanceFormat.DueHours(row.NextDueHours)</td>
                                 <td class="maintenance-muted">@row.EquipmentCount</td>
-                                <td class="schedules-vessel col-vessel" title="@row.VesselId">@row.VesselDisplayName</td>
+                                <td class="schedules-vessel col-vessel">@row.VesselDisplayName</td>
                                 <td>
                                     <span class="schedules-due-badge schedules-due-@MaintenanceFormat.DueStateModifier(row.IsOverdue, row.DaysUntilDue)">
                                         @MaintenanceFormat.DueState(row.IsOverdue, row.DaysUntilDue)

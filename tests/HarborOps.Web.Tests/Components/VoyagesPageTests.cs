@@ -4,6 +4,7 @@ using System.Security.Claims;
 using System.Text;
 using Bunit;
 using HarborOps.Web.Api;
+using HarborOps.Web.Api.Fleet;
 using HarborOps.Web.Api.Voyages;
 using HarborOps.Web.Components.Pages.Voyages;
 using Microsoft.AspNetCore.Http;
@@ -495,6 +496,11 @@ public sealed class VoyagesPageTests : BunitContext
         {
             requestedUris.Add(request.RequestUri!);
 
+            if (request.RequestUri!.AbsolutePath == "/api/fleet/vessels/lookup")
+            {
+                return Json(HttpStatusCode.OK, """{"vessels":[{"id":"30000000-0000-0000-0000-000000000002","name":"MV Atlantic Pioneer"}]}""");
+            }
+
             if (request.Method != HttpMethod.Get)
             {
                 writes.Add((
@@ -509,6 +515,7 @@ public sealed class VoyagesPageTests : BunitContext
         };
 
         Services.AddSingleton(new VoyagesApiClient(httpClient));
+        Services.AddSingleton(new FleetApiClient(httpClient));
         Services.AddSingleton<IHttpContextAccessor>(new HttpContextAccessor
         {
             HttpContext = new DefaultHttpContext

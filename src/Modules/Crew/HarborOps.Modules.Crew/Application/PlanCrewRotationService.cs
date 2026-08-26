@@ -41,7 +41,10 @@ public sealed class PlanCrewRotationService(DbContext dbContext)
 
         var hasExistingRotation = await crewRotations
             .AsNoTracking()
-            .AnyAsync(rotation => rotation.AssignmentId == assignmentId, cancellationToken);
+            .AnyAsync(
+                rotation => rotation.AssignmentId == assignmentId
+                    && rotation.Status == CrewRotation.PlannedStatus,
+                cancellationToken);
 
         if (hasExistingRotation)
         {

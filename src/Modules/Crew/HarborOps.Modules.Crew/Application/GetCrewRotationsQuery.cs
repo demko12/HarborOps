@@ -49,6 +49,13 @@ internal sealed class GetCrewRotationsQuery(DbContext dbContext, IDateTimeProvid
                 rotation.RotationPattern,
                 rotation.PlannedReliefDate,
                 assignment.ActualSignOffDate,
+                rotation.Status,
+                rotation.ExecutedAtUtc,
+                rotation.ExecutedByUserId,
+                rotation.ReplacementAssignmentId,
+                rotation.CancelledAtUtc,
+                rotation.CancelledByUserId,
+                rotation.CancellationNotes,
             };
 
         if (request.VesselId is { } vesselId)
@@ -68,7 +75,9 @@ internal sealed class GetCrewRotationsQuery(DbContext dbContext, IDateTimeProvid
 
         if (request.OverdueOnly == true)
         {
-            rows = rows.Where(row => row.PlannedReliefDate < today && row.ActualSignOffDate == null);
+            rows = rows.Where(row => row.PlannedReliefDate < today
+                && row.ActualSignOffDate == null
+                && row.Status == CrewRotation.PlannedStatus);
         }
 
         var totalCount = await rows.CountAsync(cancellationToken);
@@ -91,7 +100,16 @@ internal sealed class GetCrewRotationsQuery(DbContext dbContext, IDateTimeProvid
                 row.RelievingCrewMemberName,
                 row.RotationPattern,
                 row.PlannedReliefDate,
-                row.PlannedReliefDate < today && row.ActualSignOffDate == null))
+                row.PlannedReliefDate < today
+                    && row.ActualSignOffDate == null
+                    && row.Status == CrewRotation.PlannedStatus,
+                row.Status,
+                row.ExecutedAtUtc,
+                row.ExecutedByUserId,
+                row.ReplacementAssignmentId,
+                row.CancelledAtUtc,
+                row.CancelledByUserId,
+                row.CancellationNotes))
             .ToListAsync(cancellationToken);
 
         return new GetCrewRotationsResponse(items, pageNumber, pageSize, totalCount);

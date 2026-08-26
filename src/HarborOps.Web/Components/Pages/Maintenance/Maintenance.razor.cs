@@ -220,7 +220,7 @@ public partial class Maintenance
                 item.VesselId,
                 vesselNames.TryGetValue(item.VesselId, out var name)
                     ? name
-                    : MaintenanceFormat.ShortVesselReference(item.VesselId),
+                    : MaintenanceFormat.UnknownVessel(),
                 item.Title,
                 item.Description,
                 item.Priority,
