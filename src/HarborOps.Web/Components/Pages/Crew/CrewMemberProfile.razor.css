@@ -128,6 +128,37 @@ html[data-theme="light"] .crew-profile-indicator-warning { color: var(--status-w
 html[data-theme="light"] .crew-profile-indicator-expired { color: var(--status-danger-strong); border-color: rgba(185,28,28,.3); background: rgba(185,28,28,.12); }
 html[data-theme="light"] .crew-profile-indicator-neutral { color: #475569; border-color: rgba(71,85,105,.3); background: rgba(71,85,105,.1); }
 
+.crew-medical-card { margin-top: 1rem; }
+
+.crew-medical-current-fitness {
+    display: flex;
+    align-items: center;
+    gap: .6rem;
+    margin-bottom: 1.1rem;
+    color: var(--text-secondary);
+    font-size: .85rem;
+}
+
+/* The shared .crew-profile-row is a 2-column grid (content | single indicator).
+   Medical rows carry two stacked badges instead of one, so a 3rd auto column is
+   added here (scoped to this card only) to keep everything on one line instead
+   of the badges wrapping onto their own implicit row and inflating the row height. */
+.crew-medical-card .crew-profile-row {
+    grid-template-columns: minmax(0, 1fr) auto auto;
+}
+
+.crew-medical-row-badges {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    justify-content: center;
+    gap: .35rem;
+}
+
+@media (max-width: 760px) {
+    .crew-medical-row-badges { flex-direction: row; align-items: flex-start; }
+}
+
 @media (max-width: 1180px) {
     .crew-profile-summary-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
@@ -139,6 +170,7 @@ html[data-theme="light"] .crew-profile-indicator-neutral { color: #475569; borde
     .crew-profile-workspace { grid-template-columns: 1fr; }
     .crew-profile-row { grid-template-columns: 1fr; }
     .crew-profile-row-secondary { justify-items: start; }
+    .crew-medical-card .crew-profile-row { grid-template-columns: 1fr; }
 }
 
 .crew-assignment-modal-backdrop {

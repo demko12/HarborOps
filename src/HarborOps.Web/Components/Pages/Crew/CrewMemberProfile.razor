@@ -103,7 +103,7 @@
                 <div class="crew-profile-card-heading">
                     <div>
                         <h2 id="crew-profile-certificates-title">Certificates</h2>
-                        <p>@profile.Certificates.Count on record</p>
+                        <p>@profile.Certificates.Count on record @(profile.Certificates.Count > 0 ? "· click one to view details" : "")</p>
                     </div>
                     <span class="bi bi-award" aria-hidden="true"></span>
                 </div>
@@ -118,7 +118,7 @@
                         @foreach (var certificate in profile.Certificates)
                         {
                             var state = GetCertificateState(certificate.ExpiryDate);
-                            <article class="crew-profile-row" @key="certificate.CertificateId">
+                            <button type="button" class="crew-profile-row crew-profile-row-clickable" @key="certificate.CertificateId" @onclick="() => OpenCertificateDetails(certificate)">
                                 <div class="crew-profile-row-primary">
                                     <strong>@certificate.Name</strong>
                                     <span>@certificate.Type &middot; @certificate.IssuingAuthority</span>
@@ -128,7 +128,7 @@
                                     <span>Expires @certificate.ExpiryDate.ToString("dd MMM yyyy")</span>
                                 </div>
                                 <span class="crew-profile-indicator @state.Class">@state.Label</span>
-                            </article>
+                            </button>
                         }
                     </div>
                 }
@@ -183,6 +183,66 @@
                 }
             </section>
         </div>
+
+        <section class="crew-profile-card crew-medical-card" aria-labelledby="crew-profile-medical-title">
+            <div class="crew-profile-card-heading">
+                <div>
+                    <h2 id="crew-profile-medical-title">Medical fitness</h2>
+                    <p>@medicalExaminations.Count exam(s) on record</p>
+                </div>
+                <span class="bi bi-heart-pulse" aria-hidden="true"></span>
+            </div>
+
+            @if (isLoadingMedical)
+            {
+                <LoadingState Message="Loading medical examinations..." />
+            }
+            else if (medicalFailure is not null)
+            {
+                <ApiErrorState Title="@medicalFailure.Title" Message="@medicalFailure.Message" OnRetry="LoadMedicalExaminationsAsync" />
+            }
+            else
+            {
+                <div class="crew-medical-current-fitness">
+                    <span>Current fitness</span>
+                    <span class="crew-profile-indicator @CurrentFitnessDisplayState.Class">@CurrentFitnessDisplayState.Label</span>
+                </div>
+
+                @if (medicalExaminations.Count == 0)
+                {
+                    <EmptyState Title="No medical examinations on record" Message="Register an examination to start tracking medical fitness." />
+                }
+                else
+                {
+                    <div class="crew-profile-list">
+                        @foreach (var exam in medicalExaminations)
+                        {
+                            var fitnessState = GetFitnessResultState(exam.FitnessResult);
+                            var statusState = GetExamStatusState(exam);
+                            <article class="crew-profile-row" @key="exam.MedicalExaminationId">
+                                <div class="crew-profile-row-primary">
+                                    <strong>@exam.ExamType</strong>
+                                    <span>@exam.Clinic</span>
+                                </div>
+                                <div class="crew-profile-row-secondary">
+                                    <span>Examined @exam.ExamDate.ToString("dd MMM yyyy")</span>
+                                    <span>Expires @exam.ExpiryDate.ToString("dd MMM yyyy")</span>
+                                </div>
+                                <div class="crew-medical-row-badges">
+                                    <span class="crew-profile-indicator @fitnessState.Class">@fitnessState.Label</span>
+                                    <span class="crew-profile-indicator @statusState.Class">@statusState.Label</span>
+                                </div>
+                            </article>
+                        }
+                    </div>
+                }
+
+                @if (CanManage)
+                {
+                    <RegisterMedicalExaminationForm CrewMemberId="CrewMemberId" OnRegistered="OnMedicalExaminationRegisteredAsync" />
+                }
+            }
+        </section>
 
         @if (selectedAssignment is not null)
         {
@@ -371,6 +431,31 @@
                             <p class="crew-assignment-modal-hint">This @selectedAssignment.Status.ToLowerInvariant() assignment is retained as operational history.</p>
                         }
                     }
+                </section>
+            </div>
+        }
+
+        @if (selectedCertificate is not null)
+        {
+            var certificateState = GetCertificateState(selectedCertificate.ExpiryDate);
+            <div class="crew-assignment-modal-backdrop" @onclick="CloseCertificateDetails">
+                <section class="crew-assignment-modal" role="dialog" aria-modal="true" aria-labelledby="crew-certificate-detail-title" @onclick:stopPropagation="true">
+                    <div class="crew-profile-card-heading">
+                        <h2 id="crew-certificate-detail-title">Certificate details</h2>
+                        <button type="button" class="crew-assignment-modal-close" @onclick="CloseCertificateDetails" aria-label="Close certificate details">
+                            <span class="bi bi-x-lg" aria-hidden="true"></span>
+                        </button>
+                    </div>
+
+                    <dl class="crew-assignment-modal-details">
+                        <div><dt>Type</dt><dd>@selectedCertificate.Type</dd></div>
+                        <div><dt>Name</dt><dd>@selectedCertificate.Name</dd></div>
+                        <div><dt>Issuing authority</dt><dd>@selectedCertificate.IssuingAuthority</dd></div>
+                        <div><dt>License number</dt><dd>@selectedCertificate.LicenseNumber</dd></div>
+                        <div><dt>Issue date</dt><dd>@selectedCertificate.IssueDate.ToString("dd MMM yyyy")</dd></div>
+                        <div><dt>Expiry date</dt><dd>@selectedCertificate.ExpiryDate.ToString("dd MMM yyyy")</dd></div>
+                        <div><dt>Status</dt><dd><span class="crew-profile-indicator @certificateState.Class">@certificateState.Label</span></dd></div>
+                    </dl>
                 </section>
             </div>
         }

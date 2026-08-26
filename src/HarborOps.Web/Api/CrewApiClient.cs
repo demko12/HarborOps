@@ -342,6 +342,109 @@ internal sealed class CrewApiClient(HttpClient httpClient)
         }
     }
 
+    internal async Task<CrewApiResult<MedicalExaminationsPageResponse>> GetMedicalExaminationsAsync(
+        string? search,
+        string? fitnessResult,
+        bool? expired,
+        int? expiringWithinDays,
+        int pageNumber,
+        int pageSize,
+        CancellationToken cancellationToken)
+    {
+        var query = new List<string> { $"pageNumber={pageNumber}", $"pageSize={pageSize}" };
+
+        if (!string.IsNullOrWhiteSpace(search))
+        {
+            query.Add($"search={Uri.EscapeDataString(search)}");
+        }
+
+        if (!string.IsNullOrWhiteSpace(fitnessResult))
+        {
+            query.Add($"fitnessResult={Uri.EscapeDataString(fitnessResult)}");
+        }
+
+        if (expired is { } isExpired)
+        {
+            query.Add($"expired={(isExpired ? "true" : "false")}");
+        }
+
+        if (expiringWithinDays is { } withinDays)
+        {
+            query.Add($"expiringWithinDays={withinDays}");
+        }
+
+        var path = $"api/crew/medical-examinations?{string.Join('&', query)}";
+
+        try
+        {
+            using var response = await httpClient.GetAsync(path, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
+            if (response.IsSuccessStatusCode)
+            {
+                return new CrewApiResult<MedicalExaminationsPageResponse>(
+                    await response.Content.ReadFromJsonAsync<MedicalExaminationsPageResponse>(cancellationToken), null);
+            }
+
+            var problem = await TryReadProblemAsync(response, cancellationToken);
+            var isForbidden = response.StatusCode == HttpStatusCode.Forbidden;
+            return new CrewApiResult<MedicalExaminationsPageResponse>(null, new CrewApiFailure(
+                (int)response.StatusCode,
+                problem?.Title ?? (isForbidden ? "Crew access denied" : "Unable to load medical examinations"),
+                problem?.Detail ?? (isForbidden ? "Your account does not have permission to view medical examinations." : "Please try again.")));
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (HttpRequestException)
+        {
+            return new CrewApiResult<MedicalExaminationsPageResponse>(null, new CrewApiFailure(0, "HarborOps API is unavailable", "Please try again."));
+        }
+    }
+
+    internal async Task<CrewApiResult<MemberMedicalExaminationsResponse>> GetMemberMedicalExaminationsAsync(
+        Guid crewMemberId,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            using var response = await httpClient.GetAsync(
+                $"api/crew/members/{crewMemberId}/medical-examinations",
+                HttpCompletionOption.ResponseHeadersRead,
+                cancellationToken);
+
+            if (response.IsSuccessStatusCode)
+            {
+                return new CrewApiResult<MemberMedicalExaminationsResponse>(
+                    await response.Content.ReadFromJsonAsync<MemberMedicalExaminationsResponse>(cancellationToken), null);
+            }
+
+            var problem = await TryReadProblemAsync(response, cancellationToken);
+            var isForbidden = response.StatusCode == HttpStatusCode.Forbidden;
+            var isNotFound = response.StatusCode == HttpStatusCode.NotFound;
+            return new CrewApiResult<MemberMedicalExaminationsResponse>(null, new CrewApiFailure(
+                (int)response.StatusCode,
+                problem?.Title ?? (isForbidden ? "Crew access denied" : isNotFound ? "Crew member not found" : "Unable to load medical examinations"),
+                problem?.Detail ?? (isForbidden ? "Your account does not have permission to view medical examinations." : "Please try again.")));
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (HttpRequestException)
+        {
+            return new CrewApiResult<MemberMedicalExaminationsResponse>(null, new CrewApiFailure(0, "HarborOps API is unavailable", "Please try again."));
+        }
+    }
+
+    internal async Task<CrewApiWriteResult<RegisterMedicalExaminationResponse>> RegisterMedicalExaminationAsync(
+        Guid crewMemberId,
+        RegisterMedicalExaminationRequest request,
+        CancellationToken cancellationToken)
+    {
+        return await PostAsync<RegisterMedicalExaminationRequest, RegisterMedicalExaminationResponse>(
+            $"api/crew/members/{crewMemberId}/medical-examinations", request, cancellationToken);
+    }
+
     internal static string FormatIsoDate(DateOnly value) => value.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
 
     private async Task<CrewApiWriteResult<TResponse>> PutAsync<TRequest, TResponse>(
@@ -570,6 +673,36 @@ internal sealed record CancelCrewRotationRequest
 {
     public string? Notes { get; init; }
 }
+
+internal sealed record MedicalExaminationsPageResponse(
+    IReadOnlyList<MedicalExaminationListItemResponse> Items, int PageNumber, int PageSize, int TotalCount);
+
+internal sealed record MemberMedicalExaminationsResponse(
+    IReadOnlyList<MedicalExaminationListItemResponse> Items, string? CurrentFitnessResult);
+
+internal sealed record MedicalExaminationListItemResponse(
+    Guid MedicalExaminationId,
+    Guid CrewMemberId,
+    string CrewMemberName,
+    string EmploymentStatus,
+    string ExamType,
+    string Clinic,
+    DateOnly ExamDate,
+    DateOnly ExpiryDate,
+    string FitnessResult,
+    bool IsExpired,
+    bool IsExpiringSoon);
+
+internal sealed record RegisterMedicalExaminationRequest
+{
+    public string? ExamType { get; init; }
+    public string? Clinic { get; init; }
+    public DateOnly? ExamDate { get; init; }
+    public DateOnly? ExpiryDate { get; init; }
+    public string? FitnessResult { get; init; }
+}
+
+internal sealed record RegisterMedicalExaminationResponse(Guid Id);
 
 internal sealed record PlanCrewRotationRequest
 {

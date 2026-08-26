@@ -1,0 +1,61 @@
+@using HarborOps.Web.Api
+@inject CrewApiClient CrewApi
+
+<section class="crew-profile-form" aria-labelledby="crew-medical-form-title">
+    <div class="crew-profile-form-header">
+        <h3 id="crew-medical-form-title">Register medical examination</h3>
+    </div>
+
+    @if (generalError is not null)
+    {
+        <div class="crew-profile-form-error" role="alert">@generalError</div>
+    }
+
+    @if (fieldErrors.Count > 0)
+    {
+        <ul class="crew-profile-form-field-errors" role="alert">
+            @foreach (var message in fieldErrors)
+            {
+                <li>@message</li>
+            }
+        </ul>
+    }
+
+    @if (successMessage is not null)
+    {
+        <div class="crew-profile-form-success" role="status">@successMessage</div>
+    }
+
+    <form class="crew-profile-form-grid" @onsubmit="SubmitAsync" @onsubmit:preventDefault="true">
+        <div class="crew-profile-form-field">
+            <label for="medical-exam-type">Exam type</label>
+            <input id="medical-exam-type" @bind="model.ExamType" maxlength="100" />
+        </div>
+        <div class="crew-profile-form-field">
+            <label for="medical-clinic">Clinic</label>
+            <input id="medical-clinic" @bind="model.Clinic" maxlength="200" />
+        </div>
+        <div class="crew-profile-form-field">
+            <label for="medical-exam-date">Exam date</label>
+            <input id="medical-exam-date" type="date" @bind="model.ExamDate" />
+        </div>
+        <div class="crew-profile-form-field">
+            <label for="medical-expiry-date">Expiry date</label>
+            <input id="medical-expiry-date" type="date" @bind="model.ExpiryDate" />
+        </div>
+        <div class="crew-profile-form-field">
+            <label for="medical-fitness-result">Fitness result</label>
+            <select id="medical-fitness-result" @bind="model.FitnessResult">
+                <option value="">Select...</option>
+                @foreach (var option in FitnessResultOptions)
+                {
+                    <option value="@option.Value">@option.Label</option>
+                }
+            </select>
+        </div>
+
+        <button type="submit" class="crew-profile-form-submit" disabled="@isSubmitting">
+            @(isSubmitting ? "Registering..." : "Register examination")
+        </button>
+    </form>
+</section>
