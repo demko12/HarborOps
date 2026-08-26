@@ -172,6 +172,115 @@ public sealed class CrewApiClientTests
         Assert.True(result.Failure!.IsConflict);
     }
 
+    [Fact]
+    public async Task GetMedicalExaminationsAsync_sends_filters_and_paging_to_the_medical_examinations_endpoint()
+    {
+        HttpRequestMessage? captured = null;
+        using var httpClient = CreateHttpClient((request, _) =>
+        {
+            captured = request;
+            return Json(HttpStatusCode.OK, """{"items":[],"pageNumber":2,"pageSize":10,"totalCount":0}""");
+        });
+
+        var result = await new CrewApiClient(httpClient).GetMedicalExaminationsAsync(
+            "Ana", "Fit", true, 15, 2, 10, CancellationToken.None);
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal("/api/crew/medical-examinations", captured!.RequestUri!.AbsolutePath);
+        Assert.Contains("search=Ana", captured.RequestUri.Query, StringComparison.Ordinal);
+        Assert.Contains("fitnessResult=Fit", captured.RequestUri.Query, StringComparison.Ordinal);
+        Assert.Contains("expired=true", captured.RequestUri.Query, StringComparison.Ordinal);
+        Assert.Contains("expiringWithinDays=15", captured.RequestUri.Query, StringComparison.Ordinal);
+        Assert.Contains("pageNumber=2", captured.RequestUri.Query, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task GetMedicalExaminationsAsync_returns_retryable_failure_when_api_is_unavailable()
+    {
+        using var httpClient = CreateHttpClient((_, _) => throw new HttpRequestException());
+
+        var result = await new CrewApiClient(httpClient).GetMedicalExaminationsAsync(
+            null, null, null, null, 1, 25, CancellationToken.None);
+
+        Assert.False(result.IsSuccess);
+        Assert.Equal(0, result.Failure!.StatusCode);
+    }
+
+    [Fact]
+    public async Task GetMemberMedicalExaminationsAsync_sends_request_to_the_member_endpoint()
+    {
+        var crewMemberId = Guid.NewGuid();
+        HttpRequestMessage? captured = null;
+        using var httpClient = CreateHttpClient((request, _) =>
+        {
+            captured = request;
+            return Json(HttpStatusCode.OK, """{"items":[],"currentFitnessResult":"Fit"}""");
+        });
+
+        var result = await new CrewApiClient(httpClient).GetMemberMedicalExaminationsAsync(crewMemberId, CancellationToken.None);
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal($"/api/crew/members/{crewMemberId}/medical-examinations", captured!.RequestUri!.AbsolutePath);
+        Assert.Equal("Fit", result.Value!.CurrentFitnessResult);
+    }
+
+    [Fact]
+    public async Task GetMemberMedicalExaminationsAsync_reports_not_found_for_an_unknown_member()
+    {
+        using var httpClient = CreateHttpClient((_, _) =>
+            Task.FromResult(new HttpResponseMessage(HttpStatusCode.NotFound)));
+
+        var result = await new CrewApiClient(httpClient).GetMemberMedicalExaminationsAsync(Guid.NewGuid(), CancellationToken.None);
+
+        Assert.False(result.IsSuccess);
+        Assert.True(result.Failure!.IsNotFound);
+    }
+
+    [Fact]
+    public async Task RegisterMedicalExaminationAsync_posts_to_the_member_endpoint()
+    {
+        var crewMemberId = Guid.NewGuid();
+        HttpRequestMessage? captured = null;
+        using var httpClient = CreateHttpClient((request, _) =>
+        {
+            captured = request;
+            return Json(HttpStatusCode.Created, $$"""{"id":"{{Guid.NewGuid()}}"}""");
+        });
+
+        var result = await new CrewApiClient(httpClient).RegisterMedicalExaminationAsync(
+            crewMemberId,
+            new RegisterMedicalExaminationRequest
+            {
+                ExamType = "Periodic",
+                Clinic = "Clinic A",
+                ExamDate = new DateOnly(2026, 1, 1),
+                ExpiryDate = new DateOnly(2027, 1, 1),
+                FitnessResult = "Fit",
+            },
+            CancellationToken.None);
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal(HttpMethod.Post, captured!.Method);
+        Assert.Equal($"/api/crew/members/{crewMemberId}/medical-examinations", captured.RequestUri!.AbsolutePath);
+    }
+
+    [Fact]
+    public async Task RegisterMedicalExaminationAsync_returns_validation_failure_with_field_errors()
+    {
+        using var httpClient = CreateHttpClient((_, _) => Json(
+            HttpStatusCode.BadRequest,
+            """{"title":"One or more validation errors occurred.","errors":{"fitnessResult":["Fitness result is not supported."]}}"""));
+
+        var result = await new CrewApiClient(httpClient).RegisterMedicalExaminationAsync(
+            Guid.NewGuid(),
+            new RegisterMedicalExaminationRequest(),
+            CancellationToken.None);
+
+        Assert.False(result.IsSuccess);
+        Assert.True(result.Failure!.IsValidation);
+        Assert.Contains("fitnessResult", result.Failure.Errors!.Keys);
+    }
+
     private static HttpClient CreateHttpClient(Func<HttpRequestMessage, CancellationToken, Task<HttpResponseMessage>> responseFactory) =>
         new(new StubHttpMessageHandler(responseFactory)) { BaseAddress = new Uri("https://api.harborops.test/") };
 

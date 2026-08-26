@@ -31,6 +31,13 @@ public partial class CrewMemberProfile : IDisposable
     private bool isDeletingAssignment;
     private string? deleteAssignmentError;
 
+    private IReadOnlyList<MedicalExaminationListItemResponse> medicalExaminations = [];
+    private string? currentFitnessResult;
+    private bool isLoadingMedical = true;
+    private CrewApiFailure? medicalFailure;
+
+    private CrewCertificateProfileItemResponse? selectedCertificate;
+
     private CrewRotationListItemResponse? selectedRotation;
     private bool rotationExists;
     private bool isLoadingRotation;
@@ -51,7 +58,8 @@ public partial class CrewMemberProfile : IDisposable
 
     private bool CanManage => CurrentUser.HasPermission(CurrentUserAuthorizationState.CrewManagePermission);
 
-    protected override async Task OnInitializedAsync() => await LoadProfileAsync();
+    protected override async Task OnInitializedAsync() =>
+        await Task.WhenAll(LoadProfileAsync(), LoadMedicalExaminationsAsync());
 
     protected override async Task OnParametersSetAsync()
     {
@@ -60,7 +68,7 @@ public partial class CrewMemberProfile : IDisposable
         // component being torn down and recreated - reload whenever it changes.
         if (profile is not null && profile.CrewMemberId != CrewMemberId)
         {
-            await LoadProfileAsync();
+            await Task.WhenAll(LoadProfileAsync(), LoadMedicalExaminationsAsync());
         }
     }
 
@@ -110,6 +118,63 @@ public partial class CrewMemberProfile : IDisposable
         }
     }
 
+    private async Task LoadMedicalExaminationsAsync()
+    {
+        isLoadingMedical = true;
+        medicalFailure = null;
+
+        CrewApiResult<MemberMedicalExaminationsResponse> result;
+        try
+        {
+            result = await CrewApi.GetMemberMedicalExaminationsAsync(CrewMemberId, disposeCancellation.Token);
+        }
+        catch (OperationCanceledException) when (disposeCancellation.IsCancellationRequested)
+        {
+            return;
+        }
+
+        if (disposeCancellation.IsCancellationRequested)
+        {
+            return;
+        }
+
+        isLoadingMedical = false;
+
+        if (result.IsSuccess)
+        {
+            medicalExaminations = result.Value!.Items;
+            currentFitnessResult = result.Value.CurrentFitnessResult;
+        }
+        else
+        {
+            medicalFailure = result.Failure;
+        }
+    }
+
+    private Task OnMedicalExaminationRegisteredAsync() => LoadMedicalExaminationsAsync();
+
+    private static FitnessState GetFitnessResultState(string fitnessResult) => fitnessResult switch
+    {
+        "Fit" => new FitnessState("Fit", "crew-profile-indicator-valid"),
+        "FitWithRestrictions" => new FitnessState("Fit with restrictions", "crew-profile-indicator-warning"),
+        "Unfit" => new FitnessState("Unfit", "crew-profile-indicator-expired"),
+        _ => new FitnessState(fitnessResult, "crew-profile-indicator-neutral"),
+    };
+
+    private static FitnessState GetExamStatusState(MedicalExaminationListItemResponse exam) =>
+        exam.IsExpired
+            ? new FitnessState("Expired", "crew-profile-indicator-expired")
+            : exam.IsExpiringSoon
+                ? new FitnessState("Expiring soon", "crew-profile-indicator-warning")
+                : new FitnessState("Valid", "crew-profile-indicator-valid");
+
+    private FitnessState CurrentFitnessDisplayState =>
+        currentFitnessResult is { } result
+            ? GetFitnessResultState(result)
+            : new FitnessState("Not assessed", "crew-profile-indicator-neutral");
+
+    private sealed record FitnessState(string Label, string Class);
+
     private async Task OnAssignmentRegisteredAsync()
     {
         var result = await CrewApi.GetProfileAsync(CrewMemberId, disposeCancellation.Token);
@@ -134,6 +199,10 @@ public partial class CrewMemberProfile : IDisposable
         deleteAssignmentError = null;
         ResetRotationFormState();
     }
+
+    private void OpenCertificateDetails(CrewCertificateProfileItemResponse certificate) => selectedCertificate = certificate;
+
+    private void CloseCertificateDetails() => selectedCertificate = null;
 
     private void ResetRotationFormState()
     {
