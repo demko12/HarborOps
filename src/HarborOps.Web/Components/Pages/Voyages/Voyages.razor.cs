@@ -1,4 +1,5 @@
 using System.Globalization;
+using HarborOps.Web.Api.Fleet;
 using HarborOps.Web.Api.Voyages;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Web;
@@ -35,6 +36,7 @@ public partial class Voyages
     internal const int MasterDataKpiRouteSampleSize = 100;
 
     private readonly List<VoyageListItemModel> voyages = [];
+    private IReadOnlyDictionary<Guid, string> vesselNames = new Dictionary<Guid, string>();
     private readonly Dictionary<string, int?> statusCounts = new(StringComparer.Ordinal);
     private readonly CancellationTokenSource actionCancellation = new();
 
@@ -226,10 +228,21 @@ public partial class Voyages
             ? stamp.ToString("dd MMM yyyy HH:mm", CultureInfo.InvariantCulture)
             : MissingValue;
     }
-    internal static string FormatVesselReference(Guid vesselId)
+    private async Task ResolveVesselNamesAsync(
+        IEnumerable<Guid> vesselIds,
+        CancellationToken cancellationToken,
+        int requestVersion)
     {
-        return vesselId.ToString("N", CultureInfo.InvariantCulture)[..8];
+        var names = await FleetApi.LookupVesselNamesAsync(vesselIds.Distinct().ToArray(), cancellationToken);
+
+        if (!disposeCancellation.IsCancellationRequested && requestVersion == loadVersion)
+        {
+            vesselNames = names;
+        }
     }
+
+    private string VesselDisplayName(Guid vesselId) =>
+        vesselNames.TryGetValue(vesselId, out var name) ? name : "Unknown vessel";
     internal static int StatusStep(string status)
     {
         return status switch
@@ -476,6 +489,7 @@ public partial class Voyages
         pageNumber = page.PageNumber;
         totalCount = page.TotalCount;
 
+        await ResolveVesselNamesAsync(page.Items.Select(voyage => voyage.VesselId), cancellationToken, requestVersion);
         await LoadStatusCountsAsync(cancellationToken, requestVersion);
     }
     private async Task LoadStatusCountsAsync(CancellationToken cancellationToken, int requestVersion)

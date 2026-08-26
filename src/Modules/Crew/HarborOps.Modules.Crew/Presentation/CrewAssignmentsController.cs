@@ -1,5 +1,7 @@
+using System.Security.Claims;
 using HarborOps.Modules.Crew.Application;
 using HarborOps.Modules.Crew.Contracts;
+using HarborOps.Modules.Crew.Domain;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 
@@ -9,7 +11,9 @@ namespace HarborOps.Modules.Crew.Presentation;
 [Route("api/crew/assignments")]
 public sealed class CrewAssignmentsController(
     RegisterCrewAssignmentService registerCrewAssignmentService,
-    DeleteCrewAssignmentService deleteCrewAssignmentService)
+    ActivateCrewAssignmentService activateCrewAssignmentService,
+    CompleteCrewAssignmentService completeCrewAssignmentService,
+    CancelCrewAssignmentService cancelCrewAssignmentService)
     : ControllerBase
 {
     [HttpPost]
@@ -68,35 +72,106 @@ public sealed class CrewAssignmentsController(
         }
     }
 
-    [HttpDelete("{assignmentId:guid}")]
-    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [HttpPost("{assignmentId:guid}/activate")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]
-    public async Task<IActionResult> Delete(Guid assignmentId, CancellationToken cancellationToken)
+    public async Task<IActionResult> Activate(Guid assignmentId, CancellationToken cancellationToken)
     {
         try
         {
-            await deleteCrewAssignmentService.DeleteAsync(assignmentId, cancellationToken);
-
-            return NoContent();
+            await activateCrewAssignmentService.ActivateAsync(assignmentId, cancellationToken);
+            return Ok();
         }
         catch (CrewAssignmentNotFoundException exception)
         {
-            return NotFound(new ProblemDetails
-            {
-                Status = StatusCodes.Status404NotFound,
-                Title = "Crew assignment not found.",
-                Detail = exception.Message,
-            });
+            return NotFound(Problem(StatusCodes.Status404NotFound, "Crew assignment not found.", exception.Message));
         }
-        catch (CrewAssignmentNotDeletableException exception)
+        catch (InvalidCrewAssignmentTransitionException exception)
         {
-            return Conflict(new ProblemDetails
-            {
-                Status = StatusCodes.Status409Conflict,
-                Title = "Crew assignment cannot be deleted.",
-                Detail = exception.Message,
-            });
+            return Conflict(Problem(StatusCodes.Status409Conflict, "Crew assignment cannot be activated.", exception.Message));
         }
     }
+
+    [HttpPost("{assignmentId:guid}/complete")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType<HttpValidationProblemDetails>(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]
+    public async Task<IActionResult> Complete(
+        Guid assignmentId,
+        [FromBody] CompleteCrewAssignmentRequest request,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            await completeCrewAssignmentService.CompleteAsync(assignmentId, request, cancellationToken);
+            return Ok();
+        }
+        catch (CrewLifecycleValidationException exception)
+        {
+            return BadRequest(ValidationProblem(exception.Errors));
+        }
+        catch (CrewAssignmentNotFoundException exception)
+        {
+            return NotFound(Problem(StatusCodes.Status404NotFound, "Crew assignment not found.", exception.Message));
+        }
+        catch (InvalidCrewAssignmentTransitionException exception)
+        {
+            return Conflict(Problem(StatusCodes.Status409Conflict, "Crew assignment cannot be completed.", exception.Message));
+        }
+        catch (InvalidCrewAssignmentDateException exception)
+        {
+            return BadRequest(Problem(StatusCodes.Status400BadRequest, "Crew assignment cannot be completed.", exception.Message));
+        }
+    }
+
+    [HttpPost("{assignmentId:guid}/cancel")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType<HttpValidationProblemDetails>(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]
+    public async Task<IActionResult> Cancel(
+        Guid assignmentId,
+        [FromBody] CancelCrewAssignmentRequest request,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            await cancelCrewAssignmentService.CancelAsync(
+                assignmentId,
+                GetActingUserId(),
+                request,
+                cancellationToken);
+            return Ok();
+        }
+        catch (CrewLifecycleValidationException exception)
+        {
+            return BadRequest(ValidationProblem(exception.Errors));
+        }
+        catch (CrewAssignmentNotFoundException exception)
+        {
+            return NotFound(Problem(StatusCodes.Status404NotFound, "Crew assignment not found.", exception.Message));
+        }
+        catch (InvalidCrewAssignmentTransitionException exception)
+        {
+            return Conflict(Problem(StatusCodes.Status409Conflict, "Crew assignment cannot be cancelled.", exception.Message));
+        }
+    }
+
+    private Guid GetActingUserId() => Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+
+    private static HttpValidationProblemDetails ValidationProblem(IReadOnlyDictionary<string, string[]> errors) =>
+        new(errors.ToDictionary(error => error.Key, error => error.Value, StringComparer.Ordinal))
+        {
+            Status = StatusCodes.Status400BadRequest,
+            Title = "One or more validation errors occurred.",
+        };
+
+    private static ProblemDetails Problem(int status, string title, string detail) => new()
+    {
+        Status = status,
+        Title = title,
+        Detail = detail,
+    };
 }

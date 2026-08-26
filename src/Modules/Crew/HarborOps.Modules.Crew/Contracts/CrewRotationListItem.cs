@@ -12,4 +12,11 @@ public sealed record CrewRotationListItem(
     string? RelievingCrewMemberName,
     string RotationPattern,
     DateOnly PlannedReliefDate,
-    bool IsOverdue);
+    bool IsOverdue,
+    string Status = "Planned",
+    DateTime? ExecutedAtUtc = null,
+    Guid? ExecutedByUserId = null,
+    Guid? ReplacementAssignmentId = null,
+    DateTime? CancelledAtUtc = null,
+    Guid? CancelledByUserId = null,
+    string? CancellationNotes = null);

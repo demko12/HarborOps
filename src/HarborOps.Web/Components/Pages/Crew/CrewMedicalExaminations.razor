@@ -1,0 +1,138 @@
+@page "/crew/medical"
+@attribute [Microsoft.AspNetCore.Authorization.Authorize(Policy = "AccessCrew")]
+@using HarborOps.Web.Components.Shared
+@implements IDisposable
+@inject CrewApiClient CrewApi
+
+<PageTitle>Crew medical examinations | HarborOps</PageTitle>
+
+<section class="crew-medical-page">
+    <header class="crew-medical-header">
+        <div>
+            <nav class="page-breadcrumb" aria-label="Breadcrumb"><a href="/crew">Crewing operations</a><span aria-hidden="true">/</span><span>Medical</span></nav>
+            <h1>Crew medical examinations</h1>
+            <p>Review medical readiness across the fleet and spot expired or soon-expiring clearance.</p>
+        </div>
+    </header>
+
+    <div class="crew-medical-filters">
+        <div class="filter-field filter-field-wide">
+            <label for="crew-medical-search">Crew member</label>
+            <input id="crew-medical-search" type="search" @bind="searchFilter" @bind:after="SearchAsync" placeholder="Search by name..." />
+        </div>
+        <div class="filter-field">
+            <label for="crew-medical-fitness">Fitness result</label>
+            <select id="crew-medical-fitness" @bind="fitnessResultSelection" @bind:after="SearchAsync">
+                <option value="">All</option>
+                <option value="Fit">Fit</option>
+                <option value="FitWithRestrictions">Fit with restrictions</option>
+                <option value="Unfit">Unfit</option>
+            </select>
+        </div>
+        <div class="filter-field">
+            <label for="crew-medical-expired">Expired</label>
+            <select id="crew-medical-expired" @bind="expiredSelection" @bind:after="SearchAsync">
+                <option value="">All</option>
+                <option value="true">Expired only</option>
+            </select>
+        </div>
+        <div class="filter-field">
+            <label for="crew-medical-expiring-within">Expiring within (days)</label>
+            <input id="crew-medical-expiring-within" type="number" min="0" @bind="expiringWithinDaysFilter" @bind:after="SearchAsync" />
+        </div>
+        <div class="crew-medical-filter-actions">
+            <button type="button" class="crew-reset-button" @onclick="ResetFiltersAsync" disabled="@isLoading">Reset</button>
+        </div>
+    </div>
+
+    <section class="crew-card" aria-labelledby="crew-medical-list-title">
+        <div class="crew-card-heading">
+            <div><h2 id="crew-medical-list-title">Medical examinations</h2><p>@totalCount examinations found</p></div>
+            <span class="bi bi-heart-pulse" aria-hidden="true"></span>
+        </div>
+
+        @if (isLoading)
+        {
+            <LoadingState Message="Loading medical examinations..." />
+        }
+        else if (failure is not null)
+        {
+            <ApiErrorState Title="@failure.Title" Message="@failure.Message" OnRetry="LoadAsync" />
+        }
+        else if (examinations.Count == 0)
+        {
+            <EmptyState Title="No medical examinations found" Message="Register an examination from a crew member's profile to see it here." />
+        }
+        else
+        {
+            <div class="crew-medical-table-scroll">
+                <table class="crew-medical-table">
+                    <caption class="visually-hidden">Crew medical examinations</caption>
+                    <thead>
+                        <tr>
+                            <th scope="col">Crew member</th>
+                            <th scope="col">Employment status</th>
+                            <th scope="col">Exam type</th>
+                            <th scope="col">Clinic</th>
+                            <th scope="col">Exam date</th>
+                            <th scope="col">Expiry date</th>
+                            <th scope="col">Fitness result</th>
+                            <th scope="col">Status</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var exam in examinations)
+                        {
+                            <tr @key="exam.MedicalExaminationId">
+                                <td><a href="@($"/crew/{exam.CrewMemberId}")">@exam.CrewMemberName</a></td>
+                                <td class="crew-medical-muted">@exam.EmploymentStatus</td>
+                                <td>@exam.ExamType</td>
+                                <td class="crew-medical-muted">@exam.Clinic</td>
+                                <td>@exam.ExamDate.ToString("dd MMM yyyy")</td>
+                                <td>@exam.ExpiryDate.ToString("dd MMM yyyy")</td>
+                                <td><span class="crew-medical-badge @FitnessBadgeClass(exam.FitnessResult)">@FitnessLabel(exam.FitnessResult)</span></td>
+                                <td><span class="crew-medical-badge @StatusBadgeClass(exam)">@StatusLabel(exam)</span></td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="crew-medical-cards">
+                @foreach (var exam in examinations)
+                {
+                    var isExpanded = expandedCardIds.Contains(exam.MedicalExaminationId);
+                    <article class="crew-medical-card" @key="exam.MedicalExaminationId">
+                        <button type="button" class="crew-medical-card-heading" aria-expanded="@(isExpanded ? "true" : "false")" @onclick="() => ToggleCardExpanded(exam.MedicalExaminationId)">
+                            <span class="crew-medical-card-name">@exam.CrewMemberName</span>
+                            <span class="crew-medical-badge @StatusBadgeClass(exam)">@StatusLabel(exam)</span>
+                            <span class="bi bi-chevron-down crew-medical-card-chevron" aria-hidden="true"></span>
+                        </button>
+
+                        @if (isExpanded)
+                        {
+                            <dl class="crew-medical-card-details">
+                                <div><dt>Crew member</dt><dd><a href="@($"/crew/{exam.CrewMemberId}")">@exam.CrewMemberName</a></dd></div>
+                                <div><dt>Employment status</dt><dd>@exam.EmploymentStatus</dd></div>
+                                <div><dt>Exam type</dt><dd>@exam.ExamType</dd></div>
+                                <div><dt>Clinic</dt><dd>@exam.Clinic</dd></div>
+                                <div><dt>Exam date</dt><dd>@exam.ExamDate.ToString("dd MMM yyyy")</dd></div>
+                                <div><dt>Expiry date</dt><dd>@exam.ExpiryDate.ToString("dd MMM yyyy")</dd></div>
+                                <div><dt>Fitness result</dt><dd><span class="crew-medical-badge @FitnessBadgeClass(exam.FitnessResult)">@FitnessLabel(exam.FitnessResult)</span></dd></div>
+                            </dl>
+                        }
+                    </article>
+                }
+            </div>
+
+            <div class="crew-pagination">
+                <span>Showing @FirstRowNumber&ndash;@LastRowNumber of @totalCount examinations</span>
+                <div>
+                    <button type="button" @onclick="PreviousPageAsync" disabled="@(pageNumber <= 1)">Previous</button>
+                    <span class="crew-page-indicator">Page @pageNumber of @TotalPages</span>
+                    <button type="button" @onclick="NextPageAsync" disabled="@(pageNumber >= TotalPages)">Next</button>
+                </div>
+            </div>
+        }
+    </section>
+</section>

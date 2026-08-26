@@ -1,6 +1,7 @@
 using System.Net;
 using System.Text;
 using Bunit;
+using HarborOps.Web.Api.Fleet;
 using HarborOps.Web.Api.Voyages;
 using HarborOps.Web.Components.Pages.Voyages;
 using Microsoft.AspNetCore.Components;
@@ -116,6 +117,11 @@ public sealed class VoyagesWorkspaceTabsTests : BunitContext
         };
 
         Services.AddSingleton(new VoyagesApiClient(httpClient));
+        Services.AddSingleton(new FleetApiClient(new HttpClient(new StubHttpMessageHandler(_ =>
+            Json(HttpStatusCode.OK, """{"vessels":[]}""")))
+        {
+            BaseAddress = new Uri("https://api.harborops.test/"),
+        }));
         Services.AddSingleton(VoyagesTestAuthorization.Create(["voyages.read", "voyages.manage"]));
 
         if (relativeUrl is not null)

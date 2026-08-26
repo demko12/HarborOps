@@ -27,7 +27,7 @@ builder.Services.AddCargoModule();
 builder.Services.AddDocumentsModule(builder.Configuration);
 builder.Services.AddFleetModule();
 builder.Services.AddComplianceModule();
-builder.Services.AddCrewModule();
+builder.Services.AddCrewModule(builder.Configuration);
 builder.Services.AddVoyagesModule();
 builder.Services.AddScoped<FleetVesselOverviewService>();
 builder.Services.AddScoped<OperationsDashboardService>();

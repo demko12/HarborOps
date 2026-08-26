@@ -1,7 +1,9 @@
 @page "/voyages"
 @attribute [Microsoft.AspNetCore.Authorization.Authorize(Policy = "AccessVoyages")]
+@using HarborOps.Web.Api.Fleet
 @using HarborOps.Web.Api.Voyages
 @implements IDisposable
+@inject FleetApiClient FleetApi
 @inject VoyagesApiClient VoyagesApi
 @inject CurrentUserAuthorizationState AuthorizationState
 
@@ -298,7 +300,7 @@
                                 class="@(isImminent ? "imminent" : null)"
                                 title="@(isImminent ? "Departs within 24 hours" : null)">
                                 <td class="voyage-number">@voyage.VoyageNumber</td>
-                                <td class="voyage-vessel col-vessel" title="@voyage.VesselId">@FormatVesselReference(voyage.VesselId)</td>
+                                <td class="voyage-vessel col-vessel">@VesselDisplayName(voyage.VesselId)</td>
                                 <td class="voyage-route">@FormatRoute(voyage.DeparturePortCode, voyage.ArrivalPortCode)</td>
                                 <td>
                                     <span class="voyage-status @StatusModifier(voyage.Status)">@voyage.Status</span>

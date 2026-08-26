@@ -1,4 +1,5 @@
 using System.Security.Claims;
+using HarborOps.Modules.Identity.Application;
 using HarborOps.Modules.Identity.Contracts;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Builder;
@@ -42,6 +43,44 @@ public static class IdentityEndpoints
                         .OrderBy(permission => permission, StringComparer.Ordinal)
                         .ToArray()));
         })
+            .RequireAuthorization();
+
+        var accountGroup = app.MapGroup("/api/identity/account").WithTags("Identity Account");
+        accountGroup.MapPost("/change-password", async (
+                ChangePasswordRequest request,
+                ClaimsPrincipal principal,
+                AccountSecurityService service) =>
+            {
+                try
+                {
+                    await service.ChangePasswordAsync(principal, request);
+                    return Results.NoContent();
+                }
+                catch (AccountSecurityValidationException exception)
+                {
+                    return Results.ValidationProblem(exception.Errors, statusCode: StatusCodes.Status400BadRequest);
+                }
+                catch (AccountSecurityUnauthorizedException)
+                {
+                    return Results.Unauthorized();
+                }
+            })
+            .RequireAuthorization();
+
+        accountGroup.MapPost("/revoke-sessions", async (
+                ClaimsPrincipal principal,
+                AccountSecurityService service) =>
+            {
+                try
+                {
+                    await service.RevokeSessionsAsync(principal);
+                    return Results.NoContent();
+                }
+                catch (AccountSecurityUnauthorizedException)
+                {
+                    return Results.Unauthorized();
+                }
+            })
             .RequireAuthorization();
 
         app.MapIdentityAdminEndpoints();

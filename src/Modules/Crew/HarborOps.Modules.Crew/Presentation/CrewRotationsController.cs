@@ -1,5 +1,7 @@
+using System.Security.Claims;
 using HarborOps.Modules.Crew.Application;
 using HarborOps.Modules.Crew.Contracts;
+using HarborOps.Modules.Crew.Domain;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 
@@ -12,7 +14,8 @@ public sealed class CrewRotationsController(
     IGetCrewRotationQuery getCrewRotationQuery,
     PlanCrewRotationService planCrewRotationService,
     UpdateCrewRotationService updateCrewRotationService,
-    ExecuteCrewRotationService executeCrewRotationService)
+    ExecuteCrewRotationService executeCrewRotationService,
+    CancelCrewRotationService cancelCrewRotationService)
     : ControllerBase
 {
     [HttpGet]
@@ -244,7 +247,7 @@ public sealed class CrewRotationsController(
     {
         try
         {
-            return Ok(await executeCrewRotationService.ExecuteAsync(assignmentId, cancellationToken));
+            return Ok(await executeCrewRotationService.ExecuteAsync(assignmentId, GetActingUserId(), cancellationToken));
         }
         catch (CrewAssignmentNotFoundException exception)
         {
@@ -309,5 +312,62 @@ public sealed class CrewRotationsController(
                 Detail = exception.Message,
             });
         }
+        catch (InvalidCrewRotationTransitionException exception)
+        {
+            return Conflict(new ProblemDetails
+            {
+                Status = StatusCodes.Status409Conflict,
+                Title = "Crew rotation cannot be executed.",
+                Detail = exception.Message,
+            });
+        }
     }
+
+    [HttpPost("{rotationId:guid}/cancel")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType<HttpValidationProblemDetails>(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]
+    public async Task<IActionResult> Cancel(
+        Guid rotationId,
+        [FromBody] CancelCrewRotationRequest request,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            await cancelCrewRotationService.CancelAsync(rotationId, GetActingUserId(), request, cancellationToken);
+            return Ok();
+        }
+        catch (CrewLifecycleValidationException exception)
+        {
+            return BadRequest(new HttpValidationProblemDetails(exception.Errors.ToDictionary(
+                error => error.Key,
+                error => error.Value,
+                StringComparer.Ordinal))
+            {
+                Status = StatusCodes.Status400BadRequest,
+                Title = "One or more validation errors occurred.",
+            });
+        }
+        catch (CrewRotationNotFoundException exception)
+        {
+            return NotFound(new ProblemDetails
+            {
+                Status = StatusCodes.Status404NotFound,
+                Title = "Crew rotation not found.",
+                Detail = exception.Message,
+            });
+        }
+        catch (InvalidCrewRotationTransitionException exception)
+        {
+            return Conflict(new ProblemDetails
+            {
+                Status = StatusCodes.Status409Conflict,
+                Title = "Crew rotation cannot be cancelled.",
+                Detail = exception.Message,
+            });
+        }
+    }
+
+    private Guid GetActingUserId() => Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
 }

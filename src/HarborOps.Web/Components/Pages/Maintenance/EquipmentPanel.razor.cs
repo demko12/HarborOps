@@ -169,7 +169,7 @@ public partial class EquipmentPanel : IDisposable
                 item.VesselId,
                 vesselNames.TryGetValue(item.VesselId, out var name)
                     ? name
-                    : MaintenanceFormat.ShortVesselReference(item.VesselId),
+                    : MaintenanceFormat.UnknownVessel(),
                 item.Name,
                 item.Category,
                 item.Manufacturer,

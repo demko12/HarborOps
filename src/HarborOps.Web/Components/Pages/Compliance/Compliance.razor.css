@@ -19,7 +19,7 @@
 .compliance-field label { color:var(--text-muted); font-size:.7rem; font-weight:700; letter-spacing:.1em; text-transform:uppercase; }
 .compliance-form-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:1rem; margin-bottom:1rem; }
 .compliance-form-grid ::deep input:not([type="checkbox"]):not([type="radio"]):not(.document-picker-input) { width:100%; height:2.8rem; padding:0 .85rem; color:var(--text-primary); border:1px solid var(--border-medium); border-radius:.65rem; background:var(--control-surface); font:inherit; }
-.validation-message,.compliance-error { color:#f87171; font-size:.8rem; }
+.validation-message,.compliance-error { color:var(--status-danger); font-size:.8rem; }
 .compliance-success { margin-bottom:1rem; padding:.8rem; border:1px solid rgba(52,211,153,.3); border-radius:.7rem; background:rgba(6,78,59,.15); }
 .compliance-section { margin-top:1.35rem; padding:1.45rem; }
 .compliance-section-heading { display:flex; align-items:center; gap:.65rem; margin-bottom:1.15rem; }
@@ -50,7 +50,7 @@
 .issue-card .compliance-badge { margin-top:.2rem; }
 .deadline-block { align-items:flex-end; text-align:right; }
 .is-expired,.is-detained,.is-critical { border-color:rgba(248,113,113,.38); }
-.is-expired::before,.is-detained::before,.is-critical::before { background:#f87171; opacity:.9; }
+.is-expired::before,.is-detained::before,.is-critical::before { background:var(--status-danger); opacity:.9; }
 html[data-theme="light"] .compliance-record { background:#fff; box-shadow:0 4px 14px rgba(15,23,42,.06); }
 html[data-theme="light"] .compliance-badge.danger { color:#991b1b; background:rgba(254,226,226,.75); }
 html[data-theme="light"] .compliance-badge.success { color:#047857; background:rgba(209,250,229,.75); }
@@ -61,7 +61,7 @@ html[data-theme="light"] .compliance-badge.success { color:#047857; background:r
     gap: .7rem;
     padding: 1rem 1.15rem;
     border: 1px solid var(--border-medium);
-    border-radius: 1rem;
+    border-radius: var(--radius-card);
     background: var(--bg-surface-strong);
     box-shadow: 0 12px 28px rgba(15, 23, 42, .08);
 }
@@ -70,11 +70,11 @@ html[data-theme="light"] .compliance-badge.success { color:#047857; background:r
     display: inline-flex;
     align-items: center;
     gap: .5rem;
-    height: 2.8rem;
+    height: var(--control-height);
     padding: 0 1rem;
     color: var(--text-primary);
     border: 1px solid var(--border-medium);
-    border-radius: .6rem;
+    border-radius: var(--radius-button);
     background: var(--bg-surface);
     font-size: .88rem;
     font-weight: 600;
@@ -111,12 +111,12 @@ html[data-theme="light"] .compliance-badge.success { color:#047857; background:r
 .compliance-modal-close,.compliance-cancel { display: inline-flex; align-items: center; gap: .42rem; height: 2.5rem; padding: 0 .8rem; color: var(--text-secondary); border: 1px solid var(--border-medium); border-radius: .55rem; background: var(--bg-surface); font: inherit; font-size: .82rem; font-weight: 600; cursor: pointer; }
 .compliance-modal-close:hover,.compliance-cancel:hover { color: var(--text-primary); border-color: var(--accent-border); background: var(--accent-bg); }
 .compliance-modal-actions { display: flex; align-items: center; gap: .75rem; }
-.compliance-modal-actions .compliance-submit { height: 2.8rem; padding: 0 1.1rem; color:var(--text-primary); border-color:var(--border-medium); background:var(--bg-surface-strong); box-shadow:none; transition:transform .16s ease,border-color .16s ease,background .16s ease; }
+.compliance-modal-actions .compliance-submit { height: var(--control-height); padding: 0 1.1rem; color:var(--text-primary); border-color:var(--border-medium); background:var(--bg-surface-strong); box-shadow:none; transition:transform .16s ease,border-color .16s ease,background .16s ease; }
 .compliance-modal-actions .compliance-submit:hover:not(:disabled) { border-color:var(--accent-border); background:var(--accent-bg); transform:translateY(-1px); }
 .compliance-modal-actions .compliance-submit:focus-visible { outline:0; box-shadow:0 0 0 .22rem var(--accent-bg); }
 
-.compliance-form-grid ::deep :is(input:not([type="checkbox"]):not([type="radio"]):not(.document-picker-input), select) { box-sizing: border-box; width: 100%; height: 2.8rem; padding: 0 .85rem; color: var(--text-primary); border: 1px solid var(--border-medium); border-radius: .65rem; outline: 0; background: var(--control-surface); font: inherit; font-size: .88rem; color-scheme: light; }
-.compliance-form-grid ::deep :is(input:not([type="checkbox"]):not([type="radio"]):not(.document-picker-input), select):focus { border-color: var(--accent); box-shadow: 0 0 0 .22rem var(--accent-bg); }
+.compliance-form-grid ::deep :is(input:not([type="checkbox"]):not([type="radio"]):not(.document-picker-input), select) { box-sizing: border-box; width: 100%; height: var(--control-height); padding: 0 .85rem; color: var(--text-primary); border: 1px solid var(--border-medium); border-radius: var(--radius-control); outline: 0; background: var(--control-surface); font: inherit; font-size: .88rem; color-scheme: light; }
+.compliance-form-grid ::deep :is(input:not([type="checkbox"]):not([type="radio"]):not(.document-picker-input), select):focus { border-color: var(--accent); box-shadow: var(--focus-ring); }
 html[data-theme="dark"] .compliance-form-grid ::deep :is(input:not([type="checkbox"]), select) { color-scheme: dark; }
 .compliance-radio { display: inline-flex; align-items: center; gap: .45rem; margin-right: 1rem; color: var(--text-secondary); font-size: .88rem; letter-spacing: 0; text-transform: none; }
 .compliance-radio ::deep input[type="radio"] { width:1rem; height:1rem; margin:0; accent-color:#2563eb; }
@@ -176,11 +176,11 @@ html[data-theme="dark"] .compliance-actions button {
     flex: 0 0 auto;
     align-items: center;
     gap: .5rem;
-    height: 2.8rem;
+    height: var(--control-height);
     padding: 0 1rem;
     color: var(--text-primary);
     border: 1px solid var(--border-medium) !important;
-    border-radius: .6rem;
+    border-radius: var(--radius-button);
     background: var(--bg-surface-strong) !important;
     box-shadow: none;
     font: inherit;
@@ -214,7 +214,7 @@ html[data-theme="dark"] .compliance-actions button:hover {
     padding: .6rem .9rem;
     color: var(--apply-text);
     border: 1px solid var(--apply-border);
-    border-radius: .6rem;
+    border-radius: var(--radius-button);
     background: var(--apply-surface);
     box-shadow: none;
     font: inherit;
@@ -248,7 +248,7 @@ html[data-theme="dark"] .compliance-actions button:hover {
     padding: 1.3rem;
     margin-top: 1.25rem;
     border: 1px solid rgba(148, 163, 184, .28);
-    border-radius: 1rem;
+    border-radius: var(--radius-card);
     background: #f8fafc;
     box-shadow: none;
 }

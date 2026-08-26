@@ -195,7 +195,7 @@ internal sealed class FleetApiClient(HttpClient httpClient)
 
             var result = await response.Content.ReadFromJsonAsync<VesselLookupWebResponse>(cancellationToken);
 
-            return result?.Vessels.ToDictionary(vessel => vessel.Id, vessel => vessel.Name)
+            return result?.Vessels?.ToDictionary(vessel => vessel.Id, vessel => vessel.Name)
                 ?? new Dictionary<Guid, string>();
         }
         catch (HttpRequestException)

@@ -61,6 +61,12 @@ public sealed class CrewMemberProfilePageTests : BunitContext
         "replacementPlannedSignOffDate":"2026-12-31"}
         """);
 
+    private Func<HttpRequestMessage, Task<HttpResponseMessage>> respondToMedicalExaminations =
+        _ => Json(HttpStatusCode.OK, MedicalExaminations());
+
+    private Func<HttpRequestMessage, Task<HttpResponseMessage>> respondToRegisterMedicalExamination =
+        _ => Json(HttpStatusCode.Created, """{"id":"91000000-0000-0000-0000-000000000001"}""");
+
     private Func<HttpRequestMessage, Task<HttpResponseMessage>> respondToMemberSearch = _ => Json(
         HttpStatusCode.OK,
         """
@@ -134,7 +140,7 @@ public sealed class CrewMemberProfilePageTests : BunitContext
     [Theory]
     [InlineData("Active", null, "Active", "crew-profile-indicator-valid")]
     [InlineData("Planned", null, "Planned", "crew-profile-indicator-warning")]
-    [InlineData("Active", "2026-01-01", "Closed", "crew-profile-indicator-neutral")]
+    [InlineData("Active", "2026-01-01", "Completed", "crew-profile-indicator-neutral")]
     public void Assignment_rows_show_the_matching_status_indicator(
         string status, string? actualSignOff, string label, string cssClass)
     {
@@ -148,7 +154,7 @@ public sealed class CrewMemberProfilePageTests : BunitContext
 
         page.WaitForAssertion(() =>
         {
-            var indicators = page.FindAll(".crew-profile-card .crew-profile-indicator");
+            var indicators = page.FindAll(".crew-profile-row .crew-profile-indicator");
             var indicator = Assert.Single(indicators);
             Assert.Equal(label, indicator.TextContent.Trim());
             Assert.Contains(cssClass, indicator.ClassList);
@@ -310,6 +316,190 @@ public sealed class CrewMemberProfilePageTests : BunitContext
         page.WaitForAssertion(() => Assert.Contains("Certificate registered.", page.Markup, StringComparison.Ordinal));
     }
 
+    // ---- Medical fitness ----
+
+    [Fact]
+    public void Medical_history_and_current_fitness_summary_render_after_load()
+    {
+        respondToMedicalExaminations = _ => Json(
+            HttpStatusCode.OK,
+            MedicalExaminations([MedicalExamination(fitnessResult: "FitWithRestrictions")], currentFitnessResult: "FitWithRestrictions"));
+
+        var page = RenderProfilePage(CurrentUserAuthorizationState.CrewReadPermission);
+
+        page.WaitForAssertion(() =>
+        {
+            var card = page.Find(".crew-medical-card");
+            Assert.Contains("Periodic", card.TextContent, StringComparison.Ordinal);
+            Assert.Contains("Clinic A", card.TextContent, StringComparison.Ordinal);
+            Assert.Contains(
+                "Fit with restrictions",
+                page.Find(".crew-medical-current-fitness .crew-profile-indicator").TextContent,
+                StringComparison.Ordinal);
+        });
+    }
+
+    [Fact]
+    public void No_examinations_shows_not_assessed_and_the_empty_state()
+    {
+        var page = RenderProfilePage(CurrentUserAuthorizationState.CrewReadPermission);
+
+        page.WaitForAssertion(() =>
+        {
+            Assert.Contains(
+                "Not assessed",
+                page.Find(".crew-medical-current-fitness .crew-profile-indicator").TextContent,
+                StringComparison.Ordinal);
+            Assert.Contains("No medical examinations on record", page.Find(".crew-medical-card").TextContent, StringComparison.Ordinal);
+        });
+    }
+
+    [Theory]
+    [InlineData(false, false, "Valid", "crew-profile-indicator-valid")]
+    [InlineData(true, false, "Expired", "crew-profile-indicator-expired")]
+    [InlineData(false, true, "Expiring soon", "crew-profile-indicator-warning")]
+    public void The_examination_status_badge_reflects_expiry_state(bool isExpired, bool isExpiringSoon, string label, string cssClass)
+    {
+        respondToMedicalExaminations = _ => Json(
+            HttpStatusCode.OK,
+            MedicalExaminations([MedicalExamination(isExpired: isExpired, isExpiringSoon: isExpiringSoon)]));
+
+        var page = RenderProfilePage(CurrentUserAuthorizationState.CrewReadPermission);
+
+        page.WaitForAssertion(() =>
+        {
+            var badges = page.Find(".crew-medical-card .crew-profile-row").QuerySelectorAll(".crew-profile-indicator");
+            var statusBadge = badges[1];
+            Assert.Equal(label, statusBadge.TextContent.Trim());
+            Assert.Contains(cssClass, statusBadge.ClassList);
+        });
+    }
+
+    [Fact]
+    public void Without_the_manage_permission_the_examination_form_is_not_offered()
+    {
+        var page = RenderProfilePage(CurrentUserAuthorizationState.CrewReadPermission);
+
+        page.WaitForAssertion(() => Assert.NotEmpty(page.FindAll(".crew-medical-card")));
+        Assert.Empty(page.FindAll("#medical-exam-type"));
+    }
+
+    [Fact]
+    public void With_the_manage_permission_the_examination_form_is_offered()
+    {
+        var page = RenderProfilePage(
+            CurrentUserAuthorizationState.CrewReadPermission,
+            CurrentUserAuthorizationState.CrewManagePermission);
+
+        page.WaitForAssertion(() => Assert.NotEmpty(page.FindAll("#medical-exam-type")));
+    }
+
+    [Fact]
+    public void Registering_an_examination_refreshes_the_medical_section()
+    {
+        var callCount = 0;
+        respondToMedicalExaminations = _ =>
+        {
+            callCount++;
+            return callCount == 1
+                ? Json(HttpStatusCode.OK, MedicalExaminations())
+                : Json(HttpStatusCode.OK, MedicalExaminations([MedicalExamination()], currentFitnessResult: "Fit"));
+        };
+
+        var page = RenderProfilePage(
+            CurrentUserAuthorizationState.CrewReadPermission,
+            CurrentUserAuthorizationState.CrewManagePermission);
+
+        page.WaitForAssertion(() => Assert.NotEmpty(page.FindAll("#medical-exam-type")));
+        FillMedicalExaminationForm(page);
+        Closest(page, "#medical-exam-type", "form").Submit();
+
+        page.WaitForAssertion(() =>
+        {
+            Assert.Contains("Examination registered.", page.Markup, StringComparison.Ordinal);
+            Assert.Contains("Periodic", page.Find(".crew-medical-card").TextContent, StringComparison.Ordinal);
+        });
+        Assert.True(callCount >= 2);
+    }
+
+    [Fact]
+    public void Medical_examination_validation_problems_are_listed()
+    {
+        respondToRegisterMedicalExamination = _ => Json(
+            HttpStatusCode.BadRequest,
+            """{"title":"One or more validation errors occurred.","status":400,"errors":{"fitnessResult":["Fitness result is not supported."]}}""");
+
+        var page = RenderProfilePage(
+            CurrentUserAuthorizationState.CrewReadPermission,
+            CurrentUserAuthorizationState.CrewManagePermission);
+
+        page.WaitForAssertion(() => Assert.NotEmpty(page.FindAll("#medical-exam-type")));
+        FillMedicalExaminationForm(page);
+        Closest(page, "#medical-exam-type", "form").Submit();
+
+        page.WaitForAssertion(() => Assert.Contains(
+            "Fitness result is not supported.",
+            page.Find(".crew-medical-card .crew-profile-form-field-errors").TextContent,
+            StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void An_api_failure_loading_medical_examinations_shows_retry()
+    {
+        respondToMedicalExaminations = _ => Json(HttpStatusCode.InternalServerError, """{"status":500}""");
+
+        var page = RenderProfilePage(CurrentUserAuthorizationState.CrewReadPermission);
+
+        page.WaitForAssertion(() => Assert.NotEmpty(page.Find(".crew-medical-card").QuerySelectorAll(".api-error-state")));
+
+        respondToMedicalExaminations = _ => Json(HttpStatusCode.OK, MedicalExaminations([MedicalExamination()]));
+        page.Find(".crew-medical-card .api-error-state button").Click();
+
+        page.WaitForAssertion(() => Assert.Contains("Periodic", page.Find(".crew-medical-card").TextContent, StringComparison.Ordinal));
+    }
+
+    // ---- Certificate details popup ----
+
+    [Fact]
+    public void Clicking_a_certificate_row_opens_its_details_and_closing_dismisses_it()
+    {
+        respondToProfile = _ => Json(
+            HttpStatusCode.OK,
+            Profile(certificates: [Certificate()], assignments: []));
+
+        var page = RenderProfilePage(CurrentUserAuthorizationState.CrewReadPermission);
+
+        page.WaitForAssertion(() => Assert.NotEmpty(page.FindAll(".crew-profile-row-clickable")));
+        page.Find(".crew-profile-row-clickable").Click();
+
+        var modal = page.Find(".crew-assignment-modal");
+        Assert.Contains("Basic Safety Training", modal.TextContent, StringComparison.Ordinal);
+        Assert.Contains("LIC-1001", modal.TextContent, StringComparison.Ordinal);
+        Assert.Contains("Valid", modal.TextContent, StringComparison.Ordinal);
+
+        page.Find(".crew-assignment-modal-close").Click();
+
+        Assert.Empty(page.FindAll(".crew-assignment-modal"));
+    }
+
+    [Fact]
+    public void Clicking_the_backdrop_also_closes_the_certificate_popup()
+    {
+        respondToProfile = _ => Json(
+            HttpStatusCode.OK,
+            Profile(certificates: [Certificate()], assignments: []));
+
+        var page = RenderProfilePage(CurrentUserAuthorizationState.CrewReadPermission);
+
+        page.WaitForAssertion(() => Assert.NotEmpty(page.FindAll(".crew-profile-row-clickable")));
+        page.Find(".crew-profile-row-clickable").Click();
+        page.WaitForAssertion(() => Assert.NotEmpty(page.FindAll(".crew-assignment-modal")));
+
+        page.Find(".crew-assignment-modal-backdrop").Click();
+
+        Assert.Empty(page.FindAll(".crew-assignment-modal"));
+    }
+
     // ---- Assign to vessel ----
 
     [Fact]
@@ -455,7 +645,7 @@ public sealed class CrewMemberProfilePageTests : BunitContext
     }
 
     [Fact]
-    public void A_non_planned_assignment_offers_no_delete_action()
+    public void An_active_assignment_offers_lifecycle_actions()
     {
         respondToProfile = _ => Json(
             HttpStatusCode.OK,
@@ -468,15 +658,12 @@ public sealed class CrewMemberProfilePageTests : BunitContext
         page.WaitForAssertion(() => Assert.NotEmpty(page.FindAll(".crew-profile-row-clickable")));
         page.Find(".crew-profile-row-clickable").Click();
 
-        Assert.Empty(page.FindAll(".crew-assignment-modal-delete"));
-        Assert.Contains(
-            "Only planned assignments can be deleted.",
-            page.Find(".crew-assignment-modal").TextContent,
-            StringComparison.Ordinal);
+        Assert.NotEmpty(page.FindAll(".crew-assignment-modal-delete"));
+        Assert.Contains("Complete assignment", page.Find(".crew-assignment-modal").TextContent, StringComparison.Ordinal);
     }
 
     [Fact]
-    public void Deleting_a_planned_assignment_closes_the_popup_and_refreshes_the_list()
+    public void Cancelling_a_planned_assignment_closes_the_popup_and_refreshes_the_list()
     {
         var callCount = 0;
         respondToProfile = _ =>
@@ -494,6 +681,7 @@ public sealed class CrewMemberProfilePageTests : BunitContext
         page.WaitForAssertion(() => Assert.NotEmpty(page.FindAll(".crew-profile-row-clickable")));
         page.Find(".crew-profile-row-clickable").Click();
         page.Find(".crew-assignment-modal-delete").Click();
+        page.FindAll(".crew-assignment-confirmation button").First(button => button.TextContent == "Confirm").Click();
 
         page.WaitForAssertion(() =>
         {
@@ -503,14 +691,14 @@ public sealed class CrewMemberProfilePageTests : BunitContext
     }
 
     [Fact]
-    public void A_delete_conflict_is_shown_in_the_popup()
+    public void A_cancellation_conflict_is_shown_in_the_popup()
     {
         respondToProfile = _ => Json(
             HttpStatusCode.OK,
             Profile(certificates: [], assignments: [Assignment(status: "Planned")]));
         respondToDeleteAssignment = _ => Json(
             HttpStatusCode.Conflict,
-            """{"title":"Crew assignment cannot be deleted.","status":409,"detail":"Crew assignment cannot be deleted because it is not in Planned status."}""");
+            """{"title":"Crew assignment cannot be cancelled.","status":409,"detail":"Crew assignment cannot be cancelled because it is already completed."}""");
 
         var page = RenderProfilePage(
             CurrentUserAuthorizationState.CrewReadPermission,
@@ -519,9 +707,10 @@ public sealed class CrewMemberProfilePageTests : BunitContext
         page.WaitForAssertion(() => Assert.NotEmpty(page.FindAll(".crew-profile-row-clickable")));
         page.Find(".crew-profile-row-clickable").Click();
         page.Find(".crew-assignment-modal-delete").Click();
+        page.FindAll(".crew-assignment-confirmation button").First(button => button.TextContent == "Confirm").Click();
 
         page.WaitForAssertion(() => Assert.Contains(
-            "Crew assignment cannot be deleted because it is not in Planned status.",
+            "Crew assignment cannot be cancelled because it is already completed.",
             page.Find(".crew-assignment-modal-error").TextContent,
             StringComparison.Ordinal));
         Assert.NotEmpty(page.FindAll(".crew-assignment-modal"));
@@ -777,6 +966,7 @@ public sealed class CrewMemberProfilePageTests : BunitContext
 
         page.WaitForAssertion(() => Assert.NotEmpty(page.FindAll(".crew-rotation-execute")));
         page.Find(".crew-rotation-execute").Click();
+        page.FindAll(".crew-assignment-confirmation button").First(button => button.TextContent == "Confirm").Click();
 
         page.WaitForAssertion(() => Assert.Empty(page.FindAll(".crew-assignment-modal")));
     }
@@ -801,6 +991,7 @@ public sealed class CrewMemberProfilePageTests : BunitContext
 
         page.WaitForAssertion(() => Assert.NotEmpty(page.FindAll(".crew-rotation-execute")));
         page.Find(".crew-rotation-execute").Click();
+        page.FindAll(".crew-assignment-confirmation button").First(button => button.TextContent == "Confirm").Click();
 
         page.WaitForAssertion(() => Assert.Contains(
             "No relieving crew member is selected.",
@@ -819,6 +1010,15 @@ public sealed class CrewMemberProfilePageTests : BunitContext
         page.Find("#cert-license").Change("LIC-9001");
         page.Find("#cert-issue-date").Change("2026-01-01");
         page.Find("#cert-expiry-date").Change("2027-01-01");
+    }
+
+    private static void FillMedicalExaminationForm(IRenderedComponent<CrewMemberProfile> page)
+    {
+        page.Find("#medical-exam-type").Change("Periodic");
+        page.Find("#medical-clinic").Change("Clinic A");
+        page.Find("#medical-exam-date").Change("2026-01-01");
+        page.Find("#medical-expiry-date").Change("2027-01-01");
+        page.Find("#medical-fitness-result").Change("Fit");
     }
 
     private async Task FillAssignmentFormAsync(IRenderedComponent<CrewMemberProfile> page)
@@ -878,7 +1078,7 @@ public sealed class CrewMemberProfilePageTests : BunitContext
                 return respondToRegisterAssignment(request);
             }
 
-            if (path.Contains("/assignments/", StringComparison.Ordinal) && request.Method == HttpMethod.Delete)
+            if (path.EndsWith("/cancel", StringComparison.Ordinal) && request.Method == HttpMethod.Post)
             {
                 return respondToDeleteAssignment(request);
             }
@@ -903,6 +1103,19 @@ public sealed class CrewMemberProfilePageTests : BunitContext
                 if (request.Method == HttpMethod.Put)
                 {
                     return respondToUpdateRotation(request);
+                }
+            }
+
+            if (path.EndsWith("/medical-examinations", StringComparison.Ordinal))
+            {
+                if (request.Method == HttpMethod.Get)
+                {
+                    return respondToMedicalExaminations(request);
+                }
+
+                if (request.Method == HttpMethod.Post)
+                {
+                    return respondToRegisterMedicalExamination(request);
                 }
             }
 
@@ -984,6 +1197,25 @@ public sealed class CrewMemberProfilePageTests : BunitContext
             "plannedSignOffDate":"2026-06-01","actualSignOffDate":{{actual}},"status":"{{status}}"}
             """;
     }
+
+    private static string MedicalExaminations(string[]? items = null, string? currentFitnessResult = null) => $$"""
+        {"items":[{{string.Join(',', items ?? [])}}],
+        "currentFitnessResult":{{(currentFitnessResult is null ? "null" : $"\"{currentFitnessResult}\"")}}}
+        """;
+
+    private static string MedicalExamination(
+        Guid? examinationId = null,
+        string examType = "Periodic",
+        string clinic = "Clinic A",
+        string fitnessResult = "Fit",
+        bool isExpired = false,
+        bool isExpiringSoon = false) => $$"""
+        {"medicalExaminationId":"{{examinationId ?? Guid.Parse("91000000-0000-0000-0000-000000000001")}}",
+        "crewMemberId":"{{MemberId}}","crewMemberName":"Ivan Petrović","employmentStatus":"Active",
+        "examType":"{{examType}}","clinic":"{{clinic}}","examDate":"2026-01-01","expiryDate":"2027-01-01",
+        "fitnessResult":"{{fitnessResult}}","isExpired":{{(isExpired ? "true" : "false")}},
+        "isExpiringSoon":{{(isExpiringSoon ? "true" : "false")}}}
+        """;
 
     private static string Rotation(bool isOverdue = false) => $$"""
         {"rotationId":"81000000-0000-0000-0000-000000000001","assignmentId":"31000000-0000-0000-0000-000000000001",

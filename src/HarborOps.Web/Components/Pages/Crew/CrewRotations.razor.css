@@ -1,12 +1,12 @@
-.crew-rotations-page { max-width: 1400px; margin: 0 auto; padding: 2.5rem 2rem; }
+.crew-rotations-page { max-width: var(--page-max-width); margin: 0 auto; padding: var(--page-padding); }
 .crew-rotations-header h1 { margin: .3rem 0 0; font-size: clamp(1.75rem, 3vw, 2.25rem); letter-spacing: -.04em; }
 .crew-rotations-header p { margin: .4rem 0 1.5rem; color: var(--text-secondary); }
 
-.crew-card { min-width: 0; padding: 1.35rem; border: 1px solid var(--border-medium); border-radius: 1rem; background: linear-gradient(145deg, var(--bg-surface-strong), var(--bg-surface)); box-shadow: 0 12px 35px rgba(0,0,0,.08); }
+.crew-card { min-width: 0; padding: 1.35rem; border: 1px solid var(--border-medium); border-radius: var(--radius-card); background: linear-gradient(145deg, var(--bg-surface-strong), var(--bg-surface)); box-shadow: 0 12px 35px rgba(0,0,0,.08); }
 .crew-card-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem; margin-bottom: 1.15rem; }
 .crew-card-heading h2 { margin: 0; font-size: 1.05rem; }
 .crew-card-heading p { margin: .4rem 0 0; color: var(--text-secondary); }
-.crew-card-heading > span { display: grid; width: 2rem; height: 2rem; place-items: center; color: var(--accent); border: 1px solid var(--accent-border); border-radius: .65rem; background: var(--accent-bg); }
+.crew-card-heading > span { display: grid; width: 2rem; height: 2rem; place-items: center; color: var(--accent); border: 1px solid var(--accent-border); border-radius: var(--radius-control); background: var(--accent-bg); }
 
 .crew-rotations-filters {
     display: flex;
@@ -16,7 +16,7 @@
     margin-bottom: 1rem;
     padding: 1.1rem 1.25rem;
     border: 1px solid var(--border-medium);
-    border-radius: 1rem;
+    border-radius: var(--radius-card);
     background: linear-gradient(145deg, var(--bg-surface-strong), var(--bg-surface));
     box-shadow: var(--card-shadow);
 }
@@ -43,11 +43,11 @@
 .filter-field input,
 .filter-field select {
     min-width: 9.5rem;
-    height: 2.8rem;
+    height: var(--control-height);
     padding: 0 .85rem;
     color: var(--text-primary);
     border: 1px solid var(--border-medium);
-    border-radius: .65rem;
+    border-radius: var(--radius-control);
     background-color: var(--control-surface);
     font: inherit;
     font-size: .88rem;
@@ -79,7 +79,7 @@
     .filter-field select:focus {
         border-color: var(--accent);
         outline: 0;
-        box-shadow: 0 0 0 .22rem var(--accent-bg);
+        box-shadow: var(--focus-ring);
     }
 
 html[data-theme="light"] .filter-field input,
@@ -92,7 +92,7 @@ html[data-theme="light"] .filter-field select {
     align-items: flex-end;
 }
 
-.crew-reset-button { height: 2.8rem; padding: 0 .9rem; color: var(--accent); border: 1px solid transparent; border-radius: .6rem; background: none; font: inherit; font-size: .88rem; font-weight: 600; cursor: pointer; transition: background .15s ease, border-color .15s ease; }
+.crew-reset-button { height: var(--control-height); padding: 0 .9rem; color: var(--accent); border: 1px solid transparent; border-radius: var(--radius-button); background: none; font: inherit; font-size: .88rem; font-weight: 600; cursor: pointer; transition: background .15s ease, border-color .15s ease; }
 .crew-reset-button:hover:not(:disabled) { border-color: var(--accent-border); background: var(--accent-bg); }
 .crew-reset-button:disabled { opacity: .45; cursor: not-allowed; }
 
@@ -178,7 +178,7 @@ html[data-theme="light"] .crew-rotations-validation {
     align-items: center;
     padding: .18rem .65rem;
     border: 1px solid var(--border-medium);
-    border-radius: 999px;
+    border-radius: var(--radius-pill);
     background: var(--bg-surface-strong);
     font-size: .76rem;
     font-weight: 550;
@@ -186,28 +186,34 @@ html[data-theme="light"] .crew-rotations-validation {
 }
 
 .crew-rotations-status-overdue {
-    color: #f87171;
+    color: var(--status-danger);
     border-color: rgba(248, 113, 113, .35);
     background: rgba(127, 29, 29, .18);
 }
 
 .crew-rotations-status-planned {
-    color: #93c5fd;
+    color: var(--status-info);
     border-color: rgba(96, 165, 250, .35);
     background: rgba(30, 64, 175, .18);
 }
 
 html[data-theme="light"] .crew-rotations-status-overdue {
-    color: #b91c1c;
+    color: var(--status-danger-strong);
     border-color: rgba(185, 28, 28, .3);
     background: rgba(185, 28, 28, .08);
 }
 
 html[data-theme="light"] .crew-rotations-status-planned {
-    color: #1d4ed8;
+    color: var(--status-info-strong);
     border-color: rgba(37, 99, 235, .3);
     background: rgba(37, 99, 235, .12);
 }
+
+.crew-rotations-status-executed { color: #6ee7b7; border-color: rgba(52, 211, 153, .3); background: rgba(16, 185, 129, .12); }
+.crew-rotations-status-cancelled { color: var(--text-secondary); border-color: var(--border-medium); background: var(--bg-surface-strong); }
+.crew-rotation-cancel, .crew-rotation-action-confirmation button { height: 2rem; padding: 0 .65rem; color: var(--status-danger-strong); border: 1px solid rgba(248, 113, 113, .35); border-radius: var(--radius-button); background: transparent; font: inherit; font-size: .78rem; font-weight: 600; cursor: pointer; }
+.crew-rotation-action-confirmation { display: inline-flex; gap: .35rem; }
+html[data-theme="light"] .crew-rotations-status-executed { color: #047857; border-color: rgba(5, 150, 105, .3); background: rgba(5, 150, 105, .1); }
 
 .crew-pagination { display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding-top: 1rem; color: var(--text-muted); font-size: .8rem; }
 .crew-pagination div { display: flex; align-items: center; gap: .35rem; }
@@ -220,7 +226,7 @@ html[data-theme="light"] .crew-rotations-status-planned {
 
 .crew-rotation-card {
     border: 1px solid var(--border-subtle);
-    border-radius: .85rem;
+    border-radius: var(--radius-row);
     background: rgba(255, 255, 255, .012);
     overflow: hidden;
 }
@@ -268,7 +274,7 @@ html[data-theme="light"] .crew-rotations-status-planned {
 .crew-rotation-card-details a:hover { text-decoration: underline; }
 
 @media (max-width: 760px) {
-    .crew-rotations-page { padding: 1.25rem 1rem; }
+    .crew-rotations-page { padding: var(--page-padding-compact); }
     .crew-rotations-filters { flex-direction: column; align-items: stretch; }
     .crew-rotations-filters > * { width: 100%; flex: 0 1 auto; min-width: 0; }
     .crew-rotations-table-scroll { display: none; }

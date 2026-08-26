@@ -32,6 +32,39 @@
     --apply-border-hover: var(--accent-border);
     --apply-text: var(--text-primary);
     --action-icon: #2563eb;
+
+    /* Layout and component tokens. These are theme-independent dimensions so
+       isolated component styles can share a consistent visual rhythm. */
+    --page-max-width: 1400px;
+    --page-padding: 2.5rem 2rem;
+    --page-padding-compact: 1.25rem 1rem;
+    --control-height: 2.8rem;
+    --control-height-compact: 2.5rem;
+    --radius-xs: .45rem;
+    --radius-sm: .55rem;
+    --radius-button: .6rem;
+    --radius-control: .65rem;
+    --radius-row: .85rem;
+    --radius-card: 1rem;
+    --radius-pill: 999px;
+    --focus-ring: 0 0 0 .22rem var(--accent-bg);
+    --focus-ring-compact: 0 0 0 .2rem var(--accent-bg);
+    --row-hover-inset: inset 3px 0 0 var(--accent);
+    --popup-surface: rgba(255, 255, 255, .96);
+    --popup-shadow: 0 18px 34px rgba(15, 23, 42, .16), inset 0 1px rgba(255, 255, 255, .85);
+    --popup-surface-dark: rgba(23, 32, 51, .98);
+    --popup-shadow-dark: 0 18px 34px rgba(0, 0, 0, .34), inset 0 1px rgba(255, 255, 255, .07);
+    --radius-popup: .7rem;
+    --radius-option: .52rem;
+    --danger-text: #f87171;
+    --status-info: #93c5fd;
+    --status-info-strong: #1d4ed8;
+    --status-success: #34d399;
+    --status-success-strong: #0f766e;
+    --status-warning: #fbbf24;
+    --status-warning-strong: #b45309;
+    --status-danger: #f87171;
+    --status-danger-strong: #b91c1c;
 }
 
 [data-theme="light"] {
@@ -58,6 +91,7 @@
     --border-strong-hover: rgba(15, 23, 42, 0.28);
     --card-shadow: 0 18px 40px rgba(15, 23, 42, 0.1);
     --action-icon: #2563eb;
+    --danger-text: #b91c1c;
 }
 
 .logo-dark,
@@ -81,11 +115,18 @@ html, body {
     transition: background-color 0.2s ease, color 0.2s ease;
 }
 
+/* Opt-in base classes for new markup. Existing isolated page classes are
+   migrated gradually to the same tokens to avoid specificity regressions. */
+.app-page-container { max-width: var(--page-max-width); margin: 0 auto; padding: var(--page-padding); }
+.app-card { border: 1px solid var(--border-medium); border-radius: var(--radius-card); background: linear-gradient(145deg, var(--bg-surface-strong), var(--bg-surface)); box-shadow: var(--card-shadow); }
+.app-control { box-sizing: border-box; min-width: 0; height: var(--control-height); color: var(--text-primary); border: 1px solid var(--border-medium); border-radius: var(--radius-control); outline: 0; background: var(--control-surface); font: inherit; }
+.app-control:focus { border-color: var(--accent); box-shadow: var(--focus-ring); }
 
-
-html, body {
-    font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+@media (max-width: 760px) {
+    .app-page-container { padding: var(--page-padding-compact); }
 }
+
+
 
 a, .btn-link {
     color: #006bb7;
@@ -99,10 +140,6 @@ a, .btn-link {
 
 .btn:focus, .btn:active:focus, .btn-link.nav-link:focus, .form-control:focus, .form-check-input:focus {
   box-shadow: 0 0 0 0.1rem white, 0 0 0 0.25rem #258cfb;
-}
-
-.content {
-    padding-top: 1.1rem;
 }
 
 h1:focus {
@@ -182,6 +219,10 @@ html, body {
     .documents-type-form-card,
     .error-card,
     .fleet-card,
+    .fleet-directory-card,
+    .fleet-directory-create,
+    .fleet-directory-filter,
+    .fleet-directory-results,
     .fleet-filters,
     .fleet-summary-card,
     .insurance-card,
@@ -245,6 +286,10 @@ html[data-theme="dark"] .page:not(.login-layout) :is(
     .documents-type-form-card,
     .error-card,
     .fleet-card,
+    .fleet-directory-card,
+    .fleet-directory-create,
+    .fleet-directory-filter,
+    .fleet-directory-results,
     .fleet-filters,
     .fleet-summary-card,
     .insurance-card,
@@ -685,7 +730,7 @@ html[data-theme="light"] .cargo-track.done { color: #0f766e; }
     color: var(--accent);
     border-color: var(--accent);
     background: var(--accent-bg);
-    box-shadow: 0 0 0 .18rem var(--accent-bg);
+   
 }
 
 .workspace-filter-reset {
