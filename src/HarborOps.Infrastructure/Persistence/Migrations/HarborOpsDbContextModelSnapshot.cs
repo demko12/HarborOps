@@ -1059,6 +1059,9 @@ namespace HarborOps.Infrastructure.Persistence.Migrations
                         .IsUnicode(false)
                         .HasColumnType("varchar(7)");
 
+                    b.Property<DateTime?>("LastPositionReportedAtUtc")
+                        .HasColumnType("datetime2");
+
                     b.Property<string>("LifecycleStage")
                         .HasMaxLength(50)
                         .HasColumnType("nvarchar(50)");
