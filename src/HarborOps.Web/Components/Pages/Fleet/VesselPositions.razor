@@ -1,6 +1,7 @@
 @page "/fleet/positions"
 @attribute [Microsoft.AspNetCore.Authorization.Authorize(Policy = "AccessFleet")]
 @using HarborOps.Web.Api.Fleet
+@using HarborOps.Web.Components.Shared
 @implements IDisposable
 @inject FleetApiClient FleetApi
 @inject CurrentUserAuthorizationState AuthorizationState
@@ -13,7 +14,6 @@
 			<nav class="page-breadcrumb" aria-label="Breadcrumb">
 				<a href="/fleet">Fleet operations</a><span aria-hidden="true">/</span><span>Vessel positions</span>
 			</nav>
-			<p class="positions-eyebrow">Fleet operations</p>
 			<h1>Vessel positions</h1>
 			<p>Review the latest reported position of every vessel and spot missing or stale reports.</p>
 		</div>
@@ -264,13 +264,10 @@
 				<form class="positions-form" @onsubmit="SubmitPositionAsync" @onsubmit:preventDefault="true">
 					<div class="positions-field">
 						<label for="positions-vessel">Vessel</label>
-						<select id="positions-vessel" @bind="reportVesselId" aria-describedby="positions-vessel-hint">
-							<option value="">Select a vessel</option>
-							@foreach (var vessel in positions.Items)
-							{
-								<option value="@vessel.VesselId">@vessel.Name (IMO @vessel.ImoNumber)</option>
-							}
-						</select>
+						<VesselPicker InputId="positions-vessel"
+								  @bind-Value="reportVesselId"
+								  Disabled="isSubmitting"
+								  Placeholder="Select a vessel" />
 						<small id="positions-vessel-hint">The observation time is assigned by the server.</small>
 					</div>
 					<div class="positions-field">
