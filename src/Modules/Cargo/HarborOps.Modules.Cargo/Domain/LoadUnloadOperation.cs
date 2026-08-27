@@ -41,6 +41,47 @@ internal sealed class LoadUnloadOperation
 
     public DateTime? FinishedAtUtc { get; private set; }
 
+    internal CargoOperationState State => StateFor(StartedAtUtc, FinishedAtUtc);
+
+    internal static CargoOperationState StateFor(DateTime? startedAtUtc, DateTime? finishedAtUtc)
+    {
+        if (finishedAtUtc is not null)
+        {
+            return CargoOperationState.Completed;
+        }
+
+        return startedAtUtc is not null
+            ? CargoOperationState.InProgress
+            : CargoOperationState.Planned;
+    }
+
+    internal static CargoStatus OutcomeStatusFor(CargoOperationType operationType)
+    {
+        return operationType switch
+        {
+            CargoOperationType.Load => CargoStatus.Loaded,
+            _ => CargoStatus.Unloaded,
+        };
+    }
+
+    internal static CargoStatus RequiredBookingStatusFor(CargoOperationType operationType)
+    {
+        return operationType switch
+        {
+            CargoOperationType.Load => CargoStatus.Planned,
+            _ => CargoStatus.Arrived,
+        };
+    }
+
+    internal static CargoStatus RequiredContainerStatusFor(CargoOperationType operationType)
+    {
+        return operationType switch
+        {
+            CargoOperationType.Load => CargoStatus.Registered,
+            _ => CargoStatus.Loaded,
+        };
+    }
+
     internal static LoadUnloadOperation Plan(
         Guid cargoBookingId,
         Guid responsibleUserId,
@@ -54,5 +95,32 @@ internal sealed class LoadUnloadOperation
             operationType,
             CargoStatus.Planned,
             plannedAtUtc);
+    }
+
+    internal void Start(DateTime utcNow)
+    {
+        if (State is not CargoOperationState.Planned)
+        {
+            throw new LoadUnloadOperationTransitionNotAllowedException(
+                Id,
+                State,
+                LoadUnloadOperationTransitionNotAllowedException.StartAction);
+        }
+
+        StartedAtUtc = utcNow;
+    }
+
+    internal void Complete(DateTime utcNow)
+    {
+        if (State is not CargoOperationState.InProgress)
+        {
+            throw new LoadUnloadOperationTransitionNotAllowedException(
+                Id,
+                State,
+                LoadUnloadOperationTransitionNotAllowedException.CompleteAction);
+        }
+
+        FinishedAtUtc = utcNow;
+        Status = OutcomeStatusFor(OperationType);
     }
 }

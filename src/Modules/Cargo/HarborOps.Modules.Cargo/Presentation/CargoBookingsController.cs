@@ -14,9 +14,6 @@ public sealed class CargoBookingsController(
     GetCargoBookingDetailsQuery getCargoBookingDetailsQuery)
     : ControllerBase
 {
-    // The capability convention reads a single route template and prefers the action's, so an
-    // action that carries its own relative segment never matches the "/api/cargo" prefix and is
-    // left without a capability policy. This route needs the read policy stated explicitly.
     private const string ReadCargoPolicy = "cargo.read";
 
     [HttpGet("{bookingId:guid}")]

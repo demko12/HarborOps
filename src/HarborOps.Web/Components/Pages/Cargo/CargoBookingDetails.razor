@@ -74,6 +74,14 @@
                 </div>
                 <span class="booking-kpi-icon kpi-icon-events" aria-hidden="true"><span class="bi bi-clock-history"></span></span>
             </article>
+            <article class="booking-kpi kpi-containers">
+                <div>
+                    <p class="booking-kpi-label">Containers</p>
+                    <p class="booking-kpi-value">@(isLoadingContainers ? "—" : containers.Count.ToString())</p>
+                    <p class="booking-kpi-note">@LoadedContainerCount loaded, @operations.Count operations</p>
+                </div>
+                <span class="booking-kpi-icon kpi-icon-load" aria-hidden="true"><span class="bi bi-stack"></span></span>
+            </article>
         </section>
 
         <section class="booking-grid">
@@ -223,6 +231,306 @@
                 }
             </article>
         </section>
+
+        <section class="booking-card" aria-labelledby="booking-manifest-title">
+            <div class="booking-card-heading">
+                <h2 id="booking-manifest-title">Container manifest</h2>
+                <span class="booking-count manifest-progress">@LoadedContainerCount of @containers.Count loaded</span>
+            </div>
+
+            <div class="manifest-bar"
+                 role="img"
+                 aria-label="@($"{LoadedContainerCount} of {containers.Count} containers loaded")">
+                <span style="width:@(LoadedPercent)%"></span>
+            </div>
+
+            @if (isLoadingContainers)
+            {
+                <LoadingState Message="Loading the container manifest..." />
+            }
+            else if (containersFailure is not null)
+            {
+                <ApiErrorState Title="@containersFailure.Title"
+                               Message="@containersFailure.Message"
+                               OnRetry="LoadContainersAsync" />
+            }
+            else
+            {
+                @if (IsBookingClosed && CanManageCargo)
+                {
+                    <p class="booking-note booking-note-warning" role="status">
+                        This booking is completed, so its manifest can no longer change.
+                    </p>
+                }
+
+                @if (containers.Count == 0 && !CanAddContainers)
+                {
+                    <EmptyState Title="No containers on the manifest"
+                                Message="Containers added here are the ones a load or unload operation settles." />
+                }
+                else
+                {
+
+                @if (containers.Count == 0)
+                {
+                    <p class="booking-note">No containers yet. Add the first one in the row below.</p>
+                }
+
+                <EditForm EditContext="containerEditContext" OnValidSubmit="SubmitContainerAsync">
+                    <DataAnnotationsValidator />
+
+                    @if (containerError is not null)
+                    {
+                        <div class="booking-form-error" role="alert">@containerError</div>
+                    }
+
+                    <div class="booking-table-scroll">
+                        <table class="booking-table manifest-table">
+                            <caption class="visually-hidden">Containers on this booking, ordered by container number</caption>
+                            <thead>
+                                <tr>
+                                    <th scope="col">Container</th>
+                                    <th scope="col">Type</th>
+                                    <th scope="col">Status</th>
+                                    <th scope="col">Vessel</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var container in containers)
+                                {
+                                    <tr class="manifest-row" @key="container.ContainerId">
+                                        <td><code class="manifest-number">@container.ContainerNumber</code></td>
+                                        <td>@container.ContainerType</td>
+                                        <td>
+                                            <span class="cargo-status @CargoBookingFormat.StatusModifier(container.Status)">@container.Status</span>
+                                        </td>
+                                        <td class="manifest-vessel">
+                                            @(container.VesselId is { } vesselId
+                                                ? CargoBookingFormat.ShortVoyage(vesselId)
+                                                : "Not assigned")
+                                        </td>
+                                    </tr>
+                                }
+                            </tbody>
+                            @if (CanAddContainers)
+                            {
+                                <tfoot>
+                                    <tr class="manifest-add-row">
+                                        <td>
+                                            <label class="visually-hidden" for="container-number">Container number</label>
+                                            <InputText id="container-number"
+                                                       placeholder="MSKU1234567"
+                                                       @ref="containerNumberInput"
+                                                       @bind-Value="containerModel.ContainerNumber" />
+                                            <ValidationMessage For="() => containerModel.ContainerNumber" />
+                                        </td>
+                                        <td>
+                                            <label class="visually-hidden" for="container-type">Container type</label>
+                                            <InputText id="container-type"
+                                                       placeholder="40HC"
+                                                       @bind-Value="containerModel.ContainerType" />
+                                            <ValidationMessage For="() => containerModel.ContainerType" />
+                                        </td>
+                                        <td colspan="2" class="manifest-add-action">
+                                            <button class="booking-submit container-submit" type="submit" disabled="@isAddingContainer">
+                                                <span class="bi bi-plus-lg" aria-hidden="true"></span>
+                                                @(isAddingContainer ? "Adding..." : "Add container")
+                                            </button>
+                                        </td>
+                                    </tr>
+                                </tfoot>
+                            }
+                        </table>
+                    </div>
+                </EditForm>
+                }
+            }
+        </section>
+
+        <section class="booking-card" aria-labelledby="booking-operations-title">
+            <div class="booking-card-heading">
+                <h2 id="booking-operations-title">Load and unload operations</h2>
+                <span class="booking-count">@operations.Count planned</span>
+            </div>
+
+            <p class="booking-note operations-effect @(containers.Count == 0 ? "booking-note-warning" : null)" role="status">
+                @(containers.Count == 0
+                    ? "Add at least one container to the manifest before an operation can be completed."
+                    : $"Completing an operation settles all {containers.Count} containers on this manifest.")
+            </p>
+
+            @if (isLoadingOperations)
+            {
+                <LoadingState Message="Loading the cargo operations..." />
+            }
+            else if (operationsFailure is not null)
+            {
+                <ApiErrorState Title="@operationsFailure.Title"
+                               Message="@operationsFailure.Message"
+                               OnRetry="LoadOperationsAsync" />
+            }
+            else
+            {
+                @if (CanManageCargo && !IsBookingClosed)
+                {
+                    <div class="operations-plan">
+                        <button type="button"
+                                class="operations-plan-toggle"
+                                aria-expanded="@(isPlanFormOpen ? "true" : "false")"
+                                @onclick="TogglePlanForm">
+                            <span class="bi @(isPlanFormOpen ? "bi-dash-lg" : "bi-plus-lg")" aria-hidden="true"></span>
+                            @(isPlanFormOpen ? "Cancel" : "Plan operation")
+                        </button>
+
+                        @if (isPlanFormOpen)
+                        {
+                            <EditForm EditContext="operationEditContext" OnValidSubmit="SubmitOperationAsync">
+                                <DataAnnotationsValidator />
+
+                                @if (operationError is not null)
+                                {
+                                    <div class="booking-form-error" role="alert">@operationError</div>
+                                }
+
+                                <div class="booking-form-grid">
+                                    <div class="booking-field">
+                                        <label for="operation-type">Operation type</label>
+                                        <InputSelect id="operation-type" @bind-Value="operationModel.OperationType">
+                                            <option value="Load">Load</option>
+                                            <option value="Unload">Unload</option>
+                                        </InputSelect>
+                                        <ValidationMessage For="() => operationModel.OperationType" />
+                                    </div>
+
+                                    <div class="booking-field">
+                                        <label for="operation-planned">Planned (UTC)</label>
+                                        <InputDate id="operation-planned"
+                                                   Type="InputDateType.DateTimeLocal"
+                                                   @bind-Value="operationModel.PlannedAtUtc" />
+                                        <ValidationMessage For="() => operationModel.PlannedAtUtc" />
+                                    </div>
+                                </div>
+
+                                <div class="booking-form-actions">
+                                    <button class="booking-submit operation-submit" type="submit" disabled="@isPlanningOperation">
+                                        @(isPlanningOperation ? "Planning..." : "Plan operation")
+                                    </button>
+                                </div>
+                            </EditForm>
+                        }
+                    </div>
+                }
+
+                @if (transitionError is not null && pendingOperation is null)
+                {
+                    <div class="booking-form-error" role="alert">@transitionError</div>
+                }
+
+                @if (operations.Count == 0)
+                {
+                    <EmptyState Title="No operations planned"
+                                Message="Plan a load or unload operation to record execution against this booking." />
+                }
+                else
+                {
+                    <div class="booking-table-scroll">
+                        <table class="booking-table operations-table">
+                            <caption class="visually-hidden">Operations in the order they are planned</caption>
+                            <thead>
+                                <tr>
+                                    <th scope="col">Operation</th>
+                                    <th scope="col">State</th>
+                                    <th scope="col">Planned (UTC)</th>
+                                    <th scope="col">Started / finished (UTC)</th>
+                                    <th scope="col">Responsible</th>
+                                    @if (CanManageCargo)
+                                    {
+                                        <th scope="col">Action</th>
+                                    }
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var operation in operations)
+                                {
+                                    <tr class="operation-row" @key="operation.OperationId">
+                                        <td>@operation.OperationType</td>
+                                        <td>
+                                            <span class="operation-state @CargoBookingFormat.OperationStateModifier(operation.OperationState)">
+                                                @operation.OperationState
+                                            </span>
+                                        </td>
+                                        <td class="booking-event-stamp">
+                                            <span>@CargoBookingFormat.CreatedUtcDate(operation.PlannedAtUtc)</span>
+                                            <span class="booking-event-time">@CargoBookingFormat.CreatedUtcTime(operation.PlannedAtUtc)</span>
+                                        </td>
+                                        <td class="operation-stamps">
+                                            <span>@(operation.StartedAtUtc is { } startedAtUtc ? CargoBookingFormat.CreatedUtc(startedAtUtc) : "Not started")</span>
+                                            <span class="booking-event-time">@(operation.FinishedAtUtc is { } finishedAtUtc ? CargoBookingFormat.CreatedUtc(finishedAtUtc) : "Not finished")</span>
+                                        </td>
+                                        <td class="booking-event-actor" title="@operation.ResponsibleUserId">
+                                            @CargoBookingFormat.ShortUser(operation.ResponsibleUserId)
+                                        </td>
+                                        @if (CanManageCargo)
+                                        {
+                                            <td class="operation-actions">
+                                                @if (operation.OperationState == "Planned")
+                                                {
+                                                    <button type="button"
+                                                            class="booking-submit operation-start"
+                                                            @onclick="() => AskToConfirm(operation, StartAction)">Start</button>
+                                                }
+                                                else if (operation.OperationState == "InProgress")
+                                                {
+                                                    <button type="button"
+                                                            class="booking-submit operation-complete"
+                                                            disabled="@(containers.Count == 0)"
+                                                            @onclick="() => AskToConfirm(operation, CompleteAction)">Complete</button>
+                                                }
+                                                else
+                                                {
+                                                    <span class="operation-settled">Settled</span>
+                                                }
+                                            </td>
+                                        }
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                }
+            }
+        </section>
+
+        @if (pendingOperation is { } confirming && pendingAction is { } confirmingAction)
+        {
+            <div class="operation-modal-backdrop" @onclick="DismissConfirmation">
+                <section class="operation-modal"
+                         role="dialog"
+                         aria-modal="true"
+                         aria-labelledby="operation-confirm-title"
+                         @onclick:stopPropagation="true">
+                    <h2 id="operation-confirm-title">Confirm</h2>
+                    <p class="operation-confirm-question">@ConfirmationQuestion(confirming, confirmingAction)</p>
+
+                    @if (transitionError is not null)
+                    {
+                        <div class="booking-form-error" role="alert">@transitionError</div>
+                    }
+
+                    <div class="booking-form-actions">
+                        <button type="button"
+                                class="booking-submit operation-confirm"
+                                disabled="@isTransitioning"
+                                @onclick="ConfirmPendingActionAsync">
+                            @(isTransitioning ? "Working..." : "Confirm")
+                        </button>
+                        <button type="button"
+                                class="operation-confirm-dismiss"
+                                @onclick="DismissConfirmation">Keep as is</button>
+                    </div>
+                </section>
+            </div>
+        }
 
         <section class="booking-card" aria-labelledby="booking-tracking-title">
             <div class="booking-card-heading">

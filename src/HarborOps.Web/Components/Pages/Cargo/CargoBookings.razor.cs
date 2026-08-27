@@ -21,6 +21,7 @@ public partial class CargoBookings
     private int pageNumber = 1;
     private int pageSize = DefaultPageSize;
     private int totalCount;
+    private int hazardousCount;
     private bool isLoading = true;
 
     [SupplyParameterFromQuery(Name = SearchQueryKey)]
@@ -222,6 +223,7 @@ public partial class CargoBookings
             failure = result.Failure;
             rows = [];
             totalCount = 0;
+            hazardousCount = 0;
 
             return;
         }
@@ -231,6 +233,7 @@ public partial class CargoBookings
         pageNumber = page.PageNumber;
         pageSize = page.PageSize;
         totalCount = page.TotalCount;
+        hazardousCount = page.HazardousCount;
 
         SyncBoardAddress();
     }

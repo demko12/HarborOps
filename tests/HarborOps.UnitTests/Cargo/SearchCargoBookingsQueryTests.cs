@@ -287,6 +287,58 @@ public sealed class SearchCargoBookingsQueryTests
         Assert.Equal(SearchCargoBookingsValidator.MaxPageSize, response.PageSize);
     }
 
+    [Fact]
+    public async Task SearchAsync_counts_every_hazardous_booking_beyond_the_current_page()
+    {
+        await using var dbContext = CreateDbContext();
+        for (var index = 0; index < 5; index++)
+        {
+            await AddBookingAsync(
+                dbContext,
+                $"BK-HAZCOUNT-{index:D4}",
+                isHazardous: index % 2 == 0,
+                createdUtc: new DateTime(2026, 8, 1, 8, 0, 0, DateTimeKind.Utc).AddMinutes(index));
+        }
+
+        var query = new SearchCargoBookingsQuery(dbContext);
+
+        var response = await query.SearchAsync(
+            new SearchCargoBookingsRequest { PageNumber = 2, PageSize = 2 },
+            CancellationToken.None);
+
+        Assert.Equal(5, response.TotalCount);
+        Assert.Equal(3, response.HazardousCount);
+        Assert.Equal(2, response.Items.Count);
+    }
+
+    [Fact]
+    public async Task SearchAsync_counts_hazardous_bookings_within_the_active_filters()
+    {
+        await using var dbContext = CreateDbContext();
+        await AddBookingAsync(dbContext, "BK-HAZFILTER-0001", isHazardous: true);
+        await AddBookingAsync(dbContext, "BK-HAZFILTER-0002", isHazardous: true, status: CargoStatus.Loaded);
+        await AddBookingAsync(dbContext, "BK-HAZFILTER-0003", isHazardous: false);
+
+        var response = await new SearchCargoBookingsQuery(dbContext).SearchAsync(
+            new SearchCargoBookingsRequest { Status = nameof(CargoStatus.Registered) },
+            CancellationToken.None);
+
+        Assert.Equal(2, response.TotalCount);
+        Assert.Equal(1, response.HazardousCount);
+    }
+
+    [Fact]
+    public async Task SearchAsync_reports_no_hazardous_bookings_without_data()
+    {
+        await using var dbContext = CreateDbContext();
+
+        var response = await new SearchCargoBookingsQuery(dbContext).SearchAsync(
+            new SearchCargoBookingsRequest(),
+            CancellationToken.None);
+
+        Assert.Equal(0, response.HazardousCount);
+    }
+
     private static async Task<CargoBooking> AddBookingAsync(
         HarborOpsDbContext dbContext,
         string bookingNumber,

@@ -57,7 +57,6 @@ internal sealed class CargoBooking
 
     public DateTime CreatedUtc { get; private set; }
 
-    /// <summary>The only status this booking may advance to, or null once it is completed.</summary>
     internal CargoStatus? NextStatus => NextStatusFor(Status);
 
     internal static CargoStatus? NextStatusFor(CargoStatus status)

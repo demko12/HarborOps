@@ -43,6 +43,9 @@ public sealed class SearchCargoBookingsQuery(DbContext dbContext)
         }
 
         var totalCount = await bookings.CountAsync(cancellationToken);
+        var hazardousCount = await bookings.CountAsync(
+            booking => booking.IsHazardous,
+            cancellationToken);
 
         var items = await bookings
             .OrderByDescending(booking => booking.CreatedUtc)
@@ -62,6 +65,11 @@ public sealed class SearchCargoBookingsQuery(DbContext dbContext)
                 booking.CreatedUtc))
             .ToListAsync(cancellationToken);
 
-        return new SearchCargoBookingsResponse(items, pageNumber, pageSize, totalCount);
+        return new SearchCargoBookingsResponse(
+            items,
+            pageNumber,
+            pageSize,
+            totalCount,
+            hazardousCount);
     }
 }

@@ -38,6 +38,13 @@ internal sealed class Container
 
     public Guid? CargoBookingId { get; private set; }
 
+    internal static string NormalizeNumber(string containerNumber)
+    {
+        ArgumentNullException.ThrowIfNull(containerNumber);
+
+        return containerNumber.Trim().ToUpperInvariant();
+    }
+
     internal static Container Register(
         string containerNumber,
         string containerType,
@@ -52,5 +59,10 @@ internal sealed class Container
             status,
             vesselId,
             cargoBookingId);
+    }
+
+    internal void ApplyOperationOutcome(CargoOperationType operationType)
+    {
+        Status = LoadUnloadOperation.OutcomeStatusFor(operationType);
     }
 }
