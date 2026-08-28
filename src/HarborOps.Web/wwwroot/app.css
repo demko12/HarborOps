@@ -240,6 +240,8 @@ html, body {
     .settings-card,
     .survey-card,
     .surveys-filters,
+    .timeline-card,
+    .timeline-kpi,
     .vessel-details-card,
     .voyages-card,
     .voyages-filters,
@@ -307,6 +309,8 @@ html[data-theme="dark"] .page:not(.login-layout) :is(
     .settings-card,
     .survey-card,
     .surveys-filters,
+    .timeline-card,
+    .timeline-kpi,
     .vessel-details-card,
     .voyages-card,
     .voyages-filters,
@@ -381,8 +385,8 @@ html[data-theme="dark"] .page:not(.login-layout) .maintenance-modal-backdrop .ma
     .compliance-registration-modal,
     .crew-assignment-modal,
     .survey-registration-modal,
-    .voyages-modal) :is(input:not([type="checkbox"]):not([type="radio"]), select, textarea):not(.vessel-picker-input):not(.port-picker-input):not(.document-picker-input):not(.survey-vessel-search),
-.page:not(.login-layout) .maintenance-modal-backdrop :is(input:not([type="checkbox"]):not([type="radio"]), select, textarea):not(.vessel-picker-input):not(.port-picker-input):not(.document-picker-input):not(.survey-vessel-search) {
+    .voyages-modal) :is(input:not([type="checkbox"]):not([type="radio"]), select, textarea):not(.vessel-picker-input):not(.port-picker-input):not(.route-picker-input):not(.berth-picker-input):not(.document-picker-input):not(.survey-vessel-search),
+.page:not(.login-layout) .maintenance-modal-backdrop :is(input:not([type="checkbox"]):not([type="radio"]), select, textarea):not(.vessel-picker-input):not(.port-picker-input):not(.route-picker-input):not(.berth-picker-input):not(.document-picker-input):not(.survey-vessel-search) {
     box-sizing: border-box;
     width: 100%;
     min-height: 2.8rem;
@@ -404,8 +408,8 @@ html[data-theme="dark"] .page:not(.login-layout) :is(
     .compliance-registration-modal,
     .crew-assignment-modal,
     .survey-registration-modal,
-    .voyages-modal) :is(input:not([type="checkbox"]):not([type="radio"]), select, textarea):not(.vessel-picker-input):not(.port-picker-input):not(.document-picker-input):not(.survey-vessel-search),
-html[data-theme="dark"] .page:not(.login-layout) .maintenance-modal-backdrop :is(input:not([type="checkbox"]):not([type="radio"]), select, textarea):not(.vessel-picker-input):not(.port-picker-input):not(.document-picker-input):not(.survey-vessel-search) {
+    .voyages-modal) :is(input:not([type="checkbox"]):not([type="radio"]), select, textarea):not(.vessel-picker-input):not(.port-picker-input):not(.route-picker-input):not(.berth-picker-input):not(.document-picker-input):not(.survey-vessel-search),
+html[data-theme="dark"] .page:not(.login-layout) .maintenance-modal-backdrop :is(input:not([type="checkbox"]):not([type="radio"]), select, textarea):not(.vessel-picker-input):not(.port-picker-input):not(.route-picker-input):not(.berth-picker-input):not(.document-picker-input):not(.survey-vessel-search) {
     color-scheme: dark;
 }
 

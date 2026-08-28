@@ -1,8 +1,9 @@
 @using HarborOps.Web.Api.Voyages
 @inject VoyagesApiClient VoyagesApi
 
-<div class="voyage-picker">
-    <input class="voyage-picker-input"
+<div class="berth-picker">
+    <span class="bi bi-search berth-picker-search-icon" aria-hidden="true"></span>
+    <input class="berth-picker-input"
            id="@InputId"
            type="text"
            value="@displayText"
@@ -18,26 +19,28 @@
 
     @if (isDropdownOpen)
     {
-        <ul class="voyage-picker-dropdown" role="listbox">
+        <ul class="berth-picker-dropdown" role="listbox">
             @if (isSearching)
             {
-                <li class="voyage-picker-status">Searching...</li>
+                <li class="berth-picker-status">Searching...</li>
             }
             else if (searchFailed)
             {
-                <li class="voyage-picker-status voyage-picker-error">Unable to search berths right now</li>
+                <li class="berth-picker-status berth-picker-error">Unable to search berths right now</li>
             }
             else if (results.Count == 0)
             {
-                <li class="voyage-picker-status">No berths found</li>
+                <li class="berth-picker-status">No berths found</li>
             }
             else
             {
                 @foreach (var berth in results)
                 {
-                    <li class="voyage-picker-option" role="option" @onclick="() => SelectBerthAsync(berth)">
-                        @berth.Name
-                        <span class="voyage-picker-route">&mdash; @berth.Status</span>
+                    <li role="option" @key="berth.BerthId">
+                        <button class="berth-picker-option" type="button" @onclick="() => SelectBerthAsync(berth)">
+                            <strong>@berth.Name</strong>
+                            <span class="berth-picker-meta">@berth.Status</span>
+                        </button>
                     </li>
                 }
             }

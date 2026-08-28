@@ -92,8 +92,6 @@ public sealed class PortsController(
         }
     }
 
-    // Resolving names for identifiers a caller already holds is a read, so this stays a GET and
-    // picks up the voyages.read policy instead of the manage policy a POST route would attract.
     [HttpGet("names")]
     [Authorize(ReadVoyagesPolicy)]
     [ProducesResponseType<PortNamesResponse>(StatusCodes.Status200OK)]

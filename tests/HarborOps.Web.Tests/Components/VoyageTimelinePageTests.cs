@@ -130,9 +130,9 @@ public sealed class VoyageTimelinePageTests : BunitContext
 
         page.Find(".timeline-plan-itinerary-actions button").Click();
         page.Find("#itinerary-route").Focus();
-        page.WaitForAssertion(() => Assert.Single(page.FindAll(".voyage-picker-option")));
+        page.WaitForAssertion(() => Assert.Single(page.FindAll(".route-picker-option")));
 
-        page.Find(".voyage-picker-option").Click();
+        page.Find(".route-picker-option").Click();
 
         page.WaitForAssertion(() => Assert.Equal(2, page.FindAll(".timeline-itinerary-readonly-label").Count / 3));
         Assert.Empty(page.FindAll("#itinerary-stop-port-0"));
@@ -249,10 +249,10 @@ public sealed class VoyageTimelinePageTests : BunitContext
         page.WaitForAssertion(() => Assert.NotEmpty(page.FindAll("#timeline-berth-select")));
 
         page.Find("#timeline-berth-select").Focus();
-        page.WaitForAssertion(() => Assert.Single(page.FindAll(".voyage-picker-option")));
+        page.WaitForAssertion(() => Assert.Single(page.FindAll(".berth-picker-option")));
 
-        page.Find(".voyage-picker-option").Click();
-        page.WaitForAssertion(() => Assert.Empty(page.FindAll(".voyage-picker-dropdown")));
+        page.Find(".berth-picker-option").Click();
+        page.WaitForAssertion(() => Assert.Empty(page.FindAll(".berth-picker-dropdown")));
 
         page.Find(".timeline-button").Click();
 
