@@ -237,7 +237,7 @@
 										<span class="maintenance-description" title="@row.Description">@row.Description</span>
 									}
 								</td>
-								<td class="col-vessel" title="@row.VesselId">@row.VesselDisplayName</td>
+								<td class="col-vessel">@row.VesselDisplayName</td>
 								<td class="col-priority">
 									<span class="maintenance-priority priority-@MaintenanceFormat.PriorityModifier(row.Priority)">
 										@if (isCritical)

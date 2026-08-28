@@ -5,6 +5,7 @@
 @implements IDisposable
 @inject CrewApiClient CrewApi
 @inject FleetApiClient FleetApi
+@inject CurrentUserAuthorizationState CurrentUser
 
 <PageTitle>Crew rotations | HarborOps</PageTitle>
 
@@ -49,7 +50,7 @@
 
     <section class="crew-card" aria-labelledby="crew-rotations-list-title">
         <div class="crew-card-heading">
-            <div><h2 id="crew-rotations-list-title">Planned reliefs</h2><p>@totalCount rotations found</p></div>
+            <div><h2 id="crew-rotations-list-title">Rotation history</h2><p>@totalCount rotations found</p></div>
             <span class="bi bi-arrow-repeat" aria-hidden="true"></span>
         </div>
 
@@ -79,6 +80,7 @@
                             <th scope="col">Pattern</th>
                             <th scope="col">Planned relief date</th>
                             <th scope="col">Status</th>
+                            @if (CanManage) { <th scope="col">Actions</th> }
                         </tr>
                     </thead>
                     <tbody>
@@ -101,15 +103,24 @@
                                 <td class="crew-rotations-muted">@rotation.RotationPattern</td>
                                 <td>@rotation.PlannedReliefDate.ToString("dd MMM yyyy")</td>
                                 <td>
-                                    @if (rotation.IsOverdue)
-                                    {
-                                        <span class="crew-rotations-status crew-rotations-status-overdue">Overdue</span>
-                                    }
-                                    else
-                                    {
-                                        <span class="crew-rotations-status crew-rotations-status-planned">Planned</span>
-                                    }
+                                    <span class="crew-rotations-status @RotationStatusClass(rotation)">@RotationStatusLabel(rotation)</span>
                                 </td>
+                                @if (CanManage)
+                                {
+                                    <td>
+                                        @if (rotation.Status == "Planned")
+                                        {
+                                            @if (pendingCancellationId == rotation.RotationId)
+                                            {
+                                                <span class="crew-rotation-action-confirmation"><button type="button" @onclick="@(() => CancelRotationAsync(rotation.RotationId))">Confirm</button><button type="button" @onclick="CancelRotationCancellation">Keep</button></span>
+                                            }
+                                            else
+                                            {
+                                                <button type="button" class="crew-rotation-cancel" @onclick="@(() => RequestRotationCancellation(rotation.RotationId))">Cancel</button>
+                                            }
+                                        }
+                                    </td>
+                                }
                             </tr>
                         }
                     </tbody>
@@ -123,14 +134,7 @@
                     <article class="crew-rotation-card" @key="rotation.RotationId">
                         <button type="button" class="crew-rotation-card-heading" aria-expanded="@(isExpanded ? "true" : "false")" @onclick="() => ToggleCardExpanded(rotation.RotationId)">
                             <span class="crew-rotation-card-name">@rotation.CrewMemberName</span>
-                            @if (rotation.IsOverdue)
-                            {
-                                <span class="crew-rotations-status crew-rotations-status-overdue">Overdue</span>
-                            }
-                            else
-                            {
-                                <span class="crew-rotations-status crew-rotations-status-planned">Planned</span>
-                            }
+                            <span class="crew-rotations-status @RotationStatusClass(rotation)">@RotationStatusLabel(rotation)</span>
                             <span class="bi bi-chevron-down crew-rotation-card-chevron" aria-hidden="true"></span>
                         </button>
 
@@ -158,6 +162,9 @@
                                 </div>
                                 <div><dt>Pattern</dt><dd>@rotation.RotationPattern</dd></div>
                                 <div><dt>Planned relief date</dt><dd>@rotation.PlannedReliefDate.ToString("dd MMM yyyy")</dd></div>
+                                @if (rotation.ExecutedAtUtc is { } executedAtUtc) { <div><dt>Executed</dt><dd>@executedAtUtc.ToString("dd MMM yyyy HH:mm 'UTC'")</dd></div> }
+                                @if (rotation.CancelledAtUtc is { } cancelledAtUtc) { <div><dt>Cancelled</dt><dd>@cancelledAtUtc.ToString("dd MMM yyyy HH:mm 'UTC'")</dd></div> }
+                                @if (!string.IsNullOrWhiteSpace(rotation.CancellationNotes)) { <div><dt>Cancellation notes</dt><dd>@rotation.CancellationNotes</dd></div> }
                             </dl>
                         }
                     </article>

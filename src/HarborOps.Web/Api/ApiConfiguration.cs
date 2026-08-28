@@ -36,6 +36,12 @@ internal static class ApiConfiguration
             client.Timeout = TimeSpan.FromSeconds(15);
         });
 
+        services.AddHttpClient<AccountSecurityApiClient>(client =>
+        {
+            client.BaseAddress = baseAddress;
+            client.Timeout = TimeSpan.FromSeconds(15);
+        }).AddHttpMessageHandler<BearerTokenHandler>();
+
         services.AddHttpClient<CargoBookingsApiClient>(client =>
         {
             client.BaseAddress = baseAddress;

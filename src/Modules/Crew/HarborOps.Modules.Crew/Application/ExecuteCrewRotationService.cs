@@ -1,13 +1,18 @@
 using HarborOps.Modules.Crew.Contracts;
 using HarborOps.Modules.Crew.Domain;
-using HarborOps.SharedKernel;
 using Microsoft.EntityFrameworkCore;
 
 namespace HarborOps.Modules.Crew.Application;
 
-public sealed class ExecuteCrewRotationService(DbContext dbContext, IDateTimeProvider dateTimeProvider)
+public sealed class ExecuteCrewRotationService(DbContext dbContext, TimeProvider timeProvider)
 {
-    public async Task<ExecuteCrewRotationResponse> ExecuteAsync(Guid assignmentId, CancellationToken cancellationToken)
+    public Task<ExecuteCrewRotationResponse> ExecuteAsync(Guid assignmentId, CancellationToken cancellationToken) =>
+        ExecuteAsync(assignmentId, Guid.Empty, cancellationToken);
+
+    public async Task<ExecuteCrewRotationResponse> ExecuteAsync(
+        Guid assignmentId,
+        Guid actingUserId,
+        CancellationToken cancellationToken)
     {
         var assignment = await dbContext.Set<CrewAssignment>()
             .SingleOrDefaultAsync(candidate => candidate.Id == assignmentId, cancellationToken);
@@ -18,7 +23,10 @@ public sealed class ExecuteCrewRotationService(DbContext dbContext, IDateTimePro
         }
 
         var rotation = await dbContext.Set<CrewRotation>()
-            .SingleOrDefaultAsync(candidate => candidate.AssignmentId == assignmentId, cancellationToken);
+            .SingleOrDefaultAsync(
+                candidate => candidate.AssignmentId == assignmentId
+                    && candidate.Status == CrewRotation.PlannedStatus,
+                cancellationToken);
 
         if (rotation is null)
         {
@@ -38,10 +46,9 @@ public sealed class ExecuteCrewRotationService(DbContext dbContext, IDateTimePro
         await CrewRotationEligibility.EnsureRelievingCrewMemberAvailableAsync(
             dbContext, assignment.CrewMemberId, relievingCrewMemberId, cancellationToken);
 
-        var today = DateOnly.FromDateTime(dateTimeProvider.UtcNow);
+        var executedAtUtc = timeProvider.GetUtcNow().UtcDateTime;
+        var today = DateOnly.FromDateTime(executedAtUtc);
         var tourLengthDays = assignment.PlannedSignOffDate.DayNumber - assignment.SignOnDate.DayNumber;
-
-        assignment.SignOff(today);
 
         var replacement = CrewAssignment.CreatePlanned(
             relievingCrewMemberId,
@@ -52,10 +59,20 @@ public sealed class ExecuteCrewRotationService(DbContext dbContext, IDateTimePro
             today.AddDays(tourLengthDays));
         replacement.Activate();
 
+        assignment.Complete(today, signOffPortId: null);
+        rotation.Execute(actingUserId, executedAtUtc, replacement.Id);
         await dbContext.Set<CrewAssignment>().AddAsync(replacement, cancellationToken);
-        dbContext.Set<CrewRotation>().Remove(rotation);
 
-        await dbContext.SaveChangesAsync(cancellationToken);
+        if (dbContext.Database.IsRelational())
+        {
+            await using var transaction = await dbContext.Database.BeginTransactionAsync(cancellationToken);
+            await dbContext.SaveChangesAsync(cancellationToken);
+            await transaction.CommitAsync(cancellationToken);
+        }
+        else
+        {
+            await dbContext.SaveChangesAsync(cancellationToken);
+        }
 
         return new ExecuteCrewRotationResponse(
             assignment.Id,

@@ -72,6 +72,8 @@ internal sealed class VesselConfiguration : IEntityTypeConfiguration<Vessel>
         builder.Property(vessel => vessel.CurrentLongitude)
             .HasPrecision(9, 6);
 
+        builder.Property(vessel => vessel.LastPositionReportedAtUtc);
+
         builder.Property(vessel => vessel.LifecycleStage)
             .HasMaxLength(Vessel.LifecycleStageMaxLength);
 

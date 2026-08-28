@@ -1,7 +1,9 @@
 @page "/voyages"
 @attribute [Microsoft.AspNetCore.Authorization.Authorize(Policy = "AccessVoyages")]
+@using HarborOps.Web.Api.Fleet
 @using HarborOps.Web.Api.Voyages
 @implements IDisposable
+@inject FleetApiClient FleetApi
 @inject VoyagesApiClient VoyagesApi
 @inject CurrentUserAuthorizationState AuthorizationState
 @inject NavigationManager Navigation
@@ -305,7 +307,7 @@
                                 @onclick="() => OpenTimeline(voyage.VoyageId)"
                                 @onkeydown="(args) => HandleVoyageRowKeyDown(args, voyage.VoyageId)">
                                 <td class="voyage-number"><a href="@TimelineHref(voyage.VoyageId)" @onclick:stopPropagation="true">@voyage.VoyageNumber</a></td>
-                                <td class="voyage-vessel col-vessel" title="@voyage.VesselId">@FormatVesselReference(voyage.VesselId)</td>
+                                <td class="voyage-vessel col-vessel" title="@voyage.VesselId">@VesselDisplayName(voyage.VesselId)</td>
                                 <td class="voyage-route">@FormatRoute(voyage)</td>
                                 <td>
                                     <span class="voyage-status @StatusModifier(voyage.Status)">@voyage.Status</span>

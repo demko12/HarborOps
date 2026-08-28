@@ -10,4 +10,7 @@ public sealed record CrewAssignmentProfileItem(
     DateOnly SignOnDate,
     DateOnly PlannedSignOffDate,
     DateOnly? ActualSignOffDate,
-    string Status);
+    string Status,
+    DateTime? CancelledAtUtc = null,
+    Guid? CancelledByUserId = null,
+    string? CancellationNotes = null);

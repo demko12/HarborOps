@@ -14,7 +14,8 @@ public sealed class VesselsController(
     ISearchVesselsQuery searchVesselsQuery,
     IVesselLookupService vesselLookupService,
     IGetVesselDetailsQuery getVesselDetailsQuery,
-    RecordVesselStatusChangeService recordVesselStatusChangeService)
+    RecordVesselStatusChangeService recordVesselStatusChangeService,
+    RecordVesselPositionService recordVesselPositionService)
     : ControllerBase
 {
     // The capability convention reads a single route template and prefers the action's, so an
@@ -205,6 +206,50 @@ public sealed class VesselsController(
             {
                 Status = StatusCodes.Status409Conflict,
                 Title = "Vessel status is unchanged.",
+                Detail = exception.Message,
+            });
+        }
+    }
+
+    [HttpPost("{vesselId:guid}/position-reports")]
+    [Authorize(ManageFleetPolicy)]
+    [ProducesResponseType<RecordVesselPositionResponse>(StatusCodes.Status200OK)]
+    [ProducesResponseType<HttpValidationProblemDetails>(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<RecordVesselPositionResponse>> RecordPosition(
+    Guid vesselId,
+    [FromBody] RecordVesselPositionRequest request,
+    CancellationToken cancellationToken)
+    {
+        try
+        {
+            var response = await recordVesselPositionService.RecordAsync(
+                vesselId,
+                request,
+                cancellationToken);
+
+            return Ok(response);
+        }
+        catch (RecordVesselPositionValidationException exception)
+        {
+            return BadRequest(new HttpValidationProblemDetails(
+                exception.Errors.ToDictionary(
+                    error => error.Key,
+                    error => error.Value,
+                    StringComparer.Ordinal))
+            {
+                Status = StatusCodes.Status400BadRequest,
+                Title = "One or more validation errors occurred.",
+            });
+        }
+        catch (VesselNotFoundException exception)
+        {
+            return NotFound(new ProblemDetails
+            {
+                Status = StatusCodes.Status404NotFound,
+                Title = "Vessel not found.",
                 Detail = exception.Message,
             });
         }

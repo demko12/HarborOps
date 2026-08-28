@@ -545,6 +545,16 @@ namespace HarborOps.Infrastructure.Persistence.Migrations
                     b.Property<DateOnly?>("ActualSignOffDate")
                         .HasColumnType("date");
 
+                    b.Property<string>("CancellationNotes")
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
+
+                    b.Property<DateTime?>("CancelledAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("CancelledByUserId")
+                        .HasColumnType("uniqueidentifier");
+
                     b.Property<Guid>("CrewMemberId")
                         .HasColumnType("uniqueidentifier");
 
@@ -750,16 +760,40 @@ namespace HarborOps.Infrastructure.Persistence.Migrations
                     b.Property<Guid>("AssignmentId")
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<string>("CancellationNotes")
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
+
+                    b.Property<DateTime?>("CancelledAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("CancelledByUserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime?>("ExecutedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("ExecutedByUserId")
+                        .HasColumnType("uniqueidentifier");
+
                     b.Property<DateOnly>("PlannedReliefDate")
                         .HasColumnType("date");
 
                     b.Property<Guid?>("RelievingCrewMemberId")
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<Guid?>("ReplacementAssignmentId")
+                        .HasColumnType("uniqueidentifier");
+
                     b.Property<string>("RotationPattern")
                         .IsRequired()
                         .HasMaxLength(100)
                         .HasColumnType("nvarchar(100)");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
 
                     b.HasKey("Id");
 
@@ -1058,6 +1092,9 @@ namespace HarborOps.Infrastructure.Persistence.Migrations
                         .HasMaxLength(7)
                         .IsUnicode(false)
                         .HasColumnType("varchar(7)");
+
+                    b.Property<DateTime?>("LastPositionReportedAtUtc")
+                        .HasColumnType("datetime2");
 
                     b.Property<string>("LifecycleStage")
                         .HasMaxLength(50)

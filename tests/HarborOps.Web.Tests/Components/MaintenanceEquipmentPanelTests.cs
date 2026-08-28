@@ -53,14 +53,14 @@ public sealed class MaintenanceEquipmentPanelTests : BunitContext
     }
 
     [Fact]
-    public void Vessel_name_falls_back_to_a_short_reference_when_the_lookup_returns_nothing()
+    public void Vessel_name_does_not_fall_back_to_an_id_when_the_lookup_returns_nothing()
     {
         respondToLookup = _ => Json(HttpStatusCode.OK, """{"vessels":[]}""");
 
         var panel = RenderPanel();
 
         Assert.Equal(
-            MaintenanceFormat.ShortVesselReference(Guid.Parse(VesselId)),
+            MaintenanceFormat.UnknownVessel(),
             panel.Find(".equipment-vessel").TextContent);
     }
 

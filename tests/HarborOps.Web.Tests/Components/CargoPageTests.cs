@@ -31,6 +31,27 @@ public sealed class CargoPageTests : BunitContext
         _ => Json(HttpStatusCode.OK, VoyagePage(Voyage("VOY-2026-014")));
 
     [Fact]
+    public void Hazardous_summary_card_reports_the_filtered_total_not_the_rendered_rows()
+    {
+        respond = _ => Json(HttpStatusCode.OK, Page(
+            pageNumber: 1,
+            totalCount: 60,
+            hazardousCount: 17,
+            Row("BK-0001", isHazardous: true),
+            Row("BK-0002", isHazardous: false)));
+
+        var page = RenderCargoPage();
+
+        var cards = page.FindAll(".cargo-summary-card");
+
+        Assert.Equal(2, cards.Count);
+        Assert.Contains("60", cards[0].TextContent, StringComparison.Ordinal);
+        Assert.Contains("Hazardous bookings", cards[1].TextContent, StringComparison.Ordinal);
+        Assert.Contains("17", cards[1].TextContent, StringComparison.Ordinal);
+        Assert.DoesNotContain("on this page", cards[1].TextContent, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void Hazardous_rows_are_marked_with_text_and_a_placard_not_colour_alone()
     {
         respond = _ => Json(HttpStatusCode.OK, Page(
@@ -619,8 +640,17 @@ public sealed class CargoPageTests : BunitContext
 
     private static string Page(int pageNumber, int totalCount, params string[] rows)
     {
+        return Page(pageNumber, totalCount, hazardousCount: 0, rows);
+    }
+
+    private static string Page(
+        int pageNumber,
+        int totalCount,
+        int hazardousCount,
+        params string[] rows)
+    {
         return $$"""
-            {"items":[{{string.Join(',', rows)}}],"pageNumber":{{pageNumber}},"pageSize":25,"totalCount":{{totalCount}}}
+            {"items":[{{string.Join(',', rows)}}],"pageNumber":{{pageNumber}},"pageSize":25,"totalCount":{{totalCount}},"hazardousCount":{{hazardousCount}}}
             """;
     }
 

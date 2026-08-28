@@ -123,11 +123,4 @@ public sealed class VoyageFormatTests
         Assert.Equal("The voyages board could not reach the API.", Voyages.FailureMessage(failure));
     }
 
-    [Fact]
-    public void Vessel_renders_a_short_scalar_reference()
-    {
-        var vesselId = new Guid("30000000-0000-0000-0000-000000000002");
-
-        Assert.Equal("30000000", Voyages.FormatVesselReference(vesselId));
-    }
 }

@@ -137,7 +137,7 @@
                         @foreach (var row in rows)
                         {
                             <tr class="dry-dock-row" @key="row.DryDockId">
-                                <td class="dry-dock-vessel" title="@row.VesselId">
+                                <td class="dry-dock-vessel">
                                     <a class="dry-dock-link" href="@DetailsHref(row.DryDockId)">@row.VesselDisplayName</a>
                                 </td>
                                 <td class="dry-dock-port" title="@row.PortId">@row.PortDisplayName</td>

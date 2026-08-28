@@ -12,6 +12,8 @@ internal static class WebAuthenticationEndpoints
     {
         app.MapPost("/session/login", (Func<HttpContext, IdentitySessionApiClient, IAntiforgery, CancellationToken, Task<IResult>>)LoginAsync);
         app.MapPost("/session/logout", (Func<HttpContext, IAntiforgery, Task<IResult>>)LogoutAsync);
+        app.MapPost("/session/account/change-password", (Func<HttpContext, AccountSecurityApiClient, ServerSessionTicketStore, IAntiforgery, CancellationToken, Task<IResult>>)ChangePasswordAsync);
+        app.MapPost("/session/account/revoke-sessions", (Func<HttpContext, AccountSecurityApiClient, ServerSessionTicketStore, IAntiforgery, CancellationToken, Task<IResult>>)RevokeSessionsAsync);
         return app;
     }
 
@@ -46,6 +48,44 @@ internal static class WebAuthenticationEndpoints
     }
 
     private static async Task<IResult> LogoutAsync(HttpContext context, IAntiforgery antiforgery) { await antiforgery.ValidateRequestAsync(context); await context.SignOutAsync(CookieAuthenticationDefaults.AuthenticationScheme); return Results.Redirect("/login"); }
+
+    private static async Task<IResult> ChangePasswordAsync(HttpContext context, AccountSecurityApiClient accountSecurityApi, ServerSessionTicketStore ticketStore, IAntiforgery antiforgery, CancellationToken cancellationToken)
+    {
+        await antiforgery.ValidateRequestAsync(context);
+        var form = await context.Request.ReadFormAsync(cancellationToken);
+        var currentPassword = form["currentPassword"].ToString();
+        var newPassword = form["newPassword"].ToString();
+        var confirmPassword = form["confirmPassword"].ToString();
+        if (newPassword != confirmPassword)
+        {
+            return Results.Redirect("/settings?securityError=confirmation");
+        }
+
+        return await CompleteSecurityActionAsync(context, ticketStore, await accountSecurityApi.ChangePasswordAsync(currentPassword, newPassword, cancellationToken));
+    }
+
+    private static async Task<IResult> RevokeSessionsAsync(HttpContext context, AccountSecurityApiClient accountSecurityApi, ServerSessionTicketStore ticketStore, IAntiforgery antiforgery, CancellationToken cancellationToken)
+    {
+        await antiforgery.ValidateRequestAsync(context);
+        return await CompleteSecurityActionAsync(context, ticketStore, await accountSecurityApi.RevokeSessionsAsync(cancellationToken));
+    }
+
+    private static async Task<IResult> CompleteSecurityActionAsync(HttpContext context, ServerSessionTicketStore ticketStore, AccountSecurityApiResult result)
+    {
+        if (!result.Succeeded)
+        {
+            return Results.Redirect(result.IsUnauthorized ? "/login" : "/settings?securityError=failed");
+        }
+
+        if (!Guid.TryParse(context.User.FindFirstValue(ClaimTypes.NameIdentifier), out var userId))
+        {
+            return Results.Redirect("/login");
+        }
+
+        await ticketStore.RevokeUserSessionsAsync(userId);
+        await context.SignOutAsync(CookieAuthenticationDefaults.AuthenticationScheme);
+        return Results.Redirect("/login?security=updated");
+    }
 
     internal static string SafeReturnUrl(string? returnUrl) => !string.IsNullOrWhiteSpace(returnUrl) && returnUrl.StartsWith("/", StringComparison.Ordinal) && !returnUrl.StartsWith("//", StringComparison.Ordinal) ? returnUrl : "/";
 }

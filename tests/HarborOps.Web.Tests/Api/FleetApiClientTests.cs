@@ -406,6 +406,219 @@ public sealed class FleetApiClientTests
         Assert.Empty(result.Failure.Errors);
     }
 
+    [Fact]
+    public async Task GetVesselPositionsAsync_sends_paging_to_the_positions_endpoint()
+    {
+        HttpRequestMessage? captured = null;
+        using var httpClient = CreateHttpClient((request, _) =>
+        {
+            captured = request;
+            return Json(HttpStatusCode.OK, PositionsJson);
+        });
+
+        var result = await new FleetApiClient(httpClient).GetVesselPositionsAsync(
+            null, null, false, 2, 50, CancellationToken.None);
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal("/api/fleet/vessel-positions", captured!.RequestUri!.AbsolutePath);
+        Assert.Contains("pageNumber=2", captured.RequestUri.Query, StringComparison.Ordinal);
+        Assert.Contains("pageSize=50", captured.RequestUri.Query, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task GetVesselPositionsAsync_sends_the_fleet_status_and_stale_filters()
+    {
+        HttpRequestMessage? captured = null;
+        using var httpClient = CreateHttpClient((request, _) =>
+        {
+            captured = request;
+            return Json(HttpStatusCode.OK, PositionsJson);
+        });
+
+        var fleetId = Guid.Parse("70000000-0000-0000-0000-000000000001");
+
+        await new FleetApiClient(httpClient).GetVesselPositionsAsync(
+            fleetId, "At Port", true, 1, 50, CancellationToken.None);
+
+        Assert.Contains($"fleetId={fleetId}", captured!.RequestUri!.Query, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("status=At%20Port", captured.RequestUri.Query, StringComparison.Ordinal);
+        Assert.Contains("staleOnly=true", captured.RequestUri.Query, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task GetVesselPositionsAsync_leaves_out_filters_that_were_not_chosen()
+    {
+        HttpRequestMessage? captured = null;
+        using var httpClient = CreateHttpClient((request, _) =>
+        {
+            captured = request;
+            return Json(HttpStatusCode.OK, PositionsJson);
+        });
+
+        await new FleetApiClient(httpClient).GetVesselPositionsAsync(
+            null, "   ", false, 1, 50, CancellationToken.None);
+
+        Assert.DoesNotContain("fleetId=", captured!.RequestUri!.Query, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("status=", captured.RequestUri.Query, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("staleOnly=", captured.RequestUri.Query, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task GetVesselPositionsAsync_reads_the_stale_threshold_and_the_rows()
+    {
+        using var httpClient = CreateHttpClient((_, _) => Json(HttpStatusCode.OK, PositionsJson));
+
+        var result = await new FleetApiClient(httpClient).GetVesselPositionsAsync(
+            null, null, false, 1, 50, CancellationToken.None);
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal(12, result.Value!.StaleAfterHours);
+
+        var item = Assert.Single(result.Value.Items);
+
+        Assert.Equal("Northern Star", item.Name);
+        Assert.Equal(35.898765m, item.CurrentLatitude);
+        Assert.Equal(-5.123456m, item.CurrentLongitude);
+        Assert.True(item.HasPosition);
+        Assert.False(item.IsPositionStale);
+    }
+
+    [Fact]
+    public async Task GetVesselPositionsAsync_reports_a_row_without_coordinates_as_missing()
+    {
+        using var httpClient = CreateHttpClient((_, _) => Json(HttpStatusCode.OK, """
+            {"items":[{"vesselId":"40000000-0000-0000-0000-000000000003","name":"Western Gale",
+            "imoNumber":"5100003","currentStatus":"Active","fleetId":null,"fleetName":null,
+            "currentLatitude":null,"currentLongitude":null,"lastPositionReportedAtUtc":null,
+            "isPositionStale":true}],"pageNumber":1,"pageSize":50,"totalCount":1,
+            "staleAfterHours":12,"evaluatedAtUtc":"2026-08-26T12:00:00Z"}
+            """));
+
+        var result = await new FleetApiClient(httpClient).GetVesselPositionsAsync(
+            null, null, false, 1, 50, CancellationToken.None);
+
+        var item = Assert.Single(result.Value!.Items);
+
+        Assert.False(item.HasPosition);
+        Assert.Null(item.LastPositionReportedAtUtc);
+        Assert.True(item.IsPositionStale);
+    }
+
+    [Fact]
+    public async Task GetVesselPositionsAsync_returns_clear_message_when_fleet_access_is_forbidden()
+    {
+        using var httpClient = CreateHttpClient((_, _) => Json(HttpStatusCode.Forbidden, string.Empty));
+
+        var result = await new FleetApiClient(httpClient).GetVesselPositionsAsync(
+            null, null, false, 1, 50, CancellationToken.None);
+
+        Assert.False(result.IsSuccess);
+        Assert.True(result.Failure!.IsForbidden);
+        Assert.Equal("Fleet access denied", result.Failure.Title);
+    }
+
+    [Fact]
+    public async Task GetVesselPositionsAsync_returns_retryable_failure_when_api_is_unavailable()
+    {
+        using var httpClient = CreateHttpClient((_, _) => throw new HttpRequestException());
+
+        var result = await new FleetApiClient(httpClient).GetVesselPositionsAsync(
+            null, null, false, 1, 50, CancellationToken.None);
+
+        Assert.False(result.IsSuccess);
+        Assert.Equal(0, result.Failure!.StatusCode);
+        Assert.Equal("HarborOps API is unavailable", result.Failure.Title);
+    }
+
+    [Fact]
+    public async Task GetVesselPositionsAsync_lets_a_cancelled_read_surface()
+    {
+        using var cancellation = new CancellationTokenSource();
+        using var httpClient = CreateHttpClient((_, token) =>
+        {
+            cancellation.Cancel();
+            token.ThrowIfCancellationRequested();
+            return Json(HttpStatusCode.OK, PositionsJson);
+        });
+
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(
+            () => new FleetApiClient(httpClient).GetVesselPositionsAsync(
+                null, null, false, 1, 50, cancellation.Token));
+    }
+
+    [Fact]
+    public async Task RecordVesselPositionAsync_posts_the_coordinates_to_the_vessel()
+    {
+        HttpRequestMessage? captured = null;
+        string? body = null;
+        using var httpClient = CreateHttpClient(async (request, _) =>
+        {
+            captured = request;
+            body = await request.Content!.ReadAsStringAsync(CancellationToken.None);
+            return await Json(HttpStatusCode.OK, PositionReportJson);
+        });
+
+        var result = await new FleetApiClient(httpClient).RecordVesselPositionAsync(
+            VesselId,
+            new RecordVesselPositionWebRequest(10.5m, 20.25m),
+            CancellationToken.None);
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal(HttpMethod.Post, captured!.Method);
+        Assert.Equal($"/api/fleet/vessels/{VesselId}/position-reports", captured.RequestUri!.AbsolutePath);
+        Assert.Contains("\"latitude\":10.5", body, StringComparison.Ordinal);
+        Assert.Contains("\"longitude\":20.25", body, StringComparison.Ordinal);
+        Assert.DoesNotContain("reportedAt", body, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task RecordVesselPositionAsync_surfaces_coordinate_validation_errors()
+    {
+        using var httpClient = CreateHttpClient((_, _) => Json(
+            HttpStatusCode.BadRequest,
+            """{"title":"One or more validation errors occurred.","errors":{"latitude":["Latitude must be between -90 and 90."]}}"""));
+
+        var result = await new FleetApiClient(httpClient).RecordVesselPositionAsync(
+            VesselId,
+            new RecordVesselPositionWebRequest(120m, 20m),
+            CancellationToken.None);
+
+        Assert.True(result.Failure!.IsValidation);
+        Assert.Equal(
+            "Latitude must be between -90 and 90.",
+            Assert.Single(result.Failure.Errors["latitude"]));
+    }
+
+    [Fact]
+    public async Task RecordVesselPositionAsync_reports_an_unknown_vessel_as_not_found()
+    {
+        using var httpClient = CreateHttpClient((_, _) => Json(
+            HttpStatusCode.NotFound,
+            """{"title":"Vessel not found.","detail":"This vessel does not exist.","status":404}"""));
+
+        var result = await new FleetApiClient(httpClient).RecordVesselPositionAsync(
+            VesselId,
+            new RecordVesselPositionWebRequest(10m, 20m),
+            CancellationToken.None);
+
+        Assert.True(result.Failure!.IsNotFound);
+        Assert.Equal("Vessel not found.", result.Failure.Title);
+    }
+
+    [Fact]
+    public async Task RecordVesselPositionAsync_returns_clear_message_when_the_report_is_forbidden()
+    {
+        using var httpClient = CreateHttpClient((_, _) => Json(HttpStatusCode.Forbidden, string.Empty));
+
+        var result = await new FleetApiClient(httpClient).RecordVesselPositionAsync(
+            VesselId,
+            new RecordVesselPositionWebRequest(10m, 20m),
+            CancellationToken.None);
+
+        Assert.True(result.Failure!.IsForbidden);
+        Assert.Equal("Fleet access denied", result.Failure.Title);
+    }
+
     private const string DetailsJson = """
         {"vesselId":"40000000-0000-0000-0000-000000000009","companyId":"60000000-0000-0000-0000-000000000001",
         "name":"Northern Star","imoNumber":"5100001","mmsi":"256123000","callSign":"9HA1234",
@@ -422,6 +635,20 @@ public sealed class FleetApiClientTests
         {"id":"90000000-0000-0000-0000-000000000001","vesselId":"40000000-0000-0000-0000-000000000009",
         "status":"At Port","changedBy":"operator@harborops.test","notes":null,
         "changedAtUtc":"2026-08-04T10:00:00Z"}
+        """;
+
+    private const string PositionsJson = """
+        {"items":[{"vesselId":"40000000-0000-0000-0000-000000000001","name":"Northern Star",
+        "imoNumber":"5100001","currentStatus":"Active","fleetId":"70000000-0000-0000-0000-000000000001",
+        "fleetName":"Adriatic Fleet","currentLatitude":35.898765,"currentLongitude":-5.123456,
+        "lastPositionReportedAtUtc":"2026-08-26T11:00:00Z","isPositionStale":false}],
+        "pageNumber":1,"pageSize":50,"totalCount":1,"staleAfterHours":12,
+        "evaluatedAtUtc":"2026-08-26T12:00:00Z"}
+        """;
+
+    private const string PositionReportJson = """
+        {"vesselId":"40000000-0000-0000-0000-000000000009","latitude":10.5,"longitude":20.25,
+        "reportedAtUtc":"2026-08-26T12:00:00Z"}
         """;
 
     private static HttpClient CreateHttpClient(Func<HttpRequestMessage, CancellationToken, Task<HttpResponseMessage>> responseFactory) =>

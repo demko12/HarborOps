@@ -26,6 +26,10 @@ public partial class CrewRotations : IDisposable
     private IReadOnlyList<CrewRotationListItemResponse> rotations = [];
     private IReadOnlyDictionary<Guid, string> vesselNames = new Dictionary<Guid, string>();
     private readonly HashSet<Guid> expandedCardIds = [];
+    private Guid? pendingCancellationId;
+    private bool isCancellingRotation;
+
+    private bool CanManage => CurrentUser.HasPermission(CurrentUserAuthorizationState.CrewManagePermission);
 
     private int TotalPages => totalCount == 0 ? 1 : (totalCount + PageSize - 1) / PageSize;
     private int FirstRowNumber => rotations.Count == 0 ? 0 : ((pageNumber - 1) * PageSize) + 1;
@@ -161,8 +165,44 @@ public partial class CrewRotations : IDisposable
         }
     }
 
+    private void RequestRotationCancellation(Guid rotationId) => pendingCancellationId = rotationId;
+
+    private void CancelRotationCancellation() => pendingCancellationId = null;
+
+    private async Task CancelRotationAsync(Guid rotationId)
+    {
+        if (isCancellingRotation)
+        {
+            return;
+        }
+
+        isCancellingRotation = true;
+        var result = await CrewApi.CancelRotationAsync(rotationId, new CancelCrewRotationRequest(), disposeCancellation.Token);
+        isCancellingRotation = false;
+
+        if (!result.IsSuccess)
+        {
+            failure = result.Failure;
+            return;
+        }
+
+        pendingCancellationId = null;
+        await LoadAsync();
+    }
+
     private string VesselDisplayName(Guid vesselId) =>
-        vesselNames.TryGetValue(vesselId, out var name) ? name : $"Vessel {vesselId.ToString()[..8]}";
+        vesselNames.TryGetValue(vesselId, out var name) ? name : "Unknown vessel";
+
+    private static string RotationStatusLabel(CrewRotationListItemResponse rotation) =>
+        rotation.IsOverdue ? "Overdue" : rotation.Status;
+
+    private static string RotationStatusClass(CrewRotationListItemResponse rotation) =>
+        rotation.IsOverdue ? "crew-rotations-status-overdue" : rotation.Status switch
+        {
+            "Executed" => "crew-rotations-status-executed",
+            "Cancelled" => "crew-rotations-status-cancelled",
+            _ => "crew-rotations-status-planned",
+        };
 
     public void Dispose()
     {

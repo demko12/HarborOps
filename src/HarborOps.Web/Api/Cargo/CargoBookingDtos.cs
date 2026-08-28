@@ -16,7 +16,8 @@ internal sealed record CargoBookingPage(
     IReadOnlyList<CargoBookingRow> Items,
     int PageNumber,
     int PageSize,
-    int TotalCount);
+    int TotalCount,
+    int HazardousCount);
 
 internal sealed record CargoBookingFilter(
     string? Search,
@@ -99,3 +100,38 @@ internal sealed record CargoApiFailure(
 
     internal bool IsConflict => StatusCode == StatusCodes.Status409Conflict;
 }
+
+internal sealed record CargoContainerRow(
+    Guid ContainerId,
+    string ContainerNumber,
+    string ContainerType,
+    string Status,
+    Guid CargoBookingId,
+    Guid? VesselId);
+
+internal sealed record CargoContainerList(IReadOnlyList<CargoContainerRow> Items);
+
+internal sealed record CargoOperationRow(
+    Guid OperationId,
+    string OperationType,
+    string OperationState,
+    DateTime PlannedAtUtc,
+    DateTime? StartedAtUtc,
+    DateTime? FinishedAtUtc,
+    Guid ResponsibleUserId);
+
+internal sealed record CargoOperationList(IReadOnlyList<CargoOperationRow> Items);
+
+internal sealed record AddCargoContainerWebRequest(string ContainerNumber, string ContainerType);
+
+internal sealed record AddedCargoContainer(Guid Id, string ContainerNumber, string Status);
+
+internal sealed record PlanCargoOperationWebRequest(string OperationType, DateTime PlannedAtUtc);
+
+internal sealed record PlannedCargoOperation(Guid Id, string OperationType, string OperationState);
+
+internal sealed record CargoOperationTransition(
+    Guid OperationId,
+    string OperationState,
+    DateTime? StartedAtUtc,
+    DateTime? FinishedAtUtc);

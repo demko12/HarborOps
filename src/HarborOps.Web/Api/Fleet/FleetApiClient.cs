@@ -195,13 +195,60 @@ internal sealed class FleetApiClient(HttpClient httpClient)
 
             var result = await response.Content.ReadFromJsonAsync<VesselLookupWebResponse>(cancellationToken);
 
-            return result?.Vessels.ToDictionary(vessel => vessel.Id, vessel => vessel.Name)
+            return result?.Vessels?.ToDictionary(vessel => vessel.Id, vessel => vessel.Name)
                 ?? new Dictionary<Guid, string>();
         }
         catch (HttpRequestException)
         {
             return new Dictionary<Guid, string>();
         }
+    }
+
+    internal Task<FleetApiResult<VesselPositionsWebModel>> GetVesselPositionsAsync(
+    Guid? fleetId,
+    string? status,
+    bool staleOnly,
+    int pageNumber,
+    int pageSize,
+    CancellationToken cancellationToken)
+    {
+        var parameters = new List<string>
+        {
+            $"pageNumber={pageNumber}",
+            $"pageSize={pageSize}",
+        };
+
+        if (fleetId is { } fleet)
+        {
+            parameters.Add($"fleetId={fleet}");
+        }
+
+        if (!string.IsNullOrWhiteSpace(status))
+        {
+            parameters.Add($"status={Uri.EscapeDataString(status)}");
+        }
+
+        if (staleOnly)
+        {
+            parameters.Add("staleOnly=true");
+        }
+
+        return GetAsync<VesselPositionsWebModel>(
+            $"api/fleet/vessel-positions?{string.Join('&', parameters)}",
+            "Unable to load vessel positions",
+            cancellationToken);
+    }
+
+    internal Task<FleetApiResult<RecordVesselPositionWebResponse>> RecordVesselPositionAsync(
+    Guid vesselId,
+    RecordVesselPositionWebRequest request,
+    CancellationToken cancellationToken)
+    {
+        return PostAsync<RecordVesselPositionWebRequest, RecordVesselPositionWebResponse>(
+            $"api/fleet/vessels/{vesselId}/position-reports",
+            request,
+            "Unable to record the position report",
+            cancellationToken);
     }
 
     private static async Task<ApiProblemDetails?> TryReadProblemAsync(HttpResponseMessage response, CancellationToken cancellationToken)

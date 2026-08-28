@@ -2,6 +2,9 @@
 @attribute [Microsoft.AspNetCore.Authorization.Authorize]
 @implements IDisposable
 @inject ThemePreferenceState ThemePreference
+@inject NavigationManager Navigation
+@inject IHttpContextAccessor HttpContextAccessor
+@inject Microsoft.AspNetCore.Antiforgery.IAntiforgery Antiforgery
 
 <PageTitle>Settings | HarborOps</PageTitle>
 
@@ -31,6 +34,23 @@
             }
         </div>
     </section>
+
+    <section class="settings-card settings-security-card" aria-labelledby="security-title">
+        <div class="settings-card-heading"><div><h2 id="security-title">Account security</h2><p>Changing your password or signing out everywhere requires you to sign in again.</p></div><span class="bi bi-shield-lock" aria-hidden="true"></span></div>
+        @if (securityError is not null) { <p class="settings-security-error" role="alert">@securityError</p> }
+        <form method="post" action="/session/account/change-password" class="settings-security-form" onsubmit="this.querySelector('button[type=submit]').disabled=true">
+            <input type="hidden" name="@antiforgeryToken.FormFieldName" value="@antiforgeryToken.RequestToken" />
+            <label>Current password <span class="settings-password-field"><input name="currentPassword" type="@(showPasswords ? "text" : "password")" autocomplete="current-password" required /><button type="button" class="settings-password-toggle" @onclick="TogglePasswordVisibility" aria-label="@(showPasswords ? "Hide passwords" : "Show passwords")"><span class="bi @(showPasswords ? "bi-eye-slash" : "bi-eye")" aria-hidden="true"></span></button></span></label>
+            <label>New password <span class="settings-password-field"><input name="newPassword" type="@(showPasswords ? "text" : "password")" autocomplete="new-password" minlength="6" required /><button type="button" class="settings-password-toggle" @onclick="TogglePasswordVisibility" aria-label="@(showPasswords ? "Hide passwords" : "Show passwords")"><span class="bi @(showPasswords ? "bi-eye-slash" : "bi-eye")" aria-hidden="true"></span></button></span></label>
+            <label>Confirm new password <span class="settings-password-field"><input name="confirmPassword" type="@(showPasswords ? "text" : "password")" autocomplete="new-password" minlength="6" required /><button type="button" class="settings-password-toggle" @onclick="TogglePasswordVisibility" aria-label="@(showPasswords ? "Hide passwords" : "Show passwords")"><span class="bi @(showPasswords ? "bi-eye-slash" : "bi-eye")" aria-hidden="true"></span></button></span></label>
+            <p class="settings-security-help">Passwords must contain at least six characters, including upper- and lower-case letters, a number, and a symbol.</p>
+            <button type="submit" class="settings-security-button">Change password</button>
+        </form>
+        <form method="post" action="/session/account/revoke-sessions" class="settings-revoke-form" onsubmit="return confirm('Sign out of HarborOps on every device? You will need to sign in again.');">
+            <input type="hidden" name="@antiforgeryToken.FormFieldName" value="@antiforgeryToken.RequestToken" />
+            <div><strong>Sign out everywhere</strong><p>End all active HarborOps sessions for this account.</p></div><button type="submit">Sign out everywhere</button>
+        </form>
+    </section>
 </section>
 
 @code {
@@ -39,8 +59,19 @@
         new(ThemePreferenceState.Dark, "Dark", "Use the dark HarborOps appearance.", "bi-moon-stars"),
         new(ThemePreferenceState.System, "System", "Match your device appearance.", "bi-display"),
     ];
+    private Microsoft.AspNetCore.Antiforgery.AntiforgeryTokenSet antiforgeryToken = default!;
+    private string? securityError;
+    private bool showPasswords;
 
-    protected override void OnInitialized() => ThemePreference.Changed += StateHasChanged;
+    protected override void OnInitialized()
+    {
+        ThemePreference.Changed += StateHasChanged;
+        var context = HttpContextAccessor.HttpContext ?? throw new InvalidOperationException("An HTTP request is required to render settings.");
+        antiforgeryToken = Antiforgery.GetAndStoreTokens(context);
+        securityError = Microsoft.AspNetCore.WebUtilities.QueryHelpers.ParseQuery(new Uri(Navigation.Uri).Query).TryGetValue("securityError", out var error)
+            ? error.ToString() == "confirmation" ? "The new-password confirmation does not match." : "We could not complete that security action. Please try again."
+            : null;
+    }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
@@ -52,6 +83,8 @@
     }
 
     private Task SetThemeAsync(string preference) => ThemePreference.SetAsync(preference);
+
+    private void TogglePasswordVisibility() => showPasswords = !showPasswords;
 
     public void Dispose() => ThemePreference.Changed -= StateHasChanged;
 

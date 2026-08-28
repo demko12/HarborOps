@@ -87,4 +87,16 @@ internal static class CargoBookingFormat
             ? index + 1
             : 0;
     }
+
+    internal static string OperationStateModifier(string operationState)
+    {
+        if (string.Equals(operationState, "Completed", StringComparison.OrdinalIgnoreCase))
+        {
+            return "done";
+        }
+
+        return string.Equals(operationState, "InProgress", StringComparison.OrdinalIgnoreCase)
+            ? "active"
+            : "pending";
+    }
 }

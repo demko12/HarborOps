@@ -72,6 +72,8 @@ internal sealed class Vessel
 
     public decimal? CurrentLongitude { get; private set; }
 
+    public DateTime? LastPositionReportedAtUtc { get; private set; }
+
     public string? LifecycleStage { get; private set; }
 
     public string CurrentStatus { get; private set; } = null!;
@@ -101,11 +103,12 @@ internal sealed class Vessel
             DateTime.UtcNow);
     }
 
-    internal void UpdatePosition(decimal latitude, decimal longitude)
+    internal void ReportPosition(decimal latitude, decimal longitude, DateTime reportedAtUtc)
     {
         CurrentLatitude = latitude;
         CurrentLongitude = longitude;
-        UpdatedAtUtc = DateTime.UtcNow;
+        LastPositionReportedAtUtc = reportedAtUtc;
+        UpdatedAtUtc = reportedAtUtc;
     }
 
     internal void ChangeStatus(string currentStatus)

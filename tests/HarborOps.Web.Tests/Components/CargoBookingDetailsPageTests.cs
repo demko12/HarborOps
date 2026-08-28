@@ -17,6 +17,13 @@ public sealed class CargoBookingDetailsPageTests : BunitContext
     private const string BookingId = "20000000-0000-0000-0000-000000000001";
     private const string VoyageId = "30000000-0000-0000-0000-000000000002";
     private const string ResponsibleUserId = "50000000-0000-0000-0000-000000000005";
+    private const string ContainerId = "70000000-0000-0000-0000-000000000006";
+    private const string SecondContainerId = "70000000-0000-0000-0000-000000000016";
+    private const string OperationId = "80000000-0000-0000-0000-000000000007";
+    private const string SecondOperationId = "80000000-0000-0000-0000-000000000017";
+    private const string StartedStamp = "\"2026-08-12T07:30:00Z\"";
+    private const string FinishedStamp = "\"2026-08-12T09:15:00Z\"";
+    private const string EmptyItems = """{"items":[]}""";
 
     private const string DeclaredSafetyInfo = """
         {"cargoSafetyInfoId":"60000000-0000-0000-0000-000000000006","imdgClass":"5.1","unNumber":"UN1942","storageConditions":"Keep below 25C","handlingNotes":"No shock loading"}
@@ -26,6 +33,11 @@ public sealed class CargoBookingDetailsPageTests : BunitContext
 
     private Func<HttpRequestMessage, Task<HttpResponseMessage>> respond =
         _ => Json(HttpStatusCode.OK, Details());
+
+    public CargoBookingDetailsPageTests()
+    {
+        JSInterop.Mode = JSRuntimeMode.Loose;
+    }
 
     [Fact]
     public void The_details_are_requested_for_the_booking_in_the_route()
@@ -146,7 +158,7 @@ public sealed class CargoBookingDetailsPageTests : BunitContext
         var page = RenderDetailsPage();
 
         Assert.Equal(ResponsibleUserId, page.Find(".booking-event-actor").GetAttribute("title"));
-        Assert.Single(requestedUris);
+        Assert.DoesNotContain(requestedUris, uri => uri.AbsolutePath.Contains("identity", StringComparison.OrdinalIgnoreCase));
     }
 
     [Fact]
@@ -213,7 +225,7 @@ public sealed class CargoBookingDetailsPageTests : BunitContext
 
         page.WaitForAssertion(() =>
             Assert.Contains("BK-2026-0145", page.Markup, StringComparison.Ordinal));
-        Assert.Equal(2, requestedUris.Count);
+        Assert.Equal(2, DetailsRequestCount());
     }
 
     [Fact]
@@ -414,7 +426,7 @@ public sealed class CargoBookingDetailsPageTests : BunitContext
         Assert.Contains("Record InTransit", page.Find(".tracking-submit").TextContent, StringComparison.Ordinal);
 
         // No status picker exists, so no other step in the vocabulary can be requested.
-        Assert.Empty(page.FindAll("select"));
+        Assert.Empty(page.FindAll("select:not(#operation-type)"));
         Assert.DoesNotContain("Record Completed", page.Markup, StringComparison.Ordinal);
     }
 
@@ -426,7 +438,10 @@ public sealed class CargoBookingDetailsPageTests : BunitContext
         var page = RenderDetailsPage();
 
         Assert.Empty(page.FindAll(".tracking-submit"));
-        Assert.Contains("reached the end of its lifecycle", page.Markup, StringComparison.Ordinal);
+        Assert.Contains(
+            "Lifecycle complete",
+            page.Find(".booking-complete").TextContent,
+            StringComparison.Ordinal);
     }
 
     [Fact]
@@ -544,6 +559,11 @@ public sealed class CargoBookingDetailsPageTests : BunitContext
                     """
                     {"title":"Cargo status transition is not allowed.","status":409,"detail":"Loaded cannot advance to InTransit twice."}
                     """);
+            }
+
+            if (!request.RequestUri!.AbsolutePath.EndsWith(BookingId, StringComparison.Ordinal))
+            {
+                return Json(HttpStatusCode.OK, """{"items":[]}""");
             }
 
             attempts++;
@@ -710,6 +730,545 @@ public sealed class CargoBookingDetailsPageTests : BunitContext
         return $$"""
             {"cargoTrackingEventId":"7000000{{ordinal}}-0000-0000-0000-000000000007","status":"{{status}}","occurredUtc":"{{occurredUtc}}","location":"{{location}}","responsibleUserId":"{{ResponsibleUserId}}"}
             """;
+    }
+
+    [Fact]
+    public void The_manifest_lists_every_container_from_the_api()
+    {
+        RespondWithSections(containers: Items(
+            ContainerJson(ContainerId, "MSKU1234567", "Loaded", "40HC"),
+            ContainerJson(SecondContainerId, "TGHU7654321")));
+
+        var page = RenderDetailsPage();
+
+        var rows = page.FindAll(".manifest-row");
+
+        Assert.Equal(2, rows.Count);
+        Assert.Contains("MSKU1234567", rows[0].TextContent, StringComparison.Ordinal);
+        Assert.Contains("40HC", rows[0].TextContent, StringComparison.Ordinal);
+        Assert.Contains("Loaded", rows[0].TextContent, StringComparison.Ordinal);
+        Assert.Contains("Not assigned", rows[0].TextContent, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void The_manifest_shows_how_many_containers_are_loaded()
+    {
+        RespondWithSections(containers: Items(
+            ContainerJson(ContainerId, "MSKU1234567", "Loaded"),
+            ContainerJson(SecondContainerId, "TGHU7654321")));
+
+        var page = RenderDetailsPage();
+
+        Assert.Equal("1 of 2 loaded", page.Find(".manifest-progress").TextContent.Trim());
+    }
+
+    [Fact]
+    public void An_empty_manifest_invites_the_first_container()
+    {
+        RespondWithSections();
+
+        var page = RenderDetailsPage();
+
+        Assert.Empty(page.FindAll(".manifest-row"));
+        Assert.Contains("No containers yet. Add the first one in the row below.", page.Markup, StringComparison.Ordinal);
+        Assert.Single(page.FindAll(".manifest-add-row"));
+    }
+
+    [Fact]
+    public void The_add_container_form_is_hidden_without_the_cargo_manage_permission()
+    {
+        RespondWithSections();
+
+        var page = RenderDetailsPage(CurrentUserAuthorizationState.CargoReadPermission);
+
+        Assert.Empty(page.FindAll(".container-submit"));
+    }
+
+    [Fact]
+    public void A_completed_booking_cannot_receive_containers()
+    {
+        RespondWithSections(details: Details(status: "Completed", nextStatus: null));
+
+        var page = RenderDetailsPage();
+
+        Assert.Empty(page.FindAll(".container-submit"));
+        Assert.Contains("its manifest can no longer change", page.Markup, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Adding_a_container_posts_it_and_reloads_the_manifest()
+    {
+        var posted = 0;
+        respond = request =>
+        {
+            if (request.Method == HttpMethod.Post)
+            {
+                posted++;
+
+                return Json(
+                    HttpStatusCode.Created,
+                    """{"id":"70000000-0000-0000-0000-000000000006","containerNumber":"MSKU1234567","status":"Registered"}""");
+            }
+
+            return SectionResponse(
+                request,
+                posted == 0 ? EmptyItems : Items(ContainerJson(ContainerId, "MSKU1234567")),
+                EmptyItems,
+                Details());
+        };
+
+        var page = RenderDetailsPage();
+        page.Find("#container-number").Change("MSKU1234567");
+        page.Find("#container-type").Change("40HC");
+        page.Find(".container-submit").Click();
+
+        page.WaitForAssertion(() => Assert.Single(page.FindAll(".manifest-row")));
+        Assert.Equal(1, posted);
+    }
+
+    [Fact]
+    public void A_duplicate_container_number_is_reported_on_the_field()
+    {
+        respond = request => request.Method == HttpMethod.Post
+            ? Json(
+                HttpStatusCode.Conflict,
+                """
+                {"title":"A container with this number already exists.","status":409,"errors":{"containerNumber":["Already registered."]}}
+                """)
+            : SectionResponse(request, EmptyItems, EmptyItems, Details());
+
+        var page = RenderDetailsPage();
+        page.Find("#container-number").Change("MSKU1234567");
+        page.Find("#container-type").Change("40HC");
+        page.Find(".container-submit").Click();
+
+        page.WaitForAssertion(() =>
+            Assert.Contains("Already registered.", page.Markup, StringComparison.Ordinal));
+        Assert.Empty(page.FindAll(".manifest-row"));
+    }
+
+    [Fact]
+    public void A_manifest_that_fails_to_load_can_be_retried()
+    {
+        var attempts = 0;
+        respond = request =>
+        {
+            if (!request.RequestUri!.AbsolutePath.EndsWith("/containers", StringComparison.Ordinal))
+            {
+                return SectionResponse(request, EmptyItems, EmptyItems, Details());
+            }
+
+            attempts++;
+
+            return attempts == 1
+                ? Json(HttpStatusCode.ServiceUnavailable, "{}")
+                : Json(HttpStatusCode.OK, Items(ContainerJson(ContainerId, "MSKU1234567")));
+        };
+
+        var page = RenderDetailsPage();
+
+        page.WaitForAssertion(() =>
+            Assert.Contains("Unable to load the container manifest", page.Markup, StringComparison.Ordinal));
+        page.Find(".api-error-state button").Click();
+
+        page.WaitForAssertion(() => Assert.Single(page.FindAll(".manifest-row")));
+    }
+
+    [Fact]
+    public void Operations_are_listed_with_the_state_derived_by_the_api()
+    {
+        RespondWithSections(operations: Items(
+            OperationJson(OperationId, "Load", "InProgress", StartedStamp),
+            OperationJson(SecondOperationId, "Unload", "Planned")));
+
+        var page = RenderDetailsPage();
+
+        var states = page.FindAll(".operation-state").Select(cell => cell.TextContent.Trim());
+
+        Assert.Equal(["InProgress", "Planned"], states);
+        Assert.Contains("Not finished", page.Markup, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void No_operations_shows_the_empty_state()
+    {
+        RespondWithSections();
+
+        var page = RenderDetailsPage();
+
+        Assert.Empty(page.FindAll(".operation-row"));
+        Assert.Contains("No operations planned", page.Markup, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Start_is_offered_for_a_planned_operation_and_complete_for_one_in_progress()
+    {
+        RespondWithSections(operations: Items(
+            OperationJson(OperationId, "Load", "Planned"),
+            OperationJson(SecondOperationId, "Unload", "InProgress", StartedStamp)));
+
+        var page = RenderDetailsPage();
+
+        Assert.Single(page.FindAll(".operation-start"));
+        Assert.Single(page.FindAll(".operation-complete"));
+    }
+
+    [Fact]
+    public void A_completed_operation_offers_no_transition()
+    {
+        RespondWithSections(operations: Items(
+            OperationJson(OperationId, "Load", "Completed", StartedStamp, FinishedStamp)));
+
+        var page = RenderDetailsPage();
+
+        Assert.Empty(page.FindAll(".operation-start"));
+        Assert.Empty(page.FindAll(".operation-complete"));
+        Assert.Contains("Settled", page.Find(".operation-actions").TextContent, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void The_transition_actions_are_hidden_without_the_cargo_manage_permission()
+    {
+        RespondWithSections(operations: Items(OperationJson(OperationId, "Load", "Planned")));
+
+        var page = RenderDetailsPage(CurrentUserAuthorizationState.CargoReadPermission);
+
+        Assert.Single(page.FindAll(".operation-row"));
+        Assert.Empty(page.FindAll(".operation-start"));
+        Assert.Empty(page.FindAll(".operation-submit"));
+    }
+
+    [Fact]
+    public void Planning_an_operation_posts_the_type_and_the_time_in_utc()
+    {
+        string? body = null;
+        respond = async request =>
+        {
+            if (request.Method == HttpMethod.Post)
+            {
+                body = await request.Content!.ReadAsStringAsync(CancellationToken.None);
+
+                return await Json(
+                    HttpStatusCode.Created,
+                    """{"id":"80000000-0000-0000-0000-000000000007","operationType":"Unload","operationState":"Planned"}""");
+            }
+
+            return await SectionResponse(request, EmptyItems, EmptyItems, Details());
+        };
+
+        var page = RenderDetailsPage();
+        page.Find(".operations-plan-toggle").Click();
+        page.Find("#operation-type").Change("Unload");
+        page.Find("#operation-planned").Change("2026-08-14T10:15:00");
+        page.Find(".operation-submit").Click();
+
+        page.WaitForAssertion(() => Assert.NotNull(body));
+        Assert.Contains("\"operationType\":\"Unload\"", body, StringComparison.Ordinal);
+        Assert.Contains("2026-08-14T10:15:00Z", body, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Starting_an_operation_asks_for_confirmation_before_posting()
+    {
+        var posted = 0;
+        respond = request =>
+        {
+            if (request.Method == HttpMethod.Post)
+            {
+                posted++;
+
+                return Json(HttpStatusCode.OK, Transition("InProgress", StartedStamp, "null"));
+            }
+
+            return SectionResponse(
+                request,
+                EmptyItems,
+                Items(OperationJson(OperationId, "Load", "Planned")),
+                Details());
+        };
+
+        var page = RenderDetailsPage();
+        page.Find(".operation-start").Click();
+
+        Assert.Single(page.FindAll(".operation-modal"));
+        Assert.Contains("Start the load operation", page.Find(".operation-confirm-question").TextContent, StringComparison.Ordinal);
+        Assert.Equal(0, posted);
+    }
+
+    [Fact]
+    public void Dismissing_the_confirmation_posts_nothing()
+    {
+        var posted = 0;
+        respond = request =>
+        {
+            if (request.Method == HttpMethod.Post)
+            {
+                posted++;
+
+                return Json(HttpStatusCode.OK, Transition("InProgress", StartedStamp, "null"));
+            }
+
+            return SectionResponse(
+                request,
+                EmptyItems,
+                Items(OperationJson(OperationId, "Load", "Planned")),
+                Details());
+        };
+
+        var page = RenderDetailsPage();
+        page.Find(".operation-start").Click();
+        page.Find(".operation-confirm-dismiss").Click();
+
+        Assert.Empty(page.FindAll(".operation-modal"));
+        Assert.Equal(0, posted);
+    }
+
+    [Fact]
+    public void Confirming_a_completion_posts_it_and_refreshes_the_manifest()
+    {
+        var posted = 0;
+        respond = request =>
+        {
+            if (request.Method == HttpMethod.Post)
+            {
+                posted++;
+
+                return Json(HttpStatusCode.OK, Transition("Completed", StartedStamp, FinishedStamp));
+            }
+
+            return SectionResponse(
+                request,
+                posted == 0
+                    ? Items(ContainerJson(ContainerId, "MSKU1234567"))
+                    : Items(ContainerJson(ContainerId, "MSKU1234567", "Loaded")),
+                posted == 0
+                    ? Items(OperationJson(OperationId, "Load", "InProgress", StartedStamp))
+                    : Items(OperationJson(OperationId, "Load", "Completed", StartedStamp, FinishedStamp)),
+                Details());
+        };
+
+        var page = RenderDetailsPage();
+        page.Find(".operation-complete").Click();
+        page.Find(".operation-confirm").Click();
+
+        page.WaitForAssertion(() =>
+            Assert.Equal("1 of 1 loaded", page.Find(".manifest-progress").TextContent.Trim()));
+        Assert.Equal(1, posted);
+        Assert.Empty(page.FindAll(".operation-modal"));
+    }
+
+    [Fact]
+    public void A_rejected_transition_is_reported_and_the_operations_are_reloaded()
+    {
+        var posted = 0;
+        respond = request =>
+        {
+            if (request.Method == HttpMethod.Post)
+            {
+                posted++;
+
+                return Json(
+                    HttpStatusCode.Conflict,
+                    """
+                    {"title":"Cargo operation transition is not allowed.","status":409,"detail":"It is already in progress."}
+                    """);
+            }
+
+            return SectionResponse(
+                request,
+                EmptyItems,
+                posted == 0
+                    ? Items(OperationJson(OperationId, "Load", "Planned"))
+                    : Items(OperationJson(OperationId, "Load", "InProgress", StartedStamp)),
+                Details());
+        };
+
+        var page = RenderDetailsPage();
+        page.Find(".operation-start").Click();
+        page.Find(".operation-confirm").Click();
+
+        page.WaitForAssertion(() =>
+            Assert.Contains(
+                "Cargo operation transition is not allowed.",
+                page.Find(".booking-form-error").TextContent,
+                StringComparison.Ordinal));
+        page.Find(".operation-confirm-dismiss").Click();
+        Assert.Single(page.FindAll(".operation-complete"));
+    }
+
+    [Fact]
+    public void An_empty_manifest_shows_the_empty_state_without_the_manage_permission()
+    {
+        RespondWithSections();
+
+        var page = RenderDetailsPage(CurrentUserAuthorizationState.CargoReadPermission);
+
+        Assert.Empty(page.FindAll(".manifest-add-row"));
+        Assert.Contains("No containers on the manifest", page.Markup, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void The_manifest_bar_reflects_the_loaded_share()
+    {
+        RespondWithSections(containers: Items(
+            ContainerJson(ContainerId, "MSKU1234567", "Loaded"),
+            ContainerJson(SecondContainerId, "TGHU7654321")));
+
+        var page = RenderDetailsPage();
+
+        var bar = page.Find(".manifest-bar");
+
+        Assert.Contains("width:50%", bar.InnerHtml, StringComparison.Ordinal);
+        Assert.Equal("1 of 2 containers loaded", bar.GetAttribute("aria-label"));
+    }
+
+    [Fact]
+    public void The_summary_counts_the_containers_and_operations()
+    {
+        RespondWithSections(
+            containers: Items(ContainerJson(ContainerId, "MSKU1234567", "Loaded")),
+            operations: Items(OperationJson(OperationId, "Load", "Planned")));
+
+        var page = RenderDetailsPage();
+
+        var kpi = page.Find(".kpi-containers");
+
+        Assert.Contains("Containers", kpi.TextContent, StringComparison.Ordinal);
+        Assert.Contains("1 loaded, 1 operations", kpi.TextContent, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void The_plan_form_stays_collapsed_until_it_is_opened()
+    {
+        RespondWithSections();
+
+        var page = RenderDetailsPage();
+
+        Assert.Empty(page.FindAll("#operation-type"));
+
+        page.Find(".operations-plan-toggle").Click();
+
+        Assert.Single(page.FindAll("#operation-type"));
+
+        page.Find(".operations-plan-toggle").Click();
+
+        Assert.Empty(page.FindAll("#operation-type"));
+    }
+
+    [Fact]
+    public void The_operations_card_names_how_many_containers_a_completion_settles()
+    {
+        RespondWithSections(containers: Items(
+            ContainerJson(ContainerId, "MSKU1234567"),
+            ContainerJson(SecondContainerId, "TGHU7654321")));
+
+        var page = RenderDetailsPage();
+
+        Assert.Contains(
+            "settles all 2 containers on this manifest",
+            page.Find(".operations-effect").TextContent,
+            StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Completion_is_blocked_while_the_manifest_is_empty()
+    {
+        RespondWithSections(operations: Items(
+            OperationJson(OperationId, "Load", "InProgress", StartedStamp)));
+
+        var page = RenderDetailsPage();
+
+        Assert.True(page.Find(".operation-complete").HasAttribute("disabled"));
+        Assert.Contains(
+            "Add at least one container to the manifest before an operation can be completed.",
+            page.Find(".operations-effect").TextContent,
+            StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Completion_is_offered_once_the_manifest_has_a_container()
+    {
+        RespondWithSections(
+            containers: Items(ContainerJson(ContainerId, "MSKU1234567")),
+            operations: Items(OperationJson(OperationId, "Load", "InProgress", StartedStamp)));
+
+        var page = RenderDetailsPage();
+
+        Assert.False(page.Find(".operation-complete").HasAttribute("disabled"));
+    }
+
+    private void RespondWithSections(
+        string? containers = null,
+        string? operations = null,
+        string? details = null)
+    {
+        respond = request => SectionResponse(
+            request,
+            containers ?? EmptyItems,
+            operations ?? EmptyItems,
+            details ?? Details());
+    }
+
+    private static Task<HttpResponseMessage> SectionResponse(
+        HttpRequestMessage request,
+        string containers,
+        string operations,
+        string details)
+    {
+        var path = request.RequestUri!.AbsolutePath;
+
+        if (path.EndsWith("/containers", StringComparison.Ordinal))
+        {
+            return Json(HttpStatusCode.OK, containers);
+        }
+
+        if (path.EndsWith("/operations", StringComparison.Ordinal))
+        {
+            return Json(HttpStatusCode.OK, operations);
+        }
+
+        return Json(HttpStatusCode.OK, details);
+    }
+
+    private static string Items(params string[] rows)
+    {
+        return $$"""{"items":[{{string.Join(',', rows)}}]}""";
+    }
+
+    private static string ContainerJson(
+        string containerId,
+        string containerNumber,
+        string status = "Registered",
+        string containerType = "20GP")
+    {
+        return $$"""
+            {"containerId":"{{containerId}}","containerNumber":"{{containerNumber}}","containerType":"{{containerType}}","status":"{{status}}","cargoBookingId":"{{BookingId}}","vesselId":null}
+            """;
+    }
+
+    private static string OperationJson(
+        string operationId,
+        string operationType,
+        string operationState,
+        string startedAtUtc = "null",
+        string finishedAtUtc = "null")
+    {
+        return $$"""
+            {"operationId":"{{operationId}}","operationType":"{{operationType}}","operationState":"{{operationState}}","plannedAtUtc":"2026-08-12T06:00:00Z","startedAtUtc":{{startedAtUtc}},"finishedAtUtc":{{finishedAtUtc}},"responsibleUserId":"{{ResponsibleUserId}}"}
+            """;
+    }
+
+    private static string Transition(string operationState, string startedAtUtc, string finishedAtUtc)
+    {
+        return $$"""
+            {"operationId":"{{OperationId}}","operationState":"{{operationState}}","startedAtUtc":{{startedAtUtc}},"finishedAtUtc":{{finishedAtUtc}}}
+            """;
+    }
+
+    private int DetailsRequestCount()
+    {
+        return requestedUris.Count(uri =>
+            uri.AbsolutePath.Equals($"/api/cargo/bookings/{BookingId}", StringComparison.Ordinal));
     }
 
     private static string Details(

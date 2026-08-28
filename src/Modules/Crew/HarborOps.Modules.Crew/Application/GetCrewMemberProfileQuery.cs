@@ -71,7 +71,10 @@ internal sealed class GetCrewMemberProfileQuery(DbContext dbContext) : IGetCrewM
                 assignment.SignOnDate,
                 assignment.PlannedSignOffDate,
                 assignment.ActualSignOffDate,
-                assignment.Status))
+                assignment.Status,
+                assignment.CancelledAtUtc,
+                assignment.CancelledByUserId,
+                assignment.CancellationNotes))
             .Take(MaxAssignments)
             .ToListAsync(cancellationToken);
 

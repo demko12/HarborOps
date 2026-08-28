@@ -3,8 +3,11 @@ namespace HarborOps.Modules.Crew.Domain;
 internal sealed class CrewAssignment
 {
     internal const int StatusMaxLength = 50;
+    internal const int CancellationNotesMaxLength = 1000;
     internal const string PlannedStatus = "Planned";
     internal const string ActiveStatus = "Active";
+    internal const string CompletedStatus = "Completed";
+    internal const string CancelledStatus = "Cancelled";
     private CrewAssignment()
     {
     }
@@ -42,6 +45,9 @@ internal sealed class CrewAssignment
     public DateOnly SignOnDate { get; private set; }
     public DateOnly PlannedSignOffDate { get; private set; }
     public DateOnly? ActualSignOffDate { get; private set; }
+    public DateTime? CancelledAtUtc { get; private set; }
+    public Guid? CancelledByUserId { get; private set; }
+    public string? CancellationNotes { get; private set; }
     public string Status { get; private set; } = null!;
 
     internal static CrewAssignment CreatePlanned(
@@ -67,11 +73,43 @@ internal sealed class CrewAssignment
 
     internal void Activate()
     {
+        if (Status != PlannedStatus)
+        {
+            throw new InvalidCrewAssignmentTransitionException(Id, Status, ActiveStatus);
+        }
+
         Status = ActiveStatus;
     }
 
-    internal void SignOff(DateOnly actualSignOffDate)
+    internal void Complete(DateOnly actualSignOffDate, Guid? signOffPortId)
     {
+        if (Status is not (PlannedStatus or ActiveStatus))
+        {
+            throw new InvalidCrewAssignmentTransitionException(Id, Status, CompletedStatus);
+        }
+
+        if (actualSignOffDate < SignOnDate)
+        {
+            throw new InvalidCrewAssignmentDateException(Id, actualSignOffDate, SignOnDate);
+        }
+
         ActualSignOffDate = actualSignOffDate;
+        SignOffPortId = signOffPortId;
+        Status = CompletedStatus;
+    }
+
+    internal void SignOff(DateOnly actualSignOffDate) => Complete(actualSignOffDate, signOffPortId: null);
+
+    internal void Cancel(Guid actingUserId, DateTime cancelledAtUtc, string? notes)
+    {
+        if (Status is not (PlannedStatus or ActiveStatus))
+        {
+            throw new InvalidCrewAssignmentTransitionException(Id, Status, CancelledStatus);
+        }
+
+        Status = CancelledStatus;
+        CancelledAtUtc = cancelledAtUtc;
+        CancelledByUserId = actingUserId;
+        CancellationNotes = notes;
     }
 }

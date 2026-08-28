@@ -187,7 +187,7 @@ public partial class PreventiveSchedulesPanel : IDisposable
                 item.VesselId,
                 vesselNames.TryGetValue(item.VesselId, out var name)
                     ? name
-                    : MaintenanceFormat.ShortVesselReference(item.VesselId),
+                    : MaintenanceFormat.UnknownVessel(),
                 item.MaintenanceType,
                 item.Frequency,
                 item.NextDueDate,

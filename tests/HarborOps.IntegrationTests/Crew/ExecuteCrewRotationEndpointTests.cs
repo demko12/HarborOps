@@ -35,7 +35,9 @@ public sealed class ExecuteCrewRotationEndpointTests : IntegrationTestBase
         Assert.NotNull(original.ActualSignOffDate);
         var replacement = await dbContext.Set<CrewAssignment>().SingleAsync(a => a.Id == result.ReplacementAssignmentId);
         Assert.Equal(relievingMember.Id, replacement.CrewMemberId);
-        Assert.False(await dbContext.Set<CrewRotation>().AnyAsync(r => r.AssignmentId == assignment.Id));
+        var rotation = await dbContext.Set<CrewRotation>().SingleAsync(r => r.AssignmentId == assignment.Id);
+        Assert.Equal(CrewRotation.ExecutedStatus, rotation.Status);
+        Assert.Equal(result.ReplacementAssignmentId, rotation.ReplacementAssignmentId);
     }
 
     [Fact]

@@ -2,7 +2,9 @@ using System.Reflection;
 using Bunit;
 using HarborOps.Web.Components;
 using HarborOps.Web.Components.Pages.Settings;
+using Microsoft.AspNetCore.Antiforgery;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace HarborOps.Web.Tests.Components;
@@ -60,6 +62,20 @@ public sealed class SettingsPageTests : BunitContext
         Assert.True(string.IsNullOrEmpty(authorization.Policy));
     }
 
+    [Fact]
+    public void Settings_renders_account_security_actions_with_a_confirmation_field()
+    {
+        var page = RenderSettings("light");
+
+        Assert.Equal("/session/account/change-password", page.Find(".settings-security-form").GetAttribute("action"));
+        Assert.Equal("/session/account/revoke-sessions", page.Find(".settings-revoke-form").GetAttribute("action"));
+        Assert.NotNull(page.Find("input[name='currentPassword']"));
+        Assert.NotNull(page.Find("input[name='newPassword']"));
+        Assert.NotNull(page.Find("input[name='confirmPassword']"));
+        Assert.Equal(3, page.FindAll(".settings-password-toggle").Count);
+        Assert.Contains("Sign out everywhere", page.Markup, StringComparison.Ordinal);
+    }
+
     private IRenderedComponent<Settings> RenderSettings(string preference)
     {
         JSInterop.Setup<string>("themeInterop.getPreference").SetResult(preference);
@@ -67,10 +83,21 @@ public sealed class SettingsPageTests : BunitContext
         JSInterop.SetupVoid("themeInterop.set", "dark");
         JSInterop.SetupVoid("themeInterop.set", "system");
         Services.AddScoped<ThemePreferenceState>();
+        Services.AddSingleton<IAntiforgery, TestAntiforgery>();
+        Services.AddSingleton<IHttpContextAccessor>(new HttpContextAccessor { HttpContext = new DefaultHttpContext() });
 
         var page = Render<Settings>();
         page.WaitForAssertion(() => Assert.Single(page.FindAll(".theme-option.selected")));
 
         return page;
+    }
+
+    private sealed class TestAntiforgery : IAntiforgery
+    {
+        public AntiforgeryTokenSet GetAndStoreTokens(HttpContext httpContext) => GetTokens(httpContext);
+        public AntiforgeryTokenSet GetTokens(HttpContext httpContext) => new("test-token", "__RequestVerificationToken", "test-cookie", ".AspNetCore.Antiforgery");
+        public Task<bool> IsRequestValidAsync(HttpContext httpContext) => Task.FromResult(true);
+        public Task ValidateRequestAsync(HttpContext httpContext) => Task.CompletedTask;
+        public void SetCookieTokenAndHeader(HttpContext httpContext) { }
     }
 }
