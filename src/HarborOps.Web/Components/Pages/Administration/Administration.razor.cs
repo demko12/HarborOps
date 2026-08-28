@@ -1,4 +1,5 @@
 using HarborOps.Web.Api;
+using Microsoft.JSInterop;
 
 namespace HarborOps.Web.Components.Pages.Administration;
 
@@ -66,12 +67,32 @@ public partial class Administration
     private bool forbidden;
     private bool isSavingLifecycle;
     private LifecycleAction? lifecycleAction;
+    private bool scrollToEditor;
 
     protected override async Task OnInitializedAsync()
     {
         if (AuthorizationState.CanManageAdministration)
         {
             await Task.WhenAll(LoadUsersAsync(), LoadRolesAsync());
+        }
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!scrollToEditor)
+        {
+            return;
+        }
+
+        scrollToEditor = false;
+
+        try
+        {
+            await Js.InvokeVoidAsync("scrollInterop.toElement", "administration-editor");
+        }
+        catch (JSException)
+        {
+            // Scrolling is an enhancement and JavaScript can be unavailable during rendering.
         }
     }
 
@@ -226,6 +247,7 @@ public partial class Administration
         selectedRoleNames.Clear();
         selectedRoleNames.UnionWith(user.Roles);
         ResetEditor();
+        scrollToEditor = true;
     }
 
     private void OpenCreateUserDialog()
@@ -256,6 +278,7 @@ public partial class Administration
         selectedPermissions.Clear();
         selectedPermissions.UnionWith(role.Permissions);
         ResetEditor();
+        scrollToEditor = true;
     }
 
     private void ToggleRole(string name, object? isSelected)
