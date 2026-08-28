@@ -505,11 +505,19 @@
         {
             <div class="operation-modal-backdrop" @onclick="DismissConfirmation">
                 <section class="operation-modal"
-                         role="dialog"
+                         role="alertdialog"
                          aria-modal="true"
                          aria-labelledby="operation-confirm-title"
                          @onclick:stopPropagation="true">
-                    <h2 id="operation-confirm-title">Confirm</h2>
+                    <div class="operation-modal-header">
+                        <h2 id="operation-confirm-title">Confirm</h2>
+                        <button type="button"
+                                class="operation-modal-close"
+                                aria-label="Close confirmation dialog"
+                                disabled="@isTransitioning"
+                                @onclick="DismissConfirmation">&times;</button>
+                    </div>
+
                     <p class="operation-confirm-question">@ConfirmationQuestion(confirming, confirmingAction)</p>
 
                     @if (transitionError is not null)
@@ -517,15 +525,16 @@
                         <div class="booking-form-error" role="alert">@transitionError</div>
                     }
 
-                    <div class="booking-form-actions">
+                    <div class="operation-modal-actions">
                         <button type="button"
                                 class="booking-submit operation-confirm"
                                 disabled="@isTransitioning"
                                 @onclick="ConfirmPendingActionAsync">
-                            @(isTransitioning ? "Working..." : "Confirm")
+                            @(isTransitioning ? "Working..." : "Yes, continue")
                         </button>
                         <button type="button"
                                 class="operation-confirm-dismiss"
+                                disabled="@isTransitioning"
                                 @onclick="DismissConfirmation">Keep as is</button>
                     </div>
                 </section>

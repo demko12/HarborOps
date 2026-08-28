@@ -628,6 +628,16 @@ public partial class CargoBookingDetails : IDisposable
 
     private void DismissConfirmation()
     {
+        if (isTransitioning)
+        {
+            return;
+        }
+
+        CloseConfirmation();
+    }
+
+    private void CloseConfirmation()
+    {
         pendingOperation = null;
         pendingAction = null;
     }
@@ -661,7 +671,7 @@ public partial class CargoBookingDetails : IDisposable
                 return;
             }
 
-            DismissConfirmation();
+            CloseConfirmation();
 
             await LoadExecutionAsync();
         }
