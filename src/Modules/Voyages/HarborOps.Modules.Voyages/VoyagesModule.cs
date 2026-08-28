@@ -31,6 +31,12 @@ public static class VoyagesModule
         services.AddScoped<ISearchRoutesQuery, SearchRoutesQuery>();
         services.AddScoped<IGetRouteDetailsQuery, GetRouteDetailsQuery>();
         services.AddScoped<IRouteLookupQuery, RouteLookupQuery>();
+        services.AddScoped<PlanVoyageItineraryService>();
+        services.AddScoped<IGetVoyageItineraryQuery, GetVoyageItineraryQuery>();
+        services.AddScoped<AssignBerthService>();
+        services.AddScoped<RecordStopArrivalService>();
+        services.AddScoped<RecordStopDepartureService>();
+        services.AddScoped<RecordDelayService>();
         services.AddControllers()
             .AddApplicationPart(Assembly);
 

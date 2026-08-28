@@ -32,6 +32,18 @@ public sealed class VoyagesPageTests : BunitContext
     }
 
     [Fact]
+    public void Rows_prefer_itinerary_stop_port_names_over_the_scheduled_codes()
+    {
+        respond = _ => Json(
+            HttpStatusCode.OK,
+            Page(Row("VOY-0002", firstStopPortName: "Port of Bar", lastStopPortName: "Port of Dubrovnik")));
+
+        var page = RenderVoyagesPage();
+
+        Assert.Equal("Port of Bar → Port of Dubrovnik", page.Find("td.voyage-route").TextContent.Trim());
+    }
+
+    [Fact]
     public void Missing_actual_dates_render_as_a_placeholder_instead_of_breaking_the_row()
     {
         respond = _ => Json(HttpStatusCode.OK, Page(Row("VOY-0002")));
@@ -539,10 +551,15 @@ public sealed class VoyagesPageTests : BunitContext
         string voyageNumber,
         string plannedDeparture = "2026-09-15T08:00:00Z",
         string plannedArrival = "2026-09-18T17:30:00Z",
-        string status = "Planned")
+        string status = "Planned",
+        string? firstStopPortName = null,
+        string? lastStopPortName = null)
     {
+        var firstStop = firstStopPortName is null ? "null" : $"\"{firstStopPortName}\"";
+        var lastStop = lastStopPortName is null ? "null" : $"\"{lastStopPortName}\"";
+
         return $$"""
-            {"voyageId":"20000000-0000-0000-0000-000000000001","voyageNumber":"{{voyageNumber}}","vesselId":"30000000-0000-0000-0000-000000000002","departurePortCode":"MEBAR","arrivalPortCode":"ITGOA","status":"{{status}}","plannedDeparture":"{{plannedDeparture}}","plannedArrival":"{{plannedArrival}}","actualDeparture":null,"actualArrival":null}
+            {"voyageId":"20000000-0000-0000-0000-000000000001","voyageNumber":"{{voyageNumber}}","vesselId":"30000000-0000-0000-0000-000000000002","departurePortCode":"MEBAR","arrivalPortCode":"ITGOA","status":"{{status}}","plannedDeparture":"{{plannedDeparture}}","plannedArrival":"{{plannedArrival}}","actualDeparture":null,"actualArrival":null,"firstStopPortName":{{firstStop}},"lastStopPortName":{{lastStop}}}
             """;
     }
 

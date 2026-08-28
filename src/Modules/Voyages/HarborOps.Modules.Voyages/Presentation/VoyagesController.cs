@@ -13,10 +13,18 @@ public sealed class VoyagesController(
     ScheduleVoyageService scheduleVoyageService,
     RecordVoyageDepartureService recordVoyageDepartureService,
     RecordVoyageArrivalService recordVoyageArrivalService,
-    IGetVoyagesQuery getVoyagesQuery)
+    IGetVoyagesQuery getVoyagesQuery,
+    PlanVoyageItineraryService planVoyageItineraryService,
+    IGetVoyageItineraryQuery getVoyageItineraryQuery,
+    AssignBerthService assignBerthService,
+    RecordStopArrivalService recordStopArrivalService,
+    RecordStopDepartureService recordStopDepartureService,
+    RecordDelayService recordDelayService)
     : ControllerBase
 {
     private const string ManageVoyagesPolicy = "voyages.manage";
+
+    private const string ReadVoyagesPolicy = "voyages.read";
 
     [HttpGet]
     [ProducesResponseType<GetVoyagesResponse>(StatusCodes.Status200OK)]
@@ -187,5 +195,365 @@ public sealed class VoyagesController(
                 Title = "A voyage with this voyage number already exists.",
             });
         }
+    }
+
+    [HttpPost("{voyageId:guid}/itinerary")]
+    [Authorize(ManageVoyagesPolicy)]
+    [ProducesResponseType<PlanVoyageItineraryResponse>(StatusCodes.Status201Created)]
+    [ProducesResponseType<HttpValidationProblemDetails>(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]
+    public async Task<ActionResult<PlanVoyageItineraryResponse>> PlanItinerary(
+        Guid voyageId,
+        [FromBody] PlanVoyageItineraryRequest request,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            var response = await planVoyageItineraryService.PlanAsync(
+                voyageId,
+                request,
+                cancellationToken);
+
+            return Created($"/api/voyages/{voyageId}/itinerary", response);
+        }
+        catch (PlanVoyageItineraryValidationException exception)
+        {
+            return BadRequest(ToValidationProblem(exception.Errors));
+        }
+        catch (VoyageNotFoundException exception)
+        {
+            return NotFound(new ProblemDetails
+            {
+                Status = StatusCodes.Status404NotFound,
+                Title = "The requested voyage was not found.",
+                Detail = exception.Message,
+            });
+        }
+        catch (RouteNotFoundException exception)
+        {
+            return NotFound(new ProblemDetails
+            {
+                Status = StatusCodes.Status404NotFound,
+                Title = "The requested route was not found.",
+                Detail = exception.Message,
+            });
+        }
+        catch (VoyageStopPortNotFoundException exception)
+        {
+            return NotFound(new ProblemDetails
+            {
+                Status = StatusCodes.Status404NotFound,
+                Title = "The requested port was not found.",
+                Detail = exception.Message,
+            });
+        }
+        catch (VoyageItineraryNotPlannableException exception)
+        {
+            return Conflict(new ProblemDetails
+            {
+                Status = StatusCodes.Status409Conflict,
+                Title = "The voyage cannot receive an itinerary from its current status.",
+                Detail = exception.Message,
+            });
+        }
+        catch (VoyageItineraryAlreadyPlannedException exception)
+        {
+            return Conflict(new ProblemDetails
+            {
+                Status = StatusCodes.Status409Conflict,
+                Title = "The voyage already has an itinerary.",
+                Detail = exception.Message,
+            });
+        }
+    }
+
+    [HttpGet("{voyageId:guid}/itinerary")]
+    [Authorize(ReadVoyagesPolicy)]
+    [ProducesResponseType<VoyageItineraryResponse>(StatusCodes.Status200OK)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<VoyageItineraryResponse>> GetItinerary(
+        Guid voyageId,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            var response = await getVoyageItineraryQuery.GetItineraryAsync(
+                voyageId,
+                cancellationToken);
+
+            return Ok(response);
+        }
+        catch (VoyageNotFoundException exception)
+        {
+            return NotFound(new ProblemDetails
+            {
+                Status = StatusCodes.Status404NotFound,
+                Title = "The requested voyage was not found.",
+                Detail = exception.Message,
+            });
+        }
+    }
+
+    [HttpPost("{voyageId:guid}/stops/{stopId:guid}/berth")]
+    [Authorize(ManageVoyagesPolicy)]
+    [ProducesResponseType<AssignBerthToStopResponse>(StatusCodes.Status200OK)]
+    [ProducesResponseType<HttpValidationProblemDetails>(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]
+    public async Task<ActionResult<AssignBerthToStopResponse>> AssignBerth(
+        Guid voyageId,
+        Guid stopId,
+        [FromBody] AssignBerthToStopRequest request,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            var response = await assignBerthService.AssignAsync(
+                voyageId,
+                stopId,
+                request,
+                cancellationToken);
+
+            return Ok(response);
+        }
+        catch (AssignBerthValidationException exception)
+        {
+            return BadRequest(ToValidationProblem(exception.Errors));
+        }
+        catch (BerthPortMismatchException exception)
+        {
+            return BadRequest(ToValidationProblem(new Dictionary<string, string[]>
+            {
+                [AssignBerthValidator.BerthIdField] = [exception.Message],
+            }));
+        }
+        catch (VoyageStopNotFoundException exception)
+        {
+            return NotFound(new ProblemDetails
+            {
+                Status = StatusCodes.Status404NotFound,
+                Title = "The requested voyage stop was not found.",
+                Detail = exception.Message,
+            });
+        }
+        catch (BerthNotFoundException exception)
+        {
+            return NotFound(new ProblemDetails
+            {
+                Status = StatusCodes.Status404NotFound,
+                Title = "The requested berth was not found.",
+                Detail = exception.Message,
+            });
+        }
+        catch (BerthOverlapException exception)
+        {
+            return Conflict(new ProblemDetails
+            {
+                Status = StatusCodes.Status409Conflict,
+                Title = "The berth is not available for the requested window.",
+                Detail = exception.Message,
+            });
+        }
+        catch (VoyageStopNotPlannedException exception)
+        {
+            return Conflict(new ProblemDetails
+            {
+                Status = StatusCodes.Status409Conflict,
+                Title = "The voyage stop cannot be changed from its current status.",
+                Detail = exception.Message,
+            });
+        }
+    }
+
+    [HttpPost("{voyageId:guid}/stops/{stopId:guid}/arrival")]
+    [Authorize(ManageVoyagesPolicy)]
+    [ProducesResponseType<RecordStopArrivalResponse>(StatusCodes.Status200OK)]
+    [ProducesResponseType<HttpValidationProblemDetails>(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]
+    public async Task<ActionResult<RecordStopArrivalResponse>> RecordStopArrival(
+        Guid voyageId,
+        Guid stopId,
+        [FromBody] RecordStopArrivalRequest request,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            var response = await recordStopArrivalService.RecordArrivalAsync(
+                voyageId,
+                stopId,
+                request,
+                cancellationToken);
+
+            return Ok(response);
+        }
+        catch (RecordStopArrivalValidationException exception)
+        {
+            return BadRequest(ToValidationProblem(exception.Errors));
+        }
+        catch (VoyageNotFoundException exception)
+        {
+            return NotFound(new ProblemDetails
+            {
+                Status = StatusCodes.Status404NotFound,
+                Title = "The requested voyage was not found.",
+                Detail = exception.Message,
+            });
+        }
+        catch (VoyageStopNotFoundException exception)
+        {
+            return NotFound(new ProblemDetails
+            {
+                Status = StatusCodes.Status404NotFound,
+                Title = "The requested voyage stop was not found.",
+                Detail = exception.Message,
+            });
+        }
+        catch (VoyageNotExecutingException exception)
+        {
+            return Conflict(new ProblemDetails
+            {
+                Status = StatusCodes.Status409Conflict,
+                Title = "The voyage is not in progress.",
+                Detail = exception.Message,
+            });
+        }
+        catch (VoyageStopOutOfSequenceException exception)
+        {
+            return Conflict(new ProblemDetails
+            {
+                Status = StatusCodes.Status409Conflict,
+                Title = "The previous voyage stop has not departed yet.",
+                Detail = exception.Message,
+            });
+        }
+        catch (VoyageStopNotPlannedException exception)
+        {
+            return Conflict(new ProblemDetails
+            {
+                Status = StatusCodes.Status409Conflict,
+                Title = "The voyage stop cannot arrive from its current status.",
+                Detail = exception.Message,
+            });
+        }
+    }
+
+    [HttpPost("{voyageId:guid}/stops/{stopId:guid}/departure")]
+    [Authorize(ManageVoyagesPolicy)]
+    [ProducesResponseType<RecordStopDepartureResponse>(StatusCodes.Status200OK)]
+    [ProducesResponseType<HttpValidationProblemDetails>(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]
+    public async Task<ActionResult<RecordStopDepartureResponse>> RecordStopDeparture(
+        Guid voyageId,
+        Guid stopId,
+        [FromBody] RecordStopDepartureRequest request,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            var response = await recordStopDepartureService.RecordDepartureAsync(
+                voyageId,
+                stopId,
+                request,
+                cancellationToken);
+
+            return Ok(response);
+        }
+        catch (RecordStopDepartureValidationException exception)
+        {
+            return BadRequest(ToValidationProblem(exception.Errors));
+        }
+        catch (VoyageNotFoundException exception)
+        {
+            return NotFound(new ProblemDetails
+            {
+                Status = StatusCodes.Status404NotFound,
+                Title = "The requested voyage was not found.",
+                Detail = exception.Message,
+            });
+        }
+        catch (VoyageStopNotFoundException exception)
+        {
+            return NotFound(new ProblemDetails
+            {
+                Status = StatusCodes.Status404NotFound,
+                Title = "The requested voyage stop was not found.",
+                Detail = exception.Message,
+            });
+        }
+        catch (VoyageNotExecutingException exception)
+        {
+            return Conflict(new ProblemDetails
+            {
+                Status = StatusCodes.Status409Conflict,
+                Title = "The voyage is not in progress.",
+                Detail = exception.Message,
+            });
+        }
+        catch (VoyageStopNotArrivedException exception)
+        {
+            return Conflict(new ProblemDetails
+            {
+                Status = StatusCodes.Status409Conflict,
+                Title = "The voyage stop cannot depart from its current status.",
+                Detail = exception.Message,
+            });
+        }
+    }
+
+    [HttpPost("{voyageId:guid}/delays")]
+    [Authorize(ManageVoyagesPolicy)]
+    [ProducesResponseType<RecordDelayResponse>(StatusCodes.Status201Created)]
+    [ProducesResponseType<HttpValidationProblemDetails>(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<RecordDelayResponse>> RecordDelay(
+        Guid voyageId,
+        [FromBody] RecordDelayRequest request,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            var response = await recordDelayService.RecordAsync(voyageId, request, cancellationToken);
+
+            return Created($"/api/voyages/{voyageId}/delays/{response.DelayId}", response);
+        }
+        catch (RecordDelayValidationException exception)
+        {
+            return BadRequest(ToValidationProblem(exception.Errors));
+        }
+        catch (VoyageNotFoundException exception)
+        {
+            return NotFound(new ProblemDetails
+            {
+                Status = StatusCodes.Status404NotFound,
+                Title = "The requested voyage was not found.",
+                Detail = exception.Message,
+            });
+        }
+        catch (VoyageStopNotFoundException exception)
+        {
+            return NotFound(new ProblemDetails
+            {
+                Status = StatusCodes.Status404NotFound,
+                Title = "The requested voyage stop was not found.",
+                Detail = exception.Message,
+            });
+        }
+    }
+
+    private static HttpValidationProblemDetails ToValidationProblem(
+        IReadOnlyDictionary<string, string[]> errors)
+    {
+        return new HttpValidationProblemDetails(
+            errors.ToDictionary(
+                error => error.Key,
+                error => error.Value,
+                StringComparer.Ordinal))
+        {
+            Status = StatusCodes.Status400BadRequest,
+            Title = "One or more validation errors occurred.",
+        };
     }
 }

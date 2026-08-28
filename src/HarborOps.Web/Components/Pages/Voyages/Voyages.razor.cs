@@ -52,6 +52,24 @@ public partial class Voyages
     [SupplyParameterFromQuery(Name = "tab")]
     private string? RequestedTab { get; set; }
 
+    [SupplyParameterFromQuery(Name = "from")]
+    private DateOnly? FromDateFromQuery { get; set; }
+
+    [SupplyParameterFromQuery(Name = "to")]
+    private DateOnly? ToDateFromQuery { get; set; }
+
+    [SupplyParameterFromQuery(Name = "status")]
+    private string? StatusFromQuery { get; set; }
+
+    [SupplyParameterFromQuery(Name = "search")]
+    private string? SearchFromQuery { get; set; }
+
+    [SupplyParameterFromQuery(Name = "page")]
+    private int? PageFromQuery { get; set; }
+
+    [SupplyParameterFromQuery(Name = "size")]
+    private int? SizeFromQuery { get; set; }
+
     private DateOnly fromDate = DefaultFrom();
     private DateOnly toDate = DefaultTo();
     private string statusFilter = string.Empty;
@@ -90,6 +108,8 @@ public partial class Voyages
 
     protected override Task OnInitializedAsync()
     {
+        ApplyQueryFilters();
+
         if (string.Equals(RequestedTab, RoutesTab, StringComparison.OrdinalIgnoreCase))
         {
             activeTab = VoyagesTab.Routes;
@@ -99,6 +119,105 @@ public partial class Voyages
         }
 
         return LoadAsync();
+    }
+
+    private void ApplyQueryFilters()
+    {
+        if (FromDateFromQuery is { } from)
+        {
+            fromDate = from;
+            appliedFrom = from;
+        }
+
+        if (ToDateFromQuery is { } to)
+        {
+            toDate = to;
+            appliedTo = to;
+        }
+
+        if (!string.IsNullOrEmpty(StatusFromQuery))
+        {
+            statusFilter = StatusFromQuery;
+            appliedStatus = StatusFromQuery;
+        }
+
+        if (!string.IsNullOrWhiteSpace(SearchFromQuery))
+        {
+            searchTerm = SearchFromQuery;
+            appliedSearch = SearchFromQuery;
+        }
+
+        if (PageFromQuery is { } page && page > 0)
+        {
+            pageNumber = page;
+        }
+
+        if (SizeFromQuery is { } size && size > 0)
+        {
+            pageSize = size;
+        }
+    }
+
+    private string BoardQuery
+    {
+        get
+        {
+            var parts = new List<string>();
+
+            if (appliedFrom != DefaultFrom())
+            {
+                parts.Add($"from={FormatIsoDate(appliedFrom)}");
+            }
+
+            if (appliedTo != DefaultTo())
+            {
+                parts.Add($"to={FormatIsoDate(appliedTo)}");
+            }
+
+            if (!string.IsNullOrEmpty(appliedStatus))
+            {
+                parts.Add($"status={Uri.EscapeDataString(appliedStatus)}");
+            }
+
+            if (!string.IsNullOrWhiteSpace(appliedSearch))
+            {
+                parts.Add($"search={Uri.EscapeDataString(appliedSearch.Trim())}");
+            }
+
+            if (pageNumber > 1)
+            {
+                parts.Add($"page={pageNumber}");
+            }
+
+            if (pageSize != 25)
+            {
+                parts.Add($"size={pageSize}");
+            }
+
+            return string.Join('&', parts);
+        }
+    }
+
+    private string TimelineHref(Guid voyageId)
+    {
+        var query = BoardQuery;
+
+        return query.Length == 0
+            ? $"/voyages/{voyageId}"
+            : $"/voyages/{voyageId}?from={Uri.EscapeDataString(query)}";
+    }
+
+    private void OpenTimeline(Guid voyageId)
+    {
+        Navigation.NavigateTo(TimelineHref(voyageId));
+    }
+
+    private void HandleVoyageRowKeyDown(KeyboardEventArgs args, Guid voyageId)
+    {
+        if (args.Key is "Enter" or " ")
+        {
+            OpenTimeline(voyageId);
+        }
     }
 
     private Task SelectTab(VoyagesTab tab)
@@ -208,9 +327,12 @@ public partial class Voyages
         await actionDateInput.FocusAsync();
     }
 
-    internal static string FormatRoute(string departurePortCode, string arrivalPortCode)
+    internal static string FormatRoute(VoyageListItemModel voyage)
     {
-        return $"{departurePortCode} → {arrivalPortCode}";
+        var departure = voyage.FirstStopPortName ?? voyage.DeparturePortCode;
+        var arrival = voyage.LastStopPortName ?? voyage.ArrivalPortCode;
+
+        return $"{departure} → {arrival}";
     }
     internal static string FormatCount(int? value)
     {

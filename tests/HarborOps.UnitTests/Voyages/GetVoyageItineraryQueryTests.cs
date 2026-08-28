@@ -1,0 +1,108 @@
+using HarborOps.Infrastructure.Persistence;
+using HarborOps.Modules.Voyages.Application;
+using HarborOps.Modules.Voyages.Domain;
+using Microsoft.EntityFrameworkCore;
+
+namespace HarborOps.UnitTests.Voyages;
+
+public sealed class GetVoyageItineraryQueryTests
+{
+    private static readonly DateTime PlannedDepartureUtc =
+        new(2026, 9, 1, 8, 0, 0, DateTimeKind.Utc);
+
+    private static readonly DateTime PlannedArrivalUtc =
+        new(2026, 9, 4, 17, 30, 0, DateTimeKind.Utc);
+
+    [Fact]
+    public async Task Itinerary_projects_stops_and_delays_in_deterministic_order()
+    {
+        await using var dbContext = CreateDbContext();
+        var voyage = Voyage.Schedule(
+            Guid.NewGuid(),
+            "VOY-1000",
+            "MERIJ",
+            "ITGOA",
+            PlannedDepartureUtc,
+            PlannedArrivalUtc);
+        var bar = Port.Create("Port of Bar", "Montenegro", "Bar", "MEBAR");
+        var kotor = Port.Create("Port of Kotor", "Montenegro", "Kotor", "MEKOT");
+        var berth = Berth.Create(bar.Id, "Pier 1", 200m, 10m, BerthStatus.Available);
+
+        var stopTwo = VoyageStop.Create(
+            voyage.Id,
+            kotor.Id,
+            2,
+            PlannedDepartureUtc.AddHours(10),
+            PlannedDepartureUtc.AddHours(14));
+        var stopOne = VoyageStop.Create(
+            voyage.Id,
+            bar.Id,
+            1,
+            PlannedDepartureUtc,
+            PlannedDepartureUtc.AddHours(4));
+        stopOne.AssignBerth(berth.Id);
+
+        var delayOne = Delay.Create(
+            voyage.Id,
+            "Weather",
+            60,
+            PlannedDepartureUtc.AddHours(1),
+            stopOne.Id,
+            "Rough seas");
+        var delayTwo = Delay.Create(
+            voyage.Id,
+            "Customs hold",
+            30,
+            PlannedDepartureUtc.AddMinutes(30));
+
+        await dbContext.Set<Voyage>().AddAsync(voyage);
+        await dbContext.Set<Port>().AddRangeAsync([bar, kotor]);
+        await dbContext.Set<Berth>().AddAsync(berth);
+        await dbContext.Set<VoyageStop>().AddRangeAsync([stopTwo, stopOne]);
+        await dbContext.Set<Delay>().AddRangeAsync([delayOne, delayTwo]);
+        await dbContext.SaveChangesAsync();
+
+        var query = new GetVoyageItineraryQuery(dbContext);
+
+        var response = await query.GetItineraryAsync(voyage.Id, CancellationToken.None);
+
+        Assert.Equal(voyage.Id, response.VoyageId);
+        Assert.Equal([1, 2], response.Stops.Select(stop => stop.StopOrder));
+        Assert.Equal(bar.Id, response.Stops[0].PortId);
+        Assert.Equal("Port of Bar", response.Stops[0].PortName);
+        Assert.Equal("MEBAR", response.Stops[0].UnLocode);
+        Assert.Equal(berth.Id, response.Stops[0].BerthId);
+        Assert.Equal("Pier 1", response.Stops[0].BerthName);
+        Assert.Equal(VoyageStop.PlannedStatus, response.Stops[0].Status);
+        Assert.Null(response.Stops[1].BerthId);
+        Assert.Null(response.Stops[1].BerthName);
+
+        Assert.Equal(
+            [delayTwo.Id, delayOne.Id],
+            response.Delays.Select(delay => delay.DelayId));
+        Assert.Equal(stopOne.Id, response.Delays[1].VoyageStopId);
+        Assert.Null(response.Delays[0].VoyageStopId);
+    }
+
+    [Fact]
+    public async Task Itinerary_rejects_unknown_voyage()
+    {
+        await using var dbContext = CreateDbContext();
+        var query = new GetVoyageItineraryQuery(dbContext);
+        var unknownVoyageId = Guid.NewGuid();
+
+        var exception = await Assert.ThrowsAsync<VoyageNotFoundException>(
+            () => query.GetItineraryAsync(unknownVoyageId, CancellationToken.None));
+
+        Assert.Equal(unknownVoyageId, exception.VoyageId);
+    }
+
+    private static HarborOpsDbContext CreateDbContext()
+    {
+        var options = new DbContextOptionsBuilder<HarborOpsDbContext>()
+            .UseInMemoryDatabase($"HarborOpsUnitTests-{Guid.NewGuid()}")
+            .Options;
+
+        return new HarborOpsDbContext(options);
+    }
+}

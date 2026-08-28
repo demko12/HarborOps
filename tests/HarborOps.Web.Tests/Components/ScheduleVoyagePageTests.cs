@@ -89,7 +89,7 @@ public sealed class ScheduleVoyagePageTests : BunitContext
     }
 
     [Fact]
-    public void Scheduling_returns_to_the_board_after_success()
+    public void Scheduling_redirects_to_the_new_voyage_timeline_after_success()
     {
         respond = request => request.Method == HttpMethod.Get
             ? Json(HttpStatusCode.OK, VesselPageJson)
@@ -101,7 +101,10 @@ public sealed class ScheduleVoyagePageTests : BunitContext
         SelectFirstVessel(page);
         page.Find("form.schedule-form").Submit();
 
-        page.WaitForAssertion(() => Assert.EndsWith("/voyages", navigation.Uri, StringComparison.Ordinal));
+        page.WaitForAssertion(() => Assert.EndsWith(
+            "/voyages/70000000-0000-0000-0000-000000000004",
+            navigation.Uri,
+            StringComparison.Ordinal));
     }
 
     [Fact]
