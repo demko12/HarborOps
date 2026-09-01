@@ -251,9 +251,16 @@ internal sealed class DocumentsApiClient(HttpClient httpClient)
 
     internal async Task<DocumentsApiResult<IReadOnlyList<DocumentRenewalHistoryItemDto>>> GetRenewalHistoryAsync(Guid documentId, CancellationToken cancellationToken)
     {
-        using var response = await httpClient.GetAsync($"{BasePath}/{documentId}/renewal-history", HttpCompletionOption.ResponseHeadersRead, cancellationToken);
-        if (!response.IsSuccessStatusCode) return new(null, await ReadFailureAsync(response, "Unable to load renewal history", cancellationToken));
-        return new(await response.Content.ReadFromJsonAsync<IReadOnlyList<DocumentRenewalHistoryItemDto>>(cancellationToken), null);
+        try
+        {
+            using var response = await httpClient.GetAsync($"{BasePath}/{documentId}/renewal-history", HttpCompletionOption.ResponseHeadersRead, cancellationToken);
+            if (!response.IsSuccessStatusCode) return new(null, await ReadFailureAsync(response, "Unable to load renewal history", cancellationToken));
+            return new(await response.Content.ReadFromJsonAsync<IReadOnlyList<DocumentRenewalHistoryItemDto>>(cancellationToken), null);
+        }
+        catch (JsonException)
+        {
+            return new(null, new DocumentsApiFailure(0, "Unable to load renewal history", "Please try again.", NoErrors));
+        }
     }
 
     internal async Task<DocumentsApiResult<DocumentFileResponseDto>> UploadDocumentFileAsync(

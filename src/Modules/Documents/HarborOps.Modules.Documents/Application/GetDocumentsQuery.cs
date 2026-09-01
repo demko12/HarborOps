@@ -4,14 +4,13 @@ using Microsoft.EntityFrameworkCore;
 
 namespace HarborOps.Modules.Documents.Application;
 
-internal sealed class GetDocumentsQuery(DbContext dbContext, TimeProvider timeProvider)
+internal sealed class GetDocumentsQuery(DbContext dbContext)
     : IGetDocumentsQuery
 {
     public async Task<GetDocumentsResponse> GetDocumentsAsync(
         GetDocumentsRequest request,
         CancellationToken cancellationToken)
     {
-        var today = DateOnly.FromDateTime(timeProvider.GetUtcNow().UtcDateTime);
         ArgumentNullException.ThrowIfNull(request);
 
         var errors = GetDocumentsValidator.Validate(request);
@@ -37,7 +36,7 @@ internal sealed class GetDocumentsQuery(DbContext dbContext, TimeProvider timePr
                 document.VesselId,
                 document.Number,
                 document.ExpiryDate,
-                Status = document.Status == Document.ActiveStatus && document.ExpiryDate < today ? "Expired" : document.Status,
+                document.Status,
                 DocumentTypeName = document.DocumentType.Name,
             })
             .ToListAsync(cancellationToken);

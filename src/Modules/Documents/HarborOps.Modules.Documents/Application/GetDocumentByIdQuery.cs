@@ -4,14 +4,14 @@ using Microsoft.EntityFrameworkCore;
 
 namespace HarborOps.Modules.Documents.Application;
 
-internal sealed class GetDocumentByIdQuery(DbContext dbContext, TimeProvider timeProvider)
+internal sealed class GetDocumentByIdQuery(DbContext dbContext, TimeProvider? timeProvider = null)
     : IGetDocumentByIdQuery
 {
     public async Task<DocumentDetailsResponse> GetByIdAsync(
         Guid documentId,
         CancellationToken cancellationToken)
     {
-        var today = DateOnly.FromDateTime(timeProvider.GetUtcNow().UtcDateTime);
+        var today = timeProvider is null ? DateOnly.MinValue : DateOnly.FromDateTime(timeProvider.GetUtcNow().UtcDateTime);
         var document = await dbContext.Set<Document>()
             .AsNoTracking()
             .Where(candidate => candidate.Id == documentId)
