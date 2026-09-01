@@ -170,6 +170,38 @@
         }
         else if (fileDetails is not null)
         {
+            @if (lifecycleFailure is not null)
+            {
+                <div class="documents-type-inline-error" role="alert">@lifecycleFailure.Message</div>
+            }
+            @if (AuthorizationState.HasPermission("documents.manage"))
+            {
+                <div class="documents-lifecycle-actions">
+                    <button type="button" class="documents-modal-cancel" @onclick="() => isEditingMetadata = !isEditingMetadata">Edit metadata</button>
+                    @if (fileDetails.Status == "Active")
+                    {
+                        <button type="button" class="documents-search-button" @onclick="() => isRenewingDocument = !isRenewingDocument">Renew document</button>
+                    }
+                </div>
+                @if (isEditingMetadata || isRenewingDocument)
+                {
+                    <section class="documents-lifecycle-panel" aria-label="Document metadata">
+                    <div class="documents-form-grid">
+                        <div class="filter-field"><label>Document type</label><InputSelect @bind-Value="lifecycleTypeId">@foreach (var option in documentTypeOptions) { <option value="@option.DocumentTypeId">@option.Name</option> }</InputSelect></div>
+                        <div class="filter-field"><label>Number</label><InputText @bind-Value="lifecycleNumber" /></div>
+                        <div class="filter-field"><label>Issue date</label><InputDate @bind-Value="lifecycleIssueDate" /></div>
+                        <div class="filter-field"><label>Expiry date</label><InputDate @bind-Value="lifecycleExpiryDate" /></div>
+                        <div class="filter-field"><label>Issuing authority</label><InputText @bind-Value="lifecycleAuthority" /></div>
+                    </div>
+                    <p class="documents-file-empty">@(isRenewingDocument ? "The current document and its file will be retained as a superseded record. The renewed document starts without a file." : "Editing metadata keeps the attached file unchanged.")</p>
+                    <button type="button" class="documents-search-button" @onclick="@(isRenewingDocument ? RenewDocumentAsync : SaveMetadataAsync)">@(isRenewingDocument ? "Confirm renewal" : "Save metadata")</button>
+                    </section>
+                }
+            }
+            @if (renewalHistory.Count > 1)
+            {
+                <section class="documents-renewal-history"><p>Renewal history</p>@foreach (var item in renewalHistory) { <div><strong>@item.Number</strong><span>@item.Status · expires @item.ExpiryDate.ToString("dd MMM yyyy")</span></div> }</section>
+            }
             @if (uploadSuccessMessage is not null)
             {
                 <div class="documents-type-success" role="status">@uploadSuccessMessage</div>

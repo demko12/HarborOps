@@ -110,6 +110,9 @@ internal sealed record DocumentFileResponseDto(
     Guid UploadedBy,
     DateTime UploadedAtUtc);
 
+internal sealed record DocumentMetadataRequest(int? DocumentTypeId, string? Number, DateOnly? IssueDate, DateOnly? ExpiryDate, string? IssuingAuthority);
+internal sealed record DocumentRenewalHistoryItemDto(Guid DocumentId, Guid? PredecessorDocumentId, string Number, string Status, DateOnly ExpiryDate, DateTime? SupersededAtUtc, Guid? SupersededByUserId);
+
 internal sealed record DocumentsApiResult<T>(T? Value, DocumentsApiFailure? Failure)
 {
     internal bool IsSuccess => Failure is null;

@@ -2,6 +2,9 @@ namespace HarborOps.Modules.Documents.Domain;
 
 public sealed class Document
 {
+    public const string ActiveStatus = "Active";
+    public const string SupersededStatus = "Superseded";
+    public const string RevokedStatus = "Revoked";
     internal const int NumberMaxLength = 100;
     internal const int IssuingAuthorityMaxLength = 200;
     internal const int StatusMaxLength = 50;
@@ -28,6 +31,14 @@ public sealed class Document
     public string IssuingAuthority { get; private set; } = string.Empty;
 
     public string Status { get; private set; } = string.Empty;
+
+    public Guid? PredecessorDocumentId { get; private set; }
+
+    public Document? PredecessorDocument { get; private set; }
+
+    public DateTime? SupersededAtUtc { get; private set; }
+
+    public Guid? SupersededByUserId { get; private set; }
 
     public string? FileName { get; private set; }
 
@@ -98,5 +109,31 @@ public sealed class Document
         SizeBytes = sizeBytes;
         UploadedBy = uploadedBy;
         UploadedAtUtc = uploadedAtUtc;
+    }
+
+    internal void CorrectMetadata(int documentTypeId, string number, DateOnly issueDate, DateOnly expiryDate, string issuingAuthority)
+    {
+        DocumentTypeId = documentTypeId;
+        Number = number;
+        IssueDate = issueDate;
+        ExpiryDate = expiryDate;
+        IssuingAuthority = issuingAuthority;
+    }
+
+    internal void Supersede(Guid actorId, DateTime supersededAtUtc)
+    {
+        if (!string.Equals(Status, ActiveStatus, StringComparison.Ordinal))
+        {
+            throw new InvalidOperationException("Only an active document can be renewed.");
+        }
+
+        Status = SupersededStatus;
+        SupersededByUserId = actorId;
+        SupersededAtUtc = supersededAtUtc;
+    }
+
+    internal void LinkToPredecessor(Guid predecessorDocumentId)
+    {
+        PredecessorDocumentId = predecessorDocumentId;
     }
 }
