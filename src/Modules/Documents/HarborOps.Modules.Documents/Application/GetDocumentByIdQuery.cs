@@ -4,13 +4,14 @@ using Microsoft.EntityFrameworkCore;
 
 namespace HarborOps.Modules.Documents.Application;
 
-internal sealed class GetDocumentByIdQuery(DbContext dbContext)
+internal sealed class GetDocumentByIdQuery(DbContext dbContext, TimeProvider timeProvider)
     : IGetDocumentByIdQuery
 {
     public async Task<DocumentDetailsResponse> GetByIdAsync(
         Guid documentId,
         CancellationToken cancellationToken)
     {
+        var today = DateOnly.FromDateTime(timeProvider.GetUtcNow().UtcDateTime);
         var document = await dbContext.Set<Document>()
             .AsNoTracking()
             .Where(candidate => candidate.Id == documentId)
@@ -23,7 +24,7 @@ internal sealed class GetDocumentByIdQuery(DbContext dbContext)
                 candidate.IssueDate,
                 candidate.ExpiryDate,
                 candidate.IssuingAuthority,
-                candidate.Status,
+                candidate.Status == Document.ActiveStatus && candidate.ExpiryDate < today ? "Expired" : candidate.Status,
                 candidate.StorageKey != null,
                 candidate.FileName,
                 candidate.ContentType,

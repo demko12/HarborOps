@@ -18,6 +18,7 @@ public static class DocumentsModule
     public static IServiceCollection AddDocumentsModule(this IServiceCollection services, IConfiguration configuration)
     {
         services.AddScoped<RegisterDocumentService>();
+        services.AddScoped<DocumentLifecycleService>();
         services.AddScoped<RegisterDocumentTypeService>();
         services.AddScoped<IGetExpiringDocumentsQuery, GetExpiringDocumentsQuery>();
         services.AddScoped<IGetDocumentTypesQuery, GetDocumentTypesQuery>();

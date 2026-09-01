@@ -43,6 +43,10 @@ internal sealed class DocumentConfiguration : IEntityTypeConfiguration<Document>
             .HasMaxLength(Document.StatusMaxLength)
             .IsRequired();
 
+        builder.Property(d => d.SupersededAtUtc);
+
+        builder.Property(d => d.SupersededByUserId);
+
         builder.Property(d => d.FileName)
             .HasMaxLength(Document.FileNameMaxLength);
 
@@ -59,8 +63,15 @@ internal sealed class DocumentConfiguration : IEntityTypeConfiguration<Document>
             .HasForeignKey(d => d.DocumentTypeId)
             .OnDelete(DeleteBehavior.Restrict);
 
+        builder.HasOne(d => d.PredecessorDocument)
+            .WithMany()
+            .HasForeignKey(d => d.PredecessorDocumentId)
+            .OnDelete(DeleteBehavior.Restrict);
+
         builder.HasIndex(d => d.VesselId);
 
         builder.HasIndex(d => d.ExpiryDate);
+
+        builder.HasIndex(d => d.PredecessorDocumentId);
     }
 }

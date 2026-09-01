@@ -48,6 +48,68 @@ internal sealed record RegisterInsurancePolicyResult(int Id);
 internal sealed record InsurancePolicyItem(int Id, Guid VesselId, string Insurer, string PolicyNumber, string Coverage, DateOnly ExpiryDate, string ExpiryClassification);
 internal sealed record InsurancePoliciesPage(IReadOnlyList<InsurancePolicyItem> Items, int TotalCount, int PageNumber, int PageSize);
 
+internal sealed record GetNonConformitiesRequest
+{
+    public string? Search { get; init; }
+
+    public string? Severity { get; init; }
+
+    public string? ClosureStatus { get; init; }
+
+    public bool? Overdue { get; init; }
+
+    public int PageNumber { get; init; } = 1;
+
+    public int PageSize { get; init; } = 25;
+}
+
+internal sealed record NonConformityListItem(
+    int Id,
+    Guid VesselId,
+    int? SurveyId,
+    int? PscId,
+    string Severity,
+    string ClosureStatus,
+    DateOnly CorrectiveActionDeadline,
+    bool IsOverdue,
+    Guid EvidenceDocumentId,
+    int CorrectiveActionCount);
+
+internal sealed record GetNonConformitiesResponse(
+    IReadOnlyList<NonConformityListItem> Items,
+    int TotalCount,
+    int PageNumber,
+    int PageSize);
+
+internal sealed record CorrectiveActionItem(
+    Guid Id,
+    string ActionText,
+    Guid ActorUserId,
+    DateTimeOffset RecordedAtUtc,
+    Guid? EvidenceDocumentId);
+
+internal sealed record GetNonConformityDetailResponse(
+    int Id,
+    Guid VesselId,
+    int? SurveyId,
+    int? PscId,
+    string Severity,
+    string ClosureStatus,
+    DateOnly CorrectiveActionDeadline,
+    bool IsOverdue,
+    Guid EvidenceDocumentId,
+    string? ClosureNotes,
+    DateTimeOffset? ClosedAtUtc,
+    Guid? ClosedByUserId,
+    Guid? FinalEvidenceDocumentId,
+    IReadOnlyList<CorrectiveActionItem> CorrectiveActions);
+
+internal sealed record RecordCorrectiveActionRequest(string? ActionText, Guid? EvidenceDocumentId);
+internal sealed record RecordCorrectiveActionResult(Guid Id, string ClosureStatus);
+
+internal sealed record CloseNonConformityRequest(string? ClosureNotes, Guid? FinalEvidenceDocumentId);
+internal sealed record CloseNonConformityResult(int Id, string ClosureStatus, DateTimeOffset ClosedAtUtc);
+
 internal sealed record ComplianceApiResult<T>(T? Value, ComplianceApiFailure? Failure)
 {
     internal bool IsSuccess => Failure is null;
