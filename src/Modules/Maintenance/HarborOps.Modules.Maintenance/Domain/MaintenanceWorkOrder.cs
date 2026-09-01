@@ -84,8 +84,28 @@ internal sealed class MaintenanceWorkOrder
             null);
     }
 
+    internal IReadOnlyList<WorkOrderAction> AllowedActions => AllowedActionsFor(Status);
+
+    internal static IReadOnlyList<WorkOrderAction> AllowedActionsFor(WorkOrderStatus status)
+    {
+        return status switch
+        {
+            WorkOrderStatus.Open =>
+                [WorkOrderAction.Start, WorkOrderAction.Cancel, WorkOrderAction.ReplaceEquipment],
+            WorkOrderStatus.InProgress =>
+                [WorkOrderAction.Cancel, WorkOrderAction.ReplaceEquipment],
+            _ => [],
+        };
+    }
+    internal static bool IsOverdue(WorkOrderStatus status, DateTime dueUtc, DateTime utcNow)
+    {
+        return dueUtc < utcNow
+            && status is WorkOrderStatus.Open or WorkOrderStatus.InProgress;
+    }
     internal void Start()
     {
+        EnsureAllowed(WorkOrderAction.Start, WorkOrderStatus.InProgress);
+
         Status = WorkOrderStatus.InProgress;
     }
 
@@ -101,6 +121,24 @@ internal sealed class MaintenanceWorkOrder
 
     internal void Cancel()
     {
+        EnsureAllowed(WorkOrderAction.Cancel, WorkOrderStatus.Canceled);
+
         Status = WorkOrderStatus.Canceled;
+    }
+
+    internal void EnsureEquipmentCanChange()
+    {
+        if (!AllowedActions.Contains(WorkOrderAction.ReplaceEquipment))
+        {
+            throw new WorkOrderEquipmentChangeNotAllowedException(Id, Status);
+        }
+    }
+
+    private void EnsureAllowed(WorkOrderAction action, WorkOrderStatus requestedStatus)
+    {
+        if (!AllowedActions.Contains(action))
+        {
+            throw new WorkOrderTransitionNotAllowedException(Id, Status, requestedStatus);
+        }
     }
 }
