@@ -876,6 +876,9 @@ namespace HarborOps.Infrastructure.Persistence.Migrations
                         .HasColumnType("datetime2")
                         .HasColumnName("PeriodStart");
 
+                    b.Property<Guid?>("PredecessorDocumentId")
+                        .HasColumnType("uniqueidentifier");
+
                     b.Property<long?>("SizeBytes")
                         .HasColumnType("bigint");
 
@@ -887,6 +890,12 @@ namespace HarborOps.Infrastructure.Persistence.Migrations
                     b.Property<string>("StorageKey")
                         .HasMaxLength(200)
                         .HasColumnType("nvarchar(200)");
+
+                    b.Property<DateTime?>("SupersededAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("SupersededByUserId")
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<DateTime?>("UploadedAtUtc")
                         .HasColumnType("datetime2");
@@ -902,6 +911,8 @@ namespace HarborOps.Infrastructure.Persistence.Migrations
                     b.HasIndex("DocumentTypeId");
 
                     b.HasIndex("ExpiryDate");
+
+                    b.HasIndex("PredecessorDocumentId");
 
                     b.HasIndex("VesselId");
 
@@ -2440,7 +2451,14 @@ namespace HarborOps.Infrastructure.Persistence.Migrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
+                    b.HasOne("HarborOps.Modules.Documents.Domain.Document", "PredecessorDocument")
+                        .WithMany()
+                        .HasForeignKey("PredecessorDocumentId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
                     b.Navigation("DocumentType");
+
+                    b.Navigation("PredecessorDocument");
                 });
 
             modelBuilder.Entity("HarborOps.Modules.Documents.Domain.Notification", b =>

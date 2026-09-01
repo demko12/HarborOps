@@ -20,10 +20,46 @@ public sealed class DocumentsController(
     IUploadDocumentFileService uploadDocumentFileService,
     IReplaceDocumentFileService replaceDocumentFileService,
     IGetDocumentFileQuery getDocumentFileQuery,
+    DocumentLifecycleService documentLifecycleService,
     IOptions<DocumentFileValidationOptions> documentFileValidationOptions)
     : ControllerBase
 {
     private const string FileField = "file";
+
+    [HttpPut("{documentId:guid}/metadata")]
+    public async Task<IActionResult> CorrectMetadata(Guid documentId, [FromBody] CorrectDocumentMetadataRequest request, CancellationToken cancellationToken)
+    {
+        try { await documentLifecycleService.CorrectMetadataAsync(documentId, request, cancellationToken); return NoContent(); }
+        catch (DocumentNotFoundException exception) { return NotFound(Problem(exception.Message)); }
+        catch (DocumentTypeNotFoundException exception) { return NotFound(Problem(exception.Message)); }
+        catch (DocumentLifecycleValidationException exception) { return BadRequest(Validation(exception.Errors, StatusCodes.Status400BadRequest)); }
+        catch (DocumentLifecycleConflictException exception) { return Conflict(Validation(new Dictionary<string, string[]> { ["number"] = [exception.Message] }, StatusCodes.Status409Conflict)); }
+    }
+
+    [HttpPost("{documentId:guid}/renewals")]
+    public async Task<ActionResult<object>> Renew(Guid documentId, [FromBody] RenewDocumentRequest request, CancellationToken cancellationToken)
+    {
+        if (!Guid.TryParse(User.FindFirstValue(ClaimTypes.NameIdentifier), out var actorId)) return Unauthorized();
+        try
+        {
+            var successorId = await documentLifecycleService.RenewAsync(documentId, request, actorId, cancellationToken);
+            return Created($"/api/documents/{successorId}", new { documentId = successorId });
+        }
+        catch (DocumentNotFoundException exception) { return NotFound(Problem(exception.Message)); }
+        catch (DocumentTypeNotFoundException exception) { return NotFound(Problem(exception.Message)); }
+        catch (DocumentLifecycleValidationException exception) { return Validation(exception.Errors, StatusCodes.Status400BadRequest); }
+        catch (DocumentLifecycleConflictException exception) { return Validation(new Dictionary<string, string[]> { ["document"] = [exception.Message] }, StatusCodes.Status409Conflict); }
+    }
+
+    [HttpGet("{documentId:guid}/renewal-history")]
+    public async Task<ActionResult<IReadOnlyList<DocumentRenewalHistoryItem>>> RenewalHistory(Guid documentId, CancellationToken cancellationToken)
+    {
+        try { return Ok(await documentLifecycleService.GetHistoryAsync(documentId, cancellationToken)); }
+        catch (DocumentNotFoundException exception) { return NotFound(Problem(exception.Message)); }
+    }
+
+    private static ProblemDetails Problem(string detail) => new() { Status = StatusCodes.Status404NotFound, Title = "Document not found.", Detail = detail };
+    private static HttpValidationProblemDetails Validation(IReadOnlyDictionary<string, string[]> errors, int status) => new(errors) { Status = status, Title = status == 409 ? "Document lifecycle conflict." : "One or more validation errors occurred." };
 
     [HttpGet("expiring")]
     [ProducesResponseType<GetExpiringDocumentsResponse>(StatusCodes.Status200OK)]
