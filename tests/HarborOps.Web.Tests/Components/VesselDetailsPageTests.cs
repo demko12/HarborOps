@@ -48,8 +48,11 @@ public sealed class VesselDetailsPageTests : BunitContext
 
         Assert.Contains("52000", specifications, StringComparison.Ordinal);
         Assert.Contains("29000", specifications, StringComparison.Ordinal);
-        Assert.Contains("Bar", specifications, StringComparison.Ordinal);
-        Assert.Contains("Lloyd's Register", specifications, StringComparison.Ordinal);
+
+        var registration = page.Find("[aria-labelledby='vessel-identity-title']").TextContent;
+
+        Assert.Contains("Bar", registration, StringComparison.Ordinal);
+        Assert.Contains("Lloyd's Register", registration, StringComparison.Ordinal);
     }
 
     [Fact]

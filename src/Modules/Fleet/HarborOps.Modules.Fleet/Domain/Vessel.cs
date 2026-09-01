@@ -117,18 +117,75 @@ internal sealed class Vessel
         UpdatedAtUtc = DateTime.UtcNow;
     }
 
-    internal void UpdateSpecifications(
+    internal bool UpdateRegistryDetails(
+        Guid vesselTypeId,
+        string name,
+        string? mmsi,
+        string? callSign,
+        string flagState,
+        string? portOfRegistry,
+        string? classificationSociety,
+        string? lifecycleStage,
+        string? msmdId,
+        DateTime utcNow)
+    {
+        var changed =
+            VesselTypeId != vesselTypeId
+            || !string.Equals(Name, name, StringComparison.Ordinal)
+            || !string.Equals(Mmsi, mmsi, StringComparison.Ordinal)
+            || !string.Equals(CallSign, callSign, StringComparison.Ordinal)
+            || !string.Equals(FlagState, flagState, StringComparison.Ordinal)
+            || !string.Equals(PortOfRegistry, portOfRegistry, StringComparison.Ordinal)
+            || !string.Equals(ClassificationSociety, classificationSociety, StringComparison.Ordinal)
+            || !string.Equals(LifecycleStage, lifecycleStage, StringComparison.Ordinal)
+            || !string.Equals(MsmdId, msmdId, StringComparison.Ordinal);
+
+        if (!changed)
+        {
+            return false;
+        }
+
+        VesselTypeId = vesselTypeId;
+        Name = name;
+        Mmsi = mmsi;
+        CallSign = callSign;
+        FlagState = flagState;
+        PortOfRegistry = portOfRegistry;
+        ClassificationSociety = classificationSociety;
+        LifecycleStage = lifecycleStage;
+        MsmdId = msmdId;
+        UpdatedAtUtc = utcNow;
+
+        return true;
+    }
+
+    internal bool UpdateSpecifications(
         decimal? dwt,
         decimal? gt,
         decimal? loa,
         decimal? beam,
-        decimal? draft)
+        decimal? draft,
+        DateTime utcNow)
     {
+        var changed =
+            Dwt != dwt
+            || Gt != gt
+            || Loa != loa
+            || Beam != beam
+            || Draft != draft;
+
+        if (!changed)
+        {
+            return false;
+        }
+
         Dwt = dwt;
         Gt = gt;
         Loa = loa;
         Beam = beam;
         Draft = draft;
-        UpdatedAtUtc = DateTime.UtcNow;
+        UpdatedAtUtc = utcNow;
+
+        return true;
     }
 }

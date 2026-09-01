@@ -40,6 +40,11 @@
 			</dl>
 		</header>
 
+		@if (registrySuccessMessage is not null || specificationsSuccessMessage is not null)
+		{
+			<div class="vessel-edit-flash" role="status">@(registrySuccessMessage ?? specificationsSuccessMessage)</div>
+		}
+
 		<div class="vessel-overview-grid">
 			<section class="vessel-details-card vessel-operational-card" aria-labelledby="vessel-operational-title">
 				<div class="vessel-card-heading">
@@ -60,7 +65,14 @@
 			<section class="vessel-details-card vessel-identity-card" aria-labelledby="vessel-identity-title">
 				<div class="vessel-card-heading">
 					<div><p>Registration</p><h2 id="vessel-identity-title">Vessel identity</h2></div>
-					<span class="vessel-card-icon" aria-hidden="true"><span class="bi bi-water"></span></span>
+					@if (CanManageFleet)
+					{
+						<button type="button" class="vessel-card-edit" @onclick="BeginRegistryEdit"><span class="bi bi-pencil" aria-hidden="true"></span>Edit</button>
+					}
+					else
+					{
+						<span class="vessel-card-icon" aria-hidden="true"><span class="bi bi-water"></span></span>
+					}
 				</div>
 				<dl>
 					<div><dt>Name</dt><dd>@details.Name</dd></div>
@@ -69,13 +81,24 @@
 					<div><dt>Call sign</dt><dd>@(details.CallSign ?? "—")</dd></div>
 					<div><dt>Flag state</dt><dd>@details.FlagState</dd></div>
 					<div><dt>Vessel type</dt><dd>@details.VesselTypeName</dd></div>
+					<div><dt>Port of registry</dt><dd>@(details.PortOfRegistry ?? "—")</dd></div>
+					<div><dt>Classification society</dt><dd>@(details.ClassificationSociety ?? "—")</dd></div>
+					<div><dt>Lifecycle stage</dt><dd>@(details.LifecycleStage ?? "—")</dd></div>
+					<div><dt>MSMD identifier</dt><dd>@(details.MsmdId ?? "—")</dd></div>
 				</dl>
 			</section>
 
 			<section class="vessel-details-card vessel-specifications-card" aria-labelledby="vessel-specs-title">
 				<div class="vessel-card-heading">
 					<div><p>Technical profile</p><h2 id="vessel-specs-title">Specifications</h2></div>
-					<span class="vessel-card-icon" aria-hidden="true"><span class="bi bi-rulers"></span></span>
+					@if (CanManageFleet)
+					{
+						<button type="button" class="vessel-card-edit" @onclick="BeginSpecificationsEdit"><span class="bi bi-pencil" aria-hidden="true"></span>Edit</button>
+					}
+					else
+					{
+						<span class="vessel-card-icon" aria-hidden="true"><span class="bi bi-rulers"></span></span>
+					}
 				</div>
 				<dl>
 					<div><dt>DWT</dt><dd>@FormatMeasurement(details.Dwt)</dd></div>
@@ -83,9 +106,6 @@
 					<div><dt>LOA</dt><dd>@FormatMeasurement(details.Loa)</dd></div>
 					<div><dt>Beam</dt><dd>@FormatMeasurement(details.Beam)</dd></div>
 					<div><dt>Draft</dt><dd>@FormatMeasurement(details.Draft)</dd></div>
-					<div><dt>Port of registry</dt><dd>@(details.PortOfRegistry ?? "—")</dd></div>
-					<div><dt>Classification society</dt><dd>@(details.ClassificationSociety ?? "—")</dd></div>
-					<div><dt>Lifecycle stage</dt><dd>@(details.LifecycleStage ?? "—")</dd></div>
 				</dl>
 			</section>
 
@@ -115,6 +135,181 @@
 				@if (assignmentFailure is not null) { <p class="vessel-assignment-error" role="alert">@assignmentFailure.Message</p> }
 			</section>
 		</div>
+
+			@if (CanManageFleet && isEditingRegistry)
+			{
+				<div class="vessel-edit-modal-backdrop" @onclick="CancelRegistryEdit">
+					<div class="vessel-edit-modal" role="dialog" aria-labelledby="vessel-registry-form-title" @onclick:stopPropagation="true">
+						<div class="vessel-edit-modal-head">
+							<div><p>Registry maintenance</p><h2 id="vessel-registry-form-title">Edit registry details</h2></div>
+							<button type="button" class="vessel-edit-modal-close" aria-label="Close" @onclick="CancelRegistryEdit" disabled="@isSavingRegistry">&times;</button>
+						</div>
+
+						@if (registryFailure is { IsValidation: true, Errors.Count: > 0 })
+						{
+							<div class="vessel-status-alert" role="alert">
+								<strong>@registryFailure.Title</strong>
+								<ul>
+									@foreach (var entry in registryFailure.Errors)
+									{
+										@foreach (var message in entry.Value)
+										{
+											<li>@message</li>
+										}
+									}
+								</ul>
+							</div>
+						}
+						else if (registryFailure is { IsConflict: true } or { IsForbidden: true })
+						{
+							<div class="vessel-status-alert" role="alert">
+								<strong>@registryFailure.Title</strong>
+								<p>@registryFailure.Message</p>
+							</div>
+						}
+						else if (registryFailure is not null)
+						{
+							<ApiErrorState Title="@registryFailure.Title" Message="@registryFailure.Message" OnRetry="SubmitRegistryAsync" />
+						}
+
+						<form class="vessel-edit-form" @onsubmit="SubmitRegistryAsync" @onsubmit:preventDefault="true">
+							<div class="vessel-status-field">
+								<label for="vessel-registry-name">Name</label>
+								<input id="vessel-registry-name" @bind="registryForm.Name" maxlength="200" />
+							</div>
+							<div class="vessel-status-field">
+								<label for="vessel-registry-type">Vessel type</label>
+								<select id="vessel-registry-type" @bind="registryForm.VesselTypeId">
+									<option value="">Select a vessel type</option>
+									@foreach (var type in vesselTypes)
+									{
+										<option value="@type.Id">@type.Name</option>
+									}
+								</select>
+							</div>
+							<div class="vessel-status-field">
+								<label for="vessel-registry-mmsi">MMSI</label>
+								<input id="vessel-registry-mmsi" @bind="registryForm.Mmsi" maxlength="20" />
+							</div>
+							<div class="vessel-status-field">
+								<label for="vessel-registry-callsign">Call sign</label>
+								<input id="vessel-registry-callsign" @bind="registryForm.CallSign" maxlength="20" />
+							</div>
+							<div class="vessel-status-field">
+								<label for="vessel-registry-flag">Flag state</label>
+								<input id="vessel-registry-flag" @bind="registryForm.FlagState" maxlength="100" />
+							</div>
+							<div class="vessel-status-field">
+								<label for="vessel-registry-port">Port of registry</label>
+								<input id="vessel-registry-port" @bind="registryForm.PortOfRegistry" maxlength="200" />
+							</div>
+							<div class="vessel-status-field">
+								<label for="vessel-registry-class">Classification society</label>
+								<input id="vessel-registry-class" @bind="registryForm.ClassificationSociety" maxlength="200" />
+							</div>
+							<div class="vessel-status-field">
+								<label for="vessel-registry-lifecycle">Lifecycle stage</label>
+								<input id="vessel-registry-lifecycle" @bind="registryForm.LifecycleStage" maxlength="50" />
+							</div>
+							<div class="vessel-status-field">
+								<label for="vessel-registry-msmd">MSMD identifier</label>
+								<input id="vessel-registry-msmd" @bind="registryForm.MsmdId" maxlength="50" />
+							</div>
+							<dl class="vessel-immutable-facts">
+								<div><dt>IMO number</dt><dd>@details.ImoNumber</dd></div>
+								<div><dt>Company ID</dt><dd>@details.CompanyId</dd></div>
+							</dl>
+							<p class="vessel-immutable-note">IMO number and company cannot be changed here.</p>
+							<div class="vessel-edit-form-actions">
+								<button type="submit" class="vessel-status-button" disabled="@isSavingRegistry">@(isSavingRegistry ? "Saving..." : "Save registry details")</button>
+								<button type="button" class="vessel-edit-cancel" @onclick="CancelRegistryEdit" disabled="@isSavingRegistry">Cancel</button>
+							</div>
+							@if (confirmRegistryCancel)
+							{
+								<div class="vessel-assignment-confirmation" role="alertdialog">
+									<span>Discard your unsaved registry changes?</span>
+									<button type="button" @onclick="CancelRegistryEdit">Discard changes</button>
+									<button type="button" @onclick="KeepEditingRegistry">Keep editing</button>
+								</div>
+							}
+						</form>
+					</div>
+				</div>
+			}
+
+			@if (CanManageFleet && isEditingSpecifications)
+			{
+				<div class="vessel-edit-modal-backdrop" @onclick="CancelSpecificationsEdit">
+					<div class="vessel-edit-modal" role="dialog" aria-labelledby="vessel-specifications-form-title" @onclick:stopPropagation="true">
+						<div class="vessel-edit-modal-head">
+							<div><p>Technical profile</p><h2 id="vessel-specifications-form-title">Edit specifications</h2></div>
+							<button type="button" class="vessel-edit-modal-close" aria-label="Close" @onclick="CancelSpecificationsEdit" disabled="@isSavingSpecifications">&times;</button>
+						</div>
+
+						@if (specificationsFailure is { IsValidation: true, Errors.Count: > 0 })
+						{
+							<div class="vessel-status-alert" role="alert">
+								<strong>@specificationsFailure.Title</strong>
+								<ul>
+									@foreach (var entry in specificationsFailure.Errors)
+									{
+										@foreach (var message in entry.Value)
+										{
+											<li>@message</li>
+										}
+									}
+								</ul>
+							</div>
+						}
+						else if (specificationsFailure is { IsConflict: true } or { IsForbidden: true })
+						{
+							<div class="vessel-status-alert" role="alert">
+								<strong>@specificationsFailure.Title</strong>
+								<p>@specificationsFailure.Message</p>
+							</div>
+						}
+						else if (specificationsFailure is not null)
+						{
+							<ApiErrorState Title="@specificationsFailure.Title" Message="@specificationsFailure.Message" OnRetry="SubmitSpecificationsAsync" />
+						}
+
+						<form class="vessel-edit-form" @onsubmit="SubmitSpecificationsAsync" @onsubmit:preventDefault="true">
+							<div class="vessel-status-field">
+								<label for="vessel-spec-dwt">DWT</label>
+								<input id="vessel-spec-dwt" type="number" step="any" @bind="specificationsForm.Dwt" />
+							</div>
+							<div class="vessel-status-field">
+								<label for="vessel-spec-gt">GT</label>
+								<input id="vessel-spec-gt" type="number" step="any" @bind="specificationsForm.Gt" />
+							</div>
+							<div class="vessel-status-field">
+								<label for="vessel-spec-loa">LOA</label>
+								<input id="vessel-spec-loa" type="number" step="any" @bind="specificationsForm.Loa" />
+							</div>
+							<div class="vessel-status-field">
+								<label for="vessel-spec-beam">Beam</label>
+								<input id="vessel-spec-beam" type="number" step="any" @bind="specificationsForm.Beam" />
+							</div>
+							<div class="vessel-status-field">
+								<label for="vessel-spec-draft">Draft</label>
+								<input id="vessel-spec-draft" type="number" step="any" @bind="specificationsForm.Draft" />
+							</div>
+							<div class="vessel-edit-form-actions">
+								<button type="submit" class="vessel-status-button" disabled="@isSavingSpecifications">@(isSavingSpecifications ? "Saving..." : "Save specifications")</button>
+								<button type="button" class="vessel-edit-cancel" @onclick="CancelSpecificationsEdit" disabled="@isSavingSpecifications">Cancel</button>
+							</div>
+							@if (confirmSpecificationsCancel)
+							{
+								<div class="vessel-assignment-confirmation" role="alertdialog">
+									<span>Discard your unsaved specification changes?</span>
+									<button type="button" @onclick="CancelSpecificationsEdit">Discard changes</button>
+									<button type="button" @onclick="KeepEditingSpecifications">Keep editing</button>
+								</div>
+							}
+						</form>
+					</div>
+				</div>
+			}
 
 			@if (CanManageFleet)
 			{

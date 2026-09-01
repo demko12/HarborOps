@@ -96,6 +96,29 @@ internal sealed class FleetApiClient(HttpClient httpClient)
         }
     }
 
+    internal Task<FleetApiResult<VesselTypesWebModel>> GetVesselTypesAsync(CancellationToken cancellationToken) =>
+        GetAsync<VesselTypesWebModel>("api/fleet/vessel-types", "Unable to load vessel types", cancellationToken);
+
+    internal Task<FleetApiResult<VesselDetailsWebModel>> UpdateVesselRegistryDetailsAsync(
+        Guid vesselId,
+        UpdateVesselRegistryDetailsWebRequest request,
+        CancellationToken cancellationToken) =>
+        PutAsync<UpdateVesselRegistryDetailsWebRequest, VesselDetailsWebModel>(
+            $"api/fleet/vessels/{vesselId}/registry-details",
+            request,
+            "Unable to update the vessel registry details",
+            cancellationToken);
+
+    internal Task<FleetApiResult<VesselDetailsWebModel>> UpdateVesselSpecificationsAsync(
+        Guid vesselId,
+        UpdateVesselSpecificationsWebRequest request,
+        CancellationToken cancellationToken) =>
+        PutAsync<UpdateVesselSpecificationsWebRequest, VesselDetailsWebModel>(
+            $"api/fleet/vessels/{vesselId}/specifications",
+            request,
+            "Unable to update the vessel specifications",
+            cancellationToken);
+
     internal Task<FleetApiResult<FleetDirectoryWebModel>> GetFleetsAsync(string? search, int pageNumber, int pageSize, CancellationToken cancellationToken) =>
         GetAsync<FleetDirectoryWebModel>($"api/fleet/fleets?search={Uri.EscapeDataString(search ?? string.Empty)}&pageNumber={pageNumber}&pageSize={pageSize}", "Unable to load fleets", cancellationToken);
 
@@ -284,6 +307,22 @@ internal sealed class FleetApiClient(HttpClient httpClient)
         try
         {
             using var response = await httpClient.PostAsJsonAsync(path, request, cancellationToken);
+            if (response.IsSuccessStatusCode)
+            {
+                return new FleetApiResult<TResponse>(await response.Content.ReadFromJsonAsync<TResponse>(cancellationToken), null);
+            }
+
+            return new FleetApiResult<TResponse>(null, await ReadFailureAsync(response, fallbackTitle, cancellationToken));
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested) { throw; }
+        catch (HttpRequestException) { return Unavailable<TResponse>(); }
+    }
+
+    private async Task<FleetApiResult<TResponse>> PutAsync<TRequest, TResponse>(string path, TRequest request, string fallbackTitle, CancellationToken cancellationToken) where TResponse : class
+    {
+        try
+        {
+            using var response = await httpClient.PutAsJsonAsync(path, request, cancellationToken);
             if (response.IsSuccessStatusCode)
             {
                 return new FleetApiResult<TResponse>(await response.Content.ReadFromJsonAsync<TResponse>(cancellationToken), null);

@@ -107,6 +107,7 @@ internal sealed record VesselDetailsWebModel(
     string? PortOfRegistry,
     string? ClassificationSociety,
     string? LifecycleStage,
+    string? MsmdId,
     string CurrentStatus,
     DateTime CreatedAtUtc,
     DateTime UpdatedAtUtc,
@@ -124,6 +125,28 @@ internal sealed record VesselStatusHistoryWebModel(
 internal sealed record RecordVesselStatusChangeWebRequest(
     string? Status,
     string? Notes);
+
+internal sealed record UpdateVesselRegistryDetailsWebRequest(
+    Guid? VesselTypeId,
+    string? Name,
+    string? Mmsi,
+    string? CallSign,
+    string? FlagState,
+    string? PortOfRegistry,
+    string? ClassificationSociety,
+    string? LifecycleStage,
+    string? MsmdId);
+
+internal sealed record UpdateVesselSpecificationsWebRequest(
+    decimal? Dwt,
+    decimal? Gt,
+    decimal? Loa,
+    decimal? Beam,
+    decimal? Draft);
+
+internal sealed record VesselTypesWebModel(IReadOnlyList<VesselTypeWebModel> VesselTypes);
+
+internal sealed record VesselTypeWebModel(Guid Id, string Name, string Code);
 
 internal sealed record RecordVesselStatusChangeWebResponse(
     Guid Id,
