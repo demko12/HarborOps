@@ -172,6 +172,22 @@
     box-shadow: var(--card-shadow);
 }
 
+/* Keep the positions workspace on the same dark surface treatment as the
+   dashboard and the other operational pages. */
+html[data-theme="dark"] .positions-filters,
+html[data-theme="dark"] .positions-summary-card,
+html[data-theme="dark"] .positions-map-card,
+html[data-theme="dark"] .positions-card {
+    border-color: rgba(191, 219, 254, .16);
+    background: #15213b;
+    box-shadow: 0 18px 38px rgba(0, 0, 0, .14), inset 0 1px rgba(255, 255, 255, .1);
+}
+
+html[data-theme="dark"] .positions-overview-card {
+    border-color: rgba(191, 219, 254, .16);
+    background: #15213b;
+}
+
 .positions-card-heading {
     display: flex;
     align-items: flex-start;
