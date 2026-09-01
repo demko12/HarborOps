@@ -334,6 +334,35 @@ namespace HarborOps.Infrastructure.Persistence.Migrations
                     b.ToTable("ComplianceCertificates", "compliance");
                 });
 
+            modelBuilder.Entity("HarborOps.Modules.Compliance.Domain.CorrectiveAction", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("ActionText")
+                        .IsRequired()
+                        .HasMaxLength(2000)
+                        .HasColumnType("nvarchar(2000)");
+
+                    b.Property<Guid>("ActorUserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid?>("EvidenceDocumentId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<int>("NonConformityId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTimeOffset>("RecordedAtUtc")
+                        .HasColumnType("datetimeoffset");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("NonConformityId");
+
+                    b.ToTable("CorrectiveActions", "compliance");
+                });
+
             modelBuilder.Entity("HarborOps.Modules.Compliance.Domain.InsurancePolicy", b =>
                 {
                     b.Property<int>("Id")
@@ -401,6 +430,16 @@ namespace HarborOps.Infrastructure.Persistence.Migrations
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
+                    b.Property<DateTimeOffset?>("ClosedAtUtc")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<Guid?>("ClosedByUserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("ClosureNotes")
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
+
                     b.Property<string>("ClosureStatus")
                         .IsRequired()
                         .HasMaxLength(50)
@@ -410,6 +449,9 @@ namespace HarborOps.Infrastructure.Persistence.Migrations
                         .HasColumnType("date");
 
                     b.Property<Guid>("EvidenceDocumentId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid?>("FinalEvidenceDocumentId")
                         .HasColumnType("uniqueidentifier");
 
                     b.Property<DateTime>("PeriodEnd")
@@ -2415,6 +2457,15 @@ namespace HarborOps.Infrastructure.Persistence.Migrations
                         .IsRequired();
                 });
 
+            modelBuilder.Entity("HarborOps.Modules.Compliance.Domain.CorrectiveAction", b =>
+                {
+                    b.HasOne("HarborOps.Modules.Compliance.Domain.NonConformity", null)
+                        .WithMany("CorrectiveActions")
+                        .HasForeignKey("NonConformityId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("HarborOps.Modules.Compliance.Domain.NonConformity", b =>
                 {
                     b.HasOne("HarborOps.Modules.Compliance.Domain.PscInspection", "Psc")
@@ -2722,6 +2773,11 @@ namespace HarborOps.Infrastructure.Persistence.Migrations
                         .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
+                });
+
+            modelBuilder.Entity("HarborOps.Modules.Compliance.Domain.NonConformity", b =>
+                {
+                    b.Navigation("CorrectiveActions");
                 });
 #pragma warning restore 612, 618
         }

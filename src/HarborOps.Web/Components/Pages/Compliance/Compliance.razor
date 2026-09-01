@@ -19,6 +19,7 @@
     <nav class="compliance-tabs workspace-tabs" aria-label="Compliance workspace">
         <NavLink class="workspace-tab" href="/compliance/surveys">Surveys and audits</NavLink>
         <NavLink class="workspace-tab" href="/compliance/insurance-policies">Insurance register</NavLink>
+        <NavLink class="workspace-tab" href="/compliance/non-conformities">Non-conformities</NavLink>
     </nav>
 
     <section class="compliance-selector" aria-label="Vessel selection">
@@ -27,6 +28,11 @@
             <VesselPicker Value="selectedVesselId" ValueChanged="SelectVesselAsync" Disabled="isOverviewLoading" />
         </div>
     </section>
+
+    @if (surveyLookupFailureMessage is not null)
+    {
+        <section class="compliance-card"><div class="compliance-error" role="alert">@surveyLookupFailureMessage</div></section>
+    }
 
     @if (selectedVesselId is null)
     {

@@ -31,6 +31,15 @@ internal sealed class NonConformityConfiguration : IEntityTypeConfiguration<NonC
             .HasMaxLength(NonConformity.ClosureStatusMaxLength)
             .IsRequired();
 
+        builder.Property(n => n.ClosureNotes)
+            .HasMaxLength(NonConformity.ClosureNotesMaxLength);
+
+        builder.Property(n => n.ClosedAtUtc);
+
+        builder.Property(n => n.ClosedByUserId);
+
+        builder.Property(n => n.FinalEvidenceDocumentId);
+
         builder.HasOne(n => n.Survey)
             .WithMany()
             .HasForeignKey(n => n.SurveyId)

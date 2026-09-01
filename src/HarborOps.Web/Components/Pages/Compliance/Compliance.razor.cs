@@ -1,16 +1,21 @@
 using System.ComponentModel.DataAnnotations;
 using HarborOps.Web.Api.Compliance;
+using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Forms;
 
 namespace HarborOps.Web.Components.Pages.Compliance;
 
 public partial class Compliance
 {
+    [SupplyParameterFromQuery(Name = "surveyId")]
+    private int? SurveyIdFromQuery { get; set; }
+
     private Guid? selectedVesselId;
     private ComplianceOverview? overview;
     private ComplianceApiFailure? overviewFailure;
     private bool isOverviewLoading;
     private string? operationSuccess;
+    private string? surveyLookupFailureMessage;
     private CancellationTokenSource? overviewCts;
     private int overviewVersion;
     private bool isCertificateFormOpen;
@@ -46,12 +51,36 @@ public partial class Compliance
     private bool isSubmittingInsurancePolicy;
     private string? insurancePolicyError;
 
-    protected override void OnInitialized()
+    protected override Task OnInitializedAsync()
     {
         ResetCertificateForm();
         ResetPscForm();
         ResetNonConformityForm();
         ResetInsurancePolicyForm();
+
+        return ApplySurveyQueryParameterAsync();
+    }
+
+    private async Task ApplySurveyQueryParameterAsync()
+    {
+        if (SurveyIdFromQuery is not { } surveyId || !AuthorizationState.CanManageCompliance)
+        {
+            return;
+        }
+
+        var result = await ComplianceApi.GetSurveyAsync(surveyId, CancellationToken.None);
+        if (!result.IsSuccess || result.Value is null)
+        {
+            surveyLookupFailureMessage = "The referenced survey could not be loaded.";
+            return;
+        }
+
+        selectedVesselId = result.Value.VesselId;
+        nonConformityModel.SourceType = "Survey";
+        nonConformityModel.SurveyId = surveyId;
+        isNonConformityFormOpen = true;
+
+        await LoadOverviewAsync();
     }
 
     private void OpenCertificateForm()

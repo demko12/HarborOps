@@ -61,6 +61,83 @@ internal sealed class ComplianceApiClient(HttpClient httpClient)
             "Unable to load insurance policies",
             cancellationToken);
 
+    internal Task<ComplianceApiResult<GetNonConformitiesResponse>> GetNonConformitiesAsync(
+        GetNonConformitiesRequest request,
+        CancellationToken cancellationToken) =>
+        SendAsync<GetNonConformitiesResponse>(
+            () => httpClient.GetAsync(
+                $"{BasePath}/non-conformities?{BuildNonConformitiesQuery(request)}",
+                HttpCompletionOption.ResponseHeadersRead,
+                cancellationToken),
+            HttpStatusCode.OK,
+            "Unable to load non-conformities",
+            cancellationToken);
+
+    internal Task<ComplianceApiResult<GetNonConformityDetailResponse>> GetNonConformityDetailAsync(
+        int nonConformityId,
+        CancellationToken cancellationToken) =>
+        SendAsync<GetNonConformityDetailResponse>(
+            () => httpClient.GetAsync(
+                $"{BasePath}/non-conformities/{nonConformityId}",
+                HttpCompletionOption.ResponseHeadersRead,
+                cancellationToken),
+            HttpStatusCode.OK,
+            "Unable to load non-conformity details",
+            cancellationToken);
+
+    internal Task<ComplianceApiResult<RecordCorrectiveActionResult>> RecordCorrectiveActionAsync(
+        int nonConformityId,
+        RecordCorrectiveActionRequest request,
+        CancellationToken cancellationToken) =>
+        SendAsync<RecordCorrectiveActionResult>(
+            () => httpClient.PostAsJsonAsync(
+                $"{BasePath}/non-conformities/{nonConformityId}/corrective-actions", request, cancellationToken),
+            HttpStatusCode.Created,
+            "Unable to record corrective action",
+            cancellationToken);
+
+    internal Task<ComplianceApiResult<CloseNonConformityResult>> CloseNonConformityAsync(
+        int nonConformityId,
+        CloseNonConformityRequest request,
+        CancellationToken cancellationToken) =>
+        SendAsync<CloseNonConformityResult>(
+            () => httpClient.PostAsJsonAsync(
+                $"{BasePath}/non-conformities/{nonConformityId}/close", request, cancellationToken),
+            HttpStatusCode.OK,
+            "Unable to close non-conformity",
+            cancellationToken);
+
+    private static string BuildNonConformitiesQuery(GetNonConformitiesRequest request)
+    {
+        var parameters = new List<string>
+        {
+            $"pageNumber={request.PageNumber}",
+            $"pageSize={request.PageSize}",
+        };
+
+        if (!string.IsNullOrWhiteSpace(request.Search))
+        {
+            parameters.Add($"search={Uri.EscapeDataString(request.Search)}");
+        }
+
+        if (request.Severity is not null)
+        {
+            parameters.Add($"severity={Uri.EscapeDataString(request.Severity)}");
+        }
+
+        if (request.ClosureStatus is not null)
+        {
+            parameters.Add($"closureStatus={Uri.EscapeDataString(request.ClosureStatus)}");
+        }
+
+        if (request.Overdue is not null)
+        {
+            parameters.Add($"overdue={(request.Overdue.Value ? "true" : "false")}");
+        }
+
+        return string.Join("&", parameters);
+    }
+
     private static async Task<ComplianceApiResult<T>> SendAsync<T>(Func<Task<HttpResponseMessage>> send,
         HttpStatusCode successStatus, string defaultTitle, CancellationToken cancellationToken)
         where T : class

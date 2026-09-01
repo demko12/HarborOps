@@ -9,7 +9,6 @@ internal sealed class GetVesselComplianceOverviewQuery(DbContext dbContext, IDat
     : IGetVesselComplianceOverviewQuery
 {
     internal const int MaxItemsPerCollection = 100;
-    private const string OpenClosureStatus = "Open";
 
     public async Task<GetVesselComplianceOverviewResponse> GetAsync(
         GetVesselComplianceOverviewRequest request,
@@ -94,7 +93,7 @@ internal sealed class GetVesselComplianceOverviewQuery(DbContext dbContext, IDat
         var openNonConformities = await dbContext.Set<NonConformity>()
             .AsNoTracking()
             .Where(nonConformity =>
-                nonConformity.ClosureStatus == OpenClosureStatus &&
+                nonConformity.ClosureStatus == NonConformity.ClosureStatusOpen &&
                 ((nonConformity.Psc != null && nonConformity.Psc.VesselId == request.VesselId) ||
                  (nonConformity.Survey != null && nonConformity.Survey.VesselId == request.VesselId)))
             .OrderBy(nonConformity => nonConformity.CorrectiveActionDeadline)
