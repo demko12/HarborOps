@@ -53,8 +53,8 @@
 			{
 				<div class="notifications-dropdown" role="dialog" aria-label="Expiry notifications">
 					<div class="notifications-heading">
-						<strong>Notifications</strong>
-						@if (unreadCount > 0) { <button type="button" @onclick="AcknowledgeAllAsync">Acknowledge all</button> } else { <span>All caught up</span> }
+						<div><strong>Notifications</strong><small>@(unreadCount > 0 ? $"{unreadCount} unread" : "All caught up")</small></div>
+						@if (unreadCount > 0) { <button type="button" @onclick="AcknowledgeAllAsync"><span class="bi bi-check2-all" aria-hidden="true"></span> Clear all</button> }
 					</div>
 					@if (notificationsLoading)
 					{
@@ -69,10 +69,17 @@
 						<div class="notifications-list" aria-live="polite">
 							@foreach (var item in notificationPage.Items.GroupBy(x => x.Severity).OrderBy(x => SeverityRank(x.Key)))
 							{
-								<div class="notification-group">@item.Key</div>
+								<div class="notification-group"><span class="severity-dot severity-@item.Key"></span>@item.Key</div>
 								@foreach (var alert in item)
 								{
-									<div class="notification-item"><a href="@SourceUrl(alert)"><strong>@alert.SourceType expires @alert.ExpiryDate.ToString("dd MMM")</strong><small>@alert.ThresholdDays days remaining</small></a><button type="button" title="Acknowledge" aria-label="Acknowledge notification" @onclick="() => AcknowledgeAsync(alert.NotificationId)"><span class="bi bi-check2" aria-hidden="true"></span></button></div>
+									<div class="notification-item severity-@alert.Severity">
+										<a href="@SourceUrl(alert)">
+											<span class="notification-source">@SourceLabel(alert)</span>
+											<strong>Expires @alert.ExpiryDate.ToString("dd MMM yyyy")</strong>
+											<small><span class="bi bi-clock" aria-hidden="true"></span> @alert.ThresholdDays days remaining</small>
+										</a>
+										<button type="button" title="Acknowledge" aria-label="Acknowledge notification" @onclick="() => AcknowledgeAsync(alert.NotificationId)"><span class="bi bi-check2" aria-hidden="true"></span></button>
+									</div>
 								}
 							}
 						</div>
@@ -253,7 +260,11 @@
 		try { notificationPage = await NotificationsApi.GetAsync("unread", notificationPage?.PageNumber ?? 1, 8, CancellationToken.None); unreadCount = notificationPage?.UnreadCount ?? 0; }
 		catch (OperationCanceledException) { }
 		catch { notificationsError = true; }
-		finally { notificationsLoading = false; }
+		finally
+		{
+			notificationsLoading = false;
+			await InvokeAsync(StateHasChanged);
+		}
 	}
 
 	private async Task AcknowledgeAsync(Guid notificationId)
@@ -269,6 +280,7 @@
 	private async Task PreviousPageAsync() { if (notificationPage is not null && notificationPage.PageNumber > 1) { notificationPage = notificationPage with { PageNumber = notificationPage.PageNumber - 1 }; await LoadNotificationsAsync(); } }
 	private async Task NextPageAsync() { if (notificationPage is not null && notificationPage.PageNumber * notificationPage.PageSize < notificationPage.TotalCount) { notificationPage = notificationPage with { PageNumber = notificationPage.PageNumber + 1 }; await LoadNotificationsAsync(); } }
 	private static int SeverityRank(string severity) => severity switch { "critical" => 0, "warning" => 1, _ => 2 };
+	private static string SourceLabel(NotificationItem item) => item.Capability switch { "documents" => "Vessel document", "crew" => "Crew certificate", "compliance" => "Compliance certificate", _ => item.SourceType };
 	private static string SourceUrl(NotificationItem item) => item.Capability switch { "crew" when item.CrewMemberId is Guid id => $"/crew/{id}", "documents" => "/documents", "compliance" => "/compliance", _ => "/" };
 
 	private void ToggleAccountMenu()
