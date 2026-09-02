@@ -1795,6 +1795,73 @@ namespace HarborOps.Infrastructure.Persistence.Migrations
                     b.ToTable("WorkOrderEquipment", "maintenance");
                 });
 
+            modelBuilder.Entity("HarborOps.Modules.Notifications.Domain.NotificationAcknowledgement", b =>
+                {
+                    b.Property<Guid>("AlertId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("AcknowledgedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("AlertId", "UserId");
+
+                    b.HasIndex("UserId");
+
+                    b.ToTable("Acknowledgements", "notifications");
+                });
+
+            modelBuilder.Entity("HarborOps.Modules.Notifications.Domain.OperationAlert", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Capability")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<Guid?>("CrewMemberId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateOnly>("ExpiryDate")
+                        .HasColumnType("date");
+
+                    b.Property<DateTime>("GeneratedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Severity")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<Guid>("SourceId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("SourceType")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("nvarchar(80)");
+
+                    b.Property<int>("ThresholdDays")
+                        .HasColumnType("int");
+
+                    b.Property<Guid?>("VesselId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Capability", "ExpiryDate");
+
+                    b.HasIndex("SourceId", "ExpiryDate", "ThresholdDays")
+                        .IsUnique();
+
+                    b.ToTable("OperationAlerts", "notifications");
+                });
+
             modelBuilder.Entity("HarborOps.Modules.Voyages.Domain.Berth", b =>
                 {
                     b.Property<Guid>("Id")
@@ -2745,6 +2812,15 @@ namespace HarborOps.Infrastructure.Persistence.Migrations
                         .WithMany()
                         .HasForeignKey("WorkOrderId")
                         .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("HarborOps.Modules.Notifications.Domain.NotificationAcknowledgement", b =>
+                {
+                    b.HasOne("HarborOps.Modules.Notifications.Domain.OperationAlert", null)
+                        .WithMany()
+                        .HasForeignKey("AlertId")
+                        .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
                 });
 

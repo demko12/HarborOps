@@ -30,6 +30,7 @@ public static class CrewModule
             .AddControllers()
             .AddApplicationPart(Assembly);
         services.AddScoped<IGetCrewMemberProfileQuery, GetCrewMemberProfileQuery>();
+        services.AddScoped<IExpiryAlertCandidateQuery, ExpiryAlertCandidateQuery>();
         services.AddScoped<ISearchCrewPositionsQuery, SearchCrewPositionsQuery>();
         services.AddScoped<IGetCrewRotationsQuery, GetCrewRotationsQuery>();
         services.AddScoped<IGetCrewRotationQuery, GetCrewRotationQuery>();

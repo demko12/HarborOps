@@ -6,6 +6,7 @@ using HarborOps.Web.Api;
 using HarborOps.Web.Api.Fleet;
 using HarborOps.Web.Api.Maintenance;
 using HarborOps.Web.Components.Pages.Maintenance;
+using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -812,5 +813,37 @@ public sealed class MaintenancePageTests : BunitContext
             Assert.Contains("HarborOps API is unavailable", page.Markup, StringComparison.Ordinal);
             Assert.NotNull(page.Find(".maintenance-usage-picker .api-error-state button"));
         });
+    }
+
+    [Fact]
+    public void Clicking_a_work_order_row_opens_its_details()
+    {
+        const string workOrderId = "00000000-0000-0000-0000-000000000001";
+        respondToMaintenance = _ => Json(HttpStatusCode.OK, Page(Row(workOrderId, status: "Open")));
+
+        var page = RenderMaintenancePage();
+
+        page.Find(".maintenance-work-order-row").Click();
+
+        Assert.Contains(
+            $"/maintenance/work-orders/{workOrderId}",
+            Services.GetRequiredService<NavigationManager>().Uri,
+            StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Recording_usage_from_a_row_does_not_open_the_details()
+    {
+        respondToMaintenance = _ => Json(
+            HttpStatusCode.OK,
+            Page(Row("00000000-0000-0000-0000-000000000001", status: "Open")));
+
+        var page = RenderMaintenancePage();
+        var navigation = Services.GetRequiredService<NavigationManager>();
+        var before = navigation.Uri;
+
+        page.Find(".maintenance-usage-button").Click();
+
+        Assert.Equal(before, navigation.Uri);
     }
 }

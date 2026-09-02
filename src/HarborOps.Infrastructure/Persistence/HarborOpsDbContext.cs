@@ -7,6 +7,7 @@ using HarborOps.Modules.Fleet;
 using HarborOps.Modules.Fleet.Domain;
 using HarborOps.Modules.Identity;
 using HarborOps.Modules.Maintenance;
+using HarborOps.Modules.Notifications;
 using HarborOps.Modules.Voyages;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
@@ -28,6 +29,7 @@ public sealed class HarborOpsDbContext(DbContextOptions<HarborOpsDbContext> opti
         FleetModule.Assembly,
         IdentityModule.Assembly,
         MaintenanceModule.Assembly,
+        NotificationsModule.Assembly,
         VoyagesModule.Assembly,
     ];
 

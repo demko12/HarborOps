@@ -1554,6 +1554,23 @@ html[data-theme="light"] .maintenance-modal-backdrop .maintenance-form-card {
     text-transform: uppercase;
 }
 
+.maintenance-work-order-row {
+    cursor: pointer;
+}
+
+    .maintenance-work-order-row:hover td {
+        box-shadow: inset 0 1px 0 var(--accent-border), inset 0 -1px 0 var(--accent-border);
+    }
+
+    .maintenance-work-order-row:focus-visible {
+        outline: 2px solid var(--accent);
+        outline-offset: -2px;
+    }
+
+    .maintenance-work-order-row:hover .maintenance-row-chevron {
+        color: var(--accent);
+    }
+
 html[data-theme="light"] .maintenance-page ::deep .maintenance-modal-backdrop {
     background: rgba(15, 23, 42, .24);
 }

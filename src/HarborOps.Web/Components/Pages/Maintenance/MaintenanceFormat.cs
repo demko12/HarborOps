@@ -115,6 +115,7 @@ internal static class MaintenanceFormat
             "endDate" => "End date",
             "actualCost" => "Actual cost",
             "status" => "Status",
+            "technicianId" => "Technician",
             _ => field,
         };
     }
@@ -238,5 +239,35 @@ internal static class MaintenanceFormat
     internal static string ShortPortReference(Guid portId)
     {
         return $"Port {ShortId(portId)}";
+    }
+
+    internal static string ActionLabel(string action)
+    {
+        return action switch
+        {
+            "Start" => "Start work order",
+            "Cancel" => "Cancel work order",
+            "ReplaceEquipment" => "Change equipment",
+            _ => action,
+        };
+    }
+
+    internal static string CompletionDate(DateOnly value)
+    {
+        return value.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
+    }
+
+    internal static string Money(decimal? value)
+    {
+        return value is { } amount
+            ? amount.ToString("N2", CultureInfo.InvariantCulture)
+            : MissingValue;
+    }
+
+    internal static string LaborHours(decimal? value)
+    {
+        return value is { } hours
+            ? hours.ToString("N2", CultureInfo.InvariantCulture)
+            : MissingValue;
     }
 }

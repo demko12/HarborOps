@@ -21,6 +21,7 @@ public static class ComplianceModule
         services.AddScoped<InsurancePolicyService>();
         services.AddScoped<SurveyAuditService>();
         services.AddScoped<IGetVesselComplianceOverviewQuery, GetVesselComplianceOverviewQuery>();
+        services.AddScoped<IExpiryAlertCandidateQuery, ExpiryAlertCandidateQuery>();
         services.AddScoped<IOperationsDashboardComplianceQuery, OperationsDashboardComplianceQuery>();
         services.TryAddSingleton<IDateTimeProvider, SystemDateTimeProvider>();
         services.AddScoped<IReportsComplianceExposureQuery, ReportsComplianceExposureQuery>();

@@ -2,6 +2,7 @@
 @inject CurrentUserAuthorizationState AuthorizationState
 @inject IHttpContextAccessor HttpContextAccessor
 @inject Microsoft.AspNetCore.Antiforgery.IAntiforgery Antiforgery
+@inject NotificationsApiClient NotificationsApi
 @implements IDisposable
 
 <header class="app-topbar">
@@ -41,24 +42,48 @@
 
 	<div class="app-topbar-right">
 		<div class="notifications-menu">
-			<button class="icon-btn" type="button" title="Notifications" aria-expanded="@showNotifications" @onclick="ToggleNotifications">
+			<button class="icon-btn" type="button" title="Notifications" aria-label="Notifications (@unreadCount unread)" aria-expanded="@showNotifications" @onclick="ToggleNotifications">
 				<span class="bi bi-bell"></span>
-				@if (HasCriticalAlerts)
+				@if (unreadCount > 0)
 				{
-					<span class="icon-dot"></span>
+					<span class="notification-count">@unreadCount</span>
 				}
 			</button>
 			@if (showNotifications)
 			{
-				<div class="notifications-dropdown" role="status">
+				<div class="notifications-dropdown" role="dialog" aria-label="Expiry notifications">
 					<div class="notifications-heading">
 						<strong>Notifications</strong>
-						<span>All caught up</span>
+						@if (unreadCount > 0) { <button type="button" @onclick="AcknowledgeAllAsync">Acknowledge all</button> } else { <span>All caught up</span> }
 					</div>
+					@if (notificationsLoading)
+					{
+						<div class="notifications-empty" role="status"><span class="spinner-border spinner-border-sm" aria-hidden="true"></span><p><strong>Loading notifications</strong></p></div>
+					}
+					else if (notificationsError)
+					{
+						<div class="notifications-empty" role="alert"><span class="bi bi-exclamation-triangle" aria-hidden="true"></span><p><strong>Couldn't load notifications</strong><button type="button" @onclick="LoadNotificationsAsync">Try again</button></p></div>
+					}
+					else if (notificationPage?.Items.Count > 0)
+					{
+						<div class="notifications-list" aria-live="polite">
+							@foreach (var item in notificationPage.Items.GroupBy(x => x.Severity).OrderBy(x => SeverityRank(x.Key)))
+							{
+								<div class="notification-group">@item.Key</div>
+								@foreach (var alert in item)
+								{
+									<div class="notification-item"><a href="@SourceUrl(alert)"><strong>@alert.SourceType expires @alert.ExpiryDate.ToString("dd MMM")</strong><small>@alert.ThresholdDays days remaining</small></a><button type="button" title="Acknowledge" aria-label="Acknowledge notification" @onclick="() => AcknowledgeAsync(alert.NotificationId)"><span class="bi bi-check2" aria-hidden="true"></span></button></div>
+								}
+							}
+						</div>
+						@if (notificationPage.TotalCount > notificationPage.PageSize) { <div class="notifications-pagination"><button disabled="@(notificationPage.PageNumber == 1)" @onclick="PreviousPageAsync">Previous</button><span>Page @notificationPage.PageNumber</span><button disabled="@(notificationPage.PageNumber * notificationPage.PageSize >= notificationPage.TotalCount)" @onclick="NextPageAsync">Next</button></div> }
+					}
+					else
+					{
 					<div class="notifications-empty">
 						<span class="bi bi-bell-slash" aria-hidden="true"></span>
 						<p><strong>No notifications yet</strong><small>Operational updates and alerts will appear here.</small></p>
-					</div>
+					</div>}
 				</div>
 			}
 		</div>
@@ -181,7 +206,10 @@
 }
 
 @code {
-	private bool HasCriticalAlerts => false;
+	private int unreadCount;
+	private NotificationsPage? notificationPage;
+	private bool notificationsLoading;
+	private bool notificationsError;
 	private bool mobileMenuOpen = false;
 	private bool showLogoutConfirmation;
 	private bool showAccountMenu;
@@ -204,6 +232,7 @@
 		if (firstRender)
 		{
 			await JS.InvokeVoidAsync("headerScrollInterop.initialize");
+			await LoadNotificationsAsync();
 		}
 	}
 
@@ -211,11 +240,36 @@
 
 	private void ToggleMobileMenu() => mobileMenuOpen = !mobileMenuOpen;
 	private void CloseMobileMenu() => mobileMenuOpen = false;
-	private void ToggleNotifications()
+	private async Task ToggleNotifications()
 	{
 		showNotifications = !showNotifications;
 		showAccountMenu = false;
+		if (showNotifications) await LoadNotificationsAsync();
 	}
+
+	private async Task LoadNotificationsAsync()
+	{
+		notificationsLoading = true; notificationsError = false;
+		try { notificationPage = await NotificationsApi.GetAsync("unread", notificationPage?.PageNumber ?? 1, 8, CancellationToken.None); unreadCount = notificationPage?.UnreadCount ?? 0; }
+		catch (OperationCanceledException) { }
+		catch { notificationsError = true; }
+		finally { notificationsLoading = false; }
+	}
+
+	private async Task AcknowledgeAsync(Guid notificationId)
+	{
+		try { await NotificationsApi.AcknowledgeAsync(notificationId, CancellationToken.None); await LoadNotificationsAsync(); } catch { notificationsError = true; }
+	}
+
+	private async Task AcknowledgeAllAsync()
+	{
+		try { await NotificationsApi.AcknowledgeAllAsync(CancellationToken.None); await LoadNotificationsAsync(); } catch { notificationsError = true; }
+	}
+
+	private async Task PreviousPageAsync() { if (notificationPage is not null && notificationPage.PageNumber > 1) { notificationPage = notificationPage with { PageNumber = notificationPage.PageNumber - 1 }; await LoadNotificationsAsync(); } }
+	private async Task NextPageAsync() { if (notificationPage is not null && notificationPage.PageNumber * notificationPage.PageSize < notificationPage.TotalCount) { notificationPage = notificationPage with { PageNumber = notificationPage.PageNumber + 1 }; await LoadNotificationsAsync(); } }
+	private static int SeverityRank(string severity) => severity switch { "critical" => 0, "warning" => 1, _ => 2 };
+	private static string SourceUrl(NotificationItem item) => item.Capability switch { "crew" when item.CrewMemberId is Guid id => $"/crew/{id}", "documents" => "/documents", "compliance" => "/compliance", _ => "/" };
 
 	private void ToggleAccountMenu()
 	{
