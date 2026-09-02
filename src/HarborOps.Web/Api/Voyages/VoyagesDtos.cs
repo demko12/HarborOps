@@ -230,3 +230,55 @@ internal sealed record RecordedDelay(
     string? Description,
     int Duration,
     DateTime CreatedAt);
+
+internal sealed record AmendVoyageScheduleWebRequest(
+    Guid? RouteId,
+    Guid? DeparturePortId,
+    Guid? ArrivalPortId,
+    DateTime? PlannedDepartureUtc,
+    DateTime? PlannedArrivalUtc,
+    string? Reason);
+
+internal sealed record CancelVoyageWebRequest(string? Reason);
+
+internal sealed record VoyageScheduleSummaryModel(
+    Guid VoyageId,
+    string VoyageNumber,
+    string Status,
+    Guid? RouteId,
+    string? RouteName,
+    Guid? DeparturePortId,
+    string? DeparturePortName,
+    Guid? ArrivalPortId,
+    string? ArrivalPortName,
+    DateTime PlannedDeparture,
+    DateTime PlannedArrival);
+
+internal sealed record VoyageScheduleChangeModel(
+    Guid ChangeId,
+    string ChangeType,
+    string Reason,
+    Guid ChangedByUserId,
+    DateTime ChangedAtUtc,
+    string PreviousStatus,
+    string NewStatus,
+    Guid? PreviousRouteId,
+    string? PreviousRouteName,
+    Guid? NewRouteId,
+    string? NewRouteName,
+    Guid? PreviousDeparturePortId,
+    string? PreviousDeparturePortName,
+    Guid? NewDeparturePortId,
+    string? NewDeparturePortName,
+    Guid? PreviousArrivalPortId,
+    string? PreviousArrivalPortName,
+    Guid? NewArrivalPortId,
+    string? NewArrivalPortName,
+    DateTime PreviousPlannedDeparture,
+    DateTime NewPlannedDeparture,
+    DateTime PreviousPlannedArrival,
+    DateTime NewPlannedArrival);
+
+internal sealed record VoyageSchedule(
+    VoyageScheduleSummaryModel Voyage,
+    IReadOnlyList<VoyageScheduleChangeModel> Changes);

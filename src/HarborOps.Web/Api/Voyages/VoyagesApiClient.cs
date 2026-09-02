@@ -269,6 +269,42 @@ internal sealed class VoyagesApiClient(HttpClient httpClient)
             cancellationToken);
     }
 
+    internal Task<VoyagesApiResult<VoyageSchedule>> GetScheduleChangesAsync(
+        Guid voyageId,
+        CancellationToken cancellationToken)
+    {
+        return GetAsync<VoyageSchedule>(
+            $"{BasePath}/{voyageId}/schedule-changes",
+            "Unable to load the schedule changes",
+            cancellationToken);
+    }
+
+    internal Task<VoyagesApiResult<VoyageSchedule>> AmendScheduleAsync(
+        Guid voyageId,
+        AmendVoyageScheduleWebRequest request,
+        CancellationToken cancellationToken)
+    {
+        return SendAsync<VoyageSchedule>(
+            HttpMethod.Put,
+            $"{BasePath}/{voyageId}/schedule",
+            request,
+            "Unable to amend the voyage schedule",
+            cancellationToken);
+    }
+
+    internal Task<VoyagesApiResult<VoyageSchedule>> CancelVoyageAsync(
+        Guid voyageId,
+        CancelVoyageWebRequest request,
+        CancellationToken cancellationToken)
+    {
+        return SendAsync<VoyageSchedule>(
+            HttpMethod.Post,
+            $"{BasePath}/{voyageId}/cancel",
+            request,
+            "Unable to cancel the voyage",
+            cancellationToken);
+    }
+
     private async Task<VoyagesApiResult<T>> GetAsync<T>(
         string path,
         string failureTitle,
@@ -317,7 +353,17 @@ internal sealed class VoyagesApiClient(HttpClient httpClient)
         }
     }
 
-    private async Task<VoyagesApiResult<T>> PostAsync<T>(
+    private Task<VoyagesApiResult<T>> PostAsync<T>(
+        string path,
+        object request,
+        string failureTitle,
+        CancellationToken cancellationToken)
+    {
+        return SendAsync<T>(HttpMethod.Post, path, request, failureTitle, cancellationToken);
+    }
+
+    private async Task<VoyagesApiResult<T>> SendAsync<T>(
+        HttpMethod method,
         string path,
         object request,
         string failureTitle,
@@ -325,7 +371,11 @@ internal sealed class VoyagesApiClient(HttpClient httpClient)
     {
         try
         {
-            using var response = await httpClient.PostAsJsonAsync(path, request, cancellationToken);
+            using var message = new HttpRequestMessage(method, path)
+            {
+                Content = JsonContent.Create(request),
+            };
+            using var response = await httpClient.SendAsync(message, cancellationToken);
 
             if (response.IsSuccessStatusCode)
             {

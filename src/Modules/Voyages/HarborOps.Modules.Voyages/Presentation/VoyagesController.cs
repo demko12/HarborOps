@@ -1,3 +1,4 @@
+using System.Security.Claims;
 using HarborOps.Modules.Voyages.Application;
 using HarborOps.Modules.Voyages.Contracts;
 using HarborOps.Modules.Voyages.Domain;
@@ -19,7 +20,10 @@ public sealed class VoyagesController(
     AssignBerthService assignBerthService,
     RecordStopArrivalService recordStopArrivalService,
     RecordStopDepartureService recordStopDepartureService,
-    RecordDelayService recordDelayService)
+    RecordDelayService recordDelayService,
+    AmendVoyageScheduleService amendVoyageScheduleService,
+    CancelVoyageService cancelVoyageService,
+    IGetVoyageScheduleChangesQuery getVoyageScheduleChangesQuery)
     : ControllerBase
 {
     private const string ManageVoyagesPolicy = "voyages.manage";
@@ -542,6 +546,161 @@ public sealed class VoyagesController(
             });
         }
     }
+
+    [HttpPut("{voyageId:guid}/schedule")]
+    [Authorize(ManageVoyagesPolicy)]
+    [ProducesResponseType<VoyageScheduleResponse>(StatusCodes.Status200OK)]
+    [ProducesResponseType<HttpValidationProblemDetails>(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]
+    public async Task<ActionResult<VoyageScheduleResponse>> AmendSchedule(
+        Guid voyageId,
+        [FromBody] AmendVoyageScheduleRequest request,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            var response = await amendVoyageScheduleService.AmendAsync(
+                voyageId,
+                GetActingUserId(),
+                request,
+                cancellationToken);
+
+            return Ok(response);
+        }
+        catch (AmendVoyageScheduleValidationException exception)
+        {
+            return BadRequest(ToValidationProblem(exception.Errors));
+        }
+        catch (VoyageNotFoundException exception)
+        {
+            return NotFound(new ProblemDetails
+            {
+                Status = StatusCodes.Status404NotFound,
+                Title = "The requested voyage was not found.",
+                Detail = exception.Message,
+            });
+        }
+        catch (PortNotFoundException exception)
+        {
+            return NotFound(new ProblemDetails
+            {
+                Status = StatusCodes.Status404NotFound,
+                Title = "The requested port was not found.",
+                Detail = exception.Message,
+            });
+        }
+        catch (RouteNotFoundException exception)
+        {
+            return NotFound(new ProblemDetails
+            {
+                Status = StatusCodes.Status404NotFound,
+                Title = "The requested route was not found.",
+                Detail = exception.Message,
+            });
+        }
+        catch (VoyageRouteEndpointMismatchException exception)
+        {
+            return Conflict(new ProblemDetails
+            {
+                Status = StatusCodes.Status409Conflict,
+                Title = "The route does not connect the requested ports.",
+                Detail = exception.Message,
+            });
+        }
+        catch (VoyageScheduleNotAmendableException exception)
+        {
+            return Conflict(new ProblemDetails
+            {
+                Status = StatusCodes.Status409Conflict,
+                Title = "The voyage schedule cannot be changed from its current status.",
+                Detail = exception.Message,
+            });
+        }
+        catch (VoyageScheduleUnchangedException exception)
+        {
+            return Conflict(new ProblemDetails
+            {
+                Status = StatusCodes.Status409Conflict,
+                Title = "The voyage schedule is unchanged.",
+                Detail = exception.Message,
+            });
+        }
+    }
+
+    [HttpPost("{voyageId:guid}/cancel")]
+    [Authorize(ManageVoyagesPolicy)]
+    [ProducesResponseType<VoyageScheduleResponse>(StatusCodes.Status200OK)]
+    [ProducesResponseType<HttpValidationProblemDetails>(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]
+    public async Task<ActionResult<VoyageScheduleResponse>> Cancel(
+        Guid voyageId,
+        [FromBody] CancelVoyageRequest request,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            var response = await cancelVoyageService.CancelAsync(
+                voyageId,
+                GetActingUserId(),
+                request,
+                cancellationToken);
+
+            return Ok(response);
+        }
+        catch (CancelVoyageValidationException exception)
+        {
+            return BadRequest(ToValidationProblem(exception.Errors));
+        }
+        catch (VoyageNotFoundException exception)
+        {
+            return NotFound(new ProblemDetails
+            {
+                Status = StatusCodes.Status404NotFound,
+                Title = "The requested voyage was not found.",
+                Detail = exception.Message,
+            });
+        }
+        catch (VoyageScheduleNotAmendableException exception)
+        {
+            return Conflict(new ProblemDetails
+            {
+                Status = StatusCodes.Status409Conflict,
+                Title = "The voyage cannot be cancelled from its current status.",
+                Detail = exception.Message,
+            });
+        }
+    }
+
+    [HttpGet("{voyageId:guid}/schedule-changes")]
+    [Authorize(ReadVoyagesPolicy)]
+    [ProducesResponseType<VoyageScheduleResponse>(StatusCodes.Status200OK)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<VoyageScheduleResponse>> GetScheduleChanges(
+        Guid voyageId,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            var response = await getVoyageScheduleChangesQuery.GetScheduleChangesAsync(
+                voyageId,
+                cancellationToken);
+
+            return Ok(response);
+        }
+        catch (VoyageNotFoundException exception)
+        {
+            return NotFound(new ProblemDetails
+            {
+                Status = StatusCodes.Status404NotFound,
+                Title = "The requested voyage was not found.",
+                Detail = exception.Message,
+            });
+        }
+    }
+
+    private Guid GetActingUserId() => Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
 
     private static HttpValidationProblemDetails ToValidationProblem(
         IReadOnlyDictionary<string, string[]> errors)

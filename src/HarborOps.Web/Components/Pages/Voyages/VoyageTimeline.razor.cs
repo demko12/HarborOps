@@ -13,6 +13,11 @@ public partial class VoyageTimeline : IDisposable
     internal const string DepartedStatus = "Departed";
     internal const string MissingValue = "—";
 
+    internal const string InProgressVoyageStatus = "InProgress";
+    internal const string CompletedVoyageStatus = "Completed";
+    internal const string CancelledVoyageStatus = "Cancelled";
+    internal const string CancelledChangeType = "Cancelled";
+
     internal const string ManageVoyagesPermission = "voyages.manage";
 
     internal const string BerthActionKind = "berth";
@@ -64,6 +69,27 @@ public partial class VoyageTimeline : IDisposable
     private VoyagesApiFailure? delayFailure;
     private string? delaySuccess;
     private bool isSubmittingDelay;
+
+    private VoyageSchedule? schedule;
+    private VoyagesApiFailure? scheduleFailure;
+    private string? scheduleSuccess;
+
+    private bool isAmendModalOpen;
+    private Guid? amendDeparturePortId;
+    private Guid? amendArrivalPortId;
+    private Guid? amendRouteId;
+    private DateOnly amendDepartureDate = DateOnly.FromDateTime(DateTime.UtcNow);
+    private TimeOnly amendDepartureTime;
+    private DateOnly amendArrivalDate = DateOnly.FromDateTime(DateTime.UtcNow);
+    private TimeOnly amendArrivalTime;
+    private string amendReason = string.Empty;
+    private VoyagesApiFailure? amendFailure;
+    private bool isSubmittingAmend;
+
+    private bool isCancelModalOpen;
+    private string cancelReason = string.Empty;
+    private VoyagesApiFailure? cancelFailure;
+    private bool isSubmittingCancel;
 
     internal static string FormatUtc(DateTime? value)
     {
@@ -190,6 +216,41 @@ public partial class VoyageTimeline : IDisposable
         }
 
         itinerary = result.Value;
+
+        await LoadScheduleAsync();
+    }
+
+    private async Task LoadScheduleAsync()
+    {
+        var requestedVoyageId = VoyageId;
+        scheduleFailure = null;
+
+        VoyagesApiResult<VoyageSchedule> result;
+        try
+        {
+            result = await VoyagesApi.GetScheduleChangesAsync(
+                requestedVoyageId,
+                disposeCancellation.Token);
+        }
+        catch (OperationCanceledException) when (disposeCancellation.IsCancellationRequested)
+        {
+            return;
+        }
+
+        if (disposeCancellation.IsCancellationRequested || requestedVoyageId != VoyageId)
+        {
+            return;
+        }
+
+        if (!result.IsSuccess)
+        {
+            scheduleFailure = result.Failure;
+            schedule = null;
+
+            return;
+        }
+
+        schedule = result.Value;
     }
 
     private async Task CopyVoyageIdAsync()
@@ -396,6 +457,220 @@ public partial class VoyageTimeline : IDisposable
             isSubmittingDelay = false;
         }
     }
+
+    internal static bool CanAmendSchedule(string voyageStatus)
+    {
+        return string.Equals(voyageStatus, PlannedStatus, StringComparison.Ordinal);
+    }
+
+    internal static string VoyageStatusModifier(string voyageStatus)
+    {
+        return voyageStatus switch
+        {
+            InProgressVoyageStatus => "in-progress",
+            CompletedVoyageStatus => "completed",
+            CancelledVoyageStatus => "cancelled",
+            _ => "planned",
+        };
+    }
+
+    internal static string ChangeTypeModifier(string changeType)
+    {
+        return string.Equals(changeType, CancelledChangeType, StringComparison.Ordinal)
+            ? "cancelled"
+            : "amended";
+    }
+
+    internal static string FormatActor(Guid actorId)
+    {
+        return actorId.ToString("D", CultureInfo.InvariantCulture)[..8];
+    }
+
+    internal static IReadOnlyList<ScheduleChangeField> ChangedFields(VoyageScheduleChangeModel change)
+    {
+        ArgumentNullException.ThrowIfNull(change);
+
+        var fields = new List<ScheduleChangeField>();
+
+        AddIfChanged(fields, "Status", change.PreviousStatus, change.NewStatus);
+        AddIfChanged(
+            fields,
+            "Departure port",
+            FormatReference(change.PreviousDeparturePortId, change.PreviousDeparturePortName),
+            FormatReference(change.NewDeparturePortId, change.NewDeparturePortName));
+        AddIfChanged(
+            fields,
+            "Arrival port",
+            FormatReference(change.PreviousArrivalPortId, change.PreviousArrivalPortName),
+            FormatReference(change.NewArrivalPortId, change.NewArrivalPortName));
+        AddIfChanged(
+            fields,
+            "Route",
+            FormatReference(change.PreviousRouteId, change.PreviousRouteName),
+            FormatReference(change.NewRouteId, change.NewRouteName));
+        AddIfChanged(
+            fields,
+            "Planned departure",
+            FormatUtc(change.PreviousPlannedDeparture),
+            FormatUtc(change.NewPlannedDeparture));
+        AddIfChanged(
+            fields,
+            "Planned arrival",
+            FormatUtc(change.PreviousPlannedArrival),
+            FormatUtc(change.NewPlannedArrival));
+
+        return fields;
+    }
+
+    private static void AddIfChanged(
+        List<ScheduleChangeField> fields,
+        string label,
+        string previousValue,
+        string newValue)
+    {
+        if (!string.Equals(previousValue, newValue, StringComparison.Ordinal))
+        {
+            fields.Add(new ScheduleChangeField(label, previousValue, newValue));
+        }
+    }
+
+    private static string FormatReference(Guid? id, string? name)
+    {
+        return id is null ? MissingValue : name ?? MissingValue;
+    }
+
+    private void OpenAmendModal()
+    {
+        if (schedule is null)
+        {
+            return;
+        }
+
+        isAmendModalOpen = true;
+        amendFailure = null;
+        scheduleSuccess = null;
+        amendDeparturePortId = schedule.Voyage.DeparturePortId;
+        amendArrivalPortId = schedule.Voyage.ArrivalPortId;
+        amendRouteId = schedule.Voyage.RouteId;
+        amendDepartureDate = DateOnly.FromDateTime(schedule.Voyage.PlannedDeparture);
+        amendDepartureTime = TimeOnly.FromTimeSpan(schedule.Voyage.PlannedDeparture.TimeOfDay);
+        amendArrivalDate = DateOnly.FromDateTime(schedule.Voyage.PlannedArrival);
+        amendArrivalTime = TimeOnly.FromTimeSpan(schedule.Voyage.PlannedArrival.TimeOfDay);
+        amendReason = string.Empty;
+    }
+
+    private void CloseAmendModal()
+    {
+        isAmendModalOpen = false;
+        amendFailure = null;
+    }
+
+    private async Task SubmitAmendAsync()
+    {
+        if (isSubmittingAmend)
+        {
+            return;
+        }
+
+        isSubmittingAmend = true;
+        amendFailure = null;
+
+        try
+        {
+            var request = new AmendVoyageScheduleWebRequest(
+                amendRouteId,
+                amendDeparturePortId,
+                amendArrivalPortId,
+                CombineUtc(amendDepartureDate, amendDepartureTime),
+                CombineUtc(amendArrivalDate, amendArrivalTime),
+                amendReason);
+
+            var result = await VoyagesApi.AmendScheduleAsync(
+                VoyageId,
+                request,
+                disposeCancellation.Token);
+
+            if (disposeCancellation.IsCancellationRequested)
+            {
+                return;
+            }
+
+            if (!result.IsSuccess)
+            {
+                amendFailure = result.Failure;
+
+                return;
+            }
+
+            isAmendModalOpen = false;
+            scheduleSuccess = "Schedule amended.";
+
+            await LoadAsync();
+        }
+        finally
+        {
+            isSubmittingAmend = false;
+        }
+    }
+
+    private void OpenCancelModal()
+    {
+        isCancelModalOpen = true;
+        cancelFailure = null;
+        scheduleSuccess = null;
+        cancelReason = string.Empty;
+    }
+
+    private void CloseCancelModal()
+    {
+        isCancelModalOpen = false;
+        cancelFailure = null;
+    }
+
+    private async Task SubmitCancelAsync()
+    {
+        if (isSubmittingCancel)
+        {
+            return;
+        }
+
+        isSubmittingCancel = true;
+        cancelFailure = null;
+
+        try
+        {
+            var result = await VoyagesApi.CancelVoyageAsync(
+                VoyageId,
+                new CancelVoyageWebRequest(cancelReason),
+                disposeCancellation.Token);
+
+            if (disposeCancellation.IsCancellationRequested)
+            {
+                return;
+            }
+
+            if (!result.IsSuccess)
+            {
+                cancelFailure = result.Failure;
+
+                return;
+            }
+
+            isCancelModalOpen = false;
+            scheduleSuccess = "Voyage cancelled.";
+
+            await LoadAsync();
+        }
+        finally
+        {
+            isSubmittingCancel = false;
+        }
+    }
+
+    internal sealed record ScheduleChangeField(
+        string Label,
+        string PreviousValue,
+        string NewValue);
 
     private void OpenItineraryModal()
     {

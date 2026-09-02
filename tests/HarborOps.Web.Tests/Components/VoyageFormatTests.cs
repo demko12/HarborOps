@@ -58,6 +58,7 @@ public sealed class VoyageFormatTests
     [InlineData(Voyages.PlannedStatus, 1, "planned")]
     [InlineData(Voyages.InProgressStatus, 2, "in-progress")]
     [InlineData(Voyages.CompletedStatus, 3, "completed")]
+    [InlineData(Voyages.CancelledStatus, 0, "cancelled")]
     public void Status_renders_its_lifecycle_step_and_modifier(
         string status,
         int expectedStep,
@@ -70,8 +71,8 @@ public sealed class VoyageFormatTests
     [Fact]
     public void Unknown_status_falls_back_to_the_first_step()
     {
-        Assert.Equal(1, Voyages.StatusStep("Cancelled"));
-        Assert.Equal("planned", Voyages.StatusModifier("Cancelled"));
+        Assert.Equal(1, Voyages.StatusStep("Rescheduled"));
+        Assert.Equal("planned", Voyages.StatusModifier("Rescheduled"));
     }
 
     [Fact]

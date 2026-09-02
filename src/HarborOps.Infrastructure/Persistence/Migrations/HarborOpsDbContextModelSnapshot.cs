@@ -2205,6 +2205,89 @@ namespace HarborOps.Infrastructure.Persistence.Migrations
                     b.ToTable("VoyageLegs", "voyages");
                 });
 
+            modelBuilder.Entity("HarborOps.Modules.Voyages.Domain.VoyageScheduleChange", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("ChangeType")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("nvarchar(30)");
+
+                    b.Property<DateTime>("ChangedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid>("ChangedByUserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid?>("NewArrivalPortId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid?>("NewDeparturePortId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("NewPlannedArrival")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime>("NewPlannedDeparture")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("NewRouteId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("NewStatus")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("nvarchar(30)");
+
+                    b.Property<Guid?>("PreviousArrivalPortId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid?>("PreviousDeparturePortId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("PreviousPlannedArrival")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime>("PreviousPlannedDeparture")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("PreviousRouteId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("PreviousStatus")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("nvarchar(30)");
+
+                    b.Property<string>("Reason")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<Guid>("VoyageId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("NewArrivalPortId");
+
+                    b.HasIndex("NewDeparturePortId");
+
+                    b.HasIndex("NewRouteId");
+
+                    b.HasIndex("PreviousArrivalPortId");
+
+                    b.HasIndex("PreviousDeparturePortId");
+
+                    b.HasIndex("PreviousRouteId");
+
+                    b.HasIndex("VoyageId", "ChangedAtUtc");
+
+                    b.ToTable("VoyageScheduleChanges", "voyages");
+                });
+
             modelBuilder.Entity("HarborOps.Modules.Voyages.Domain.VoyageStop", b =>
                 {
                     b.Property<Guid>("Id")
@@ -2749,6 +2832,45 @@ namespace HarborOps.Infrastructure.Persistence.Migrations
                         .HasForeignKey("ToStopId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
+
+                    b.HasOne("HarborOps.Modules.Voyages.Domain.Voyage", null)
+                        .WithMany()
+                        .HasForeignKey("VoyageId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("HarborOps.Modules.Voyages.Domain.VoyageScheduleChange", b =>
+                {
+                    b.HasOne("HarborOps.Modules.Voyages.Domain.Port", null)
+                        .WithMany()
+                        .HasForeignKey("NewArrivalPortId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("HarborOps.Modules.Voyages.Domain.Port", null)
+                        .WithMany()
+                        .HasForeignKey("NewDeparturePortId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("HarborOps.Modules.Voyages.Domain.Route", null)
+                        .WithMany()
+                        .HasForeignKey("NewRouteId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("HarborOps.Modules.Voyages.Domain.Port", null)
+                        .WithMany()
+                        .HasForeignKey("PreviousArrivalPortId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("HarborOps.Modules.Voyages.Domain.Port", null)
+                        .WithMany()
+                        .HasForeignKey("PreviousDeparturePortId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("HarborOps.Modules.Voyages.Domain.Route", null)
+                        .WithMany()
+                        .HasForeignKey("PreviousRouteId")
+                        .OnDelete(DeleteBehavior.Restrict);
 
                     b.HasOne("HarborOps.Modules.Voyages.Domain.Voyage", null)
                         .WithMany()

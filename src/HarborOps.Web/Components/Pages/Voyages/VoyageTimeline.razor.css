@@ -527,3 +527,62 @@ html[data-theme="light"] .timeline-itinerary-field input { color-scheme: light; 
     .timeline-itinerary-stop { grid-template-columns: minmax(0, 1fr); }
     .timeline-itinerary-order { justify-items: start; height: auto; }
 }
+
+.timeline-status.in-progress { color: var(--status-warning); background: rgba(251, 191, 36, .14); }
+.timeline-status.completed { color: #5eead4; background: rgba(45, 212, 191, .14); }
+.timeline-status.cancelled { color: var(--status-danger, #f87171); background: rgba(248, 113, 113, .14); }
+.timeline-status.amended { color: var(--status-info); background: rgba(96, 165, 250, .14); }
+
+html[data-theme="light"] .timeline-status.in-progress { color: var(--status-warning-strong); background: rgba(180, 83, 9, .14); }
+html[data-theme="light"] .timeline-status.completed { color: var(--status-success-strong); background: rgba(15, 118, 110, .14); }
+html[data-theme="light"] .timeline-status.cancelled { color: #b91c1c; background: rgba(185, 28, 28, .1); }
+html[data-theme="light"] .timeline-status.amended { color: var(--status-info-strong); background: rgba(37, 99, 235, .12); }
+
+.timeline-schedule-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr));
+    gap: .9rem 1.4rem;
+    margin: 0;
+}
+
+.timeline-schedule-grid dt { color: var(--text-muted); font-size: .7rem; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; }
+.timeline-schedule-grid dd { margin: .25rem 0 0; color: var(--text-primary); font-size: .9rem; }
+
+.timeline-schedule-actions { display: flex; flex-wrap: wrap; gap: .65rem; }
+
+.timeline-schedule-history-heading { padding-top: .3rem; border-top: 1px solid var(--border-subtle); }
+.timeline-schedule-history-heading h3 { margin: .6rem 0 0; font-size: .95rem; }
+
+.timeline-schedule-changes { display: flex; flex-direction: column; gap: .9rem; margin: 0; padding: 0; list-style: none; }
+
+.timeline-schedule-change {
+    display: flex;
+    flex-direction: column;
+    gap: .45rem;
+    padding: .8rem;
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-md, .6rem);
+    background: var(--bg-surface);
+}
+
+.timeline-schedule-change-heading { display: flex; flex-wrap: wrap; align-items: center; gap: .6rem; }
+.timeline-schedule-change-time { color: var(--text-secondary); font-size: .8rem; }
+.timeline-schedule-change-actor { color: var(--text-muted); font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: .74rem; }
+.timeline-schedule-change-reason { margin: 0; color: var(--text-primary); font-size: .88rem; }
+.timeline-schedule-change-empty { margin: 0; color: var(--text-muted); font-size: .8rem; }
+
+.timeline-schedule-change-fields { display: flex; flex-direction: column; gap: .3rem; margin: 0; padding: 0; list-style: none; }
+.timeline-schedule-change-fields li { display: flex; flex-wrap: wrap; align-items: baseline; gap: .45rem; font-size: .82rem; }
+.timeline-schedule-change-label { min-width: 9rem; color: var(--text-muted); font-size: .68rem; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; }
+.timeline-schedule-change-old { color: var(--text-secondary); text-decoration: line-through; }
+.timeline-schedule-change-arrow { color: var(--text-muted); }
+.timeline-schedule-change-new { color: var(--text-primary); }
+
+.timeline-amend-modal { width: min(48rem, 96vw); }
+.timeline-cancel-modal { width: min(32rem, 96vw); }
+
+.timeline-submit.timeline-danger { border-color: rgba(248, 113, 113, .4); background: rgba(248, 113, 113, .16); color: #fca5a5; }
+.timeline-submit.timeline-danger:hover:not(:disabled) { border-color: rgba(248, 113, 113, .55); background: rgba(248, 113, 113, .24); }
+
+html[data-theme="light"] .timeline-submit.timeline-danger { border-color: rgba(185, 28, 28, .35); background: rgba(185, 28, 28, .1); color: #b91c1c; }
+html[data-theme="light"] .timeline-submit.timeline-danger:hover:not(:disabled) { border-color: rgba(185, 28, 28, .5); background: rgba(185, 28, 28, .16); }
