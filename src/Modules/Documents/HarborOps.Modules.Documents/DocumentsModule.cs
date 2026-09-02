@@ -21,6 +21,7 @@ public static class DocumentsModule
         services.AddScoped<DocumentLifecycleService>();
         services.AddScoped<RegisterDocumentTypeService>();
         services.AddScoped<IGetExpiringDocumentsQuery, GetExpiringDocumentsQuery>();
+        services.AddScoped<IExpiryAlertCandidateQuery, ExpiryAlertCandidateQuery>();
         services.AddScoped<IGetDocumentTypesQuery, GetDocumentTypesQuery>();
         services.AddScoped<IGetDocumentsQuery, GetDocumentsQuery>();
         services.AddScoped<IOperationsDashboardDocumentsQuery, OperationsDashboardDocumentsQuery>();
