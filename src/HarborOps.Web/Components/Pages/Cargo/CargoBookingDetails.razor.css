@@ -94,6 +94,10 @@ html[data-theme="light"] .booking-kpi-icon.kpi-icon-events { color: #6d28d9; bor
     box-shadow: var(--card-shadow);
 }
 
+.booking-manifest-card,
+.booking-operations-card,
+.booking-tracking-card { margin-top: 1rem; }
+
 .booking-card-heading {
     display: flex;
     align-items: flex-start;
@@ -235,6 +239,7 @@ html[data-theme="light"] .booking-complete-icon { color: var(--status-success-st
 .booking-field label { color: var(--text-muted); font-size: .7rem; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; }
 
 .booking-field ::deep input,
+.booking-field ::deep select,
 .booking-field ::deep textarea {
     box-sizing: border-box;
     width: 100%;
@@ -254,23 +259,38 @@ html[data-theme="light"] .booking-complete-icon { color: var(--status-success-st
 .booking-field ::deep input[type="date"],
 .booking-field ::deep input[type="datetime-local"] { min-width: 12.5rem; padding: 0 .6rem; }
 
+.booking-field ::deep select {
+    appearance: none;
+    padding-right: 2.5rem;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 16 16' fill='none'%3E%3Cpath d='m4 6 4 4 4-4' stroke='%2394a3b8' stroke-width='1.7' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right .72rem center;
+    background-size: 1rem;
+    cursor: pointer;
+}
+
 .booking-field ::deep textarea { height: auto; min-height: var(--control-height); padding: .7rem .85rem; resize: vertical; }
 
 .booking-field ::deep input::placeholder,
 .booking-field ::deep textarea::placeholder { color: var(--text-muted); }
 
 .booking-field ::deep input:hover,
+.booking-field ::deep select:hover,
 .booking-field ::deep textarea:hover { border-color: var(--border-strong-hover); }
 
 .booking-field ::deep input:focus,
+.booking-field ::deep select:focus,
 .booking-field ::deep textarea:focus { border-color: var(--accent); box-shadow: var(--focus-ring); }
 
 .booking-field ::deep input.invalid,
+.booking-field ::deep select.invalid,
 .booking-field ::deep textarea.invalid,
 .booking-field ::deep input.modified.invalid,
+.booking-field ::deep select.modified.invalid,
 .booking-field ::deep textarea.modified.invalid { border-color: rgba(248, 113, 113, .55); }
 
 html[data-theme="light"] .booking-field ::deep input,
+html[data-theme="light"] .booking-field ::deep select,
 html[data-theme="light"] .booking-field ::deep textarea { color-scheme: light; }
 
 .booking-form-actions { display: flex; justify-content: flex-end; margin-top: .9rem; }
@@ -444,47 +464,47 @@ html[data-theme="light"] .operation-state.done { color: #0f766e; background: rgb
 .operation-modal-close:focus-visible,
 .operation-confirm-dismiss:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 
-.manifest-bar {
-    display: block;
-    height: 5px;
-    margin: -.25rem 0 .9rem;
-    border-radius: 999px;
-    background: var(--bg-surface-strong);
-    overflow: hidden;
+.manifest-load-ship {
+    height: 7rem;
+    margin: -.8rem 0 .2rem;
 }
 
-.manifest-bar > span {
-    display: block;
-    height: 100%;
-    border-radius: 999px;
-    background: #5eead4;
-    transition: width .25s ease;
+.manifest-load-ship svg { display: block; width: 100%; height: 100%; }
+.manifest-ship-water { fill: none; stroke: var(--border-medium); stroke-linecap: round; stroke-width: 2.5; }
+.manifest-ship-hull { fill: var(--bg-surface-strong); stroke: var(--border-medium); stroke-linejoin: round; stroke-width: 2.5; }
+.manifest-ship-deck,
+.manifest-ship-bridge { fill: none; stroke: var(--border-strong-hover); stroke-linecap: round; stroke-linejoin: round; stroke-width: 2.5; }
+.manifest-ship-containers rect { fill: var(--control-surface); stroke: var(--border-medium); stroke-width: 2; }
+.manifest-ship-loaded-containers rect { fill: #0f766e; stroke: rgba(255, 255, 255, .5); stroke-width: 2; transition: fill .2s ease; }
+html[data-theme="dark"] .manifest-ship-loaded-containers rect { fill: #14b8a6; }
+
+.manifest-add-form {
+    margin: .9rem 0;
 }
 
-html[data-theme="light"] .manifest-bar > span { background: #0f766e; }
+.manifest-add-form > .booking-form-error { margin: 0 0 .8rem; }
 
-.manifest-add-row > td { vertical-align: top; background: var(--bg-surface-strong); }
+.manifest-add-layout {
+    display: flex;
+    align-items: flex-end;
+    gap: 1.25rem;
+}
 
-.manifest-add-row input { width: 100%; }
-
-.manifest-add-action { text-align: right; }
+.manifest-add-layout > .booking-field:first-child { flex: .8 1 0; }
+.manifest-add-layout > .booking-field:nth-child(2) { flex: 1.1 1 0; }
+.manifest-add-action { flex: 0 0 auto; margin: 0; padding-left: .25rem; }
 
 .operations-effect { margin: -.25rem 0 .9rem; }
 
-.operations-plan { margin-bottom: .9rem; }
-
-.operations-plan-toggle {
-    display: inline-flex;
-    align-items: center;
-    gap: .4rem;
-    padding: .4rem .85rem;
-    border: 1px dashed var(--border-subtle);
-    border-radius: var(--radius-sm, .4rem);
-    background: none;
-    color: var(--text-secondary);
-    font-size: .84rem;
-    cursor: pointer;
+.operations-plan {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    margin-bottom: .9rem;
 }
 
-.operations-plan-toggle:hover { border-style: solid; color: var(--text-primary); background: var(--bg-surface-strong); }
-.operations-plan-toggle:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.operations-plan-toggle {
+    align-self: flex-end;
+}
+
+.operations-plan-form { margin-top: .9rem; }

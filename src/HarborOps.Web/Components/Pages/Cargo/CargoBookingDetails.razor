@@ -160,16 +160,54 @@
             </article>
         </section>
 
-        <section class="booking-card" aria-labelledby="booking-manifest-title">
+        <section class="booking-card booking-manifest-card" aria-labelledby="booking-manifest-title">
             <div class="booking-card-heading">
                 <h2 id="booking-manifest-title">Container manifest</h2>
                 <span class="booking-count manifest-progress">@LoadedContainerCount of @containers.Count loaded</span>
             </div>
 
-            <div class="manifest-bar"
+            <div class="manifest-load-ship"
                  role="img"
                  aria-label="@($"{LoadedContainerCount} of {containers.Count} containers loaded")">
-                <span style="width:@(LoadedPercent)%"></span>
+                <svg viewBox="0 0 720 120" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
+                    <defs>
+                        <clipPath id="manifest-ship-fill-clip">
+                            <rect x="178" y="20" width="@LoadedShipFillWidth" height="54" />
+                        </clipPath>
+                    </defs>
+                    <path class="manifest-ship-water" d="M76 105C102 98 128 112 154 105S206 98 232 105 284 112 310 105 362 98 388 105 440 112 466 105 518 98 544 105 596 112 622 105 648 98 674 105" />
+                    <path class="manifest-ship-hull" d="M112 72H638L592 99H160Z" />
+                    <path class="manifest-ship-deck" d="M150 72H610" />
+                    <path class="manifest-ship-bridge" d="M126 72V48H166V72M134 48V39H157V48" />
+                    <g class="manifest-ship-containers">
+                        <rect x="178" y="48" width="54" height="21" rx="2" />
+                        <rect x="236" y="48" width="54" height="21" rx="2" />
+                        <rect x="294" y="48" width="54" height="21" rx="2" />
+                        <rect x="352" y="48" width="54" height="21" rx="2" />
+                        <rect x="410" y="48" width="54" height="21" rx="2" />
+                        <rect x="468" y="48" width="54" height="21" rx="2" />
+                        <rect x="526" y="48" width="54" height="21" rx="2" />
+                        <rect x="236" y="23" width="54" height="21" rx="2" />
+                        <rect x="294" y="23" width="54" height="21" rx="2" />
+                        <rect x="352" y="23" width="54" height="21" rx="2" />
+                        <rect x="410" y="23" width="54" height="21" rx="2" />
+                        <rect x="468" y="23" width="54" height="21" rx="2" />
+                    </g>
+                    <g class="manifest-ship-loaded-containers" clip-path="url(#manifest-ship-fill-clip)">
+                        <rect x="178" y="48" width="54" height="21" rx="2" />
+                        <rect x="236" y="48" width="54" height="21" rx="2" />
+                        <rect x="294" y="48" width="54" height="21" rx="2" />
+                        <rect x="352" y="48" width="54" height="21" rx="2" />
+                        <rect x="410" y="48" width="54" height="21" rx="2" />
+                        <rect x="468" y="48" width="54" height="21" rx="2" />
+                        <rect x="526" y="48" width="54" height="21" rx="2" />
+                        <rect x="236" y="23" width="54" height="21" rx="2" />
+                        <rect x="294" y="23" width="54" height="21" rx="2" />
+                        <rect x="352" y="23" width="54" height="21" rx="2" />
+                        <rect x="410" y="23" width="54" height="21" rx="2" />
+                        <rect x="468" y="23" width="54" height="21" rx="2" />
+                    </g>
+                </svg>
             </div>
 
             @if (isLoadingContainers)
@@ -201,84 +239,89 @@
 
                 @if (containers.Count == 0)
                 {
-                    <p class="booking-note">No containers yet. Add the first one in the row below.</p>
+                    <p class="booking-note">No containers yet. Add the first one using the form below.</p>
                 }
 
-                <EditForm EditContext="containerEditContext" OnValidSubmit="SubmitContainerAsync">
-                    <DataAnnotationsValidator />
+                @if (CanAddContainers)
+                {
+                    <EditForm class="manifest-add-form" EditContext="containerEditContext" OnValidSubmit="SubmitContainerAsync">
+                        <DataAnnotationsValidator />
 
-                    @if (containerError is not null)
-                    {
-                        <div class="booking-form-error" role="alert">@containerError</div>
-                    }
+                        @if (containerError is not null)
+                        {
+                            <div class="booking-form-error" role="alert">@containerError</div>
+                        }
 
-                    <div class="booking-table-scroll">
-                        <table class="booking-table manifest-table">
-                            <caption class="visually-hidden">Containers on this booking, ordered by container number</caption>
-                            <thead>
-                                <tr>
-                                    <th scope="col">Container</th>
-                                    <th scope="col">Type</th>
-                                    <th scope="col">Status</th>
-                                    <th scope="col">Vessel</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                @foreach (var container in containers)
-                                {
-                                    <tr class="manifest-row" @key="container.ContainerId">
-                                        <td><code class="manifest-number">@container.ContainerNumber</code></td>
-                                        <td>@container.ContainerType</td>
-                                        <td>
-                                            <span class="cargo-status @CargoBookingFormat.StatusModifier(container.Status)">@container.Status</span>
-                                        </td>
-                                        <td class="manifest-vessel">
-                                            @(container.VesselId is { } vesselId
-                                                ? CargoBookingFormat.ShortVoyage(vesselId)
-                                                : "Not assigned")
-                                        </td>
-                                    </tr>
-                                }
-                            </tbody>
-                            @if (CanAddContainers)
+                        <div class="manifest-add-layout">
+                            <div class="booking-field">
+                                <label for="container-number">Container number</label>
+                                <InputText id="container-number"
+                                           placeholder="MSKU1234567"
+                                           @ref="containerNumberInput"
+                                           @bind-Value="containerModel.ContainerNumber" />
+                                <ValidationMessage For="() => containerModel.ContainerNumber" />
+                            </div>
+
+                            <div class="booking-field">
+                                <label for="container-type">Container type</label>
+                                <InputSelect id="container-type" @bind-Value="containerModel.ContainerType">
+                                    <option value="">Select container type...</option>
+                                    @foreach (var containerType in StandardContainerTypes)
+                                    {
+                                        <option value="@containerType.Code">@containerType.Label</option>
+                                    }
+                                </InputSelect>
+                                <ValidationMessage For="() => containerModel.ContainerType" />
+                            </div>
+
+                            <div class="booking-form-actions manifest-add-action">
+                                <button class="booking-submit container-submit" type="submit" disabled="@isAddingContainer">
+                                    <span class="bi bi-plus-lg" aria-hidden="true"></span>
+                                    @(isAddingContainer ? "Adding..." : "Add container")
+                                </button>
+                            </div>
+                        </div>
+                    </EditForm>
+                }
+
+                <div class="booking-table-scroll">
+                    <table class="booking-table manifest-table">
+                        <caption class="visually-hidden">Containers on this booking, ordered by container number</caption>
+                        <thead>
+                            <tr>
+                                <th scope="col">Container</th>
+                                <th scope="col">Type</th>
+                                <th scope="col">Status</th>
+                                <th scope="col">Vessel</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var container in containers)
                             {
-                                <tfoot>
-                                    <tr class="manifest-add-row">
-                                        <td>
-                                            <label class="visually-hidden" for="container-number">Container number</label>
-                                            <InputText id="container-number"
-                                                       placeholder="MSKU1234567"
-                                                       @ref="containerNumberInput"
-                                                       @bind-Value="containerModel.ContainerNumber" />
-                                            <ValidationMessage For="() => containerModel.ContainerNumber" />
-                                        </td>
-                                        <td>
-                                            <label class="visually-hidden" for="container-type">Container type</label>
-                                            <InputText id="container-type"
-                                                       placeholder="40HC"
-                                                       @bind-Value="containerModel.ContainerType" />
-                                            <ValidationMessage For="() => containerModel.ContainerType" />
-                                        </td>
-                                        <td colspan="2" class="manifest-add-action">
-                                            <button class="booking-submit container-submit" type="submit" disabled="@isAddingContainer">
-                                                <span class="bi bi-plus-lg" aria-hidden="true"></span>
-                                                @(isAddingContainer ? "Adding..." : "Add container")
-                                            </button>
-                                        </td>
-                                    </tr>
-                                </tfoot>
+                                <tr class="manifest-row" @key="container.ContainerId">
+                                    <td><code class="manifest-number">@container.ContainerNumber</code></td>
+                                    <td>@container.ContainerType</td>
+                                    <td>
+                                        <span class="cargo-status @CargoBookingFormat.StatusModifier(container.Status)">@container.Status</span>
+                                    </td>
+                                    <td class="manifest-vessel">
+                                        @(container.VesselId is { } vesselId
+                                            ? CargoBookingFormat.ShortVoyage(vesselId)
+                                            : "Not assigned")
+                                    </td>
+                                </tr>
                             }
-                        </table>
-                    </div>
-                </EditForm>
+                        </tbody>
+                    </table>
+                </div>
                 }
             }
         </section>
 
-        <section class="booking-card" aria-labelledby="booking-operations-title">
+        <section class="booking-card booking-operations-card" aria-labelledby="booking-operations-title">
             <div class="booking-card-heading">
                 <h2 id="booking-operations-title">Load and unload operations</h2>
-                <span class="booking-count">@operations.Count planned</span>
+                <span class="booking-count">@PlannedOperationCount planned</span>
             </div>
 
             <p class="booking-note operations-effect @(containers.Count == 0 ? "booking-note-warning" : null)" role="status">
@@ -303,7 +346,7 @@
                 {
                     <div class="operations-plan">
                         <button type="button"
-                                class="operations-plan-toggle"
+                                class="booking-submit operations-plan-toggle"
                                 aria-expanded="@(isPlanFormOpen ? "true" : "false")"
                                 @onclick="TogglePlanForm">
                             <span class="bi @(isPlanFormOpen ? "bi-dash-lg" : "bi-plus-lg")" aria-hidden="true"></span>
@@ -312,7 +355,7 @@
 
                         @if (isPlanFormOpen)
                         {
-                            <EditForm EditContext="operationEditContext" OnValidSubmit="SubmitOperationAsync">
+                            <EditForm class="operations-plan-form" EditContext="operationEditContext" OnValidSubmit="SubmitOperationAsync">
                                 <DataAnnotationsValidator />
 
                                 @if (operationError is not null)
@@ -469,7 +512,7 @@
             </div>
         }
 
-        <section class="booking-card" aria-labelledby="booking-tracking-title">
+        <section class="booking-card booking-tracking-card" aria-labelledby="booking-tracking-title">
             <div class="booking-card-heading">
                 <h2 id="booking-tracking-title">Tracking history</h2>
                 <span class="booking-count">@details.TrackingEvents.Count recorded</span>

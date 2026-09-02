@@ -1125,8 +1125,8 @@ public sealed class CargoBookingDetailsPageTests : BunitContext
 
         Assert.Contains("Record InTransit", page.Find(".tracking-submit").TextContent, StringComparison.Ordinal);
 
-        // No status picker exists, so no other step in the vocabulary can be requested.
-        Assert.Empty(page.FindAll("select:not(#operation-type)"));
+        // No tracking-status picker exists, so no other step in the vocabulary can be requested.
+        Assert.Empty(page.FindAll(".booking-tracking-card select"));
         Assert.DoesNotContain("Record Completed", page.Markup, StringComparison.Ordinal);
     }
 
@@ -1507,8 +1507,8 @@ public sealed class CargoBookingDetailsPageTests : BunitContext
         var page = RenderDetailsPage();
 
         Assert.Empty(page.FindAll(".manifest-row"));
-        Assert.Contains("No containers yet. Add the first one in the row below.", page.Markup, StringComparison.Ordinal);
-        Assert.Single(page.FindAll(".manifest-add-row"));
+        Assert.Contains("No containers yet. Add the first one using the form below.", page.Markup, StringComparison.Ordinal);
+        Assert.Single(page.FindAll(".manifest-add-form"));
     }
 
     [Fact]
@@ -1556,7 +1556,7 @@ public sealed class CargoBookingDetailsPageTests : BunitContext
 
         var page = RenderDetailsPage();
         page.Find("#container-number").Change("MSKU1234567");
-        page.Find("#container-type").Change("40HC");
+        page.Find("#container-type").Change("45G1");
         page.Find(".container-submit").Click();
 
         page.WaitForAssertion(() => Assert.Single(page.FindAll(".manifest-row")));
@@ -1576,7 +1576,7 @@ public sealed class CargoBookingDetailsPageTests : BunitContext
 
         var page = RenderDetailsPage();
         page.Find("#container-number").Change("MSKU1234567");
-        page.Find("#container-type").Change("40HC");
+        page.Find("#container-type").Change("45G1");
         page.Find(".container-submit").Click();
 
         page.WaitForAssertion(() =>
@@ -1648,6 +1648,7 @@ public sealed class CargoBookingDetailsPageTests : BunitContext
 
         Assert.Single(page.FindAll(".operation-start"));
         Assert.Single(page.FindAll(".operation-complete"));
+        Assert.Contains("1 planned", page.Find(".booking-operations-card .booking-count").TextContent, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -1840,7 +1841,7 @@ public sealed class CargoBookingDetailsPageTests : BunitContext
 
         var page = RenderDetailsPage(CurrentUserAuthorizationState.CargoReadPermission);
 
-        Assert.Empty(page.FindAll(".manifest-add-row"));
+        Assert.Empty(page.FindAll(".manifest-add-form"));
         Assert.Contains("No containers on the manifest", page.Markup, StringComparison.Ordinal);
     }
 

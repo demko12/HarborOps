@@ -363,13 +363,23 @@ html[data-theme="light"] .safety-action-reject:hover:not(:disabled) { border-col
     place-items: center;
     padding: 4.75rem 1.25rem 1.5rem;
     overflow-y: auto;
-    background: rgba(15, 23, 42, .3);
-    backdrop-filter: blur(28px) saturate(150%);
-    -webkit-backdrop-filter: blur(28px) saturate(150%);
+    overflow-x: hidden;
+    border-radius: var(--radius-card);
+    background: rgba(15, 23, 42, .24);
+    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .28);
+    backdrop-filter: blur(1px);
+    -webkit-backdrop-filter: blur(1px);
     animation: safety-modal-fade .16s ease-out;
 }
 
-html[data-theme="light"] .operation-modal-backdrop { background: rgba(100, 116, 139, .18); }
+html[data-theme="light"] .operation-modal-backdrop {
+    background: rgba(15, 23, 42, .24);
+}
+
+html[data-theme="dark"] .operation-modal-backdrop {
+    background: rgba(2, 6, 23, .48);
+    box-shadow: inset 0 0 0 1px rgba(191, 219, 254, .08);
+}
 
 .operation-modal {
     width: min(100%, 28rem);

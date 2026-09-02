@@ -216,6 +216,9 @@ public partial class CargoBookingDetails : IDisposable
     private int LoadedContainerCount => containers.Count(container =>
         string.Equals(container.Status, LoadedStatus, StringComparison.OrdinalIgnoreCase));
 
+    private int PlannedOperationCount => operations.Count(operation =>
+        string.Equals(operation.OperationState, "Planned", StringComparison.OrdinalIgnoreCase));
+
     private bool CanManageCargo => AuthorizationState.CanManageCargo;
 
     private bool IsBookingClosed => details?.Status is "Completed";
@@ -225,6 +228,8 @@ public partial class CargoBookingDetails : IDisposable
     private int LoadedPercent => containers.Count == 0
         ? 0
         : (int)Math.Round(LoadedContainerCount * 100d / containers.Count);
+
+    private int LoadedShipFillWidth => (int)Math.Round(4.1d * LoadedPercent);
 
     private async Task LoadExecutionAsync()
     {
@@ -305,6 +310,20 @@ public partial class CargoBookingDetails : IDisposable
     private ContainerFormModel containerModel = new();
     private EditContext containerEditContext = null!;
     private ValidationMessageStore containerMessages = null!;
+
+    private static readonly IReadOnlyList<ContainerTypeOption> StandardContainerTypes =
+    [
+        new("22G1", "20 ft dry general purpose (22G1)"),
+        new("42G1", "40 ft dry general purpose (42G1)"),
+        new("45G1", "40 ft high-cube dry (45G1)"),
+        new("22R1", "20 ft refrigerated (22R1)"),
+        new("42R1", "40 ft refrigerated (42R1)"),
+        new("22U1", "20 ft open top (22U1)"),
+        new("42U1", "40 ft open top (42U1)"),
+        new("22P1", "20 ft flat rack (22P1)"),
+        new("42P1", "40 ft flat rack (42P1)"),
+        new("22T1", "20 ft tank (22T1)"),
+    ];
 
     private async Task SubmitContainerAsync()
     {
@@ -388,6 +407,8 @@ public partial class CargoBookingDetails : IDisposable
         [StringLength(50, ErrorMessage = "Container type must not exceed 50 characters.")]
         public string? ContainerType { get; set; }
     }
+
+    private sealed record ContainerTypeOption(string Code, string Label);
 
     private bool isPlanFormOpen;
     private bool isPlanningOperation;
