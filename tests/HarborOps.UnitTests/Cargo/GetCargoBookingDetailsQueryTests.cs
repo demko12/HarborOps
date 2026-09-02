@@ -81,11 +81,11 @@ public sealed class GetCargoBookingDetailsQueryTests
         await using var dbContext = CreateDbContext();
         var booking = await AddBookingAsync(dbContext, "BK-DETAILS-0005", isHazardous: true);
         var declaration = CargoSafetyInfo.Declare(
-            booking.Id,
-            "1.4s",
-            "un1234",
-            "Keep below 25 C",
-            "Segregate from foodstuffs");
+       booking.Id,
+       "1.4S",
+       "UN1234",
+       "Keep below 25 C",
+       "Segregate from foodstuffs");
         await dbContext.Set<CargoSafetyInfo>().AddAsync(declaration, CancellationToken.None);
         await dbContext.SaveChangesAsync(CancellationToken.None);
         var query = new GetCargoBookingDetailsQuery(dbContext);

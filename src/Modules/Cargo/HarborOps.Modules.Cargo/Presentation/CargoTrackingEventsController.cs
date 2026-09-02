@@ -61,12 +61,14 @@ public sealed class CargoTrackingEventsController(
                 Detail = exception.Message,
             });
         }
-        catch (CargoSafetyInfoRequiredBeforeLoadingException exception)
+        catch (CargoSafetyApprovalRequiredException exception)
         {
             return Conflict(new ProblemDetails
             {
                 Status = StatusCodes.Status409Conflict,
-                Title = "Cargo safety information is required before loading.",
+                Title = exception.ReviewStatus is null
+                    ? "Cargo safety information is required before loading."
+                    : "Cargo safety declaration is not approved.",
                 Detail = exception.Message,
             });
         }

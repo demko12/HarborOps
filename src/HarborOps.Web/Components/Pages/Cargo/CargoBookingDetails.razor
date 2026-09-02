@@ -154,81 +154,9 @@
                     }
                 </div>
 
-                @if (!details.IsHazardous)
-                {
-                    <p class="booking-note">This cargo carries no IMDG declaration requirement.</p>
-                }
-                else if (details.SafetyInfo is { } safetyInfo)
-                {
-                    <dl class="booking-facts">
-                        <div>
-                            <dt>IMDG class</dt>
-                            <dd>@safetyInfo.ImdgClass</dd>
-                        </div>
-                        <div>
-                            <dt>UN number</dt>
-                            <dd>@safetyInfo.UnNumber</dd>
-                        </div>
-                        <div>
-                            <dt>Storage conditions</dt>
-                            <dd>@safetyInfo.StorageConditions</dd>
-                        </div>
-                        <div>
-                            <dt>Handling notes</dt>
-                            <dd>@(string.IsNullOrWhiteSpace(safetyInfo.HandlingNotes) ? "None recorded" : safetyInfo.HandlingNotes)</dd>
-                        </div>
-                    </dl>
-                }
-                else
-                {
-                    <p class="booking-note booking-note-warning" role="status">
-                        Safety information has not been declared for this hazardous cargo yet.
-                    </p>
-
-                    @if (AuthorizationState.CanManageCargo)
-                    {
-                        <EditForm EditContext="safetyEditContext" OnValidSubmit="SubmitSafetyDeclarationAsync">
-                            <DataAnnotationsValidator />
-
-                            @if (safetyError is not null)
-                            {
-                                <div class="booking-form-error" role="alert">@safetyError</div>
-                            }
-
-                            <div class="booking-form-grid">
-                                <div class="booking-field">
-                                    <label for="safety-imdg-class">IMDG class</label>
-                                    <InputText id="safety-imdg-class" @bind-Value="safetyModel.ImdgClass" />
-                                    <ValidationMessage For="() => safetyModel.ImdgClass" />
-                                </div>
-
-                                <div class="booking-field">
-                                    <label for="safety-un-number">UN number</label>
-                                    <InputText id="safety-un-number" @bind-Value="safetyModel.UnNumber" />
-                                    <ValidationMessage For="() => safetyModel.UnNumber" />
-                                </div>
-
-                                <div class="booking-field booking-field-wide">
-                                    <label for="safety-storage">Storage conditions</label>
-                                    <InputText id="safety-storage" @bind-Value="safetyModel.StorageConditions" />
-                                    <ValidationMessage For="() => safetyModel.StorageConditions" />
-                                </div>
-
-                                <div class="booking-field booking-field-wide">
-                                    <label for="safety-handling-notes">Handling notes (optional)</label>
-                                    <InputTextArea id="safety-handling-notes" rows="2" @bind-Value="safetyModel.HandlingNotes" />
-                                    <ValidationMessage For="() => safetyModel.HandlingNotes" />
-                                </div>
-                            </div>
-
-                            <div class="booking-form-actions">
-                                <button class="booking-submit safety-submit" type="submit" disabled="@isDeclaringSafety">
-                                    @(isDeclaringSafety ? "Declaring..." : "Declare safety information")
-                                </button>
-                            </div>
-                        </EditForm>
-                    }
-                }
+                <CargoSafetyPanel BookingId="BookingId"
+                                  IsHazardous="details.IsHazardous"
+                                  OnChanged="LoadAsync" />
             </article>
         </section>
 
@@ -549,10 +477,12 @@
 
             @if (AuthorizationState.CanManageCargo)
             {
-                @if (IsBlockedByMissingSafetyInfo)
+                @if (IsBlockedByUnapprovedSafetyInfo)
                 {
                     <p class="booking-note booking-note-warning" role="status">
-                        Declare the safety information before this hazardous cargo can be loaded.
+                        @(details.SafetyInfo is null
+                            ? "Declare the safety information before this hazardous cargo can be loaded."
+                            : "The safety declaration must be approved before this hazardous cargo can be loaded.")
                     </p>
                 }
                 else if (details.NextStatus is { } nextStatus)

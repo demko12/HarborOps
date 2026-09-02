@@ -423,6 +423,120 @@ public sealed class ExecuteCargoOperationServiceTests
         Assert.Equal(FinishedAtUtc, ownOperation.StartedAtUtc);
     }
 
+    [Fact]
+    public async Task StartAsync_rejects_loading_hazardous_cargo_that_was_never_declared()
+    {
+        await using var dbContext = CreateDbContext();
+        var booking = await AddBookingAsync(
+            dbContext,
+            "BK-EXECUTE-HAZ-1",
+            isHazardous: true);
+        var operation = await AddOperationAsync(dbContext, booking.Id, CargoOperationType.Load);
+        await AddContainerAsync(dbContext, booking.Id, "MSKU1234567");
+
+        var exception = await Assert.ThrowsAsync<CargoSafetyApprovalRequiredException>(
+            () => CreateService(dbContext, StartedAtUtc)
+                .StartAsync(operation.Id, CancellationToken.None));
+
+        Assert.Equal(booking.Id, exception.CargoBookingId);
+        Assert.Null(exception.ReviewStatus);
+        Assert.Null(operation.StartedAtUtc);
+    }
+
+    [Theory]
+    [InlineData(nameof(CargoSafetyReviewStatus.Draft))]
+    [InlineData(nameof(CargoSafetyReviewStatus.Submitted))]
+    [InlineData(nameof(CargoSafetyReviewStatus.Rejected))]
+    public async Task StartAsync_rejects_loading_hazardous_cargo_before_its_declaration_is_approved(
+        string reviewStatusName)
+    {
+        var reviewStatus = Enum.Parse<CargoSafetyReviewStatus>(reviewStatusName);
+
+        await using var dbContext = CreateDbContext();
+        var booking = await AddBookingAsync(
+            dbContext,
+            "BK-EXECUTE-HAZ-2",
+            isHazardous: true);
+        var operation = await AddOperationAsync(dbContext, booking.Id, CargoOperationType.Load);
+        await AddContainerAsync(dbContext, booking.Id, "MSKU1234567");
+        await AddDeclarationAsync(dbContext, booking.Id, reviewStatus);
+
+        var exception = await Assert.ThrowsAsync<CargoSafetyApprovalRequiredException>(
+            () => CreateService(dbContext, StartedAtUtc)
+                .StartAsync(operation.Id, CancellationToken.None));
+
+        Assert.Equal(reviewStatus, exception.ReviewStatus);
+        Assert.Null(operation.StartedAtUtc);
+    }
+
+    [Fact]
+    public async Task StartAsync_loads_hazardous_cargo_once_its_declaration_is_approved()
+    {
+        await using var dbContext = CreateDbContext();
+        var booking = await AddBookingAsync(
+            dbContext,
+            "BK-EXECUTE-HAZ-3",
+            isHazardous: true);
+        var operation = await AddOperationAsync(dbContext, booking.Id, CargoOperationType.Load);
+        await AddContainerAsync(dbContext, booking.Id, "MSKU1234567");
+        await AddDeclarationAsync(dbContext, booking.Id, CargoSafetyReviewStatus.Approved);
+
+        var response = await CreateService(dbContext, StartedAtUtc)
+            .StartAsync(operation.Id, CancellationToken.None);
+
+        Assert.Equal(nameof(CargoOperationState.InProgress), response.OperationState);
+        Assert.Equal(StartedAtUtc, operation.StartedAtUtc);
+    }
+
+    [Fact]
+    public async Task StartAsync_does_not_require_an_approved_declaration_to_unload()
+    {
+        await using var dbContext = CreateDbContext();
+        var booking = await AddBookingAsync(
+            dbContext,
+            "BK-EXECUTE-HAZ-4",
+            CargoStatus.Arrived,
+            isHazardous: true);
+        var operation = await AddOperationAsync(dbContext, booking.Id, CargoOperationType.Unload);
+        await AddContainerAsync(dbContext, booking.Id, "MSKU1234567", CargoStatus.Loaded);
+
+        var response = await CreateService(dbContext, StartedAtUtc)
+            .StartAsync(operation.Id, CancellationToken.None);
+
+        Assert.Equal(nameof(CargoOperationState.InProgress), response.OperationState);
+    }
+
+    private static async Task AddDeclarationAsync(
+        HarborOpsDbContext dbContext,
+        Guid cargoBookingId,
+        CargoSafetyReviewStatus reviewStatus)
+    {
+        var declaration = CargoSafetyInfo.Declare(
+            cargoBookingId,
+            "3",
+            "UN1203",
+            "Keep below 25C",
+            handlingNotes: null);
+
+        if (reviewStatus is not CargoSafetyReviewStatus.Draft)
+        {
+            declaration.Submit(ResponsibleUserId, PlannedAtUtc);
+        }
+
+        if (reviewStatus is CargoSafetyReviewStatus.Approved)
+        {
+            declaration.Approve(ResponsibleUserId, PlannedAtUtc, notes: null);
+        }
+
+        if (reviewStatus is CargoSafetyReviewStatus.Rejected)
+        {
+            declaration.Reject(ResponsibleUserId, PlannedAtUtc, "Storage conditions are unclear.");
+        }
+
+        await dbContext.Set<CargoSafetyInfo>().AddAsync(declaration, CancellationToken.None);
+        await dbContext.SaveChangesAsync(CancellationToken.None);
+    }
+
     private static ExecuteCargoOperationService CreateService(
         HarborOpsDbContext dbContext,
         DateTime utcNow)
@@ -433,7 +547,8 @@ public sealed class ExecuteCargoOperationServiceTests
     private static async Task<CargoBooking> AddBookingAsync(
         HarborOpsDbContext dbContext,
         string bookingNumber,
-        CargoStatus status = CargoStatus.Planned)
+        CargoStatus status = CargoStatus.Planned,
+        bool isHazardous = false)
     {
         var booking = CargoBooking.Register(
             bookingNumber,
@@ -442,7 +557,7 @@ public sealed class ExecuteCargoOperationServiceTests
             "General Cargo",
             5000.000m,
             10,
-            isHazardous: false);
+            isHazardous);
 
         await dbContext.Set<CargoBooking>().AddAsync(booking, CancellationToken.None);
         await AdvanceBookingToAsync(dbContext, booking, status);

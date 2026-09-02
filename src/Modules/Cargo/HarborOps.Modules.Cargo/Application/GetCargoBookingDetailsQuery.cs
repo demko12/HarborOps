@@ -38,12 +38,18 @@ public sealed class GetCargoBookingDetailsQuery(DbContext dbContext)
             .Set<CargoSafetyInfo>()
             .AsNoTracking()
             .Where(safetyInfo => safetyInfo.CargoBookingId == cargoBookingId)
-            .Select(safetyInfo => new CargoSafetyInfoDetails(
+                        .Select(safetyInfo => new CargoSafetyInfoDetails(
                 safetyInfo.Id,
                 safetyInfo.ImdgClass,
                 safetyInfo.UnNumber,
                 safetyInfo.StorageConditions,
-                safetyInfo.HandlingNotes))
+                safetyInfo.HandlingNotes,
+                safetyInfo.ReviewStatus.ToString(),
+                safetyInfo.SubmittedByUserId,
+                safetyInfo.SubmittedAtUtc,
+                safetyInfo.ReviewedByUserId,
+                safetyInfo.ReviewedAtUtc,
+                safetyInfo.ReviewNotes))
             .SingleOrDefaultAsync(cancellationToken);
 
         var trackingEvents = await dbContext
