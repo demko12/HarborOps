@@ -104,6 +104,38 @@ public sealed class GetMaintenanceWorkOrdersQueryTests
         Assert.Equal(expectedTiedOrder[0], response.Items[1].WorkOrderId);
         Assert.Equal(expectedTiedOrder[1], response.Items[2].WorkOrderId);
     }
+
+    [Fact]
+    public async Task GetWorkOrdersAsync_places_in_progress_work_orders_before_other_statuses()
+    {
+        await using var dbContext = CreateDbContext();
+        var vesselId = Guid.NewGuid();
+        var open = MaintenanceWorkOrder.Create(
+            vesselId,
+            "Open first by due date",
+            null,
+            WorkOrderPriority.Low,
+            FixedNow.AddDays(1).UtcDateTime);
+        var inProgress = MaintenanceWorkOrder.Create(
+            vesselId,
+            "In progress despite later due date",
+            null,
+            WorkOrderPriority.Low,
+            FixedNow.AddDays(7).UtcDateTime);
+        inProgress.Start();
+
+        await dbContext.Set<MaintenanceWorkOrder>().AddRangeAsync(open, inProgress);
+        await dbContext.SaveChangesAsync();
+
+        var query = new GetMaintenanceWorkOrdersQuery(dbContext, new FixedTimeProvider(FixedNow));
+
+        var response = await query.GetWorkOrdersAsync(
+            new GetMaintenanceWorkOrdersRequest(),
+            CancellationToken.None);
+
+        Assert.Equal(inProgress.Id, response.Items[0].WorkOrderId);
+        Assert.Equal(open.Id, response.Items[1].WorkOrderId);
+    }
     [Fact]
     public async Task GetWorkOrdersAsync_filters_by_vessel_id()
     {

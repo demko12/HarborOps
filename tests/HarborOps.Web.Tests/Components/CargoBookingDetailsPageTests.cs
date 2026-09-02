@@ -1846,7 +1846,7 @@ public sealed class CargoBookingDetailsPageTests : BunitContext
     }
 
     [Fact]
-    public void The_manifest_bar_reflects_the_loaded_share()
+    public void The_manifest_ship_reflects_the_loaded_share()
     {
         RespondWithSections(containers: Items(
             ContainerJson(ContainerId, "MSKU1234567", "Loaded"),
@@ -1854,10 +1854,11 @@ public sealed class CargoBookingDetailsPageTests : BunitContext
 
         var page = RenderDetailsPage();
 
-        var bar = page.Find(".manifest-bar");
+        var ship = page.Find(".manifest-load-ship");
+        var fillClip = page.Find(".manifest-load-ship clipPath rect");
 
-        Assert.Contains("width:50%", bar.InnerHtml, StringComparison.Ordinal);
-        Assert.Equal("1 of 2 containers loaded", bar.GetAttribute("aria-label"));
+        Assert.Equal("205", fillClip.GetAttribute("width"));
+        Assert.Equal("1 of 2 containers loaded", ship.GetAttribute("aria-label"));
     }
 
     [Fact]

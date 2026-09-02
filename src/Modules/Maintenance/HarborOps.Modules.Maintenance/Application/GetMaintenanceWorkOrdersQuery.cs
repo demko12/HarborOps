@@ -66,7 +66,8 @@ public sealed class GetMaintenanceWorkOrdersQuery(DbContext dbContext, TimeProvi
         var totalCount = await workOrders.CountAsync(cancellationToken);
 
         var rows = await workOrders
-            .OrderBy(workOrder => (DateTime?)workOrder.DueUtc ?? DateTime.MaxValue)
+            .OrderByDescending(workOrder => workOrder.Status == WorkOrderStatus.InProgress)
+            .ThenBy(workOrder => (DateTime?)workOrder.DueUtc ?? DateTime.MaxValue)
             .ThenBy(workOrder => workOrder.Id)
             .Skip((pageNumber - 1) * pageSize)
             .Take(pageSize)

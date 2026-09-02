@@ -48,7 +48,22 @@ public sealed class SearchCargoBookingsQuery(DbContext dbContext)
             cancellationToken);
 
         var items = await bookings
-            .OrderByDescending(booking => booking.CreatedUtc)
+            .OrderBy(booking => booking.Status == CargoStatus.InTransit
+                ? 0
+                : booking.Status == CargoStatus.Arrived
+                    ? 1
+                    : booking.Status == CargoStatus.Loaded
+                        ? 2
+                        : booking.Status == CargoStatus.Unloaded
+                            ? 3
+                            : booking.Status == CargoStatus.Planned
+                                ? 4
+                                : booking.Status == CargoStatus.Registered
+                                    ? 5
+                                    : booking.Status == CargoStatus.Completed
+                                        ? 6
+                                        : 7)
+            .ThenByDescending(booking => booking.CreatedUtc)
             .ThenBy(booking => booking.Id)
             .Skip((pageNumber - 1) * pageSize)
             .Take(pageSize)
