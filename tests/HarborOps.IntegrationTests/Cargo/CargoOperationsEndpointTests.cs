@@ -182,6 +182,58 @@ public sealed class CargoOperationsEndpointTests : IntegrationTestBase
     }
 
     [Fact]
+    public async Task Start_returns_conflict_when_hazardous_cargo_is_not_approved_for_loading()
+    {
+        using var client = await _application.CreateAuthenticatedClientWithPermissionsAsync(
+            Permissions.Cargo.Manage);
+        var bookingId = await RegisterBookingAsync(client, "BK-OPS-INT-HAZ-1", isHazardous: true);
+        await AddContainerAsync(client, bookingId, "MSKU1234567");
+        await AdvanceBookingToAsync(bookingId, CargoStatus.Planned);
+        var operationId = await PlanOperationAsync(client, bookingId, "Load", PlannedAtUtc);
+
+        using var response = await client.PostAsync(
+            $"{OperationsEndpoint}/{operationId}/start",
+            content: null,
+            CancellationToken.None);
+        var problem = await response.Content.ReadFromJsonAsync<ProblemDetails>(CancellationToken.None);
+
+        Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
+        Assert.NotNull(problem);
+        Assert.Equal(StatusCodes.Status409Conflict, problem.Status);
+
+        await using var scope = _application.Services.CreateAsyncScope();
+        var dbContext = scope.ServiceProvider.GetRequiredService<HarborOpsDbContext>();
+        var operation = await dbContext
+            .Set<LoadUnloadOperation>()
+            .SingleAsync(candidate => candidate.Id == operationId, CancellationToken.None);
+
+        Assert.Null(operation.StartedAtUtc);
+    }
+
+    [Fact]
+    public async Task Start_loads_hazardous_cargo_once_its_declaration_is_approved()
+    {
+        using var client = await _application.CreateAuthenticatedClientWithPermissionsAsync(
+            Permissions.Cargo.Manage);
+        var bookingId = await RegisterBookingAsync(client, "BK-OPS-INT-HAZ-2", isHazardous: true);
+        await AddContainerAsync(client, bookingId, "MSKU1234567");
+        await ApproveSafetyInformationAsync(client, bookingId);
+        await AdvanceBookingToAsync(bookingId, CargoStatus.Planned);
+        var operationId = await PlanOperationAsync(client, bookingId, "Load", PlannedAtUtc);
+
+        using var response = await client.PostAsync(
+            $"{OperationsEndpoint}/{operationId}/start",
+            content: null,
+            CancellationToken.None);
+        var result = await response.Content.ReadFromJsonAsync<CargoOperationTransitionResponse>(
+            CancellationToken.None);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.NotNull(result);
+        Assert.Equal(nameof(CargoOperationState.InProgress), result.OperationState);
+    }
+
+    [Fact]
     public async Task Start_rejects_a_repeated_start()
     {
         using var client = await _application.CreateAuthenticatedClientWithPermissionsAsync(
@@ -371,6 +423,42 @@ public sealed class CargoOperationsEndpointTests : IntegrationTestBase
         Assert.Null(operation.StartedAtUtc);
     }
 
+    private static async Task ApproveSafetyInformationAsync(HttpClient client, Guid bookingId)
+    {
+        var safetyInformationEndpoint = $"{BookingsEndpoint}/{bookingId}/safety-information";
+
+        using var declared = await client.PutAsJsonAsync(
+            safetyInformationEndpoint,
+            new UpdateCargoSafetyInfoRequest
+            {
+                ImdgClass = "3",
+                UnNumber = "UN1203",
+                StorageConditions = "Keep below 25C",
+                HandlingNotes = null,
+            },
+            CancellationToken.None);
+
+        Assert.Equal(HttpStatusCode.OK, declared.StatusCode);
+
+        using var submitted = await client.PostAsync(
+            $"{safetyInformationEndpoint}/submit",
+            content: null,
+            CancellationToken.None);
+
+        Assert.Equal(HttpStatusCode.OK, submitted.StatusCode);
+
+        using var reviewed = await client.PostAsJsonAsync(
+            $"{safetyInformationEndpoint}/review",
+            new ReviewCargoSafetyInfoRequest
+            {
+                Status = nameof(CargoSafetyReviewStatus.Approved),
+                Notes = null,
+            },
+            CancellationToken.None);
+
+        Assert.Equal(HttpStatusCode.OK, reviewed.StatusCode);
+    }
+
     private static string BookingOperationsEndpoint(Guid bookingId)
     {
         return $"{BookingsEndpoint}/{bookingId}/operations";
@@ -462,7 +550,10 @@ public sealed class CargoOperationsEndpointTests : IntegrationTestBase
         return account.GetProperty("id").GetGuid();
     }
 
-    private static async Task<Guid> RegisterBookingAsync(HttpClient client, string bookingNumber)
+    private static async Task<Guid> RegisterBookingAsync(
+        HttpClient client,
+        string bookingNumber,
+        bool isHazardous = false)
     {
         var request = new RegisterCargoBookingRequest
         {
@@ -472,7 +563,7 @@ public sealed class CargoOperationsEndpointTests : IntegrationTestBase
             CargoType = "General Cargo",
             WeightKg = 5000.000m,
             PackageCount = 10,
-            IsHazardous = false,
+            IsHazardous = isHazardous,
         };
 
         using var response = await client.PostAsJsonAsync(

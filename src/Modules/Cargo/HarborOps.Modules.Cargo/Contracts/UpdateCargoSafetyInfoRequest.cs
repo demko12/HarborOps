@@ -1,6 +1,6 @@
 namespace HarborOps.Modules.Cargo.Contracts;
 
-public sealed record DeclareCargoSafetyInfoRequest
+public sealed record UpdateCargoSafetyInfoRequest
 {
     public string? ImdgClass { get; init; }
 

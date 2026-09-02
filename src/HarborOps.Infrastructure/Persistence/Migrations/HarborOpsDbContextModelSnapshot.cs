@@ -119,10 +119,31 @@ namespace HarborOps.Infrastructure.Persistence.Migrations
                         .HasColumnType("datetime2")
                         .HasColumnName("PeriodStart");
 
+                    b.Property<string>("ReviewNotes")
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
+
+                    b.Property<string>("ReviewStatus")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<DateTime?>("ReviewedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("ReviewedByUserId")
+                        .HasColumnType("uniqueidentifier");
+
                     b.Property<string>("StorageConditions")
                         .IsRequired()
                         .HasMaxLength(500)
                         .HasColumnType("nvarchar(500)");
+
+                    b.Property<DateTime?>("SubmittedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("SubmittedByUserId")
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<string>("UnNumber")
                         .IsRequired()
@@ -147,6 +168,41 @@ namespace HarborOps.Infrastructure.Persistence.Migrations
                                     .HasPeriodEnd("PeriodEnd")
                                     .HasColumnName("PeriodEnd");
                             }));
+                });
+
+            modelBuilder.Entity("HarborOps.Modules.Cargo.Domain.CargoSafetyReviewEntry", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("ActorUserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("CargoSafetyInfoId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("FromStatus")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<string>("Notes")
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
+
+                    b.Property<DateTime>("OccurredUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("ToStatus")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CargoSafetyInfoId");
+
+                    b.ToTable("CargoSafetyReviews", "cargo");
                 });
 
             modelBuilder.Entity("HarborOps.Modules.Cargo.Domain.CargoTrackingEvent", b =>
@@ -2623,6 +2679,15 @@ namespace HarborOps.Infrastructure.Persistence.Migrations
                     b.HasOne("HarborOps.Modules.Cargo.Domain.CargoBooking", null)
                         .WithMany()
                         .HasForeignKey("CargoBookingId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("HarborOps.Modules.Cargo.Domain.CargoSafetyReviewEntry", b =>
+                {
+                    b.HasOne("HarborOps.Modules.Cargo.Domain.CargoSafetyInfo", null)
+                        .WithMany()
+                        .HasForeignKey("CargoSafetyInfoId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
                 });

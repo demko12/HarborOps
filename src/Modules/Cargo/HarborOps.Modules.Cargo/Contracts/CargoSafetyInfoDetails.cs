@@ -5,4 +5,10 @@ public sealed record CargoSafetyInfoDetails(
     string ImdgClass,
     string UnNumber,
     string StorageConditions,
-    string? HandlingNotes);
+    string? HandlingNotes,
+    string ReviewStatus,
+    Guid? SubmittedByUserId,
+    DateTime? SubmittedAtUtc,
+    Guid? ReviewedByUserId,
+    DateTime? ReviewedAtUtc,
+    string? ReviewNotes);

@@ -167,7 +167,7 @@ public sealed class GetCargoBookingDetailsEndpointTests : IntegrationTestBase
 
     private static async Task DeclareSafetyInformationAsync(HttpClient client, Guid bookingId)
     {
-        var request = new DeclareCargoSafetyInfoRequest
+        var request = new UpdateCargoSafetyInfoRequest
         {
             ImdgClass = "1.4s",
             UnNumber = "un1234",
@@ -175,12 +175,12 @@ public sealed class GetCargoBookingDetailsEndpointTests : IntegrationTestBase
             HandlingNotes = "Segregate from foodstuffs",
         };
 
-        using var response = await client.PostAsJsonAsync(
+        using var response = await client.PutAsJsonAsync(
             $"{BookingsEndpoint}/{bookingId}/safety-information",
             request,
             CancellationToken.None);
 
-        Assert.Equal(HttpStatusCode.Created, response.StatusCode);
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
     }
 
     private static async Task RecordTrackingEventAsync(

@@ -49,16 +49,10 @@ public sealed class RecordCargoTrackingEventService(DbContext dbContext, TimePro
 
         if (booking.IsHazardous && requestedStatus == CargoStatus.Loaded)
         {
-            var isDeclared = await dbContext
-                .Set<CargoSafetyInfo>()
-                .AnyAsync(
-                    safetyInfo => safetyInfo.CargoBookingId == cargoBookingId,
-                    cancellationToken);
-
-            if (!isDeclared)
-            {
-                throw new CargoSafetyInfoRequiredBeforeLoadingException(cargoBookingId);
-            }
+            await CargoSafetyInfoGuard.EnsureApprovedForLoadingAsync(
+                dbContext,
+                cargoBookingId,
+                cancellationToken);
         }
 
         try
