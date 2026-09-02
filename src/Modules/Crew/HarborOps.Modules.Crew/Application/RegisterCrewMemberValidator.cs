@@ -11,7 +11,8 @@ internal static class RegisterCrewMemberValidator
     internal const string EmploymentStatusField = "employmentStatus";
     internal const string HireDateField = "hireDate";
     internal const string ImoSeafarerIdField = "imoSeafarerId";
-    internal const string NameField = "name";
+    internal const string FirstNameField = "firstName";
+    internal const string LastNameField = "lastName";
     internal const string NationalityField = "nationality";
     internal const string PassportExpiryField = "passportExpiry";
     internal const string PassportNumberField = "passportNumber";
@@ -23,10 +24,17 @@ internal static class RegisterCrewMemberValidator
         ValidateBaseRankId(request.BaseRankId, errors);
 
         ValidateRequiredLength(
-            request.Name,
-            CrewMember.NameMaxLength,
-            NameField,
-            "Name",
+            request.FirstName,
+            CrewMember.FirstNameMaxLength,
+            FirstNameField,
+            "First name",
+            errors);
+
+        ValidateRequiredLength(
+            request.LastName,
+            CrewMember.LastNameMaxLength,
+            LastNameField,
+            "Last name",
             errors);
 
         ValidateDateOfBirth(request.DateOfBirth, errors);
@@ -71,14 +79,23 @@ internal static class RegisterCrewMemberValidator
             "Hire date",
             errors);
 
-        ValidateRequiredLength(
-            request.EmploymentStatus,
-            CrewMember.EmploymentStatusMaxLength,
-            EmploymentStatusField,
-            "Employment status",
-            errors);
+        ValidateEmploymentStatus(request.EmploymentStatus, errors);
 
         return errors;
+    }
+
+    private static void ValidateEmploymentStatus(string? employmentStatus, IDictionary<string, string[]> errors)
+    {
+        if (string.IsNullOrWhiteSpace(employmentStatus))
+        {
+            errors[EmploymentStatusField] = ["Employment status is required."];
+            return;
+        }
+
+        if (!CrewEmploymentStatuses.All.Contains(employmentStatus.Trim()))
+        {
+            errors[EmploymentStatusField] = ["Employment status is not supported."];
+        }
     }
 
     private static void ValidateBaseRankId(

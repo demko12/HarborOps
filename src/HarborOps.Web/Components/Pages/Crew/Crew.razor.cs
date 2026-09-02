@@ -94,7 +94,14 @@ public partial class Crew
     }
 
     internal static PassportState GetPassportState(DateOnly expiry, DateOnly currentDate) => expiry < currentDate ? new(true, "passport-expired") : new(false, "");
-    internal static string GetEmploymentStatusClass(string status) => string.Equals(status, "Active", StringComparison.OrdinalIgnoreCase) ? "employment-active" : "employment-inactive";
+    internal static string GetEmploymentStatusClass(string status)
+    {
+        if (string.Equals(status, "Active", StringComparison.OrdinalIgnoreCase)) return "employment-active";
+        if (string.Equals(status, "OnLeave", StringComparison.OrdinalIgnoreCase)) return "employment-onleave";
+        if (string.Equals(status, "Suspended", StringComparison.OrdinalIgnoreCase)) return "employment-suspended";
+        if (string.Equals(status, "Terminated", StringComparison.OrdinalIgnoreCase)) return "employment-terminated";
+        return "employment-inactive";
+    }
     public void Dispose() { disposeCancellation.Cancel(); disposeCancellation.Dispose(); }
     internal sealed record PassportState(bool IsExpired, string Class);
     private sealed record RankSummary(string Name, int Count, int Percentage);

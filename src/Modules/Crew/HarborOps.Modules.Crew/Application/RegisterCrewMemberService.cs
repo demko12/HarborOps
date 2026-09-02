@@ -19,7 +19,8 @@ public sealed class RegisterCrewMemberService(DbContext dbContext)
         }
 
         var baseRankId = request.BaseRankId!.Value;
-        var name = request.Name!.Trim();
+        var firstName = request.FirstName!.Trim();
+        var lastName = request.LastName!.Trim();
         var nationality = request.Nationality!.Trim();
         var imoSeafarerId = request.ImoSeafarerId!.Trim();
         var passportNumber = request.PassportNumber!.Trim();
@@ -49,7 +50,8 @@ public sealed class RegisterCrewMemberService(DbContext dbContext)
 
         var crewMember = CrewMember.Create(
             baseRankId,
-            name,
+            firstName,
+            lastName,
             request.DateOfBirth!.Value,
             nationality,
             imoSeafarerId,

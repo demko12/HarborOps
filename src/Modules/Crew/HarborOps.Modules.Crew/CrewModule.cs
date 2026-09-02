@@ -42,6 +42,9 @@ public static class CrewModule
         services.AddScoped<IGetMedicalExaminationsQuery, GetMedicalExaminationsQuery>();
         services.AddScoped<IGetMemberMedicalExaminationsQuery, GetMemberMedicalExaminationsQuery>();
         services.AddScoped<RegisterMedicalExaminationService>();
+        services.AddScoped<UpdateCrewMemberService>();
+        services.AddScoped<ChangeCrewMemberEmploymentStatusService>();
+        services.AddScoped<IGetCrewEmploymentStatusHistoryQuery, GetCrewEmploymentStatusHistoryQuery>();
         return services;
     }
 }

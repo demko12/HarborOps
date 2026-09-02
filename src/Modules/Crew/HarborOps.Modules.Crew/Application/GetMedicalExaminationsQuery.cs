@@ -36,7 +36,7 @@ internal sealed class GetMedicalExaminationsQuery(
             {
                 exam.Id,
                 exam.CrewMemberId,
-                MemberName = member.Name,
+                MemberName = member.FirstName + " " + member.LastName,
                 member.EmploymentStatus,
                 exam.ExamType,
                 exam.Clinic,

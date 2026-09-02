@@ -51,7 +51,8 @@ public sealed class RegisterCrewMemberEndpointTests : IntegrationTestBase
                 CancellationToken.None);
         var entityType = dbContext.Model.FindEntityType(typeof(CrewMember));
 
-        Assert.Equal(request.Name, crewMember.Name);
+        Assert.Equal(request.FirstName, crewMember.FirstName);
+        Assert.Equal(request.LastName, crewMember.LastName);
         Assert.Equal(request.BaseRankId, crewMember.BaseRankId);
         Assert.Equal(request.Nationality, crewMember.Nationality);
         Assert.Equal(request.ImoSeafarerId, crewMember.ImoSeafarerId);
@@ -69,7 +70,8 @@ public sealed class RegisterCrewMemberEndpointTests : IntegrationTestBase
         var request = new RegisterCrewMemberRequest
         {
             BaseRankId = null,
-            Name = string.Empty,
+            FirstName = string.Empty,
+            LastName = string.Empty,
             DateOfBirth = null,
             Nationality = null,
             ImoSeafarerId = null,
@@ -90,7 +92,8 @@ public sealed class RegisterCrewMemberEndpointTests : IntegrationTestBase
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
         Assert.NotNull(problem);
         Assert.Contains(RegisterCrewMemberValidator.BaseRankIdField, problem.Errors);
-        Assert.Contains(RegisterCrewMemberValidator.NameField, problem.Errors);
+        Assert.Contains(RegisterCrewMemberValidator.FirstNameField, problem.Errors);
+        Assert.Contains(RegisterCrewMemberValidator.LastNameField, problem.Errors);
         Assert.Contains(RegisterCrewMemberValidator.DateOfBirthField, problem.Errors);
         Assert.Contains(RegisterCrewMemberValidator.NationalityField, problem.Errors);
         Assert.Contains(RegisterCrewMemberValidator.ImoSeafarerIdField, problem.Errors);
@@ -102,7 +105,7 @@ public sealed class RegisterCrewMemberEndpointTests : IntegrationTestBase
         using var client = await _application.CreateAuthenticatedClientWithPermissionsAsync(Permissions.Crew.Manage);
         var baseRankId = await SeedCrewPositionAsync();
         var firstRequest = CreateValidRequest("IMO900002", baseRankId);
-        var duplicateRequest = firstRequest with { Name = "Marko Marković" };
+        var duplicateRequest = firstRequest with { FirstName = "Marko", LastName = "Marković" };
 
         using var firstResponse = await client.PostAsJsonAsync(
             "/api/crew/members",
@@ -155,7 +158,8 @@ public sealed class RegisterCrewMemberEndpointTests : IntegrationTestBase
         return new RegisterCrewMemberRequest
         {
             BaseRankId = baseRankId,
-            Name = "Ivan Petrović",
+            FirstName = "Ivan",
+            LastName = "Petrović",
             DateOfBirth = new DateOnly(1990, 5, 14),
             Nationality = "Montenegro",
             ImoSeafarerId = imoSeafarerId,

@@ -116,7 +116,8 @@ public sealed class GetCrewMemberProfileEndpointTests : IntegrationTestBase
         var dbContext = scope.ServiceProvider.GetRequiredService<HarborOpsDbContext>();
         var member = CrewMember.Create(
             baseRankId,
-            "Ivan Petrović",
+            "Ivan",
+            "Petrović",
             new DateOnly(1990, 5, 14),
             "Montenegro",
             imoSeafarerId,

@@ -67,6 +67,21 @@ public sealed class CrewMemberProfilePageTests : BunitContext
     private Func<HttpRequestMessage, Task<HttpResponseMessage>> respondToRegisterMedicalExamination =
         _ => Json(HttpStatusCode.Created, """{"id":"91000000-0000-0000-0000-000000000001"}""");
 
+    private Func<HttpRequestMessage, Task<HttpResponseMessage>> respondToUpdateProfile =
+        _ => Json(HttpStatusCode.OK, $$"""{"id":"{{MemberId}}"}""");
+
+    private Func<HttpRequestMessage, Task<HttpResponseMessage>> respondToChangeEmploymentStatus = _ => Json(
+        HttpStatusCode.Created,
+        $$"""
+        {"id":"90000000-0000-0000-0000-000000000001","crewMemberId":"{{MemberId}}",
+        "previousStatus":"Active","newStatus":"OnLeave",
+        "changedByUserId":"70000000-0000-0000-0000-000000000009","notes":null,
+        "changedAtUtc":"2026-08-01T10:00:00Z"}
+        """);
+
+    private Func<HttpRequestMessage, Task<HttpResponseMessage>> respondToEmploymentStatusHistory =
+        _ => Json(HttpStatusCode.OK, """{"items":[]}""");
+
     private Func<HttpRequestMessage, Task<HttpResponseMessage>> respondToMemberSearch = _ => Json(
         HttpStatusCode.OK,
         """
@@ -200,6 +215,248 @@ public sealed class CrewMemberProfilePageTests : BunitContext
 
         page.WaitForAssertion(() => Assert.Contains("Ivan Petrović", page.Markup, StringComparison.Ordinal));
         Assert.Empty(page.FindAll(".crew-profile-form"));
+    }
+
+    // ---- Edit profile ----
+
+    [Fact]
+    public void Without_the_manage_permission_the_edit_profile_toggle_is_not_offered()
+    {
+        var page = RenderProfilePage(CurrentUserAuthorizationState.CrewReadPermission);
+
+        page.WaitForAssertion(() => Assert.Contains("Ivan Petrović", page.Markup, StringComparison.Ordinal));
+        Assert.Empty(page.FindAll(".crew-edit-profile-toggle"));
+    }
+
+    [Fact]
+    public void The_edit_profile_toggle_opens_a_form_prefilled_with_the_current_values()
+    {
+        var page = RenderProfilePage(
+            CurrentUserAuthorizationState.CrewReadPermission,
+            CurrentUserAuthorizationState.CrewManagePermission);
+
+        page.WaitForAssertion(() => Assert.NotEmpty(page.FindAll(".crew-edit-profile-toggle")));
+        page.Find(".crew-edit-profile-toggle").Click();
+
+        Assert.Equal("Ivan", page.Find("#edit-profile-first-name").GetAttribute("value"));
+        Assert.Equal("Petrović", page.Find("#edit-profile-last-name").GetAttribute("value"));
+        Assert.Equal("Montenegro", page.Find("#edit-profile-nationality").GetAttribute("value"));
+        Assert.Equal("P1234567", page.Find("#edit-profile-passport-number").GetAttribute("value"));
+        Assert.Equal("CDC987654", page.Find("#edit-profile-cdc-number").GetAttribute("value"));
+
+        page.Find(".crew-edit-profile-toggle").Click();
+
+        Assert.Empty(page.FindAll("#edit-profile-first-name"));
+    }
+
+    [Fact]
+    public void Updating_the_profile_refreshes_the_summary_and_closes_the_form()
+    {
+        var callCount = 0;
+        respondToProfile = _ =>
+        {
+            callCount++;
+            return Json(HttpStatusCode.OK, callCount == 1 ? Profile() : Profile(firstName: "Marko"));
+        };
+
+        var page = RenderProfilePage(
+            CurrentUserAuthorizationState.CrewReadPermission,
+            CurrentUserAuthorizationState.CrewManagePermission);
+
+        page.WaitForAssertion(() => Assert.NotEmpty(page.FindAll(".crew-edit-profile-toggle")));
+        page.Find(".crew-edit-profile-toggle").Click();
+        page.Find("#edit-profile-first-name").Change("Marko");
+
+        Closest(page, "#edit-profile-first-name", "form").Submit();
+
+        page.WaitForAssertion(() =>
+        {
+            Assert.Contains("Marko", page.Markup, StringComparison.Ordinal);
+            Assert.Empty(page.FindAll("#edit-profile-first-name"));
+        });
+    }
+
+    [Fact]
+    public void Profile_validation_problems_are_listed_and_entered_values_preserved()
+    {
+        respondToUpdateProfile = _ => Json(
+            HttpStatusCode.BadRequest,
+            """{"title":"One or more validation errors occurred.","status":400,"errors":{"firstName":["First name is required."]}}""");
+
+        var page = RenderProfilePage(
+            CurrentUserAuthorizationState.CrewReadPermission,
+            CurrentUserAuthorizationState.CrewManagePermission);
+
+        page.WaitForAssertion(() => Assert.NotEmpty(page.FindAll(".crew-edit-profile-toggle")));
+        page.Find(".crew-edit-profile-toggle").Click();
+        page.Find("#edit-profile-first-name").Change(string.Empty);
+
+        Closest(page, "#edit-profile-first-name", "form").Submit();
+
+        page.WaitForAssertion(() => Assert.Contains(
+            "First name is required.",
+            page.Markup,
+            StringComparison.Ordinal));
+        Assert.Equal(string.Empty, page.Find("#edit-profile-first-name").GetAttribute("value"));
+    }
+
+    [Fact]
+    public void A_profile_update_conflict_shows_a_banner()
+    {
+        respondToUpdateProfile = _ => Json(
+            HttpStatusCode.Conflict,
+            """{"title":"Base rank not found.","status":409,"detail":"Base rank not found."}""");
+
+        var page = RenderProfilePage(
+            CurrentUserAuthorizationState.CrewReadPermission,
+            CurrentUserAuthorizationState.CrewManagePermission);
+
+        page.WaitForAssertion(() => Assert.NotEmpty(page.FindAll(".crew-edit-profile-toggle")));
+        page.Find(".crew-edit-profile-toggle").Click();
+
+        Closest(page, "#edit-profile-first-name", "form").Submit();
+
+        page.WaitForAssertion(() => Assert.Contains(
+            "Base rank not found.",
+            page.Find(".crew-profile-form-conflict").TextContent,
+            StringComparison.Ordinal));
+    }
+
+    // ---- Employment status ----
+
+    [Fact]
+    public void Without_the_manage_permission_the_status_change_button_is_not_offered()
+    {
+        var page = RenderProfilePage(CurrentUserAuthorizationState.CrewReadPermission);
+
+        page.WaitForAssertion(() => Assert.Contains("Ivan Petrović", page.Markup, StringComparison.Ordinal));
+        Assert.Empty(page.FindAll(".crew-employment-status-toggle"));
+    }
+
+    [Fact]
+    public void Changing_employment_status_refreshes_the_badge_and_history()
+    {
+        var profileCallCount = 0;
+        respondToProfile = _ =>
+        {
+            profileCallCount++;
+            return Json(HttpStatusCode.OK, profileCallCount == 1 ? Profile() : Profile(employmentStatus: "OnLeave"));
+        };
+        respondToEmploymentStatusHistory = _ => Json(HttpStatusCode.OK, """
+            {"items":[{"id":"90000000-0000-0000-0000-000000000001","status":"OnLeave",
+            "changedByUserId":"70000000-0000-0000-0000-000000000009","notes":"Medical leave",
+            "changedAtUtc":"2026-08-01T10:00:00Z"}]}
+            """);
+
+        var page = RenderProfilePage(
+            CurrentUserAuthorizationState.CrewReadPermission,
+            CurrentUserAuthorizationState.CrewManagePermission);
+
+        page.WaitForAssertion(() => Assert.NotEmpty(page.FindAll(".crew-employment-status-toggle")));
+        page.Find(".crew-employment-status-toggle").Click();
+        page.Find("#employment-status-select").Change("OnLeave");
+        page.Find("#employment-status-notes").Change("Medical leave");
+
+        Closest(page, "#employment-status-select", "form").Submit();
+
+        page.WaitForAssertion(() =>
+        {
+            Assert.Equal("OnLeave", page.Find(".employment-status").TextContent.Trim());
+            Assert.Contains("employment-onleave", page.Find(".employment-status").ClassList);
+            Assert.Contains("Medical leave", page.Markup, StringComparison.Ordinal);
+        });
+    }
+
+    [Fact]
+    public void An_employment_status_change_conflict_shows_an_error()
+    {
+        respondToChangeEmploymentStatus = _ => Json(
+            HttpStatusCode.Conflict,
+            """{"title":"The employment status is unchanged.","status":409,"detail":"The employment status is unchanged."}""");
+
+        var page = RenderProfilePage(
+            CurrentUserAuthorizationState.CrewReadPermission,
+            CurrentUserAuthorizationState.CrewManagePermission);
+
+        page.WaitForAssertion(() => Assert.NotEmpty(page.FindAll(".crew-employment-status-toggle")));
+        page.Find(".crew-employment-status-toggle").Click();
+
+        Closest(page, "#employment-status-select", "form").Submit();
+
+        page.WaitForAssertion(() => Assert.Contains(
+            "The employment status is unchanged.",
+            page.Find(".crew-profile-form-error").TextContent,
+            StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void Cancelling_the_status_change_hides_the_form()
+    {
+        var page = RenderProfilePage(
+            CurrentUserAuthorizationState.CrewReadPermission,
+            CurrentUserAuthorizationState.CrewManagePermission);
+
+        page.WaitForAssertion(() => Assert.NotEmpty(page.FindAll(".crew-employment-status-toggle")));
+        page.Find(".crew-employment-status-toggle").Click();
+
+        page.WaitForAssertion(() => Assert.NotEmpty(page.FindAll("#employment-status-select")));
+        page.Find(".crew-rotation-edit-toggle").Click();
+
+        Assert.Empty(page.FindAll("#employment-status-select"));
+    }
+
+    [Fact]
+    public void Employment_history_lists_recorded_changes()
+    {
+        respondToEmploymentStatusHistory = _ => Json(HttpStatusCode.OK, """
+            {"items":[{"id":"90000000-0000-0000-0000-000000000001","status":"Suspended",
+            "changedByUserId":"70000000-0000-0000-0000-000000000009","notes":"Pending review",
+            "changedAtUtc":"2026-06-01T12:30:00Z"}]}
+            """);
+
+        var page = RenderProfilePage(CurrentUserAuthorizationState.CrewReadPermission);
+
+        page.WaitForAssertion(() =>
+        {
+            var card = Closest(page, "#crew-profile-employment-title", ".crew-profile-card");
+            Assert.Contains("Suspended", card.TextContent, StringComparison.Ordinal);
+            Assert.Contains("Pending review", card.TextContent, StringComparison.Ordinal);
+        });
+    }
+
+    [Fact]
+    public void No_employment_history_shows_the_empty_state()
+    {
+        var page = RenderProfilePage(CurrentUserAuthorizationState.CrewReadPermission);
+
+        page.WaitForAssertion(() =>
+        {
+            var card = Closest(page, "#crew-profile-employment-title", ".crew-profile-card");
+            Assert.Contains("No employment status changes on record", card.TextContent, StringComparison.Ordinal);
+        });
+    }
+
+    [Fact]
+    public void An_api_failure_loading_employment_history_shows_retry()
+    {
+        respondToEmploymentStatusHistory = _ => Json(HttpStatusCode.InternalServerError, """{"status":500}""");
+
+        var page = RenderProfilePage(CurrentUserAuthorizationState.CrewReadPermission);
+
+        page.WaitForAssertion(() => Assert.NotEmpty(
+            Closest(page, "#crew-profile-employment-title", ".crew-profile-card").QuerySelectorAll(".api-error-state")));
+
+        respondToEmploymentStatusHistory = _ => Json(HttpStatusCode.OK, """
+            {"items":[{"id":"90000000-0000-0000-0000-000000000001","status":"Active",
+            "changedByUserId":"70000000-0000-0000-0000-000000000009","notes":null,
+            "changedAtUtc":"2026-01-01T00:00:00Z"}]}
+            """);
+        Closest(page, "#crew-profile-employment-title", ".crew-profile-card").QuerySelector(".api-error-state button")!.Click();
+
+        page.WaitForAssertion(() => Assert.Contains(
+            "Active",
+            Closest(page, "#crew-profile-employment-title", ".crew-profile-card").TextContent,
+            StringComparison.Ordinal));
     }
 
     // ---- Register certificate ----
@@ -1058,6 +1315,21 @@ public sealed class CrewMemberProfilePageTests : BunitContext
                 return respondToProfile(request);
             }
 
+            if (path.EndsWith("/employment-status-history", StringComparison.Ordinal))
+            {
+                return respondToEmploymentStatusHistory(request);
+            }
+
+            if (path.EndsWith("/employment-status-changes", StringComparison.Ordinal))
+            {
+                return respondToChangeEmploymentStatus(request);
+            }
+
+            if (path.EndsWith($"/members/{MemberId}", StringComparison.Ordinal) && request.Method == HttpMethod.Put)
+            {
+                return respondToUpdateProfile(request);
+            }
+
             if (path.EndsWith("/positions", StringComparison.Ordinal))
             {
                 return respondToPositions(request);
@@ -1153,16 +1425,18 @@ public sealed class CrewMemberProfilePageTests : BunitContext
     private static string Profile(
         Guid? crewMemberId = null,
         string[]? certificates = null,
-        string[]? assignments = null)
+        string[]? assignments = null,
+        string firstName = "Ivan",
+        string employmentStatus = "Active")
     {
         var certificateJson = certificates ?? [Certificate()];
         var assignmentJson = assignments ?? [Assignment()];
 
         return $$"""
-            {"crewMemberId":"{{crewMemberId ?? MemberId}}","name":"Ivan Petrović","nationality":"Montenegro",
+            {"crewMemberId":"{{crewMemberId ?? MemberId}}","firstName":"{{firstName}}","lastName":"Petrović","nationality":"Montenegro",
             "imoSeafarerId":"IMO100001","passportNumber":"P1234567","dateOfBirth":"1990-05-14",
             "passportExpiry":"2028-01-01","cdcNumber":"CDC987654","hireDate":"2024-01-15",
-            "employmentStatus":"Active","baseRankId":"{{RankId}}","baseRankName":"Bosun",
+            "employmentStatus":"{{employmentStatus}}","baseRankId":"{{RankId}}","baseRankName":"Bosun",
             "certificates":[{{string.Join(',', certificateJson)}}],
             "assignments":[{{string.Join(',', assignmentJson)}}]}
             """;

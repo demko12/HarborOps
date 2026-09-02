@@ -1,0 +1,90 @@
+@using HarborOps.Web.Api
+@inject CrewApiClient CrewApi
+
+<section class="crew-profile-form" aria-labelledby="crew-edit-profile-form-title">
+    <div class="crew-profile-form-header">
+        <h3 id="crew-edit-profile-form-title">Edit profile</h3>
+    </div>
+
+    @if (conflictMessage is not null)
+    {
+        <div class="crew-profile-form-conflict" role="alert">@conflictMessage</div>
+    }
+
+    @if (generalError is not null)
+    {
+        <div class="crew-profile-form-error" role="alert">@generalError</div>
+    }
+
+    @if (fieldErrors.Count > 0)
+    {
+        <ul class="crew-profile-form-field-errors" role="alert">
+            @foreach (var message in fieldErrors)
+            {
+                <li>@message</li>
+            }
+        </ul>
+    }
+
+    @if (successMessage is not null)
+    {
+        <div class="crew-profile-form-success" role="status">@successMessage</div>
+    }
+
+    <form class="crew-profile-form-grid" @onsubmit="SubmitAsync" @onsubmit:preventDefault="true">
+        <div class="crew-profile-form-field">
+            <label for="edit-profile-first-name">First name</label>
+            <input id="edit-profile-first-name" type="text" @bind="model.FirstName" maxlength="100" />
+        </div>
+
+        <div class="crew-profile-form-field">
+            <label for="edit-profile-last-name">Last name</label>
+            <input id="edit-profile-last-name" type="text" @bind="model.LastName" maxlength="100" />
+        </div>
+
+        <div class="crew-profile-form-field">
+            <label for="edit-profile-date-of-birth">Date of birth</label>
+            <input id="edit-profile-date-of-birth" type="date" @bind="model.DateOfBirth" />
+        </div>
+
+        <div class="crew-profile-form-field">
+            <label for="edit-profile-nationality">Nationality</label>
+            <input id="edit-profile-nationality" type="text" @bind="model.Nationality" maxlength="100" />
+        </div>
+
+        <div class="crew-profile-form-field">
+            <label for="edit-profile-passport-number">Passport number</label>
+            <input id="edit-profile-passport-number" type="text" @bind="model.PassportNumber" maxlength="50" />
+        </div>
+
+        <div class="crew-profile-form-field">
+            <label for="edit-profile-passport-expiry">Passport expiry</label>
+            <input id="edit-profile-passport-expiry" type="date" @bind="model.PassportExpiry" />
+        </div>
+
+        <div class="crew-profile-form-field">
+            <label for="edit-profile-cdc-number">CDC number</label>
+            <input id="edit-profile-cdc-number" type="text" @bind="model.CdcNumber" maxlength="50" />
+        </div>
+
+        <div class="crew-profile-form-field">
+            <label for="edit-profile-hire-date">Hire date</label>
+            <input id="edit-profile-hire-date" type="date" @bind="model.HireDate" />
+        </div>
+
+        <div class="crew-profile-form-field">
+            <label for="edit-profile-base-rank">Base rank</label>
+            <select id="edit-profile-base-rank" value="@(model.BaseRankId?.ToString() ?? string.Empty)" @onchange="OnRankChanged" disabled="@(isLoadingPositions || positionOptions.Count == 0)">
+                <option value="">@RankPlaceholder</option>
+                @foreach (var option in positionOptions)
+                {
+                    <option value="@option.CrewPositionId">@option.RankName (@option.Department)</option>
+                }
+            </select>
+        </div>
+
+        <button type="submit" class="crew-profile-form-submit" disabled="@isSubmitting">
+            @(isSubmitting ? "Saving..." : "Save changes")
+        </button>
+    </form>
+</section>

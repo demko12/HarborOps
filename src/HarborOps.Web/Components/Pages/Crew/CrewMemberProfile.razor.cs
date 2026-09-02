@@ -61,10 +61,23 @@ public partial class CrewMemberProfile : IDisposable
 
     private bool isEditingRotation;
 
+    private bool isEditingProfile;
+
+    private static readonly string[] EmploymentStatusOptions = ["Active", "OnLeave", "Suspended", "Terminated"];
+
+    private IReadOnlyList<CrewEmploymentStatusHistoryItemResponse> employmentHistory = [];
+    private bool isLoadingEmploymentHistory = true;
+    private CrewApiFailure? employmentHistoryFailure;
+
+    private bool isConfirmingEmploymentStatusChange;
+    private bool isSubmittingEmploymentStatus;
+    private string? employmentStatusActionError;
+    private EmploymentStatusFormModel employmentStatusForm = new();
+
     private bool CanManage => CurrentUser.HasPermission(CurrentUserAuthorizationState.CrewManagePermission);
 
     protected override async Task OnInitializedAsync() =>
-        await Task.WhenAll(LoadProfileAsync(), LoadMedicalExaminationsAsync());
+        await Task.WhenAll(LoadProfileAsync(), LoadMedicalExaminationsAsync(), LoadEmploymentHistoryAsync());
 
     protected override async Task OnParametersSetAsync()
     {
@@ -73,7 +86,7 @@ public partial class CrewMemberProfile : IDisposable
         // component being torn down and recreated - reload whenever it changes.
         if (profile is not null && profile.CrewMemberId != CrewMemberId)
         {
-            await Task.WhenAll(LoadProfileAsync(), LoadMedicalExaminationsAsync());
+            await Task.WhenAll(LoadProfileAsync(), LoadMedicalExaminationsAsync(), LoadEmploymentHistoryAsync());
         }
     }
 
@@ -111,6 +124,94 @@ public partial class CrewMemberProfile : IDisposable
     }
 
     private void ToggleSensitiveData() => isSensitiveDataRevealed = !isSensitiveDataRevealed;
+
+    private void ToggleEditProfile() => isEditingProfile = !isEditingProfile;
+
+    private async Task OnProfileUpdatedAsync()
+    {
+        isEditingProfile = false;
+        await LoadProfileAsync();
+    }
+
+    private async Task LoadEmploymentHistoryAsync()
+    {
+        isLoadingEmploymentHistory = true;
+        employmentHistoryFailure = null;
+
+        CrewApiResult<GetCrewEmploymentStatusHistoryResponse> result;
+        try
+        {
+            result = await CrewApi.GetEmploymentStatusHistoryAsync(CrewMemberId, disposeCancellation.Token);
+        }
+        catch (OperationCanceledException) when (disposeCancellation.IsCancellationRequested)
+        {
+            return;
+        }
+
+        if (disposeCancellation.IsCancellationRequested)
+        {
+            return;
+        }
+
+        isLoadingEmploymentHistory = false;
+
+        if (result.IsSuccess)
+        {
+            employmentHistory = result.Value!.Items;
+        }
+        else
+        {
+            employmentHistoryFailure = result.Failure;
+        }
+    }
+
+    private void RequestEmploymentStatusChange()
+    {
+        employmentStatusActionError = null;
+        employmentStatusForm = new EmploymentStatusFormModel
+        {
+            Status = profile?.EmploymentStatus ?? EmploymentStatusOptions[0],
+        };
+        isConfirmingEmploymentStatusChange = true;
+    }
+
+    private void CancelEmploymentStatusChange()
+    {
+        isConfirmingEmploymentStatusChange = false;
+        employmentStatusActionError = null;
+    }
+
+    private async Task ConfirmEmploymentStatusChangeAsync()
+    {
+        if (isSubmittingEmploymentStatus)
+        {
+            return;
+        }
+
+        isSubmittingEmploymentStatus = true;
+        employmentStatusActionError = null;
+
+        var result = await CrewApi.ChangeEmploymentStatusAsync(
+            CrewMemberId,
+            new ChangeCrewMemberEmploymentStatusRequest
+            {
+                Status = employmentStatusForm.Status,
+                Notes = employmentStatusForm.Notes,
+            },
+            disposeCancellation.Token);
+
+        isSubmittingEmploymentStatus = false;
+
+        if (!result.IsSuccess)
+        {
+            employmentStatusActionError = result.Failure!.Message;
+            return;
+        }
+
+        isConfirmingEmploymentStatusChange = false;
+
+        await Task.WhenAll(LoadProfileAsync(), LoadEmploymentHistoryAsync());
+    }
 
     private async Task OnCertificateRegisteredAsync()
     {
@@ -487,8 +588,14 @@ public partial class CrewMemberProfile : IDisposable
         };
     }
 
-    private static string GetEmploymentStatusClass(string status) =>
-        string.Equals(status, "Active", StringComparison.OrdinalIgnoreCase) ? "employment-active" : "employment-inactive";
+    private static string GetEmploymentStatusClass(string status)
+    {
+        if (string.Equals(status, "Active", StringComparison.OrdinalIgnoreCase)) return "employment-active";
+        if (string.Equals(status, "OnLeave", StringComparison.OrdinalIgnoreCase)) return "employment-onleave";
+        if (string.Equals(status, "Suspended", StringComparison.OrdinalIgnoreCase)) return "employment-suspended";
+        if (string.Equals(status, "Terminated", StringComparison.OrdinalIgnoreCase)) return "employment-terminated";
+        return "employment-inactive";
+    }
 
     private async Task ResolveVesselNamesAsync(IEnumerable<Guid> vesselIds)
     {
@@ -522,5 +629,11 @@ public partial class CrewMemberProfile : IDisposable
         public Guid? RelievingCrewMemberId { get; set; }
         public string? RotationPattern { get; set; }
         public DateOnly? PlannedReliefDate { get; set; }
+    }
+
+    private sealed class EmploymentStatusFormModel
+    {
+        public string? Status { get; set; }
+        public string? Notes { get; set; }
     }
 }

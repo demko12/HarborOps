@@ -185,7 +185,8 @@ public sealed class RegisterCrewCertificateEndpointTests : IntegrationTestBase
 
         var crewMember = CrewMember.Create(
             crewPosition.Id,
-            "Ivan Petrović",
+            "Ivan",
+            "Petrović",
             new DateOnly(1990, 5, 14),
             "Montenegro",
             imoSeafarerId,

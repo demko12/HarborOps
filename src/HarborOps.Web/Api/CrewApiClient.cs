@@ -81,6 +81,59 @@ internal sealed class CrewApiClient(HttpClient httpClient)
         }
     }
 
+    internal async Task<CrewApiWriteResult<UpdateCrewMemberResponse>> UpdateProfileAsync(
+        Guid crewMemberId,
+        UpdateCrewMemberRequest request,
+        CancellationToken cancellationToken)
+    {
+        return await PutAsync<UpdateCrewMemberRequest, UpdateCrewMemberResponse>(
+            $"api/crew/members/{crewMemberId}", request, cancellationToken);
+    }
+
+    internal async Task<CrewApiWriteResult<ChangeCrewMemberEmploymentStatusResponse>> ChangeEmploymentStatusAsync(
+        Guid crewMemberId,
+        ChangeCrewMemberEmploymentStatusRequest request,
+        CancellationToken cancellationToken)
+    {
+        return await PostAsync<ChangeCrewMemberEmploymentStatusRequest, ChangeCrewMemberEmploymentStatusResponse>(
+            $"api/crew/members/{crewMemberId}/employment-status-changes", request, cancellationToken);
+    }
+
+    internal async Task<CrewApiResult<GetCrewEmploymentStatusHistoryResponse>> GetEmploymentStatusHistoryAsync(
+        Guid crewMemberId,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            using var response = await httpClient.GetAsync(
+                $"api/crew/members/{crewMemberId}/employment-status-history",
+                HttpCompletionOption.ResponseHeadersRead,
+                cancellationToken);
+
+            if (response.IsSuccessStatusCode)
+            {
+                return new CrewApiResult<GetCrewEmploymentStatusHistoryResponse>(
+                    await response.Content.ReadFromJsonAsync<GetCrewEmploymentStatusHistoryResponse>(cancellationToken), null);
+            }
+
+            var problem = await TryReadProblemAsync(response, cancellationToken);
+            var isForbidden = response.StatusCode == HttpStatusCode.Forbidden;
+            var isNotFound = response.StatusCode == HttpStatusCode.NotFound;
+            return new CrewApiResult<GetCrewEmploymentStatusHistoryResponse>(null, new CrewApiFailure(
+                (int)response.StatusCode,
+                problem?.Title ?? (isForbidden ? "Crew access denied" : isNotFound ? "Crew member not found" : "Unable to load employment history"),
+                problem?.Detail ?? (isForbidden ? "Your account does not have permission to view this history." : "Please try again.")));
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (HttpRequestException)
+        {
+            return new CrewApiResult<GetCrewEmploymentStatusHistoryResponse>(null, new CrewApiFailure(0, "HarborOps API is unavailable", "Please try again."));
+        }
+    }
+
     internal async Task<CrewApiResult<CrewPositionsResponse>> GetPositionsAsync(
         string? search,
         int pageSize,
@@ -558,7 +611,8 @@ internal sealed record CrewApiFailure(
 
 internal sealed record CrewMemberProfileResponse(
     Guid CrewMemberId,
-    string Name,
+    string FirstName,
+    string LastName,
     string Nationality,
     string ImoSeafarerId,
     string PassportNumber,
@@ -571,6 +625,45 @@ internal sealed record CrewMemberProfileResponse(
     string BaseRankName,
     IReadOnlyList<CrewCertificateProfileItemResponse> Certificates,
     IReadOnlyList<CrewAssignmentProfileItemResponse> Assignments);
+
+internal sealed record UpdateCrewMemberRequest
+{
+    public string? FirstName { get; init; }
+    public string? LastName { get; init; }
+    public DateOnly? DateOfBirth { get; init; }
+    public string? Nationality { get; init; }
+    public string? PassportNumber { get; init; }
+    public DateOnly? PassportExpiry { get; init; }
+    public string? CdcNumber { get; init; }
+    public DateOnly? HireDate { get; init; }
+    public Guid? BaseRankId { get; init; }
+}
+
+internal sealed record UpdateCrewMemberResponse(Guid Id);
+
+internal sealed record ChangeCrewMemberEmploymentStatusRequest
+{
+    public string? Status { get; init; }
+    public string? Notes { get; init; }
+}
+
+internal sealed record ChangeCrewMemberEmploymentStatusResponse(
+    Guid Id,
+    Guid CrewMemberId,
+    string PreviousStatus,
+    string NewStatus,
+    Guid ChangedByUserId,
+    string? Notes,
+    DateTime ChangedAtUtc);
+
+internal sealed record CrewEmploymentStatusHistoryItemResponse(
+    Guid Id,
+    string Status,
+    Guid ChangedByUserId,
+    string? Notes,
+    DateTime ChangedAtUtc);
+
+internal sealed record GetCrewEmploymentStatusHistoryResponse(IReadOnlyList<CrewEmploymentStatusHistoryItemResponse> Items);
 
 internal sealed record CrewCertificateProfileItemResponse(
     Guid CertificateId,
