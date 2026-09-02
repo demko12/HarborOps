@@ -43,6 +43,15 @@ internal sealed class DocumentConfiguration : IEntityTypeConfiguration<Document>
             .HasMaxLength(Document.StatusMaxLength)
             .IsRequired();
 
+        builder.Property(d => d.ReviewStatus)
+            .HasMaxLength(Document.StatusMaxLength)
+            .IsRequired()
+            .HasDefaultValue(Document.DraftReviewStatus);
+
+        builder.Property(d => d.ConcurrencyToken)
+            .IsConcurrencyToken()
+            .HasDefaultValueSql("NEWID()");
+
         builder.Property(d => d.SupersededAtUtc);
 
         builder.Property(d => d.SupersededByUserId);

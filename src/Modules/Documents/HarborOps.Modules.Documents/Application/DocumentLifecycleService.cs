@@ -14,6 +14,10 @@ public sealed class DocumentLifecycleService(DbContext dbContext, TimeProvider t
         await EnsureTypeExistsAsync(metadata.DocumentTypeId, cancellationToken);
         await EnsureNoActiveDuplicateAsync(document.VesselId, metadata.DocumentTypeId, metadata.Number, documentId, cancellationToken);
         document.CorrectMetadata(metadata.DocumentTypeId, metadata.Number, metadata.IssueDate, metadata.ExpiryDate, metadata.IssuingAuthority);
+        if (string.Equals(document.ReviewStatus, Document.RejectedReviewStatus, StringComparison.Ordinal))
+        {
+            document.ReturnToDraftAfterCorrection();
+        }
         await dbContext.SaveChangesAsync(cancellationToken);
     }
 
@@ -59,6 +63,95 @@ public sealed class DocumentLifecycleService(DbContext dbContext, TimeProvider t
             .OrderByDescending(d => d.SupersededAtUtc).ThenByDescending(d => d.DocumentId)
             .ToList();
         return chain;
+    }
+
+    public async Task SubmitForReviewAsync(Guid documentId, Guid actorId, CancellationToken cancellationToken)
+    {
+        var document = await dbContext.Set<Document>().SingleOrDefaultAsync(d => d.Id == documentId, cancellationToken)
+            ?? throw new DocumentNotFoundException(documentId);
+
+        var utcNow = timeProvider.GetUtcNow();
+        document.SubmitForReview(actorId, utcNow);
+
+        await dbContext.Set<DocumentReviewEvent>().AddAsync(
+            new DocumentReviewEvent(documentId, DocumentReviewEvent.SubmittedAction, actorId, utcNow, notes: null),
+            cancellationToken);
+
+        await dbContext.SaveChangesAsync(cancellationToken);
+    }
+
+    public async Task ReviewAsync(Guid documentId, Guid reviewerId, string decision, string? notes, CancellationToken cancellationToken)
+    {
+        var document = await dbContext.Set<Document>().SingleOrDefaultAsync(d => d.Id == documentId, cancellationToken)
+            ?? throw new DocumentNotFoundException(documentId);
+
+        var submitterId = await dbContext.Set<DocumentReviewEvent>()
+            .AsNoTracking()
+            .Where(e => e.DocumentId == documentId && e.Action == DocumentReviewEvent.SubmittedAction)
+            .OrderByDescending(e => e.OccurredAtUtc)
+            .ThenByDescending(e => e.Id)
+            .Select(e => (Guid?)e.ActorUserId)
+            .FirstOrDefaultAsync(cancellationToken);
+
+        if (submitterId is { } submitter && submitter == reviewerId)
+        {
+            throw new DocumentLifecycleConflictException("The reviewer must be different from the submitter.");
+        }
+
+        var utcNow = timeProvider.GetUtcNow();
+
+        if (string.Equals(decision, Document.ApprovedReviewStatus, StringComparison.Ordinal))
+        {
+            document.Approve(reviewerId, utcNow);
+            await dbContext.Set<DocumentReviewEvent>().AddAsync(
+                new DocumentReviewEvent(documentId, DocumentReviewEvent.ApprovedAction, reviewerId, utcNow, notes),
+                cancellationToken);
+        }
+        else if (string.Equals(decision, Document.RejectedReviewStatus, StringComparison.Ordinal))
+        {
+            document.Reject(reviewerId, notes!, utcNow);
+            await dbContext.Set<DocumentReviewEvent>().AddAsync(
+                new DocumentReviewEvent(documentId, DocumentReviewEvent.RejectedAction, reviewerId, utcNow, notes),
+                cancellationToken);
+        }
+        else
+        {
+            throw new ArgumentException($"'{decision}' is not a recognized review decision.", nameof(decision));
+        }
+
+        await dbContext.SaveChangesAsync(cancellationToken);
+    }
+
+    public async Task RevokeAsync(Guid documentId, Guid actorId, string reason, CancellationToken cancellationToken)
+    {
+        var document = await dbContext.Set<Document>().SingleOrDefaultAsync(d => d.Id == documentId, cancellationToken)
+            ?? throw new DocumentNotFoundException(documentId);
+
+        var utcNow = timeProvider.GetUtcNow();
+        document.Revoke(actorId, reason, utcNow);
+
+        await dbContext.Set<DocumentReviewEvent>().AddAsync(
+            new DocumentReviewEvent(documentId, DocumentReviewEvent.RevokedAction, actorId, utcNow, reason),
+            cancellationToken);
+
+        await dbContext.SaveChangesAsync(cancellationToken);
+    }
+
+    public async Task<IReadOnlyList<DocumentReviewEventResponse>> GetReviewHistoryAsync(Guid documentId, CancellationToken cancellationToken)
+    {
+        var documentExists = await dbContext.Set<Document>().AsNoTracking().AnyAsync(d => d.Id == documentId, cancellationToken);
+        if (!documentExists)
+        {
+            throw new DocumentNotFoundException(documentId);
+        }
+
+        return await dbContext.Set<DocumentReviewEvent>()
+            .AsNoTracking()
+            .Where(e => e.DocumentId == documentId)
+            .OrderBy(e => e.OccurredAtUtc)
+            .ThenBy(e => e.Id)
+            .Select(e => new DocumentReviewEventResponse(e.Id, e.DocumentId, e.Action, e.ActorUserId, e.OccurredAtUtc, e.Notes))
+            .ToListAsync(cancellationToken);
     }
 
     private async Task EnsureTypeExistsAsync(int documentTypeId, CancellationToken cancellationToken)

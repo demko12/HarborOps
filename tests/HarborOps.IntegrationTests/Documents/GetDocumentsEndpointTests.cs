@@ -41,7 +41,10 @@ public sealed class GetDocumentsEndpointTests : IntegrationTestBase
     [Fact]
     public async Task Get_returns_seeded_documents_with_document_type_name()
     {
-        using var client = await _application.CreateAuthenticatedClientWithPermissionsAsync(Permissions.Documents.Read);
+        // Manage, not Read: this test asserts response shape, not visibility - a
+        // freshly-registered document defaults to Draft, invisible to a read-only client
+        // (see DocumentVisibilityEndpointTests for the dedicated visibility coverage).
+        using var client = await _application.CreateAuthenticatedClientWithPermissionsAsync(Permissions.Documents.Manage);
         var vesselId = Guid.NewGuid();
         var expiryDate = new DateOnly(2026, 1, 1);
         var seeded = await SeedDocumentAsync(vesselId, "CERT-1001", expiryDate);
@@ -67,7 +70,9 @@ public sealed class GetDocumentsEndpointTests : IntegrationTestBase
     [Fact]
     public async Task Get_filters_by_vessel_id_query_parameter()
     {
-        using var client = await _application.CreateAuthenticatedClientWithPermissionsAsync(Permissions.Documents.Read);
+        // Manage, not Read: this test asserts filter mechanics, not visibility (see comment
+        // on Get_returns_seeded_documents_with_document_type_name above).
+        using var client = await _application.CreateAuthenticatedClientWithPermissionsAsync(Permissions.Documents.Manage);
         var targetVesselId = Guid.NewGuid();
         var targetDocument = await SeedDocumentAsync(targetVesselId, "TARGET-1", new DateOnly(2026, 1, 1));
         await SeedDocumentAsync(Guid.NewGuid(), "OTHER-1", new DateOnly(2026, 1, 1));
@@ -88,7 +93,9 @@ public sealed class GetDocumentsEndpointTests : IntegrationTestBase
     [Fact]
     public async Task Get_filters_by_search_query_parameter()
     {
-        using var client = await _application.CreateAuthenticatedClientWithPermissionsAsync(Permissions.Documents.Read);
+        // Manage, not Read: this test asserts filter mechanics, not visibility (see comment
+        // on Get_returns_seeded_documents_with_document_type_name above).
+        using var client = await _application.CreateAuthenticatedClientWithPermissionsAsync(Permissions.Documents.Manage);
         var vesselId = Guid.NewGuid();
         var matching = await SeedDocumentAsync(vesselId, "BRZ-2024-0091", new DateOnly(2026, 1, 1));
         await SeedDocumentAsync(vesselId, "CERT-2024-0002", new DateOnly(2026, 1, 1));
@@ -108,7 +115,9 @@ public sealed class GetDocumentsEndpointTests : IntegrationTestBase
     [Fact]
     public async Task Get_respects_page_size_and_page_number_while_total_count_reflects_full_filtered_set()
     {
-        using var client = await _application.CreateAuthenticatedClientWithPermissionsAsync(Permissions.Documents.Read);
+        // Manage, not Read: this test asserts pagination mechanics, not visibility (see
+        // comment on Get_returns_seeded_documents_with_document_type_name above).
+        using var client = await _application.CreateAuthenticatedClientWithPermissionsAsync(Permissions.Documents.Manage);
         var vesselId = Guid.NewGuid();
         for (var index = 0; index < 5; index++)
         {

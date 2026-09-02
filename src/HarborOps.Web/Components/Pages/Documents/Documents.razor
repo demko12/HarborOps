@@ -45,6 +45,16 @@
             <label for="documents-to">To</label>
             <input id="documents-to" type="date" @bind="toFilter" @bind:after="ScheduleFilterSearchAsync" />
         </div>
+        <div class="filter-field">
+            <label for="documents-review-status">Review status</label>
+            <select id="documents-review-status" @bind="pendingReviewStatus" @bind:after="ScheduleFilterSearchAsync">
+                <option value="">All</option>
+                <option value="Draft">Draft</option>
+                <option value="PendingReview">Pending review</option>
+                <option value="Approved">Approved</option>
+                <option value="Rejected">Rejected</option>
+            </select>
+        </div>
         <button class="documents-filter-reset" type="button" @onclick="ClearFiltersAsync" disabled="@isLoading">Reset</button>
     </section>
 
@@ -126,7 +136,10 @@
                                 <td class="documents-muted col-authority">@row.IssuingAuthority</td>
                                 <td class="documents-muted col-issue">@row.IssueDate.ToString("dd MMM yyyy")</td>
                                 <td class="col-expiry">@row.ExpiryDate.ToString("dd MMM yyyy")</td>
-                                <td class="col-status"><span class="documents-status @GetDocumentStatusClass(row.Status)">@row.Status</span></td>
+                                <td class="col-status">
+                                    <span class="documents-status @GetDocumentStatusClass(row.Status)">@row.Status</span>
+                                    <span class="documents-review-status @GetReviewStatusClass(row.ReviewStatus)">@row.ReviewStatus</span>
+                                </td>
                                 <td class="documents-num col-days">@row.DaysUntilExpiry</td>
                                 <td class="col-file">
                                     <button type="button" class="documents-file-toggle"
@@ -170,9 +183,18 @@
         }
         else if (fileDetails is not null)
         {
+            <div class="documents-lifecycle-actions">
+                <span class="documents-status @GetDocumentStatusClass(fileDetails.Status)">@fileDetails.Status</span>
+                <span class="documents-review-status @GetReviewStatusClass(fileDetails.ReviewStatus)">@fileDetails.ReviewStatus</span>
+            </div>
+
             @if (lifecycleFailure is not null)
             {
                 <div class="documents-type-inline-error" role="alert">@lifecycleFailure.Message</div>
+            }
+            @if (reviewActionSuccessMessage is not null)
+            {
+                <div class="documents-type-success" role="status">@reviewActionSuccessMessage</div>
             }
             @if (AuthorizationState.HasPermission("documents.manage"))
             {
@@ -181,6 +203,23 @@
                     @if (fileDetails.Status == "Active")
                     {
                         <button type="button" class="documents-search-button" @onclick="() => isRenewingDocument = !isRenewingDocument">Renew document</button>
+                    }
+                    @if (CanSubmitForReview)
+                    {
+                        <button type="button" class="documents-search-button" disabled="@isSubmittingForReview" @onclick="SubmitForReviewAsync">
+                            @(isSubmittingForReview ? "Submitting..." : "Submit for review")
+                        </button>
+                    }
+                    @if (CanApproveOrReject)
+                    {
+                        <button type="button" class="documents-search-button" disabled="@isApproving" @onclick="ApproveAsync">
+                            @(isApproving ? "Approving..." : "Approve")
+                        </button>
+                        <button type="button" class="documents-modal-cancel" @onclick="OpenRejectConfirmation">Reject</button>
+                    }
+                    @if (CanRevoke)
+                    {
+                        <button type="button" class="documents-modal-cancel" @onclick="OpenRevokeConfirmation">Revoke</button>
                     }
                 </div>
                 @if (isEditingMetadata || isRenewingDocument)
@@ -197,11 +236,90 @@
                     <button type="button" class="documents-search-button" @onclick="@(isRenewingDocument ? RenewDocumentAsync : SaveMetadataAsync)">@(isRenewingDocument ? "Confirm renewal" : "Save metadata")</button>
                     </section>
                 }
+                @if (isRejectingDocument)
+                {
+                    <section class="documents-lifecycle-panel" aria-label="Reject document">
+                        <div class="filter-field">
+                            <label for="reject-notes">Rejection notes</label>
+                            <textarea id="reject-notes" @bind="rejectNotes"></textarea>
+                        </div>
+                        @if (rejectNotesValidationMessage is not null)
+                        {
+                            <div class="documents-type-inline-error" role="alert">@rejectNotesValidationMessage</div>
+                        }
+                        @if (rejectFailure is not null)
+                        {
+                            <div class="documents-type-inline-error" role="alert">@rejectFailure.Message</div>
+                        }
+                        <button type="button" class="documents-search-button" disabled="@isSubmittingRejection" @onclick="ConfirmRejectAsync">
+                            @(isSubmittingRejection ? "Rejecting..." : "Confirm rejection")
+                        </button>
+                        <button type="button" class="documents-modal-cancel" @onclick="CancelRejectConfirmation" disabled="@isSubmittingRejection">Cancel</button>
+                    </section>
+                }
+                @if (isConfirmingRevoke)
+                {
+                    <section class="documents-lifecycle-panel" aria-label="Revoke document">
+                        <div class="filter-field">
+                            <label for="revoke-reason">Revocation reason</label>
+                            <textarea id="revoke-reason" @bind="revokeReason"></textarea>
+                        </div>
+                        @if (revokeReasonValidationMessage is not null)
+                        {
+                            <div class="documents-type-inline-error" role="alert">@revokeReasonValidationMessage</div>
+                        }
+                        @if (revokeFailure is not null)
+                        {
+                            <div class="documents-type-inline-error" role="alert">@revokeFailure.Message</div>
+                        }
+                        <button type="button" class="documents-search-button" disabled="@isRevoking" @onclick="ConfirmRevokeAsync">
+                            @(isRevoking ? "Revoking..." : "Confirm revoke")
+                        </button>
+                        <button type="button" class="documents-modal-cancel" @onclick="CancelRevokeConfirmation" disabled="@isRevoking">Cancel</button>
+                    </section>
+                }
             }
             @if (renewalHistory.Count > 1)
             {
                 <section class="documents-renewal-history"><p>Renewal history</p>@foreach (var item in renewalHistory) { <div><strong>@item.Number</strong><span>@item.Status · expires @item.ExpiryDate.ToString("dd MMM yyyy")</span></div> }</section>
             }
+
+            <section class="documents-review-history">
+                <button type="button" class="documents-review-history-toggle" @onclick="ToggleReviewHistoryAsync">
+                    @(isReviewHistoryExpanded ? "Hide review history" : "Show review history")
+                </button>
+                @if (isReviewHistoryExpanded)
+                {
+                    @if (isLoadingReviewHistory)
+                    {
+                        <p class="documents-file-panel-loading">Loading review history...</p>
+                    }
+                    else if (reviewHistoryFailure is not null)
+                    {
+                        <div class="documents-type-inline-error" role="alert">@reviewHistoryFailure.Message</div>
+                    }
+                    else if (reviewHistory.Count == 0)
+                    {
+                        <p class="documents-file-empty">No review history yet.</p>
+                    }
+                    else
+                    {
+                        <ul class="documents-review-history-list">
+                            @foreach (var item in reviewHistory)
+                            {
+                                <li>
+                                    <strong>@item.Action</strong>
+                                    <span>@item.ActorUserId &middot; @FormatOccurredAt(item.OccurredAtUtc)</span>
+                                    @if (!string.IsNullOrWhiteSpace(item.Notes))
+                                    {
+                                        <p>@item.Notes</p>
+                                    }
+                                </li>
+                            }
+                        </ul>
+                    }
+                }
+            </section>
             @if (uploadSuccessMessage is not null)
             {
                 <div class="documents-type-success" role="status">@uploadSuccessMessage</div>

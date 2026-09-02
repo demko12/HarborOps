@@ -5,7 +5,8 @@ internal sealed record GetExpiringDocumentsQuery(
     DateOnly? To,
     Guid? VesselId,
     int? PageNumber,
-    int? PageSize);
+    int? PageSize,
+    string? ReviewStatus = null);
 
 internal sealed record ExpiringDocumentListItem(
     Guid DocumentId,
@@ -15,6 +16,7 @@ internal sealed record ExpiringDocumentListItem(
     DateOnly ExpiryDate,
     string IssuingAuthority,
     string Status,
+    string ReviewStatus,
     string DocumentTypeName,
     int DaysUntilExpiry);
 
@@ -96,6 +98,7 @@ internal sealed record DocumentDetailsDto(
     DateOnly ExpiryDate,
     string IssuingAuthority,
     string Status,
+    string ReviewStatus,
     bool HasFile,
     string? FileName,
     string? ContentType,
@@ -112,6 +115,10 @@ internal sealed record DocumentFileResponseDto(
 
 internal sealed record DocumentMetadataRequest(int? DocumentTypeId, string? Number, DateOnly? IssueDate, DateOnly? ExpiryDate, string? IssuingAuthority);
 internal sealed record DocumentRenewalHistoryItemDto(Guid DocumentId, Guid? PredecessorDocumentId, string Number, string Status, DateOnly ExpiryDate, DateTime? SupersededAtUtc, Guid? SupersededByUserId);
+
+internal sealed record ReviewDocumentRequest(string? Decision, string? Notes);
+internal sealed record RevokeDocumentRequest(string? Reason);
+internal sealed record DocumentReviewEventResponseDto(Guid Id, Guid DocumentId, string Action, Guid ActorUserId, DateTimeOffset OccurredAtUtc, string? Notes);
 
 internal sealed record DocumentsApiResult<T>(T? Value, DocumentsApiFailure? Failure)
 {

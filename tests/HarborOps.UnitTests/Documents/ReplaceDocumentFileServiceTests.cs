@@ -112,6 +112,70 @@ public sealed class ReplaceDocumentFileServiceTests
         Assert.Equal(1, storage.DeleteCallCount);
     }
 
+    [Fact]
+    public async Task Replace_returns_rejected_document_to_draft()
+    {
+        await using var dbContext = CreateDbContext();
+        var documentTypeId = await SeedDocumentTypeAsync(dbContext);
+        var document = await SeedRejectedDocumentWithFileAsync(dbContext, documentTypeId);
+        var storage = new FakeDocumentFileStorage();
+        var service = CreateService(dbContext, storage);
+        var request = CreateValidRequest(document.Id);
+
+        await service.ReplaceAsync(request, CancellationToken.None);
+
+        var persisted = await dbContext.Set<Document>().SingleAsync(d => d.Id == document.Id, CancellationToken.None);
+        Assert.Equal(Document.DraftReviewStatus, persisted.ReviewStatus);
+    }
+
+    [Fact]
+    public async Task Replace_does_not_change_review_status_when_draft()
+    {
+        await using var dbContext = CreateDbContext();
+        var documentTypeId = await SeedDocumentTypeAsync(dbContext);
+        var document = await SeedDocumentWithFileAsync(dbContext, documentTypeId);
+        var storage = new FakeDocumentFileStorage();
+        var service = CreateService(dbContext, storage);
+        var request = CreateValidRequest(document.Id);
+
+        await service.ReplaceAsync(request, CancellationToken.None);
+
+        var persisted = await dbContext.Set<Document>().SingleAsync(d => d.Id == document.Id, CancellationToken.None);
+        Assert.Equal(Document.DraftReviewStatus, persisted.ReviewStatus);
+    }
+
+    [Fact]
+    public async Task Replace_does_not_change_review_status_when_pending_review()
+    {
+        await using var dbContext = CreateDbContext();
+        var documentTypeId = await SeedDocumentTypeAsync(dbContext);
+        var document = await SeedPendingReviewDocumentWithFileAsync(dbContext, documentTypeId);
+        var storage = new FakeDocumentFileStorage();
+        var service = CreateService(dbContext, storage);
+        var request = CreateValidRequest(document.Id);
+
+        await service.ReplaceAsync(request, CancellationToken.None);
+
+        var persisted = await dbContext.Set<Document>().SingleAsync(d => d.Id == document.Id, CancellationToken.None);
+        Assert.Equal(Document.PendingReviewReviewStatus, persisted.ReviewStatus);
+    }
+
+    [Fact]
+    public async Task Replace_does_not_change_review_status_when_approved()
+    {
+        await using var dbContext = CreateDbContext();
+        var documentTypeId = await SeedDocumentTypeAsync(dbContext);
+        var document = await SeedApprovedDocumentWithFileAsync(dbContext, documentTypeId);
+        var storage = new FakeDocumentFileStorage();
+        var service = CreateService(dbContext, storage);
+        var request = CreateValidRequest(document.Id);
+
+        await service.ReplaceAsync(request, CancellationToken.None);
+
+        var persisted = await dbContext.Set<Document>().SingleAsync(d => d.Id == document.Id, CancellationToken.None);
+        Assert.Equal(Document.ApprovedReviewStatus, persisted.ReviewStatus);
+    }
+
     private static UploadDocumentFileRequest CreateValidRequest(Guid documentId)
     {
         return new UploadDocumentFileRequest(
@@ -174,6 +238,33 @@ public sealed class ReplaceDocumentFileServiceTests
             512,
             Guid.NewGuid(),
             FixedUtcNow.AddDays(-1));
+        await dbContext.SaveChangesAsync();
+
+        return document;
+    }
+
+    private static async Task<Document> SeedPendingReviewDocumentWithFileAsync(HarborOpsDbContext dbContext, int documentTypeId)
+    {
+        var document = await SeedDocumentWithFileAsync(dbContext, documentTypeId);
+        document.SubmitForReview(Guid.NewGuid(), FixedUtcNow);
+        await dbContext.SaveChangesAsync();
+
+        return document;
+    }
+
+    private static async Task<Document> SeedApprovedDocumentWithFileAsync(HarborOpsDbContext dbContext, int documentTypeId)
+    {
+        var document = await SeedPendingReviewDocumentWithFileAsync(dbContext, documentTypeId);
+        document.Approve(Guid.NewGuid(), FixedUtcNow);
+        await dbContext.SaveChangesAsync();
+
+        return document;
+    }
+
+    private static async Task<Document> SeedRejectedDocumentWithFileAsync(HarborOpsDbContext dbContext, int documentTypeId)
+    {
+        var document = await SeedPendingReviewDocumentWithFileAsync(dbContext, documentTypeId);
+        document.Reject(Guid.NewGuid(), "Missing signature page.", FixedUtcNow);
         await dbContext.SaveChangesAsync();
 
         return document;

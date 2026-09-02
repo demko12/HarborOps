@@ -972,6 +972,12 @@ namespace HarborOps.Infrastructure.Persistence.Migrations
                     b.Property<Guid>("Id")
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<Guid>("ConcurrencyToken")
+                        .IsConcurrencyToken()
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier")
+                        .HasDefaultValueSql("NEWID()");
+
                     b.Property<string>("ContentType")
                         .HasMaxLength(255)
                         .HasColumnType("nvarchar(255)");
@@ -1011,6 +1017,13 @@ namespace HarborOps.Infrastructure.Persistence.Migrations
 
                     b.Property<Guid?>("PredecessorDocumentId")
                         .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("ReviewStatus")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)")
+                        .HasDefaultValue("Draft");
 
                     b.Property<long?>("SizeBytes")
                         .HasColumnType("bigint");
@@ -1061,6 +1074,36 @@ namespace HarborOps.Infrastructure.Persistence.Migrations
                                     .HasPeriodEnd("PeriodEnd")
                                     .HasColumnName("PeriodEnd");
                             }));
+                });
+
+            modelBuilder.Entity("HarborOps.Modules.Documents.Domain.DocumentReviewEvent", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Action")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<Guid>("ActorUserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("DocumentId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Notes")
+                        .HasMaxLength(2000)
+                        .HasColumnType("nvarchar(2000)");
+
+                    b.Property<DateTimeOffset>("OccurredAtUtc")
+                        .HasColumnType("datetimeoffset");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("DocumentId", "OccurredAtUtc");
+
+                    b.ToTable("DocumentReviewEvents", "documents");
                 });
 
             modelBuilder.Entity("HarborOps.Modules.Documents.Domain.DocumentType", b =>
@@ -2760,6 +2803,17 @@ namespace HarborOps.Infrastructure.Persistence.Migrations
                     b.Navigation("DocumentType");
 
                     b.Navigation("PredecessorDocument");
+                });
+
+            modelBuilder.Entity("HarborOps.Modules.Documents.Domain.DocumentReviewEvent", b =>
+                {
+                    b.HasOne("HarborOps.Modules.Documents.Domain.Document", "Document")
+                        .WithMany()
+                        .HasForeignKey("DocumentId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Document");
                 });
 
             modelBuilder.Entity("HarborOps.Modules.Documents.Domain.Notification", b =>

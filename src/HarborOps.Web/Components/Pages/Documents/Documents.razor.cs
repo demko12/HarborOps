@@ -30,6 +30,14 @@ public partial class Documents
     // (RegisterDocumentServiceTests, RegisterDocumentEndpointTests).
     private const string DefaultDocumentStatus = "Active";
 
+    // Mirrors HarborOps.Modules.Documents.Domain.Document's review-status constants.
+    // Duplicated here for the same reason as DefaultDocumentStatus above: Web has no
+    // reference to the Application/Domain assembly, so these are the client's own copy.
+    private const string DraftReviewStatus = "Draft";
+    private const string PendingReviewReviewStatus = "PendingReview";
+    private const string ApprovedReviewStatus = "Approved";
+    private const string RejectedReviewStatus = "Rejected";
+
     private const int DocumentTypeOptionsPageSize = 100;
 
     // Same known, documented coupling as DocumentsApiClient.MaxUploadSizeBytes - mirrors
@@ -129,11 +137,13 @@ public partial class Documents
     private DateOnly? fromFilter;
     private DateOnly? toFilter;
     private Guid? vesselIdFilter;
+    private string? pendingReviewStatus;
     private int filterVesselPickerResetToken;
 
     private DateOnly? appliedFrom;
     private DateOnly? appliedTo;
     private Guid? appliedVesselId;
+    private string? appliedReviewStatus;
 
     private int pageNumber = 1;
     private int pageSize = 25;
@@ -164,6 +174,37 @@ public partial class Documents
     private IReadOnlyList<DocumentRenewalHistoryItemDto> renewalHistory = [];
     private DocumentsApiFailure? lifecycleFailure;
 
+    // Review workflow: submit-for-review and approve act directly (no dialog of their
+    // own), so they share lifecycleFailure/reviewActionSuccessMessage with metadata
+    // correction/renewal above - all four are simple button actions in the same panel
+    // area, same reasoning as lifecycleFailure already being shared between two actions.
+    private bool isSubmittingForReview;
+    private bool isApproving;
+    private string? reviewActionSuccessMessage;
+
+    // Reject: own confirmation dialog + required notes textarea, 1:1 structure with
+    // isConfirmingReplace/OpenReplaceConfirmation/ConfirmReplace/CancelReplaceConfirmation.
+    private bool isRejectingDocument;
+    private string? rejectNotes;
+    private string? rejectNotesValidationMessage;
+    private bool isSubmittingRejection;
+    private DocumentsApiFailure? rejectFailure;
+
+    // Revoke: same 1:1 confirmation-dialog structure as Reject, own required reason textarea.
+    private bool isConfirmingRevoke;
+    private string? revokeReason;
+    private string? revokeReasonValidationMessage;
+    private bool isRevoking;
+    private DocumentsApiFailure? revokeFailure;
+
+    // Review history: a nested expandable section within the file panel (distinct from
+    // the always-visible, eagerly-loaded renewalHistory above), lazy-loaded only on first
+    // expand rather than on every panel open.
+    private bool isReviewHistoryExpanded;
+    private bool isLoadingReviewHistory;
+    private IReadOnlyList<DocumentReviewEventResponseDto> reviewHistory = [];
+    private DocumentsApiFailure? reviewHistoryFailure;
+
     private int TotalPages => totalCount == 0 ? 1 : (totalCount + pageSize - 1) / pageSize;
 
     private int FirstRowNumber => rows.Count == 0 ? 0 : ((pageNumber - 1) * pageSize) + 1;
@@ -179,6 +220,18 @@ public partial class Documents
 
     private IEnumerable<string> UploadValidationMessages =>
         uploadFailure?.Errors.SelectMany(entry => entry.Value) ?? [];
+
+    private bool CanSubmitForReview =>
+        fileDetails is { HasFile: true, ReviewStatus: DraftReviewStatus }
+        && AuthorizationState.HasPermission("documents.manage");
+
+    private bool CanApproveOrReject =>
+        fileDetails is { ReviewStatus: PendingReviewReviewStatus }
+        && AuthorizationState.HasPermission("documents.manage");
+
+    private bool CanRevoke =>
+        fileDetails is { Status: "Active", ReviewStatus: ApprovedReviewStatus }
+        && AuthorizationState.HasPermission("documents.manage");
 
     protected override void OnInitialized()
     {
@@ -247,6 +300,10 @@ public partial class Documents
         appliedFrom = fromFilter;
         appliedTo = toFilter;
         appliedVesselId = vesselIdFilter;
+        // The "All" option posts an empty string (Blazor's @bind on <select> cannot bind
+        // a null option value), so it is normalized to null here rather than sent to the
+        // API as reviewStatus= - an empty string would fail the backend's known-value check.
+        appliedReviewStatus = string.IsNullOrEmpty(pendingReviewStatus) ? null : pendingReviewStatus;
         pageNumber = 1;
 
         return LoadAsync();
@@ -258,10 +315,12 @@ public partial class Documents
         fromFilter = null;
         toFilter = null;
         vesselIdFilter = null;
+        pendingReviewStatus = null;
         filterVesselPickerResetToken++;
         appliedFrom = null;
         appliedTo = null;
         appliedVesselId = null;
+        appliedReviewStatus = null;
         filterValidationMessage = null;
         pageNumber = 1;
 
@@ -304,7 +363,7 @@ public partial class Documents
         isLoading = true;
         failure = null;
 
-        var query = new GetExpiringDocumentsQuery(appliedFrom, appliedTo, appliedVesselId, pageNumber, pageSize);
+        var query = new GetExpiringDocumentsQuery(appliedFrom, appliedTo, appliedVesselId, pageNumber, pageSize, appliedReviewStatus);
 
         DocumentsApiResult<ExpiringDocumentsPage> result;
 
@@ -367,6 +426,7 @@ public partial class Documents
                 item.IssueDate,
                 item.ExpiryDate,
                 item.Status,
+                item.ReviewStatus,
                 item.DaysUntilExpiry))
             .ToList();
     }
@@ -385,6 +445,15 @@ public partial class Documents
         "EXPIRED" => "documents-status-expired",
         "SUSPENDED" or "INACTIVE" => "documents-status-neutral",
         _ => "documents-status-neutral",
+    };
+
+    private static string GetReviewStatusClass(string reviewStatus) => reviewStatus.Trim().ToUpperInvariant() switch
+    {
+        "DRAFT" => "documents-review-status-draft",
+        "PENDINGREVIEW" => "documents-review-status-pending",
+        "APPROVED" => "documents-review-status-approved",
+        "REJECTED" => "documents-review-status-rejected",
+        _ => "documents-review-status-draft",
     };
 
     private async Task LoadDocumentTypeOptionsAsync()
@@ -648,6 +717,27 @@ public partial class Documents
         isRenewingDocument = false;
         lifecycleFailure = null;
         renewalHistory = [];
+
+        isSubmittingForReview = false;
+        isApproving = false;
+        reviewActionSuccessMessage = null;
+
+        isRejectingDocument = false;
+        rejectNotes = null;
+        rejectNotesValidationMessage = null;
+        isSubmittingRejection = false;
+        rejectFailure = null;
+
+        isConfirmingRevoke = false;
+        revokeReason = null;
+        revokeReasonValidationMessage = null;
+        isRevoking = false;
+        revokeFailure = null;
+
+        isReviewHistoryExpanded = false;
+        isLoadingReviewHistory = false;
+        reviewHistory = [];
+        reviewHistoryFailure = null;
     }
 
     private async Task LoadFileDetailsAsync(Guid documentId)
@@ -703,6 +793,222 @@ public partial class Documents
     }
 
     private DocumentMetadataRequest LifecycleRequest() => new(lifecycleTypeId, lifecycleNumber, lifecycleIssueDate, lifecycleExpiryDate, lifecycleAuthority);
+
+    private async Task SubmitForReviewAsync()
+    {
+        if (expandedDocumentId is not { } id || isSubmittingForReview)
+        {
+            return;
+        }
+
+        isSubmittingForReview = true;
+        lifecycleFailure = null;
+        reviewActionSuccessMessage = null;
+
+        var result = await DocumentsApi.SubmitForReviewAsync(id, disposeCancellation.Token);
+
+        isSubmittingForReview = false;
+
+        if (!result.IsSuccess)
+        {
+            lifecycleFailure = result.Failure;
+            await RefreshListIfConcurrencyConflictAsync(result.Failure);
+
+            return;
+        }
+
+        await HandleReviewActionSuccessAsync(id, "Document submitted for review.");
+    }
+
+    private async Task ApproveAsync()
+    {
+        if (expandedDocumentId is not { } id || isApproving)
+        {
+            return;
+        }
+
+        isApproving = true;
+        lifecycleFailure = null;
+        reviewActionSuccessMessage = null;
+
+        var result = await DocumentsApi.ReviewAsync(id, new ReviewDocumentRequest(ApprovedReviewStatus, null), disposeCancellation.Token);
+
+        isApproving = false;
+
+        if (!result.IsSuccess)
+        {
+            lifecycleFailure = result.Failure;
+            await RefreshListIfConcurrencyConflictAsync(result.Failure);
+
+            return;
+        }
+
+        await HandleReviewActionSuccessAsync(id, "Document approved.");
+    }
+
+    private void OpenRejectConfirmation()
+    {
+        isRejectingDocument = true;
+        rejectNotes = null;
+        rejectNotesValidationMessage = null;
+        rejectFailure = null;
+    }
+
+    private void CancelRejectConfirmation()
+    {
+        isRejectingDocument = false;
+        rejectNotes = null;
+        rejectNotesValidationMessage = null;
+        rejectFailure = null;
+    }
+
+    private async Task ConfirmRejectAsync()
+    {
+        if (expandedDocumentId is not { } id || isSubmittingRejection)
+        {
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(rejectNotes))
+        {
+            rejectNotesValidationMessage = "Notes are required when rejecting a document.";
+
+            return;
+        }
+
+        rejectNotesValidationMessage = null;
+        isSubmittingRejection = true;
+        rejectFailure = null;
+        reviewActionSuccessMessage = null;
+
+        var result = await DocumentsApi.ReviewAsync(id, new ReviewDocumentRequest(RejectedReviewStatus, rejectNotes), disposeCancellation.Token);
+
+        isSubmittingRejection = false;
+
+        if (!result.IsSuccess)
+        {
+            rejectFailure = result.Failure;
+            await RefreshListIfConcurrencyConflictAsync(result.Failure);
+
+            return;
+        }
+
+        isRejectingDocument = false;
+        rejectNotes = null;
+
+        await HandleReviewActionSuccessAsync(id, "Document rejected.");
+    }
+
+    private void OpenRevokeConfirmation()
+    {
+        isConfirmingRevoke = true;
+        revokeReason = null;
+        revokeReasonValidationMessage = null;
+        revokeFailure = null;
+    }
+
+    private void CancelRevokeConfirmation()
+    {
+        isConfirmingRevoke = false;
+        revokeReason = null;
+        revokeReasonValidationMessage = null;
+        revokeFailure = null;
+    }
+
+    private async Task ConfirmRevokeAsync()
+    {
+        if (expandedDocumentId is not { } id || isRevoking)
+        {
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(revokeReason))
+        {
+            revokeReasonValidationMessage = "A reason is required to revoke a document.";
+
+            return;
+        }
+
+        revokeReasonValidationMessage = null;
+        isRevoking = true;
+        revokeFailure = null;
+        reviewActionSuccessMessage = null;
+
+        var result = await DocumentsApi.RevokeAsync(id, new RevokeDocumentRequest(revokeReason), disposeCancellation.Token);
+
+        isRevoking = false;
+
+        if (!result.IsSuccess)
+        {
+            revokeFailure = result.Failure;
+            await RefreshListIfConcurrencyConflictAsync(result.Failure);
+
+            return;
+        }
+
+        isConfirmingRevoke = false;
+        revokeReason = null;
+
+        await HandleReviewActionSuccessAsync(id, "Document revoked.");
+    }
+
+    // Shared by all four review-workflow actions on success: refresh the panel's own
+    // details, refresh the already-expanded review-history timeline (if open) so it
+    // includes the event this action just created, then refresh the main grid - same
+    // three-step refresh SaveMetadataAsync/RenewDocumentAsync already perform for the
+    // first and third steps.
+    private async Task HandleReviewActionSuccessAsync(Guid documentId, string message)
+    {
+        reviewActionSuccessMessage = message;
+
+        await LoadFileDetailsAsync(documentId);
+
+        if (isReviewHistoryExpanded)
+        {
+            await LoadReviewHistoryAsync(documentId);
+        }
+
+        await LoadAsync();
+    }
+
+    // A 409 caused by DbUpdateConcurrencyException on the server carries this exact title
+    // (see DocumentsController.Review/Revoke) - refreshing the grid on this specific
+    // conflict surfaces the document's current real state, unlike other 409s (self-review,
+    // wrong lifecycle state) which are user-actionable as-is and do not need a refresh.
+    private static bool IsConcurrencyConflict(DocumentsApiFailure failure) =>
+        string.Equals(failure.Title, "Document was modified concurrently.", StringComparison.Ordinal);
+
+    private Task RefreshListIfConcurrencyConflictAsync(DocumentsApiFailure? failure) =>
+        failure is not null && IsConcurrencyConflict(failure) ? LoadAsync() : Task.CompletedTask;
+
+    private async Task ToggleReviewHistoryAsync()
+    {
+        isReviewHistoryExpanded = !isReviewHistoryExpanded;
+
+        if (isReviewHistoryExpanded && expandedDocumentId is { } id && reviewHistory.Count == 0 && reviewHistoryFailure is null)
+        {
+            await LoadReviewHistoryAsync(id);
+        }
+    }
+
+    private async Task LoadReviewHistoryAsync(Guid documentId)
+    {
+        isLoadingReviewHistory = true;
+        reviewHistoryFailure = null;
+
+        var result = await DocumentsApi.GetReviewHistoryAsync(documentId, disposeCancellation.Token);
+
+        isLoadingReviewHistory = false;
+
+        if (!result.IsSuccess)
+        {
+            reviewHistoryFailure = result.Failure;
+
+            return;
+        }
+
+        reviewHistory = result.Value ?? [];
+    }
 
     private void OpenReplaceConfirmation()
     {
@@ -839,6 +1145,9 @@ public partial class Documents
     private static string FormatUploadedAt(DateTime? uploadedAtUtc) =>
         uploadedAtUtc is { } value ? $"{value:dd MMM yyyy HH:mm} UTC" : "-";
 
+    private static string FormatOccurredAt(DateTimeOffset occurredAtUtc) =>
+        $"{occurredAtUtc:dd MMM yyyy HH:mm} UTC";
+
     public void Dispose()
     {
         filterSearchCancellation?.Cancel();
@@ -857,6 +1166,7 @@ public partial class Documents
         DateOnly IssueDate,
         DateOnly ExpiryDate,
         string Status,
+        string ReviewStatus,
         int DaysUntilExpiry);
 
     private sealed class RegisterDocumentTypeFormModel

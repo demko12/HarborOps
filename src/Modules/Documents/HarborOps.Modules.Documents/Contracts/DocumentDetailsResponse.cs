@@ -10,6 +10,7 @@ public sealed record DocumentDetailsResponse(
     DateOnly ExpiryDate,
     string IssuingAuthority,
     string Status,
+    string ReviewStatus,
     bool HasFile,
     string? FileName,
     string? ContentType,

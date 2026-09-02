@@ -23,8 +23,12 @@ public sealed class GetDocumentByIdEndpointTests : DocumentFileStorageIntegratio
     [Fact]
     public async Task Get_returns_document_without_a_file()
     {
+        // Manage, not Read: this test asserts response shape for a fileless document, not
+        // review-status visibility rules (a freshly-registered document defaults to Draft,
+        // which a read-only client can no longer see - see DocumentVisibilityEndpointTests
+        // for the dedicated visibility coverage).
         using var client = await TestUserSetup.CreateAuthenticatedClientWithPermissionsAsync(
-            _application, Permissions.Documents.Read);
+            _application, Permissions.Documents.Manage);
         var documentTypeId = await SeedDocumentTypeAsync(_application);
         var documentId = await SeedDocumentAsync(_application, documentTypeId);
 
@@ -91,6 +95,52 @@ public sealed class GetDocumentByIdEndpointTests : DocumentFileStorageIntegratio
         using var response = await client.GetAsync($"/api/documents/{documentId}", CancellationToken.None);
 
         Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task Get_with_read_only_permission_returns_200_for_approved_and_active_document()
+    {
+        using var submitter = await TestUserSetup.CreateAuthenticatedClientWithPermissionsAsync(
+            _application, Permissions.Documents.Manage);
+        using var reviewer = await TestUserSetup.CreateAuthenticatedClientWithPermissionsAsync(
+            _application, Permissions.Documents.Manage);
+        var documentTypeId = await SeedDocumentTypeAsync(_application);
+        var documentId = await DocumentReviewWorkflowTestSupport.CreateApprovedDocumentAsync(submitter, reviewer, documentTypeId);
+
+        using var readClient = await TestUserSetup.CreateAuthenticatedClientWithPermissionsAsync(
+            _application, Permissions.Documents.Read);
+
+        using var response = await readClient.GetAsync($"/api/documents/{documentId}", CancellationToken.None);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+    }
+
+    [Theory]
+    [InlineData("Draft")]
+    [InlineData("PendingReview")]
+    [InlineData("Rejected")]
+    public async Task Get_with_read_only_permission_returns_403_when_not_approved(string reviewState)
+    {
+        using var submitter = await TestUserSetup.CreateAuthenticatedClientWithPermissionsAsync(
+            _application, Permissions.Documents.Manage);
+        using var reviewer = await TestUserSetup.CreateAuthenticatedClientWithPermissionsAsync(
+            _application, Permissions.Documents.Manage);
+        var documentTypeId = await SeedDocumentTypeAsync(_application);
+
+        var documentId = reviewState switch
+        {
+            "Draft" => await DocumentReviewWorkflowTestSupport.CreateDraftDocumentWithFileAsync(submitter, documentTypeId),
+            "PendingReview" => await DocumentReviewWorkflowTestSupport.CreatePendingReviewDocumentAsync(submitter, documentTypeId),
+            "Rejected" => await DocumentReviewWorkflowTestSupport.CreateRejectedDocumentAsync(submitter, reviewer, documentTypeId),
+            _ => throw new ArgumentOutOfRangeException(nameof(reviewState)),
+        };
+
+        using var readClient = await TestUserSetup.CreateAuthenticatedClientWithPermissionsAsync(
+            _application, Permissions.Documents.Read);
+
+        using var response = await readClient.GetAsync($"/api/documents/{documentId}", CancellationToken.None);
+
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
     }
 
     [Fact]
