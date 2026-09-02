@@ -5,6 +5,10 @@ public sealed class Document
     public const string ActiveStatus = "Active";
     public const string SupersededStatus = "Superseded";
     public const string RevokedStatus = "Revoked";
+    public const string DraftReviewStatus = "Draft";
+    public const string PendingReviewReviewStatus = "PendingReview";
+    public const string ApprovedReviewStatus = "Approved";
+    public const string RejectedReviewStatus = "Rejected";
     internal const int NumberMaxLength = 100;
     internal const int IssuingAuthorityMaxLength = 200;
     internal const int StatusMaxLength = 50;
@@ -31,6 +35,10 @@ public sealed class Document
     public string IssuingAuthority { get; private set; } = string.Empty;
 
     public string Status { get; private set; } = string.Empty;
+
+    public string ReviewStatus { get; private set; } = string.Empty;
+
+    public Guid ConcurrencyToken { get; private set; }
 
     public Guid? PredecessorDocumentId { get; private set; }
 
@@ -73,6 +81,8 @@ public sealed class Document
         ExpiryDate = expiryDate;
         IssuingAuthority = issuingAuthority;
         Status = status;
+        ReviewStatus = DraftReviewStatus;
+        ConcurrencyToken = Guid.NewGuid();
     }
 
     public void AttachFile(
@@ -135,5 +145,79 @@ public sealed class Document
     internal void LinkToPredecessor(Guid predecessorDocumentId)
     {
         PredecessorDocumentId = predecessorDocumentId;
+    }
+
+    internal void SubmitForReview(Guid actorId, DateTimeOffset utcNow)
+    {
+        if (!HasFile)
+        {
+            throw new InvalidOperationException("A document must have an attached file before it can be submitted for review.");
+        }
+
+        if (!string.Equals(ReviewStatus, DraftReviewStatus, StringComparison.Ordinal))
+        {
+            throw new InvalidOperationException("Only a draft document can be submitted for review.");
+        }
+
+        ReviewStatus = PendingReviewReviewStatus;
+        ConcurrencyToken = Guid.NewGuid();
+    }
+
+    // Whether the reviewer differs from the submitter cannot be checked here: the
+    // aggregate does not track who submitted the pending review. That comparison
+    // requires the DocumentReviewEvent history and is enforced in the Application layer.
+    internal void Approve(Guid reviewerId, DateTimeOffset utcNow)
+    {
+        if (!string.Equals(ReviewStatus, PendingReviewReviewStatus, StringComparison.Ordinal))
+        {
+            throw new InvalidOperationException("Only a document pending review can be approved.");
+        }
+
+        ReviewStatus = ApprovedReviewStatus;
+        ConcurrencyToken = Guid.NewGuid();
+    }
+
+    internal void Reject(Guid reviewerId, string notes, DateTimeOffset utcNow)
+    {
+        if (string.IsNullOrWhiteSpace(notes))
+        {
+            throw new ArgumentException("Notes are required when rejecting a document.", nameof(notes));
+        }
+
+        if (!string.Equals(ReviewStatus, PendingReviewReviewStatus, StringComparison.Ordinal))
+        {
+            throw new InvalidOperationException("Only a document pending review can be rejected.");
+        }
+
+        ReviewStatus = RejectedReviewStatus;
+        ConcurrencyToken = Guid.NewGuid();
+    }
+
+    internal void ReturnToDraftAfterCorrection()
+    {
+        if (!string.Equals(ReviewStatus, RejectedReviewStatus, StringComparison.Ordinal))
+        {
+            throw new InvalidOperationException("Only a rejected document can be returned to draft.");
+        }
+
+        ReviewStatus = DraftReviewStatus;
+        ConcurrencyToken = Guid.NewGuid();
+    }
+
+    internal void Revoke(Guid actorId, string reason, DateTimeOffset utcNow)
+    {
+        if (string.IsNullOrWhiteSpace(reason))
+        {
+            throw new ArgumentException("A reason is required to revoke a document.", nameof(reason));
+        }
+
+        if (!string.Equals(Status, ActiveStatus, StringComparison.Ordinal) ||
+            !string.Equals(ReviewStatus, ApprovedReviewStatus, StringComparison.Ordinal))
+        {
+            throw new InvalidOperationException("Only an active, approved document can be revoked.");
+        }
+
+        Status = RevokedStatus;
+        ConcurrencyToken = Guid.NewGuid();
     }
 }

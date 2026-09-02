@@ -70,6 +70,11 @@ internal sealed class ReplaceDocumentFileService(
             request.UploadedBy,
             dateTimeProvider.UtcNow);
 
+        if (string.Equals(document.ReviewStatus, Document.RejectedReviewStatus, StringComparison.Ordinal))
+        {
+            document.ReturnToDraftAfterCorrection();
+        }
+
         try
         {
             await dbContext.SaveChangesAsync(cancellationToken);

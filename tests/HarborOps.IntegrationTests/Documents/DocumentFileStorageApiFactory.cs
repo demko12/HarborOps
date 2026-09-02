@@ -44,8 +44,16 @@ public class DocumentFileStorageApiFactory : WebApplicationFactory<Program>
             services.AddScoped<DbContext>(
                 serviceProvider => serviceProvider.GetRequiredService<HarborOpsDbContext>());
 
+            // FakeDateTimeProvider already implements both IDateTimeProvider and TimeProvider
+            // (see FakeDateTimeProvider.cs) - one shared instance registered under both service
+            // types keeps DocumentLifecycleService's TimeProvider (review/revoke actions) fixed
+            // to the same instant as the rest of the Documents module, instead of resolving the
+            // real TimeProvider.System that another module's TryAddSingleton happens to supply.
+            var fakeDateTimeProvider = new FakeDateTimeProvider(HarborOpsApiFactory.FixedUtcNow);
             services.RemoveAll<IDateTimeProvider>();
-            services.AddSingleton<IDateTimeProvider>(new FakeDateTimeProvider(HarborOpsApiFactory.FixedUtcNow));
+            services.AddSingleton<IDateTimeProvider>(fakeDateTimeProvider);
+            services.RemoveAll<TimeProvider>();
+            services.AddSingleton<TimeProvider>(fakeDateTimeProvider);
 
             services.Configure<LocalDiskDocumentFileStorageOptions>(options => options.RootPath = RootPath);
             services.Configure<DocumentFileValidationOptions>(ConfigureFileValidationOptions);

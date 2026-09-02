@@ -355,6 +355,98 @@ html[data-theme="dark"] .documents-status-active { color: var(--status-info); ba
 html[data-theme="dark"] .documents-status-valid { color: #6ee7b7; background: rgba(16, 185, 129, .14); }
 html[data-theme="dark"] .documents-status-expired { color: #fca5a5; background: rgba(248, 113, 113, .14); }
 
+/* Review-workflow status badge - same pill shape as .documents-status, independent
+   color set since ReviewStatus (Draft/PendingReview/Approved/Rejected) is a separate
+   status from the lifecycle Status (Active/Superseded/Revoked) shown alongside it. */
+
+.documents-review-status {
+    display: inline-flex;
+    align-items: center;
+    padding: .18rem .65rem;
+    border: 1px solid var(--border-medium);
+    border-radius: var(--radius-pill);
+    color: var(--text-secondary);
+    background: var(--bg-surface-strong);
+    font-size: .76rem;
+    font-weight: 550;
+    white-space: nowrap;
+    margin-left: .4rem;
+}
+
+.documents-review-status-draft {
+    color: var(--text-secondary);
+    border-color: var(--border-medium);
+    background: var(--bg-surface-strong);
+}
+
+.documents-review-status-pending {
+    color: var(--status-warning-strong);
+    border-color: rgba(217, 119, 6, .3);
+    background: rgba(217, 119, 6, .12);
+}
+
+.documents-review-status-approved {
+    color: var(--status-success-strong);
+    border-color: rgba(5, 150, 105, .3);
+    background: rgba(5, 150, 105, .12);
+}
+
+.documents-review-status-rejected {
+    color: var(--status-danger-strong);
+    border-color: rgba(220, 38, 38, .3);
+    background: rgba(220, 38, 38, .1);
+}
+
+html[data-theme="dark"] .documents-review-status-pending { color: var(--status-warning); background: rgba(251, 191, 36, .14); }
+html[data-theme="dark"] .documents-review-status-approved { color: #6ee7b7; background: rgba(16, 185, 129, .14); }
+html[data-theme="dark"] .documents-review-status-rejected { color: #fca5a5; background: rgba(248, 113, 113, .14); }
+
+/* Review history timeline - own expandable section, distinct from .documents-renewal-history. */
+
+.documents-review-history {
+    margin-top: 1rem;
+}
+
+.documents-review-history-toggle {
+    background: none;
+    border: none;
+    color: var(--status-info-strong);
+    font-size: .82rem;
+    font-weight: 600;
+    cursor: pointer;
+    padding: 0;
+}
+
+.documents-review-history-list {
+    list-style: none;
+    margin: .6rem 0 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: .5rem;
+}
+
+.documents-review-history-list li {
+    padding: .5rem .75rem;
+    border: 1px solid var(--border-medium);
+    border-radius: .6rem;
+    background: var(--bg-surface-strong);
+    font-size: .82rem;
+}
+
+.documents-review-history-list strong {
+    margin-right: .5rem;
+}
+
+.documents-review-history-list span {
+    color: var(--text-muted);
+}
+
+.documents-review-history-list p {
+    margin: .35rem 0 0;
+    color: var(--text-secondary);
+}
+
 /* Pagination */
 
 .documents-pagination {

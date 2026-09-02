@@ -4,5 +4,6 @@ public interface IGetExpiringDocumentsQuery
 {
     Task<GetExpiringDocumentsResponse> GetExpiringDocumentsAsync(
         GetExpiringDocumentsRequest request,
-        CancellationToken cancellationToken);
+        CancellationToken cancellationToken,
+        bool restrictToReadOnlyVisible = false);
 }

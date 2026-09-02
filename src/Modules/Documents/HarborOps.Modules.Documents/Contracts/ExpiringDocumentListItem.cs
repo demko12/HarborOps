@@ -8,6 +8,7 @@ public sealed record ExpiringDocumentListItem(
     DateOnly ExpiryDate,
     string IssuingAuthority,
     string Status,
+    string ReviewStatus,
     int DocumentTypeId,
     string DocumentTypeName,
     int DaysUntilExpiry);

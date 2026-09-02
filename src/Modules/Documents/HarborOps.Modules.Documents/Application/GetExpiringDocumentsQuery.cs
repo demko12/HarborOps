@@ -10,7 +10,8 @@ internal sealed class GetExpiringDocumentsQuery(DbContext dbContext, IDateTimePr
 {
     public async Task<GetExpiringDocumentsResponse> GetExpiringDocumentsAsync(
         GetExpiringDocumentsRequest request,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        bool restrictToReadOnlyVisible = false)
     {
         ArgumentNullException.ThrowIfNull(request);
 
@@ -42,6 +43,18 @@ internal sealed class GetExpiringDocumentsQuery(DbContext dbContext, IDateTimePr
             documents = documents.Where(document => document.VesselId == vesselId);
         }
 
+        if (request.ReviewStatus is { } reviewStatus)
+        {
+            documents = documents.Where(document => document.ReviewStatus == reviewStatus);
+        }
+
+        if (restrictToReadOnlyVisible)
+        {
+            documents = documents.Where(document =>
+                document.ReviewStatus == Document.ApprovedReviewStatus &&
+                (document.Status == Document.ActiveStatus || document.Status == Document.SupersededStatus));
+        }
+
         var totalCount = await documents.CountAsync(cancellationToken);
 
         var rows = await documents
@@ -58,6 +71,7 @@ internal sealed class GetExpiringDocumentsQuery(DbContext dbContext, IDateTimePr
                 document.ExpiryDate,
                 document.IssuingAuthority,
                 document.Status,
+                document.ReviewStatus,
                 document.DocumentTypeId,
                 DocumentTypeName = document.DocumentType.Name,
             })
@@ -72,6 +86,7 @@ internal sealed class GetExpiringDocumentsQuery(DbContext dbContext, IDateTimePr
                 row.ExpiryDate,
                 row.IssuingAuthority,
                 row.Status,
+                row.ReviewStatus,
                 row.DocumentTypeId,
                 row.DocumentTypeName,
                 row.ExpiryDate.DayNumber - today.DayNumber))

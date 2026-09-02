@@ -1193,6 +1193,7 @@ public sealed class DocumentsPageTests : BunitContext
         string documentId,
         string number = "CERT-001",
         string status = "Active",
+        string reviewStatus = "Draft",
         string documentTypeName = "Safety Certificate",
         string issuingAuthority = "Flag State",
         string issueDate = "2026-01-01",
@@ -1202,7 +1203,8 @@ public sealed class DocumentsPageTests : BunitContext
         return $$"""
             {"documentId":"{{documentId}}","vesselId":"{{VesselId}}","number":"{{number}}",
             "issueDate":"{{issueDate}}","expiryDate":"{{expiryDate}}","issuingAuthority":"{{issuingAuthority}}",
-            "status":"{{status}}","documentTypeName":"{{documentTypeName}}","daysUntilExpiry":{{daysUntilExpiry}}}
+            "status":"{{status}}","reviewStatus":"{{reviewStatus}}","documentTypeName":"{{documentTypeName}}",
+            "daysUntilExpiry":{{daysUntilExpiry}}}
             """;
     }
 
@@ -1243,6 +1245,7 @@ public sealed class DocumentsPageTests : BunitContext
     private static string DocumentDetails(
         string documentId = DocumentId,
         bool hasFile = false,
+        string reviewStatus = "Draft",
         string? fileName = null,
         string? contentType = null,
         long? sizeBytes = null,
@@ -1257,9 +1260,9 @@ public sealed class DocumentsPageTests : BunitContext
         return $$"""
             {"id":"{{documentId}}","vesselId":"{{VesselId}}","documentTypeId":1,"documentTypeName":"Safety Certificate",
             "number":"CERT-001","issueDate":"2026-01-01","expiryDate":"2026-12-31","issuingAuthority":"Flag State",
-            "status":"Active","hasFile":{{(hasFile ? "true" : "false")}},"fileName":{{fileNameJson}},
-            "contentType":{{contentTypeJson}},"sizeBytes":{{sizeBytesJson}},"uploadedBy":{{uploadedByJson}},
-            "uploadedAtUtc":{{uploadedAtJson}}}
+            "status":"Active","reviewStatus":"{{reviewStatus}}","hasFile":{{(hasFile ? "true" : "false")}},
+            "fileName":{{fileNameJson}},"contentType":{{contentTypeJson}},"sizeBytes":{{sizeBytesJson}},
+            "uploadedBy":{{uploadedByJson}},"uploadedAtUtc":{{uploadedAtJson}}}
             """;
     }
 

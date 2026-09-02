@@ -26,6 +26,7 @@ public static class DocumentsModule
         services.AddScoped<IOperationsDashboardDocumentsQuery, OperationsDashboardDocumentsQuery>();
         services.AddScoped<IReportsDocumentsExpiryQuery, ReportsDocumentsExpiryQuery>();
         services.TryAddSingleton<IDateTimeProvider, SystemDateTimeProvider>();
+        services.TryAddSingleton(TimeProvider.System);
 
         services.Configure<DocumentFileValidationOptions>(
             configuration.GetSection(DocumentFileValidationOptions.SectionName));

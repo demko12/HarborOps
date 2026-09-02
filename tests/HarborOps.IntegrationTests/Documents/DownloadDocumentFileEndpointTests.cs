@@ -34,8 +34,11 @@ public sealed class DownloadDocumentFileEndpointTests : DocumentFileStorageInteg
             Assert.Equal(HttpStatusCode.Created, uploadResponse.StatusCode);
         }
 
+        // Manage, not Read: this test asserts content/header correctness on download, not
+        // review-status visibility - the document defaults to Draft after upload, invisible
+        // to a read-only client (see DocumentVisibilityEndpointTests for that coverage).
         using var readClient = await TestUserSetup.CreateAuthenticatedClientWithPermissionsAsync(
-            _application, Permissions.Documents.Read);
+            _application, Permissions.Documents.Manage);
 
         using var response = await readClient.GetAsync($"/api/documents/{documentId}/file", CancellationToken.None);
         var downloadedBytes = await response.Content.ReadAsByteArrayAsync(CancellationToken.None);
@@ -68,8 +71,11 @@ public sealed class DownloadDocumentFileEndpointTests : DocumentFileStorageInteg
     [Fact]
     public async Task Get_when_document_has_no_file_returns_404()
     {
+        // Manage, not Read: this test asserts the no-file 404 case, not visibility - a
+        // freshly-registered document defaults to Draft, invisible to a read-only client
+        // (see DocumentVisibilityEndpointTests for the dedicated visibility coverage).
         using var client = await TestUserSetup.CreateAuthenticatedClientWithPermissionsAsync(
-            _application, Permissions.Documents.Read);
+            _application, Permissions.Documents.Manage);
         var documentTypeId = await SeedDocumentTypeAsync(_application);
         var documentId = await SeedDocumentAsync(_application, documentTypeId);
 
@@ -88,6 +94,52 @@ public sealed class DownloadDocumentFileEndpointTests : DocumentFileStorageInteg
         using var response = await client.GetAsync($"/api/documents/{documentId}/file", CancellationToken.None);
 
         Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task Get_with_read_only_permission_returns_200_for_approved_and_active_document()
+    {
+        using var submitter = await TestUserSetup.CreateAuthenticatedClientWithPermissionsAsync(
+            _application, Permissions.Documents.Manage);
+        using var reviewer = await TestUserSetup.CreateAuthenticatedClientWithPermissionsAsync(
+            _application, Permissions.Documents.Manage);
+        var documentTypeId = await SeedDocumentTypeAsync(_application);
+        var documentId = await DocumentReviewWorkflowTestSupport.CreateApprovedDocumentAsync(submitter, reviewer, documentTypeId);
+
+        using var readClient = await TestUserSetup.CreateAuthenticatedClientWithPermissionsAsync(
+            _application, Permissions.Documents.Read);
+
+        using var response = await readClient.GetAsync($"/api/documents/{documentId}/file", CancellationToken.None);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+    }
+
+    [Theory]
+    [InlineData("Draft")]
+    [InlineData("PendingReview")]
+    [InlineData("Rejected")]
+    public async Task Get_with_read_only_permission_returns_403_when_not_approved(string reviewState)
+    {
+        using var submitter = await TestUserSetup.CreateAuthenticatedClientWithPermissionsAsync(
+            _application, Permissions.Documents.Manage);
+        using var reviewer = await TestUserSetup.CreateAuthenticatedClientWithPermissionsAsync(
+            _application, Permissions.Documents.Manage);
+        var documentTypeId = await SeedDocumentTypeAsync(_application);
+
+        var documentId = reviewState switch
+        {
+            "Draft" => await DocumentReviewWorkflowTestSupport.CreateDraftDocumentWithFileAsync(submitter, documentTypeId),
+            "PendingReview" => await DocumentReviewWorkflowTestSupport.CreatePendingReviewDocumentAsync(submitter, documentTypeId),
+            "Rejected" => await DocumentReviewWorkflowTestSupport.CreateRejectedDocumentAsync(submitter, reviewer, documentTypeId),
+            _ => throw new ArgumentOutOfRangeException(nameof(reviewState)),
+        };
+
+        using var readClient = await TestUserSetup.CreateAuthenticatedClientWithPermissionsAsync(
+            _application, Permissions.Documents.Read);
+
+        using var response = await readClient.GetAsync($"/api/documents/{documentId}/file", CancellationToken.None);
+
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
     }
 
     [Fact]
