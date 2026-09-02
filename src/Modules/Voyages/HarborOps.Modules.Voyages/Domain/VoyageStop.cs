@@ -4,6 +4,10 @@ internal sealed class VoyageStop
 {
     internal const int StatusMaxLength = 30;
 
+    internal const string PlannedStatus = "Planned";
+    internal const string ArrivedStatus = "Arrived";
+    internal const string DepartedStatus = "Departed";
+
     private VoyageStop()
     {
     }
@@ -53,9 +57,7 @@ internal sealed class VoyageStop
         Guid portId,
         int stopOrder,
         DateTime eta,
-        DateTime etd,
-        string status,
-        Guid? berthId = null)
+        DateTime etd)
     {
         return new VoyageStop(
             Guid.NewGuid(),
@@ -64,7 +66,41 @@ internal sealed class VoyageStop
             stopOrder,
             eta,
             etd,
-            status,
-            berthId);
+            PlannedStatus,
+            null);
+    }
+
+    internal void AssignBerth(Guid berthId)
+    {
+        if (!string.Equals(Status, PlannedStatus, StringComparison.Ordinal))
+        {
+            throw new VoyageStopNotPlannedException(Id, Status);
+        }
+
+        BerthId = berthId;
+    }
+
+    internal void RecordArrival(DateTime ataUtc)
+    {
+        if (!string.Equals(Status, PlannedStatus, StringComparison.Ordinal) || Ata is not null)
+        {
+            throw new VoyageStopNotPlannedException(Id, Status);
+        }
+
+        Ata = ataUtc;
+        Status = ArrivedStatus;
+    }
+
+    internal void RecordDeparture(DateTime atdUtc)
+    {
+        if (!string.Equals(Status, ArrivedStatus, StringComparison.Ordinal)
+            || Ata is null
+            || Atd is not null)
+        {
+            throw new VoyageStopNotArrivedException(Id, Status);
+        }
+
+        Atd = atdUtc;
+        Status = DepartedStatus;
     }
 }

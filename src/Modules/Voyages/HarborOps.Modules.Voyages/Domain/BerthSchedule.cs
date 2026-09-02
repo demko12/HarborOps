@@ -4,6 +4,16 @@ internal sealed class BerthSchedule
 {
     internal const int StatusMaxLength = 30;
 
+    internal const string ReservedStatus = "Reserved";
+    internal const string OccupiedStatus = "Occupied";
+    internal const string ReleasedStatus = "Released";
+
+    internal static readonly IReadOnlyList<string> ActiveStatuses =
+    [
+        ReservedStatus,
+        OccupiedStatus,
+    ];
+
     private BerthSchedule()
     {
     }
@@ -40,8 +50,7 @@ internal sealed class BerthSchedule
         Guid berthId,
         Guid voyageStopId,
         DateTime startTime,
-        DateTime endTime,
-        string status)
+        DateTime endTime)
     {
         return new BerthSchedule(
             Guid.NewGuid(),
@@ -49,6 +58,26 @@ internal sealed class BerthSchedule
             voyageStopId,
             startTime,
             endTime,
-            status);
+            ReservedStatus);
+    }
+
+    internal void MarkOccupied()
+    {
+        if (!string.Equals(Status, ReservedStatus, StringComparison.Ordinal))
+        {
+            throw new BerthScheduleNotReservedException(Id, Status);
+        }
+
+        Status = OccupiedStatus;
+    }
+
+    internal void Release()
+    {
+        if (string.Equals(Status, ReleasedStatus, StringComparison.Ordinal))
+        {
+            throw new BerthScheduleAlreadyReleasedException(Id);
+        }
+
+        Status = ReleasedStatus;
     }
 }

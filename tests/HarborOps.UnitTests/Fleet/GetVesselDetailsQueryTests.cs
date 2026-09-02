@@ -28,7 +28,7 @@ public sealed class GetVesselDetailsQueryTests
         await using var dbContext = CreateDbContext();
         var vesselTypeId = await SeedVesselTypeAsync(dbContext, "Container Ship");
         var vessel = await SeedVesselAsync(dbContext, vesselTypeId, "North Star", "1234567");
-        vessel.UpdateSpecifications(75000m, 45000m, 250.5m, 32.2m, 14.1m);
+        vessel.UpdateSpecifications(75000m, 45000m, 250.5m, 32.2m, 14.1m, DateTime.UtcNow);
         await dbContext.SaveChangesAsync();
 
         var query = new GetVesselDetailsQuery(dbContext);

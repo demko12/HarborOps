@@ -96,7 +96,8 @@ public sealed class RegisterMedicalExaminationServiceTests
 
         var member = CrewMember.Create(
             position.Id,
-            "Ana Petrovic",
+            "Ana",
+            "Petrovic",
             new DateOnly(1990, 1, 1),
             "Montenegro",
             $"IMO{Guid.NewGuid():N}"[..10],

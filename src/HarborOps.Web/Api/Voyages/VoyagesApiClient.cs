@@ -196,6 +196,79 @@ internal sealed class VoyagesApiClient(HttpClient httpClient)
             cancellationToken);
     }
 
+    internal Task<VoyagesApiResult<VoyageItinerary>> GetItineraryAsync(
+        Guid voyageId,
+        CancellationToken cancellationToken)
+    {
+        return GetAsync<VoyageItinerary>(
+            $"{BasePath}/{voyageId}/itinerary",
+            "Unable to load the voyage itinerary",
+            cancellationToken);
+    }
+
+    internal Task<VoyagesApiResult<PlanVoyageItineraryResult>> PlanItineraryAsync(
+        Guid voyageId,
+        PlanVoyageItineraryWebRequest request,
+        CancellationToken cancellationToken)
+    {
+        return PostAsync<PlanVoyageItineraryResult>(
+            $"{BasePath}/{voyageId}/itinerary",
+            request,
+            "Unable to plan the voyage itinerary",
+            cancellationToken);
+    }
+
+    internal Task<VoyagesApiResult<AssignBerthResult>> AssignBerthAsync(
+        Guid voyageId,
+        Guid stopId,
+        AssignBerthWebRequest request,
+        CancellationToken cancellationToken)
+    {
+        return PostAsync<AssignBerthResult>(
+            $"{BasePath}/{voyageId}/stops/{stopId}/berth",
+            request,
+            "Unable to assign the berth",
+            cancellationToken);
+    }
+
+    internal Task<VoyagesApiResult<StopTransition>> RecordStopArrivalAsync(
+        Guid voyageId,
+        Guid stopId,
+        RecordStopArrivalWebRequest request,
+        CancellationToken cancellationToken)
+    {
+        return PostAsync<StopTransition>(
+            $"{BasePath}/{voyageId}/stops/{stopId}/arrival",
+            request,
+            "Unable to record the stop arrival",
+            cancellationToken);
+    }
+
+    internal Task<VoyagesApiResult<StopTransition>> RecordStopDepartureAsync(
+        Guid voyageId,
+        Guid stopId,
+        RecordStopDepartureWebRequest request,
+        CancellationToken cancellationToken)
+    {
+        return PostAsync<StopTransition>(
+            $"{BasePath}/{voyageId}/stops/{stopId}/departure",
+            request,
+            "Unable to record the stop departure",
+            cancellationToken);
+    }
+
+    internal Task<VoyagesApiResult<RecordedDelay>> RecordDelayAsync(
+        Guid voyageId,
+        RecordDelayWebRequest request,
+        CancellationToken cancellationToken)
+    {
+        return PostAsync<RecordedDelay>(
+            $"{BasePath}/{voyageId}/delays",
+            request,
+            "Unable to record the delay",
+            cancellationToken);
+    }
+
     private async Task<VoyagesApiResult<T>> GetAsync<T>(
         string path,
         string failureTitle,

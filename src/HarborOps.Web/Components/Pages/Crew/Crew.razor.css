@@ -82,12 +82,16 @@
 .passport-expired strong { color: #fca5a5; }
 .employment-status { display: inline-flex; justify-content: center; min-width: 5.3rem; padding: .3rem .5rem; border: 1px solid transparent; border-radius: var(--radius-pill); font-size: .73rem; font-weight: 700; white-space: nowrap; }
 .employment-active { color: #6ee7b7; border-color: rgba(52,211,153,.28); background: rgba(16,185,129,.15); }
-.employment-inactive { color: var(--text-secondary); border-color: var(--border-medium); background: var(--bg-surface-strong); }
+.employment-onleave { color: var(--status-warning); border-color: rgba(251,191,36,.28); background: rgba(251,191,36,.14); }
+.employment-suspended { color: #fca5a5; border-color: rgba(252,165,165,.28); background: rgba(239,68,68,.14); }
+.employment-terminated, .employment-inactive { color: var(--text-secondary); border-color: var(--border-medium); background: var(--bg-surface-strong); }
  html[data-theme="light"] .crew-passport > span { color: #475569; }
  html[data-theme="light"] .crew-passport strong { color: #1e293b; font-weight: 700; }
  html[data-theme="light"] .crew-passport small, html[data-theme="light"] .passport-expired strong { color: var(--status-danger-strong); }
  html[data-theme="light"] .employment-active { color: #047857; border-color: rgba(5,150,105,.34); background: rgba(16,185,129,.16); }
- html[data-theme="light"] .employment-inactive { color: #475569; border-color: rgba(71,85,105,.3); background: rgba(71,85,105,.1); }
+ html[data-theme="light"] .employment-onleave { color: var(--status-warning-strong); border-color: rgba(180,83,9,.3); background: rgba(180,83,9,.12); }
+ html[data-theme="light"] .employment-suspended { color: var(--status-danger-strong); border-color: rgba(185,28,28,.3); background: rgba(185,28,28,.12); }
+ html[data-theme="light"] .employment-terminated, html[data-theme="light"] .employment-inactive { color: #475569; border-color: rgba(71,85,105,.3); background: rgba(71,85,105,.1); }
 
 .crew-pagination { display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding-top: 1rem; color: var(--text-muted); font-size: .8rem; }
 .crew-pagination div { display: flex; align-items: center; gap: .35rem; }

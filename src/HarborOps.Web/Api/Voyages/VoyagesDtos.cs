@@ -10,7 +10,9 @@ internal sealed record VoyageListItemModel(
     DateTime PlannedDeparture,
     DateTime PlannedArrival,
     DateTime? ActualDeparture,
-    DateTime? ActualArrival);
+    DateTime? ActualArrival,
+    string? FirstStopPortName,
+    string? LastStopPortName);
 
 internal sealed record VoyagePage(
     IReadOnlyList<VoyageListItemModel> Items,
@@ -159,3 +161,72 @@ internal sealed record RegisteredRoute(Guid Id);
 internal sealed record PortNameItemModel(Guid PortId, string Name, string Country);
 
 internal sealed record PortNamesPayload(IReadOnlyList<PortNameItemModel> Ports);
+
+internal sealed record VoyageItineraryStopModel(
+    Guid StopId,
+    int StopOrder,
+    Guid PortId,
+    string PortName,
+    string PortCountry,
+    string? UnLocode,
+    Guid? BerthId,
+    string? BerthName,
+    DateTime Eta,
+    DateTime Etd,
+    DateTime? Ata,
+    DateTime? Atd,
+    string Status);
+
+internal sealed record VoyageDelayModel(
+    Guid DelayId,
+    Guid? VoyageStopId,
+    string Reason,
+    string? Description,
+    int Duration,
+    DateTime CreatedAt);
+
+internal sealed record VoyageItinerary(
+    Guid VoyageId,
+    IReadOnlyList<VoyageItineraryStopModel> Stops,
+    IReadOnlyList<VoyageDelayModel> Delays);
+
+internal sealed record PlanVoyageItineraryStopWebRequest(
+    int? StopOrder,
+    Guid? PortId,
+    decimal? DistanceFromPrevious,
+    int? EstimatedDurationFromPrevious,
+    DateTime? Eta,
+    DateTime? Etd);
+
+internal sealed record PlanVoyageItineraryWebRequest(
+    Guid? RouteId,
+    IReadOnlyList<PlanVoyageItineraryStopWebRequest> Stops);
+
+internal sealed record PlannedVoyageStopModel(Guid StopId, int StopOrder, Guid PortId, DateTime Eta, DateTime Etd);
+
+internal sealed record PlanVoyageItineraryResult(Guid VoyageId, IReadOnlyList<PlannedVoyageStopModel> Stops);
+
+internal sealed record AssignBerthWebRequest(Guid? BerthId);
+
+internal sealed record AssignBerthResult(Guid StopId, Guid BerthId, DateTime StartTime, DateTime EndTime, string ScheduleStatus);
+
+internal sealed record RecordStopArrivalWebRequest(DateTime ActualArrivalUtc);
+
+internal sealed record RecordStopDepartureWebRequest(DateTime ActualDepartureUtc);
+
+internal sealed record StopTransition(Guid StopId, string Status);
+
+internal sealed record RecordDelayWebRequest(
+    string? Reason,
+    string? Description,
+    int? Duration,
+    Guid? VoyageStopId);
+
+internal sealed record RecordedDelay(
+    Guid DelayId,
+    Guid VoyageId,
+    Guid? VoyageStopId,
+    string Reason,
+    string? Description,
+    int Duration,
+    DateTime CreatedAt);

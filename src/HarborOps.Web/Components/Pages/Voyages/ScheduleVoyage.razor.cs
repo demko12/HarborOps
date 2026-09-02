@@ -236,7 +236,7 @@ public partial class ScheduleVoyage
                 return;
             }
 
-            Navigation.NavigateTo("/voyages");
+            Navigation.NavigateTo($"/voyages/{result.Value!.Id}");
         }
         finally
         {

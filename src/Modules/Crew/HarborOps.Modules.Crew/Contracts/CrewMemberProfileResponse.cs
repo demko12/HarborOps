@@ -2,7 +2,8 @@ namespace HarborOps.Modules.Crew.Contracts;
 
 public sealed record CrewMemberProfileResponse(
     Guid CrewMemberId,
-    string Name,
+    string FirstName,
+    string LastName,
     string Nationality,
     string ImoSeafarerId,
     string PassportNumber,

@@ -6,6 +6,7 @@ namespace HarborOps.Web.Api.Cargo;
 internal sealed class CargoBookingsApiClient(HttpClient httpClient)
 {
     private const string BasePath = "api/cargo/bookings";
+    private const string OperationsPath = "api/cargo/operations";
 
     private const string ReviewAccessDetail = "Please review your access and try again.";
     private const string ReviewValuesDetail = "Please review the values and try again.";
@@ -66,6 +67,72 @@ internal sealed class CargoBookingsApiClient(HttpClient httpClient)
             $"{BasePath}/{bookingId}/tracking-events",
             request,
             "Unable to record the tracking event",
+            cancellationToken);
+    }
+
+    internal Task<CargoApiResult<CargoContainerList>> GetContainersAsync(
+        Guid bookingId,
+        CancellationToken cancellationToken)
+    {
+        return GetAsync<CargoContainerList>(
+            $"{BasePath}/{bookingId}/containers",
+            "Unable to load the container manifest",
+            ReviewAccessDetail,
+            cancellationToken);
+    }
+
+    internal Task<CargoApiResult<AddedCargoContainer>> AddContainerAsync(
+        Guid bookingId,
+        AddCargoContainerWebRequest request,
+        CancellationToken cancellationToken)
+    {
+        return PostAsync<AddedCargoContainer>(
+            $"{BasePath}/{bookingId}/containers",
+            request,
+            "Unable to add the container",
+            cancellationToken);
+    }
+
+    internal Task<CargoApiResult<CargoOperationList>> GetOperationsAsync(
+        Guid bookingId,
+        CancellationToken cancellationToken)
+    {
+        return GetAsync<CargoOperationList>(
+            $"{BasePath}/{bookingId}/operations",
+            "Unable to load the cargo operations",
+            ReviewAccessDetail,
+            cancellationToken);
+    }
+
+    internal Task<CargoApiResult<PlannedCargoOperation>> PlanOperationAsync(
+        Guid bookingId,
+        PlanCargoOperationWebRequest request,
+        CancellationToken cancellationToken)
+    {
+        return PostAsync<PlannedCargoOperation>(
+            $"{BasePath}/{bookingId}/operations",
+            request,
+            "Unable to plan the operation",
+            cancellationToken);
+    }
+
+    internal Task<CargoApiResult<CargoOperationTransition>> StartOperationAsync(
+        Guid operationId,
+        CancellationToken cancellationToken)
+    {
+        return PostAsync<CargoOperationTransition>(
+            $"{OperationsPath}/{operationId}/start",
+            "Unable to start the operation",
+            cancellationToken);
+    }
+
+    internal Task<CargoApiResult<CargoOperationTransition>> CompleteOperationAsync(
+        Guid operationId,
+        CancellationToken cancellationToken)
+    {
+        return PostAsync<CargoOperationTransition>(
+            $"{OperationsPath}/{operationId}/complete",
+            "Unable to complete the operation",
             cancellationToken);
     }
 
@@ -133,7 +200,7 @@ internal sealed class CargoBookingsApiClient(HttpClient httpClient)
         }
     }
 
-    private async Task<CargoApiResult<T>> PostAsync<T>(
+    private Task<CargoApiResult<T>> PostAsync<T>(
         string path,
         object request,
         string failureTitle,
@@ -141,9 +208,30 @@ internal sealed class CargoBookingsApiClient(HttpClient httpClient)
     {
         ArgumentNullException.ThrowIfNull(request);
 
+        return SendPostAsync<T>(
+            path,
+            JsonContent.Create(request, request.GetType()),
+            failureTitle,
+            cancellationToken);
+    }
+
+    private Task<CargoApiResult<T>> PostAsync<T>(
+        string path,
+        string failureTitle,
+        CancellationToken cancellationToken)
+    {
+        return SendPostAsync<T>(path, content: null, failureTitle, cancellationToken);
+    }
+
+    private async Task<CargoApiResult<T>> SendPostAsync<T>(
+        string path,
+        HttpContent? content,
+        string failureTitle,
+        CancellationToken cancellationToken)
+    {
         try
         {
-            using var response = await httpClient.PostAsJsonAsync(path, request, cancellationToken);
+            using var response = await httpClient.PostAsync(path, content, cancellationToken);
 
             if (!response.IsSuccessStatusCode)
             {

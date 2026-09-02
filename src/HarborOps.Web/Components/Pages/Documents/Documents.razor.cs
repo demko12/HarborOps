@@ -154,6 +154,15 @@ public partial class Documents
     private double uploadProgress;
     private DocumentsApiFailure? uploadFailure;
     private string? uploadSuccessMessage;
+    private bool isEditingMetadata;
+    private bool isRenewingDocument;
+    private int? lifecycleTypeId;
+    private string? lifecycleNumber;
+    private DateOnly? lifecycleIssueDate;
+    private DateOnly? lifecycleExpiryDate;
+    private string? lifecycleAuthority;
+    private IReadOnlyList<DocumentRenewalHistoryItemDto> renewalHistory = [];
+    private DocumentsApiFailure? lifecycleFailure;
 
     private int TotalPages => totalCount == 0 ? 1 : (totalCount + pageSize - 1) / pageSize;
 
@@ -635,6 +644,10 @@ public partial class Documents
         uploadSuccessMessage = null;
         isUploading = false;
         uploadProgress = 0;
+        isEditingMetadata = false;
+        isRenewingDocument = false;
+        lifecycleFailure = null;
+        renewalHistory = [];
     }
 
     private async Task LoadFileDetailsAsync(Guid documentId)
@@ -655,7 +668,41 @@ public partial class Documents
         }
 
         fileDetails = result.Value;
+        lifecycleTypeId = fileDetails?.DocumentTypeId;
+        lifecycleNumber = fileDetails?.Number;
+        lifecycleIssueDate = fileDetails?.IssueDate;
+        lifecycleExpiryDate = fileDetails?.ExpiryDate;
+        lifecycleAuthority = fileDetails?.IssuingAuthority;
+        if (fileDetails is not null)
+        {
+            var history = await DocumentsApi.GetRenewalHistoryAsync(documentId, disposeCancellation.Token);
+            if (history.IsSuccess && history.Value is not null) renewalHistory = history.Value;
+        }
     }
+
+    private async Task SaveMetadataAsync()
+    {
+        if (expandedDocumentId is not { } id) return;
+        lifecycleFailure = null;
+        var result = await DocumentsApi.UpdateMetadataAsync(id, LifecycleRequest(), disposeCancellation.Token);
+        if (!result.IsSuccess) { lifecycleFailure = result.Failure; return; }
+        isEditingMetadata = false;
+        await LoadFileDetailsAsync(id);
+        await LoadAsync();
+    }
+
+    private async Task RenewDocumentAsync()
+    {
+        if (expandedDocumentId is not { } id) return;
+        lifecycleFailure = null;
+        var result = await DocumentsApi.RenewAsync(id, LifecycleRequest(), disposeCancellation.Token);
+        if (!result.IsSuccess) { lifecycleFailure = result.Failure; return; }
+        isRenewingDocument = false;
+        await LoadFileDetailsAsync(id);
+        await LoadAsync();
+    }
+
+    private DocumentMetadataRequest LifecycleRequest() => new(lifecycleTypeId, lifecycleNumber, lifecycleIssueDate, lifecycleExpiryDate, lifecycleAuthority);
 
     private void OpenReplaceConfirmation()
     {

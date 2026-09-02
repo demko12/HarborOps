@@ -25,6 +25,12 @@ window.scrollInterop = {
         if (element) {
             element.scrollIntoView({ block: 'nearest' });
         }
+    },
+    toElement: function (elementId) {
+        var element = document.getElementById(elementId);
+        if (element) {
+            element.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
     }
 };
 

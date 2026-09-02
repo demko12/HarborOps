@@ -23,15 +23,6 @@
         color: var(--text-secondary);
     }
 
-.positions-eyebrow {
-    margin: .5rem 0 .35rem;
-    color: var(--accent);
-    font-size: .7rem;
-    font-weight: 700;
-    letter-spacing: .12em;
-    text-transform: uppercase;
-}
-
 .positions-refresh {
     height: 2.75rem;
     padding: 0 1rem;
@@ -91,6 +82,14 @@
         border-radius: .65rem;
         background: var(--control-surface);
         font: inherit;
+    }
+
+    .positions-field select {
+        padding-right: 2.35rem;
+        appearance: none;
+        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 16 16' fill='none'%3E%3Cpath d='m4 6 4 4 4-4' stroke='%2394a3b8' stroke-width='1.7' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+        background-repeat: no-repeat;
+        background-position: right .7rem center;
     }
 
         .positions-field select:focus, .positions-field input:focus {
@@ -171,6 +170,22 @@
     border-radius: 1rem;
     background: linear-gradient(145deg, var(--bg-surface-strong), var(--bg-surface));
     box-shadow: var(--card-shadow);
+}
+
+/* Keep the positions workspace on the same dark surface treatment as the
+   dashboard and the other operational pages. */
+html[data-theme="dark"] .positions-filters,
+html[data-theme="dark"] .positions-summary-card,
+html[data-theme="dark"] .positions-map-card,
+html[data-theme="dark"] .positions-card {
+    border-color: rgba(191, 219, 254, .16);
+    background: #15213b;
+    box-shadow: 0 18px 38px rgba(0, 0, 0, .14), inset 0 1px rgba(255, 255, 255, .1);
+}
+
+html[data-theme="dark"] .positions-overview-card {
+    border-color: rgba(191, 219, 254, .16);
+    background: #15213b;
 }
 
 .positions-card-heading {

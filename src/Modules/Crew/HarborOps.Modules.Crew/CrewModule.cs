@@ -30,6 +30,7 @@ public static class CrewModule
             .AddControllers()
             .AddApplicationPart(Assembly);
         services.AddScoped<IGetCrewMemberProfileQuery, GetCrewMemberProfileQuery>();
+        services.AddScoped<IExpiryAlertCandidateQuery, ExpiryAlertCandidateQuery>();
         services.AddScoped<ISearchCrewPositionsQuery, SearchCrewPositionsQuery>();
         services.AddScoped<IGetCrewRotationsQuery, GetCrewRotationsQuery>();
         services.AddScoped<IGetCrewRotationQuery, GetCrewRotationQuery>();
@@ -42,6 +43,9 @@ public static class CrewModule
         services.AddScoped<IGetMedicalExaminationsQuery, GetMedicalExaminationsQuery>();
         services.AddScoped<IGetMemberMedicalExaminationsQuery, GetMemberMedicalExaminationsQuery>();
         services.AddScoped<RegisterMedicalExaminationService>();
+        services.AddScoped<UpdateCrewMemberService>();
+        services.AddScoped<ChangeCrewMemberEmploymentStatusService>();
+        services.AddScoped<IGetCrewEmploymentStatusHistoryQuery, GetCrewEmploymentStatusHistoryQuery>();
         return services;
     }
 }

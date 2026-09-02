@@ -4,11 +4,16 @@ public sealed class NonConformity
 {
     internal const int SeverityMaxLength = 50;
     internal const int ClosureStatusMaxLength = 50;
+    internal const int ClosureNotesMaxLength = 1000;
 
     internal const string SeverityMinor = "Minor";
     internal const string SeverityMajor = "Major";
     internal const string SeverityCritical = "Critical";
     internal const string ClosureStatusOpen = "Open";
+    internal const string ClosureStatusInProgress = "InProgress";
+    internal const string ClosureStatusClosed = "Closed";
+
+    private readonly List<CorrectiveAction> correctiveActions = [];
 
     public int Id { get; private set; }
 
@@ -27,6 +32,16 @@ public sealed class NonConformity
     public DateOnly CorrectiveActionDeadline { get; private set; }
 
     public string ClosureStatus { get; private set; } = string.Empty;
+
+    public string? ClosureNotes { get; private set; }
+
+    public DateTimeOffset? ClosedAtUtc { get; private set; }
+
+    public Guid? ClosedByUserId { get; private set; }
+
+    public Guid? FinalEvidenceDocumentId { get; private set; }
+
+    public IReadOnlyCollection<CorrectiveAction> CorrectiveActions => correctiveActions;
 
     private NonConformity()
     {
@@ -62,5 +77,56 @@ public sealed class NonConformity
             ClosureStatusOpen,
             surveyId,
             pscId);
+    }
+
+    internal CorrectiveAction AddCorrectiveAction(
+        string actionText,
+        Guid actorUserId,
+        DateTimeOffset recordedAtUtc,
+        Guid? evidenceDocumentId)
+    {
+        if (ClosureStatus == ClosureStatusClosed)
+        {
+            throw new InvalidNonConformityTransitionException(Id, ClosureStatus, ClosureStatusInProgress);
+        }
+
+        var correctiveAction = CorrectiveAction.Record(
+            Id,
+            actionText,
+            actorUserId,
+            recordedAtUtc,
+            evidenceDocumentId);
+
+        correctiveActions.Add(correctiveAction);
+
+        if (ClosureStatus == ClosureStatusOpen)
+        {
+            ClosureStatus = ClosureStatusInProgress;
+        }
+
+        return correctiveAction;
+    }
+
+    internal void Close(
+        string closureNotes,
+        Guid closedByUserId,
+        DateTimeOffset closedAtUtc,
+        Guid? finalEvidenceDocumentId)
+    {
+        if (ClosureStatus == ClosureStatusClosed)
+        {
+            throw new InvalidNonConformityTransitionException(Id, ClosureStatus, ClosureStatusClosed);
+        }
+
+        if (ClosureStatus == ClosureStatusOpen)
+        {
+            throw new InvalidNonConformityTransitionException(Id, ClosureStatus, ClosureStatusClosed);
+        }
+
+        ClosureStatus = ClosureStatusClosed;
+        ClosureNotes = closureNotes;
+        ClosedByUserId = closedByUserId;
+        ClosedAtUtc = closedAtUtc;
+        FinalEvidenceDocumentId = finalEvidenceDocumentId;
     }
 }

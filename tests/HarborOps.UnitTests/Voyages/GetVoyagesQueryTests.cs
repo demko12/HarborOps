@@ -279,6 +279,52 @@ public sealed class GetVoyagesQueryTests
     }
 
     [Fact]
+    public async Task Row_exposes_first_and_last_itinerary_stop_port_names_when_planned()
+    {
+        await using var dbContext = CreateDbContext();
+        var voyage = await SeedAsync(
+            dbContext,
+            "VOY-581",
+            new DateTime(2026, 9, 1, 8, 0, 0, DateTimeKind.Utc));
+        var bar = Port.Create("Port of Bar", "Montenegro");
+        var kotor = Port.Create("Port of Kotor", "Montenegro");
+        var dubrovnik = Port.Create("Port of Dubrovnik", "Croatia");
+        await dbContext.Set<Port>().AddRangeAsync([bar, kotor, dubrovnik]);
+        await dbContext.Set<VoyageStop>().AddRangeAsync(
+            [
+                VoyageStop.Create(voyage.Id, bar.Id, 1, voyage.PlannedDeparture, voyage.PlannedDeparture.AddHours(4)),
+                VoyageStop.Create(voyage.Id, kotor.Id, 2, voyage.PlannedDeparture.AddHours(10), voyage.PlannedDeparture.AddHours(14)),
+                VoyageStop.Create(voyage.Id, dubrovnik.Id, 3, voyage.PlannedDeparture.AddHours(20), voyage.PlannedDeparture.AddHours(24)),
+            ]);
+        await dbContext.SaveChangesAsync();
+
+        var response = await CreateQuery(dbContext).GetVoyagesAsync(
+            new GetVoyagesRequest { From = WindowFrom, To = WindowTo },
+            CancellationToken.None);
+
+        var item = Assert.Single(response.Items);
+
+        Assert.Equal("Port of Bar", item.FirstStopPortName);
+        Assert.Equal("Port of Dubrovnik", item.LastStopPortName);
+    }
+
+    [Fact]
+    public async Task Row_leaves_stop_port_names_null_when_no_itinerary_is_planned()
+    {
+        await using var dbContext = CreateDbContext();
+        await SeedAsync(dbContext, "VOY-582", new DateTime(2026, 9, 1, 8, 0, 0, DateTimeKind.Utc));
+
+        var response = await CreateQuery(dbContext).GetVoyagesAsync(
+            new GetVoyagesRequest { From = WindowFrom, To = WindowTo },
+            CancellationToken.None);
+
+        var item = Assert.Single(response.Items);
+
+        Assert.Null(item.FirstStopPortName);
+        Assert.Null(item.LastStopPortName);
+    }
+
+    [Fact]
     public async Task Query_rejects_to_date_before_from_date()
     {
         await using var dbContext = CreateDbContext();

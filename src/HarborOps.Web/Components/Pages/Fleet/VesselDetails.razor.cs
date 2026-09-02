@@ -28,6 +28,24 @@ public partial class VesselDetails : IDisposable
     private FleetApiFailure? assignmentFailure;
     private string? pendingAssignmentAction;
 
+    private IReadOnlyList<VesselTypeWebModel> vesselTypes = [];
+
+    private readonly RegistryFormModel registryForm = new();
+    private RegistryFormModel registrySnapshot = new();
+    private bool isEditingRegistry;
+    private bool isSavingRegistry;
+    private FleetApiFailure? registryFailure;
+    private string? registrySuccessMessage;
+    private bool confirmRegistryCancel;
+
+    private readonly SpecificationsFormModel specificationsForm = new();
+    private SpecificationsFormModel specificationsSnapshot = new();
+    private bool isEditingSpecifications;
+    private bool isSavingSpecifications;
+    private FleetApiFailure? specificationsFailure;
+    private string? specificationsSuccessMessage;
+    private bool confirmSpecificationsCancel;
+
     [Parameter]
     public Guid VesselId { get; set; }
 
@@ -75,6 +93,11 @@ public partial class VesselDetails : IDisposable
                 ? details.CurrentStatus
                 : FleetStatusOptions.All[0];
             await LoadAssignmentsAsync();
+
+            if (CanManageFleet)
+            {
+                await LoadVesselTypesAsync();
+            }
         }
         else if (result.Failure is { IsNotFound: true })
         {
@@ -94,6 +117,15 @@ public partial class VesselDetails : IDisposable
         if (directoryResult.IsSuccess) fleets = directoryResult.Value;
         var historyResult = await FleetApi.GetFleetAssignmentHistoryAsync(VesselId, pageCancellation.Token);
         if (historyResult.IsSuccess) assignmentHistory = historyResult.Value;
+    }
+
+    private async Task LoadVesselTypesAsync()
+    {
+        var result = await FleetApi.GetVesselTypesAsync(pageCancellation.Token);
+        if (result.IsSuccess && result.Value?.VesselTypes is { } types)
+        {
+            vesselTypes = types;
+        }
     }
 
     private async Task AssignFleetAsync()
@@ -177,6 +209,181 @@ public partial class VesselDetails : IDisposable
         }
     }
 
+    private void BeginRegistryEdit()
+    {
+        if (details is null)
+        {
+            return;
+        }
+
+        registryForm.VesselTypeId = details.VesselTypeId;
+        registryForm.Name = details.Name;
+        registryForm.Mmsi = details.Mmsi;
+        registryForm.CallSign = details.CallSign;
+        registryForm.FlagState = details.FlagState;
+        registryForm.PortOfRegistry = details.PortOfRegistry;
+        registryForm.ClassificationSociety = details.ClassificationSociety;
+        registryForm.LifecycleStage = details.LifecycleStage;
+        registryForm.MsmdId = details.MsmdId;
+
+        registrySnapshot = registryForm.Clone();
+        isEditingRegistry = true;
+        isEditingSpecifications = false;
+        confirmRegistryCancel = false;
+        registryFailure = null;
+        registrySuccessMessage = null;
+        specificationsSuccessMessage = null;
+    }
+
+    private void CancelRegistryEdit()
+    {
+        if (!confirmRegistryCancel && !registryForm.Matches(registrySnapshot))
+        {
+            confirmRegistryCancel = true;
+            return;
+        }
+
+        isEditingRegistry = false;
+        confirmRegistryCancel = false;
+        registryFailure = null;
+    }
+
+    private void KeepEditingRegistry() => confirmRegistryCancel = false;
+
+    private async Task SubmitRegistryAsync()
+    {
+        if (isSavingRegistry || details is null)
+        {
+            return;
+        }
+
+        isSavingRegistry = true;
+        registryFailure = null;
+        registrySuccessMessage = null;
+        confirmRegistryCancel = false;
+
+        try
+        {
+            var request = new UpdateVesselRegistryDetailsWebRequest(
+                registryForm.VesselTypeId,
+                registryForm.Name,
+                NullIfBlank(registryForm.Mmsi),
+                NullIfBlank(registryForm.CallSign),
+                registryForm.FlagState,
+                NullIfBlank(registryForm.PortOfRegistry),
+                NullIfBlank(registryForm.ClassificationSociety),
+                NullIfBlank(registryForm.LifecycleStage),
+                NullIfBlank(registryForm.MsmdId));
+
+            var result = await FleetApi.UpdateVesselRegistryDetailsAsync(VesselId, request, pageCancellation.Token);
+
+            if (pageCancellation.IsCancellationRequested)
+            {
+                return;
+            }
+
+            if (!result.IsSuccess || result.Value is null)
+            {
+                registryFailure = result.Failure;
+                return;
+            }
+
+            isEditingRegistry = false;
+            registrySuccessMessage = "Registry details updated.";
+
+            await LoadDetailsAsync();
+        }
+        finally
+        {
+            isSavingRegistry = false;
+        }
+    }
+
+    private void BeginSpecificationsEdit()
+    {
+        if (details is null)
+        {
+            return;
+        }
+
+        specificationsForm.Dwt = details.Dwt;
+        specificationsForm.Gt = details.Gt;
+        specificationsForm.Loa = details.Loa;
+        specificationsForm.Beam = details.Beam;
+        specificationsForm.Draft = details.Draft;
+
+        specificationsSnapshot = specificationsForm.Clone();
+        isEditingSpecifications = true;
+        isEditingRegistry = false;
+        confirmSpecificationsCancel = false;
+        specificationsFailure = null;
+        specificationsSuccessMessage = null;
+        registrySuccessMessage = null;
+    }
+
+    private void CancelSpecificationsEdit()
+    {
+        if (!confirmSpecificationsCancel && !specificationsForm.Matches(specificationsSnapshot))
+        {
+            confirmSpecificationsCancel = true;
+            return;
+        }
+
+        isEditingSpecifications = false;
+        confirmSpecificationsCancel = false;
+        specificationsFailure = null;
+    }
+
+    private void KeepEditingSpecifications() => confirmSpecificationsCancel = false;
+
+    private async Task SubmitSpecificationsAsync()
+    {
+        if (isSavingSpecifications || details is null)
+        {
+            return;
+        }
+
+        isSavingSpecifications = true;
+        specificationsFailure = null;
+        specificationsSuccessMessage = null;
+        confirmSpecificationsCancel = false;
+
+        try
+        {
+            var request = new UpdateVesselSpecificationsWebRequest(
+                specificationsForm.Dwt,
+                specificationsForm.Gt,
+                specificationsForm.Loa,
+                specificationsForm.Beam,
+                specificationsForm.Draft);
+
+            var result = await FleetApi.UpdateVesselSpecificationsAsync(VesselId, request, pageCancellation.Token);
+
+            if (pageCancellation.IsCancellationRequested)
+            {
+                return;
+            }
+
+            if (!result.IsSuccess || result.Value is null)
+            {
+                specificationsFailure = result.Failure;
+                return;
+            }
+
+            isEditingSpecifications = false;
+            specificationsSuccessMessage = "Specifications updated.";
+
+            await LoadDetailsAsync();
+        }
+        finally
+        {
+            isSavingSpecifications = false;
+        }
+    }
+
+    private static string? NullIfBlank(string? value) =>
+        string.IsNullOrWhiteSpace(value) ? null : value.Trim();
+
     internal static string GetStatusClass(string status) => status.ToLowerInvariant() switch
     {
         "active" => "vessel-status-active",
@@ -206,5 +413,61 @@ public partial class VesselDetails : IDisposable
     {
         pageCancellation.Cancel();
         pageCancellation.Dispose();
+    }
+
+    private sealed class RegistryFormModel
+    {
+        public Guid? VesselTypeId { get; set; }
+
+        public string? Name { get; set; }
+
+        public string? Mmsi { get; set; }
+
+        public string? CallSign { get; set; }
+
+        public string? FlagState { get; set; }
+
+        public string? PortOfRegistry { get; set; }
+
+        public string? ClassificationSociety { get; set; }
+
+        public string? LifecycleStage { get; set; }
+
+        public string? MsmdId { get; set; }
+
+        public RegistryFormModel Clone() => (RegistryFormModel)MemberwiseClone();
+
+        public bool Matches(RegistryFormModel other) =>
+            VesselTypeId == other.VesselTypeId
+            && string.Equals(Name, other.Name, StringComparison.Ordinal)
+            && string.Equals(Mmsi, other.Mmsi, StringComparison.Ordinal)
+            && string.Equals(CallSign, other.CallSign, StringComparison.Ordinal)
+            && string.Equals(FlagState, other.FlagState, StringComparison.Ordinal)
+            && string.Equals(PortOfRegistry, other.PortOfRegistry, StringComparison.Ordinal)
+            && string.Equals(ClassificationSociety, other.ClassificationSociety, StringComparison.Ordinal)
+            && string.Equals(LifecycleStage, other.LifecycleStage, StringComparison.Ordinal)
+            && string.Equals(MsmdId, other.MsmdId, StringComparison.Ordinal);
+    }
+
+    private sealed class SpecificationsFormModel
+    {
+        public decimal? Dwt { get; set; }
+
+        public decimal? Gt { get; set; }
+
+        public decimal? Loa { get; set; }
+
+        public decimal? Beam { get; set; }
+
+        public decimal? Draft { get; set; }
+
+        public SpecificationsFormModel Clone() => (SpecificationsFormModel)MemberwiseClone();
+
+        public bool Matches(SpecificationsFormModel other) =>
+            Dwt == other.Dwt
+            && Gt == other.Gt
+            && Loa == other.Loa
+            && Beam == other.Beam
+            && Draft == other.Draft;
     }
 }

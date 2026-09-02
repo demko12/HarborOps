@@ -15,7 +15,9 @@ public sealed class VesselsController(
     IVesselLookupService vesselLookupService,
     IGetVesselDetailsQuery getVesselDetailsQuery,
     RecordVesselStatusChangeService recordVesselStatusChangeService,
-    RecordVesselPositionService recordVesselPositionService)
+    RecordVesselPositionService recordVesselPositionService,
+    UpdateVesselRegistryDetailsService updateVesselRegistryDetailsService,
+    UpdateVesselSpecificationsService updateVesselSpecificationsService)
     : ControllerBase
 {
     // The capability convention reads a single route template and prefers the action's, so an
@@ -146,6 +148,96 @@ public sealed class VesselsController(
         return response is null ? NotFound() : Ok(response);
     }
 
+    [HttpPut("{vesselId:guid}/registry-details")]
+    [Authorize(ManageFleetPolicy)]
+    [ProducesResponseType<VesselDetailsResponse>(StatusCodes.Status200OK)]
+    [ProducesResponseType<HttpValidationProblemDetails>(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType<HttpValidationProblemDetails>(StatusCodes.Status404NotFound)]
+    [ProducesResponseType<HttpValidationProblemDetails>(StatusCodes.Status409Conflict)]
+    public async Task<ActionResult<VesselDetailsResponse>> UpdateRegistryDetails(
+        Guid vesselId,
+        [FromBody] UpdateVesselRegistryDetailsRequest request,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            var response = await updateVesselRegistryDetailsService.UpdateAsync(
+                vesselId,
+                request,
+                cancellationToken);
+
+            return Ok(response);
+        }
+        catch (UpdateVesselRegistryDetailsValidationException exception)
+        {
+            return ValidationProblemResult(exception.Errors);
+        }
+        catch (VesselNotFoundException exception)
+        {
+            return NotFoundProblem(
+                UpdateVesselRegistryDetailsValidator.NameField,
+                exception.Message,
+                "Vessel not found.");
+        }
+        catch (VesselTypeNotFoundException exception)
+        {
+            return NotFoundProblem(
+                UpdateVesselRegistryDetailsValidator.VesselTypeIdField,
+                exception.Message,
+                "The requested vessel type was not found.");
+        }
+        catch (DuplicateMmsiException exception)
+        {
+            return ConflictProblem(
+                UpdateVesselRegistryDetailsValidator.MmsiField,
+                exception.Message,
+                "A vessel with this MMSI already exists.");
+        }
+        catch (DuplicateCallSignException exception)
+        {
+            return ConflictProblem(
+                UpdateVesselRegistryDetailsValidator.CallSignField,
+                exception.Message,
+                "A vessel with this call sign already exists.");
+        }
+    }
+
+    [HttpPut("{vesselId:guid}/specifications")]
+    [Authorize(ManageFleetPolicy)]
+    [ProducesResponseType<VesselDetailsResponse>(StatusCodes.Status200OK)]
+    [ProducesResponseType<HttpValidationProblemDetails>(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType<HttpValidationProblemDetails>(StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<VesselDetailsResponse>> UpdateSpecifications(
+        Guid vesselId,
+        [FromBody] UpdateVesselSpecificationsRequest request,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            var response = await updateVesselSpecificationsService.UpdateAsync(
+                vesselId,
+                request,
+                cancellationToken);
+
+            return Ok(response);
+        }
+        catch (UpdateVesselSpecificationsValidationException exception)
+        {
+            return ValidationProblemResult(exception.Errors);
+        }
+        catch (VesselNotFoundException exception)
+        {
+            return NotFoundProblem(
+                UpdateVesselSpecificationsValidator.DwtField,
+                exception.Message,
+                "Vessel not found.");
+        }
+    }
+
     [HttpPost("{vesselId:guid}/status-changes")]
     [Authorize(ManageFleetPolicy)]
     [ProducesResponseType<RecordVesselStatusChangeResponse>(StatusCodes.Status201Created)]
@@ -255,4 +347,41 @@ public sealed class VesselsController(
         }
     }
 
+    private ActionResult ValidationProblemResult(IReadOnlyDictionary<string, string[]> errors)
+    {
+        return BadRequest(new HttpValidationProblemDetails(
+            errors.ToDictionary(error => error.Key, error => error.Value, StringComparer.Ordinal))
+        {
+            Status = StatusCodes.Status400BadRequest,
+            Title = "One or more validation errors occurred.",
+        });
+    }
+
+    private ActionResult NotFoundProblem(string field, string message, string title)
+    {
+        return NotFound(new HttpValidationProblemDetails(
+            new Dictionary<string, string[]>(StringComparer.Ordinal)
+            {
+                [field] = [message],
+            })
+        {
+            Status = StatusCodes.Status404NotFound,
+            Title = title,
+            Detail = message,
+        });
+    }
+
+    private ActionResult ConflictProblem(string field, string message, string title)
+    {
+        return Conflict(new HttpValidationProblemDetails(
+            new Dictionary<string, string[]>(StringComparer.Ordinal)
+            {
+                [field] = [message],
+            })
+        {
+            Status = StatusCodes.Status409Conflict,
+            Title = title,
+            Detail = message,
+        });
+    }
 }

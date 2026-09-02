@@ -6,6 +6,7 @@
 @inject FleetApiClient FleetApi
 @inject VoyagesApiClient VoyagesApi
 @inject CurrentUserAuthorizationState AuthorizationState
+@inject NavigationManager Navigation
 
 <PageTitle>Voyages | HarborOps</PageTitle>
 
@@ -286,6 +287,7 @@
                             {
                                 <th scope="col">Actions</th>
                             }
+                            <th scope="col" class="col-chevron"><span class="visually-hidden">Open timeline</span></th>
                         </tr>
                     </thead>
                     <tbody>
@@ -297,11 +299,16 @@
                             var isImminent = IsImminentDeparture(voyage.PlannedDeparture, utcNow);
 
                             <tr @key="voyage.VoyageId"
-                                class="@(isImminent ? "imminent" : null)"
-                                title="@(isImminent ? "Departs within 24 hours" : null)">
-                                <td class="voyage-number">@voyage.VoyageNumber</td>
-                                <td class="voyage-vessel col-vessel">@VesselDisplayName(voyage.VesselId)</td>
-                                <td class="voyage-route">@FormatRoute(voyage.DeparturePortCode, voyage.ArrivalPortCode)</td>
+                                class="voyage-row-link @(isImminent ? "imminent" : null)"
+                                title="@(isImminent ? "Departs within 24 hours" : null)"
+                                role="link"
+                                tabindex="0"
+                                aria-label="@($"Open {voyage.VoyageNumber} timeline")"
+                                @onclick="() => OpenTimeline(voyage.VoyageId)"
+                                @onkeydown="(args) => HandleVoyageRowKeyDown(args, voyage.VoyageId)">
+                                <td class="voyage-number"><a href="@TimelineHref(voyage.VoyageId)" @onclick:stopPropagation="true">@voyage.VoyageNumber</a></td>
+                                <td class="voyage-vessel col-vessel" title="@voyage.VesselId">@VesselDisplayName(voyage.VesselId)</td>
+                                <td class="voyage-route">@FormatRoute(voyage)</td>
                                 <td>
                                     <span class="voyage-status @StatusModifier(voyage.Status)">@voyage.Status</span>
                                     <span class="voyage-steps @StatusModifier(voyage.Status)"
@@ -323,7 +330,7 @@
                                 </td>
                                 @if (CanManageVoyages)
                                 {
-                                    <td class="voyage-actions">
+                                    <td class="voyage-actions" @onclick:stopPropagation="true">
                                         @if (actionVoyageId == voyage.VoyageId)
                                         {
                                             <div class="voyage-action-form" @onkeydown="HandleActionKeyDown">
@@ -362,6 +369,7 @@
                                         }
                                     </td>
                                 }
+                                <td class="col-chevron"><span class="bi bi-chevron-right voyage-row-chevron" aria-hidden="true"></span></td>
                             </tr>
                         }
                     </tbody>

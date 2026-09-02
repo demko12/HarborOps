@@ -232,7 +232,7 @@ public sealed class RecordVesselPositionServiceTests
             new RecordVesselPositionRequest { Latitude = 10m, Longitude = 20m },
             CancellationToken.None);
 
-        vessel.UpdateSpecifications(50_000m, 30_000m, 250m, 32m, 12m);
+        vessel.UpdateSpecifications(50_000m, 30_000m, 250m, 32m, 12m, DateTime.UtcNow);
         await dbContext.SaveChangesAsync();
 
         Assert.Equal(FixedNow.UtcDateTime, vessel.LastPositionReportedAtUtc);

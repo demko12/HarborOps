@@ -194,9 +194,11 @@ public sealed class GetMedicalExaminationsQueryTests
         var position = CrewPosition.Create("Able Seafarer", "Deck", "Senior");
         await dbContext.Set<CrewPosition>().AddAsync(position);
 
+        var nameParts = name.Split(' ', 2);
         var member = CrewMember.Create(
             position.Id,
-            name,
+            nameParts[0],
+            nameParts.Length > 1 ? nameParts[1] : string.Empty,
             new DateOnly(1990, 1, 1),
             "Montenegro",
             $"IMO{Guid.NewGuid():N}"[..10],

@@ -8,7 +8,36 @@ public sealed class VoyageFormatTests
     [Fact]
     public void Route_renders_departure_code_to_arrival_code()
     {
-        Assert.Equal("MEBAR → ITGOA", Voyages.FormatRoute("MEBAR", "ITGOA"));
+        Assert.Equal("MEBAR → ITGOA", Voyages.FormatRoute(VoyageRow()));
+    }
+
+    [Fact]
+    public void Route_prefers_itinerary_stop_port_names_over_the_scheduled_codes()
+    {
+        var voyage = VoyageRow() with
+        {
+            FirstStopPortName = "Port of Bar",
+            LastStopPortName = "Port of Dubrovnik",
+        };
+
+        Assert.Equal("Port of Bar → Port of Dubrovnik", Voyages.FormatRoute(voyage));
+    }
+
+    private static VoyageListItemModel VoyageRow()
+    {
+        return new VoyageListItemModel(
+            Guid.NewGuid(),
+            "VOY-0001",
+            Guid.NewGuid(),
+            "MEBAR",
+            "ITGOA",
+            Voyages.PlannedStatus,
+            new DateTime(2026, 9, 15, 8, 0, 0, DateTimeKind.Utc),
+            new DateTime(2026, 9, 18, 17, 30, 0, DateTimeKind.Utc),
+            null,
+            null,
+            null,
+            null);
     }
 
     [Fact]

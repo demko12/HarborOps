@@ -382,7 +382,7 @@ public sealed class VesselPositionsPageTests : BunitContext
         var page = RenderPositionsPage(permissions: CurrentUserAuthorizationState.FleetManagePermission);
 
         Assert.NotNull(page.Find("form.positions-form"));
-        Assert.Equal(4, page.FindAll("#positions-vessel option").Count);
+        Assert.NotNull(page.Find("#positions-vessel"));
     }
 
     [Fact]
@@ -402,7 +402,7 @@ public sealed class VesselPositionsPageTests : BunitContext
 
         var page = RenderPositionsPage();
 
-        page.Find("#positions-vessel").Change(MissingVesselId);
+        SelectReportVessel(page);
         page.Find("#positions-latitude").Change("10.5");
         page.Find("#positions-longitude").Change("20.25");
         page.Find("form.positions-form").Submit();
@@ -426,7 +426,7 @@ public sealed class VesselPositionsPageTests : BunitContext
 
         var page = RenderPositionsPage();
 
-        page.Find("#positions-vessel").Change(MissingVesselId);
+        SelectReportVessel(page);
         page.Find("#positions-latitude").Change("10.5");
         page.Find("#positions-longitude").Change("20.25");
         page.Find("form.positions-form").Submit();
@@ -463,7 +463,7 @@ public sealed class VesselPositionsPageTests : BunitContext
 
         var page = RenderPositionsPage();
 
-        page.Find("#positions-vessel").Change(MissingVesselId);
+        SelectReportVessel(page);
         page.Find("#positions-latitude").Change("10.5");
         page.Find("#positions-longitude").Change("20.25");
         page.Find("form.positions-form").Submit();
@@ -489,7 +489,7 @@ public sealed class VesselPositionsPageTests : BunitContext
 
         var page = RenderPositionsPage();
 
-        page.Find("#positions-vessel").Change(MissingVesselId);
+        SelectReportVessel(page);
         page.Find("#positions-latitude").Change("10.5");
         page.Find("#positions-longitude").Change("20.25");
         page.Find("form.positions-form").Submit();
@@ -513,7 +513,7 @@ public sealed class VesselPositionsPageTests : BunitContext
 
         var page = RenderPositionsPage();
 
-        page.Find("#positions-vessel").Change(MissingVesselId);
+        SelectReportVessel(page);
         page.Find("#positions-latitude").Change("120");
         page.Find("#positions-longitude").Change("20");
         page.Find("form.positions-form").Submit();
@@ -533,7 +533,7 @@ public sealed class VesselPositionsPageTests : BunitContext
 
         var page = RenderPositionsPage();
 
-        page.Find("#positions-vessel").Change(MissingVesselId);
+        SelectReportVessel(page);
         page.Find("#positions-latitude").Change("10");
         page.Find("#positions-longitude").Change("20");
         page.Find("form.positions-form").Submit();
@@ -553,7 +553,7 @@ public sealed class VesselPositionsPageTests : BunitContext
 
         var page = RenderPositionsPage();
 
-        page.Find("#positions-vessel").Change(MissingVesselId);
+        SelectReportVessel(page);
         page.Find("#positions-latitude").Change("10");
         page.Find("#positions-longitude").Change("20");
         page.Find("form.positions-form").Submit();
@@ -573,7 +573,7 @@ public sealed class VesselPositionsPageTests : BunitContext
 
         var page = RenderPositionsPage();
 
-        page.Find("#positions-vessel").Change(MissingVesselId);
+        SelectReportVessel(page);
         page.Find("#positions-latitude").Change("10");
         page.Find("#positions-longitude").Change("20");
         page.Find("form.positions-form").Submit();
@@ -645,6 +645,11 @@ public sealed class VesselPositionsPageTests : BunitContext
             requests.Add(request);
             tokens.Add(token);
 
+            if (request.RequestUri!.AbsolutePath == "/api/fleet/vessels")
+            {
+                return Json(HttpStatusCode.OK, VesselSearchResults());
+            }
+
             if (request.Method != HttpMethod.Get)
             {
                 writes.Add((
@@ -669,6 +674,15 @@ public sealed class VesselPositionsPageTests : BunitContext
         page.WaitForAssertion(() => Assert.NotEmpty(PositionRequests()));
 
         return page;
+    }
+
+    private static void SelectReportVessel(IRenderedComponent<VesselPositions> page)
+    {
+        page.Find("#positions-vessel").Focus();
+        page.WaitForAssertion(() => Assert.NotEmpty(page.FindAll(".vessel-picker-option")));
+        page.FindAll(".vessel-picker-option")
+            .Single(option => option.TextContent.Contains("Western Gale", StringComparison.Ordinal))
+            .Click();
     }
 
     private List<HttpRequestMessage> PositionRequests() =>
@@ -752,6 +766,13 @@ public sealed class VesselPositionsPageTests : BunitContext
             {"items":[{"fleetId":"{{FleetId}}","name":"Adriatic Fleet","description":"Adriatic vessels",
             "createdAtUtc":"2026-01-01T08:00:00Z","activeVesselCount":2}],
             "totalCount":1,"pageNumber":1,"pageSize":100}
+            """;
+    }
+
+    private static string VesselSearchResults()
+    {
+        return $$"""
+            {"items":[{"vesselId":"{{MissingVesselId}}","name":"Western Gale","imoNumber":"5100003","currentStatus":"Active","fleetName":null,"flagState":"Panama","vesselTypeName":"Container Ship"}],"pageNumber":1,"pageSize":10,"totalCount":1}
             """;
     }
 

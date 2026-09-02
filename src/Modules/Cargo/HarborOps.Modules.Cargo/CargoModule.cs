@@ -14,8 +14,13 @@ public static class CargoModule
 
     public static IServiceCollection AddCargoModule(this IServiceCollection services)
     {
+        services.AddScoped<AddCargoContainerService>();
         services.AddScoped<DeclareCargoSafetyInfoService>();
+        services.AddScoped<ExecuteCargoOperationService>();
         services.AddScoped<GetCargoBookingDetailsQuery>();
+        services.AddScoped<GetCargoContainersQuery>();
+        services.AddScoped<GetCargoOperationsQuery>();
+        services.AddScoped<PlanCargoOperationService>();
         services.AddScoped<RecordCargoTrackingEventService>();
         services.AddScoped<RegisterCargoBookingService>();
         services.AddScoped<SearchCargoBookingsQuery>();

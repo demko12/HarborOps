@@ -64,7 +64,17 @@ internal sealed class GetVoyagesQuery(DbContext dbContext) : IGetVoyagesQuery
                 voyage.PlannedDeparture,
                 voyage.PlannedArrival,
                 voyage.ActualDeparture,
-                voyage.ActualArrival))
+                voyage.ActualArrival,
+                (from stop in dbContext.Set<VoyageStop>()
+                 join port in dbContext.Set<Port>() on stop.PortId equals port.Id
+                 where stop.VoyageId == voyage.Id
+                 orderby stop.StopOrder
+                 select port.Name).FirstOrDefault(),
+                (from stop in dbContext.Set<VoyageStop>()
+                 join port in dbContext.Set<Port>() on stop.PortId equals port.Id
+                 where stop.VoyageId == voyage.Id
+                 orderby stop.StopOrder descending
+                 select port.Name).FirstOrDefault()))
             .ToListAsync(cancellationToken);
 
         return new GetVoyagesResponse(items, pageNumber, pageSize, totalCount);

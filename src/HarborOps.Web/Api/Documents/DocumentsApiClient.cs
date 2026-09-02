@@ -236,6 +236,33 @@ internal sealed class DocumentsApiClient(HttpClient httpClient)
         }
     }
 
+    internal async Task<DocumentsApiResult<object>> UpdateMetadataAsync(Guid documentId, DocumentMetadataRequest request, CancellationToken cancellationToken)
+    {
+        using var response = await httpClient.PutAsJsonAsync($"{BasePath}/{documentId}/metadata", request, cancellationToken);
+        return response.IsSuccessStatusCode ? new(new object(), null) : new(null, await ReadFailureAsync(response, "Unable to update document metadata", cancellationToken));
+    }
+
+    internal async Task<DocumentsApiResult<RegisterDocumentResult>> RenewAsync(Guid documentId, DocumentMetadataRequest request, CancellationToken cancellationToken)
+    {
+        using var response = await httpClient.PostAsJsonAsync($"{BasePath}/{documentId}/renewals", request, cancellationToken);
+        if (response.StatusCode != HttpStatusCode.Created) return new(null, await ReadFailureAsync(response, "Unable to renew the document", cancellationToken));
+        return new(await response.Content.ReadFromJsonAsync<RegisterDocumentResult>(cancellationToken), null);
+    }
+
+    internal async Task<DocumentsApiResult<IReadOnlyList<DocumentRenewalHistoryItemDto>>> GetRenewalHistoryAsync(Guid documentId, CancellationToken cancellationToken)
+    {
+        try
+        {
+            using var response = await httpClient.GetAsync($"{BasePath}/{documentId}/renewal-history", HttpCompletionOption.ResponseHeadersRead, cancellationToken);
+            if (!response.IsSuccessStatusCode) return new(null, await ReadFailureAsync(response, "Unable to load renewal history", cancellationToken));
+            return new(await response.Content.ReadFromJsonAsync<IReadOnlyList<DocumentRenewalHistoryItemDto>>(cancellationToken), null);
+        }
+        catch (JsonException)
+        {
+            return new(null, new DocumentsApiFailure(0, "Unable to load renewal history", "Please try again.", NoErrors));
+        }
+    }
+
     internal async Task<DocumentsApiResult<DocumentFileResponseDto>> UploadDocumentFileAsync(
         Guid documentId,
         IBrowserFile file,

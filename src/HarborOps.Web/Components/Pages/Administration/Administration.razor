@@ -4,6 +4,7 @@
 @inject IdentityAdministrationApiClient AdministrationApi
 @inject CurrentUserAuthorizationState AuthorizationState
 @inject ServerSessionTicketStore SessionTicketStore
+@inject IJSRuntime Js
 
 <PageTitle>Administration | HarborOps</PageTitle>
 
@@ -80,7 +81,7 @@
             else { <div class="role-list">@foreach (var role in roles) { <button type="button" class="role-row @(selectedRole?.Id == role.Id ? "selected" : string.Empty)" @onclick="() => SelectRole(role)"><strong>@role.Name</strong><small>@role.Permissions.Count permissions</small></button> }</div> }
         </section>
 
-        <section class="administration-card administration-editor" aria-labelledby="editor-title">
+		<section id="administration-editor" class="administration-card administration-editor" aria-labelledby="editor-title">
             @if (selectedUser is not null)
             {
                 <div class="card-heading"><div><h2 id="editor-title">User roles</h2><p>@selectedUser.Email</p></div><span class="bi bi-shield-check"></span></div>

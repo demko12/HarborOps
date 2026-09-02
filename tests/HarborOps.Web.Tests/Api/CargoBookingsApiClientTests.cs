@@ -18,6 +18,8 @@ public sealed class CargoBookingsApiClientTests
 
     private static readonly Guid VoyageId = Guid.Parse("30000000-0000-0000-0000-000000000002");
 
+    private static readonly Guid OperationId = Guid.Parse("80000000-0000-0000-0000-000000000007");
+
     private static readonly DateTime OccurredUtc = new(2026, 8, 12, 6, 0, 0, DateTimeKind.Utc);
 
     [Fact]
@@ -393,6 +395,240 @@ public sealed class CargoBookingsApiClientTests
         var result = await CreateClient(httpClient).RecordTrackingEventAsync(
             BookingId,
             new RecordCargoTrackingEventWebRequest("Loaded", OccurredUtc, "Berth 12"),
+            CancellationToken.None);
+
+        Assert.False(result.IsSuccess);
+        Assert.Equal(0, result.Failure!.StatusCode);
+        Assert.Equal("HarborOps API is unavailable", result.Failure.Title);
+    }
+
+    [Fact]
+    public async Task GetContainersAsync_reads_every_container_field()
+    {
+        const string json = """
+            {"items":[{"containerId":"70000000-0000-0000-0000-000000000006","containerNumber":"MSKU1234567","containerType":"40HC","status":"Loaded","cargoBookingId":"20000000-0000-0000-0000-000000000001","vesselId":null}]}
+            """;
+        using var httpClient = CreateHttpClient((_, _) => Json(HttpStatusCode.OK, json));
+
+        var result = await CreateClient(httpClient).GetContainersAsync(
+            BookingId,
+            CancellationToken.None);
+
+        Assert.True(result.IsSuccess);
+
+        var row = Assert.Single(result.Value!.Items);
+
+        Assert.Equal(Guid.Parse("70000000-0000-0000-0000-000000000006"), row.ContainerId);
+        Assert.Equal("MSKU1234567", row.ContainerNumber);
+        Assert.Equal("40HC", row.ContainerType);
+        Assert.Equal("Loaded", row.Status);
+        Assert.Equal(BookingId, row.CargoBookingId);
+        Assert.Null(row.VesselId);
+    }
+
+    [Fact]
+    public async Task GetContainersAsync_requests_the_manifest_of_the_booking()
+    {
+        HttpRequestMessage? captured = null;
+        using var httpClient = CreateHttpClient((request, _) =>
+        {
+            captured = request;
+            return Json(HttpStatusCode.OK, """{"items":[]}""");
+        });
+
+        await CreateClient(httpClient).GetContainersAsync(BookingId, CancellationToken.None);
+
+        Assert.Equal(HttpMethod.Get, captured!.Method);
+        Assert.Equal($"/api/cargo/bookings/{BookingId}/containers", captured.RequestUri!.AbsolutePath);
+    }
+
+    [Fact]
+    public async Task GetContainersAsync_reports_a_forbidden_failure()
+    {
+        using var httpClient = CreateHttpClient((_, _) => Json(HttpStatusCode.Forbidden, "{}"));
+
+        var result = await CreateClient(httpClient).GetContainersAsync(
+            BookingId,
+            CancellationToken.None);
+
+        Assert.False(result.IsSuccess);
+        Assert.True(result.Failure!.IsForbidden);
+        Assert.Equal("Unable to load the container manifest", result.Failure.Title);
+    }
+
+    [Fact]
+    public async Task AddContainerAsync_posts_the_container_to_the_booking()
+    {
+        HttpRequestMessage? captured = null;
+        string? body = null;
+        using var httpClient = CreateHttpClient(async (request, token) =>
+        {
+            captured = request;
+            body = await request.Content!.ReadAsStringAsync(token);
+
+            return await Json(
+                HttpStatusCode.Created,
+                """{"id":"70000000-0000-0000-0000-000000000006","containerNumber":"MSKU1234567","status":"Registered"}""");
+        });
+
+        var result = await CreateClient(httpClient).AddContainerAsync(
+            BookingId,
+            new AddCargoContainerWebRequest("MSKU1234567", "40HC"),
+            CancellationToken.None);
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal("MSKU1234567", result.Value!.ContainerNumber);
+        Assert.Equal(HttpMethod.Post, captured!.Method);
+        Assert.Equal($"/api/cargo/bookings/{BookingId}/containers", captured.RequestUri!.AbsolutePath);
+        Assert.Contains("\"containerNumber\":\"MSKU1234567\"", body, StringComparison.Ordinal);
+        Assert.Contains("\"containerType\":\"40HC\"", body, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task AddContainerAsync_reports_a_duplicate_number_conflict()
+    {
+        using var httpClient = CreateHttpClient((_, _) => Json(
+            HttpStatusCode.Conflict,
+            """
+            {"title":"A container with this number already exists.","status":409,"errors":{"containerNumber":["Already registered."]}}
+            """));
+
+        var result = await CreateClient(httpClient).AddContainerAsync(
+            BookingId,
+            new AddCargoContainerWebRequest("MSKU1234567", "40HC"),
+            CancellationToken.None);
+
+        Assert.False(result.IsSuccess);
+        Assert.True(result.Failure!.IsConflict);
+        Assert.Contains("containerNumber", result.Failure.Errors.Keys, StringComparer.Ordinal);
+    }
+
+    [Fact]
+    public async Task GetOperationsAsync_reads_every_operation_field()
+    {
+        const string json = """
+            {"items":[{"operationId":"80000000-0000-0000-0000-000000000007","operationType":"Load","operationState":"InProgress","plannedAtUtc":"2026-08-12T06:00:00Z","startedAtUtc":"2026-08-12T07:30:00Z","finishedAtUtc":null,"responsibleUserId":"60000000-0000-0000-0000-000000000005"}]}
+            """;
+        using var httpClient = CreateHttpClient((_, _) => Json(HttpStatusCode.OK, json));
+
+        var result = await CreateClient(httpClient).GetOperationsAsync(
+            BookingId,
+            CancellationToken.None);
+
+        Assert.True(result.IsSuccess);
+
+        var row = Assert.Single(result.Value!.Items);
+
+        Assert.Equal(Guid.Parse("80000000-0000-0000-0000-000000000007"), row.OperationId);
+        Assert.Equal("Load", row.OperationType);
+        Assert.Equal("InProgress", row.OperationState);
+        Assert.Equal(OccurredUtc, row.PlannedAtUtc);
+        Assert.NotNull(row.StartedAtUtc);
+        Assert.Null(row.FinishedAtUtc);
+        Assert.Equal(Guid.Parse("60000000-0000-0000-0000-000000000005"), row.ResponsibleUserId);
+    }
+
+    [Fact]
+    public async Task PlanOperationAsync_posts_the_operation_in_utc()
+    {
+        HttpRequestMessage? captured = null;
+        string? body = null;
+        using var httpClient = CreateHttpClient(async (request, token) =>
+        {
+            captured = request;
+            body = await request.Content!.ReadAsStringAsync(token);
+
+            return await Json(
+                HttpStatusCode.Created,
+                """{"id":"80000000-0000-0000-0000-000000000007","operationType":"Load","operationState":"Planned"}""");
+        });
+
+        var result = await CreateClient(httpClient).PlanOperationAsync(
+            BookingId,
+            new PlanCargoOperationWebRequest("Load", OccurredUtc),
+            CancellationToken.None);
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal("Planned", result.Value!.OperationState);
+        Assert.Equal($"/api/cargo/bookings/{BookingId}/operations", captured!.RequestUri!.AbsolutePath);
+        Assert.Contains("\"operationType\":\"Load\"", body, StringComparison.Ordinal);
+        Assert.Contains("2026-08-12T06:00:00Z", body, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task StartOperationAsync_posts_to_the_operation_without_a_body()
+    {
+        HttpRequestMessage? captured = null;
+        using var httpClient = CreateHttpClient((request, _) =>
+        {
+            captured = request;
+
+            return Json(
+                HttpStatusCode.OK,
+                """{"operationId":"80000000-0000-0000-0000-000000000007","operationState":"InProgress","startedAtUtc":"2026-08-12T07:30:00Z","finishedAtUtc":null}""");
+        });
+
+        var result = await CreateClient(httpClient).StartOperationAsync(
+            OperationId,
+            CancellationToken.None);
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal("InProgress", result.Value!.OperationState);
+        Assert.Null(result.Value.FinishedAtUtc);
+        Assert.Equal(HttpMethod.Post, captured!.Method);
+        Assert.Equal($"/api/cargo/operations/{OperationId}/start", captured.RequestUri!.AbsolutePath);
+        Assert.Null(captured.Content);
+    }
+
+    [Fact]
+    public async Task StartOperationAsync_reports_a_transition_conflict()
+    {
+        using var httpClient = CreateHttpClient((_, _) => Json(
+            HttpStatusCode.Conflict,
+            """
+            {"title":"Cargo operation transition is not allowed.","status":409,"detail":"It is already in progress."}
+            """));
+
+        var result = await CreateClient(httpClient).StartOperationAsync(
+            OperationId,
+            CancellationToken.None);
+
+        Assert.False(result.IsSuccess);
+        Assert.True(result.Failure!.IsConflict);
+        Assert.Equal("Cargo operation transition is not allowed.", result.Failure.Title);
+    }
+
+    [Fact]
+    public async Task CompleteOperationAsync_posts_to_the_operation_without_a_body()
+    {
+        HttpRequestMessage? captured = null;
+        using var httpClient = CreateHttpClient((request, _) =>
+        {
+            captured = request;
+
+            return Json(
+                HttpStatusCode.OK,
+                """{"operationId":"80000000-0000-0000-0000-000000000007","operationState":"Completed","startedAtUtc":"2026-08-12T07:30:00Z","finishedAtUtc":"2026-08-12T09:15:00Z"}""");
+        });
+
+        var result = await CreateClient(httpClient).CompleteOperationAsync(
+            OperationId,
+            CancellationToken.None);
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal("Completed", result.Value!.OperationState);
+        Assert.NotNull(result.Value.FinishedAtUtc);
+        Assert.Equal($"/api/cargo/operations/{OperationId}/complete", captured!.RequestUri!.AbsolutePath);
+        Assert.Null(captured.Content);
+    }
+
+    [Fact]
+    public async Task CompleteOperationAsync_returns_a_retryable_failure_when_the_api_is_unavailable()
+    {
+        using var httpClient = CreateHttpClient((_, _) => throw new HttpRequestException("Connection failed."));
+
+        var result = await CreateClient(httpClient).CompleteOperationAsync(
+            OperationId,
             CancellationToken.None);
 
         Assert.False(result.IsSuccess);

@@ -37,8 +37,13 @@ public sealed class CrewFormatTests
     [InlineData("Active", "employment-active")]
     [InlineData("active", "employment-active")]
     [InlineData("ACTIVE", "employment-active")]
-    [InlineData("Inactive", "employment-inactive")]
-    [InlineData("On Leave", "employment-inactive")]
+    [InlineData("OnLeave", "employment-onleave")]
+    [InlineData("onleave", "employment-onleave")]
+    [InlineData("Suspended", "employment-suspended")]
+    [InlineData("suspended", "employment-suspended")]
+    [InlineData("Terminated", "employment-terminated")]
+    [InlineData("terminated", "employment-terminated")]
+    [InlineData("Unknown", "employment-inactive")]
     public void Employment_status_maps_to_its_badge_modifier(string status, string expected)
     {
         Assert.Equal(expected, Crew.GetEmploymentStatusClass(status));

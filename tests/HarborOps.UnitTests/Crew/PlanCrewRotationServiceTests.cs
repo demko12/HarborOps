@@ -230,8 +230,9 @@ public sealed class PlanCrewRotationServiceTests
 
     private static async Task<CrewMember> SeedCrewMemberAsync(HarborOpsDbContext dbContext, Guid baseRankId, string name)
     {
+        var nameParts = name.Split(' ', 2);
         var member = CrewMember.Create(
-            baseRankId, name, new DateOnly(1990, 1, 1), "Montenegro",
+            baseRankId, nameParts[0], nameParts.Length > 1 ? nameParts[1] : string.Empty, new DateOnly(1990, 1, 1), "Montenegro",
             $"IMO{Guid.NewGuid():N}"[..10], "P1234567", new DateOnly(2030, 1, 1), "CDC1234567",
             new DateOnly(2020, 1, 1), "Active");
 

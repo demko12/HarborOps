@@ -22,6 +22,7 @@ public sealed record VesselDetailsResponse(
     string? PortOfRegistry,
     string? ClassificationSociety,
     string? LifecycleStage,
+    string? MsmdId,
     string CurrentStatus,
     DateTime CreatedAtUtc,
     DateTime UpdatedAtUtc,

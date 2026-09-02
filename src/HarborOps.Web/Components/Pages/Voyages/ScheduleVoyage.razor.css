@@ -200,8 +200,6 @@ html[data-theme="light"] .schedule-stamp input { color-scheme: light; }
 .schedule-vessel-results strong { display: block; font-size: .88rem; }
 .schedule-vessel-results span { color: var(--text-muted); font-size: .76rem; }
 
-/* The options float over the form as a single panel, matching the vessel picker
-   on the compliance surveys page, instead of pushing the fields below them down. */
 .schedule-vessel-picker { position: relative; }
 
 .schedule-vessel-picker .schedule-vessel-results {

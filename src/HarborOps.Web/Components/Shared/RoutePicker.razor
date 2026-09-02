@@ -1,0 +1,49 @@
+@using HarborOps.Web.Api.Voyages
+@inject VoyagesApiClient VoyagesApi
+
+<div class="route-picker">
+    <span class="bi bi-search route-picker-search-icon" aria-hidden="true"></span>
+    <input class="route-picker-input"
+           id="@InputId"
+           type="text"
+           value="@displayText"
+           placeholder="@(Placeholder ?? DefaultPlaceholder)"
+           disabled="@Disabled"
+           autocomplete="off"
+           role="combobox"
+           aria-expanded="@(isDropdownOpen ? "true" : "false")"
+           aria-autocomplete="list"
+           @oninput="OnInputAsync"
+           @onfocus="OnFocusAsync"
+           @onblur="OnBlurAsync" />
+
+    @if (isDropdownOpen)
+    {
+        <ul class="route-picker-dropdown" role="listbox">
+            @if (isSearching)
+            {
+                <li class="route-picker-status">Searching...</li>
+            }
+            else if (searchFailed)
+            {
+                <li class="route-picker-status route-picker-error">Unable to search routes right now</li>
+            }
+            else if (results.Count == 0)
+            {
+                <li class="route-picker-status">No routes found</li>
+            }
+            else
+            {
+                @foreach (var route in results)
+                {
+                    <li role="option" @key="route.RouteId">
+                        <button class="route-picker-option" type="button" @onclick="() => SelectRouteAsync(route)">
+                            <strong>@route.Name</strong>
+                            <span class="route-picker-meta">@route.StopCount stops</span>
+                        </button>
+                    </li>
+                }
+            }
+        </ul>
+    }
+</div>

@@ -10,4 +10,6 @@ public sealed record VoyageListItem(
     DateTime PlannedDeparture,
     DateTime PlannedArrival,
     DateTime? ActualDeparture,
-    DateTime? ActualArrival);
+    DateTime? ActualArrival,
+    string? FirstStopPortName,
+    string? LastStopPortName);

@@ -4,4 +4,5 @@ public sealed record SearchCargoBookingsResponse(
     IReadOnlyList<CargoBookingListItem> Items,
     int PageNumber,
     int PageSize,
-    int TotalCount);
+    int TotalCount,
+    int HazardousCount);

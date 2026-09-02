@@ -1,0 +1,788 @@
+@page "/compliance/non-conformities"
+@attribute [Microsoft.AspNetCore.Authorization.Authorize(Policy = "AccessCompliance")]
+@using System.ComponentModel.DataAnnotations
+@using HarborOps.Web.Api.Compliance
+@using HarborOps.Web.Api.Documents
+@using HarborOps.Web.Api.Fleet
+@implements IDisposable
+@inject ComplianceApiClient ComplianceApi
+@inject FleetApiClient FleetApi
+@inject DocumentsApiClient DocumentsApi
+@inject CurrentUserAuthorizationState AuthorizationState
+
+<PageTitle>Non-conformities | HarborOps</PageTitle>
+
+<section class="nc-page">
+    <header class="nc-header">
+        <div>
+            <nav class="page-breadcrumb" aria-label="Breadcrumb"><a href="/compliance">Compliance operations</a><span aria-hidden="true">/</span><span>Non-conformities</span></nav>
+            <h1>Non-conformities</h1>
+            <p>Track corrective actions and closure across every open and resolved finding.</p>
+        </div>
+    </header>
+
+    <div class="nc-filters">
+        <div class="nc-input-shell">
+            <span class="bi bi-search" aria-hidden="true"></span>
+            <input id="nc-filter-search" @bind="search" @bind:event="oninput" @bind:after="ReloadAsync" placeholder="Search by evidence document ID" aria-label="Search by evidence document ID" />
+        </div>
+        <div class="nc-select-shell">
+            <select id="nc-filter-severity" @bind="severity" @bind:after="ReloadAsync" aria-label="Filter by severity">
+                <option value="">All severities</option>
+                <option value="Minor">Minor</option>
+                <option value="Major">Major</option>
+                <option value="Critical">Critical</option>
+            </select>
+            <span class="bi bi-chevron-down" aria-hidden="true"></span>
+        </div>
+        <div class="nc-select-shell">
+            <select id="nc-filter-status" @bind="closureStatus" @bind:after="ReloadAsync" aria-label="Filter by closure status">
+                <option value="">All statuses</option>
+                <option value="Open">Open</option>
+                <option value="InProgress">In progress</option>
+                <option value="Closed">Closed</option>
+            </select>
+            <span class="bi bi-chevron-down" aria-hidden="true"></span>
+        </div>
+        <div class="nc-select-shell">
+            <select id="nc-filter-overdue" @bind="overdueFilter" @bind:after="ReloadAsync" aria-label="Filter by overdue status">
+                <option value="">All findings</option>
+                <option value="true">Overdue only</option>
+                <option value="false">Not overdue</option>
+            </select>
+            <span class="bi bi-chevron-down" aria-hidden="true"></span>
+        </div>
+    </div>
+
+    <section class="nc-card nc-results-card">
+        <div class="nc-list-heading"><div><h2>Non-conformity register</h2><p>@(page?.TotalCount ?? 0) findings found</p></div></div>
+        @if (isLoading)
+        {
+            <LoadingState Message="Loading non-conformities..." />
+        }
+        else if (failure is not null)
+        {
+            <ApiErrorState Title="@failure.Title" Message="@failure.Message" OnRetry="ReloadAsync" />
+        }
+        else if (rows.Count == 0)
+        {
+            <EmptyState Title="No non-conformities found" Message="Try changing the filters." />
+        }
+        else
+        {
+            <div class="nc-list">
+                @foreach (var row in rows)
+                {
+                    <button type="button" class="nc-record @(row.IsOverdue ? "is-overdue" : null)" @onclick="() => SelectRowAsync(row.Id)">
+                        <div class="nc-record-cell"><span>Finding</span><strong>#@row.Id</strong></div>
+                        <div class="nc-record-cell"><span>Vessel</span><strong>@row.VesselName</strong></div>
+                        <div class="nc-record-cell"><span>Severity</span><span class="compliance-badge @SeverityBadgeClass(row.Severity)">@row.Severity</span></div>
+                        <div class="nc-record-cell"><span>Status</span><span class="compliance-badge @StatusBadgeClass(row.ClosureStatus)">@StatusLabel(row.ClosureStatus)</span></div>
+                        <div class="nc-record-cell"><span>Corrective action due</span><strong>@row.CorrectiveActionDeadline.ToString("dd MMM yyyy")</strong></div>
+                        <div class="nc-record-cell nc-record-count"><span>Actions</span><strong>@row.CorrectiveActionCount</strong></div>
+                        @if (row.IsOverdue)
+                        {
+                            <span class="nc-overdue-flag"><span class="bi bi-exclamation-triangle-fill" aria-hidden="true"></span> Overdue</span>
+                        }
+                        <span class="bi bi-chevron-right" aria-hidden="true"></span>
+                    </button>
+                }
+            </div>
+            <footer class="nc-pagination">
+                <span>Showing @rows.Count of @(page?.TotalCount ?? 0) findings</span>
+                <div>
+                    <button type="button" disabled="@(pageNumber == 1)" @onclick="PreviousAsync">Previous</button>
+                    <span>Page @pageNumber</span>
+                    <button type="button" disabled="@(page is null || pageNumber * PageSize >= page.TotalCount)" @onclick="NextAsync">Next</button>
+                </div>
+            </footer>
+        }
+    </section>
+
+    @if (details is not null)
+    {
+        <section class="nc-card nc-details" aria-labelledby="nc-details-title">
+            <div class="nc-card-heading">
+                <div>
+                    <p class="nc-detail-eyebrow">Non-conformity</p>
+                    <h2 id="nc-details-title">Finding #@details.Id</h2>
+                    <p>@details.Severity severity &middot; @StatusLabel(details.ClosureStatus)</p>
+                </div>
+                <button class="nc-close-button" type="button" @onclick="CloseDetails"><span class="bi bi-x-lg" aria-hidden="true"></span> Close</button>
+            </div>
+
+            @if (detailsFailure is not null)
+            {
+                <ApiErrorState Title="@detailsFailure.Title" Message="@detailsFailure.Message" />
+            }
+
+            @if (operationSuccess is not null)
+            {
+                <div class="nc-success" role="status">@operationSuccess</div>
+            }
+
+            <div class="nc-details-grid">
+                <div class="nc-detail-item"><span>Vessel</span><strong>@(detailVesselName ?? "Loading...")</strong></div>
+                <div class="nc-detail-item"><span>Severity</span><strong class="compliance-badge @SeverityBadgeClass(details.Severity)">@details.Severity</strong></div>
+                <div class="nc-detail-item"><span>Status</span><strong class="compliance-badge @StatusBadgeClass(details.ClosureStatus)">@StatusLabel(details.ClosureStatus)</strong></div>
+                <div class="nc-detail-item">
+                    <span>Corrective action due</span>
+                    <strong>@details.CorrectiveActionDeadline.ToString("dd MMM yyyy") @(details.IsOverdue ? "(Overdue)" : null)</strong>
+                </div>
+                <div class="nc-detail-item"><span>Evidence document</span><strong>@ResolveDocumentLabel(details.EvidenceDocumentId)</strong></div>
+                @if (details.ClosureStatus == ClosureStatusClosed)
+                {
+                    <div class="nc-detail-item"><span>Closure notes</span><strong>@details.ClosureNotes</strong></div>
+                    <div class="nc-detail-item"><span>Closed by</span><strong>@details.ClosedByUserId</strong></div>
+                    <div class="nc-detail-item"><span>Closed at</span><strong>@(details.ClosedAtUtc is { } closedAtUtc ? closedAtUtc.ToString("dd MMM yyyy HH:mm") : "Not recorded")</strong></div>
+                    <div class="nc-detail-item"><span>Final evidence document</span><strong>@(details.FinalEvidenceDocumentId is { } finalDocumentId ? ResolveDocumentLabel(finalDocumentId) : "Not recorded")</strong></div>
+                }
+            </div>
+
+            @if (AuthorizationState.CanManageCompliance
+                && (details.ClosureStatus == ClosureStatusOpen || details.ClosureStatus == ClosureStatusInProgress)
+                && !isAddActionFormOpen && !isCloseFormOpen)
+            {
+                <div class="nc-details-actions">
+                    <button class="nc-button" type="button" @onclick="OpenAddActionForm">Add corrective action</button>
+                    @if (details.ClosureStatus == ClosureStatusInProgress)
+                    {
+                        <button class="nc-button nc-button-secondary" type="button" @onclick="OpenCloseForm">Close finding</button>
+                    }
+                </div>
+            }
+
+            @if (isAddActionFormOpen)
+            {
+                <div class="nc-inline-form">
+                    <h3>Add corrective action</h3>
+
+                    @if (addActionFailureKind == SubmitFailureKind.Conflict)
+                    {
+                        <div class="nc-conflict-banner" role="alert">
+                            <span class="bi bi-exclamation-octagon-fill" aria-hidden="true"></span>
+                            <strong>@addActionFailureMessage</strong>
+                            <button type="button" @onclick="DismissAddActionFormAndRefreshAsync">Refresh</button>
+                        </div>
+                    }
+                    else if (addActionFailureKind == SubmitFailureKind.Forbidden)
+                    {
+                        <div class="nc-forbidden-banner" role="alert"><span class="bi bi-shield-lock-fill" aria-hidden="true"></span> @addActionFailureMessage</div>
+                    }
+                    else if (addActionFailureKind == SubmitFailureKind.NotFound)
+                    {
+                        <div class="nc-error-banner" role="alert">
+                            <span>@addActionFailureMessage</span>
+                            <button type="button" @onclick="DismissAddActionFormAndRefreshAsync">Close and refresh</button>
+                        </div>
+                    }
+                    else if (addActionFailureKind == SubmitFailureKind.Unavailable)
+                    {
+                        <div class="nc-error-banner" role="alert">
+                            <span>@addActionFailureMessage</span>
+                            <button type="button" disabled="@isSubmittingAddAction" @onclick="SubmitAddActionAsync">Retry</button>
+                        </div>
+                    }
+                    @if (addActionGeneralError is not null)
+                    {
+                        <div class="nc-error" role="alert">@addActionGeneralError</div>
+                    }
+
+                    <EditForm EditContext="addActionEditContext" OnSubmit="SubmitAddActionAsync">
+                        <DataAnnotationsValidator />
+                        <div class="nc-form-field">
+                            <label for="nc-action-text">Action taken</label>
+                            <InputTextArea id="nc-action-text" @bind-Value="addActionModel.ActionText" />
+                            <ValidationMessage For="() => addActionModel.ActionText" />
+                        </div>
+                        <div class="nc-form-field">
+                            <label>Evidence document (optional)</label>
+                            <DocumentPicker VesselId="details.VesselId" Value="addActionModel.EvidenceDocumentId" ValueChanged="@((Guid? id) => addActionModel.EvidenceDocumentId = id)" />
+                        </div>
+                        <div class="nc-form-actions">
+                            <button class="nc-button" type="submit" disabled="@isSubmittingAddAction">@(isSubmittingAddAction ? "Saving..." : "Save corrective action")</button>
+                            <button class="nc-button nc-button-secondary" type="button" @onclick="CloseAddActionForm">Cancel</button>
+                        </div>
+                    </EditForm>
+                </div>
+            }
+
+            @if (isCloseFormOpen)
+            {
+                <div class="nc-inline-form">
+                    <h3>Close finding</h3>
+
+                    @if (closeFailureKind == SubmitFailureKind.Conflict)
+                    {
+                        <div class="nc-conflict-banner" role="alert">
+                            <span class="bi bi-exclamation-octagon-fill" aria-hidden="true"></span>
+                            <strong>@closeFailureMessage</strong>
+                            <button type="button" @onclick="DismissCloseFormAndRefreshAsync">Refresh</button>
+                        </div>
+                    }
+                    else if (closeFailureKind == SubmitFailureKind.Forbidden)
+                    {
+                        <div class="nc-forbidden-banner" role="alert"><span class="bi bi-shield-lock-fill" aria-hidden="true"></span> @closeFailureMessage</div>
+                    }
+                    else if (closeFailureKind == SubmitFailureKind.NotFound)
+                    {
+                        <div class="nc-error-banner" role="alert">
+                            <span>@closeFailureMessage</span>
+                            <button type="button" @onclick="DismissCloseFormAndRefreshAsync">Close and refresh</button>
+                        </div>
+                    }
+                    else if (closeFailureKind == SubmitFailureKind.Unavailable)
+                    {
+                        <div class="nc-error-banner" role="alert">
+                            <span>@closeFailureMessage</span>
+                            <button type="button" disabled="@isSubmittingClose" @onclick="SubmitCloseAsync">Retry</button>
+                        </div>
+                    }
+                    @if (closeGeneralError is not null)
+                    {
+                        <div class="nc-error" role="alert">@closeGeneralError</div>
+                    }
+
+                    @if (!isCloseConfirmationPending)
+                    {
+                        <EditForm EditContext="closeEditContext" OnSubmit="RequestCloseConfirmation">
+                            <DataAnnotationsValidator />
+                            <div class="nc-form-field">
+                                <label for="nc-closure-notes">Closure notes</label>
+                                <InputTextArea id="nc-closure-notes" @bind-Value="closeModel.ClosureNotes" />
+                                <ValidationMessage For="() => closeModel.ClosureNotes" />
+                            </div>
+                            <div class="nc-form-field">
+                                <label>Final evidence document (optional)</label>
+                                <DocumentPicker VesselId="details.VesselId" Value="closeModel.FinalEvidenceDocumentId" ValueChanged="@((Guid? id) => closeModel.FinalEvidenceDocumentId = id)" />
+                            </div>
+                            <div class="nc-form-actions">
+                                <button class="nc-button" type="submit">Close finding</button>
+                                <button class="nc-button nc-button-secondary" type="button" @onclick="CloseCloseForm">Cancel</button>
+                            </div>
+                        </EditForm>
+                    }
+                    else
+                    {
+                        <div class="nc-confirm-panel" role="alertdialog" aria-labelledby="nc-close-confirm-title">
+                            <p id="nc-close-confirm-title"><strong>Close this finding? This cannot be undone.</strong></p>
+                            <div class="nc-form-actions">
+                                <button class="nc-button nc-button-danger" type="button" disabled="@isSubmittingClose" @onclick="SubmitCloseAsync">@(isSubmittingClose ? "Closing..." : "Yes, close finding")</button>
+                                <button class="nc-button nc-button-secondary" type="button" disabled="@isSubmittingClose" @onclick="CancelCloseConfirmation">Cancel</button>
+                            </div>
+                        </div>
+                    }
+                </div>
+            }
+
+            <div class="nc-timeline-panel">
+                <span>Corrective action history</span>
+                @if (details.CorrectiveActions.Count == 0)
+                {
+                    <p class="nc-timeline-empty">No corrective actions recorded yet.</p>
+                }
+                else
+                {
+                    <ul class="nc-timeline">
+                        @foreach (var action in details.CorrectiveActions)
+                        {
+                            <li class="nc-timeline-entry">
+                                <div class="nc-timeline-meta">
+                                    <strong>@action.RecordedAtUtc.ToString("dd MMM yyyy HH:mm")</strong>
+                                    <span>Actor @action.ActorUserId</span>
+                                </div>
+                                <p>@action.ActionText</p>
+                                @if (action.EvidenceDocumentId is { } actionDocumentId)
+                                {
+                                    <span class="nc-timeline-evidence">Evidence: @ResolveDocumentLabel(actionDocumentId)</span>
+                                }
+                            </li>
+                        }
+                    </ul>
+                }
+            </div>
+        </section>
+    }
+</section>
+
+@code {
+    private const int PageSize = 25;
+    private const string ClosureStatusOpen = "Open";
+    private const string ClosureStatusInProgress = "InProgress";
+    private const string ClosureStatusClosed = "Closed";
+
+    // Web has no reference to the Compliance module's Domain assembly, so these mirror
+    // CorrectiveAction.ActionTextMaxLength / NonConformity.ClosureNotesMaxLength by value,
+    // the same way the existing Register forms hardcode their own field limits.
+    private const int ActionTextMaxLength = 2000;
+    private const int ClosureNotesMaxLength = 1000;
+
+    private string? operationSuccess;
+
+    private string? search;
+    private string? severity;
+    private string? closureStatus;
+    private string overdueFilter = "";
+    private int pageNumber = 1;
+    private GetNonConformitiesResponse? page;
+    private IReadOnlyList<NonConformityRow> rows = [];
+    private ComplianceApiFailure? failure;
+    private bool isLoading;
+    private CancellationTokenSource? loadCts;
+
+    private GetNonConformityDetailResponse? details;
+    private ComplianceApiFailure? detailsFailure;
+    private string? detailVesselName;
+    private readonly Dictionary<Guid, DocumentDetailsDto> documentCache = [];
+    private CancellationTokenSource? detailsCts;
+
+    private bool isAddActionFormOpen;
+    private AddCorrectiveActionFormModel addActionModel = new();
+    private EditContext addActionEditContext = null!;
+    private ValidationMessageStore addActionMessages = null!;
+    private bool isSubmittingAddAction;
+    private string? addActionGeneralError;
+    private SubmitFailureKind addActionFailureKind;
+    private string? addActionFailureMessage;
+
+    private bool isCloseFormOpen;
+    private bool isCloseConfirmationPending;
+    private CloseFormModel closeModel = new();
+    private EditContext closeEditContext = null!;
+    private ValidationMessageStore closeMessages = null!;
+    private bool isSubmittingClose;
+    private string? closeGeneralError;
+    private SubmitFailureKind closeFailureKind;
+    private string? closeFailureMessage;
+
+    protected override Task OnInitializedAsync() => ReloadAsync();
+
+    private async Task ReloadAsync()
+    {
+        loadCts?.Cancel();
+        loadCts?.Dispose();
+        var cts = new CancellationTokenSource();
+        loadCts = cts;
+        isLoading = true;
+        failure = null;
+
+        try
+        {
+            var request = new GetNonConformitiesRequest
+            {
+                Search = string.IsNullOrWhiteSpace(search) ? null : search,
+                Severity = string.IsNullOrWhiteSpace(severity) ? null : severity,
+                ClosureStatus = string.IsNullOrWhiteSpace(closureStatus) ? null : closureStatus,
+                Overdue = overdueFilter switch { "true" => true, "false" => false, _ => null },
+                PageNumber = pageNumber,
+                PageSize = PageSize,
+            };
+
+            var result = await ComplianceApi.GetNonConformitiesAsync(request, cts.Token);
+            if (cts.IsCancellationRequested) return;
+
+            page = result.Value;
+            failure = result.Failure;
+            rows = page is null ? [] : await ComposeRowsAsync(page.Items, cts.Token);
+        }
+        catch (OperationCanceledException) when (cts.IsCancellationRequested)
+        {
+        }
+        finally
+        {
+            if (!cts.IsCancellationRequested) isLoading = false;
+        }
+    }
+
+    private async Task<IReadOnlyList<NonConformityRow>> ComposeRowsAsync(
+        IReadOnlyList<NonConformityListItem> items,
+        CancellationToken cancellationToken)
+    {
+        var vesselIds = items.Select(item => item.VesselId).Distinct().ToArray();
+        var vesselNames = await FleetApi.LookupVesselNamesAsync(vesselIds, cancellationToken);
+
+        if (cancellationToken.IsCancellationRequested) return [];
+
+        return items
+            .Select(item => new NonConformityRow(
+                item.Id,
+                vesselNames.TryGetValue(item.VesselId, out var name) ? name : "Unknown vessel",
+                item.Severity,
+                item.ClosureStatus,
+                item.CorrectiveActionDeadline,
+                item.IsOverdue,
+                item.CorrectiveActionCount))
+            .ToList();
+    }
+
+    private async Task PreviousAsync()
+    {
+        if (pageNumber > 1)
+        {
+            pageNumber--;
+            await ReloadAsync();
+        }
+    }
+
+    private async Task NextAsync()
+    {
+        if (page is not null && pageNumber * PageSize < page.TotalCount)
+        {
+            pageNumber++;
+            await ReloadAsync();
+        }
+    }
+
+    private Task SelectRowAsync(int id)
+    {
+        operationSuccess = null;
+        return LoadDetailsAsync(id);
+    }
+
+    private async Task LoadDetailsAsync(int id)
+    {
+        detailsCts?.Cancel();
+        detailsCts?.Dispose();
+        var cts = new CancellationTokenSource();
+        detailsCts = cts;
+        detailsFailure = null;
+        details = null;
+        detailVesselName = null;
+        documentCache.Clear();
+
+        try
+        {
+            var response = await ComplianceApi.GetNonConformityDetailAsync(id, cts.Token);
+            if (cts.IsCancellationRequested) return;
+
+            details = response.Value;
+            detailsFailure = response.Failure;
+
+            if (details is null) return;
+
+            var vesselNames = await FleetApi.LookupVesselNamesAsync([details.VesselId], cts.Token);
+            if (cts.IsCancellationRequested) return;
+            detailVesselName = vesselNames.TryGetValue(details.VesselId, out var name) ? name : "Unknown vessel";
+
+            var documentIds = new List<Guid> { details.EvidenceDocumentId };
+            if (details.FinalEvidenceDocumentId is { } finalDocumentId) documentIds.Add(finalDocumentId);
+            documentIds.AddRange(details.CorrectiveActions
+                .Where(action => action.EvidenceDocumentId is not null)
+                .Select(action => action.EvidenceDocumentId!.Value));
+
+            foreach (var documentId in documentIds.Distinct())
+            {
+                if (cts.IsCancellationRequested) return;
+
+                var documentResult = await DocumentsApi.GetDocumentByIdAsync(documentId, cts.Token);
+                if (cts.IsCancellationRequested) return;
+                if (documentResult.Value is not null) documentCache[documentId] = documentResult.Value;
+            }
+        }
+        catch (OperationCanceledException) when (cts.IsCancellationRequested)
+        {
+        }
+    }
+
+    private void CloseDetails()
+    {
+        detailsCts?.Cancel();
+        detailsCts?.Dispose();
+        detailsCts = null;
+        details = null;
+        detailsFailure = null;
+        detailVesselName = null;
+        operationSuccess = null;
+        documentCache.Clear();
+    }
+
+    private string ResolveDocumentLabel(Guid documentId) =>
+        documentCache.TryGetValue(documentId, out var document)
+            ? $"{document.DocumentTypeName} — {document.Number}"
+            : documentId.ToString();
+
+    private static string StatusLabel(string closureStatus) => closureStatus switch
+    {
+        ClosureStatusInProgress => "In progress",
+        var other => other,
+    };
+
+    private static string StatusBadgeClass(string closureStatus) => closureStatus switch
+    {
+        ClosureStatusClosed => "success",
+        ClosureStatusInProgress => "neutral",
+        _ => "danger",
+    };
+
+    private static string SeverityBadgeClass(string severity) =>
+        string.Equals(severity, "Critical", StringComparison.OrdinalIgnoreCase) ? "danger" : "neutral";
+
+    private void OpenAddActionForm()
+    {
+        ResetAddActionForm();
+        isAddActionFormOpen = true;
+    }
+
+    private void CloseAddActionForm()
+    {
+        isAddActionFormOpen = false;
+        ResetAddActionForm();
+    }
+
+    private void ResetAddActionForm()
+    {
+        addActionModel = new();
+        addActionEditContext = new(addActionModel);
+        addActionMessages = new(addActionEditContext);
+        addActionGeneralError = null;
+        addActionFailureKind = SubmitFailureKind.None;
+        addActionFailureMessage = null;
+    }
+
+    private async Task SubmitAddActionAsync()
+    {
+        if (isSubmittingAddAction || details is null) return;
+
+        addActionMessages.Clear();
+        addActionGeneralError = null;
+        addActionFailureKind = SubmitFailureKind.None;
+        addActionFailureMessage = null;
+
+        if (!addActionEditContext.Validate()) return;
+
+        isSubmittingAddAction = true;
+        try
+        {
+            var request = new RecordCorrectiveActionRequest(addActionModel.ActionText, addActionModel.EvidenceDocumentId);
+            var result = await ComplianceApi.RecordCorrectiveActionAsync(details.Id, request, CancellationToken.None);
+
+            if (!result.IsSuccess)
+            {
+                HandleAddActionFailure(result.Failure!);
+                return;
+            }
+
+            var nonConformityId = details.Id;
+            CloseAddActionForm();
+            operationSuccess = "Corrective action recorded successfully.";
+            await LoadDetailsAsync(nonConformityId);
+            await ReloadAsync();
+        }
+        finally
+        {
+            isSubmittingAddAction = false;
+        }
+    }
+
+    private void HandleAddActionFailure(ComplianceApiFailure failure)
+    {
+        if (failure.IsValidation)
+        {
+            ApplyErrors(failure, addActionEditContext, addActionMessages, AddActionFieldMap, value => addActionGeneralError = value);
+            return;
+        }
+
+        (addActionFailureKind, addActionFailureMessage) = ClassifyFailure(failure, "record the corrective action");
+    }
+
+    private async Task DismissAddActionFormAndRefreshAsync()
+    {
+        var nonConformityId = details?.Id;
+        CloseAddActionForm();
+
+        if (nonConformityId is { } id)
+        {
+            await LoadDetailsAsync(id);
+            await ReloadAsync();
+        }
+    }
+
+    private void OpenCloseForm()
+    {
+        ResetCloseForm();
+        isCloseFormOpen = true;
+    }
+
+    private void CloseCloseForm()
+    {
+        isCloseFormOpen = false;
+        ResetCloseForm();
+    }
+
+    private void ResetCloseForm()
+    {
+        closeModel = new();
+        closeEditContext = new(closeModel);
+        closeMessages = new(closeEditContext);
+        closeGeneralError = null;
+        closeFailureKind = SubmitFailureKind.None;
+        closeFailureMessage = null;
+        isCloseConfirmationPending = false;
+    }
+
+    private void RequestCloseConfirmation()
+    {
+        closeMessages.Clear();
+        closeGeneralError = null;
+        closeFailureKind = SubmitFailureKind.None;
+        closeFailureMessage = null;
+
+        if (!closeEditContext.Validate()) return;
+
+        isCloseConfirmationPending = true;
+    }
+
+    private void CancelCloseConfirmation() => isCloseConfirmationPending = false;
+
+    private async Task SubmitCloseAsync()
+    {
+        if (isSubmittingClose || details is null) return;
+
+        isSubmittingClose = true;
+        try
+        {
+            var request = new CloseNonConformityRequest(closeModel.ClosureNotes, closeModel.FinalEvidenceDocumentId);
+            var result = await ComplianceApi.CloseNonConformityAsync(details.Id, request, CancellationToken.None);
+
+            if (!result.IsSuccess)
+            {
+                isCloseConfirmationPending = false;
+                HandleCloseFailure(result.Failure!);
+                return;
+            }
+
+            var nonConformityId = details.Id;
+            CloseCloseForm();
+            operationSuccess = "Finding closed successfully.";
+            await LoadDetailsAsync(nonConformityId);
+            await ReloadAsync();
+        }
+        finally
+        {
+            isSubmittingClose = false;
+        }
+    }
+
+    private void HandleCloseFailure(ComplianceApiFailure failure)
+    {
+        if (failure.IsValidation)
+        {
+            ApplyErrors(failure, closeEditContext, closeMessages, CloseFieldMap, value => closeGeneralError = value);
+            return;
+        }
+
+        (closeFailureKind, closeFailureMessage) = ClassifyFailure(
+            failure,
+            "close the finding",
+            "This finding is no longer in a closeable state.");
+    }
+
+    private async Task DismissCloseFormAndRefreshAsync()
+    {
+        var nonConformityId = details?.Id;
+        CloseCloseForm();
+
+        if (nonConformityId is { } id)
+        {
+            await LoadDetailsAsync(id);
+            await ReloadAsync();
+        }
+    }
+
+    private static (SubmitFailureKind Kind, string Message) ClassifyFailure(
+        ComplianceApiFailure failure,
+        string action,
+        string? conflictMessage = null)
+    {
+        return failure.StatusCode switch
+        {
+            StatusCodes.Status404NotFound => (
+                SubmitFailureKind.NotFound,
+                "This finding could not be found. It may have been removed."),
+            StatusCodes.Status409Conflict => (
+                SubmitFailureKind.Conflict,
+                conflictMessage ?? "This finding was closed by someone else."),
+            StatusCodes.Status403Forbidden => (
+                SubmitFailureKind.Forbidden,
+                "You don't have permission to do this."),
+            _ => (SubmitFailureKind.Unavailable, $"Unable to {action}. {failure.Message}"),
+        };
+    }
+
+    private static void ApplyErrors(ComplianceApiFailure failure, EditContext context,
+        ValidationMessageStore store, IReadOnlyDictionary<string, string> map, Action<string?> setGeneral)
+    {
+        var unmappedMessages = new List<string>();
+        foreach (var entry in failure.Errors)
+        {
+            if (!map.TryGetValue(entry.Key, out var property))
+            {
+                unmappedMessages.AddRange(entry.Value);
+                continue;
+            }
+
+            store.Add(new FieldIdentifier(context.Model, property), entry.Value);
+        }
+
+        if (unmappedMessages.Count > 0)
+        {
+            setGeneral(string.Join(" ", unmappedMessages));
+        }
+
+        context.NotifyValidationStateChanged();
+    }
+
+    private static readonly IReadOnlyDictionary<string, string> AddActionFieldMap = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+    {
+        ["actionText"] = nameof(AddCorrectiveActionFormModel.ActionText),
+        ["evidenceDocumentId"] = nameof(AddCorrectiveActionFormModel.EvidenceDocumentId),
+    };
+
+    private static readonly IReadOnlyDictionary<string, string> CloseFieldMap = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+    {
+        ["closureNotes"] = nameof(CloseFormModel.ClosureNotes),
+        ["finalEvidenceDocumentId"] = nameof(CloseFormModel.FinalEvidenceDocumentId),
+    };
+
+    public void Dispose()
+    {
+        loadCts?.Cancel();
+        loadCts?.Dispose();
+        detailsCts?.Cancel();
+        detailsCts?.Dispose();
+    }
+
+    private enum SubmitFailureKind
+    {
+        None,
+        NotFound,
+        Conflict,
+        Forbidden,
+        Unavailable,
+    }
+
+    private sealed record NonConformityRow(
+        int Id,
+        string VesselName,
+        string Severity,
+        string ClosureStatus,
+        DateOnly CorrectiveActionDeadline,
+        bool IsOverdue,
+        int CorrectiveActionCount);
+
+    private sealed class AddCorrectiveActionFormModel
+    {
+        [Required(ErrorMessage = "Action text is required."), StringLength(ActionTextMaxLength)]
+        public string? ActionText { get; set; }
+
+        public Guid? EvidenceDocumentId { get; set; }
+    }
+
+    private sealed class CloseFormModel
+    {
+        [Required(ErrorMessage = "Closure notes are required."), StringLength(ClosureNotesMaxLength)]
+        public string? ClosureNotes { get; set; }
+
+        public Guid? FinalEvidenceDocumentId { get; set; }
+    }
+}

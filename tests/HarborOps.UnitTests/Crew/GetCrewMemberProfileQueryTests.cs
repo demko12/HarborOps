@@ -123,7 +123,8 @@ public sealed class GetCrewMemberProfileQueryTests
     {
         var member = CrewMember.Create(
             baseRankId,
-            "Ivan Petrović",
+            "Ivan",
+            "Petrović",
             new DateOnly(1990, 5, 14),
             "Montenegro",
             imoSeafarerId,

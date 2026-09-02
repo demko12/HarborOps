@@ -1,0 +1,454 @@
+@page "/voyages/{VoyageId:guid}"
+@attribute [Microsoft.AspNetCore.Authorization.Authorize(Policy = "AccessVoyages")]
+@using HarborOps.Web.Api.Voyages
+@implements IDisposable
+@inject VoyagesApiClient VoyagesApi
+@inject CurrentUserAuthorizationState AuthorizationState
+@inject IJSRuntime JS
+
+<PageTitle>Voyage timeline | HarborOps</PageTitle>
+
+<section class="timeline-page">
+    <header class="timeline-header">
+        <div>
+            <nav class="page-breadcrumb" aria-label="Breadcrumb"><a href="@BoardHref">Voyages</a><span aria-hidden="true">/</span><span>Timeline</span></nav>
+            <h1>Voyage timeline</h1>
+            <p class="timeline-voyage-cell">
+                <code class="timeline-voyage" title="@VoyageId">@VoyageId</code>
+                <button type="button"
+                        class="timeline-copy"
+                        title="@(voyageIdCopied ? "Copied" : "Copy voyage ID")"
+                        aria-label="Copy voyage ID"
+                        @onclick="CopyVoyageIdAsync">
+                    <span class="bi @(voyageIdCopied ? "bi-check2" : "bi-clipboard")" aria-hidden="true"></span>
+                </button>
+            </p>
+        </div>
+        <span class="timeline-utc" aria-label="All times are shown in UTC">UTC</span>
+    </header>
+
+    @if (isLoading)
+    {
+        <LoadingState Message="Loading the voyage timeline..." />
+    }
+    else if (failure is { IsNotFound: true })
+    {
+        <EmptyState Title="Voyage not found"
+                    Message="This voyage is no longer available. Return to the board to pick another one." />
+    }
+    else if (failure is { IsForbidden: true })
+    {
+        <EmptyState Title="You cannot view this voyage"
+                    Message="Your account does not carry a voyages permission. Ask an administrator for access." />
+    }
+    else if (failure is not null)
+    {
+        <ApiErrorState Title="@failure.Title" Message="@failure.Message" OnRetry="RetryAsync" />
+    }
+    else if (itinerary is not null)
+    {
+        <section class="timeline-summary" aria-label="Timeline summary">
+            <article class="timeline-kpi">
+                <div>
+                    <p class="timeline-kpi-label">Stops</p>
+                    <p class="timeline-kpi-value">@itinerary.Stops.Count</p>
+                    <p class="timeline-kpi-note">@CompletedStopCount(itinerary) departed</p>
+                </div>
+                <span class="timeline-kpi-icon kpi-icon-stops" aria-hidden="true"><span class="bi bi-geo-alt-fill"></span></span>
+            </article>
+            <article class="timeline-kpi">
+                <div>
+                    <p class="timeline-kpi-label">Total delay</p>
+                    <p class="timeline-kpi-value">@TotalDelayMinutes(itinerary) min</p>
+                    <p class="timeline-kpi-note">@itinerary.Delays.Count recorded</p>
+                </div>
+                <span class="timeline-kpi-icon kpi-icon-delay" aria-hidden="true"><span class="bi bi-hourglass-split"></span></span>
+            </article>
+        </section>
+
+        @if (actionSuccess is not null)
+        {
+            <div class="timeline-action-success" role="status">@actionSuccess</div>
+        }
+
+        <section class="timeline-card" aria-labelledby="timeline-stops-title">
+            <div class="timeline-card-heading">
+                <h2 id="timeline-stops-title">Port calls</h2>
+                <span class="timeline-count">@itinerary.Stops.Count stops</span>
+            </div>
+
+            @if (itinerary.Stops.Count == 0)
+            {
+                <EmptyState Title="No itinerary planned"
+                            Message="Plan an itinerary for this voyage to start executing port calls." />
+
+                @if (CanManageVoyages)
+                {
+                    <div class="timeline-plan-itinerary-actions">
+                        <button class="timeline-submit" type="button" @onclick="OpenItineraryModal">Plan itinerary</button>
+                    </div>
+                }
+            }
+            else
+            {
+                <div class="timeline-table-scroll">
+                    <table class="timeline-table">
+                        <caption class="visually-hidden">Port calls in itinerary order</caption>
+                        <thead>
+                            <tr>
+                                <th scope="col">#</th>
+                                <th scope="col">Port</th>
+                                <th scope="col">Berth</th>
+                                <th scope="col">Status</th>
+                                <th scope="col">Planned</th>
+                                <th scope="col">Actual</th>
+                                @if (CanManageVoyages)
+                                {
+                                    <th scope="col">Actions</th>
+                                }
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var stop in itinerary.Stops)
+                            {
+                                <tr @key="stop.StopId">
+                                    <td class="timeline-num">@stop.StopOrder</td>
+                                    <td>
+                                        <span class="timeline-port-name">@stop.PortName</span>
+                                        <span class="timeline-port-country">@stop.PortCountry@(stop.UnLocode is null ? null : $" · {stop.UnLocode}")</span>
+                                    </td>
+                                    <td>
+                                        <span class="timeline-berth-name">@(stop.BerthName ?? MissingValue)</span>
+                                        <span class="timeline-berth-state">@BerthState(stop)</span>
+                                    </td>
+                                    <td>
+                                        <span class="timeline-status @StatusModifier(stop.Status)">@stop.Status</span>
+                                    </td>
+                                    <td class="timeline-stamps">
+                                        <span><b>ETA</b>@FormatUtc(stop.Eta)</span>
+                                        <span><b>ETD</b>@FormatUtc(stop.Etd)</span>
+                                    </td>
+                                    <td class="timeline-stamps">
+                                        <span class="@(stop.Ata is null ? "missing" : null)"><b>ATA</b>@FormatUtc(stop.Ata)</span>
+                                        <span class="@(stop.Atd is null ? "missing" : null)"><b>ATD</b>@FormatUtc(stop.Atd)</span>
+                                    </td>
+                                    @if (CanManageVoyages)
+                                    {
+                                        <td class="timeline-actions">
+                                            @if (activeStopId == stop.StopId && activeActionKind == BerthActionKind)
+                                            {
+                                                <div class="timeline-action-form" @onkeydown="args => CancelAction(args)">
+                                                    <label for="timeline-berth-select">@(stop.BerthId is null ? "Assign berth" : "Change berth")</label>
+                                                    <BerthPicker InputId="timeline-berth-select"
+                                                                 PortId="@(activeStopPortId ?? stop.PortId)"
+                                                                 Value="selectedBerthId"
+                                                                 ValueChanged="value => selectedBerthId = value" />
+                                                    @if (actionFailure is not null)
+                                                    {
+                                                        <p class="timeline-inline-error" role="alert">@(actionFailure.Errors.Count > 0 ? string.Join(" ", actionFailure.Errors.SelectMany(entry => entry.Value)) : actionFailure.Message)</p>
+                                                    }
+                                                    <div class="timeline-action-buttons">
+                                                        <button class="timeline-button" type="button" @onclick="ConfirmBerthAsync" disabled="@(isActionSubmitting || selectedBerthId is null)">
+                                                            @(isActionSubmitting ? "Saving..." : "Confirm")
+                                                        </button>
+                                                        <button class="timeline-reset" type="button" @onclick="() => CancelAction(null)" disabled="@isActionSubmitting">Cancel</button>
+                                                    </div>
+                                                </div>
+                                            }
+                                            else if (activeStopId == stop.StopId && (activeActionKind == ArriveActionKind || activeActionKind == DepartActionKind))
+                                            {
+                                                <div class="timeline-action-form" @onkeydown="args => CancelAction(args)">
+                                                    <label for="timeline-action-date">@(activeActionKind == ArriveActionKind ? "Actual arrival (UTC)" : "Actual departure (UTC)")</label>
+                                                    <div class="timeline-action-stamp">
+                                                        <input id="timeline-action-date" type="date" @bind="actionDate" max="@DateOnly.FromDateTime(DateTime.UtcNow).ToString("yyyy-MM-dd")" />
+                                                        <input id="timeline-action-time" type="time" @bind="actionTime" aria-label="Time in UTC" />
+                                                    </div>
+                                                    @if (actionFailure is not null)
+                                                    {
+                                                        <p class="timeline-inline-error" role="alert">@(actionFailure.Errors.Count > 0 ? string.Join(" ", actionFailure.Errors.SelectMany(entry => entry.Value)) : actionFailure.Message)</p>
+                                                    }
+                                                    <div class="timeline-action-buttons">
+                                                        <button class="timeline-button" type="button" @onclick="ConfirmStopActionAsync" disabled="@isActionSubmitting">
+                                                            @(isActionSubmitting ? "Saving..." : "Confirm")
+                                                        </button>
+                                                        <button class="timeline-reset" type="button" @onclick="() => CancelAction(null)" disabled="@isActionSubmitting">Cancel</button>
+                                                    </div>
+                                                </div>
+                                            }
+                                            else
+                                            {
+                                                <div class="timeline-row-actions">
+                                                    @if (CanAssignBerth(stop))
+                                                    {
+                                                        <button class="timeline-row-action" type="button" @onclick="() => BeginBerthAction(stop)">@(stop.BerthId is null ? "Assign berth" : "Change berth")</button>
+                                                    }
+                                                    @if (CanArrive(stop))
+                                                    {
+                                                        <button class="timeline-row-action" type="button" @onclick="() => BeginStopAction(stop, ArriveActionKind)">Arrive</button>
+                                                    }
+                                                    @if (CanDepart(stop))
+                                                    {
+                                                        <button class="timeline-row-action" type="button" @onclick="() => BeginStopAction(stop, DepartActionKind)">Depart</button>
+                                                    }
+                                                    @if (!CanAssignBerth(stop) && !CanArrive(stop) && !CanDepart(stop))
+                                                    {
+                                                        <span class="timeline-actions-none" aria-hidden="true">@MissingValue</span>
+                                                    }
+                                                </div>
+                                            }
+                                        </td>
+                                    }
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
+        </section>
+
+        <section class="timeline-card" aria-labelledby="timeline-delays-title">
+            <div class="timeline-card-heading">
+                <h2 id="timeline-delays-title">Delays</h2>
+                <span class="timeline-count">@itinerary.Delays.Count recorded</span>
+            </div>
+
+            @if (CanManageVoyages)
+            {
+                <div class="timeline-delay-form">
+                    @if (delayFailure is not null)
+                    {
+                        <div class="timeline-form-error" role="alert">
+                            <strong>@delayFailure.Title</strong>
+                            @if (delayFailure.Errors.Count > 0)
+                            {
+                                <ul>
+                                    @foreach (var entry in delayFailure.Errors)
+                                    {
+                                        @foreach (var message in entry.Value)
+                                        {
+                                            <li>@message</li>
+                                        }
+                                    }
+                                </ul>
+                            }
+                            else
+                            {
+                                <p>@delayFailure.Message</p>
+                            }
+                        </div>
+                    }
+
+                    @if (delaySuccess is not null)
+                    {
+                        <div class="timeline-action-success" role="status">@delaySuccess</div>
+                    }
+
+                    <div class="timeline-form-grid">
+                        <div class="timeline-field">
+                            <label for="delay-reason">Reason</label>
+                            <input id="delay-reason" @bind="delayReason" placeholder="Port congestion" />
+                        </div>
+                        <div class="timeline-field">
+                            <label for="delay-duration">Duration (minutes)</label>
+                            <input id="delay-duration" type="number" min="1" @bind="delayDurationMinutes" />
+                        </div>
+                        <div class="timeline-field">
+                            <label for="delay-stop">Applies to</label>
+                            <select id="delay-stop" @bind="delayStopSelection">
+                                <option value="">Voyage-level</option>
+                                @foreach (var stop in itinerary.Stops)
+                                {
+                                    <option value="@stop.StopId">Stop @stop.StopOrder — @stop.PortName</option>
+                                }
+                            </select>
+                        </div>
+                        <div class="timeline-field timeline-field-wide">
+                            <label for="delay-description">Description (optional)</label>
+                            <input id="delay-description" @bind="delayDescription" placeholder="Additional context" />
+                        </div>
+                    </div>
+
+                    <div class="timeline-form-actions">
+                        <button class="timeline-submit" type="button" @onclick="SubmitDelayAsync" disabled="@isSubmittingDelay">
+                            @(isSubmittingDelay ? "Recording..." : "Record delay")
+                        </button>
+                    </div>
+                </div>
+            }
+
+            @if (itinerary.Delays.Count == 0)
+            {
+                <EmptyState Title="No delays recorded"
+                            Message="Delays reported for this voyage or its stops will appear here." />
+            }
+            else
+            {
+                <div class="timeline-table-scroll">
+                    <table class="timeline-table">
+                        <caption class="visually-hidden">Delays recorded for this voyage</caption>
+                        <thead>
+                            <tr>
+                                <th scope="col">Reason</th>
+                                <th scope="col">Applies to</th>
+                                <th scope="col">Duration</th>
+                                <th scope="col">Recorded (UTC)</th>
+                                <th scope="col">Description</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var delay in itinerary.Delays)
+                            {
+                                <tr @key="delay.DelayId">
+                                    <td>@delay.Reason</td>
+                                    <td>@DelaySourceLabel(itinerary, delay)</td>
+                                    <td class="timeline-num">@delay.Duration min</td>
+                                    <td>@FormatUtc(delay.CreatedAt)</td>
+                                    <td>@(delay.Description ?? MissingValue)</td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
+        </section>
+    }
+
+    @if (isItineraryModalOpen)
+    {
+        <div class="voyages-modal-backdrop" role="presentation" @onclick="CloseItineraryModal">
+            <section class="voyages-form-card voyages-modal timeline-itinerary-modal"
+                     role="dialog"
+                     aria-modal="true"
+                     aria-labelledby="itinerary-modal-title"
+                     @onclick:stopPropagation="true">
+                <div class="voyages-modal-header">
+                    <div>
+                        <h2 id="itinerary-modal-title">Plan itinerary</h2>
+                        <p>Choose a managed route, or add stops manually.</p>
+                    </div>
+                    <button type="button"
+                            class="voyages-modal-close"
+                            aria-label="Close plan itinerary dialog"
+                            @onclick="CloseItineraryModal">&times;</button>
+                </div>
+
+                @if (itineraryFailure is not null)
+                {
+                    <div class="timeline-form-error" role="alert">
+                        <strong>@itineraryFailure.Title</strong>
+                        @if (itineraryFailure.Errors.Count > 0)
+                        {
+                            <ul>
+                                @foreach (var entry in itineraryFailure.Errors)
+                                {
+                                    @foreach (var message in entry.Value)
+                                    {
+                                        <li>@message</li>
+                                    }
+                                }
+                            </ul>
+                        }
+                        else
+                        {
+                            <p>@itineraryFailure.Message</p>
+                        }
+                    </div>
+                }
+
+                <div class="timeline-itinerary-field">
+                    <label for="itinerary-route">Route (optional)</label>
+                    <RoutePicker InputId="itinerary-route" Value="selectedRouteId" ValueChanged="OnRouteSelectedAsync" />
+                </div>
+
+                <div class="timeline-itinerary-builder">
+                    @for (var index = 0; index < itineraryStops.Count; index++)
+                    {
+                        var stopIndex = index;
+                        var stop = itineraryStops[stopIndex];
+
+                        <div class="timeline-itinerary-stop" @key="stop">
+                            <span class="timeline-itinerary-order" aria-hidden="true">@(stopIndex + 1)</span>
+
+                            <div class="timeline-itinerary-stop-fields">
+                                <div class="timeline-itinerary-stop-row">
+                                    @if (stop.IsRouteCovered)
+                                    {
+                                        <div class="timeline-itinerary-field">
+                                            <span class="timeline-itinerary-readonly-label">Port</span>
+                                            <span class="timeline-itinerary-readonly">@stop.PortLabel</span>
+                                        </div>
+                                        <div class="timeline-itinerary-field">
+                                            <span class="timeline-itinerary-readonly-label">Distance (nm)</span>
+                                            <span class="timeline-itinerary-readonly">@stop.DistanceFromPrevious</span>
+                                        </div>
+                                        <div class="timeline-itinerary-field">
+                                            <span class="timeline-itinerary-readonly-label">Duration (h)</span>
+                                            <span class="timeline-itinerary-readonly">@stop.EstimatedDurationFromPrevious</span>
+                                        </div>
+                                    }
+                                    else
+                                    {
+                                        <div class="timeline-itinerary-field">
+                                            <label for="@($"itinerary-stop-port-{stopIndex}")">Port</label>
+                                            <PortPicker InputId="@($"itinerary-stop-port-{stopIndex}")"
+                                                        Value="stop.PortId"
+                                                        ValueChanged="value => stop.PortId = value" />
+                                        </div>
+                                        <div class="timeline-itinerary-field">
+                                            <label for="@($"itinerary-stop-distance-{stopIndex}")">Distance from previous (nm)</label>
+                                            <input id="@($"itinerary-stop-distance-{stopIndex}")" type="number" step="0.01"
+                                                   value="@(stopIndex == 0 ? 0m : stop.DistanceFromPrevious)"
+                                                   disabled="@(stopIndex == 0)"
+                                                   @onchange="args => stop.DistanceFromPrevious = decimal.TryParse(args.Value?.ToString(), System.Globalization.NumberStyles.Number, System.Globalization.CultureInfo.InvariantCulture, out var distance) ? distance : null" />
+                                        </div>
+                                        <div class="timeline-itinerary-field">
+                                            <label for="@($"itinerary-stop-duration-{stopIndex}")">Duration from previous (h)</label>
+                                            <input id="@($"itinerary-stop-duration-{stopIndex}")" type="number" step="1"
+                                                   value="@(stopIndex == 0 ? 0 : stop.EstimatedDurationFromPrevious)"
+                                                   disabled="@(stopIndex == 0)"
+                                                   @onchange="args => stop.EstimatedDurationFromPrevious = int.TryParse(args.Value?.ToString(), System.Globalization.NumberStyles.Integer, System.Globalization.CultureInfo.InvariantCulture, out var duration) ? duration : null" />
+                                        </div>
+                                    }
+                                </div>
+
+                                <div class="timeline-itinerary-stop-row timeline-itinerary-stop-row-dates">
+                                    <div class="timeline-itinerary-field">
+                                        <label for="@($"itinerary-stop-eta-date-{stopIndex}")">ETA (UTC)</label>
+                                        <div class="timeline-itinerary-stamp">
+                                            <input id="@($"itinerary-stop-eta-date-{stopIndex}")" type="date" @bind="stop.EtaDate" />
+                                            <input id="@($"itinerary-stop-eta-time-{stopIndex}")" type="time" @bind="stop.EtaTime" aria-label="@($"Stop {stopIndex + 1} ETA time UTC")" />
+                                        </div>
+                                    </div>
+                                    <div class="timeline-itinerary-field">
+                                        <label for="@($"itinerary-stop-etd-date-{stopIndex}")">ETD (UTC)</label>
+                                        <div class="timeline-itinerary-stamp">
+                                            <input id="@($"itinerary-stop-etd-date-{stopIndex}")" type="date" @bind="stop.EtdDate" />
+                                            <input id="@($"itinerary-stop-etd-time-{stopIndex}")" type="time" @bind="stop.EtdTime" aria-label="@($"Stop {stopIndex + 1} ETD time UTC")" />
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            @if (!stop.IsRouteCovered)
+                            {
+                                <button type="button" class="timeline-itinerary-remove"
+                                        aria-label="@($"Remove stop {stopIndex + 1}")"
+                                        disabled="@(itineraryStops.Count <= MinimumItineraryStops)"
+                                        @onclick="() => RemoveItineraryStop(stopIndex)">&times;</button>
+                            }
+                        </div>
+                    }
+
+                    <button type="button" class="timeline-itinerary-add" @onclick="AddItineraryStop">Add stop</button>
+                </div>
+
+                <div class="timeline-form-actions">
+                    <button class="timeline-submit" type="button" @onclick="SubmitItineraryAsync" disabled="@isSubmittingItinerary">
+                        @(isSubmittingItinerary ? "Planning..." : "Plan itinerary")
+                    </button>
+                    <button class="timeline-reset" type="button" @onclick="CloseItineraryModal" disabled="@isSubmittingItinerary">Cancel</button>
+                </div>
+            </section>
+        </div>
+    }
+</section>
