@@ -72,14 +72,14 @@ public sealed class CrewPageTests : BunitContext
     [Fact]
     public void The_employment_badge_carries_the_status_wording_and_its_modifier()
     {
-        respond = _ => Json(HttpStatusCode.OK, Page(Row(employmentStatus: "Inactive")));
+        respond = _ => Json(HttpStatusCode.OK, Page(Row(employmentStatus: "OnLeave")));
 
         var page = RenderCrewPage();
 
         var badge = page.Find(".employment-status");
 
-        Assert.Equal("Inactive", badge.TextContent.Trim());
-        Assert.Contains("employment-inactive", badge.ClassName, StringComparison.Ordinal);
+        Assert.Equal("OnLeave", badge.TextContent.Trim());
+        Assert.Contains("employment-onleave", badge.ClassName, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -88,7 +88,7 @@ public sealed class CrewPageTests : BunitContext
         respond = _ => Json(HttpStatusCode.OK, Page(
             Row(name: "Ana", imoSeafarerId: "IMO00001", passportExpiry: "2020-01-01"),
             Row(name: "Boris", imoSeafarerId: "IMO00002", passportExpiry: "2030-01-01"),
-            Row(name: "Cvijeta", imoSeafarerId: "IMO00003", passportExpiry: "2030-01-01", employmentStatus: "Inactive")));
+            Row(name: "Cvijeta", imoSeafarerId: "IMO00003", passportExpiry: "2030-01-01", employmentStatus: "OnLeave")));
 
         var page = RenderCrewPage();
 
@@ -206,11 +206,11 @@ public sealed class CrewPageTests : BunitContext
     {
         var page = RenderCrewPage();
 
-        page.Find(".crew-filters select").Change("Inactive");
+        page.Find(".crew-filters select").Change("OnLeave");
 
         page.WaitForAssertion(() => Assert.Contains(
             requestedUris,
-            uri => uri.Query.Contains("employmentStatus=Inactive", StringComparison.Ordinal)));
+            uri => uri.Query.Contains("employmentStatus=OnLeave", StringComparison.Ordinal)));
     }
 
     [Fact]
@@ -245,10 +245,10 @@ public sealed class CrewPageTests : BunitContext
         var page = RenderCrewPage();
 
         page.Find(".crew-input-shell input").Input("Petrovic");
-        page.Find(".crew-filters select").Change("Inactive");
+        page.Find(".crew-filters select").Change("OnLeave");
         page.WaitForAssertion(() => Assert.Contains(
             requestedUris,
-            uri => uri.Query.Contains("employmentStatus=Inactive", StringComparison.Ordinal)));
+            uri => uri.Query.Contains("employmentStatus=OnLeave", StringComparison.Ordinal)));
 
         page.Find(".crew-reset-button").Click();
 
@@ -331,14 +331,14 @@ public sealed class CrewPageTests : BunitContext
         var page = RenderCrewPage();
 
         page.Find(".crew-input-shell input").Input("Petrovic");
-        page.Find(".crew-filters select").Change("Inactive");
+        page.Find(".crew-filters select").Change("OnLeave");
 
         page.WaitForAssertion(() =>
         {
             var summary = page.Find(".crew-print-summary").TextContent;
 
             Assert.Contains("Petrovic", summary, StringComparison.Ordinal);
-            Assert.Contains("Inactive", summary, StringComparison.Ordinal);
+            Assert.Contains("OnLeave", summary, StringComparison.Ordinal);
         });
     }
 

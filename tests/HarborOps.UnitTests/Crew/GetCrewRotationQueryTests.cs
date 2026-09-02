@@ -77,7 +77,7 @@ public sealed class GetCrewRotationQueryTests
         await dbContext.Set<CrewPosition>().AddAsync(position);
 
         var member = CrewMember.Create(
-            position.Id, "Marko Petrovic", new DateOnly(1990, 1, 1), "Montenegro",
+            position.Id, "Marko", "Petrovic", new DateOnly(1990, 1, 1), "Montenegro",
             "IMO00001", "P1234567", new DateOnly(2030, 1, 1), "CDC1234567",
             new DateOnly(2020, 1, 1), "Active");
         await dbContext.Set<CrewMember>().AddAsync(member);

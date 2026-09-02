@@ -23,7 +23,7 @@
         <header class="crew-profile-header">
             <div>
                 <nav class="page-breadcrumb" aria-label="Breadcrumb"><a href="/crew">Crewing operations</a><span aria-hidden="true">/</span><span>Crew profile</span></nav>
-                <h1>@profile.Name</h1>
+                <h1>@profile.FirstName @profile.LastName</h1>
                 <p>@profile.BaseRankName &middot; @profile.Nationality &middot; IMO @profile.ImoSeafarerId</p>
             </div>
             <span class="employment-status @GetEmploymentStatusClass(profile.EmploymentStatus)">@profile.EmploymentStatus</span>
@@ -32,7 +32,15 @@
         <section class="crew-profile-summary-card" aria-labelledby="crew-profile-summary-title">
             <div class="crew-profile-card-heading">
                 <h2 id="crew-profile-summary-title">Personal &amp; employment</h2>
-                <span class="bi bi-person-vcard" aria-hidden="true"></span>
+                <div class="crew-profile-card-heading-actions">
+                    @if (CanManage)
+                    {
+                        <button type="button" class="crew-profile-edit-toggle crew-edit-profile-toggle" @onclick="ToggleEditProfile">
+                            @(isEditingProfile ? "Cancel" : "Edit profile")
+                        </button>
+                    }
+                    <span class="bi bi-person-vcard" aria-hidden="true"></span>
+                </div>
             </div>
             <dl class="crew-profile-summary-grid">
                 <div><dt>Base rank</dt><dd>@profile.BaseRankName</dd></div>
@@ -96,6 +104,96 @@
                 <span class="bi @(isSensitiveDataRevealed ? "bi-eye-slash" : "bi-eye")" aria-hidden="true"></span>
                 @(isSensitiveDataRevealed ? "Hide sensitive data" : "Show sensitive data")
             </button>
+
+            @if (isEditingProfile)
+            {
+                <EditCrewMemberProfileForm CrewMemberId="CrewMemberId"
+                                            FirstName="@profile.FirstName"
+                                            LastName="@profile.LastName"
+                                            DateOfBirth="profile.DateOfBirth"
+                                            Nationality="@profile.Nationality"
+                                            PassportNumber="@profile.PassportNumber"
+                                            PassportExpiry="profile.PassportExpiry"
+                                            CdcNumber="@profile.CdcNumber"
+                                            HireDate="profile.HireDate"
+                                            BaseRankId="profile.BaseRankId"
+                                            OnUpdated="OnProfileUpdatedAsync" />
+            }
+        </section>
+
+        <section class="crew-profile-card" aria-labelledby="crew-profile-employment-title">
+            <div class="crew-profile-card-heading">
+                <div>
+                    <h2 id="crew-profile-employment-title">Employment status</h2>
+                    <p>@employmentHistory.Count change(s) on record</p>
+                </div>
+                <span class="bi bi-person-badge" aria-hidden="true"></span>
+            </div>
+
+            @if (CanManage)
+            {
+                @if (employmentStatusActionError is not null)
+                {
+                    <div class="crew-profile-form-error" role="alert">@employmentStatusActionError</div>
+                }
+
+                @if (isConfirmingEmploymentStatusChange)
+                {
+                    <form class="crew-profile-form-grid" @onsubmit="ConfirmEmploymentStatusChangeAsync" @onsubmit:preventDefault="true">
+                        <div class="crew-profile-form-field">
+                            <label for="employment-status-select">New status</label>
+                            <select id="employment-status-select" @bind="employmentStatusForm.Status">
+                                @foreach (var option in EmploymentStatusOptions)
+                                {
+                                    <option value="@option">@option</option>
+                                }
+                            </select>
+                        </div>
+                        <div class="crew-profile-form-field crew-profile-form-field-wide">
+                            <label for="employment-status-notes">Notes</label>
+                            <input id="employment-status-notes" type="text" @bind="employmentStatusForm.Notes" maxlength="1000" placeholder="Optional note" />
+                        </div>
+                        <button type="submit" class="crew-profile-form-submit" disabled="@isSubmittingEmploymentStatus">
+                            @(isSubmittingEmploymentStatus ? "Saving..." : "Confirm status change")
+                        </button>
+                        <button type="button" class="crew-rotation-edit-toggle" @onclick="CancelEmploymentStatusChange">Cancel</button>
+                    </form>
+                }
+                else
+                {
+                    <button type="button" class="crew-profile-edit-toggle crew-employment-status-toggle" @onclick="RequestEmploymentStatusChange">Change employment status</button>
+                }
+            }
+
+            @if (isLoadingEmploymentHistory)
+            {
+                <LoadingState Message="Loading employment history..." />
+            }
+            else if (employmentHistoryFailure is not null)
+            {
+                <ApiErrorState Title="@employmentHistoryFailure.Title" Message="@employmentHistoryFailure.Message" OnRetry="LoadEmploymentHistoryAsync" />
+            }
+            else if (employmentHistory.Count == 0)
+            {
+                <EmptyState Title="No employment status changes on record" Message="Status changes will appear here once recorded." />
+            }
+            else
+            {
+                <div class="crew-profile-list">
+                    @foreach (var entry in employmentHistory)
+                    {
+                        <article class="crew-profile-row" @key="entry.Id">
+                            <div class="crew-profile-row-primary">
+                                <strong>@entry.Status</strong>
+                                <span>@(string.IsNullOrWhiteSpace(entry.Notes) ? "No notes" : entry.Notes)</span>
+                            </div>
+                            <div class="crew-profile-row-secondary">
+                                <span>@entry.ChangedAtUtc.ToString("dd MMM yyyy HH:mm") UTC</span>
+                            </div>
+                        </article>
+                    }
+                </div>
+            }
         </section>
 
         <div class="crew-profile-workspace">
@@ -179,7 +277,7 @@
 
                 @if (CanManage)
                 {
-                    <AssignToVesselForm CrewMemberId="CrewMemberId" CrewMemberName="@profile.Name" OnRegistered="OnAssignmentRegisteredAsync" />
+                    <AssignToVesselForm CrewMemberId="CrewMemberId" CrewMemberName="@($"{profile.FirstName} {profile.LastName}")" OnRegistered="OnAssignmentRegisteredAsync" />
                 }
             </section>
         </div>

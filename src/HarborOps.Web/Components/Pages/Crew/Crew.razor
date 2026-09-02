@@ -44,7 +44,7 @@
 
     <div class="crew-filters">
         <div class="crew-input-shell"><span class="bi bi-search" aria-hidden="true"></span><input @bind="search" @bind:event="oninput" @bind:after="SearchAsync" placeholder="Search name or IMO seafarer ID" aria-label="Search crew members" /></div>
-        <select @bind="employmentStatus" @bind:after="SearchAsync" aria-label="Filter by employment status"><option value="">All statuses</option><option value="Active">Active</option><option value="Inactive">Inactive</option></select>
+        <select @bind="employmentStatus" @bind:after="SearchAsync" aria-label="Filter by employment status"><option value="">All statuses</option><option value="Active">Active</option><option value="OnLeave">On leave</option><option value="Suspended">Suspended</option><option value="Terminated">Terminated</option></select>
         <button type="button" class="crew-reset-button" @onclick="ResetFiltersAsync" disabled="@isLoading">Reset</button>
     </div>
 

@@ -364,9 +364,11 @@ public sealed class SearchCrewMembersQueryTests
         DateOnly? passportExpiry = null,
         DateOnly? hireDate = null)
     {
+        var nameParts = name.Split(' ', 2);
         var member = CrewMember.Create(
             baseRankId,
-            name,
+            nameParts[0],
+            nameParts.Length > 1 ? nameParts[1] : string.Empty,
             new DateOnly(1990, 1, 1),
             "Montenegro",
             imoSeafarerId,

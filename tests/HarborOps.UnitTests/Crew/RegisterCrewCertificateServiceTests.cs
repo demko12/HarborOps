@@ -215,7 +215,8 @@ public sealed class RegisterCrewCertificateServiceTests
         var baseRankId = await SeedCrewPositionAsync(dbContext);
         var crewMember = CrewMember.Create(
             baseRankId,
-            "Ivan Petrović",
+            "Ivan",
+            "Petrović",
             new DateOnly(1990, 5, 14),
             "Montenegro",
             $"IMO{Guid.NewGuid():N}"[..12],

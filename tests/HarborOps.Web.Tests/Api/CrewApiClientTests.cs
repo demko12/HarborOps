@@ -281,6 +281,129 @@ public sealed class CrewApiClientTests
         Assert.Contains("fitnessResult", result.Failure.Errors!.Keys);
     }
 
+    [Fact]
+    public async Task UpdateProfileAsync_puts_to_the_member_endpoint()
+    {
+        var crewMemberId = Guid.NewGuid();
+        HttpRequestMessage? captured = null;
+        using var httpClient = CreateHttpClient((request, _) =>
+        {
+            captured = request;
+            return Json(HttpStatusCode.OK, $$"""{"id":"{{crewMemberId}}"}""");
+        });
+
+        var result = await new CrewApiClient(httpClient).UpdateProfileAsync(
+            crewMemberId,
+            new UpdateCrewMemberRequest
+            {
+                FirstName = "Marko",
+                LastName = "Marković",
+                DateOfBirth = new DateOnly(1990, 5, 14),
+                Nationality = "Montenegro",
+                PassportNumber = "P1234567",
+                PassportExpiry = new DateOnly(2028, 1, 1),
+                CdcNumber = "CDC987654",
+                HireDate = new DateOnly(2024, 1, 15),
+                BaseRankId = Guid.NewGuid(),
+            },
+            CancellationToken.None);
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal(HttpMethod.Put, captured!.Method);
+        Assert.Equal($"/api/crew/members/{crewMemberId}", captured.RequestUri!.AbsolutePath);
+        Assert.Equal(crewMemberId, result.Value!.Id);
+    }
+
+    [Fact]
+    public async Task UpdateProfileAsync_returns_validation_failure_with_field_errors()
+    {
+        using var httpClient = CreateHttpClient((_, _) => Json(
+            HttpStatusCode.BadRequest,
+            """{"title":"One or more validation errors occurred.","errors":{"firstName":["First name is required."]}}"""));
+
+        var result = await new CrewApiClient(httpClient).UpdateProfileAsync(
+            Guid.NewGuid(), new UpdateCrewMemberRequest(), CancellationToken.None);
+
+        Assert.False(result.IsSuccess);
+        Assert.True(result.Failure!.IsValidation);
+        Assert.Contains("firstName", result.Failure.Errors!.Keys);
+    }
+
+    [Fact]
+    public async Task ChangeEmploymentStatusAsync_posts_to_the_employment_status_changes_endpoint()
+    {
+        var crewMemberId = Guid.NewGuid();
+        HttpRequestMessage? captured = null;
+        using var httpClient = CreateHttpClient((request, _) =>
+        {
+            captured = request;
+            return Json(HttpStatusCode.Created, $$"""
+                {"id":"{{Guid.NewGuid()}}","crewMemberId":"{{crewMemberId}}",
+                "previousStatus":"Active","newStatus":"OnLeave","changedByUserId":"{{Guid.NewGuid()}}",
+                "notes":"Medical leave","changedAtUtc":"2026-08-01T10:00:00Z"}
+                """);
+        });
+
+        var result = await new CrewApiClient(httpClient).ChangeEmploymentStatusAsync(
+            crewMemberId,
+            new ChangeCrewMemberEmploymentStatusRequest { Status = "OnLeave", Notes = "Medical leave" },
+            CancellationToken.None);
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal(HttpMethod.Post, captured!.Method);
+        Assert.Equal($"/api/crew/members/{crewMemberId}/employment-status-changes", captured.RequestUri!.AbsolutePath);
+        Assert.Equal("OnLeave", result.Value!.NewStatus);
+    }
+
+    [Fact]
+    public async Task ChangeEmploymentStatusAsync_returns_conflict_failure_for_an_unchanged_status()
+    {
+        using var httpClient = CreateHttpClient((_, _) =>
+            Task.FromResult(new HttpResponseMessage(HttpStatusCode.Conflict)));
+
+        var result = await new CrewApiClient(httpClient).ChangeEmploymentStatusAsync(
+            Guid.NewGuid(),
+            new ChangeCrewMemberEmploymentStatusRequest { Status = "Active" },
+            CancellationToken.None);
+
+        Assert.False(result.IsSuccess);
+        Assert.True(result.Failure!.IsConflict);
+    }
+
+    [Fact]
+    public async Task GetEmploymentStatusHistoryAsync_sends_request_to_the_member_endpoint()
+    {
+        var crewMemberId = Guid.NewGuid();
+        HttpRequestMessage? captured = null;
+        using var httpClient = CreateHttpClient((request, _) =>
+        {
+            captured = request;
+            return Json(HttpStatusCode.OK, $$"""
+                {"items":[{"id":"{{Guid.NewGuid()}}","status":"OnLeave","changedByUserId":"{{Guid.NewGuid()}}",
+                "notes":null,"changedAtUtc":"2026-08-01T10:00:00Z"}]}
+                """);
+        });
+
+        var result = await new CrewApiClient(httpClient).GetEmploymentStatusHistoryAsync(crewMemberId, CancellationToken.None);
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal($"/api/crew/members/{crewMemberId}/employment-status-history", captured!.RequestUri!.AbsolutePath);
+        Assert.Single(result.Value!.Items);
+        Assert.Equal("OnLeave", result.Value.Items[0].Status);
+    }
+
+    [Fact]
+    public async Task GetEmploymentStatusHistoryAsync_reports_not_found_for_an_unknown_member()
+    {
+        using var httpClient = CreateHttpClient((_, _) =>
+            Task.FromResult(new HttpResponseMessage(HttpStatusCode.NotFound)));
+
+        var result = await new CrewApiClient(httpClient).GetEmploymentStatusHistoryAsync(Guid.NewGuid(), CancellationToken.None);
+
+        Assert.False(result.IsSuccess);
+        Assert.True(result.Failure!.IsNotFound);
+    }
+
     private static HttpClient CreateHttpClient(Func<HttpRequestMessage, CancellationToken, Task<HttpResponseMessage>> responseFactory) =>
         new(new StubHttpMessageHandler(responseFactory)) { BaseAddress = new Uri("https://api.harborops.test/") };
 

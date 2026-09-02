@@ -94,7 +94,7 @@ public sealed class ExecuteCrewRotationEndpointTests : IntegrationTestBase
         await using var scope = _application.Services.CreateAsyncScope();
         var dbContext = scope.ServiceProvider.GetRequiredService<HarborOpsDbContext>();
         var relievingMember = CrewMember.Create(
-            assignment.RankId, "Relief Member", new DateOnly(1990, 1, 1), "Montenegro",
+            assignment.RankId, "Relief", "Member", new DateOnly(1990, 1, 1), "Montenegro",
             "IMO900006", "P7654321", new DateOnly(2030, 1, 1), "CDC7654321",
             new DateOnly(2020, 1, 1), "Active");
         await dbContext.Set<CrewMember>().AddAsync(relievingMember);
@@ -112,7 +112,7 @@ public sealed class ExecuteCrewRotationEndpointTests : IntegrationTestBase
 
         var position = CrewPosition.Create("Able Seafarer", "Deck", "Senior");
         var member = CrewMember.Create(
-            position.Id, "Marko Petrovic", new DateOnly(1990, 1, 1), "Montenegro",
+            position.Id, "Marko", "Petrovic", new DateOnly(1990, 1, 1), "Montenegro",
             "IMO900005", "P1234567", new DateOnly(2030, 1, 1), "CDC1234567",
             new DateOnly(2020, 1, 1), "Active");
         var assignment = CrewAssignment.CreatePlanned(

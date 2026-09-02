@@ -22,16 +22,16 @@ public sealed class SearchCrewMembersEndpointTests : IntegrationTestBase
     {
         using var client = await _application.CreateAuthenticatedClientWithPermissionsAsync(Permissions.Crew.Read);
         await SeedMemberAsync("Zara Deck", "IMO700001", "Active", new DateOnly(2028, 1, 1));
-        await SeedMemberAsync("Ana Engine", "IMO700002", "Inactive", new DateOnly(2024, 1, 1));
+        await SeedMemberAsync("Ana Engine", "IMO700002", "OnLeave", new DateOnly(2024, 1, 1));
 
-        using var response = await client.GetAsync("/api/crew/members?search=Ana&employmentStatus=Inactive&pageNumber=1&pageSize=25");
+        using var response = await client.GetAsync("/api/crew/members?search=Ana&employmentStatus=OnLeave&pageNumber=1&pageSize=25");
         var page = await response.Content.ReadFromJsonAsync<SearchCrewMembersResponse>();
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         var member = Assert.Single(page!.Items);
         Assert.Equal("Ana Engine", member.Name);
         Assert.Equal("Chief Officer", member.BaseRankName);
-        Assert.Equal("Inactive", member.EmploymentStatus);
+        Assert.Equal("OnLeave", member.EmploymentStatus);
         Assert.Equal(new DateOnly(2024, 1, 1), member.PassportExpiry);
     }
 
@@ -51,7 +51,8 @@ public sealed class SearchCrewMembersEndpointTests : IntegrationTestBase
         await using var scope = _application.Services.CreateAsyncScope();
         var dbContext = scope.ServiceProvider.GetRequiredService<HarborOpsDbContext>();
         var position = CrewPosition.Create("Chief Officer", "Deck", "Senior");
-        var member = CrewMember.Create(position.Id, name, new DateOnly(1990, 1, 1), "Croatia", imoSeafarerId, "P12345", passportExpiry, "CDC12345", new DateOnly(2020, 1, 1), status);
+        var nameParts = name.Split(' ', 2);
+        var member = CrewMember.Create(position.Id, nameParts[0], nameParts.Length > 1 ? nameParts[1] : string.Empty, new DateOnly(1990, 1, 1), "Croatia", imoSeafarerId, "P12345", passportExpiry, "CDC12345", new DateOnly(2020, 1, 1), status);
         await dbContext.Set<CrewPosition>().AddAsync(position);
         await dbContext.Set<CrewMember>().AddAsync(member);
         await dbContext.SaveChangesAsync();
