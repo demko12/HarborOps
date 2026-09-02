@@ -329,6 +329,178 @@ public sealed class VoyagesPageTests : BunitContext
     }
 
     [Fact]
+    public void Cancelled_voyages_render_their_own_status_badge_and_offer_no_action()
+    {
+        respond = _ => Json(HttpStatusCode.OK, Page(Row("VOY-0211", status: Voyages.CancelledStatus)));
+
+        var page = RenderVoyagesPage(Voyages.ManageVoyagesPermission);
+
+        Assert.Contains("cancelled", page.Find(".voyage-status").ClassList, StringComparer.Ordinal);
+        Assert.Empty(page.FindAll(".voyages-row-action"));
+        Assert.Equal(Voyages.MissingValue, page.Find(".voyage-actions-none").TextContent.Trim());
+    }
+
+    [Fact]
+    public void The_status_filter_offers_the_cancelled_status()
+    {
+        var page = RenderVoyagesPage();
+
+        var options = page.FindAll("#voyages-status option").Select(option => option.TextContent.Trim());
+
+        Assert.Contains(Voyages.CancelledStatus, options, StringComparer.Ordinal);
+    }
+
+    [Fact]
+    public void Filtering_by_the_cancelled_status_sends_it_to_the_api()
+    {
+        var page = RenderVoyagesPage();
+
+        page.Find("#voyages-status").Change(Voyages.CancelledStatus);
+
+        page.WaitForAssertion(() => Assert.Contains(
+            ResultQueries(),
+            query => query.Contains("status=Cancelled", StringComparison.Ordinal)));
+    }
+
+    [Fact]
+    public void Planned_voyages_offer_both_a_departure_and_a_cancellation_action()
+    {
+        respond = _ => Json(HttpStatusCode.OK, Page(Row("VOY-0212", status: Voyages.PlannedStatus)));
+
+        var page = RenderVoyagesPage(Voyages.ManageVoyagesPermission);
+
+        var labels = page.FindAll(".voyages-row-action").Select(button => button.TextContent.Trim());
+
+        Assert.Equal(["Depart", "Cancel"], labels);
+    }
+
+    [Fact]
+    public void The_cancellation_action_is_hidden_from_read_only_users()
+    {
+        respond = _ => Json(HttpStatusCode.OK, Page(Row("VOY-0213", status: Voyages.PlannedStatus)));
+
+        var page = RenderVoyagesPage();
+
+        Assert.Empty(page.FindAll(".voyages-row-action-danger"));
+    }
+
+    [Fact]
+    public void Cancelling_a_voyage_asks_for_a_reason_before_confirming()
+    {
+        respond = _ => Json(HttpStatusCode.OK, Page(Row("VOY-0214", status: Voyages.PlannedStatus)));
+
+        var page = RenderVoyagesPage(Voyages.ManageVoyagesPermission);
+
+        page.Find(".voyages-row-action-danger").Click();
+
+        var form = page.Find(".voyage-action-form");
+
+        Assert.Contains("Cancel VOY-0214", form.TextContent, StringComparison.Ordinal);
+        Assert.Contains("Confirm cancellation", form.TextContent, StringComparison.Ordinal);
+        Assert.Contains("Keep voyage", form.TextContent, StringComparison.Ordinal);
+        Assert.NotEmpty(page.FindAll("#voyage-action-reason"));
+        Assert.Empty(page.FindAll("#voyage-action-date"));
+        Assert.Empty(writes);
+    }
+
+    [Fact]
+    public void Confirming_a_cancellation_posts_the_reason_and_refreshes_the_board()
+    {
+        var boardRequests = 0;
+        respond = request =>
+        {
+            if (request.Method == HttpMethod.Get)
+            {
+                boardRequests++;
+
+                return Json(HttpStatusCode.OK, Page(Row("VOY-0215", status: Voyages.PlannedStatus)));
+            }
+
+            return Json(HttpStatusCode.OK, CancelledSchedule());
+        };
+
+        var page = RenderVoyagesPage(Voyages.ManageVoyagesPermission);
+        var requestsBeforeCancel = boardRequests;
+
+        page.Find(".voyages-row-action-danger").Click();
+        page.Find("#voyage-action-reason").Change("Charter withdrawn");
+        page.Find(".voyage-action-buttons .voyages-button").Click();
+
+        page.WaitForAssertion(() => Assert.Contains(
+            writes,
+            write => write.Path.EndsWith("/cancel", StringComparison.Ordinal)
+                && write.Body.Contains("\"reason\":\"Charter withdrawn\"", StringComparison.Ordinal)));
+        page.WaitForAssertion(() => Assert.Contains(
+            "VOY-0215 is now Cancelled",
+            page.Markup,
+            StringComparison.Ordinal));
+        page.WaitForAssertion(() => Assert.True(boardRequests > requestsBeforeCancel));
+    }
+
+    [Fact]
+    public void A_cancellation_validation_error_is_shown_and_the_form_stays_open()
+    {
+        respond = request => request.Method == HttpMethod.Get
+            ? Json(HttpStatusCode.OK, Page(Row("VOY-0216", status: Voyages.PlannedStatus)))
+            : Json(
+                HttpStatusCode.BadRequest,
+                """{"title":"One or more validation errors occurred.","errors":{"reason":["Reason is required."]}}""");
+
+        var page = RenderVoyagesPage(Voyages.ManageVoyagesPermission);
+
+        page.Find(".voyages-row-action-danger").Click();
+        page.Find(".voyage-action-buttons .voyages-button").Click();
+
+        page.WaitForAssertion(() => Assert.Contains("Reason is required", page.Markup, StringComparison.Ordinal));
+        Assert.NotEmpty(page.FindAll("#voyage-action-reason"));
+    }
+
+    [Fact]
+    public void A_cancellation_conflict_is_shown_and_the_board_is_reloaded()
+    {
+        var attempt = 0;
+        respond = request =>
+        {
+            if (request.Method == HttpMethod.Get)
+            {
+                return Json(HttpStatusCode.OK, Page(Row("VOY-0217", status: Voyages.PlannedStatus)));
+            }
+
+            attempt++;
+
+            return Json(
+                HttpStatusCode.Conflict,
+                """{"status":409,"title":"The voyage cannot be cancelled from its current status.","detail":"Voyage cannot change its schedule while its status is InProgress."}""");
+        };
+
+        var page = RenderVoyagesPage(Voyages.ManageVoyagesPermission);
+
+        page.Find(".voyages-row-action-danger").Click();
+        page.Find("#voyage-action-reason").Change("Charter withdrawn");
+        page.Find(".voyage-action-buttons .voyages-button").Click();
+
+        page.WaitForAssertion(() => Assert.Equal(1, attempt));
+        page.WaitForAssertion(() => Assert.Contains(
+            "The voyage cannot be cancelled from its current status.",
+            page.Markup,
+            StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void Keeping_the_voyage_closes_the_cancellation_form_without_submitting()
+    {
+        respond = _ => Json(HttpStatusCode.OK, Page(Row("VOY-0218", status: Voyages.PlannedStatus)));
+
+        var page = RenderVoyagesPage(Voyages.ManageVoyagesPermission);
+
+        page.Find(".voyages-row-action-danger").Click();
+        page.Find(".voyage-action-buttons .voyages-reset").Click();
+
+        Assert.Empty(page.FindAll(".voyage-action-form"));
+        Assert.Empty(writes);
+    }
+
+    [Fact]
     public void Confirming_a_departure_sends_the_utc_stamp_to_the_transition_endpoint()
     {
         respond = request => request.Method == HttpMethod.Get
@@ -586,6 +758,13 @@ public sealed class VoyagesPageTests : BunitContext
     {
         return $$"""
             {"items":[{{string.Join(',', rows)}}],"pageNumber":{{pageNumber}},"pageSize":25,"totalCount":{{totalCount}}}
+            """;
+    }
+
+    private static string CancelledSchedule()
+    {
+        return """
+            {"voyage":{"voyageId":"10000000-0000-0000-0000-000000000001","voyageNumber":"VOY-0215","status":"Cancelled","routeId":null,"routeName":null,"departurePortId":null,"departurePortName":null,"arrivalPortId":null,"arrivalPortName":null,"plannedDeparture":"2026-09-01T08:00:00Z","plannedArrival":"2026-09-04T17:30:00Z"},"changes":[]}
             """;
     }
 

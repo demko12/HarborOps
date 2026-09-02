@@ -26,8 +26,12 @@ internal sealed class CrewMemberConfiguration : IEntityTypeConfiguration<CrewMem
         builder.Property(crewMember => crewMember.BaseRankId)
             .IsRequired();
 
-        builder.Property(crewMember => crewMember.Name)
-            .HasMaxLength(CrewMember.NameMaxLength)
+        builder.Property(crewMember => crewMember.FirstName)
+            .HasMaxLength(CrewMember.FirstNameMaxLength)
+            .IsRequired();
+
+        builder.Property(crewMember => crewMember.LastName)
+            .HasMaxLength(CrewMember.LastNameMaxLength)
             .IsRequired();
 
         builder.Property(crewMember => crewMember.DateOfBirth)

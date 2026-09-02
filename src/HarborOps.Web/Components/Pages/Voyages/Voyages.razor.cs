@@ -11,6 +11,7 @@ public partial class Voyages
     internal const string PlannedStatus = "Planned";
     internal const string InProgressStatus = "InProgress";
     internal const string CompletedStatus = "Completed";
+    internal const string CancelledStatus = "Cancelled";
     internal const string MissingValue = "—";
     internal const int DefaultWindowDays = 30;
     internal const int ImminentDepartureHours = 24;
@@ -27,10 +28,14 @@ public partial class Voyages
     private static readonly string[] StatusOptions =
         [PlannedStatus, InProgressStatus, CompletedStatus];
 
+    private static readonly string[] FilterStatusOptions =
+        [PlannedStatus, InProgressStatus, CompletedStatus, CancelledStatus];
+
     internal const string DelayedStatus = "Delayed";
     internal const string ManageVoyagesPermission = "voyages.manage";
     internal const string DepartAction = "depart";
     internal const string ArriveAction = "arrive";
+    internal const string CancelVoyageAction = "cancel";
 
     internal const int MasterDataKpiPortLookupTake = 50;
     internal const int MasterDataKpiRouteSampleSize = 100;
@@ -94,6 +99,8 @@ public partial class Voyages
     private DateOnly? actionMinDate;
     private DateOnly actionMaxDate = DateOnly.FromDateTime(DateTime.UtcNow);
     private ElementReference actionDateInput;
+    private ElementReference actionReasonInput;
+    private string actionReason = string.Empty;
     private bool shouldFocusAction;
     private VoyagesApiFailure? actionFailure;
     private string? actionSuccess;
@@ -326,7 +333,7 @@ public partial class Voyages
 
         shouldFocusAction = false;
 
-        await actionDateInput.FocusAsync();
+        await (IsCancellingVoyage ? actionReasonInput : actionDateInput).FocusAsync();
     }
 
     internal static string FormatRoute(VoyageListItemModel voyage)
@@ -371,6 +378,7 @@ public partial class Voyages
         {
             CompletedStatus => 3,
             InProgressStatus => 2,
+            CancelledStatus => 0,
             _ => 1,
         };
     }
@@ -380,6 +388,7 @@ public partial class Voyages
         {
             CompletedStatus => "completed",
             InProgressStatus => "in-progress",
+            CancelledStatus => "cancelled",
             _ => "planned",
         };
     }
@@ -413,6 +422,29 @@ public partial class Voyages
         return string.Equals(status, InProgressStatus, StringComparison.Ordinal);
     }
 
+    internal static bool CanCancel(string status)
+    {
+        return string.Equals(status, PlannedStatus, StringComparison.Ordinal);
+    }
+
+    private bool IsCancellingVoyage =>
+        string.Equals(actionKind, CancelVoyageAction, StringComparison.Ordinal);
+
+    private string ConfirmLabel()
+    {
+        if (IsCancellingVoyage)
+        {
+            return isActionSubmitting ? "Cancelling..." : "Confirm cancellation";
+        }
+
+        return isActionSubmitting ? "Saving..." : "Confirm";
+    }
+
+    private string KeepLabel()
+    {
+        return IsCancellingVoyage ? "Keep voyage" : "Cancel";
+    }
+
     internal static string FormatIsoDate(DateOnly value)
     {
         return value.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
@@ -443,6 +475,7 @@ public partial class Voyages
         actionMinDate = EarliestActionDate(voyage, kind);
         actionDate = actionMinDate is { } earliest && earliest > actionMaxDate ? earliest : actionMaxDate;
         actionTime = TimeOnly.FromTimeSpan(DateTime.UtcNow.TimeOfDay);
+        actionReason = string.Empty;
         shouldFocusAction = true;
     }
 
@@ -475,8 +508,41 @@ public partial class Voyages
 
         try
         {
-            var stamp = CombineUtc(actionDate, actionTime);
             var voyageNumber = actionVoyageNumber;
+
+            if (IsCancellingVoyage)
+            {
+                var cancellation = await VoyagesApi.CancelVoyageAsync(
+                    voyageId,
+                    new CancelVoyageWebRequest(actionReason),
+                    actionCancellation.Token);
+
+                if (actionCancellation.IsCancellationRequested)
+                {
+                    return;
+                }
+
+                if (!cancellation.IsSuccess)
+                {
+                    actionFailure = cancellation.Failure;
+
+                    if (cancellation.Failure!.IsConflict || cancellation.Failure.IsNotFound)
+                    {
+                        await LoadAsync();
+                    }
+
+                    return;
+                }
+
+                actionSuccess = $"{voyageNumber} is now {cancellation.Value!.Voyage.Status}.";
+                CancelAction();
+
+                await LoadAsync();
+
+                return;
+            }
+
+            var stamp = CombineUtc(actionDate, actionTime);
 
             var result = string.Equals(actionKind, DepartAction, StringComparison.Ordinal)
                 ? await VoyagesApi.RecordDepartureAsync(

@@ -390,16 +390,20 @@ html[data-theme="light"] .voyage-action-stamp input { color-scheme: light; }
 .voyage-status.planned { color: var(--status-info); background: rgba(96, 165, 250, .14); }
 .voyage-status.in-progress { color: var(--status-warning); background: rgba(251, 191, 36, .14); }
 .voyage-status.completed { color: #5eead4; background: rgba(45, 212, 191, .14); }
+.voyage-status.cancelled { color: var(--status-danger, #f87171); background: rgba(248, 113, 113, .14); }
 .voyage-steps.planned { color: var(--status-info); }
 .voyage-steps.in-progress { color: var(--status-warning); }
 .voyage-steps.completed { color: #5eead4; }
+.voyage-steps.cancelled { color: var(--status-danger, #f87171); }
 
 html[data-theme="light"] .voyage-status.planned { color: var(--status-info-strong); background: rgba(37, 99, 235, .12); }
 html[data-theme="light"] .voyage-status.in-progress { color: var(--status-warning-strong); background: rgba(180, 83, 9, .14); }
 html[data-theme="light"] .voyage-status.completed { color: var(--status-success-strong); background: rgba(15, 118, 110, .14); }
+html[data-theme="light"] .voyage-status.cancelled { color: #b91c1c; background: rgba(185, 28, 28, .1); }
 html[data-theme="light"] .voyage-steps.planned { color: var(--status-info-strong); }
 html[data-theme="light"] .voyage-steps.in-progress { color: var(--status-warning-strong); }
 html[data-theme="light"] .voyage-steps.completed { color: var(--status-success-strong); }
+html[data-theme="light"] .voyage-steps.cancelled { color: #b91c1c; }
 html[data-theme="light"] .voyages-validation { border-color: rgba(185, 28, 28, .3); background: rgba(185, 28, 28, .08); }
 
 html[data-theme="light"] .filter-field > input,
@@ -889,3 +893,28 @@ html[data-theme="light"] .voyages-page ::deep .voyages-modal-backdrop {
     .voyages-page ::deep .voyages-filters { flex-direction: column; align-items: stretch; }
     .voyages-page ::deep .voyages-form-grid { grid-template-columns: minmax(0, 1fr); }
 }
+
+.voyage-row-actions { display: flex; flex-wrap: wrap; gap: .35rem; }
+
+.voyages-row-action-danger { color: var(--status-danger, #f87171); border-color: rgba(248, 113, 113, .35); background: rgba(248, 113, 113, .12); }
+.voyages-row-action-danger:hover { background: rgba(248, 113, 113, .2); }
+
+html[data-theme="light"] .voyages-row-action-danger { color: #b91c1c; border-color: rgba(185, 28, 28, .3); background: rgba(185, 28, 28, .08); }
+html[data-theme="light"] .voyages-row-action-danger:hover { background: rgba(185, 28, 28, .14); }
+
+.voyage-action-form input[type="text"],
+.voyage-action-form > input:not([type]) {
+    width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
+    height: 2.1rem;
+    padding: 0 .5rem;
+    color: var(--text-primary);
+    border: 1px solid var(--border-medium);
+    border-radius: .55rem;
+    background-color: var(--control-surface);
+    font: inherit;
+    font-size: .82rem;
+}
+
+.voyage-action-form > input:not([type]):focus { border-color: var(--accent); box-shadow: var(--focus-ring); outline: none; }

@@ -421,6 +421,11 @@ public sealed class VoyageTimelinePageTests : BunitContext
         {
             requestedUris.Add(request.RequestUri!);
 
+            if (request.RequestUri!.AbsolutePath.EndsWith("/schedule-changes", StringComparison.Ordinal))
+            {
+                return Json(HttpStatusCode.OK, Schedule());
+            }
+
             if (request.Method != HttpMethod.Get)
             {
                 writes.Add((
@@ -496,6 +501,13 @@ public sealed class VoyageTimelinePageTests : BunitContext
     {
         return $$"""
             {"items":[{"berthId":"{{BerthId}}","portId":"{{PortOneId}}","name":"Pier 1","length":200.0,"maxDraft":10.0,"status":"Available"}],"pageNumber":1,"pageSize":100,"totalCount":1}
+            """;
+    }
+
+    private static string Schedule()
+    {
+        return $$"""
+            {"voyage":{"voyageId":"{{VoyageId}}","voyageNumber":"VOY-100","status":"Planned","routeId":null,"routeName":null,"departurePortId":"{{PortOneId}}","departurePortName":"Port of Bar","arrivalPortId":"{{PortTwoId}}","arrivalPortName":"Port of Kotor","plannedDeparture":"2026-09-01T08:00:00Z","plannedArrival":"2026-09-04T17:30:00Z"},"changes":[]}
             """;
     }
 

@@ -46,15 +46,48 @@ internal sealed class CargoBookingsApiClient(HttpClient httpClient)
             cancellationToken);
     }
 
-    internal Task<CargoApiResult<DeclaredCargoSafetyInfo>> DeclareSafetyInformationAsync(
+    internal Task<CargoApiResult<CargoSafetyInformationView>> GetSafetyInformationAsync(
         Guid bookingId,
-        DeclareCargoSafetyInfoWebRequest request,
         CancellationToken cancellationToken)
     {
-        return PostAsync<DeclaredCargoSafetyInfo>(
-            $"{BasePath}/{bookingId}/safety-information",
+        return GetAsync<CargoSafetyInformationView>(
+            SafetyPath(bookingId),
+            "Unable to load the safety information",
+            ReviewAccessDetail,
+            cancellationToken);
+    }
+
+    internal Task<CargoApiResult<CargoSafetyInformation>> SaveSafetyInformationAsync(
+        Guid bookingId,
+        UpdateCargoSafetyInfoWebRequest request,
+        CancellationToken cancellationToken)
+    {
+        return PutAsync<CargoSafetyInformation>(
+            SafetyPath(bookingId),
             request,
-            "Unable to declare the safety information",
+            "Unable to save the safety information",
+            cancellationToken);
+    }
+
+    internal Task<CargoApiResult<CargoSafetyInformation>> SubmitSafetyInformationAsync(
+        Guid bookingId,
+        CancellationToken cancellationToken)
+    {
+        return PostAsync<CargoSafetyInformation>(
+            $"{SafetyPath(bookingId)}/submit",
+            "Unable to submit the safety information",
+            cancellationToken);
+    }
+
+    internal Task<CargoApiResult<CargoSafetyInformation>> ReviewSafetyInformationAsync(
+        Guid bookingId,
+        ReviewCargoSafetyInfoWebRequest request,
+        CancellationToken cancellationToken)
+    {
+        return PostAsync<CargoSafetyInformation>(
+            $"{SafetyPath(bookingId)}/review",
+            request,
+            "Unable to review the safety information",
             cancellationToken);
     }
 
@@ -135,7 +168,10 @@ internal sealed class CargoBookingsApiClient(HttpClient httpClient)
             "Unable to complete the operation",
             cancellationToken);
     }
-
+    private static string SafetyPath(Guid bookingId)
+    {
+        return $"{BasePath}/{bookingId}/safety-information";
+    }
     private static string BuildPath(CargoBookingFilter filter)
     {
         var query = new List<string>
@@ -258,6 +294,45 @@ internal sealed class CargoBookingsApiClient(HttpClient httpClient)
         }
     }
 
+    private async Task<CargoApiResult<T>> PutAsync<T>(
+    string path,
+    object request,
+    string failureTitle,
+    CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+
+        try
+        {
+            using var response = await httpClient.PutAsync(
+                path,
+                JsonContent.Create(request, request.GetType()),
+                cancellationToken);
+
+            if (!response.IsSuccessStatusCode)
+            {
+                return new CargoApiResult<T>(
+                    default,
+                    await ReadFailureAsync(response, failureTitle, ReviewValuesDetail, cancellationToken));
+            }
+
+            var value = await response.Content.ReadFromJsonAsync<T>(cancellationToken);
+
+            return new CargoApiResult<T>(value, null);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (HttpRequestException)
+        {
+            return new CargoApiResult<T>(default, Unavailable());
+        }
+        catch (TaskCanceledException) when (!cancellationToken.IsCancellationRequested)
+        {
+            return new CargoApiResult<T>(default, Unavailable());
+        }
+    }
     private static async Task<CargoApiFailure> ReadFailureAsync(
         HttpResponseMessage response,
         string failureTitle,

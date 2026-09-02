@@ -30,7 +30,10 @@ internal sealed class SearchCrewMembersQuery(DbContext dbContext) : ISearchCrewM
         if (!string.IsNullOrWhiteSpace(request.Search))
         {
             var search = request.Search.Trim();
-            rows = rows.Where(row => row.Member.Name.Contains(search) || row.Member.ImoSeafarerId == search);
+            rows = rows.Where(row =>
+                row.Member.FirstName.Contains(search)
+                || row.Member.LastName.Contains(search)
+                || row.Member.ImoSeafarerId == search);
         }
 
         if (!string.IsNullOrWhiteSpace(request.EmploymentStatus))
@@ -42,13 +45,14 @@ internal sealed class SearchCrewMembersQuery(DbContext dbContext) : ISearchCrewM
         var totalCount = await rows.CountAsync(cancellationToken);
         var items = await rows
             .OrderBy(row => row.Member.PassportExpiry)
-            .ThenBy(row => row.Member.Name)
+            .ThenBy(row => row.Member.FirstName)
+            .ThenBy(row => row.Member.LastName)
             .ThenBy(row => row.Member.Id)
             .Skip((pageNumber - 1) * pageSize)
             .Take(pageSize)
             .Select(row => new CrewMemberListItem(
                 row.Member.Id,
-                row.Member.Name,
+                row.Member.FirstName + " " + row.Member.LastName,
                 row.Member.Nationality,
                 row.Member.ImoSeafarerId,
                 row.Member.BaseRankId,

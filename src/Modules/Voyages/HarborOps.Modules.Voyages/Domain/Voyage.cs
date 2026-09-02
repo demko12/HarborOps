@@ -8,6 +8,7 @@ internal sealed class Voyage
     internal const string PlannedStatus = "Planned";
     internal const string InProgressStatus = "InProgress";
     internal const string CompletedStatus = "Completed";
+    internal const string CancelledStatus = "Cancelled";
 
     private Voyage()
     {
@@ -95,6 +96,44 @@ internal sealed class Voyage
 
         ActualDeparture = actualDepartureUtc;
         Status = InProgressStatus;
+    }
+
+    internal void Amend(
+        Guid? routeId,
+        Guid departurePortId,
+        Guid arrivalPortId,
+        DateTime plannedDepartureUtc,
+        DateTime plannedArrivalUtc)
+    {
+        if (!string.Equals(Status, PlannedStatus, StringComparison.Ordinal))
+        {
+            throw new VoyageScheduleNotAmendableException(Id, Status);
+        }
+
+        if (RouteId == routeId
+            && DeparturePortId == departurePortId
+            && ArrivalPortId == arrivalPortId
+            && PlannedDeparture == plannedDepartureUtc
+            && PlannedArrival == plannedArrivalUtc)
+        {
+            throw new VoyageScheduleUnchangedException(Id);
+        }
+
+        RouteId = routeId;
+        DeparturePortId = departurePortId;
+        ArrivalPortId = arrivalPortId;
+        PlannedDeparture = plannedDepartureUtc;
+        PlannedArrival = plannedArrivalUtc;
+    }
+
+    internal void Cancel()
+    {
+        if (!string.Equals(Status, PlannedStatus, StringComparison.Ordinal))
+        {
+            throw new VoyageScheduleNotAmendableException(Id, Status);
+        }
+
+        Status = CancelledStatus;
     }
 
     internal void Arrive(DateTime actualArrivalUtc)

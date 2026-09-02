@@ -19,7 +19,8 @@ internal sealed class GetCrewMemberProfileQuery(DbContext dbContext) : IGetCrewM
             select new
             {
                 crewMember.Id,
-                crewMember.Name,
+                crewMember.FirstName,
+                crewMember.LastName,
                 crewMember.Nationality,
                 crewMember.ImoSeafarerId,
                 crewMember.PassportNumber,
@@ -80,7 +81,8 @@ internal sealed class GetCrewMemberProfileQuery(DbContext dbContext) : IGetCrewM
 
         return new CrewMemberProfileResponse(
             member.Id,
-            member.Name,
+            member.FirstName,
+            member.LastName,
             member.Nationality,
             member.ImoSeafarerId,
             member.PassportNumber,

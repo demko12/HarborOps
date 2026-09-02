@@ -7,6 +7,10 @@ internal static class CargoBookingFormat
 {
     internal const string HazardousLabel = "Hazardous";
     internal const string NotHazardousLabel = "Not hazardous";
+    internal const string DraftStatus = "Draft";
+    internal const string SubmittedStatus = "Submitted";
+    internal const string ApprovedStatus = "Approved";
+    internal const string RejectedStatus = "Rejected";
 
     internal static readonly IReadOnlyList<string> Statuses =
     [
@@ -98,5 +102,28 @@ internal static class CargoBookingFormat
         return string.Equals(operationState, "InProgress", StringComparison.OrdinalIgnoreCase)
             ? "active"
             : "pending";
+    }
+
+    internal static string SafetyStatusLabel(string? reviewStatus)
+    {
+        return reviewStatus switch
+        {
+            DraftStatus => "Draft",
+            SubmittedStatus => "Awaiting review",
+            ApprovedStatus => "Approved",
+            RejectedStatus => "Rejected",
+            _ => "Not declared",
+        };
+    }
+
+    internal static string SafetyStatusClass(string? reviewStatus)
+    {
+        return reviewStatus switch
+        {
+            SubmittedStatus => "safety-status safety-status-submitted",
+            ApprovedStatus => "safety-status safety-status-approved",
+            RejectedStatus => "safety-status safety-status-rejected",
+            _ => "safety-status safety-status-draft",
+        };
     }
 }

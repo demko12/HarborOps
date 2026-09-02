@@ -16,7 +16,8 @@ public sealed class RegisterCrewMemberServiceTests
         var request = new RegisterCrewMemberRequest
         {
             BaseRankId = null,
-            Name = " ",
+            FirstName = " ",
+            LastName = " ",
             DateOfBirth = null,
             Nationality = null,
             ImoSeafarerId = string.Empty,
@@ -30,9 +31,10 @@ public sealed class RegisterCrewMemberServiceTests
         var exception = await Assert.ThrowsAsync<RegisterCrewMemberValidationException>(
             () => service.RegisterAsync(request, CancellationToken.None));
 
-        Assert.Equal(10, exception.Errors.Count);
+        Assert.Equal(11, exception.Errors.Count);
         Assert.Contains(RegisterCrewMemberValidator.BaseRankIdField, exception.Errors);
-        Assert.Contains(RegisterCrewMemberValidator.NameField, exception.Errors);
+        Assert.Contains(RegisterCrewMemberValidator.FirstNameField, exception.Errors);
+        Assert.Contains(RegisterCrewMemberValidator.LastNameField, exception.Errors);
         Assert.Contains(RegisterCrewMemberValidator.DateOfBirthField, exception.Errors);
         Assert.Contains(RegisterCrewMemberValidator.NationalityField, exception.Errors);
         Assert.Contains(RegisterCrewMemberValidator.ImoSeafarerIdField, exception.Errors);
@@ -40,6 +42,20 @@ public sealed class RegisterCrewMemberServiceTests
         Assert.Contains(RegisterCrewMemberValidator.PassportExpiryField, exception.Errors);
         Assert.Contains(RegisterCrewMemberValidator.CdcNumberField, exception.Errors);
         Assert.Contains(RegisterCrewMemberValidator.HireDateField, exception.Errors);
+        Assert.Contains(RegisterCrewMemberValidator.EmploymentStatusField, exception.Errors);
+    }
+
+    [Fact]
+    public async Task Register_rejects_an_employment_status_outside_the_supported_vocabulary()
+    {
+        await using var dbContext = CreateDbContext();
+        var baseRankId = await SeedCrewPositionAsync(dbContext);
+        var service = new RegisterCrewMemberService(dbContext);
+        var request = CreateValidRequest("IMO000009", baseRankId) with { EmploymentStatus = "Inactive" };
+
+        var exception = await Assert.ThrowsAsync<RegisterCrewMemberValidationException>(
+            () => service.RegisterAsync(request, CancellationToken.None));
+
         Assert.Contains(RegisterCrewMemberValidator.EmploymentStatusField, exception.Errors);
     }
 
@@ -67,7 +83,7 @@ public sealed class RegisterCrewMemberServiceTests
         var baseRankId = await SeedCrewPositionAsync(dbContext);
         var service = new RegisterCrewMemberService(dbContext);
         var firstRequest = CreateValidRequest("IMO000002", baseRankId);
-        var duplicateRequest = firstRequest with { Name = "Marko Marković" };
+        var duplicateRequest = firstRequest with { FirstName = "Marko", LastName = "Marković" };
 
         await service.RegisterAsync(firstRequest, CancellationToken.None);
 
@@ -107,7 +123,8 @@ public sealed class RegisterCrewMemberServiceTests
         Assert.NotEqual(Guid.Empty, response.Id);
         Assert.Equal(response.Id, crewMember.Id);
         Assert.Equal(baseRankId, crewMember.BaseRankId);
-        Assert.Equal("Ivan Petrović", crewMember.Name);
+        Assert.Equal("Ivan", crewMember.FirstName);
+        Assert.Equal("Petrović", crewMember.LastName);
         Assert.Equal(new DateOnly(1990, 5, 14), crewMember.DateOfBirth);
         Assert.Equal("Montenegro", crewMember.Nationality);
         Assert.Equal("IMO000004", crewMember.ImoSeafarerId);
@@ -123,7 +140,8 @@ public sealed class RegisterCrewMemberServiceTests
         return new RegisterCrewMemberRequest
         {
             BaseRankId = baseRankId,
-            Name = " Ivan Petrović ",
+            FirstName = " Ivan ",
+            LastName = " Petrović ",
             DateOfBirth = new DateOnly(1990, 5, 14),
             Nationality = " Montenegro ",
             ImoSeafarerId = $" {imoSeafarerId} ",

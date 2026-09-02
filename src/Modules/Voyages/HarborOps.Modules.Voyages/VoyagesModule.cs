@@ -37,6 +37,9 @@ public static class VoyagesModule
         services.AddScoped<RecordStopArrivalService>();
         services.AddScoped<RecordStopDepartureService>();
         services.AddScoped<RecordDelayService>();
+        services.AddScoped<AmendVoyageScheduleService>();
+        services.AddScoped<CancelVoyageService>();
+        services.AddScoped<IGetVoyageScheduleChangesQuery, GetVoyageScheduleChangesQuery>();
         services.AddControllers()
             .AddApplicationPart(Assembly);
 

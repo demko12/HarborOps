@@ -17,6 +17,7 @@
     <ProjectReference Include="..\Modules\Fleet\HarborOps.Modules.Fleet\HarborOps.Modules.Fleet.csproj" />
     <ProjectReference Include="..\Modules\Identity\HarborOps.Modules.Identity\HarborOps.Modules.Identity.csproj" />
     <ProjectReference Include="..\Modules\Maintenance\HarborOps.Modules.Maintenance\HarborOps.Modules.Maintenance.csproj" />
+    <ProjectReference Include="..\Modules\Notifications\HarborOps.Modules.Notifications\HarborOps.Modules.Notifications.csproj" />
     <ProjectReference Include="..\Modules\Voyages\HarborOps.Modules.Voyages\HarborOps.Modules.Voyages.csproj" />
   </ItemGroup>
 

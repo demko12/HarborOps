@@ -358,6 +358,7 @@ html[data-theme="light"] .operation-state.done { color: #0f766e; background: rgb
     inset: 0;
     z-index: 1200;
     display: grid;
+    border-radius: var(--radius-card);
     place-items: center;
     padding: 4.75rem 1.25rem 1.5rem;
     overflow-y: auto;

@@ -1072,4 +1072,119 @@ internal sealed class MaintenanceApiClient(HttpClient httpClient)
 
         return $"{PurchaseOrdersPath}?{string.Join('&', query)}";
     }
+
+    internal async Task<MaintenanceApiResult<MaintenanceWorkOrderDetailsModel>> GetWorkOrderDetailsAsync(
+    Guid workOrderId,
+    CancellationToken cancellationToken)
+    {
+        try
+        {
+            using var response = await httpClient.GetAsync(
+                $"{BasePath}/{workOrderId}",
+                HttpCompletionOption.ResponseHeadersRead,
+                cancellationToken);
+
+            if (!response.IsSuccessStatusCode)
+            {
+                return new MaintenanceApiResult<MaintenanceWorkOrderDetailsModel>(
+                    null, await ReadFailureAsync(response, "Unable to load the work order", cancellationToken));
+            }
+
+            var details = await response.Content.ReadFromJsonAsync<MaintenanceWorkOrderDetailsModel>(cancellationToken);
+
+            return new MaintenanceApiResult<MaintenanceWorkOrderDetailsModel>(details, null);
+        }
+        catch (HttpRequestException)
+        {
+            return new MaintenanceApiResult<MaintenanceWorkOrderDetailsModel>(null, Unavailable());
+        }
+        catch (TaskCanceledException) when (!cancellationToken.IsCancellationRequested)
+        {
+            return new MaintenanceApiResult<MaintenanceWorkOrderDetailsModel>(null, Unavailable());
+        }
+    }
+
+    internal async Task<MaintenanceApiResult<ReplaceWorkOrderEquipmentResult>> ReplaceWorkOrderEquipmentAsync(
+        Guid workOrderId,
+        ReplaceWorkOrderEquipmentWebRequest request,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+
+        try
+        {
+            using var response = await httpClient.PutAsJsonAsync(
+                $"{BasePath}/{workOrderId}/equipment",
+                request,
+                cancellationToken);
+
+            if (!response.IsSuccessStatusCode)
+            {
+                return new MaintenanceApiResult<ReplaceWorkOrderEquipmentResult>(
+                    null,
+                    await ReadFailureAsync(response, "Unable to update the equipment scope", cancellationToken));
+            }
+
+            var result = await response.Content.ReadFromJsonAsync<ReplaceWorkOrderEquipmentResult>(
+                cancellationToken);
+
+            return new MaintenanceApiResult<ReplaceWorkOrderEquipmentResult>(result, null);
+        }
+        catch (HttpRequestException)
+        {
+            return new MaintenanceApiResult<ReplaceWorkOrderEquipmentResult>(null, Unavailable());
+        }
+        catch (TaskCanceledException) when (!cancellationToken.IsCancellationRequested)
+        {
+            return new MaintenanceApiResult<ReplaceWorkOrderEquipmentResult>(null, Unavailable());
+        }
+    }
+
+    internal Task<MaintenanceApiResult<MaintenanceWorkOrderTransition>> StartWorkOrderAsync(
+        Guid workOrderId,
+        CancellationToken cancellationToken)
+    {
+        return PostWorkOrderActionAsync(workOrderId, "start", cancellationToken);
+    }
+
+    internal Task<MaintenanceApiResult<MaintenanceWorkOrderTransition>> CancelWorkOrderAsync(
+        Guid workOrderId,
+        CancellationToken cancellationToken)
+    {
+        return PostWorkOrderActionAsync(workOrderId, "cancel", cancellationToken);
+    }
+
+    private async Task<MaintenanceApiResult<MaintenanceWorkOrderTransition>> PostWorkOrderActionAsync(
+        Guid workOrderId,
+        string action,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            using var response = await httpClient.PostAsync(
+                $"{BasePath}/{workOrderId}/{action}",
+                content: null,
+                cancellationToken);
+
+            if (!response.IsSuccessStatusCode)
+            {
+                return new MaintenanceApiResult<MaintenanceWorkOrderTransition>(
+                    null,
+                    await ReadFailureAsync(response, "Unable to update the work order", cancellationToken));
+            }
+
+            var transition = await response.Content.ReadFromJsonAsync<MaintenanceWorkOrderTransition>(
+                cancellationToken);
+
+            return new MaintenanceApiResult<MaintenanceWorkOrderTransition>(transition, null);
+        }
+        catch (HttpRequestException)
+        {
+            return new MaintenanceApiResult<MaintenanceWorkOrderTransition>(null, Unavailable());
+        }
+        catch (TaskCanceledException) when (!cancellationToken.IsCancellationRequested)
+        {
+            return new MaintenanceApiResult<MaintenanceWorkOrderTransition>(null, Unavailable());
+        }
+    }
 }

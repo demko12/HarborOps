@@ -119,10 +119,31 @@ namespace HarborOps.Infrastructure.Persistence.Migrations
                         .HasColumnType("datetime2")
                         .HasColumnName("PeriodStart");
 
+                    b.Property<string>("ReviewNotes")
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
+
+                    b.Property<string>("ReviewStatus")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<DateTime?>("ReviewedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("ReviewedByUserId")
+                        .HasColumnType("uniqueidentifier");
+
                     b.Property<string>("StorageConditions")
                         .IsRequired()
                         .HasMaxLength(500)
                         .HasColumnType("nvarchar(500)");
+
+                    b.Property<DateTime?>("SubmittedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("SubmittedByUserId")
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<string>("UnNumber")
                         .IsRequired()
@@ -147,6 +168,41 @@ namespace HarborOps.Infrastructure.Persistence.Migrations
                                     .HasPeriodEnd("PeriodEnd")
                                     .HasColumnName("PeriodEnd");
                             }));
+                });
+
+            modelBuilder.Entity("HarborOps.Modules.Cargo.Domain.CargoSafetyReviewEntry", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("ActorUserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("CargoSafetyInfoId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("FromStatus")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<string>("Notes")
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
+
+                    b.Property<DateTime>("OccurredUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("ToStatus")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CargoSafetyInfoId");
+
+                    b.ToTable("CargoSafetyReviews", "cargo");
                 });
 
             modelBuilder.Entity("HarborOps.Modules.Cargo.Domain.CargoTrackingEvent", b =>
@@ -693,6 +749,36 @@ namespace HarborOps.Infrastructure.Persistence.Migrations
                     b.ToTable("CrewCertificates", "crew");
                 });
 
+            modelBuilder.Entity("HarborOps.Modules.Crew.Domain.CrewEmploymentStatusHistory", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("ChangedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid>("ChangedByUserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("CrewMemberId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Notes")
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CrewMemberId");
+
+                    b.ToTable("CrewEmploymentStatusHistories", "crew");
+                });
+
             modelBuilder.Entity("HarborOps.Modules.Crew.Domain.CrewMember", b =>
                 {
                     b.Property<Guid>("Id")
@@ -717,6 +803,11 @@ namespace HarborOps.Infrastructure.Persistence.Migrations
                         .HasMaxLength(50)
                         .HasColumnType("nvarchar(50)");
 
+                    b.Property<string>("FirstName")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
                     b.Property<DateOnly>("HireDate")
                         .HasColumnType("date");
 
@@ -725,10 +816,10 @@ namespace HarborOps.Infrastructure.Persistence.Migrations
                         .HasMaxLength(50)
                         .HasColumnType("nvarchar(50)");
 
-                    b.Property<string>("Name")
+                    b.Property<string>("LastName")
                         .IsRequired()
-                        .HasMaxLength(200)
-                        .HasColumnType("nvarchar(200)");
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
 
                     b.Property<string>("Nationality")
                         .IsRequired()
@@ -1803,6 +1894,73 @@ namespace HarborOps.Infrastructure.Persistence.Migrations
                     b.ToTable("WorkOrderEquipment", "maintenance");
                 });
 
+            modelBuilder.Entity("HarborOps.Modules.Notifications.Domain.NotificationAcknowledgement", b =>
+                {
+                    b.Property<Guid>("AlertId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("AcknowledgedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("AlertId", "UserId");
+
+                    b.HasIndex("UserId");
+
+                    b.ToTable("Acknowledgements", "notifications");
+                });
+
+            modelBuilder.Entity("HarborOps.Modules.Notifications.Domain.OperationAlert", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Capability")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<Guid?>("CrewMemberId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateOnly>("ExpiryDate")
+                        .HasColumnType("date");
+
+                    b.Property<DateTime>("GeneratedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Severity")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<Guid>("SourceId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("SourceType")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("nvarchar(80)");
+
+                    b.Property<int>("ThresholdDays")
+                        .HasColumnType("int");
+
+                    b.Property<Guid?>("VesselId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Capability", "ExpiryDate");
+
+                    b.HasIndex("SourceId", "ExpiryDate", "ThresholdDays")
+                        .IsUnique();
+
+                    b.ToTable("OperationAlerts", "notifications");
+                });
+
             modelBuilder.Entity("HarborOps.Modules.Voyages.Domain.Berth", b =>
                 {
                     b.Property<Guid>("Id")
@@ -2213,6 +2371,89 @@ namespace HarborOps.Infrastructure.Persistence.Migrations
                     b.ToTable("VoyageLegs", "voyages");
                 });
 
+            modelBuilder.Entity("HarborOps.Modules.Voyages.Domain.VoyageScheduleChange", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("ChangeType")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("nvarchar(30)");
+
+                    b.Property<DateTime>("ChangedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid>("ChangedByUserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid?>("NewArrivalPortId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid?>("NewDeparturePortId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("NewPlannedArrival")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime>("NewPlannedDeparture")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("NewRouteId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("NewStatus")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("nvarchar(30)");
+
+                    b.Property<Guid?>("PreviousArrivalPortId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid?>("PreviousDeparturePortId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("PreviousPlannedArrival")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime>("PreviousPlannedDeparture")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("PreviousRouteId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("PreviousStatus")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("nvarchar(30)");
+
+                    b.Property<string>("Reason")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<Guid>("VoyageId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("NewArrivalPortId");
+
+                    b.HasIndex("NewDeparturePortId");
+
+                    b.HasIndex("NewRouteId");
+
+                    b.HasIndex("PreviousArrivalPortId");
+
+                    b.HasIndex("PreviousDeparturePortId");
+
+                    b.HasIndex("PreviousRouteId");
+
+                    b.HasIndex("VoyageId", "ChangedAtUtc");
+
+                    b.ToTable("VoyageScheduleChanges", "voyages");
+                });
+
             modelBuilder.Entity("HarborOps.Modules.Voyages.Domain.VoyageStop", b =>
                 {
                     b.Property<Guid>("Id")
@@ -2485,6 +2726,15 @@ namespace HarborOps.Infrastructure.Persistence.Migrations
                         .IsRequired();
                 });
 
+            modelBuilder.Entity("HarborOps.Modules.Cargo.Domain.CargoSafetyReviewEntry", b =>
+                {
+                    b.HasOne("HarborOps.Modules.Cargo.Domain.CargoSafetyInfo", null)
+                        .WithMany()
+                        .HasForeignKey("CargoSafetyInfoId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("HarborOps.Modules.Cargo.Domain.CargoTrackingEvent", b =>
                 {
                     b.HasOne("HarborOps.Modules.Cargo.Domain.CargoBooking", null)
@@ -2684,6 +2934,15 @@ namespace HarborOps.Infrastructure.Persistence.Migrations
                         .IsRequired();
                 });
 
+            modelBuilder.Entity("HarborOps.Modules.Notifications.Domain.NotificationAcknowledgement", b =>
+                {
+                    b.HasOne("HarborOps.Modules.Notifications.Domain.OperationAlert", null)
+                        .WithMany()
+                        .HasForeignKey("AlertId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("HarborOps.Modules.Voyages.Domain.Berth", b =>
                 {
                     b.HasOne("HarborOps.Modules.Voyages.Domain.Port", null)
@@ -2768,6 +3027,45 @@ namespace HarborOps.Infrastructure.Persistence.Migrations
                         .HasForeignKey("ToStopId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
+
+                    b.HasOne("HarborOps.Modules.Voyages.Domain.Voyage", null)
+                        .WithMany()
+                        .HasForeignKey("VoyageId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("HarborOps.Modules.Voyages.Domain.VoyageScheduleChange", b =>
+                {
+                    b.HasOne("HarborOps.Modules.Voyages.Domain.Port", null)
+                        .WithMany()
+                        .HasForeignKey("NewArrivalPortId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("HarborOps.Modules.Voyages.Domain.Port", null)
+                        .WithMany()
+                        .HasForeignKey("NewDeparturePortId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("HarborOps.Modules.Voyages.Domain.Route", null)
+                        .WithMany()
+                        .HasForeignKey("NewRouteId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("HarborOps.Modules.Voyages.Domain.Port", null)
+                        .WithMany()
+                        .HasForeignKey("PreviousArrivalPortId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("HarborOps.Modules.Voyages.Domain.Port", null)
+                        .WithMany()
+                        .HasForeignKey("PreviousDeparturePortId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("HarborOps.Modules.Voyages.Domain.Route", null)
+                        .WithMany()
+                        .HasForeignKey("PreviousRouteId")
+                        .OnDelete(DeleteBehavior.Restrict);
 
                     b.HasOne("HarborOps.Modules.Voyages.Domain.Voyage", null)
                         .WithMany()

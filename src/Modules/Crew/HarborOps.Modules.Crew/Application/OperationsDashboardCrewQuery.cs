@@ -21,30 +21,31 @@ internal sealed class OperationsDashboardCrewQuery(DbContext dbContext)
             join member in dbContext.Set<CrewMember>().AsNoTracking()
                 on certificate.CrewMemberId equals member.Id
             where certificate.ExpiryDate <= through
-            select new { certificate, member.Name };
+            select new { certificate, MemberName = member.FirstName + " " + member.LastName };
 
         var count = await members.CountAsync(cancellationToken)
             + await certificates.CountAsync(cancellationToken);
         var passportItems = await members
             .OrderBy(member => member.PassportExpiry)
-            .ThenBy(member => member.Name)
+            .ThenBy(member => member.FirstName)
+            .ThenBy(member => member.LastName)
             .ThenBy(member => member.Id)
             .Take(maximumItems)
             .Select(member => new OperationsDashboardCrewItem(
                 member.Id,
-                member.Name,
+                member.FirstName + " " + member.LastName,
                 "Passport",
                 member.PassportExpiry,
                 true))
             .ToListAsync(cancellationToken);
         var certificateItems = await certificates
             .OrderBy(row => row.certificate.ExpiryDate)
-            .ThenBy(row => row.Name)
+            .ThenBy(row => row.MemberName)
             .ThenBy(row => row.certificate.Id)
             .Take(maximumItems)
             .Select(row => new OperationsDashboardCrewItem(
                 row.certificate.CrewMemberId,
-                row.Name,
+                row.MemberName,
                 row.certificate.Name,
                 row.certificate.ExpiryDate,
                 false))

@@ -46,7 +46,25 @@ internal sealed record CargoSafetyInformation(
     string ImdgClass,
     string UnNumber,
     string StorageConditions,
-    string? HandlingNotes);
+    string? HandlingNotes,
+    string ReviewStatus,
+    Guid? SubmittedByUserId,
+    DateTime? SubmittedAtUtc,
+    Guid? ReviewedByUserId,
+    DateTime? ReviewedAtUtc,
+    string? ReviewNotes);
+
+internal sealed record CargoSafetyReviewEntryRow(
+    Guid CargoSafetyReviewId,
+    string FromStatus,
+    string ToStatus,
+    Guid ActorUserId,
+    DateTime OccurredUtc,
+    string? Notes);
+
+internal sealed record CargoSafetyInformationView(
+    CargoSafetyInformation Declaration,
+    IReadOnlyList<CargoSafetyReviewEntryRow> Timeline);
 
 internal sealed record CargoTrackingEventRow(
     Guid CargoTrackingEventId,
@@ -66,14 +84,13 @@ internal sealed record RegisterCargoBookingWebRequest(
 
 internal sealed record RegisteredCargoBooking(Guid Id);
 
-internal sealed record DeclareCargoSafetyInfoWebRequest(
+internal sealed record UpdateCargoSafetyInfoWebRequest(
     string ImdgClass,
     string UnNumber,
     string StorageConditions,
     string? HandlingNotes);
 
-internal sealed record DeclaredCargoSafetyInfo(Guid Id);
-
+internal sealed record ReviewCargoSafetyInfoWebRequest(string Status, string? Notes);
 internal sealed record RecordCargoTrackingEventWebRequest(
     string Status,
     DateTime OccurredUtc,

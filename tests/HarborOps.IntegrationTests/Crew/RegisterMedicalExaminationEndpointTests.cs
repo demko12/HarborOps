@@ -157,7 +157,7 @@ public sealed class RegisterMedicalExaminationEndpointTests : IntegrationTestBas
 
         var position = CrewPosition.Create("Able Seafarer", "Deck", "Senior");
         var member = CrewMember.Create(
-            position.Id, "Marko Petrovic", new DateOnly(1990, 1, 1), "Montenegro",
+            position.Id, "Marko", "Petrovic", new DateOnly(1990, 1, 1), "Montenegro",
             imoSeafarerId, "P1234567", new DateOnly(2030, 1, 1), "CDC1234567",
             new DateOnly(2020, 1, 1), "Active");
 

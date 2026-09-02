@@ -436,7 +436,7 @@ public sealed class RecordCargoTrackingEventServiceTests
 
 
     [Fact]
-    public async Task RecordAsync_rejects_loading_hazardous_cargo_before_safety_information_is_declared()
+    public async Task RecordAsync_rejects_loading_hazardous_cargo_before_its_declaration_is_approved()
     {
         await using var dbContext = CreateDbContext();
         var booking = await AddBookingAsync(
@@ -446,7 +446,7 @@ public sealed class RecordCargoTrackingEventServiceTests
             isHazardous: true);
         var service = CreateService(dbContext);
 
-        var exception = await Assert.ThrowsAsync<CargoSafetyInfoRequiredBeforeLoadingException>(
+        var exception = await Assert.ThrowsAsync<CargoSafetyApprovalRequiredException>(
             () => service.RecordAsync(
                 booking.Id,
                 ResponsibleUserId,
@@ -463,7 +463,7 @@ public sealed class RecordCargoTrackingEventServiceTests
     }
 
     [Fact]
-    public async Task RecordAsync_loads_hazardous_cargo_once_safety_information_is_declared()
+    public async Task RecordAsync_loads_hazardous_cargo_once_its_declaration_is_approved()
     {
         await using var dbContext = CreateDbContext();
         var booking = await AddBookingAsync(
@@ -471,7 +471,7 @@ public sealed class RecordCargoTrackingEventServiceTests
             "BK-TRACK-HAZ-2",
             CargoStatus.Planned,
             isHazardous: true);
-        await DeclareSafetyInfoAsync(dbContext, booking.Id);
+        await ApproveSafetyInfoAsync(dbContext, booking.Id);
         var service = CreateService(dbContext);
 
         var response = await service.RecordAsync(
@@ -525,7 +525,7 @@ public sealed class RecordCargoTrackingEventServiceTests
         Assert.Equal(nameof(CargoStatus.Planned), response.Status);
     }
 
-    private static async Task DeclareSafetyInfoAsync(HarborOpsDbContext dbContext, Guid cargoBookingId)
+    private static async Task ApproveSafetyInfoAsync(HarborOpsDbContext dbContext, Guid cargoBookingId)
     {
         var safetyInfo = CargoSafetyInfo.Declare(
             cargoBookingId,
@@ -534,9 +534,15 @@ public sealed class RecordCargoTrackingEventServiceTests
             "Keep below 25C",
             handlingNotes: null);
 
+        var submitted = safetyInfo.Submit(ResponsibleUserId, FixedNow.UtcDateTime);
+        var approved = safetyInfo.Approve(ResponsibleUserId, FixedNow.UtcDateTime, notes: null);
+
         await dbContext.Set<CargoSafetyInfo>().AddAsync(safetyInfo, CancellationToken.None);
+        await dbContext.Set<CargoSafetyReviewEntry>().AddAsync(submitted, CancellationToken.None);
+        await dbContext.Set<CargoSafetyReviewEntry>().AddAsync(approved, CancellationToken.None);
         await dbContext.SaveChangesAsync(CancellationToken.None);
     }
+
     private static async Task<CargoBooking> AddBookingAsync(
         HarborOpsDbContext dbContext,
         string bookingNumber,

@@ -1,4 +1,5 @@
 using HarborOps.Api.Composition.Authorization;
+using HarborOps.Api.Composition.Notifications;
 using HarborOps.Api.Composition.Operations.Dashboard;
 using HarborOps.Api.Composition.Operations.FleetVessel;
 using HarborOps.Api.Composition.Reports.ComplianceExposure;
@@ -13,6 +14,7 @@ using HarborOps.Modules.Fleet;
 using HarborOps.Modules.Identity;
 using HarborOps.Modules.Identity.Presentation;
 using HarborOps.Modules.Maintenance;
+using HarborOps.Modules.Notifications;
 using HarborOps.Modules.Voyages;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -32,9 +34,13 @@ builder.Services.AddVoyagesModule();
 builder.Services.AddScoped<FleetVesselOverviewService>();
 builder.Services.AddScoped<OperationsDashboardService>();
 builder.Services.AddMaintenanceModule();
+builder.Services.AddNotificationsModule();
 builder.Services.AddScoped<DocumentsExpiryReportService>();
 builder.Services.AddScoped<ComplianceExposureReportService>();
 builder.Services.AddScoped<MaintenanceBacklogReportService>();
+builder.Services.AddScoped<ExpiryAlertGenerator>();
+builder.Services.Configure<ExpiryAlertOptions>(builder.Configuration.GetSection(ExpiryAlertOptions.SectionName));
+builder.Services.AddHostedService<ExpiryAlertHostedService>();
 
 
 builder.Services.AddHealthChecks();

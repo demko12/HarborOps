@@ -311,6 +311,265 @@
                 </div>
             }
         </section>
+
+        <section class="timeline-card" aria-labelledby="timeline-schedule-title">
+            <div class="timeline-card-heading">
+                <h2 id="timeline-schedule-title">Schedule</h2>
+                @if (schedule is not null)
+                {
+                    <span class="timeline-status @VoyageStatusModifier(schedule.Voyage.Status)">@schedule.Voyage.Status</span>
+                }
+            </div>
+
+            @if (scheduleFailure is { IsForbidden: true })
+            {
+                <EmptyState Title="You cannot view schedule changes"
+                            Message="Your account does not carry a voyages read permission. Ask an administrator for access." />
+            }
+            else if (scheduleFailure is not null)
+            {
+                <ApiErrorState Title="@scheduleFailure.Title"
+                               Message="@scheduleFailure.Message"
+                               RetryLabel="Retry"
+                               OnRetry="LoadScheduleAsync" />
+            }
+            else if (schedule is not null)
+            {
+                <dl class="timeline-schedule-grid">
+                    <div>
+                        <dt>Voyage number</dt>
+                        <dd>@schedule.Voyage.VoyageNumber</dd>
+                    </div>
+                    <div>
+                        <dt>Departure port</dt>
+                        <dd>@(schedule.Voyage.DeparturePortName ?? MissingValue)</dd>
+                    </div>
+                    <div>
+                        <dt>Arrival port</dt>
+                        <dd>@(schedule.Voyage.ArrivalPortName ?? MissingValue)</dd>
+                    </div>
+                    <div>
+                        <dt>Route</dt>
+                        <dd>@(schedule.Voyage.RouteName ?? MissingValue)</dd>
+                    </div>
+                    <div>
+                        <dt>Planned departure (UTC)</dt>
+                        <dd>@FormatUtc(schedule.Voyage.PlannedDeparture)</dd>
+                    </div>
+                    <div>
+                        <dt>Planned arrival (UTC)</dt>
+                        <dd>@FormatUtc(schedule.Voyage.PlannedArrival)</dd>
+                    </div>
+                </dl>
+
+                @if (scheduleSuccess is not null)
+                {
+                    <div class="timeline-action-success" role="status">@scheduleSuccess</div>
+                }
+
+                @if (CanManageVoyages && CanAmendSchedule(schedule.Voyage.Status))
+                {
+                    <div class="timeline-schedule-actions">
+                        <button class="timeline-submit timeline-schedule-amend" type="button" @onclick="OpenAmendModal">Amend schedule</button>
+                        <button class="timeline-reset timeline-schedule-cancel" type="button" @onclick="OpenCancelModal">Cancel voyage</button>
+                    </div>
+                }
+
+                <div class="timeline-card-heading timeline-schedule-history-heading">
+                    <h3 id="timeline-schedule-history-title">Schedule changes</h3>
+                    <span class="timeline-count">@schedule.Changes.Count recorded</span>
+                </div>
+
+                @if (schedule.Changes.Count == 0)
+                {
+                    <EmptyState Title="No schedule changes"
+                                Message="Amendments and cancellations recorded for this voyage will appear here." />
+                }
+                else
+                {
+                    <ol class="timeline-schedule-changes">
+                        @foreach (var change in schedule.Changes)
+                        {
+                            <li class="timeline-schedule-change" @key="change.ChangeId">
+                                <div class="timeline-schedule-change-heading">
+                                    <span class="timeline-status @ChangeTypeModifier(change.ChangeType)">@change.ChangeType</span>
+                                    <span class="timeline-schedule-change-time">@FormatUtc(change.ChangedAtUtc)</span>
+                                    <code class="timeline-schedule-change-actor" title="@change.ChangedByUserId">@FormatActor(change.ChangedByUserId)</code>
+                                </div>
+                                <p class="timeline-schedule-change-reason">@change.Reason</p>
+                                @{
+                                    var changedFields = ChangedFields(change);
+                                }
+                                @if (changedFields.Count == 0)
+                                {
+                                    <p class="timeline-schedule-change-empty">No field values changed.</p>
+                                }
+                                else
+                                {
+                                    <ul class="timeline-schedule-change-fields">
+                                        @foreach (var field in changedFields)
+                                        {
+                                            <li @key="field.Label">
+                                                <span class="timeline-schedule-change-label">@field.Label</span>
+                                                <span class="timeline-schedule-change-old">@field.PreviousValue</span>
+                                                <span class="timeline-schedule-change-arrow" aria-hidden="true">→</span>
+                                                <span class="timeline-schedule-change-new">@field.NewValue</span>
+                                            </li>
+                                        }
+                                    </ul>
+                                }
+                            </li>
+                        }
+                    </ol>
+                }
+            }
+        </section>
+    }
+
+    @if (isAmendModalOpen && schedule is not null)
+    {
+        <div class="voyages-modal-backdrop" role="presentation" @onclick="CloseAmendModal">
+            <section class="voyages-form-card voyages-modal timeline-amend-modal"
+                     role="dialog"
+                     aria-modal="true"
+                     aria-labelledby="amend-modal-title"
+                     @onclick:stopPropagation="true">
+                <div class="voyages-modal-header">
+                    <div>
+                        <h2 id="amend-modal-title">Amend schedule</h2>
+                        <p>Revise @schedule.Voyage.VoyageNumber. A reason is required and kept in the audit trail.</p>
+                    </div>
+                    <button type="button"
+                            class="voyages-modal-close"
+                            aria-label="Close amend schedule dialog"
+                            @onclick="CloseAmendModal">&times;</button>
+                </div>
+
+                @if (amendFailure is not null)
+                {
+                    <div class="timeline-form-error" role="alert">
+                        <strong>@amendFailure.Title</strong>
+                        @if (amendFailure.Errors.Count > 0)
+                        {
+                            <ul>
+                                @foreach (var entry in amendFailure.Errors)
+                                {
+                                    @foreach (var message in entry.Value)
+                                    {
+                                        <li>@message</li>
+                                    }
+                                }
+                            </ul>
+                        }
+                        else
+                        {
+                            <p>@amendFailure.Message</p>
+                        }
+                    </div>
+                }
+
+                <div class="timeline-form-grid">
+                    <div class="timeline-itinerary-field">
+                        <label for="amend-departure-port">Departure port</label>
+                        <PortPicker InputId="amend-departure-port"
+                                    Value="amendDeparturePortId"
+                                    ValueChanged="value => amendDeparturePortId = value" />
+                    </div>
+                    <div class="timeline-itinerary-field">
+                        <label for="amend-arrival-port">Arrival port</label>
+                        <PortPicker InputId="amend-arrival-port"
+                                    Value="amendArrivalPortId"
+                                    ValueChanged="value => amendArrivalPortId = value" />
+                    </div>
+                    <div class="timeline-itinerary-field">
+                        <label for="amend-departure-date">Planned departure (UTC)</label>
+                        <div class="timeline-itinerary-stamp">
+                            <input id="amend-departure-date" type="date" @bind="amendDepartureDate" />
+                            <input id="amend-departure-time" type="time" @bind="amendDepartureTime" aria-label="Planned departure time UTC" />
+                        </div>
+                    </div>
+                    <div class="timeline-itinerary-field">
+                        <label for="amend-arrival-date">Planned arrival (UTC)</label>
+                        <div class="timeline-itinerary-stamp">
+                            <input id="amend-arrival-date" type="date" @bind="amendArrivalDate" />
+                            <input id="amend-arrival-time" type="time" @bind="amendArrivalTime" aria-label="Planned arrival time UTC" />
+                        </div>
+                    </div>
+                    <div class="timeline-itinerary-field timeline-field-wide">
+                        <label for="amend-route">Route (optional)</label>
+                        <RoutePicker InputId="amend-route" Value="amendRouteId" ValueChanged="value => amendRouteId = value" />
+                    </div>
+                    <div class="timeline-itinerary-field timeline-field-wide">
+                        <label for="amend-reason">Reason</label>
+                        <input id="amend-reason" @bind="amendReason" placeholder="Berth window moved by the terminal" />
+                    </div>
+                </div>
+
+                <div class="timeline-form-actions">
+                    <button class="timeline-submit" type="button" @onclick="SubmitAmendAsync" disabled="@isSubmittingAmend">
+                        @(isSubmittingAmend ? "Saving..." : "Save amendment")
+                    </button>
+                    <button class="timeline-reset" type="button" @onclick="CloseAmendModal" disabled="@isSubmittingAmend">Cancel</button>
+                </div>
+            </section>
+        </div>
+    }
+
+    @if (isCancelModalOpen && schedule is not null)
+    {
+        <div class="voyages-modal-backdrop" role="presentation" @onclick="CloseCancelModal">
+            <section class="voyages-form-card voyages-modal timeline-cancel-modal"
+                     role="dialog"
+                     aria-modal="true"
+                     aria-labelledby="cancel-modal-title"
+                     @onclick:stopPropagation="true">
+                <div class="voyages-modal-header">
+                    <div>
+                        <h2 id="cancel-modal-title">Cancel voyage</h2>
+                        <p>@schedule.Voyage.VoyageNumber stays on record with its itinerary, stops and delays. A reason is required.</p>
+                    </div>
+                    <button type="button"
+                            class="voyages-modal-close"
+                            aria-label="Close cancel voyage dialog"
+                            @onclick="CloseCancelModal">&times;</button>
+                </div>
+
+                @if (cancelFailure is not null)
+                {
+                    <div class="timeline-form-error" role="alert">
+                        <strong>@cancelFailure.Title</strong>
+                        @if (cancelFailure.Errors.Count > 0)
+                        {
+                            <ul>
+                                @foreach (var entry in cancelFailure.Errors)
+                                {
+                                    @foreach (var message in entry.Value)
+                                    {
+                                        <li>@message</li>
+                                    }
+                                }
+                            </ul>
+                        }
+                        else
+                        {
+                            <p>@cancelFailure.Message</p>
+                        }
+                    </div>
+                }
+
+                <div class="timeline-itinerary-field">
+                    <label for="cancel-reason">Reason</label>
+                    <input id="cancel-reason" @bind="cancelReason" placeholder="Cargo booking cancelled" />
+                </div>
+
+                <div class="timeline-form-actions">
+                    <button class="timeline-submit timeline-danger" type="button" @onclick="SubmitCancelAsync" disabled="@isSubmittingCancel">
+                        @(isSubmittingCancel ? "Cancelling..." : "Confirm cancellation")
+                    </button>
+                    <button class="timeline-reset" type="button" @onclick="CloseCancelModal" disabled="@isSubmittingCancel">Keep voyage</button>
+                </div>
+            </section>
+        </div>
     }
 
     @if (isItineraryModalOpen)
