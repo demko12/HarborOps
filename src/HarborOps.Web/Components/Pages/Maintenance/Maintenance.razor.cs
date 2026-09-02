@@ -1,5 +1,6 @@
 using HarborOps.Web.Api.Fleet;
 using HarborOps.Web.Api.Maintenance;
+using Microsoft.AspNetCore.Components.Web;
 using Microsoft.AspNetCore.WebUtilities;
 
 namespace HarborOps.Web.Components.Pages.Maintenance;
@@ -533,5 +534,50 @@ public partial class Maintenance
     {
         isCreateFormOpen = false;
         createFailure = null;
+    }
+
+    private string DetailsHref(Guid workOrderId)
+    {
+        return $"/maintenance/work-orders/{workOrderId}?from={Uri.EscapeDataString(BoardQuery())}";
+    }
+
+    private string BoardQuery()
+    {
+        var parts = new List<string> { "tab=work-orders" };
+
+        if (vesselIdFilter is { } vesselId)
+        {
+            parts.Add($"vessel={vesselId}");
+        }
+
+        if (!string.IsNullOrWhiteSpace(statusFilter))
+        {
+            parts.Add($"status={Uri.EscapeDataString(statusFilter)}");
+        }
+
+        if (!string.IsNullOrWhiteSpace(priorityFilter))
+        {
+            parts.Add($"priority={Uri.EscapeDataString(priorityFilter)}");
+        }
+
+        if (!string.IsNullOrWhiteSpace(overdueFilter))
+        {
+            parts.Add($"overdue={Uri.EscapeDataString(overdueFilter)}");
+        }
+
+        return string.Join('&', parts);
+    }
+
+    private void OpenWorkOrderDetails(Guid workOrderId)
+    {
+        Navigation.NavigateTo(DetailsHref(workOrderId));
+    }
+
+    private void HandleWorkOrderRowKeyDown(KeyboardEventArgs args, Guid workOrderId)
+    {
+        if (args.Key is "Enter" or " ")
+        {
+            OpenWorkOrderDetails(workOrderId);
+        }
     }
 }

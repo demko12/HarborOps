@@ -25,32 +25,44 @@
 				role="tab"
 				class="workspace-tab @(activeTab == MaintenanceTab.WorkOrders ? "active" : null)"
 				aria-selected="@(activeTab == MaintenanceTab.WorkOrders)"
-				@onclick="() => SelectTab(MaintenanceTab.WorkOrders)">Work orders</button>
+				@onclick="() => SelectTab(MaintenanceTab.WorkOrders)">
+			Work orders
+		</button>
 		<button type="button"
 				role="tab"
 				class="workspace-tab @(activeTab == MaintenanceTab.Equipment ? "active" : null)"
 				aria-selected="@(activeTab == MaintenanceTab.Equipment)"
-				@onclick="() => SelectTab(MaintenanceTab.Equipment)">Equipment</button>
+				@onclick="() => SelectTab(MaintenanceTab.Equipment)">
+			Equipment
+		</button>
 		<button type="button"
 				role="tab"
 				class="workspace-tab @(activeTab == MaintenanceTab.PreventiveSchedules ? "active" : null)"
 				aria-selected="@(activeTab == MaintenanceTab.PreventiveSchedules)"
-				@onclick="() => SelectTab(MaintenanceTab.PreventiveSchedules)">Preventive schedules</button>
-			<button type="button"
+				@onclick="() => SelectTab(MaintenanceTab.PreventiveSchedules)">
+			Preventive schedules
+		</button>
+		<button type="button"
 				role="tab"
 				class="workspace-tab @(activeTab == MaintenanceTab.DryDocks ? "active" : null)"
 				aria-selected="@(activeTab == MaintenanceTab.DryDocks)"
-				@onclick="() => SelectTab(MaintenanceTab.DryDocks)">Dry docks</button>
+				@onclick="() => SelectTab(MaintenanceTab.DryDocks)">
+			Dry docks
+		</button>
 		<button type="button"
 				role="tab"
 				class="workspace-tab @(activeTab == MaintenanceTab.PurchaseOrders ? "active" : null)"
 				aria-selected="@(activeTab == MaintenanceTab.PurchaseOrders)"
-				@onclick="() => SelectTab(MaintenanceTab.PurchaseOrders)">Purchase orders</button>
+				@onclick="() => SelectTab(MaintenanceTab.PurchaseOrders)">
+			Purchase orders
+		</button>
 		<button type="button"
 				role="tab"
 				class="workspace-tab @(activeTab == MaintenanceTab.Suppliers ? "active" : null)"
 				aria-selected="@(activeTab == MaintenanceTab.Suppliers)"
-				@onclick="() => SelectTab(MaintenanceTab.Suppliers)">Suppliers</button>
+				@onclick="() => SelectTab(MaintenanceTab.Suppliers)">
+			Suppliers
+		</button>
 	</nav>
 
 	@if (activeTab == MaintenanceTab.Equipment)
@@ -79,248 +91,50 @@
 
 	@if (activeTab == MaintenanceTab.WorkOrders)
 	{
-	<div class="maintenance-tabpanel" role="tabpanel">
+		<div class="maintenance-tabpanel" role="tabpanel">
 
-	<section class="maintenance-summary" aria-label="Work order summary">
-		<article class="maintenance-summary-card">
-			<div>
-				<span>Total work orders</span>
-				<strong>@totalCount</strong>
-				<small>Matching the current filters</small>
-			</div>
-			<span class="summary-icon summary-icon-blue" aria-hidden="true"><span class="bi bi-tools"></span></span>
-		</article>
-		<article class="maintenance-summary-card">
-			<div>
-				<span>Overdue on this page</span>
-				<strong>@rows.Count(row => MaintenanceFormat.IsOverdue(row.Status, row.DueUtc, DateTime.UtcNow))</strong>
-				<small>Past due and still open</small>
-			</div>
-			<span class="summary-icon summary-icon-amber" aria-hidden="true"><span class="bi bi-exclamation-triangle-fill"></span></span>
-		</article>
-	</section>
+			<section class="maintenance-summary" aria-label="Work order summary">
+				<article class="maintenance-summary-card">
+					<div>
+						<span>Total work orders</span>
+						<strong>@totalCount</strong>
+						<small>Matching the current filters</small>
+					</div>
+					<span class="summary-icon summary-icon-blue" aria-hidden="true"><span class="bi bi-tools"></span></span>
+				</article>
+				<article class="maintenance-summary-card">
+					<div>
+						<span>Overdue on this page</span>
+						<strong>@rows.Count(row => MaintenanceFormat.IsOverdue(row.Status, row.DueUtc, DateTime.UtcNow))</strong>
+						<small>Past due and still open</small>
+					</div>
+					<span class="summary-icon summary-icon-amber" aria-hidden="true"><span class="bi bi-exclamation-triangle-fill"></span></span>
+				</article>
+			</section>
 
-	<section class="maintenance-filters" aria-label="Work order filters">
-		<div class="filter-field maintenance-filter-vessel">
-			<label>Vessel</label>
-			<VesselPicker @key="filterVesselPickerResetToken"
-						  Value="vesselIdFilter"
-						  ValueChanged="SelectVesselFilterAsync"
-						  Placeholder="Search vessels by name or IMO..."
-						  Disabled="isLoading" />
-		</div>
-		<div class="filter-field">
-			<label for="maintenance-status">Status</label>
-			<select id="maintenance-status" @bind="statusFilter" @bind:after="ApplyFiltersAsync">
-				<option value="">All statuses</option>
-				@foreach (var option in MaintenanceFormat.Statuses)
-				{
-					<option value="@option">@option</option>
-				}
-			</select>
-		</div>
-		<div class="filter-field">
-			<label for="maintenance-priority">Priority</label>
-			<select id="maintenance-priority" @bind="priorityFilter" @bind:after="ApplyFiltersAsync">
-				<option value="">All priorities</option>
-				@foreach (var option in MaintenanceFormat.Priorities)
-				{
-					<option value="@option">@option</option>
-				}
-			</select>
-		</div>
-		<div class="filter-field">
-			<label for="maintenance-overdue">Due status</label>
-			<select id="maintenance-overdue" @bind="overdueFilter" @bind:after="ApplyFiltersAsync">
-				<option value="">All</option>
-				<option value="true">Overdue only</option>
-				<option value="false">Not overdue</option>
-			</select>
-		</div>
-		<div class="filter-field">
-			<label for="maintenance-page-size">Per page</label>
-			<select id="maintenance-page-size" @bind="pageSize" @bind:after="ApplyFiltersAsync">
-				<option value="25">25</option>
-				<option value="50">50</option>
-				<option value="100">100</option>
-			</select>
-		</div>
-		<button class="maintenance-reset" type="button" @onclick="ClearFiltersAsync" disabled="@isLoading">Reset</button>
-	</section>
-
-	@if (failure is { IsValidation: true, Errors.Count: > 0 })
-	{
-		<div class="maintenance-validation" role="alert">
-			<strong>@failure.Title</strong>
-			<ul>
-				@foreach (var entry in failure.Errors)
-				{
-					@foreach (var message in entry.Value)
-					{
-						<li>@message</li>
-					}
-				}
-			</ul>
-		</div>
-	}
-
-	@if (createSuccessMessage is not null)
-	{
-		<div class="maintenance-success" role="status">@createSuccessMessage</div>
-	}
-	@if (completionSuccessMessage is not null)
-	{
-		<div class="maintenance-success" role="status">@completionSuccessMessage</div>
-	}
-	@if (completionFailure is { IsConflict: true } or { IsNotFound: true })
-	{
-		<div class="maintenance-conflict" role="alert">@completionFailure.Message</div>
-	}
-
-	<section class="maintenance-card" aria-labelledby="maintenance-list-title">
-		<div class="maintenance-card-heading">
-			<div>
-				<h2 id="maintenance-list-title">Work order board</h2>
-				<p>@totalCount work orders found</p>
-			</div>
-			<div class="maintenance-card-heading-actions">
-				<button type="button" class="maintenance-button" @onclick="OpenCreateForm">Create work order</button>
-				<span class="maintenance-card-icon" aria-hidden="true"><span class="bi bi-tools"></span></span>
-			</div>
-		</div>
-
-		@if (isLoading)
-		{
-			<LoadingState Message="Loading work orders..." />
-		}
-		else if (failure is not null && !failure.IsValidation)
-		{
-			<ApiErrorState Title="@failure.Title" Message="@failure.Message" OnRetry="RetryAsync" />
-		}
-		else if (rows.Count == 0)
-		{
-			<EmptyState Title="No work orders match your filters"
-						Message="Widen the filters or clear the vessel, status, and priority selections." />
-		}
-		else
-		{
-			<div class="maintenance-table-scroll">
-				<table class="maintenance-table">
-					<caption class="visually-hidden">Maintenance work orders, ordered by due date</caption>
-					<thead>
-						<tr>
-							<th scope="col" class="col-title">Title</th>
-							<th scope="col" class="col-vessel">Vessel</th>
-							<th scope="col" class="col-priority">Priority</th>
-							<th scope="col" class="col-status">Status</th>
-							<th scope="col" class="col-due">Due</th>
-							<th scope="col" class="col-assigned">Assigned engineer</th>
-							<th scope="col" class="col-created">Created</th>
-							<th scope="col" class="col-completed">Completed</th>
-							<th scope="col" class="col-actions"></th>
-						</tr>
-					</thead>
-					<tbody>
-						@{
-							var utcNow = DateTime.UtcNow;
-						}
-						@foreach (var row in rows)
-						{
-							var isOverdue = MaintenanceFormat.IsOverdue(row.Status, row.DueUtc, utcNow);
-							var isCritical = MaintenanceFormat.IsCritical(row.Priority);
-
-							<tr @key="row.WorkOrderId" class="@(isOverdue ? "maintenance-overdue-row" : null)">
-								<td class="col-title">
-									<span class="maintenance-title">@row.Title</span>
-									@if (!string.IsNullOrWhiteSpace(row.Description))
-									{
-										<span class="maintenance-description" title="@row.Description">@row.Description</span>
-									}
-								</td>
-								<td class="col-vessel">@row.VesselDisplayName</td>
-								<td class="col-priority">
-									<span class="maintenance-priority priority-@MaintenanceFormat.PriorityModifier(row.Priority)">
-										@if (isCritical)
-										{
-											<span class="bi bi-exclamation-triangle-fill" aria-hidden="true"></span>
-										}
-										@row.Priority
-									</span>
-								</td>
-								<td class="col-status">
-									<span class="maintenance-status status-@MaintenanceFormat.StatusModifier(row.Status)">@row.Status</span>
-								</td>
-								<td class="col-due">
-									@MaintenanceFormat.DueUtc(row.DueUtc)
-									@if (isOverdue)
-									{
-										<span class="maintenance-overdue-badge">Overdue</span>
-									}
-								</td>
-								<td class="maintenance-muted col-assigned">@MaintenanceFormat.AssignedEngineer(row.AssignedEngineerId)</td>
-								<td class="maintenance-muted col-created">@MaintenanceFormat.CreatedUtc(row.CreatedUtc)</td>
-								<td class="maintenance-muted col-completed">@MaintenanceFormat.CompletedUtc(row.CompletedUtc)</td>
-								<td class="col-actions">
-									@if (MaintenanceFormat.CanComplete(row.Status))
-									{
-										<button type="button" class="maintenance-complete-button" @onclick="() => OpenCompletionForm(row.WorkOrderId)">
-											Complete
-										</button>
-									}
-									@if (MaintenanceFormat.CanComplete(row.Status) && CanRecordUsage)
-									{
-										<button type="button" class="maintenance-usage-button" @onclick="() => OpenUsageForm(row.WorkOrderId)">
-											Record usage
-										</button>
-									}
-									@if (!MaintenanceFormat.CanComplete(row.Status))
-									{
-										<span class="bi bi-chevron-right maintenance-row-chevron" aria-hidden="true"></span>
-									}
-								</td>
-							</tr>
-						}
-					</tbody>
-				</table>
-			</div>
-
-			<div class="maintenance-pagination">
-				<span>Showing @FirstRowNumber&ndash;@LastRowNumber of @totalCount work orders</span>
-				<div class="maintenance-pages">
-					<button type="button" @onclick="PreviousPageAsync" disabled="@(pageNumber <= 1)">Previous</button>
-					<span class="maintenance-page-indicator">Page @pageNumber of @TotalPages</span>
-					<button type="button" @onclick="NextPageAsync" disabled="@(pageNumber >= TotalPages)">Next</button>
-				</div>
-			</div>
-		}
-	</section>
-
-	@if (isCreateFormOpen)
-	{
-	<div class="maintenance-modal-backdrop" @onclick="CloseCreateForm">
-	<section class="maintenance-form-card" aria-labelledby="maintenance-create-title" @onclick:stopPropagation="true">
-		<h2 id="maintenance-create-title">Create work order</h2>
-		<form class="maintenance-form" @onsubmit="SubmitCreateAsync" @onsubmit:preventDefault="true">
-			<div class="maintenance-form-grid">
-				<div class="filter-field">
-					<label for="create-vessel">Vessel</label>
-					<VesselPicker InputId="create-vessel"
-								  @bind-Value="createModel.VesselId"
+			<section class="maintenance-filters" aria-label="Work order filters">
+				<div class="filter-field maintenance-filter-vessel">
+					<label>Vessel</label>
+					<VesselPicker @key="filterVesselPickerResetToken"
+								  Value="vesselIdFilter"
+								  ValueChanged="SelectVesselFilterAsync"
 								  Placeholder="Search vessels by name or IMO..."
-								  Disabled="isCreating" />
+								  Disabled="isLoading" />
 				</div>
 				<div class="filter-field">
-					<label for="create-title">Title</label>
-					<input id="create-title" @bind="createModel.Title" maxlength="200" />
-				</div>
-				<div class="filter-field filter-field-wide">
-					<label for="create-description">Description</label>
-					<textarea id="create-description" @bind="createModel.Description" maxlength="2000"></textarea>
+					<label for="maintenance-status">Status</label>
+					<select id="maintenance-status" @bind="statusFilter" @bind:after="ApplyFiltersAsync">
+						<option value="">All statuses</option>
+						@foreach (var option in MaintenanceFormat.Statuses)
+						{
+							<option value="@option">@option</option>
+						}
+					</select>
 				</div>
 				<div class="filter-field">
-					<label for="create-priority">Priority</label>
-					<select id="create-priority" @bind="createModel.Priority">
-						<option value="">Select...</option>
+					<label for="maintenance-priority">Priority</label>
+					<select id="maintenance-priority" @bind="priorityFilter" @bind:after="ApplyFiltersAsync">
+						<option value="">All priorities</option>
 						@foreach (var option in MaintenanceFormat.Priorities)
 						{
 							<option value="@option">@option</option>
@@ -328,264 +142,465 @@
 					</select>
 				</div>
 				<div class="filter-field">
-					<label for="create-due">Due (UTC)</label>
-					<input id="create-due" type="datetime-local" @bind="createModel.DueUtcLocal" />
+					<label for="maintenance-overdue">Due status</label>
+					<select id="maintenance-overdue" @bind="overdueFilter" @bind:after="ApplyFiltersAsync">
+						<option value="">All</option>
+						<option value="true">Overdue only</option>
+						<option value="false">Not overdue</option>
+					</select>
 				</div>
-			</div>
-
-			@if (createFailure is { IsValidation: true })
-			{
-				<ul class="maintenance-field-errors" role="alert">
-					@foreach (var error in createFailure.Errors.SelectMany(entry => entry.Value))
-					{
-						<li>@error</li>
-					}
-				</ul>
-			}
-			@if (createFailure is { IsValidation: false })
-			{
-				<div class="maintenance-inline-error" role="alert">@createFailure.Message</div>
-			}
-
-					<div class="maintenance-form-actions">
-						<button type="submit" class="maintenance-button" disabled="@isCreating">
-							@(isCreating ? "Creating..." : "Create work order")
-						</button>
-						<button type="button" class="maintenance-reset" @onclick="CloseCreateForm">Cancel</button>
-					</div>
-				</form>
+				<div class="filter-field">
+					<label for="maintenance-page-size">Per page</label>
+					<select id="maintenance-page-size" @bind="pageSize" @bind:after="ApplyFiltersAsync">
+						<option value="25">25</option>
+						<option value="50">50</option>
+						<option value="100">100</option>
+					</select>
+				</div>
+				<button class="maintenance-reset" type="button" @onclick="ClearFiltersAsync" disabled="@isLoading">Reset</button>
 			</section>
-		</div>
-	}
-	@if (completingWorkOrderId is not null)
-	{
-		<div class="maintenance-modal-backdrop" @onclick="CloseCompletionForm">
-		<section class="maintenance-form-card" aria-labelledby="maintenance-complete-title" @onclick:stopPropagation="true">
-			<h2 id="maintenance-complete-title">Complete work order</h2>
-			<form class="maintenance-form" @onsubmit="SubmitCompletionAsync" @onsubmit:preventDefault="true">
-				<div class="maintenance-form-grid">
-					<div class="filter-field">
-						<label for="complete-technician">Technician ID</label>
-						<input id="complete-technician" @bind="completionModel.TechnicianId" />
-					</div>
-					<div class="filter-field">
-						<label for="complete-completed-utc">Completed (UTC)</label>
-						<input id="complete-completed-utc" type="datetime-local" @bind="completionModel.CompletedUtcLocal" />
-					</div>
-					<div class="filter-field">
-						<label for="complete-cost">Cost</label>
-						<input id="complete-cost" type="number" step="0.01" @bind="completionModel.Cost" />
-					</div>
-					<div class="filter-field">
-						<label for="complete-labor-hours">Labor hours</label>
-						<input id="complete-labor-hours" type="number" step="0.1" @bind="completionModel.LaborHours" />
-					</div>
-					<div class="filter-field filter-field-wide">
-						<label for="complete-notes">Notes</label>
-						<textarea id="complete-notes" @bind="completionModel.Notes" maxlength="2000"></textarea>
-					</div>
-				</div>
 
-				@if (completionFailure is { IsValidation: true })
-				{
-					<ul class="maintenance-field-errors" role="alert">
-						@foreach (var error in completionFailure.Errors.SelectMany(entry => entry.Value))
+			@if (failure is { IsValidation: true, Errors.Count: > 0 })
+			{
+				<div class="maintenance-validation" role="alert">
+					<strong>@failure.Title</strong>
+					<ul>
+						@foreach (var entry in failure.Errors)
 						{
-							<li>@error</li>
+							@foreach (var message in entry.Value)
+							{
+								<li>@message</li>
+							}
 						}
 					</ul>
-				}
-				
-				@if (completionFailure is { IsValidation: false, IsConflict: false, IsNotFound: false })
-				{
-					<div class="maintenance-inline-error" role="alert">@completionFailure.Message</div>
-				}
-
-				<div class="maintenance-form-actions">
-					<button type="submit" class="maintenance-button" disabled="@isCompleting">
-						@(isCompleting ? "Completing..." : "Complete work order")
-					</button>
-					<button type="button" class="maintenance-reset" @onclick="CloseCompletionForm">Cancel</button>
 				</div>
-			</form>
-		</section>
-		</div>
-	}
-	@if (usageWorkOrderId is not null)
-	{
-		<div class="maintenance-modal-backdrop" @onclick="CloseUsageForm">
-		<section class="maintenance-form-card" aria-labelledby="maintenance-usage-title" @onclick:stopPropagation="true">
-			<h2 id="maintenance-usage-title">Record part usage</h2>
-
-			@if (usageSuccessMessage is not null)
-			{
-				<div class="maintenance-success" role="status">@usageSuccessMessage</div>
 			}
 
-			<div class="maintenance-usage-picker">
-				<form class="maintenance-filters" @onsubmit="SearchInventoryAsync" @onsubmit:preventDefault="true">
-					<div class="filter-field">
-						<label for="usage-search">Search parts</label>
-						<input id="usage-search" @bind="inventorySearchText" placeholder="Name or part number" />
-					</div>
-					<div class="filter-field filter-field-check">
-						<label class="maintenance-checkbox" for="usage-low-stock">
-							<input id="usage-low-stock" type="checkbox" @bind="inventoryLowStockOnly" />
-							<span>Low stock only</span>
-						</label>
-					</div>
-					<button class="maintenance-button" type="submit" disabled="@isInventoryLoading">Search</button>
-				</form>
+			@if (createSuccessMessage is not null)
+			{
+				<div class="maintenance-success" role="status">@createSuccessMessage</div>
+			}
+			@if (completionSuccessMessage is not null)
+			{
+				<div class="maintenance-success" role="status">@completionSuccessMessage</div>
+			}
+			@if (completionFailure is { IsConflict: true } or { IsNotFound: true })
+			{
+				<div class="maintenance-conflict" role="alert">@completionFailure.Message</div>
+			}
 
-				@if (isInventoryLoading)
+			<section class="maintenance-card" aria-labelledby="maintenance-list-title">
+				<div class="maintenance-card-heading">
+					<div>
+						<h2 id="maintenance-list-title">Work order board</h2>
+						<p>@totalCount work orders found</p>
+					</div>
+					<div class="maintenance-card-heading-actions">
+						<button type="button" class="maintenance-button" @onclick="OpenCreateForm">Create work order</button>
+						<span class="maintenance-card-icon" aria-hidden="true"><span class="bi bi-tools"></span></span>
+					</div>
+				</div>
+
+				@if (isLoading)
 				{
-					<LoadingState Message="Loading inventory..." />
+					<LoadingState Message="Loading work orders..." />
 				}
-				else if (inventoryFailure is not null)
+				else if (failure is not null && !failure.IsValidation)
 				{
-					<ApiErrorState Title="@inventoryFailure.Title" Message="@inventoryFailure.Message" OnRetry="SearchInventoryAsync" />
+					<ApiErrorState Title="@failure.Title" Message="@failure.Message" OnRetry="RetryAsync" />
 				}
-				else if (inventoryItems.Count == 0)
+				else if (rows.Count == 0)
 				{
-					<EmptyState Title="No parts found" Message="Try a different search or clear the low-stock filter." />
+					<EmptyState Title="No work orders match your filters"
+								Message="Widen the filters or clear the vessel, status, and priority selections." />
 				}
 				else
 				{
 					<div class="maintenance-table-scroll">
 						<table class="maintenance-table">
-							<caption class="visually-hidden">Available inventory parts</caption>
+							<caption class="visually-hidden">Maintenance work orders, ordered by due date</caption>
 							<thead>
 								<tr>
-									<th scope="col">Part</th>
-									<th scope="col">Part number</th>
-									<th scope="col">In stock</th>
-									<th scope="col">Minimum</th>
-									<th scope="col"></th>
+									<th scope="col" class="col-title">Title</th>
+									<th scope="col" class="col-vessel">Vessel</th>
+									<th scope="col" class="col-priority">Priority</th>
+									<th scope="col" class="col-status">Status</th>
+									<th scope="col" class="col-due">Due</th>
+									<th scope="col" class="col-assigned">Assigned engineer</th>
+									<th scope="col" class="col-created">Created</th>
+									<th scope="col" class="col-completed">Completed</th>
+									<th scope="col" class="col-actions"></th>
 								</tr>
 							</thead>
 							<tbody>
-								@foreach (var item in inventoryItems)
+								@{
+									var utcNow = DateTime.UtcNow;
+								}
+								@foreach (var row in rows)
 								{
-									var isLowStock = MaintenanceFormat.IsLowStock(item.Quantity, item.MinimumQuantity);
-									var isSelected = selectedInventoryItemId == item.InventoryItemId;
+									var isOverdue = MaintenanceFormat.IsOverdue(row.Status, row.DueUtc, utcNow);
+									var isCritical = MaintenanceFormat.IsCritical(row.Priority);
 
-									<tr @key="item.InventoryItemId" class="@(isSelected ? "maintenance-selected-row" : null)">
-										<td>@item.Name</td>
-										<td>@item.PartNumber</td>
-										<td>
-											@item.Quantity
-											@if (isLowStock)
+									<tr @key="row.WorkOrderId"
+										class="maintenance-work-order-row @(isOverdue ? "maintenance-overdue-row" : null)"
+										role="link"
+										tabindex="0"
+										aria-label="@($"Open {row.Title} work order details")"
+										@onclick="() => OpenWorkOrderDetails(row.WorkOrderId)"
+										@onkeydown="(args) => HandleWorkOrderRowKeyDown(args, row.WorkOrderId)">
+										<td class="col-title">
+											<span class="maintenance-title">@row.Title</span>
+											@if (!string.IsNullOrWhiteSpace(row.Description))
 											{
-												<span class="maintenance-low-stock-badge">Low stock</span>
+												<span class="maintenance-description" title="@row.Description">@row.Description</span>
 											}
 										</td>
-										<td class="maintenance-muted">@item.MinimumQuantity</td>
-										<td>
-											<button type="button" class="maintenance-complete-button" @onclick="() => SelectInventoryItem(item)" disabled="@isSelected">
-												@(isSelected ? "Selected" : "Select")
-											</button>
+										<td class="col-vessel">@row.VesselDisplayName</td>
+										<td class="col-priority">
+											<span class="maintenance-priority priority-@MaintenanceFormat.PriorityModifier(row.Priority)">
+												@if (isCritical)
+												{
+													<span class="bi bi-exclamation-triangle-fill" aria-hidden="true"></span>
+												}
+												@row.Priority
+											</span>
+										</td>
+										<td class="col-status">
+											<span class="maintenance-status status-@MaintenanceFormat.StatusModifier(row.Status)">@row.Status</span>
+										</td>
+										<td class="col-due">
+											@MaintenanceFormat.DueUtc(row.DueUtc)
+											@if (isOverdue)
+											{
+												<span class="maintenance-overdue-badge">Overdue</span>
+											}
+										</td>
+										<td class="maintenance-muted col-assigned">@MaintenanceFormat.AssignedEngineer(row.AssignedEngineerId)</td>
+										<td class="maintenance-muted col-created">@MaintenanceFormat.CreatedUtc(row.CreatedUtc)</td>
+										<td class="maintenance-muted col-completed">@MaintenanceFormat.CompletedUtc(row.CompletedUtc)</td>
+										<td class="col-actions" @onclick:stopPropagation="true">
+											@if (MaintenanceFormat.CanComplete(row.Status))
+											{
+												<button type="button" class="maintenance-complete-button" @onclick="() => OpenCompletionForm(row.WorkOrderId)">
+													Complete
+												</button>
+											}
+											@if (MaintenanceFormat.CanComplete(row.Status) && CanRecordUsage)
+											{
+												<button type="button" class="maintenance-usage-button" @onclick="() => OpenUsageForm(row.WorkOrderId)">
+													Record usage
+												</button>
+											}
+											<span class="bi bi-chevron-right maintenance-row-chevron" aria-hidden="true"></span>
 										</td>
 									</tr>
 								}
 							</tbody>
 						</table>
 					</div>
+
+					<div class="maintenance-pagination">
+						<span>Showing @FirstRowNumber&ndash;@LastRowNumber of @totalCount work orders</span>
+						<div class="maintenance-pages">
+							<button type="button" @onclick="PreviousPageAsync" disabled="@(pageNumber <= 1)">Previous</button>
+							<span class="maintenance-page-indicator">Page @pageNumber of @TotalPages</span>
+							<button type="button" @onclick="NextPageAsync" disabled="@(pageNumber >= TotalPages)">Next</button>
+						</div>
+					</div>
 				}
-			</div>
+			</section>
 
-			@if (selectedInventoryItemId is not null)
+			@if (isCreateFormOpen)
 			{
-				<form class="maintenance-form" @onsubmit="SubmitUsageAsync" @onsubmit:preventDefault="true">
-					<div class="maintenance-form-grid">
-						<div class="filter-field">
-							<label>Selected part</label>
-							<span>@selectedInventoryItemName</span>
-						</div>
-						<div class="filter-field">
-							<label for="usage-quantity">Quantity used</label>
-							<input id="usage-quantity" type="number" step="0.001" min="0" @bind="usageModel.QuantityUsed" />
-							@if (MaintenanceFormat.IsInsufficientStock(selectedInventoryItemQuantity, usageModel.QuantityUsed))
+				<div class="maintenance-modal-backdrop" @onclick="CloseCreateForm">
+					<section class="maintenance-form-card" aria-labelledby="maintenance-create-title" @onclick:stopPropagation="true">
+						<h2 id="maintenance-create-title">Create work order</h2>
+						<form class="maintenance-form" @onsubmit="SubmitCreateAsync" @onsubmit:preventDefault="true">
+							<div class="maintenance-form-grid">
+								<div class="filter-field">
+									<label for="create-vessel">Vessel</label>
+									<VesselPicker InputId="create-vessel"
+												  @bind-Value="createModel.VesselId"
+												  Placeholder="Search vessels by name or IMO..."
+												  Disabled="isCreating" />
+								</div>
+								<div class="filter-field">
+									<label for="create-title">Title</label>
+									<input id="create-title" @bind="createModel.Title" maxlength="200" />
+								</div>
+								<div class="filter-field filter-field-wide">
+									<label for="create-description">Description</label>
+									<textarea id="create-description" @bind="createModel.Description" maxlength="2000"></textarea>
+								</div>
+								<div class="filter-field">
+									<label for="create-priority">Priority</label>
+									<select id="create-priority" @bind="createModel.Priority">
+										<option value="">Select...</option>
+										@foreach (var option in MaintenanceFormat.Priorities)
+										{
+											<option value="@option">@option</option>
+										}
+									</select>
+								</div>
+								<div class="filter-field">
+									<label for="create-due">Due (UTC)</label>
+									<input id="create-due" type="datetime-local" @bind="createModel.DueUtcLocal" />
+								</div>
+							</div>
+
+							@if (createFailure is { IsValidation: true })
 							{
-								<span class="maintenance-inline-error">Insufficient stock: only @selectedInventoryItemQuantity available.</span>
+								<ul class="maintenance-field-errors" role="alert">
+									@foreach (var error in createFailure.Errors.SelectMany(entry => entry.Value))
+									{
+										<li>@error</li>
+									}
+								</ul>
+							}
+							@if (createFailure is { IsValidation: false })
+							{
+								<div class="maintenance-inline-error" role="alert">@createFailure.Message</div>
+							}
+
+							<div class="maintenance-form-actions">
+								<button type="submit" class="maintenance-button" disabled="@isCreating">
+									@(isCreating ? "Creating..." : "Create work order")
+								</button>
+								<button type="button" class="maintenance-reset" @onclick="CloseCreateForm">Cancel</button>
+							</div>
+						</form>
+					</section>
+				</div>
+			}
+			@if (completingWorkOrderId is not null)
+			{
+				<div class="maintenance-modal-backdrop" @onclick="CloseCompletionForm">
+					<section class="maintenance-form-card" aria-labelledby="maintenance-complete-title" @onclick:stopPropagation="true">
+						<h2 id="maintenance-complete-title">Complete work order</h2>
+						<form class="maintenance-form" @onsubmit="SubmitCompletionAsync" @onsubmit:preventDefault="true">
+							<div class="maintenance-form-grid">
+								<div class="filter-field">
+									<label for="complete-technician">Technician ID</label>
+									<input id="complete-technician" @bind="completionModel.TechnicianId" />
+								</div>
+								<div class="filter-field">
+									<label for="complete-completed-utc">Completed (UTC)</label>
+									<input id="complete-completed-utc" type="datetime-local" @bind="completionModel.CompletedUtcLocal" />
+								</div>
+								<div class="filter-field">
+									<label for="complete-cost">Cost</label>
+									<input id="complete-cost" type="number" step="0.01" @bind="completionModel.Cost" />
+								</div>
+								<div class="filter-field">
+									<label for="complete-labor-hours">Labor hours</label>
+									<input id="complete-labor-hours" type="number" step="0.1" @bind="completionModel.LaborHours" />
+								</div>
+								<div class="filter-field filter-field-wide">
+									<label for="complete-notes">Notes</label>
+									<textarea id="complete-notes" @bind="completionModel.Notes" maxlength="2000"></textarea>
+								</div>
+							</div>
+
+							@if (completionFailure is { IsValidation: true })
+							{
+								<ul class="maintenance-field-errors" role="alert">
+									@foreach (var error in completionFailure.Errors.SelectMany(entry => entry.Value))
+									{
+										<li>@error</li>
+									}
+								</ul>
+							}
+
+							@if (completionFailure is { IsValidation: false, IsConflict: false, IsNotFound: false })
+							{
+								<div class="maintenance-inline-error" role="alert">@completionFailure.Message</div>
+							}
+
+							<div class="maintenance-form-actions">
+								<button type="submit" class="maintenance-button" disabled="@isCompleting">
+									@(isCompleting ? "Completing..." : "Complete work order")
+								</button>
+								<button type="button" class="maintenance-reset" @onclick="CloseCompletionForm">Cancel</button>
+							</div>
+						</form>
+					</section>
+				</div>
+			}
+			@if (usageWorkOrderId is not null)
+			{
+				<div class="maintenance-modal-backdrop" @onclick="CloseUsageForm">
+					<section class="maintenance-form-card" aria-labelledby="maintenance-usage-title" @onclick:stopPropagation="true">
+						<h2 id="maintenance-usage-title">Record part usage</h2>
+
+						@if (usageSuccessMessage is not null)
+						{
+							<div class="maintenance-success" role="status">@usageSuccessMessage</div>
+						}
+
+						<div class="maintenance-usage-picker">
+							<form class="maintenance-filters" @onsubmit="SearchInventoryAsync" @onsubmit:preventDefault="true">
+								<div class="filter-field">
+									<label for="usage-search">Search parts</label>
+									<input id="usage-search" @bind="inventorySearchText" placeholder="Name or part number" />
+								</div>
+								<div class="filter-field filter-field-check">
+									<label class="maintenance-checkbox" for="usage-low-stock">
+										<input id="usage-low-stock" type="checkbox" @bind="inventoryLowStockOnly" />
+										<span>Low stock only</span>
+									</label>
+								</div>
+								<button class="maintenance-button" type="submit" disabled="@isInventoryLoading">Search</button>
+							</form>
+
+							@if (isInventoryLoading)
+							{
+								<LoadingState Message="Loading inventory..." />
+							}
+							else if (inventoryFailure is not null)
+							{
+								<ApiErrorState Title="@inventoryFailure.Title" Message="@inventoryFailure.Message" OnRetry="SearchInventoryAsync" />
+							}
+							else if (inventoryItems.Count == 0)
+							{
+								<EmptyState Title="No parts found" Message="Try a different search or clear the low-stock filter." />
+							}
+							else
+							{
+								<div class="maintenance-table-scroll">
+									<table class="maintenance-table">
+										<caption class="visually-hidden">Available inventory parts</caption>
+										<thead>
+											<tr>
+												<th scope="col">Part</th>
+												<th scope="col">Part number</th>
+												<th scope="col">In stock</th>
+												<th scope="col">Minimum</th>
+												<th scope="col"></th>
+											</tr>
+										</thead>
+										<tbody>
+											@foreach (var item in inventoryItems)
+											{
+												var isLowStock = MaintenanceFormat.IsLowStock(item.Quantity, item.MinimumQuantity);
+												var isSelected = selectedInventoryItemId == item.InventoryItemId;
+
+												<tr @key="item.InventoryItemId" class="@(isSelected ? "maintenance-selected-row" : null)">
+													<td>@item.Name</td>
+													<td>@item.PartNumber</td>
+													<td>
+														@item.Quantity
+														@if (isLowStock)
+														{
+															<span class="maintenance-low-stock-badge">Low stock</span>
+														}
+													</td>
+													<td class="maintenance-muted">@item.MinimumQuantity</td>
+													<td>
+														<button type="button" class="maintenance-complete-button" @onclick="() => SelectInventoryItem(item)" disabled="@isSelected">
+															@(isSelected ? "Selected" : "Select")
+														</button>
+													</td>
+												</tr>
+											}
+										</tbody>
+									</table>
+								</div>
 							}
 						</div>
-					</div>
 
-					@if (usageFailure is { IsValidation: true })
-					{
-						<ul class="maintenance-field-errors" role="alert">
-							@foreach (var error in usageFailure.Errors.SelectMany(entry => entry.Value))
+						@if (selectedInventoryItemId is not null)
+						{
+							<form class="maintenance-form" @onsubmit="SubmitUsageAsync" @onsubmit:preventDefault="true">
+								<div class="maintenance-form-grid">
+									<div class="filter-field">
+										<label>Selected part</label>
+										<span>@selectedInventoryItemName</span>
+									</div>
+									<div class="filter-field">
+										<label for="usage-quantity">Quantity used</label>
+										<input id="usage-quantity" type="number" step="0.001" min="0" @bind="usageModel.QuantityUsed" />
+										@if (MaintenanceFormat.IsInsufficientStock(selectedInventoryItemQuantity, usageModel.QuantityUsed))
+										{
+											<span class="maintenance-inline-error">Insufficient stock: only @selectedInventoryItemQuantity available.</span>
+										}
+									</div>
+								</div>
+
+								@if (usageFailure is { IsValidation: true })
+								{
+									<ul class="maintenance-field-errors" role="alert">
+										@foreach (var error in usageFailure.Errors.SelectMany(entry => entry.Value))
+										{
+											<li>@error</li>
+										}
+									</ul>
+								}
+								@if (usageFailure is { IsValidation: false, IsConflict: false, IsNotFound: false })
+								{
+									<div class="maintenance-inline-error" role="alert">@usageFailure.Message</div>
+								}
+								@if (usageFailure is { IsConflict: true })
+								{
+									<div class="maintenance-conflict" role="alert">@usageFailure.Message</div>
+								}
+
+								<div class="maintenance-form-actions">
+									<button type="submit" class="maintenance-button" disabled="@isRecordingUsage">
+										@(isRecordingUsage ? "Recording..." : "Record usage")
+									</button>
+									<button type="button" class="maintenance-reset" @onclick="ClearSelectedInventoryItem">Change part</button>
+								</div>
+							</form>
+						}
+
+						<div class="maintenance-usage-history">
+							<h3>Recorded usage for this work order</h3>
+							@if (isUsagesLoading)
 							{
-								<li>@error</li>
+								<LoadingState Message="Loading usage..." />
 							}
-						</ul>
-					}
-					@if (usageFailure is { IsValidation: false, IsConflict: false, IsNotFound: false })
-					{
-						<div class="maintenance-inline-error" role="alert">@usageFailure.Message</div>
-					}
-					@if (usageFailure is { IsConflict: true })
-					{
-						<div class="maintenance-conflict" role="alert">@usageFailure.Message</div>
-					}
+							else if (usagesFailure is not null)
+							{
+								<ApiErrorState Title="@usagesFailure.Title" Message="@usagesFailure.Message" OnRetry="@(() => LoadWorkOrderUsagesAsync(usageWorkOrderId!.Value))" />
+							}
+							else if (workOrderUsages.Count == 0)
+							{
+								<EmptyState Title="No usage recorded yet" Message="Parts recorded for this work order will appear here." />
+							}
+							else
+							{
+								<table class="maintenance-table">
+									<caption class="visually-hidden">Parts already used on this work order</caption>
+									<thead>
+										<tr>
+											<th scope="col">Part</th>
+											<th scope="col">Part number</th>
+											<th scope="col">Quantity used</th>
+											<th scope="col">Remaining</th>
+										</tr>
+									</thead>
+									<tbody>
+										@foreach (var usage in workOrderUsages)
+										{
+											<tr @key="usage.PartId">
+												<td>@usage.Name</td>
+												<td>@usage.PartNumber</td>
+												<td>@usage.QuantityUsed</td>
+												<td>@usage.RemainingQuantity</td>
+											</tr>
+										}
+									</tbody>
+								</table>
+							}
+						</div>
 
-					<div class="maintenance-form-actions">
-						<button type="submit" class="maintenance-button" disabled="@isRecordingUsage">
-							@(isRecordingUsage ? "Recording..." : "Record usage")
-						</button>
-						<button type="button" class="maintenance-reset" @onclick="ClearSelectedInventoryItem">Change part</button>
-					</div>
-				</form>
+						<div class="maintenance-form-actions">
+							<button type="button" class="maintenance-reset" @onclick="CloseUsageForm">Close</button>
+						</div>
+					</section>
+				</div>
 			}
 
-			<div class="maintenance-usage-history">
-				<h3>Recorded usage for this work order</h3>
-				@if (isUsagesLoading)
-				{
-					<LoadingState Message="Loading usage..." />
-				}
-				else if (usagesFailure is not null)
-				{
-					<ApiErrorState Title="@usagesFailure.Title" Message="@usagesFailure.Message" OnRetry="@(() => LoadWorkOrderUsagesAsync(usageWorkOrderId!.Value))" />
-				}
-				else if (workOrderUsages.Count == 0)
-				{
-					<EmptyState Title="No usage recorded yet" Message="Parts recorded for this work order will appear here." />
-				}
-				else
-				{
-					<table class="maintenance-table">
-						<caption class="visually-hidden">Parts already used on this work order</caption>
-						<thead>
-							<tr>
-								<th scope="col">Part</th>
-								<th scope="col">Part number</th>
-								<th scope="col">Quantity used</th>
-								<th scope="col">Remaining</th>
-							</tr>
-						</thead>
-						<tbody>
-							@foreach (var usage in workOrderUsages)
-							{
-								<tr @key="usage.PartId">
-									<td>@usage.Name</td>
-									<td>@usage.PartNumber</td>
-									<td>@usage.QuantityUsed</td>
-									<td>@usage.RemainingQuantity</td>
-								</tr>
-							}
-						</tbody>
-					</table>
-				}
-			</div>
-
-			<div class="maintenance-form-actions">
-				<button type="button" class="maintenance-reset" @onclick="CloseUsageForm">Close</button>
-			</div>
-		</section>
 		</div>
-	}
-
-	</div>
 	}
 </section>

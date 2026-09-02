@@ -6,7 +6,7 @@ namespace HarborOps.Modules.Maintenance.Application;
 
 internal sealed class ReplaceWorkOrderEquipmentValidationException(
     IReadOnlyDictionary<string, string[]> errors)
-    :Exception("Replace work order equipment validation failed.")
+    : Exception("Replace work order equipment validation failed.")
 {
     internal IReadOnlyDictionary<string, string[]> Errors { get; } = errors;
 }

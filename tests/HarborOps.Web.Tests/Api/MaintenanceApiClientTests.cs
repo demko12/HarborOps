@@ -27,6 +27,28 @@ public sealed class MaintenanceApiClientTests
         "pageNumber":1,"pageSize":25,"totalCount":1}
         """;
 
+    private const string WorkOrderDetailsJson = """
+        {"workOrderId":"10000000-0000-0000-0000-000000000001",
+        "vesselId":"20000000-0000-0000-0000-000000000002","dryDockId":null,
+        "assignedEngineerId":"80000000-0000-0000-0000-000000000008",
+        "title":"Replace main engine filter","description":"Routine","priority":"High","status":"Open",
+        "dueUtc":"2026-12-01T10:00:00Z","createdUtc":"2026-08-01T08:00:00Z","completedUtc":null,
+        "isOverdue":true,"allowedActions":["Start","Cancel","ReplaceEquipment"],
+        "equipment":[{"equipmentId":"30000000-0000-0000-0000-000000000003",
+        "vesselId":"20000000-0000-0000-0000-000000000002","name":"Main engine","category":"Propulsion",
+        "manufacturer":"MAN","serialNumber":"SN-1"}],
+        "partUsages":[{"partId":"50000000-0000-0000-0000-000000000005","name":"Filter",
+        "partNumber":"FILTER-001","quantityUsed":2.5,"remainingQuantity":7.5}],
+        "completion":{"maintenanceRecordId":"60000000-0000-0000-0000-000000000006",
+        "technicianId":"70000000-0000-0000-0000-000000000007","completionDate":"2026-08-20",
+        "notes":"Done","cost":1250.50,"laborHours":6.5}}
+        """;
+
+    private static string WorkOrderTransitionJson(string status, string allowedActions) => $$"""
+        {"workOrderId":"10000000-0000-0000-0000-000000000001","status":"{{status}}",
+        "allowedActions":{{allowedActions}},"completedUtc":null,"transitionedUtc":"2026-08-02T09:00:00Z"}
+        """;
+
     [Fact]
     public async Task GetWorkOrdersAsync_sends_all_filters_and_paging_to_the_endpoint()
     {
@@ -940,5 +962,215 @@ public sealed class MaintenanceApiClientTests
                 $"/api/maintenance/purchase-orders/{purchaseOrderId}/cancel",
             ],
             paths);
+    }
+
+    [Fact]
+    public async Task GetWorkOrderDetailsAsync_reads_the_scope_usage_and_completion()
+    {
+        HttpRequestMessage? captured = null;
+        using var httpClient = CreateHttpClient((request, _) =>
+        {
+            captured = request;
+            return Json(HttpStatusCode.OK, WorkOrderDetailsJson);
+        });
+
+        var result = await CreateClient(httpClient).GetWorkOrderDetailsAsync(
+            Guid.Parse("10000000-0000-0000-0000-000000000001"),
+            CancellationToken.None);
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal(HttpMethod.Get, captured!.Method);
+        Assert.Equal(
+            "/api/maintenance/work-orders/10000000-0000-0000-0000-000000000001",
+            captured.RequestUri!.AbsolutePath);
+        Assert.Equal("Replace main engine filter", result.Value!.Title);
+        Assert.True(result.Value.IsOverdue);
+        Assert.Equal(["Start", "Cancel", "ReplaceEquipment"], result.Value.AllowedActions);
+        Assert.Equal("Main engine", Assert.Single(result.Value.Equipment).Name);
+        Assert.Equal(2.5m, Assert.Single(result.Value.PartUsages).QuantityUsed);
+        Assert.Equal(new DateOnly(2026, 8, 20), result.Value.Completion!.CompletionDate);
+    }
+
+    [Fact]
+    public async Task GetWorkOrderDetailsAsync_surfaces_not_found()
+    {
+        using var httpClient = CreateHttpClient((_, _) => Json(
+            HttpStatusCode.NotFound,
+            """{"title":"Maintenance work order not found.","detail":"Gone."}"""));
+
+        var result = await CreateClient(httpClient).GetWorkOrderDetailsAsync(
+            Guid.NewGuid(),
+            CancellationToken.None);
+
+        Assert.True(result.Failure!.IsNotFound);
+    }
+
+    [Fact]
+    public async Task ReplaceWorkOrderEquipmentAsync_puts_the_selected_identifiers()
+    {
+        HttpRequestMessage? captured = null;
+        string? body = null;
+        using var httpClient = CreateHttpClient(async (request, token) =>
+        {
+            captured = request;
+            body = await request.Content!.ReadAsStringAsync(token);
+
+            return await Json(
+                HttpStatusCode.OK,
+                """
+                {"workOrderId":"10000000-0000-0000-0000-000000000001","status":"Open",
+                "allowedActions":["Start","Cancel","ReplaceEquipment"],
+                "equipment":[{"equipmentId":"30000000-0000-0000-0000-000000000003",
+                "vesselId":"20000000-0000-0000-0000-000000000002","name":"Main engine",
+                "category":"Propulsion","manufacturer":null,"serialNumber":null}],
+                "updatedUtc":"2026-08-02T09:00:00Z"}
+                """);
+        });
+
+        var equipmentId = Guid.Parse("30000000-0000-0000-0000-000000000003");
+
+        var result = await CreateClient(httpClient).ReplaceWorkOrderEquipmentAsync(
+            Guid.Parse("10000000-0000-0000-0000-000000000001"),
+            new ReplaceWorkOrderEquipmentWebRequest([equipmentId]),
+            CancellationToken.None);
+
+        Assert.Equal(HttpMethod.Put, captured!.Method);
+        Assert.Equal(
+            "/api/maintenance/work-orders/10000000-0000-0000-0000-000000000001/equipment",
+            captured.RequestUri!.AbsolutePath);
+        Assert.Contains(equipmentId.ToString(), body!, StringComparison.OrdinalIgnoreCase);
+        Assert.Equal("Main engine", Assert.Single(result.Value!.Equipment).Name);
+    }
+
+    [Fact]
+    public async Task ReplaceWorkOrderEquipmentAsync_surfaces_validation_errors()
+    {
+        using var httpClient = CreateHttpClient((_, _) => Json(
+            HttpStatusCode.BadRequest,
+            """
+            {"title":"One or more validation errors occurred.",
+            "errors":{"equipmentIds":["Must not contain duplicates."]}}
+            """));
+
+        var result = await CreateClient(httpClient).ReplaceWorkOrderEquipmentAsync(
+            Guid.NewGuid(),
+            new ReplaceWorkOrderEquipmentWebRequest([Guid.NewGuid()]),
+            CancellationToken.None);
+
+        Assert.True(result.Failure!.IsValidation);
+        Assert.Contains("equipmentIds", result.Failure.Errors);
+    }
+
+    [Fact]
+    public async Task ReplaceWorkOrderEquipmentAsync_surfaces_a_vessel_conflict()
+    {
+        using var httpClient = CreateHttpClient((_, _) => Json(
+            HttpStatusCode.Conflict,
+            """
+            {"title":"Equipment does not belong to the work order vessel.",
+            "detail":"Other vessel."}
+            """));
+
+        var result = await CreateClient(httpClient).ReplaceWorkOrderEquipmentAsync(
+            Guid.NewGuid(),
+            new ReplaceWorkOrderEquipmentWebRequest([Guid.NewGuid()]),
+            CancellationToken.None);
+
+        Assert.True(result.Failure!.IsConflict);
+        Assert.Equal("Other vessel.", result.Failure.Message);
+    }
+
+    [Fact]
+    public async Task StartWorkOrderAsync_posts_to_the_start_action()
+    {
+        HttpRequestMessage? captured = null;
+        using var httpClient = CreateHttpClient((request, _) =>
+        {
+            captured = request;
+            return Json(HttpStatusCode.OK, WorkOrderTransitionJson(
+                "InProgress",
+                """["Cancel","ReplaceEquipment"]"""));
+        });
+
+        var result = await CreateClient(httpClient).StartWorkOrderAsync(
+            Guid.Parse("10000000-0000-0000-0000-000000000001"),
+            CancellationToken.None);
+
+        Assert.Equal(HttpMethod.Post, captured!.Method);
+        Assert.Equal(
+            "/api/maintenance/work-orders/10000000-0000-0000-0000-000000000001/start",
+            captured.RequestUri!.AbsolutePath);
+        Assert.Equal("InProgress", result.Value!.Status);
+        Assert.Equal(["Cancel", "ReplaceEquipment"], result.Value.AllowedActions);
+    }
+
+    [Fact]
+    public async Task CancelWorkOrderAsync_posts_to_the_cancel_action()
+    {
+        HttpRequestMessage? captured = null;
+        using var httpClient = CreateHttpClient((request, _) =>
+        {
+            captured = request;
+            return Json(HttpStatusCode.OK, WorkOrderTransitionJson("Canceled", "[]"));
+        });
+
+        var result = await CreateClient(httpClient).CancelWorkOrderAsync(
+            Guid.Parse("10000000-0000-0000-0000-000000000001"),
+            CancellationToken.None);
+
+        Assert.Equal(
+            "/api/maintenance/work-orders/10000000-0000-0000-0000-000000000001/cancel",
+            captured!.RequestUri!.AbsolutePath);
+        Assert.Equal("Canceled", result.Value!.Status);
+        Assert.Empty(result.Value.AllowedActions);
+    }
+
+    [Fact]
+    public async Task A_rejected_work_order_transition_is_reported_as_a_conflict()
+    {
+        using var httpClient = CreateHttpClient((_, _) => Json(
+            HttpStatusCode.Conflict,
+            """
+            {"title":"Maintenance work order status transition is not allowed.",
+            "detail":"Already started."}
+            """));
+
+        var result = await CreateClient(httpClient).StartWorkOrderAsync(
+            Guid.NewGuid(),
+            CancellationToken.None);
+
+        Assert.True(result.Failure!.IsConflict);
+        Assert.Equal("Already started.", result.Failure.Message);
+    }
+
+    [Fact]
+    public async Task A_work_order_transition_surfaces_a_forbidden_response()
+    {
+        using var httpClient = CreateHttpClient((_, _) => Json(HttpStatusCode.Forbidden, "{}"));
+
+        var result = await CreateClient(httpClient).CancelWorkOrderAsync(
+            Guid.NewGuid(),
+            CancellationToken.None);
+
+        Assert.True(result.Failure!.IsForbidden);
+    }
+
+    [Fact]
+    public async Task The_work_order_lifecycle_calls_report_an_unavailable_api()
+    {
+        using var httpClient = CreateHttpClient((_, _) => throw new HttpRequestException("Connection failed."));
+        var client = CreateClient(httpClient);
+        var workOrderId = Guid.NewGuid();
+
+        var details = await client.GetWorkOrderDetailsAsync(workOrderId, CancellationToken.None);
+        var equipment = await client.ReplaceWorkOrderEquipmentAsync(
+            workOrderId,
+            new ReplaceWorkOrderEquipmentWebRequest([]),
+            CancellationToken.None);
+        var start = await client.StartWorkOrderAsync(workOrderId, CancellationToken.None);
+
+        Assert.Equal(0, details.Failure!.StatusCode);
+        Assert.Equal(0, equipment.Failure!.StatusCode);
+        Assert.Equal(0, start.Failure!.StatusCode);
     }
 }

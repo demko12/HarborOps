@@ -426,3 +426,53 @@ internal sealed record ChangePurchaseOrderStatusResult(
     string Status,
     IReadOnlyList<string> AllowedTransitions,
     IReadOnlyList<PurchaseOrderStockAdjustment> StockAdjustments);
+
+internal sealed record WorkOrderEquipmentItem(
+    Guid EquipmentId,
+    Guid VesselId,
+    string Name,
+    string Category,
+    string? Manufacturer,
+    string? SerialNumber);
+
+internal sealed record WorkOrderCompletionRecord(
+    Guid MaintenanceRecordId,
+    Guid TechnicianId,
+    DateOnly CompletionDate,
+    string? Notes,
+    decimal? Cost,
+    decimal? LaborHours);
+
+internal sealed record MaintenanceWorkOrderDetailsModel(
+    Guid WorkOrderId,
+    Guid VesselId,
+    Guid? DryDockId,
+    Guid? AssignedEngineerId,
+    string Title,
+    string? Description,
+    string Priority,
+    string Status,
+    DateTime DueUtc,
+    DateTime CreatedUtc,
+    DateTime? CompletedUtc,
+    bool IsOverdue,
+    IReadOnlyList<string> AllowedActions,
+    IReadOnlyList<WorkOrderEquipmentItem> Equipment,
+    IReadOnlyList<WorkOrderPartUsageListItem> PartUsages,
+    WorkOrderCompletionRecord? Completion);
+
+internal sealed record ReplaceWorkOrderEquipmentWebRequest(IReadOnlyList<Guid> EquipmentIds);
+
+internal sealed record ReplaceWorkOrderEquipmentResult(
+    Guid WorkOrderId,
+    string Status,
+    IReadOnlyList<string> AllowedActions,
+    IReadOnlyList<WorkOrderEquipmentItem> Equipment,
+    DateTime UpdatedUtc);
+
+internal sealed record MaintenanceWorkOrderTransition(
+    Guid WorkOrderId,
+    string Status,
+    IReadOnlyList<string> AllowedActions,
+    DateTime? CompletedUtc,
+    DateTime TransitionedUtc);
