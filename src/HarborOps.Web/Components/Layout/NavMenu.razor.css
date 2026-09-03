@@ -84,16 +84,18 @@
 .topbar-menu-backdrop { position: fixed; z-index: 35; inset: 3.75rem 0 0; background: transparent; }
 
 .notifications-dropdown {
-    position: absolute;
-    top: calc(100% + .55rem);
-    right: 0;
+    position: fixed;
+    z-index: 1;
+    top: calc(3.75rem + .55rem);
+    right: 1rem;
     width: min(23rem, calc(100vw - 2rem));
     overflow: hidden;
     border: 1px solid var(--border-medium);
     border-radius: 1rem;
-    background: var(--bg-navbar);
+    /* Notification content must remain readable over the fixed, translucent header. */
+    background: var(--control-surface);
     box-shadow: 0 20px 48px rgba(15, 23, 42, .18), inset 0 1px rgba(255,255,255,.55);
-    backdrop-filter: blur(20px);
+    isolation: isolate;
 }
 
 .notifications-heading {
