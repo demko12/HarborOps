@@ -166,48 +166,10 @@
                 <span class="booking-count manifest-progress">@LoadedContainerCount of @containers.Count loaded</span>
             </div>
 
-            <div class="manifest-load-ship"
+            <div class="manifest-bar"
                  role="img"
                  aria-label="@($"{LoadedContainerCount} of {containers.Count} containers loaded")">
-                <svg viewBox="0 0 720 120" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
-                    <defs>
-                        <clipPath id="manifest-ship-fill-clip">
-                            <rect x="178" y="20" width="@LoadedShipFillWidth" height="54" />
-                        </clipPath>
-                    </defs>
-                    <path class="manifest-ship-water" d="M76 105C102 98 128 112 154 105S206 98 232 105 284 112 310 105 362 98 388 105 440 112 466 105 518 98 544 105 596 112 622 105 648 98 674 105" />
-                    <path class="manifest-ship-hull" d="M112 72H638L592 99H160Z" />
-                    <path class="manifest-ship-deck" d="M150 72H610" />
-                    <path class="manifest-ship-bridge" d="M126 72V48H166V72M134 48V39H157V48" />
-                    <g class="manifest-ship-containers">
-                        <rect x="178" y="48" width="54" height="21" rx="2" />
-                        <rect x="236" y="48" width="54" height="21" rx="2" />
-                        <rect x="294" y="48" width="54" height="21" rx="2" />
-                        <rect x="352" y="48" width="54" height="21" rx="2" />
-                        <rect x="410" y="48" width="54" height="21" rx="2" />
-                        <rect x="468" y="48" width="54" height="21" rx="2" />
-                        <rect x="526" y="48" width="54" height="21" rx="2" />
-                        <rect x="236" y="23" width="54" height="21" rx="2" />
-                        <rect x="294" y="23" width="54" height="21" rx="2" />
-                        <rect x="352" y="23" width="54" height="21" rx="2" />
-                        <rect x="410" y="23" width="54" height="21" rx="2" />
-                        <rect x="468" y="23" width="54" height="21" rx="2" />
-                    </g>
-                    <g class="manifest-ship-loaded-containers" clip-path="url(#manifest-ship-fill-clip)">
-                        <rect x="178" y="48" width="54" height="21" rx="2" />
-                        <rect x="236" y="48" width="54" height="21" rx="2" />
-                        <rect x="294" y="48" width="54" height="21" rx="2" />
-                        <rect x="352" y="48" width="54" height="21" rx="2" />
-                        <rect x="410" y="48" width="54" height="21" rx="2" />
-                        <rect x="468" y="48" width="54" height="21" rx="2" />
-                        <rect x="526" y="48" width="54" height="21" rx="2" />
-                        <rect x="236" y="23" width="54" height="21" rx="2" />
-                        <rect x="294" y="23" width="54" height="21" rx="2" />
-                        <rect x="352" y="23" width="54" height="21" rx="2" />
-                        <rect x="410" y="23" width="54" height="21" rx="2" />
-                        <rect x="468" y="23" width="54" height="21" rx="2" />
-                    </g>
-                </svg>
+                <span style="width:@(LoadedPercent)%"></span>
             </div>
 
             @if (isLoadingContainers)

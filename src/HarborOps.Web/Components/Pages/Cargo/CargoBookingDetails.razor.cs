@@ -229,8 +229,6 @@ public partial class CargoBookingDetails : IDisposable
         ? 0
         : (int)Math.Round(LoadedContainerCount * 100d / containers.Count);
 
-    private int LoadedShipFillWidth => (int)Math.Round(4.1d * LoadedPercent);
-
     private async Task LoadExecutionAsync()
     {
         await Task.WhenAll(LoadContainersAsync(), LoadOperationsAsync());
