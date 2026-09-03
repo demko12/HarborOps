@@ -70,7 +70,7 @@
     text-transform: uppercase;
 }
 
-.filter-field > input {
+.filter-field > :is(input, select) {
     min-width: 9.5rem;
     height: var(--control-height);
     padding: 0 .85rem;
@@ -84,11 +84,11 @@
     transition: border-color .16s ease, box-shadow .16s ease, background-color .16s ease;
 }
 
-    .filter-field > input:hover {
+    .filter-field > :is(input, select):hover {
         border-color: var(--border-strong-hover);
     }
 
-    .filter-field > input:focus {
+    .filter-field > :is(input, select):focus {
         border-color: var(--accent);
         outline: 0;
         box-shadow: var(--focus-ring);
@@ -104,8 +104,22 @@
         opacity: 1;
     }
 
-html[data-theme="light"] .filter-field > input {
+html[data-theme="light"] .filter-field > :is(input, select) {
     color-scheme: light;
+}
+
+.filter-field > select {
+    appearance: none;
+    padding-right: 2.5rem;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 16 16' fill='none'%3E%3Cpath d='m4 6 4 4 4-4' stroke='%2394a3b8' stroke-width='1.7' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right .85rem center;
+    cursor: pointer;
+}
+
+.filter-field > select option {
+    color: var(--text-primary);
+    background-color: var(--control-popup);
 }
 
 /* Filter buttons */
