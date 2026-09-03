@@ -360,7 +360,11 @@
             {
                 <div class="documents-file-upload-form">
                     <label for="documents-file-input">@(fileDetails.HasFile ? "Replacement file" : "File")</label>
-                    <InputFile id="documents-file-input" OnChange="OnFileSelected" disabled="@isUploading" />
+                    <div class="documents-file-picker @(isUploading ? "is-disabled" : string.Empty)">
+                        <InputFile id="documents-file-input" class="documents-file-native-input" OnChange="OnFileSelected" disabled="@isUploading" />
+                        <label class="documents-file-picker-button" for="documents-file-input"><span class="bi bi-paperclip" aria-hidden="true"></span> Choose file</label>
+                        <span class="documents-file-picker-name">@(selectedUploadFile?.Name ?? "No file chosen")</span>
+                    </div>
 
                     @if (isUploading)
                     {
