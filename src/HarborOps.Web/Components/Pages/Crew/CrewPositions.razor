@@ -1,0 +1,157 @@
+@page "/crew/positions"
+@attribute [Microsoft.AspNetCore.Authorization.Authorize(Policy = "AccessCrew")]
+@implements IDisposable
+@inject CrewApiClient CrewApi
+@inject CurrentUserAuthorizationState CurrentUser
+
+<PageTitle>Crew positions | HarborOps</PageTitle>
+
+<section class="crew-positions-page">
+    <header class="crew-positions-header">
+        <div>
+            <nav class="page-breadcrumb" aria-label="Breadcrumb"><a href="/crew">Crewing operations</a><span aria-hidden="true">/</span><span>Positions</span></nav>
+            <h1>Crew positions</h1>
+            <p>Maintain the rank catalogue used by crew registration and assignments.</p>
+        </div>
+        @if (CanManage)
+        {
+            <button type="button" class="crew-positions-add-button" @onclick="OpenCreateDialog">Add position</button>
+        }
+    </header>
+
+    <div class="crew-positions-filters">
+        <div class="filter-field filter-field-wide">
+            <label for="crew-positions-search">Search</label>
+            <input id="crew-positions-search" @bind="search" @bind:event="oninput" @bind:after="SearchAsync" placeholder="Search rank name" />
+        </div>
+        <div class="filter-field">
+            <label for="crew-positions-department">Department</label>
+            <select id="crew-positions-department" @bind="departmentFilter" @bind:after="SearchAsync">
+                <option value="">All departments</option>
+                @foreach (var option in DepartmentOptions)
+                {
+                    <option value="@option.Value">@option.Label</option>
+                }
+            </select>
+        </div>
+        <div class="crew-positions-filter-actions">
+            <button type="button" class="crew-reset-button" @onclick="ResetFiltersAsync" disabled="@isLoading">Reset</button>
+        </div>
+    </div>
+
+    <section class="crew-card" aria-labelledby="crew-positions-list-title">
+        <div class="crew-card-heading">
+            <div><h2 id="crew-positions-list-title">Position catalogue</h2><p>@totalCount positions found</p></div>
+            <span class="bi bi-person-badge" aria-hidden="true"></span>
+        </div>
+
+        @if (isLoading)
+        {
+            <LoadingState Message="Loading crew positions..." />
+        }
+        else if (failure is not null)
+        {
+            <ApiErrorState Title="@failure.Title" Message="@failure.Message" OnRetry="LoadAsync" />
+        }
+        else if (positions.Count == 0)
+        {
+            <EmptyState Title="No positions found" Message="Try another rank name or department." />
+        }
+        else
+        {
+            <div class="crew-positions-list-labels" aria-hidden="true">
+                <span>Rank</span><span>Department</span><span>Seniority</span><span>Crew members</span><span>Assignments</span><span></span>
+            </div>
+            <div class="crew-positions-list">
+                @foreach (var position in positions)
+                {
+                    <div class="crew-positions-row" @key="position.CrewPositionId">
+                        <div class="crew-positions-row-primary"><strong>@position.RankName</strong></div>
+                        <div class="crew-positions-row-cell">@DepartmentLabel(position.Department)</div>
+                        <div class="crew-positions-row-cell">@SeniorityLevelLabel(position.SeniorityLevel)</div>
+                        <div class="crew-positions-row-cell">@position.CrewMemberUsageCount</div>
+                        <div class="crew-positions-row-cell">@position.AssignmentUsageCount</div>
+                        <div class="crew-positions-row-actions">
+                            @if (CanManage)
+                            {
+                                <button type="button" class="crew-positions-edit-button" @onclick="() => OpenEditDialog(position)">Edit</button>
+                            }
+                        </div>
+                    </div>
+                }
+            </div>
+            <div class="crew-pagination">
+                <span>Showing @FirstRowNumber&ndash;@LastRowNumber of @totalCount positions</span>
+                <div>
+                    <button type="button" @onclick="PreviousPageAsync" disabled="@(pageNumber <= 1)">Previous</button>
+                    <span class="crew-page-indicator">Page @pageNumber of @TotalPages</span>
+                    <button type="button" @onclick="NextPageAsync" disabled="@(pageNumber >= TotalPages)">Next</button>
+                </div>
+            </div>
+        }
+    </section>
+
+    @if (isDialogOpen)
+    {
+        <div class="crew-positions-modal-backdrop" role="presentation" @onclick="CloseDialog">
+            <section class="crew-positions-modal" role="dialog" aria-modal="true" aria-labelledby="crew-positions-dialog-title" @onclick:stopPropagation="true">
+                <div class="crew-positions-modal-heading">
+                    <h2 id="crew-positions-dialog-title">@(editingPositionId is null ? "Add position" : "Edit position")</h2>
+                    <button type="button" class="crew-positions-modal-close" @onclick="CloseDialog" aria-label="Close">
+                        <span class="bi bi-x-lg" aria-hidden="true"></span>
+                    </button>
+                </div>
+
+                @if (conflictMessage is not null)
+                {
+                    <div class="crew-positions-form-conflict" role="alert">@conflictMessage</div>
+                }
+
+                @if (generalError is not null)
+                {
+                    <div class="crew-positions-form-error" role="alert">@generalError</div>
+                }
+
+                @if (fieldErrors.Count > 0)
+                {
+                    <ul class="crew-positions-form-field-errors" role="alert">
+                        @foreach (var message in fieldErrors)
+                        {
+                            <li>@message</li>
+                        }
+                    </ul>
+                }
+
+                <form class="crew-positions-form-grid" @onsubmit="SubmitAsync" @onsubmit:preventDefault="true">
+                    <div class="crew-positions-form-field">
+                        <label for="position-rank-name">Rank name</label>
+                        <input id="position-rank-name" type="text" @bind="dialogModel.RankName" maxlength="100" />
+                    </div>
+                    <div class="crew-positions-form-field">
+                        <label for="position-department">Department</label>
+                        <select id="position-department" @bind="dialogModel.Department">
+                            <option value="">Select...</option>
+                            @foreach (var option in DepartmentOptions)
+                            {
+                                <option value="@option.Value">@option.Label</option>
+                            }
+                        </select>
+                    </div>
+                    <div class="crew-positions-form-field">
+                        <label for="position-seniority-level">Seniority level</label>
+                        <select id="position-seniority-level" @bind="dialogModel.SeniorityLevel">
+                            <option value="">Select...</option>
+                            @foreach (var option in SeniorityLevelOptions)
+                            {
+                                <option value="@option.Value">@option.Label</option>
+                            }
+                        </select>
+                    </div>
+                    <button type="submit" class="crew-positions-form-submit" disabled="@isSubmitting">
+                        @(isSubmitting ? "Saving..." : "Save position")
+                    </button>
+                </form>
+            </section>
+        </div>
+    }
+</section>

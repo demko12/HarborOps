@@ -137,9 +137,13 @@ internal sealed class CrewApiClient(HttpClient httpClient)
     internal async Task<CrewApiResult<CrewPositionsResponse>> GetPositionsAsync(
         string? search,
         int pageSize,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        string? department = null,
+        int pageNumber = 1)
     {
-        var path = $"api/crew/positions?search={Uri.EscapeDataString(search ?? string.Empty)}&pageSize={pageSize}";
+        var path = $"api/crew/positions?search={Uri.EscapeDataString(search ?? string.Empty)}" +
+            $"&department={Uri.EscapeDataString(department ?? string.Empty)}" +
+            $"&pageNumber={pageNumber}&pageSize={pageSize}";
         try
         {
             using var response = await httpClient.GetAsync(path, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
@@ -163,6 +167,20 @@ internal sealed class CrewApiClient(HttpClient httpClient)
         {
             return new CrewApiResult<CrewPositionsResponse>(null, new CrewApiFailure(0, "HarborOps API is unavailable", "Please try again."));
         }
+    }
+
+    internal async Task<CrewApiWriteResult<RegisterCrewPositionResponse>> RegisterPositionAsync(
+        RegisterCrewPositionRequest request, CancellationToken cancellationToken)
+    {
+        return await PostAsync<RegisterCrewPositionRequest, RegisterCrewPositionResponse>(
+            "api/crew/positions", request, cancellationToken);
+    }
+
+    internal async Task<CrewApiWriteResult<UpdateCrewPositionResponse>> UpdatePositionAsync(
+        Guid positionId, UpdateCrewPositionRequest request, CancellationToken cancellationToken)
+    {
+        return await PutAsync<UpdateCrewPositionRequest, UpdateCrewPositionResponse>(
+            $"api/crew/positions/{positionId}", request, cancellationToken);
     }
 
     internal async Task<CrewApiWriteResult<RegisterCrewCertificateResponse>> RegisterCertificateAsync(
@@ -690,13 +708,37 @@ internal sealed record CrewAssignmentProfileItemResponse(
     Guid? CancelledByUserId = null,
     string? CancellationNotes = null);
 
-internal sealed record CrewPositionsResponse(IReadOnlyList<CrewPositionListItemResponse> Items);
+internal sealed record CrewPositionsResponse(
+    IReadOnlyList<CrewPositionListItemResponse> Items,
+    int PageNumber,
+    int PageSize,
+    int TotalCount);
 
 internal sealed record CrewPositionListItemResponse(
     Guid CrewPositionId,
     string RankName,
     string Department,
-    string SeniorityLevel);
+    string SeniorityLevel,
+    int CrewMemberUsageCount,
+    int AssignmentUsageCount);
+
+internal sealed record RegisterCrewPositionRequest
+{
+    public string? RankName { get; init; }
+    public string? Department { get; init; }
+    public string? SeniorityLevel { get; init; }
+}
+
+internal sealed record RegisterCrewPositionResponse(Guid Id);
+
+internal sealed record UpdateCrewPositionRequest
+{
+    public string? RankName { get; init; }
+    public string? Department { get; init; }
+    public string? SeniorityLevel { get; init; }
+}
+
+internal sealed record UpdateCrewPositionResponse(Guid Id);
 
 internal sealed record RegisterCrewCertificateRequest
 {

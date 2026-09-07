@@ -37,4 +37,15 @@ internal sealed class CrewPosition
     {
         return new CrewPosition(Guid.NewGuid(), rankName, department, seniorityLevel);
     }
+
+    internal void Update(string rankName, string department, string seniorityLevel)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(rankName);
+        ArgumentException.ThrowIfNullOrWhiteSpace(department);
+        ArgumentException.ThrowIfNullOrWhiteSpace(seniorityLevel);
+
+        RankName = rankName;
+        Department = department;
+        SeniorityLevel = seniorityLevel;
+    }
 }

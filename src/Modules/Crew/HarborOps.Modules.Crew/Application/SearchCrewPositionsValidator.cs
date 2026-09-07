@@ -5,6 +5,7 @@ namespace HarborOps.Modules.Crew.Application;
 internal static class SearchCrewPositionsValidator
 {
     internal const string PageSizeField = "pageSize";
+    internal const string PageNumberField = "pageNumber";
     internal const int DefaultPageSize = 25;
     internal const int MaxPageSize = 100;
 
@@ -22,6 +23,11 @@ internal static class SearchCrewPositionsValidator
             {
                 errors[PageSizeField] = [$"Page size must not exceed {MaxPageSize}."];
             }
+        }
+
+        if (request.PageNumber is { } pageNumber && pageNumber < 1)
+        {
+            errors[PageNumberField] = ["Page number must be 1 or greater."];
         }
 
         return errors;
