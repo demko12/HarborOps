@@ -126,6 +126,15 @@ internal sealed class Voyage
         PlannedArrival = plannedArrivalUtc;
     }
 
+    internal void EnsureEstimatesRevisable()
+    {
+        if (!string.Equals(Status, PlannedStatus, StringComparison.Ordinal)
+            && !string.Equals(Status, InProgressStatus, StringComparison.Ordinal))
+        {
+            throw new VoyageNotRevisableException(Id, Status);
+        }
+    }
+
     internal void Cancel()
     {
         if (!string.Equals(Status, PlannedStatus, StringComparison.Ordinal))

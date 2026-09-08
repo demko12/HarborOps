@@ -453,6 +453,11 @@ public sealed class VoyageScheduleChangePageTests : BunitContext
                 return respondToSchedule(request);
             }
 
+            if (path.EndsWith("/estimate-revisions", StringComparison.Ordinal))
+            {
+                return Json(HttpStatusCode.OK, EstimateRevisions());
+            }
+
             return Json(HttpStatusCode.OK, Itinerary());
         }))
         {
@@ -490,6 +495,13 @@ public sealed class VoyageScheduleChangePageTests : BunitContext
             uri => uri.AbsolutePath.EndsWith("/schedule-changes", StringComparison.Ordinal)));
 
         return page;
+    }
+
+    private static string EstimateRevisions()
+    {
+        return $$"""
+            {"voyageId":"{{VoyageId}}","stops":[],"revisions":[]}
+            """;
     }
 
     private static string Schedule(string status = "Planned", string[]? changes = null)

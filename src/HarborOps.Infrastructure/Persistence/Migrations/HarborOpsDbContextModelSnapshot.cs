@@ -2339,6 +2339,71 @@ namespace HarborOps.Infrastructure.Persistence.Migrations
                             }));
                 });
 
+            modelBuilder.Entity("HarborOps.Modules.Voyages.Domain.VoyageEstimateRevisionBatch", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("DelayId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Reason")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<DateTime>("RevisedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid>("RevisedByUserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("VoyageId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("DelayId")
+                        .IsUnique();
+
+                    b.HasIndex("VoyageId", "RevisedAtUtc");
+
+                    b.ToTable("VoyageEstimateRevisionBatches", "voyages");
+                });
+
+            modelBuilder.Entity("HarborOps.Modules.Voyages.Domain.VoyageEstimateRevisionItem", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("NewEta")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime>("NewEtd")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime>("PreviousEta")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime>("PreviousEtd")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid>("RevisionBatchId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("VoyageStopId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("VoyageStopId");
+
+                    b.HasIndex("RevisionBatchId", "VoyageStopId")
+                        .IsUnique();
+
+                    b.ToTable("VoyageEstimateRevisionItems", "voyages");
+                });
+
             modelBuilder.Entity("HarborOps.Modules.Voyages.Domain.VoyageLeg", b =>
                 {
                     b.Property<Guid>("Id")
@@ -2486,6 +2551,12 @@ namespace HarborOps.Infrastructure.Persistence.Migrations
 
                     b.Property<Guid>("PortId")
                         .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime?>("RevisedEta")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime?>("RevisedEtd")
+                        .HasColumnType("datetime2");
 
                     b.Property<string>("Status")
                         .IsRequired()
@@ -3012,6 +3083,36 @@ namespace HarborOps.Infrastructure.Persistence.Migrations
                         .WithMany()
                         .HasForeignKey("RouteId")
                         .OnDelete(DeleteBehavior.Restrict);
+                });
+
+            modelBuilder.Entity("HarborOps.Modules.Voyages.Domain.VoyageEstimateRevisionBatch", b =>
+                {
+                    b.HasOne("HarborOps.Modules.Voyages.Domain.Delay", null)
+                        .WithMany()
+                        .HasForeignKey("DelayId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("HarborOps.Modules.Voyages.Domain.Voyage", null)
+                        .WithMany()
+                        .HasForeignKey("VoyageId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("HarborOps.Modules.Voyages.Domain.VoyageEstimateRevisionItem", b =>
+                {
+                    b.HasOne("HarborOps.Modules.Voyages.Domain.VoyageEstimateRevisionBatch", null)
+                        .WithMany()
+                        .HasForeignKey("RevisionBatchId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("HarborOps.Modules.Voyages.Domain.VoyageStop", null)
+                        .WithMany()
+                        .HasForeignKey("VoyageStopId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
                 });
 
             modelBuilder.Entity("HarborOps.Modules.Voyages.Domain.VoyageLeg", b =>

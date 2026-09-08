@@ -388,6 +388,55 @@ public sealed class GetVoyagesQueryTests
         Assert.Contains(GetVoyagesValidator.PageSizeField, exception.Errors);
     }
 
+    [Fact]
+    public async Task Delay_impact_filter_returns_only_voyages_with_an_applied_impact()
+    {
+        await using var dbContext = CreateDbContext();
+        var untouched = await SeedAsync(
+            dbContext,
+            "VOY-561",
+            new DateTime(2026, 9, 7, 8, 0, 0, DateTimeKind.Utc));
+        var revised = await SeedAsync(
+            dbContext,
+            "VOY-562",
+            new DateTime(2026, 9, 8, 8, 0, 0, DateTimeKind.Utc));
+
+        await SeedDelayAsync(dbContext, untouched.Id);
+        await SeedAppliedDelayImpactAsync(dbContext, revised.Id);
+
+        var response = await CreateQuery(dbContext).GetVoyagesAsync(
+            new GetVoyagesRequest
+            {
+                From = WindowFrom,
+                To = WindowTo,
+                DelayImpactApplied = true,
+            },
+            CancellationToken.None);
+
+        Assert.Equal(1, response.TotalCount);
+        Assert.Equal("VOY-562", Assert.Single(response.Items).VoyageNumber);
+    }
+
+    [Fact]
+    public async Task Delay_impact_filter_is_opt_in()
+    {
+        await using var dbContext = CreateDbContext();
+        await SeedAsync(dbContext, "VOY-571", new DateTime(2026, 9, 9, 8, 0, 0, DateTimeKind.Utc));
+        var revised = await SeedAsync(
+            dbContext,
+            "VOY-572",
+            new DateTime(2026, 9, 10, 8, 0, 0, DateTimeKind.Utc));
+
+        await SeedAppliedDelayImpactAsync(dbContext, revised.Id);
+
+        var response = await CreateQuery(dbContext).GetVoyagesAsync(
+            new GetVoyagesRequest { From = WindowFrom, To = WindowTo },
+            CancellationToken.None);
+
+        Assert.Equal(2, response.TotalCount);
+    }
+
+
     private static IGetVoyagesQuery CreateQuery(HarborOpsDbContext dbContext)
     {
         return new GetVoyagesQuery(dbContext);
@@ -410,6 +459,35 @@ public sealed class GetVoyagesQueryTests
         await dbContext.SaveChangesAsync();
 
         return voyage;
+    }
+
+    private static async Task<Delay> SeedDelayAsync(HarborOpsDbContext dbContext, Guid voyageId)
+    {
+        var delay = Delay.Create(
+            voyageId,
+            "Weather",
+            120,
+            new DateTime(2026, 9, 11, 6, 0, 0, DateTimeKind.Utc));
+
+        await dbContext.Set<Delay>().AddAsync(delay);
+        await dbContext.SaveChangesAsync();
+
+        return delay;
+    }
+
+    private static async Task SeedAppliedDelayImpactAsync(HarborOpsDbContext dbContext, Guid voyageId)
+    {
+        var delay = await SeedDelayAsync(dbContext, voyageId);
+
+        var batch = VoyageEstimateRevisionBatch.Record(
+            voyageId,
+            delay.Id,
+            "Weather delay applied",
+            Guid.NewGuid(),
+            new DateTime(2026, 9, 11, 7, 0, 0, DateTimeKind.Utc));
+
+        await dbContext.Set<VoyageEstimateRevisionBatch>().AddAsync(batch);
+        await dbContext.SaveChangesAsync();
     }
 
     private static HarborOpsDbContext CreateDbContext()

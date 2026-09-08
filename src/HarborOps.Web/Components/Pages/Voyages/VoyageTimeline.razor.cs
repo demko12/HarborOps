@@ -74,6 +74,20 @@ public partial class VoyageTimeline : IDisposable
     private VoyagesApiFailure? scheduleFailure;
     private string? scheduleSuccess;
 
+    private VoyageEstimateRevisions? estimateRevisions;
+    private VoyagesApiFailure? estimateRevisionsFailure;
+
+    private Guid? impactDelayId;
+    private DelayImpactPreview? impactPreview;
+    private VoyagesApiFailure? impactFailure;
+    private bool isLoadingImpact;
+    private bool isApplyingImpact;
+    private string impactReason = string.Empty;
+    private string? impactSuccess;
+
+    private Guid? retryingRevisionBatchId;
+    private VoyagesApiFailure? alertFailure;
+
     private bool isAmendModalOpen;
     private Guid? amendDeparturePortId;
     private Guid? amendArrivalPortId;
@@ -218,6 +232,40 @@ public partial class VoyageTimeline : IDisposable
         itinerary = result.Value;
 
         await LoadScheduleAsync();
+        await LoadEstimateRevisionsAsync();
+    }
+
+    private async Task LoadEstimateRevisionsAsync()
+    {
+        var requestedVoyageId = VoyageId;
+        estimateRevisionsFailure = null;
+
+        VoyagesApiResult<VoyageEstimateRevisions> result;
+        try
+        {
+            result = await VoyagesApi.GetEstimateRevisionsAsync(
+                requestedVoyageId,
+                disposeCancellation.Token);
+        }
+        catch (OperationCanceledException) when (disposeCancellation.IsCancellationRequested)
+        {
+            return;
+        }
+
+        if (disposeCancellation.IsCancellationRequested || requestedVoyageId != VoyageId)
+        {
+            return;
+        }
+
+        if (!result.IsSuccess)
+        {
+            estimateRevisionsFailure = result.Failure;
+            estimateRevisions = null;
+
+            return;
+        }
+
+        estimateRevisions = result.Value;
     }
 
     private async Task LoadScheduleAsync()
@@ -455,6 +503,168 @@ public partial class VoyageTimeline : IDisposable
         finally
         {
             isSubmittingDelay = false;
+        }
+    }
+
+    internal bool IsDelayApplied(Guid delayId)
+    {
+        return estimateRevisions is not null
+            && estimateRevisions.Revisions.Any(revision => revision.DelayId == delayId);
+    }
+
+    internal VoyageEstimateStopModel? RevisedStop(Guid stopId)
+    {
+        return estimateRevisions?.Stops
+            .FirstOrDefault(stop => stop.StopId == stopId && stop.RevisedEta is not null);
+    }
+
+    internal static string FormatDelta(int minutes)
+    {
+        return minutes > 0
+            ? string.Create(CultureInfo.InvariantCulture, $"+{minutes} min")
+            : string.Create(CultureInfo.InvariantCulture, $"{minutes} min");
+    }
+
+    private async Task BeginImpactAsync(VoyageDelayModel delay)
+    {
+        impactDelayId = delay.DelayId;
+        impactPreview = null;
+        impactFailure = null;
+        impactSuccess = null;
+        impactReason = string.Empty;
+        isLoadingImpact = true;
+
+        try
+        {
+            var result = await VoyagesApi.PreviewDelayImpactAsync(
+                VoyageId,
+                delay.DelayId,
+                disposeCancellation.Token);
+
+            if (disposeCancellation.IsCancellationRequested)
+            {
+                return;
+            }
+
+            if (!result.IsSuccess)
+            {
+                impactFailure = result.Failure;
+
+                return;
+            }
+
+            impactPreview = result.Value;
+        }
+        finally
+        {
+            isLoadingImpact = false;
+        }
+    }
+
+    private void CancelImpact()
+    {
+        impactDelayId = null;
+        impactPreview = null;
+        impactFailure = null;
+        impactReason = string.Empty;
+    }
+
+    private async Task ApplyImpactAsync()
+    {
+        if (isApplyingImpact || impactDelayId is not { } delayId || impactPreview is null)
+        {
+            return;
+        }
+
+        isApplyingImpact = true;
+        impactFailure = null;
+
+        try
+        {
+            var request = new ApplyDelayImpactWebRequest(
+                impactReason,
+                impactPreview.Stops
+                    .Select(stop => new ApplyDelayImpactStopWebRequest(
+                        stop.StopId,
+                        stop.CurrentEta,
+                        stop.CurrentEtd,
+                        stop.ProposedEta,
+                        stop.ProposedEtd))
+                    .ToList());
+
+            var result = await VoyagesApi.ApplyDelayImpactAsync(
+                VoyageId,
+                delayId,
+                request,
+                disposeCancellation.Token);
+
+            if (disposeCancellation.IsCancellationRequested)
+            {
+                return;
+            }
+
+            if (!result.IsSuccess)
+            {
+                impactFailure = result.Failure;
+
+                if (result.Failure!.IsConflict || result.Failure.IsNotFound)
+                {
+                    impactPreview = null;
+
+                    await LoadAsync();
+                }
+
+                return;
+            }
+
+            impactSuccess = result.Value!.AlertCreated
+                ? "Revised estimates published and the operations team was alerted."
+                : "Revised estimates published. The operational alert could not be sent.";
+
+            CancelImpact();
+
+            await LoadAsync();
+        }
+        finally
+        {
+            isApplyingImpact = false;
+        }
+    }
+
+    private async Task RetryAlertAsync(Guid revisionBatchId)
+    {
+        if (retryingRevisionBatchId is not null)
+        {
+            return;
+        }
+
+        retryingRevisionBatchId = revisionBatchId;
+        alertFailure = null;
+
+        try
+        {
+            var result = await VoyagesApi.RetryEstimateRevisionAlertAsync(
+                VoyageId,
+                revisionBatchId,
+                disposeCancellation.Token);
+
+            if (disposeCancellation.IsCancellationRequested)
+            {
+                return;
+            }
+
+            if (!result.IsSuccess)
+            {
+                alertFailure = result.Failure;
+
+                return;
+            }
+
+            await LoadEstimateRevisionsAsync();
+        }
+        finally
+        {
+            retryingRevisionBatchId = null;
         }
     }
 

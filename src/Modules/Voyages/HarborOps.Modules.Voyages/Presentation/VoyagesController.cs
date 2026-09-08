@@ -21,6 +21,7 @@ public sealed class VoyagesController(
     RecordStopArrivalService recordStopArrivalService,
     RecordStopDepartureService recordStopDepartureService,
     RecordDelayService recordDelayService,
+    DelayImpactPreviewService delayImpactPreviewService,
     AmendVoyageScheduleService amendVoyageScheduleService,
     CancelVoyageService cancelVoyageService,
     IGetVoyageScheduleChangesQuery getVoyageScheduleChangesQuery)
@@ -542,6 +543,72 @@ public sealed class VoyagesController(
             {
                 Status = StatusCodes.Status404NotFound,
                 Title = "The requested voyage stop was not found.",
+                Detail = exception.Message,
+            });
+        }
+    }
+
+    [HttpPost("{voyageId:guid}/delays/{delayId:guid}/impact-preview")]
+    [Authorize(ManageVoyagesPolicy)]
+    [ProducesResponseType<DelayImpactPreviewResponse>(StatusCodes.Status200OK)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]
+    public async Task<ActionResult<DelayImpactPreviewResponse>> PreviewDelayImpact(
+        Guid voyageId,
+        Guid delayId,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            var response = await delayImpactPreviewService.PreviewAsync(
+                voyageId,
+                delayId,
+                cancellationToken);
+
+            return Ok(response);
+        }
+        catch (VoyageNotFoundException exception)
+        {
+            return NotFound(new ProblemDetails
+            {
+                Status = StatusCodes.Status404NotFound,
+                Title = "The requested voyage was not found.",
+                Detail = exception.Message,
+            });
+        }
+        catch (DelayNotFoundException exception)
+        {
+            return NotFound(new ProblemDetails
+            {
+                Status = StatusCodes.Status404NotFound,
+                Title = "The requested delay was not found.",
+                Detail = exception.Message,
+            });
+        }
+        catch (VoyageStopNotFoundException exception)
+        {
+            return NotFound(new ProblemDetails
+            {
+                Status = StatusCodes.Status404NotFound,
+                Title = "The requested voyage stop was not found.",
+                Detail = exception.Message,
+            });
+        }
+        catch (VoyageNotRevisableException exception)
+        {
+            return Conflict(new ProblemDetails
+            {
+                Status = StatusCodes.Status409Conflict,
+                Title = "The voyage cannot be revised from its current status.",
+                Detail = exception.Message,
+            });
+        }
+        catch (DelayImpactAlreadyAppliedException exception)
+        {
+            return Conflict(new ProblemDetails
+            {
+                Status = StatusCodes.Status409Conflict,
+                Title = "The delay impact was already applied.",
                 Detail = exception.Message,
             });
         }

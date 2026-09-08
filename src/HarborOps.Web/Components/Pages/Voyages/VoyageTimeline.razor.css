@@ -586,3 +586,52 @@ html[data-theme="light"] .timeline-status.amended { color: var(--status-info-str
 
 html[data-theme="light"] .timeline-submit.timeline-danger { border-color: rgba(185, 28, 28, .35); background: rgba(185, 28, 28, .1); color: #b91c1c; }
 html[data-theme="light"] .timeline-submit.timeline-danger:hover:not(:disabled) { border-color: rgba(185, 28, 28, .5); background: rgba(185, 28, 28, .16); }
+
+.timeline-stamps span.superseded { color: var(--text-muted); text-decoration: line-through; }
+.timeline-stamps span.timeline-revised { color: var(--status-info); }
+.timeline-stamps span.timeline-revised b { color: var(--status-info); }
+
+html[data-theme="light"] .timeline-stamps span.timeline-revised,
+html[data-theme="light"] .timeline-stamps span.timeline-revised b { color: var(--status-info-strong); }
+
+.timeline-impact { border-color: rgba(96, 165, 250, .35); }
+
+html[data-theme="light"] .timeline-impact { border-color: rgba(37, 99, 235, .3); }
+
+.timeline-impact-summary {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr));
+    gap: .9rem 1.4rem;
+    margin: 0;
+}
+
+.timeline-impact-summary dt { color: var(--text-muted); font-size: .72rem; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; }
+.timeline-impact-summary dd { margin: .25rem 0 0; color: var(--text-primary); font-size: .9rem; }
+
+.timeline-impact-warnings {
+    padding: .8rem 1.05rem;
+    border: 1px solid rgba(251, 191, 36, .35);
+    border-radius: .75rem;
+    background: rgba(120, 53, 15, .18);
+    font-size: .85rem;
+}
+
+.timeline-impact-warnings ul { margin: .35rem 0 0; padding-left: 1.1rem; color: var(--text-secondary); }
+
+html[data-theme="light"] .timeline-impact-warnings { border-color: rgba(180, 83, 9, .3); background: rgba(180, 83, 9, .08); }
+
+.timeline-impact-applied { color: var(--text-muted); font-size: .8rem; font-weight: 600; }
+
+.timeline-alert-state {
+    display: inline-flex;
+    padding: .22rem .6rem;
+    border-radius: var(--radius-pill);
+    font-size: .7rem;
+    font-weight: 700;
+}
+
+.timeline-alert-state.sent { color: #5eead4; background: rgba(45, 212, 191, .14); }
+.timeline-alert-state.failed { color: var(--status-danger, #f87171); background: rgba(248, 113, 113, .14); }
+
+html[data-theme="light"] .timeline-alert-state.sent { color: var(--status-success-strong); background: rgba(15, 118, 110, .12); }
+html[data-theme="light"] .timeline-alert-state.failed { color: #b91c1c; background: rgba(185, 28, 28, .1); }

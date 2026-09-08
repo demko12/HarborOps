@@ -47,6 +47,12 @@ internal sealed class GetVoyagesQuery(DbContext dbContext) : IGetVoyagesQuery
             voyages = voyages.Where(voyage => voyage.Status == status);
         }
 
+        if (request.DelayImpactApplied == true)
+        {
+            voyages = voyages.Where(voyage => dbContext.Set<VoyageEstimateRevisionBatch>()
+                .Any(batch => batch.VoyageId == voyage.Id));
+        }
+
         var totalCount = await voyages.CountAsync(cancellationToken);
 
         var items = await voyages

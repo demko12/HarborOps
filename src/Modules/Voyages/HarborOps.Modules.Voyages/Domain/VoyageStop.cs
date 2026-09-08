@@ -46,11 +46,19 @@ internal sealed class VoyageStop
 
     public DateTime Etd { get; private set; }
 
+    public DateTime? RevisedEta { get; private set; }
+
+    public DateTime? RevisedEtd { get; private set; }
+
     public DateTime? Ata { get; private set; }
 
     public DateTime? Atd { get; private set; }
 
     public string Status { get; private set; } = null!;
+
+    internal DateTime CurrentEta => RevisedEta ?? Eta;
+
+    internal DateTime CurrentEtd => RevisedEtd ?? Etd;
 
     internal static VoyageStop Create(
         Guid voyageId,
@@ -78,6 +86,35 @@ internal sealed class VoyageStop
         }
 
         BerthId = berthId;
+    }
+
+    internal void ReviseEstimates(DateTime revisedEta, DateTime revisedEtd)
+    {
+        if (string.Equals(Status, DepartedStatus, StringComparison.Ordinal) || Atd is not null)
+        {
+            throw new VoyageStopNotRevisableException(Id, Status);
+        }
+
+        if (Ata is { } actualArrival)
+        {
+            if (revisedEta != CurrentEta)
+            {
+                throw new VoyageStopNotRevisableException(Id, Status);
+            }
+
+            if (revisedEtd < actualArrival)
+            {
+                throw new VoyageEstimateChronologyException(Id, revisedEtd, actualArrival);
+            }
+        }
+
+        if (revisedEtd < revisedEta)
+        {
+            throw new VoyageEstimateChronologyException(Id, revisedEtd, revisedEta);
+        }
+
+        RevisedEta = revisedEta;
+        RevisedEtd = revisedEtd;
     }
 
     internal void RecordArrival(DateTime ataUtc)

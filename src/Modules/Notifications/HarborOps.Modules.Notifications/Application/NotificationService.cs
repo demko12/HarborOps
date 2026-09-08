@@ -13,6 +13,22 @@ public sealed class NotificationService(DbContext dbContext, TimeProvider timePr
         await dbContext.AddAsync(new OperationAlert(capability, sourceType, sourceId, vesselId, crewMemberId, expiryDate, thresholdDays, severity, timeProvider.GetUtcNow().UtcDateTime), cancellationToken);
         try { await dbContext.SaveChangesAsync(cancellationToken); } catch (DbUpdateException) { }
     }
+    public async Task<bool> GenerateOperationAlertAsync(string capability, string sourceType, Guid sourceId, DateOnly effectiveDate, string severity, CancellationToken cancellationToken)
+    {
+        if (await AlertExistsAsync(sourceId, cancellationToken)) return true;
+        var entry = await dbContext.AddAsync(new OperationAlert(capability, sourceType, sourceId, null, null, effectiveDate, 0, severity, timeProvider.GetUtcNow().UtcDateTime), cancellationToken);
+        try { await dbContext.SaveChangesAsync(cancellationToken); }
+        catch (DbUpdateException) { entry.State = EntityState.Detached; return await AlertExistsAsync(sourceId, cancellationToken); }
+        return true;
+    }
+    public Task<bool> AlertExistsAsync(Guid sourceId, CancellationToken cancellationToken) => dbContext.Set<OperationAlert>().AsNoTracking().AnyAsync(x => x.SourceId == sourceId, cancellationToken);
+    public async Task<IReadOnlySet<Guid>> FindAlertedSourcesAsync(IReadOnlyCollection<Guid> sourceIds, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(sourceIds);
+        if (sourceIds.Count == 0) return new HashSet<Guid>();
+        var alerted = await dbContext.Set<OperationAlert>().AsNoTracking().Where(x => sourceIds.Contains(x.SourceId)).Select(x => x.SourceId).Distinct().ToListAsync(cancellationToken);
+        return alerted.ToHashSet();
+    }
     public async Task<NotificationsPage> GetAsync(GetNotificationsRequest request, Guid userId, IReadOnlySet<string> capabilities, CancellationToken cancellationToken)
     {
         var page = Math.Max(1, request.PageNumber ?? 1); var size = Math.Clamp(request.PageSize ?? 25, 1, 100);
