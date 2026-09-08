@@ -141,4 +141,20 @@ internal sealed class MaintenanceWorkOrder
             throw new WorkOrderTransitionNotAllowedException(Id, Status, requestedStatus);
         }
     }
+
+    internal void EnsureReservationsCanChange()
+    {
+        if (Status is not WorkOrderStatus.Open)
+        {
+            throw new WorkOrderReservationChangeNotAllowedException(Id, Status);
+        }
+    }
+
+    internal void EnsureReservationsCanRelease()
+    {
+        if (Status is not (WorkOrderStatus.Open or WorkOrderStatus.Canceled))
+        {
+            throw new WorkOrderReservationReleaseNotAllowedException(Id, Status);
+        }
+    }
 }

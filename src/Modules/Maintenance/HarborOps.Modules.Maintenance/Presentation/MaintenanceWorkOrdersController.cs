@@ -23,7 +23,10 @@ public class MaintenanceWorkOrdersController(
     GetMaintenanceWorkOrderDetailsQuery getMaintenanceWorkOrderDetailsQuery,
     ReplaceWorkOrderEquipmentService replaceWorkOrderEquipmentService,
     StartMaintenanceWorkOrderService startMaintenanceWorkOrderService,
-    CancelMaintenanceWorkOrderService cancelMaintenanceWorkOrderService)
+    CancelMaintenanceWorkOrderService cancelMaintenanceWorkOrderService,
+    GetWorkOrderPartReservationsQuery getWorkOrderPartReservationsQuery,
+    ReplaceWorkOrderPartReservationsService replaceWorkOrderPartReservationsService,
+    ReleaseWorkOrderPartReservationsService releaseWorkOrderPartReservationsService)
     : ControllerBase
 {
 
@@ -348,6 +351,15 @@ public class MaintenanceWorkOrdersController(
             });
 
         }
+        catch (WorkOrderPartReservationShortageException exception)
+        {
+            return Conflict(new ProblemDetails
+            {
+                Status = StatusCodes.Status409Conflict,
+                Title = "Maintenance work order has unreserved parts.",
+                Detail = exception.Message,
+            });
+        }
         catch (WorkOrderTransitionNotAllowedException exception)
         {
             return Conflict(new ProblemDetails
@@ -394,6 +406,138 @@ public class MaintenanceWorkOrdersController(
                 Detail = exception.Message,
             });
 
+        }
+    }
+
+    [HttpGet("{workOrderId:guid}/part-reservations")]
+    [Authorize(ReadPolicy)]
+    [ProducesResponseType<GetWorkOrderPartReservationsResponse>(StatusCodes.Status200OK)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<GetWorkOrderPartReservationsResponse>> GetPartReservations(
+    Guid workOrderId,
+    CancellationToken cancellationToken)
+    {
+        try
+        {
+            var response = await getWorkOrderPartReservationsQuery.GetReservationsAsync(
+                workOrderId,
+                cancellationToken);
+
+            return Ok(response);
+        }
+        catch (MaintenanceWorkOrderNotFoundException exception)
+        {
+            return NotFound(new ProblemDetails
+            {
+                Status = StatusCodes.Status404NotFound,
+                Title = "Maintenance work order not found.",
+                Detail = exception.Message,
+            });
+        }
+    }
+
+    [HttpPut("{workOrderId:guid}/part-reservations")]
+    [Authorize(ManagePolicy)]
+    [ProducesResponseType<ReplaceWorkOrderPartReservationsResponse>(StatusCodes.Status200OK)]
+    [ProducesResponseType<HttpValidationProblemDetails>(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]
+    public async Task<ActionResult<ReplaceWorkOrderPartReservationsResponse>> ReplacePartReservations(
+        Guid workOrderId,
+        [FromBody] ReplaceWorkOrderPartReservationsRequest request,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            var response = await replaceWorkOrderPartReservationsService.ReplaceReservationsAsync(
+                workOrderId,
+                request,
+                cancellationToken);
+
+            return Ok(response);
+        }
+        catch (ReplaceWorkOrderPartReservationsValidationException exception)
+        {
+            return BadRequest(new HttpValidationProblemDetails(
+                exception.Errors.ToDictionary(
+                    error => error.Key,
+                    error => error.Value,
+                    StringComparer.Ordinal))
+            {
+                Status = StatusCodes.Status400BadRequest,
+                Title = "One or more validation errors occurred.",
+            });
+        }
+        catch (MaintenanceWorkOrderNotFoundException exception)
+        {
+            return NotFound(new ProblemDetails
+            {
+                Status = StatusCodes.Status404NotFound,
+                Title = "Maintenance work order not found.",
+                Detail = exception.Message,
+            });
+        }
+        catch (WorkOrderPartReservationItemsNotFoundException exception)
+        {
+            return NotFound(new ProblemDetails
+            {
+                Status = StatusCodes.Status404NotFound,
+                Title = "Inventory item not found.",
+                Detail = exception.Message,
+            });
+        }
+        catch (WorkOrderReservationChangeNotAllowedException exception)
+        {
+            return Conflict(new ProblemDetails
+            {
+                Status = StatusCodes.Status409Conflict,
+                Title = "Work order part reservations cannot be changed from its current status.",
+                Detail = exception.Message,
+            });
+        }
+        catch (WorkOrderPartReservationConflictException exception)
+        {
+            return Conflict(new ProblemDetails
+            {
+                Status = StatusCodes.Status409Conflict,
+                Title = "Work order part reservations could not be replaced.",
+                Detail = exception.Message,
+            });
+        }
+    }
+
+    [HttpPost("{workOrderId:guid}/part-reservations/release")]
+    [Authorize(ManagePolicy)]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]
+    public async Task<IActionResult> ReleasePartReservations(
+        Guid workOrderId,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            await releaseWorkOrderPartReservationsService.ReleaseAsync(workOrderId, cancellationToken);
+
+            return NoContent();
+        }
+        catch (MaintenanceWorkOrderNotFoundException exception)
+        {
+            return NotFound(new ProblemDetails
+            {
+                Status = StatusCodes.Status404NotFound,
+                Title = "Maintenance work order not found.",
+                Detail = exception.Message,
+            });
+        }
+        catch (WorkOrderReservationReleaseNotAllowedException exception)
+        {
+            return Conflict(new ProblemDetails
+            {
+                Status = StatusCodes.Status409Conflict,
+                Title = "Work order part reservations cannot be released from its current status.",
+                Detail = exception.Message,
+            });
         }
     }
 }

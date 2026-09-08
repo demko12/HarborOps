@@ -21,6 +21,19 @@ public sealed class StartMaintenanceWorkOrderService(DbContext dbContext, TimePr
             throw new MaintenanceWorkOrderNotFoundException(workOrderId);
         }
 
+        if (workOrder.Status is WorkOrderStatus.Open)
+        {
+            var shortaggeItemIds = await WorkOrderPartReservationReader.ReadShortageItemIdsAsync(
+                dbContext,
+                workOrderId,
+                cancellationToken);
+
+            if (shortaggeItemIds.Count > 0)
+            {
+                throw new WorkOrderPartReservationShortageException(workOrderId, shortaggeItemIds);
+            }
+        }
+
         workOrder.Start();
 
         await dbContext.SaveChangesAsync(cancellationToken);
