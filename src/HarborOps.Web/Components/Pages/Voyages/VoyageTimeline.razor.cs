@@ -55,6 +55,15 @@ public partial class VoyageTimeline : IDisposable
 
     private Guid? activeStopPortId;
     private Guid? selectedBerthId;
+    private DateOnly berthArrivalDate;
+    private TimeOnly berthArrivalTime;
+    private DateOnly berthDepartureDate;
+    private TimeOnly berthDepartureTime;
+    private string berthReason = string.Empty;
+    private BerthAvailability? berthAvailability;
+    private VoyagesApiFailure? berthAvailabilityFailure;
+    private bool isLoadingBerthAvailability;
+    private BerthAllocationHistory? berthAllocationHistory;
 
     private string delayReason = string.Empty;
     private string? delayDescription;
@@ -328,7 +337,16 @@ public partial class VoyageTimeline : IDisposable
         activeActionKind = BerthActionKind;
         actionFailure = null;
         actionSuccess = null;
-        selectedBerthId = null;
+        selectedBerthId = stop.BerthId;
+        berthArrivalDate = DateOnly.FromDateTime(stop.Eta);
+        berthArrivalTime = TimeOnly.FromTimeSpan(stop.Eta.TimeOfDay);
+        berthDepartureDate = DateOnly.FromDateTime(stop.Etd);
+        berthDepartureTime = TimeOnly.FromTimeSpan(stop.Etd.TimeOfDay);
+        berthReason = string.Empty;
+        berthAvailability = null;
+        berthAvailabilityFailure = null;
+        berthAllocationHistory = null;
+        _ = LoadBerthAllocationContextAsync(stop);
     }
 
     private void BeginStopAction(VoyageItineraryStopModel stop, string kind)
@@ -353,6 +371,43 @@ public partial class VoyageTimeline : IDisposable
         activeActionKind = null;
         actionFailure = null;
         selectedBerthId = null;
+        berthAvailability = null;
+        berthAllocationHistory = null;
+    }
+
+    private async Task LoadBerthAllocationContextAsync(VoyageItineraryStopModel stop)
+    {
+        isLoadingBerthAvailability = true;
+        berthAvailabilityFailure = null;
+        try
+        {
+            var start = CombineUtc(berthArrivalDate, berthArrivalTime);
+            var end = CombineUtc(berthDepartureDate, berthDepartureTime);
+            var availabilityTask = VoyagesApi.GetBerthAvailabilityAsync(stop.PortId, start, end, disposeCancellation.Token);
+            var historyTask = VoyagesApi.GetBerthAllocationHistoryAsync(VoyageId, stop.StopId, disposeCancellation.Token);
+            await Task.WhenAll(availabilityTask, historyTask);
+            if (disposeCancellation.IsCancellationRequested || activeStopId != stop.StopId) return;
+            var availabilityResult = await availabilityTask;
+            var historyResult = await historyTask;
+            if (availabilityResult.IsSuccess) berthAvailability = availabilityResult.Value;
+            else berthAvailabilityFailure = availabilityResult.Failure;
+            if (historyResult.IsSuccess) berthAllocationHistory = historyResult.Value;
+        }
+        catch (OperationCanceledException) when (disposeCancellation.IsCancellationRequested) { }
+        finally
+        {
+            if (!disposeCancellation.IsCancellationRequested && activeStopId == stop.StopId) isLoadingBerthAvailability = false;
+        }
+    }
+
+    private void UseAlternative(BerthAvailabilityModel berth)
+    {
+        selectedBerthId = berth.BerthId;
+        if (berth.NearestAvailableFromUtc is not { } start || berth.NearestAvailableToUtc is not { } end) return;
+        berthArrivalDate = DateOnly.FromDateTime(start);
+        berthArrivalTime = TimeOnly.FromTimeSpan(start.TimeOfDay);
+        berthDepartureDate = DateOnly.FromDateTime(end);
+        berthDepartureTime = TimeOnly.FromTimeSpan(end.TimeOfDay);
     }
 
     private async Task ConfirmBerthAsync()
@@ -367,10 +422,29 @@ public partial class VoyageTimeline : IDisposable
 
         try
         {
-            var result = await VoyagesApi.AssignBerthAsync(
-                VoyageId,
-                stopId,
-                new AssignBerthWebRequest(berthId),
+            var isInitialAssignment = itinerary?.Stops.FirstOrDefault(stop => stop.StopId == stopId)?.BerthId is null;
+            var result = isInitialAssignment
+                ? await VoyagesApi.AssignBerthAsync(VoyageId, stopId, new AssignBerthWebRequest(berthId), disposeCancellation.Token)
+                : null;
+
+            if (result is not null)
+            {
+                if (!result.IsSuccess)
+                {
+                    actionFailure = result.Failure;
+                    if (result.Failure!.IsConflict || result.Failure.IsNotFound) await LoadAsync();
+                    return;
+                }
+
+                actionSuccess = "Berth assigned.";
+                CancelAction();
+                await LoadAsync();
+                return;
+            }
+
+            var replacement = await VoyagesApi.ReplaceBerthAllocationAsync(
+                VoyageId, stopId,
+                new ReplaceBerthAllocationWebRequest(berthId, CombineUtc(berthArrivalDate, berthArrivalTime), CombineUtc(berthDepartureDate, berthDepartureTime), berthReason),
                 disposeCancellation.Token);
 
             if (disposeCancellation.IsCancellationRequested)
@@ -378,11 +452,11 @@ public partial class VoyageTimeline : IDisposable
                 return;
             }
 
-            if (!result.IsSuccess)
+            if (!replacement.IsSuccess)
             {
-                actionFailure = result.Failure;
+                actionFailure = replacement.Failure;
 
-                if (result.Failure!.IsConflict || result.Failure.IsNotFound)
+                if (replacement.Failure!.IsConflict || replacement.Failure.IsNotFound)
                 {
                     await LoadAsync();
                 }
@@ -390,7 +464,7 @@ public partial class VoyageTimeline : IDisposable
                 return;
             }
 
-            actionSuccess = "Berth assigned.";
+            actionSuccess = "Berth allocation rescheduled.";
             CancelAction();
 
             await LoadAsync();
@@ -400,6 +474,9 @@ public partial class VoyageTimeline : IDisposable
             isActionSubmitting = false;
         }
     }
+
+    private bool IsReschedulingActiveStop => activeStopId is { } stopId
+        && itinerary?.Stops.FirstOrDefault(stop => stop.StopId == stopId)?.BerthId is not null;
 
     private async Task ConfirmStopActionAsync()
     {

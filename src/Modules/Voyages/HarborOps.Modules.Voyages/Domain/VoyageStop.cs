@@ -88,35 +88,6 @@ internal sealed class VoyageStop
         BerthId = berthId;
     }
 
-    internal void ReviseEstimates(DateTime revisedEta, DateTime revisedEtd)
-    {
-        if (string.Equals(Status, DepartedStatus, StringComparison.Ordinal) || Atd is not null)
-        {
-            throw new VoyageStopNotRevisableException(Id, Status);
-        }
-
-        if (Ata is { } actualArrival)
-        {
-            if (revisedEta != CurrentEta)
-            {
-                throw new VoyageStopNotRevisableException(Id, Status);
-            }
-
-            if (revisedEtd < actualArrival)
-            {
-                throw new VoyageEstimateChronologyException(Id, revisedEtd, actualArrival);
-            }
-        }
-
-        if (revisedEtd < revisedEta)
-        {
-            throw new VoyageEstimateChronologyException(Id, revisedEtd, revisedEta);
-        }
-
-        RevisedEta = revisedEta;
-        RevisedEtd = revisedEtd;
-    }
-
     internal void RecordArrival(DateTime ataUtc)
     {
         if (!string.Equals(Status, PlannedStatus, StringComparison.Ordinal) || Ata is not null)
