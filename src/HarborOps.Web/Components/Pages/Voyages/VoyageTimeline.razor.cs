@@ -113,12 +113,33 @@ public partial class VoyageTimeline : IDisposable
     private string cancelReason = string.Empty;
     private VoyagesApiFailure? cancelFailure;
     private bool isSubmittingCancel;
+    private ElementReference routeMapElement;
+
+    private IReadOnlyList<VoyageItineraryStopModel> MappedStops => itinerary?.Stops
+        .Where(stop => stop.Latitude is not null && stop.Longitude is not null)
+        .OrderBy(stop => stop.StopOrder)
+        .ToList()
+        ?? [];
+
 
     internal static string FormatUtc(DateTime? value)
     {
         return value is { } stamp
             ? stamp.ToString("dd MMM yyyy HH:mm", CultureInfo.InvariantCulture)
             : MissingValue;
+    }
+
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        await base.OnAfterRenderAsync(firstRender);
+        if (MappedStops.Count < 2 || disposeCancellation.IsCancellationRequested) return;
+        await JS.InvokeVoidAsync("voyageRouteMap.render", routeMapElement, MappedStops);
+    }
+
+    private async Task FitRouteMapAsync()
+    {
+        await JS.InvokeVoidAsync("voyageRouteMap.fit", routeMapElement);
     }
 
     internal static string StatusModifier(string status)

@@ -13,4 +13,6 @@ public sealed record VoyageItineraryStopItem(
     DateTime Etd,
     DateTime? Ata,
     DateTime? Atd,
-    string Status);
+    string Status,
+    decimal? Latitude = null,
+    decimal? Longitude = null);

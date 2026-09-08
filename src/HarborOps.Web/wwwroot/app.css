@@ -817,3 +817,46 @@ html[data-theme="light"] .cargo-track.done { color: #0f766e; }
         width: 100%;
     }
 }
+.voyage-map-marker {
+    display: grid;
+    place-items: center;
+    width: 32px;
+    height: 32px;
+    color: #1e3150;
+    font: 700 13px Inter, sans-serif;
+    border: 3px solid #2763e8;
+    border-radius: 50%;
+    background: #fff;
+    box-shadow: 0 2px 9px rgba(22, 48, 88, .25);
+}
+
+html[data-theme="dark"] .timeline-map .leaflet-tile {
+    filter: brightness(.58) saturate(.72) contrast(1.15) hue-rotate(165deg);
+}
+
+html[data-theme="dark"] .timeline-map .leaflet-control-attribution,
+html[data-theme="dark"] .timeline-map .leaflet-control-zoom a {
+    color: #cbd5e1;
+    border-color: rgba(148, 163, 184, .35);
+    background: #172033;
+}
+
+/* Leaflet creates these elements outside Blazor CSS isolation. */
+.voyage-map-marker { border-width: 2px; box-shadow: 0 0 0 5px rgba(66,133,228,.12), 0 3px 10px rgba(22,48,88,.18); }
+.voyage-map-marker.arrived { border-color: #168071; color: #11695e; box-shadow: 0 0 0 5px rgba(22,128,113,.12), 0 3px 10px rgba(22,48,88,.18); }
+.voyage-map-marker.departed { border-color: #7b879b; color: #64748b; box-shadow: 0 0 0 5px rgba(123,135,155,.12), 0 3px 10px rgba(22,48,88,.18); }
+.voyage-map-marker:focus-visible { outline: 3px solid #60a5fa; outline-offset: 5px; }
+.voyage-map-flow { animation: voyage-route-flow 2.5s linear infinite; }
+.timeline-map { z-index: 0; font-family: Inter, sans-serif; }
+.timeline-map .leaflet-tile { filter: saturate(.45); }
+.timeline-map .leaflet-control-zoom { border: 1px solid var(--border-subtle); border-radius: .6rem; overflow: hidden; box-shadow: 0 4px 15px rgba(22,48,88,.1); }
+.timeline-map .leaflet-control-zoom a { color: var(--text-primary); background: var(--bg-surface); border-color: var(--border-subtle); }
+.timeline-map .leaflet-popup-content-wrapper, .timeline-map .leaflet-popup-tip,
+.timeline-map .voyage-map-tooltip { color: var(--text-primary); background: var(--bg-surface-strong); }
+.timeline-map .voyage-map-tooltip { border: 1px solid var(--border-subtle); border-radius: .4rem; padding: .4rem .65rem; box-shadow: 0 3px 12px rgba(22,48,88,.12); font-size: .75rem; }
+.voyage-map-popup { display: grid; gap: .35rem; min-width: 9rem; }
+.voyage-map-popup small { color: var(--accent); font-size: .6rem; font-weight: 700; letter-spacing: .12em; }
+.voyage-map-popup strong { font-size: .9rem; }
+.voyage-map-popup span { color: var(--text-muted); font-size: .75rem; }
+@keyframes voyage-route-flow { to { stroke-dashoffset: -29; } }
+@media (prefers-reduced-motion: reduce) { .voyage-map-flow { animation: none; } }

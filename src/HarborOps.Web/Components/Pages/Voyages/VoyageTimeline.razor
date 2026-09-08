@@ -66,6 +66,45 @@
             </article>
         </section>
 
+        <section class="timeline-card timeline-route-map" aria-labelledby="timeline-route-map-title">
+            <div class="timeline-card-heading">
+                <div>
+                    <p class="timeline-eyebrow">Voyage plan</p>
+                    <h2 id="timeline-route-map-title">Route map</h2>
+                </div>
+                <div class="timeline-map-actions">
+                    <span class="timeline-count">@MappedStops.Count / @itinerary.Stops.Count mapped stops</span>
+                    @if (MappedStops.Count >= 2)
+                    {
+                        <button class="timeline-map-reset" type="button" @onclick="FitRouteMapAsync"><span class="bi bi-arrows-fullscreen" aria-hidden="true"></span> Fit route</button>
+                    }
+                </div>
+            </div>
+            @if (MappedStops.Count < 2)
+            {
+                <p class="timeline-route-empty">Add coordinates to at least two itinerary ports to show the route.</p>
+            }
+            else
+            {
+                <div class="timeline-map-shell" aria-label="Planned route across @MappedStops.Count port calls">
+                    <div class="timeline-map" @ref="routeMapElement" aria-label="Interactive world route map"></div>
+                    <div class="timeline-map-caption">
+                        <span><span class="bi bi-signpost-split" aria-hidden="true"></span> Schematic route · port call sequence</span>
+                        <span class="timeline-map-status-key"><i class="planned" aria-hidden="true"></i> Planned <i class="arrived" aria-hidden="true"></i> Arrived <i class="departed" aria-hidden="true"></i> Departed</span>
+                    </div>
+                </div>
+                <ol class="timeline-map-legend" aria-label="Mapped ports in itinerary order">
+                    @foreach (var stop in MappedStops)
+                    {
+                        <li>
+                            <span class="timeline-map-legend-marker @StatusModifier(stop.Status)">@stop.StopOrder</span>
+                            <span><strong>@stop.PortName</strong><small>@stop.PortCountry · @stop.Status</small></span>
+                        </li>
+                    }
+                </ol>
+            }
+        </section>
+
         @if (actionSuccess is not null)
         {
             <div class="timeline-action-success" role="status">@actionSuccess</div>

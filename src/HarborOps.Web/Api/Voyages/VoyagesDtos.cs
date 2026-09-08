@@ -175,7 +175,9 @@ internal sealed record VoyageItineraryStopModel(
     DateTime Etd,
     DateTime? Ata,
     DateTime? Atd,
-    string Status);
+    string Status,
+    decimal? Latitude = null,
+    decimal? Longitude = null);
 
 internal sealed record VoyageDelayModel(
     Guid DelayId,
