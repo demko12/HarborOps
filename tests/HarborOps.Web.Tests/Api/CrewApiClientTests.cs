@@ -404,6 +404,109 @@ public sealed class CrewApiClientTests
         Assert.True(result.Failure!.IsNotFound);
     }
 
+    [Fact]
+    public async Task GetPositionsAsync_sends_search_department_and_paging_to_the_positions_endpoint()
+    {
+        HttpRequestMessage? captured = null;
+        using var httpClient = CreateHttpClient((request, _) =>
+        {
+            captured = request;
+            return Json(HttpStatusCode.OK, """{"items":[],"pageNumber":2,"pageSize":10,"totalCount":0}""");
+        });
+
+        var result = await new CrewApiClient(httpClient).GetPositionsAsync(
+            "Bos", 10, CancellationToken.None, "Deck", 2);
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal("/api/crew/positions", captured!.RequestUri!.AbsolutePath);
+        Assert.Contains("search=Bos", captured.RequestUri.Query, StringComparison.Ordinal);
+        Assert.Contains("department=Deck", captured.RequestUri.Query, StringComparison.Ordinal);
+        Assert.Contains("pageNumber=2", captured.RequestUri.Query, StringComparison.Ordinal);
+        Assert.Contains("pageSize=10", captured.RequestUri.Query, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task GetPositionsAsync_returns_retryable_failure_when_api_is_unavailable()
+    {
+        using var httpClient = CreateHttpClient((_, _) => throw new HttpRequestException());
+
+        var result = await new CrewApiClient(httpClient).GetPositionsAsync(null, 25, CancellationToken.None);
+
+        Assert.False(result.IsSuccess);
+        Assert.Equal(0, result.Failure!.StatusCode);
+    }
+
+    [Fact]
+    public async Task RegisterPositionAsync_posts_to_the_positions_endpoint()
+    {
+        var positionId = Guid.NewGuid();
+        HttpRequestMessage? captured = null;
+        using var httpClient = CreateHttpClient((request, _) =>
+        {
+            captured = request;
+            return Json(HttpStatusCode.Created, $$"""{"id":"{{positionId}}"}""");
+        });
+
+        var result = await new CrewApiClient(httpClient).RegisterPositionAsync(
+            new RegisterCrewPositionRequest { RankName = "Bosun", Department = "Deck", SeniorityLevel = "SeniorRating" },
+            CancellationToken.None);
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal(HttpMethod.Post, captured!.Method);
+        Assert.Equal("/api/crew/positions", captured.RequestUri!.AbsolutePath);
+        Assert.Equal(positionId, result.Value!.Id);
+    }
+
+    [Fact]
+    public async Task RegisterPositionAsync_returns_conflict_failure_for_a_duplicate_position()
+    {
+        using var httpClient = CreateHttpClient((_, _) =>
+            Task.FromResult(new HttpResponseMessage(HttpStatusCode.Conflict)));
+
+        var result = await new CrewApiClient(httpClient).RegisterPositionAsync(
+            new RegisterCrewPositionRequest { RankName = "Bosun", Department = "Deck", SeniorityLevel = "SeniorRating" },
+            CancellationToken.None);
+
+        Assert.False(result.IsSuccess);
+        Assert.True(result.Failure!.IsConflict);
+    }
+
+    [Fact]
+    public async Task UpdatePositionAsync_puts_to_the_position_endpoint()
+    {
+        var positionId = Guid.NewGuid();
+        HttpRequestMessage? captured = null;
+        using var httpClient = CreateHttpClient((request, _) =>
+        {
+            captured = request;
+            return Json(HttpStatusCode.OK, $$"""{"id":"{{positionId}}"}""");
+        });
+
+        var result = await new CrewApiClient(httpClient).UpdatePositionAsync(
+            positionId,
+            new UpdateCrewPositionRequest { RankName = "Chief Bosun", Department = "Engine", SeniorityLevel = "Officer" },
+            CancellationToken.None);
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal(HttpMethod.Put, captured!.Method);
+        Assert.Equal($"/api/crew/positions/{positionId}", captured.RequestUri!.AbsolutePath);
+    }
+
+    [Fact]
+    public async Task UpdatePositionAsync_returns_not_found_failure_for_an_unknown_position()
+    {
+        using var httpClient = CreateHttpClient((_, _) =>
+            Task.FromResult(new HttpResponseMessage(HttpStatusCode.NotFound)));
+
+        var result = await new CrewApiClient(httpClient).UpdatePositionAsync(
+            Guid.NewGuid(),
+            new UpdateCrewPositionRequest { RankName = "Bosun", Department = "Deck", SeniorityLevel = "SeniorRating" },
+            CancellationToken.None);
+
+        Assert.False(result.IsSuccess);
+        Assert.True(result.Failure!.IsNotFound);
+    }
+
     private static HttpClient CreateHttpClient(Func<HttpRequestMessage, CancellationToken, Task<HttpResponseMessage>> responseFactory) =>
         new(new StubHttpMessageHandler(responseFactory)) { BaseAddress = new Uri("https://api.harborops.test/") };
 

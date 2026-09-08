@@ -26,13 +26,34 @@ public sealed class CargoBookingDetailsPageTests : BunitContext
     private const string EmptyItems = """{"items":[]}""";
 
     private const string DeclaredSafetyInfo = """
-        {"cargoSafetyInfoId":"60000000-0000-0000-0000-000000000006","imdgClass":"5.1","unNumber":"UN1942","storageConditions":"Keep below 25C","handlingNotes":"No shock loading"}
+        {"cargoSafetyInfoId":"60000000-0000-0000-0000-000000000006","imdgClass":"5.1","unNumber":"UN1942","storageConditions":"Keep below 25C","handlingNotes":"No shock loading","reviewStatus":"Approved","submittedByUserId":"50000000-0000-0000-0000-000000000005","submittedAtUtc":"2026-09-01T10:00:00Z","reviewedByUserId":"50000000-0000-0000-0000-000000000005","reviewedAtUtc":"2026-09-01T14:30:00Z","reviewNotes":null}
+        """;
+
+    private const string DraftSafetyInfo = """
+        {"cargoSafetyInfoId":"60000000-0000-0000-0000-000000000006","imdgClass":"5.1","unNumber":"UN1942","storageConditions":"Keep below 25C","handlingNotes":null,"reviewStatus":"Draft","submittedByUserId":null,"submittedAtUtc":null,"reviewedByUserId":null,"reviewedAtUtc":null,"reviewNotes":null}
+        """;
+
+    private const string SubmittedSafetyInfo = """
+        {"cargoSafetyInfoId":"60000000-0000-0000-0000-000000000006","imdgClass":"5.1","unNumber":"UN1942","storageConditions":"Keep below 25C","handlingNotes":null,"reviewStatus":"Submitted","submittedByUserId":"50000000-0000-0000-0000-000000000005","submittedAtUtc":"2026-09-01T10:00:00Z","reviewedByUserId":null,"reviewedAtUtc":null,"reviewNotes":null}
+        """;
+
+    private const string RejectedSafetyInfo = """
+        {"cargoSafetyInfoId":"60000000-0000-0000-0000-000000000006","imdgClass":"5.1","unNumber":"UN1942","storageConditions":"Keep below 25C","handlingNotes":null,"reviewStatus":"Rejected","submittedByUserId":"50000000-0000-0000-0000-000000000005","submittedAtUtc":"2026-09-01T10:00:00Z","reviewedByUserId":"50000000-0000-0000-0000-000000000005","reviewedAtUtc":"2026-09-01T14:30:00Z","reviewNotes":"Storage conditions are unclear."}
+        """;
+
+    private const string ReviewTimeline = """
+        [{"cargoSafetyReviewId":"90000000-0000-0000-0000-000000000009","fromStatus":"Draft","toStatus":"Submitted","actorUserId":"50000000-0000-0000-0000-000000000005","occurredUtc":"2026-09-01T10:00:00Z","notes":null},{"cargoSafetyReviewId":"90000000-0000-0000-0000-000000000019","fromStatus":"Submitted","toStatus":"Rejected","actorUserId":"50000000-0000-0000-0000-000000000005","occurredUtc":"2026-09-01T14:30:00Z","notes":"Storage conditions are unclear."}]
+        """;
+
+    private const string SafetyNotFound = """
+        {"title":"Cargo safety information not found.","status":404}
         """;
 
     private readonly List<Uri> requestedUris = [];
 
-    private Func<HttpRequestMessage, Task<HttpResponseMessage>> respond =
-        _ => Json(HttpStatusCode.OK, Details());
+    private Func<HttpRequestMessage, Task<HttpResponseMessage>> respond = RespondWith(Details());
+
+    private Func<HttpRequestMessage, CancellationToken, Task<HttpResponseMessage>>? respondWithToken;
 
     public CargoBookingDetailsPageTests()
     {
@@ -104,7 +125,9 @@ public sealed class CargoBookingDetailsPageTests : BunitContext
     [Fact]
     public void Declared_safety_information_is_shown()
     {
-        respond = _ => Json(HttpStatusCode.OK, Details(isHazardous: true, safetyInfo: DeclaredSafetyInfo));
+        respond = RespondWith(
+            Details(isHazardous: true, safetyInfo: DeclaredSafetyInfo),
+            DeclaredSafetyInfo);
 
         var page = RenderDetailsPage();
 
@@ -115,9 +138,129 @@ public sealed class CargoBookingDetailsPageTests : BunitContext
     }
 
     [Fact]
+    public void The_review_status_of_a_declaration_is_shown()
+    {
+        respond = RespondWith(
+            Details(isHazardous: true, safetyInfo: SubmittedSafetyInfo),
+            SubmittedSafetyInfo);
+
+        var page = RenderDetailsPage();
+
+        Assert.Contains(
+            "Awaiting review",
+            page.Find(".safety-status").TextContent,
+            StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void A_rejected_declaration_shows_the_reviewer_notes()
+    {
+        respond = RespondWith(
+            Details(isHazardous: true, safetyInfo: RejectedSafetyInfo),
+            RejectedSafetyInfo);
+
+        var page = RenderDetailsPage();
+
+        Assert.Contains("Rejected", page.Find(".safety-status").TextContent, StringComparison.Ordinal);
+        Assert.Contains(
+            "Storage conditions are unclear.",
+            page.Find(".safety-review-notes").TextContent,
+            StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void The_review_timeline_is_listed_in_the_order_the_api_returned_it()
+    {
+        respond = RespondWith(
+            Details(isHazardous: true, safetyInfo: RejectedSafetyInfo),
+            RejectedSafetyInfo,
+            ReviewTimeline);
+
+        var page = RenderDetailsPage();
+
+        Assert.Empty(page.FindAll(".safety-timeline-entry"));
+        Assert.Contains("Review history (2)", page.Find(".safety-history-open").TextContent, StringComparison.Ordinal);
+
+        page.Find(".safety-history-open").Click();
+
+        var entries = page.FindAll(".safety-timeline-entry");
+
+        Assert.Equal(2, entries.Count);
+        Assert.Contains("Awaiting review", entries[0].TextContent, StringComparison.Ordinal);
+        Assert.Contains("Rejected", entries[1].TextContent, StringComparison.Ordinal);
+        Assert.Contains("Storage conditions are unclear.", entries[1].TextContent, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void The_review_history_popup_shows_the_full_actor_id_and_closes()
+    {
+        respond = RespondWith(
+            Details(isHazardous: true, safetyInfo: RejectedSafetyInfo),
+            RejectedSafetyInfo,
+            ReviewTimeline);
+
+        var page = RenderDetailsPage();
+        page.Find(".safety-history-open").Click();
+
+        var actor = page.FindAll(".safety-timeline-actor")[0];
+
+        Assert.Contains("User ID", actor.TextContent, StringComparison.Ordinal);
+        Assert.Contains(
+            "50000000-0000-0000-0000-000000000005",
+            actor.TextContent,
+            StringComparison.Ordinal);
+
+        page.Find(".operation-confirm-dismiss").Click();
+
+        Assert.Empty(page.FindAll(".safety-timeline-entry"));
+    }
+
+    [Fact]
+    public void The_submitted_and_reviewed_rows_show_the_full_actor_id()
+    {
+        respond = RespondWith(
+            Details(isHazardous: true, safetyInfo: RejectedSafetyInfo),
+            RejectedSafetyInfo);
+
+        var page = RenderDetailsPage();
+
+        var actors = page.FindAll(".safety-audit-actor");
+
+        Assert.Equal(2, actors.Count);
+        Assert.All(
+            actors,
+            actor => Assert.Equal("50000000-0000-0000-0000-000000000005", actor.TextContent.Trim()));
+    }
+
+    [Fact]
+    public void A_declaration_without_history_offers_no_history_button()
+    {
+        respond = RespondWith(
+            Details(isHazardous: true, safetyInfo: DraftSafetyInfo),
+            DraftSafetyInfo);
+
+        var page = RenderDetailsPage();
+
+        Assert.Empty(page.FindAll(".safety-history-open"));
+    }
+
+    [Fact]
+    public void A_draft_declaration_shows_no_review_timeline()
+    {
+        respond = RespondWith(
+            Details(isHazardous: true, safetyInfo: DraftSafetyInfo),
+            DraftSafetyInfo);
+
+        var page = RenderDetailsPage();
+
+        Assert.Contains("Draft", page.Find(".safety-status").TextContent, StringComparison.Ordinal);
+        Assert.Empty(page.FindAll(".safety-timeline-entry"));
+    }
+
+    [Fact]
     public void Hazardous_cargo_without_a_declaration_says_so()
     {
-        respond = _ => Json(HttpStatusCode.OK, Details(isHazardous: true));
+        respond = RespondWith(Details(isHazardous: true));
 
         var page = RenderDetailsPage();
 
@@ -267,11 +410,561 @@ public sealed class CargoBookingDetailsPageTests : BunitContext
     [Fact]
     public void The_safety_form_is_hidden_once_a_declaration_exists()
     {
-        respond = _ => Json(HttpStatusCode.OK, Details(isHazardous: true, safetyInfo: DeclaredSafetyInfo));
+        respond = RespondWith(
+            Details(isHazardous: true, safetyInfo: DeclaredSafetyInfo),
+            DeclaredSafetyInfo);
 
         var page = RenderDetailsPage();
 
         Assert.Empty(page.FindAll(".safety-submit"));
+    }
+
+    [Fact]
+    public void A_draft_declaration_can_be_edited_from_its_current_values()
+    {
+        respond = RespondWith(
+            Details(isHazardous: true, safetyInfo: DraftSafetyInfo),
+            DraftSafetyInfo);
+
+        var page = RenderDetailsPage();
+
+        Assert.Empty(page.FindAll("#safety-imdg-class"));
+
+        page.Find(".safety-edit").Click();
+
+        Assert.Equal("5.1", page.Find("#safety-imdg-class").GetAttribute("value"));
+        Assert.Equal("UN1942", page.Find("#safety-un-number").GetAttribute("value"));
+        Assert.Equal("Keep below 25C", page.Find("#safety-storage").GetAttribute("value"));
+        Assert.Contains("Save changes", page.Find(".safety-submit").TextContent, StringComparison.Ordinal);
+        Assert.Contains(
+            "safety-facts-editing",
+            page.Find("#safety-imdg-class").Closest(".booking-facts")!.GetAttribute("class"),
+            StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void The_submitted_and_reviewed_rows_stay_read_only_while_editing()
+    {
+        respond = RespondWith(
+            Details(isHazardous: true, safetyInfo: RejectedSafetyInfo),
+            RejectedSafetyInfo);
+
+        var page = RenderDetailsPage();
+        page.Find(".safety-edit").Click();
+
+        var audit = page.Find(".safety-facts-audit");
+
+        Assert.Contains("Submitted", audit.TextContent, StringComparison.Ordinal);
+        Assert.Contains("Reviewed", audit.TextContent, StringComparison.Ordinal);
+        Assert.Empty(audit.QuerySelectorAll("input, textarea"));
+    }
+
+    [Fact]
+    public void Cancelling_an_edit_closes_the_form_and_keeps_the_stored_values()
+    {
+        respond = RespondWith(
+            Details(isHazardous: true, safetyInfo: DraftSafetyInfo),
+            DraftSafetyInfo);
+
+        var page = RenderDetailsPage();
+        page.Find(".safety-edit").Click();
+        page.Find("#safety-un-number").Change("UN1950");
+        page.Find(".safety-edit-cancel").Click();
+
+        Assert.Empty(page.FindAll("#safety-un-number"));
+        Assert.Contains("UN1942", page.Markup, StringComparison.Ordinal);
+
+        page.Find(".safety-edit").Click();
+
+        Assert.Equal("UN1942", page.Find("#safety-un-number").GetAttribute("value"));
+    }
+
+    [Fact]
+    public void A_rejected_declaration_can_be_corrected()
+    {
+        respond = RespondWith(
+            Details(isHazardous: true, safetyInfo: RejectedSafetyInfo),
+            RejectedSafetyInfo);
+
+        var page = RenderDetailsPage();
+
+        Assert.Single(page.FindAll(".safety-edit"));
+        Assert.Empty(page.FindAll(".safety-locked"));
+    }
+
+    [Fact]
+    public void A_submitted_declaration_is_locked_while_it_awaits_review()
+    {
+        respond = RespondWith(
+            Details(isHazardous: true, safetyInfo: SubmittedSafetyInfo),
+            SubmittedSafetyInfo);
+
+        var page = RenderDetailsPage();
+
+        Assert.Empty(page.FindAll(".safety-submit"));
+        Assert.Contains(
+            "awaiting review and cannot be edited",
+            page.Find(".safety-locked").TextContent,
+            StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void An_approved_declaration_is_locked_for_good()
+    {
+        respond = RespondWith(
+            Details(isHazardous: true, safetyInfo: DeclaredSafetyInfo),
+            DeclaredSafetyInfo);
+
+        var page = RenderDetailsPage();
+
+        Assert.Contains(
+            "approved and can no longer be edited",
+            page.Find(".safety-locked").TextContent,
+            StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void A_reader_cannot_edit_a_draft_declaration()
+    {
+        respond = RespondWith(
+            Details(isHazardous: true, safetyInfo: DraftSafetyInfo),
+            DraftSafetyInfo);
+
+        var page = RenderDetailsPage(CurrentUserAuthorizationState.CargoReadPermission);
+
+        Assert.Empty(page.FindAll(".safety-submit"));
+        Assert.Empty(page.FindAll(".safety-locked"));
+        Assert.Contains("UN1942", page.Markup, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Editing_a_draft_sends_the_changed_values_and_reloads_them()
+    {
+        var sentBodies = new List<string>();
+        respond = async request =>
+        {
+            if (request.Method == HttpMethod.Put)
+            {
+                sentBodies.Add(await request.Content!.ReadAsStringAsync(CancellationToken.None));
+
+                return await Json(HttpStatusCode.OK, DraftSafetyInfo);
+            }
+
+            if (IsSafetyRoute(request))
+            {
+                return await SafetyResponse(DraftSafetyInfo);
+            }
+
+            return await Json(
+                HttpStatusCode.OK,
+                Details(isHazardous: true, safetyInfo: DraftSafetyInfo));
+        };
+
+        var page = RenderDetailsPage();
+        page.Find(".safety-edit").Click();
+        page.Find("#safety-un-number").Change("UN1950");
+        page.Find(".safety-submit").Click();
+
+        page.WaitForAssertion(() => Assert.Single(sentBodies));
+
+        Assert.Contains("\"unNumber\":\"UN1950\"", sentBodies[0], StringComparison.Ordinal);
+        page.WaitForAssertion(() => Assert.Empty(page.FindAll("#safety-un-number")));
+        Assert.Contains("UN1942", page.Markup, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void A_draft_declaration_can_be_submitted_for_review()
+    {
+        var posted = new List<string>();
+        respond = request =>
+        {
+            if (request.Method == HttpMethod.Post
+                && request.RequestUri!.AbsolutePath.EndsWith("/submit", StringComparison.Ordinal))
+            {
+                posted.Add(request.RequestUri.AbsolutePath);
+
+                return Json(HttpStatusCode.OK, SubmittedSafetyInfo);
+            }
+
+            if (IsSafetyRoute(request))
+            {
+                return SafetyResponse(posted.Count == 0 ? DraftSafetyInfo : SubmittedSafetyInfo);
+            }
+
+            return Json(
+                HttpStatusCode.OK,
+                Details(
+                    isHazardous: true,
+                    safetyInfo: posted.Count == 0 ? DraftSafetyInfo : SubmittedSafetyInfo));
+        };
+
+        var page = RenderDetailsPage();
+        page.Find(".safety-action-submit").Click();
+        page.Find(".safety-confirm").Click();
+
+        page.WaitForAssertion(() => Assert.Single(posted));
+
+        Assert.Equal($"/api/cargo/bookings/{BookingId}/safety-information/submit", posted[0]);
+        page.WaitForAssertion(() => Assert.Empty(page.FindAll(".operation-modal")));
+        page.WaitForAssertion(() =>
+            Assert.Contains("Awaiting review", page.Find(".safety-status").TextContent, StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void A_submitted_declaration_offers_approve_and_reject()
+    {
+        respond = RespondWith(
+            Details(isHazardous: true, safetyInfo: SubmittedSafetyInfo),
+            SubmittedSafetyInfo);
+
+        var page = RenderDetailsPage();
+
+        Assert.Single(page.FindAll(".safety-action-approve"));
+        Assert.Single(page.FindAll(".safety-action-reject"));
+        Assert.Empty(page.FindAll(".safety-action-submit"));
+    }
+
+    [Fact]
+    public void Approving_a_declaration_sends_the_decision()
+    {
+        var bodies = new List<string>();
+        respond = async request =>
+        {
+            if (request.Method == HttpMethod.Post
+                && request.RequestUri!.AbsolutePath.EndsWith("/review", StringComparison.Ordinal))
+            {
+                bodies.Add(await request.Content!.ReadAsStringAsync(CancellationToken.None));
+
+                return await Json(HttpStatusCode.OK, DeclaredSafetyInfo);
+            }
+
+            if (IsSafetyRoute(request))
+            {
+                return await SafetyResponse(bodies.Count == 0 ? SubmittedSafetyInfo : DeclaredSafetyInfo);
+            }
+
+            return await Json(
+                HttpStatusCode.OK,
+                Details(
+                    isHazardous: true,
+                    safetyInfo: bodies.Count == 0 ? SubmittedSafetyInfo : DeclaredSafetyInfo));
+        };
+
+        var page = RenderDetailsPage();
+        page.Find(".safety-action-approve").Click();
+        page.Find(".safety-confirm").Click();
+
+        page.WaitForAssertion(() => Assert.Single(bodies));
+
+        Assert.Contains("\"status\":\"Approved\"", bodies[0], StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Rejecting_a_declaration_sends_the_reviewer_notes()
+    {
+        var bodies = new List<string>();
+        respond = async request =>
+        {
+            if (request.Method == HttpMethod.Post
+                && request.RequestUri!.AbsolutePath.EndsWith("/review", StringComparison.Ordinal))
+            {
+                bodies.Add(await request.Content!.ReadAsStringAsync(CancellationToken.None));
+
+                return await Json(HttpStatusCode.OK, RejectedSafetyInfo);
+            }
+
+            if (IsSafetyRoute(request))
+            {
+                return await SafetyResponse(bodies.Count == 0 ? SubmittedSafetyInfo : RejectedSafetyInfo);
+            }
+
+            return await Json(
+                HttpStatusCode.OK,
+                Details(
+                    isHazardous: true,
+                    safetyInfo: bodies.Count == 0 ? SubmittedSafetyInfo : RejectedSafetyInfo));
+        };
+
+        var page = RenderDetailsPage();
+        page.Find(".safety-action-reject").Click();
+        page.Find("#safety-review-notes").Change("Storage conditions are unclear.");
+        page.Find(".safety-confirm").Click();
+
+        page.WaitForAssertion(() => Assert.Single(bodies));
+
+        Assert.Contains("\"status\":\"Rejected\"", bodies[0], StringComparison.Ordinal);
+        Assert.Contains("Storage conditions are unclear.", bodies[0], StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void A_rejection_without_notes_is_not_sent_to_the_api()
+    {
+        var reviews = 0;
+        respond = request =>
+        {
+            if (request.Method == HttpMethod.Post
+                && request.RequestUri!.AbsolutePath.EndsWith("/review", StringComparison.Ordinal))
+            {
+                reviews++;
+            }
+
+            if (IsSafetyRoute(request))
+            {
+                return SafetyResponse(SubmittedSafetyInfo);
+            }
+
+            return Json(HttpStatusCode.OK, Details(isHazardous: true, safetyInfo: SubmittedSafetyInfo));
+        };
+
+        var page = RenderDetailsPage();
+        page.Find(".safety-action-reject").Click();
+        page.Find(".safety-confirm").Click();
+
+        page.WaitForAssertion(() =>
+            Assert.Contains("Review notes are required", page.Markup, StringComparison.Ordinal));
+        Assert.Equal(0, reviews);
+        Assert.Single(page.FindAll(".operation-modal"));
+    }
+
+    [Fact]
+    public void A_conflict_while_reviewing_is_reported_and_the_panel_is_refreshed()
+    {
+        var attempted = false;
+        respond = request =>
+        {
+            if (request.Method == HttpMethod.Post
+                && request.RequestUri!.AbsolutePath.EndsWith("/review", StringComparison.Ordinal))
+            {
+                attempted = true;
+
+                return Json(
+                    HttpStatusCode.Conflict,
+                    """
+                    {"title":"Cargo safety information transition is not allowed.","status":409}
+                    """);
+            }
+
+            if (IsSafetyRoute(request))
+            {
+                return SafetyResponse(attempted ? DeclaredSafetyInfo : SubmittedSafetyInfo);
+            }
+
+            return Json(
+                HttpStatusCode.OK,
+                Details(
+                    isHazardous: true,
+                    safetyInfo: attempted ? DeclaredSafetyInfo : SubmittedSafetyInfo));
+        };
+
+        var page = RenderDetailsPage();
+        page.Find(".safety-action-approve").Click();
+        page.Find(".safety-confirm").Click();
+
+        page.WaitForAssertion(() =>
+            Assert.Contains(
+                "transition is not allowed",
+                page.Find(".operation-modal .booking-form-error").TextContent,
+                StringComparison.Ordinal));
+        page.WaitForAssertion(() => Assert.Empty(page.FindAll(".safety-action-approve")));
+    }
+
+    [Fact]
+    public void The_confirmation_can_be_dismissed_without_acting()
+    {
+        var posts = 0;
+        respond = request =>
+        {
+            if (request.Method == HttpMethod.Post)
+            {
+                posts++;
+            }
+
+            if (IsSafetyRoute(request))
+            {
+                return SafetyResponse(SubmittedSafetyInfo);
+            }
+
+            return Json(HttpStatusCode.OK, Details(isHazardous: true, safetyInfo: SubmittedSafetyInfo));
+        };
+
+        var page = RenderDetailsPage();
+        page.Find(".safety-action-approve").Click();
+
+        Assert.Single(page.FindAll(".operation-modal"));
+
+        page.Find(".operation-confirm-dismiss").Click();
+
+        page.WaitForAssertion(() => Assert.Empty(page.FindAll(".operation-modal")));
+        Assert.Equal(0, posts);
+    }
+
+    [Fact]
+    public async Task The_safety_panel_reports_that_it_is_loading()
+    {
+        var release = new TaskCompletionSource<HttpResponseMessage>(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        respond = request => IsSafetyRoute(request)
+            ? release.Task
+            : Json(HttpStatusCode.OK, Details(isHazardous: true, safetyInfo: DraftSafetyInfo));
+
+        var page = RenderDetailsPage();
+
+        page.WaitForAssertion(() =>
+            Assert.Contains("Loading safety information", page.Markup, StringComparison.Ordinal));
+
+        release.SetResult(await SafetyResponse(DraftSafetyInfo));
+
+        page.WaitForAssertion(() => Assert.Single(page.FindAll(".safety-status")));
+    }
+
+    [Fact]
+    public void An_api_failure_in_the_safety_panel_can_be_retried()
+    {
+        var attempts = 0;
+        respond = request =>
+        {
+            if (!IsSafetyRoute(request))
+            {
+                return Json(HttpStatusCode.OK, Details(isHazardous: true, safetyInfo: DraftSafetyInfo));
+            }
+
+            attempts++;
+
+            return attempts == 1
+                ? Json(
+                    HttpStatusCode.InternalServerError,
+                    """
+                    {"title":"Safety service is unavailable.","status":500}
+                    """)
+                : SafetyResponse(DraftSafetyInfo);
+        };
+
+        var page = RenderDetailsPage();
+
+        page.WaitForAssertion(() =>
+            Assert.Contains("Safety service is unavailable.", page.Markup, StringComparison.Ordinal));
+
+        page.Find(".api-error-state button").Click();
+
+        page.WaitForAssertion(() => Assert.Single(page.FindAll(".safety-status")));
+        Assert.Equal(2, attempts);
+    }
+
+    [Fact]
+    public async Task Disposing_the_page_cancels_the_pending_safety_request()
+    {
+        var started = new TaskCompletionSource();
+        var observed = CancellationToken.None;
+        respondWithToken = (request, token) =>
+        {
+            if (!IsSafetyRoute(request))
+            {
+                return Json(HttpStatusCode.OK, Details(isHazardous: true, safetyInfo: DraftSafetyInfo));
+            }
+
+            observed = token;
+            started.TrySetResult();
+
+            return new TaskCompletionSource<HttpResponseMessage>().Task;
+        };
+
+        RenderDetailsPage();
+
+        await started.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        await DisposeComponentsAsync();
+
+        Assert.True(observed.IsCancellationRequested);
+    }
+
+    [Fact]
+    public void A_declaration_can_be_resubmitted_after_a_server_validation_error()
+    {
+        var attempts = 0;
+        respond = request =>
+        {
+            if (request.Method == HttpMethod.Put)
+            {
+                attempts++;
+
+                return attempts == 1
+                    ? Json(
+                        HttpStatusCode.BadRequest,
+                        """
+                        {"title":"One or more validation errors occurred.","status":400,"errors":{"unNumber":["UN number must be 4 digits."]}}
+                        """)
+                    : Json(HttpStatusCode.OK, DraftSafetyInfo);
+            }
+
+            if (IsSafetyRoute(request))
+            {
+                return SafetyResponse(DraftSafetyInfo);
+            }
+
+            return Json(HttpStatusCode.OK, Details(isHazardous: true, safetyInfo: DraftSafetyInfo));
+        };
+
+        var page = RenderDetailsPage();
+        page.Find(".safety-edit").Click();
+        page.Find(".safety-submit").Click();
+
+        page.WaitForAssertion(() => Assert.Equal(1, attempts));
+        page.WaitForAssertion(() =>
+            Assert.Contains("UN number must be 4 digits.", page.Markup, StringComparison.Ordinal));
+
+        page.Find("#safety-un-number").Change("UN1950");
+        page.Find(".safety-submit").Click();
+
+        page.WaitForAssertion(() => Assert.Equal(2, attempts));
+    }
+
+    [Fact]
+    public void A_reader_is_offered_no_review_actions()
+    {
+        respond = RespondWith(
+            Details(isHazardous: true, safetyInfo: SubmittedSafetyInfo),
+            SubmittedSafetyInfo);
+
+        var page = RenderDetailsPage(CurrentUserAuthorizationState.CargoReadPermission);
+
+        Assert.Empty(page.FindAll(".safety-actions"));
+    }
+
+    [Fact]
+    public void A_conflict_while_saving_locks_the_form_against_the_reloaded_state()
+    {
+        var attempted = false;
+        respond = request =>
+        {
+            if (request.Method == HttpMethod.Put)
+            {
+                attempted = true;
+
+                return Json(
+                    HttpStatusCode.Conflict,
+                    """
+                    {"title":"Cargo safety information transition is not allowed.","status":409}
+                    """);
+            }
+
+            if (IsSafetyRoute(request))
+            {
+                return SafetyResponse(attempted ? SubmittedSafetyInfo : DraftSafetyInfo);
+            }
+
+            return Json(
+                HttpStatusCode.OK,
+                Details(isHazardous: true, safetyInfo: attempted ? SubmittedSafetyInfo : DraftSafetyInfo));
+        };
+
+        var page = RenderDetailsPage();
+        page.Find(".safety-edit").Click();
+        page.Find(".safety-submit").Click();
+
+        page.WaitForAssertion(() => Assert.Empty(page.FindAll(".safety-submit")));
+        Assert.Contains(
+            "awaiting review and cannot be edited",
+            page.Find(".safety-locked").TextContent,
+            StringComparison.Ordinal);
     }
 
     [Fact]
@@ -286,39 +979,45 @@ public sealed class CargoBookingDetailsPageTests : BunitContext
     }
 
     [Fact]
-    public void Declaring_safety_information_posts_to_the_booking_safety_route()
+    public void Declaring_safety_information_puts_it_to_the_booking_safety_route()
     {
-        var postedBodies = new List<string>();
+        var sentBodies = new List<string>();
         respond = async request =>
         {
-            if (request.Method != HttpMethod.Post)
+            if (request.Method == HttpMethod.Put)
             {
-                return await Json(
-                    HttpStatusCode.OK,
-                    Details(isHazardous: true, safetyInfo: postedBodies.Count == 0 ? null : DeclaredSafetyInfo));
+                sentBodies.Add(await request.Content!.ReadAsStringAsync(CancellationToken.None));
+
+                return await Json(HttpStatusCode.OK, DeclaredSafetyInfo);
             }
 
-            postedBodies.Add(await request.Content!.ReadAsStringAsync(CancellationToken.None));
+            if (IsSafetyRoute(request))
+            {
+                return await SafetyResponse(sentBodies.Count == 0 ? null : DeclaredSafetyInfo);
+            }
 
             return await Json(
-                HttpStatusCode.Created,
-                """
-                {"id":"60000000-0000-0000-0000-000000000006"}
-                """);
+                HttpStatusCode.OK,
+                Details(isHazardous: true, safetyInfo: sentBodies.Count == 0 ? null : DeclaredSafetyInfo));
         };
 
         var page = RenderDetailsPage();
         FillSafetyForm(page);
         page.Find(".safety-submit").Click();
 
-        page.WaitForAssertion(() => Assert.Single(postedBodies));
+        page.WaitForAssertion(() => Assert.Single(sentBodies));
 
-        Assert.Equal(
-            $"/api/cargo/bookings/{BookingId}/safety-information",
-            requestedUris.Single(uri => uri.AbsolutePath.EndsWith("safety-information", StringComparison.Ordinal)).AbsolutePath);
-        Assert.Contains("\"imdgClass\":\"5.1\"", postedBodies[0], StringComparison.Ordinal);
-        Assert.Contains("\"unNumber\":\"UN1942\"", postedBodies[0], StringComparison.Ordinal);
-        Assert.Contains("\"storageConditions\":\"Keep below 25C\"", postedBodies[0], StringComparison.Ordinal);
+        var safetyUris = requestedUris
+            .Where(uri => uri.AbsolutePath.EndsWith("safety-information", StringComparison.Ordinal))
+            .ToList();
+
+        Assert.NotEmpty(safetyUris);
+        Assert.All(
+            safetyUris,
+            uri => Assert.Equal($"/api/cargo/bookings/{BookingId}/safety-information", uri.AbsolutePath));
+        Assert.Contains("\"imdgClass\":\"5.1\"", sentBodies[0], StringComparison.Ordinal);
+        Assert.Contains("\"unNumber\":\"UN1942\"", sentBodies[0], StringComparison.Ordinal);
+        Assert.Contains("\"storageConditions\":\"Keep below 25C\"", sentBodies[0], StringComparison.Ordinal);
     }
 
     [Fact]
@@ -327,20 +1026,21 @@ public sealed class CargoBookingDetailsPageTests : BunitContext
         var declared = false;
         respond = request =>
         {
-            if (request.Method != HttpMethod.Post)
+            if (request.Method == HttpMethod.Put)
             {
-                return Json(
-                    HttpStatusCode.OK,
-                    Details(isHazardous: true, safetyInfo: declared ? DeclaredSafetyInfo : null));
+                declared = true;
+
+                return Json(HttpStatusCode.OK, DeclaredSafetyInfo);
             }
 
-            declared = true;
+            if (IsSafetyRoute(request))
+            {
+                return SafetyResponse(declared ? DeclaredSafetyInfo : null);
+            }
 
             return Json(
-                HttpStatusCode.Created,
-                """
-                {"id":"60000000-0000-0000-0000-000000000006"}
-                """);
+                HttpStatusCode.OK,
+                Details(isHazardous: true, safetyInfo: declared ? DeclaredSafetyInfo : null));
         };
 
         var page = RenderDetailsPage();
@@ -354,12 +1054,12 @@ public sealed class CargoBookingDetailsPageTests : BunitContext
     [Fact]
     public void An_incomplete_declaration_is_not_sent_to_the_api()
     {
-        var posts = 0;
+        var sent = 0;
         respond = request =>
         {
-            if (request.Method == HttpMethod.Post)
+            if (request.Method == HttpMethod.Put)
             {
-                posts++;
+                sent++;
             }
 
             return Json(HttpStatusCode.OK, Details(isHazardous: true));
@@ -370,13 +1070,13 @@ public sealed class CargoBookingDetailsPageTests : BunitContext
 
         page.WaitForAssertion(() =>
             Assert.Contains("IMDG class is required.", page.Markup, StringComparison.Ordinal));
-        Assert.Equal(0, posts);
+        Assert.Equal(0, sent);
     }
 
     [Fact]
     public void A_rejected_declaration_reports_the_error_on_its_field()
     {
-        respond = request => request.Method == HttpMethod.Post
+        respond = request => request.Method == HttpMethod.Put
             ? Json(
                 HttpStatusCode.BadRequest,
                 """
@@ -396,11 +1096,11 @@ public sealed class CargoBookingDetailsPageTests : BunitContext
     [Fact]
     public void A_conflict_from_the_api_is_reported_above_the_form()
     {
-        respond = request => request.Method == HttpMethod.Post
+        respond = request => request.Method == HttpMethod.Put
             ? Json(
                 HttpStatusCode.Conflict,
                 """
-                {"title":"Cargo booking already has safety information.","status":409,"detail":"Safety information was already declared."}
+                {"title":"Cargo safety information transition is not allowed.","status":409,"detail":"The declaration is already approved."}
                 """)
             : Json(HttpStatusCode.OK, Details(isHazardous: true));
 
@@ -410,7 +1110,7 @@ public sealed class CargoBookingDetailsPageTests : BunitContext
 
         page.WaitForAssertion(() => Assert.Single(page.FindAll(".booking-form-error")));
         Assert.Contains(
-            "Cargo booking already has safety information.",
+            "Cargo safety information transition is not allowed.",
             page.Find(".booking-form-error").TextContent,
             StringComparison.Ordinal);
     }
@@ -425,8 +1125,8 @@ public sealed class CargoBookingDetailsPageTests : BunitContext
 
         Assert.Contains("Record InTransit", page.Find(".tracking-submit").TextContent, StringComparison.Ordinal);
 
-        // No status picker exists, so no other step in the vocabulary can be requested.
-        Assert.Empty(page.FindAll("select:not(#operation-type)"));
+        // No tracking-status picker exists, so no other step in the vocabulary can be requested.
+        Assert.Empty(page.FindAll(".booking-tracking-card select"));
         Assert.DoesNotContain("Record Completed", page.Markup, StringComparison.Ordinal);
     }
 
@@ -628,15 +1328,52 @@ public sealed class CargoBookingDetailsPageTests : BunitContext
     [Fact]
     public void Declared_hazardous_cargo_can_be_loaded_from_the_page()
     {
-        respond = _ => Json(HttpStatusCode.OK, Details(
-            isHazardous: true,
-            status: "Planned",
-            nextStatus: "Loaded",
-            safetyInfo: DeclaredSafetyInfo));
+        respond = RespondWith(
+            Details(
+                isHazardous: true,
+                status: "Planned",
+                nextStatus: "Loaded",
+                safetyInfo: DeclaredSafetyInfo),
+            DeclaredSafetyInfo);
 
         var page = RenderDetailsPage();
 
         Assert.Contains("Record Loaded", page.Find(".tracking-submit").TextContent, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void An_unapproved_declaration_blocks_loading_from_the_page()
+    {
+        respond = RespondWith(
+            Details(
+                isHazardous: true,
+                status: "Planned",
+                nextStatus: "Loaded",
+                safetyInfo: SubmittedSafetyInfo),
+            SubmittedSafetyInfo);
+
+        var page = RenderDetailsPage();
+
+        Assert.Empty(page.FindAll(".tracking-submit"));
+        Assert.Contains(
+            "must be approved before this hazardous cargo can be loaded",
+            page.Markup,
+            StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void A_missing_declaration_blocks_loading_with_its_own_message()
+    {
+        respond = RespondWith(
+            Details(isHazardous: true, status: "Planned", nextStatus: "Loaded"));
+
+        var page = RenderDetailsPage();
+
+        Assert.Empty(page.FindAll(".tracking-submit"));
+        Assert.Contains(
+            "Declare the safety information before this hazardous cargo can be loaded",
+            page.Markup,
+            StringComparison.Ordinal);
     }
 
     [Fact]
@@ -698,11 +1435,11 @@ public sealed class CargoBookingDetailsPageTests : BunitContext
         string? boardQuery,
         params string[] permissions)
     {
-        var httpClient = new HttpClient(new StubHttpMessageHandler(request =>
+        var httpClient = new HttpClient(new StubHttpMessageHandler((request, token) =>
         {
             requestedUris.Add(request.RequestUri!);
 
-            return respond(request);
+            return respondWithToken is null ? respond(request) : respondWithToken(request, token);
         }))
         {
             BaseAddress = new Uri("https://api.harborops.test/"),
@@ -770,8 +1507,8 @@ public sealed class CargoBookingDetailsPageTests : BunitContext
         var page = RenderDetailsPage();
 
         Assert.Empty(page.FindAll(".manifest-row"));
-        Assert.Contains("No containers yet. Add the first one in the row below.", page.Markup, StringComparison.Ordinal);
-        Assert.Single(page.FindAll(".manifest-add-row"));
+        Assert.Contains("No containers yet. Add the first one using the form below.", page.Markup, StringComparison.Ordinal);
+        Assert.Single(page.FindAll(".manifest-add-form"));
     }
 
     [Fact]
@@ -819,7 +1556,7 @@ public sealed class CargoBookingDetailsPageTests : BunitContext
 
         var page = RenderDetailsPage();
         page.Find("#container-number").Change("MSKU1234567");
-        page.Find("#container-type").Change("40HC");
+        page.Find("#container-type").Change("45G1");
         page.Find(".container-submit").Click();
 
         page.WaitForAssertion(() => Assert.Single(page.FindAll(".manifest-row")));
@@ -839,7 +1576,7 @@ public sealed class CargoBookingDetailsPageTests : BunitContext
 
         var page = RenderDetailsPage();
         page.Find("#container-number").Change("MSKU1234567");
-        page.Find("#container-type").Change("40HC");
+        page.Find("#container-type").Change("45G1");
         page.Find(".container-submit").Click();
 
         page.WaitForAssertion(() =>
@@ -911,6 +1648,7 @@ public sealed class CargoBookingDetailsPageTests : BunitContext
 
         Assert.Single(page.FindAll(".operation-start"));
         Assert.Single(page.FindAll(".operation-complete"));
+        Assert.Contains("1 planned", page.Find(".booking-operations-card .booking-count").TextContent, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -1103,7 +1841,7 @@ public sealed class CargoBookingDetailsPageTests : BunitContext
 
         var page = RenderDetailsPage(CurrentUserAuthorizationState.CargoReadPermission);
 
-        Assert.Empty(page.FindAll(".manifest-add-row"));
+        Assert.Empty(page.FindAll(".manifest-add-form"));
         Assert.Contains("No containers on the manifest", page.Markup, StringComparison.Ordinal);
     }
 
@@ -1296,14 +2034,42 @@ public sealed class CargoBookingDetailsPageTests : BunitContext
         });
     }
 
-    private sealed class StubHttpMessageHandler(Func<HttpRequestMessage, Task<HttpResponseMessage>> responseFactory)
+    private static bool IsSafetyRoute(HttpRequestMessage request)
+    {
+        return request.RequestUri!.AbsolutePath.EndsWith("/safety-information", StringComparison.Ordinal);
+    }
+
+    private static string SafetyView(string declaration, string timeline = "[]")
+    {
+        return $$"""{"declaration":{{declaration}},"timeline":{{timeline}}}""";
+    }
+
+    private static Task<HttpResponseMessage> SafetyResponse(string? declaration, string timeline = "[]")
+    {
+        return declaration is null
+            ? Json(HttpStatusCode.NotFound, SafetyNotFound)
+            : Json(HttpStatusCode.OK, SafetyView(declaration, timeline));
+    }
+
+    private static Func<HttpRequestMessage, Task<HttpResponseMessage>> RespondWith(
+        string details,
+        string? declaration = null,
+        string timeline = "[]")
+    {
+        return request => IsSafetyRoute(request)
+            ? SafetyResponse(declaration, timeline)
+            : Json(HttpStatusCode.OK, details);
+    }
+
+    private sealed class StubHttpMessageHandler(
+        Func<HttpRequestMessage, CancellationToken, Task<HttpResponseMessage>> responseFactory)
         : HttpMessageHandler
     {
         protected override Task<HttpResponseMessage> SendAsync(
             HttpRequestMessage request,
             CancellationToken cancellationToken)
         {
-            return responseFactory(request);
+            return responseFactory(request, cancellationToken);
         }
     }
 }

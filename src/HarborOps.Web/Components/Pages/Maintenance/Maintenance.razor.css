@@ -1558,6 +1558,133 @@ html[data-theme="light"] .maintenance-modal-backdrop .maintenance-form-card {
     cursor: pointer;
 }
 
+.maintenance-board-card .maintenance-table-scroll { overflow-x: auto; }
+.maintenance-board-card .maintenance-table { min-width: 76rem; }
+.maintenance-board-card .maintenance-table .col-actions { width: 11.5rem; padding-right: .75rem; text-align: right; }
+
+.maintenance-row-actions {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: .6rem;
+    min-height: 2.4rem;
+}
+
+.maintenance-row-action-buttons {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: .35rem;
+}
+
+.maintenance-row-actions .maintenance-complete-button,
+.maintenance-row-actions .maintenance-usage-button {
+    width: auto;
+    margin: 0;
+    white-space: nowrap;
+}
+
+.maintenance-row-actions .maintenance-row-chevron { margin-left: 0; }
+
+.maintenance-in-progress-row td { background: color-mix(in srgb, var(--status-warning) 6%, transparent); }
+.maintenance-in-progress-row td:first-child { box-shadow: inset 3px 0 0 var(--status-warning); }
+.maintenance-work-order-row:hover {
+    background: color-mix(in srgb, var(--accent) 8%, var(--bg-surface));
+    transform: none;
+}
+
+.maintenance-work-order-row:hover td {
+    box-shadow: inset 0 1px 0 var(--accent-border), inset 0 -1px 0 var(--accent-border);
+}
+
+.maintenance-work-order-row:hover td:first-child {
+    box-shadow: var(--row-hover-inset), inset 0 1px 0 var(--accent-border), inset 0 -1px 0 var(--accent-border);
+}
+
+.maintenance-work-order-row.maintenance-in-progress-row:hover td:first-child {
+    box-shadow: inset 3px 0 0 var(--status-warning), inset 0 1px 0 var(--accent-border), inset 0 -1px 0 var(--accent-border);
+}
+
+html[data-theme="light"] .maintenance-in-progress-row td { background: rgba(180, 83, 9, .06); }
+
+.maintenance-usage-modal {
+    width: min(100%, 50rem);
+    min-width: min(100%, 42rem);
+    padding: 1.4rem;
+}
+
+.maintenance-usage-modal > h2 {
+    padding-bottom: .9rem;
+    border-bottom: 1px solid var(--border-subtle);
+    font-size: 1.15rem;
+}
+
+.maintenance-usage-search {
+    display: grid;
+    grid-template-columns: minmax(15rem, 1fr) auto auto;
+    align-items: end;
+    gap: .75rem;
+    margin: 1rem 0;
+    padding: .95rem 1rem;
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-control);
+    background: color-mix(in srgb, var(--bg-surface-strong) 78%, transparent);
+    box-shadow: none;
+}
+
+.maintenance-usage-search .filter-field-check { min-width: max-content; }
+.maintenance-usage-search .maintenance-button { min-width: 6.3rem; }
+
+.maintenance-usage-table th { padding-top: .55rem; }
+.maintenance-usage-table td { padding-top: .7rem; padding-bottom: .7rem; }
+
+.maintenance-usage-entry {
+    margin-top: 1rem;
+    padding: 1rem;
+    border: 1px solid var(--accent-border);
+    border-radius: var(--radius-control);
+    background: var(--accent-bg);
+}
+
+.maintenance-usage-entry .maintenance-form-grid {
+    grid-template-columns: minmax(0, 1fr) minmax(10rem, .45fr);
+    gap: 1rem;
+}
+
+.maintenance-usage-entry .filter-field > span {
+    display: flex;
+    align-items: center;
+    min-height: var(--control-height);
+    padding: 0 .85rem;
+    border: 1px solid var(--border-medium);
+    border-radius: var(--radius-control);
+    background: var(--control-surface);
+    font-size: .88rem;
+}
+
+.maintenance-usage-history {
+    margin-top: 1.25rem;
+    padding-top: 1.1rem;
+    border-top: 1px solid var(--border-subtle);
+}
+
+.maintenance-usage-history h3 {
+    margin: 0 0 .7rem;
+    color: var(--text-secondary);
+    font-size: .74rem;
+    font-weight: 700;
+    letter-spacing: .1em;
+    text-transform: uppercase;
+}
+
+.maintenance-usage-close-actions { margin-top: 1.1rem; }
+
+@media (max-width: 760px) {
+    .maintenance-usage-modal { min-width: 0; }
+    .maintenance-usage-search,
+    .maintenance-usage-entry .maintenance-form-grid { grid-template-columns: minmax(0, 1fr); }
+}
+
     .maintenance-work-order-row:hover td {
         box-shadow: inset 0 1px 0 var(--accent-border), inset 0 -1px 0 var(--accent-border);
     }

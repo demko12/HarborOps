@@ -189,7 +189,7 @@
 				<div class="maintenance-conflict" role="alert">@completionFailure.Message</div>
 			}
 
-			<section class="maintenance-card" aria-labelledby="maintenance-list-title">
+			<section class="maintenance-card maintenance-board-card" aria-labelledby="maintenance-list-title">
 				<div class="maintenance-card-heading">
 					<div>
 						<h2 id="maintenance-list-title">Work order board</h2>
@@ -236,13 +236,14 @@
 								@{
 									var utcNow = DateTime.UtcNow;
 								}
-								@foreach (var row in rows)
-								{
-									var isOverdue = MaintenanceFormat.IsOverdue(row.Status, row.DueUtc, utcNow);
-									var isCritical = MaintenanceFormat.IsCritical(row.Priority);
+				@foreach (var row in rows)
+				{
+					var isOverdue = MaintenanceFormat.IsOverdue(row.Status, row.DueUtc, utcNow);
+					var isCritical = MaintenanceFormat.IsCritical(row.Priority);
+					var isInProgress = string.Equals(row.Status, "InProgress", StringComparison.OrdinalIgnoreCase);
 
-									<tr @key="row.WorkOrderId"
-										class="maintenance-work-order-row @(isOverdue ? "maintenance-overdue-row" : null)"
+					<tr @key="row.WorkOrderId"
+						class="maintenance-work-order-row @(isOverdue ? "maintenance-overdue-row" : null) @(isInProgress ? "maintenance-in-progress-row" : null)"
 										role="link"
 										tabindex="0"
 										aria-label="@($"Open {row.Title} work order details")"
@@ -278,21 +279,25 @@
 										<td class="maintenance-muted col-assigned">@MaintenanceFormat.AssignedEngineer(row.AssignedEngineerId)</td>
 										<td class="maintenance-muted col-created">@MaintenanceFormat.CreatedUtc(row.CreatedUtc)</td>
 										<td class="maintenance-muted col-completed">@MaintenanceFormat.CompletedUtc(row.CompletedUtc)</td>
-										<td class="col-actions" @onclick:stopPropagation="true">
-											@if (MaintenanceFormat.CanComplete(row.Status))
-											{
-												<button type="button" class="maintenance-complete-button" @onclick="() => OpenCompletionForm(row.WorkOrderId)">
-													Complete
-												</button>
-											}
-											@if (MaintenanceFormat.CanComplete(row.Status) && CanRecordUsage)
-											{
-												<button type="button" class="maintenance-usage-button" @onclick="() => OpenUsageForm(row.WorkOrderId)">
-													Record usage
-												</button>
-											}
-											<span class="bi bi-chevron-right maintenance-row-chevron" aria-hidden="true"></span>
-										</td>
+						<td class="col-actions" @onclick:stopPropagation="true">
+							<div class="maintenance-row-actions">
+								<div class="maintenance-row-action-buttons">
+									@if (MaintenanceFormat.CanComplete(row.Status))
+									{
+										<button type="button" class="maintenance-complete-button" @onclick="() => OpenCompletionForm(row.WorkOrderId)">
+											Complete
+										</button>
+									}
+									@if (MaintenanceFormat.CanComplete(row.Status) && CanRecordUsage)
+									{
+										<button type="button" class="maintenance-usage-button" @onclick="() => OpenUsageForm(row.WorkOrderId)">
+											Record usage
+										</button>
+									}
+								</div>
+								<span class="bi bi-chevron-right maintenance-row-chevron" aria-hidden="true"></span>
+							</div>
+						</td>
 									</tr>
 								}
 							</tbody>
@@ -429,7 +434,7 @@
 			@if (usageWorkOrderId is not null)
 			{
 				<div class="maintenance-modal-backdrop" @onclick="CloseUsageForm">
-					<section class="maintenance-form-card" aria-labelledby="maintenance-usage-title" @onclick:stopPropagation="true">
+					<section class="maintenance-form-card maintenance-usage-modal" aria-labelledby="maintenance-usage-title" @onclick:stopPropagation="true">
 						<h2 id="maintenance-usage-title">Record part usage</h2>
 
 						@if (usageSuccessMessage is not null)
@@ -438,7 +443,7 @@
 						}
 
 						<div class="maintenance-usage-picker">
-							<form class="maintenance-filters" @onsubmit="SearchInventoryAsync" @onsubmit:preventDefault="true">
+							<form class="maintenance-filters maintenance-usage-search" @onsubmit="SearchInventoryAsync" @onsubmit:preventDefault="true">
 								<div class="filter-field">
 									<label for="usage-search">Search parts</label>
 									<input id="usage-search" @bind="inventorySearchText" placeholder="Name or part number" />
@@ -467,7 +472,7 @@
 							else
 							{
 								<div class="maintenance-table-scroll">
-									<table class="maintenance-table">
+									<table class="maintenance-table maintenance-usage-table">
 										<caption class="visually-hidden">Available inventory parts</caption>
 										<thead>
 											<tr>
@@ -510,7 +515,7 @@
 
 						@if (selectedInventoryItemId is not null)
 						{
-							<form class="maintenance-form" @onsubmit="SubmitUsageAsync" @onsubmit:preventDefault="true">
+							<form class="maintenance-form maintenance-usage-entry" @onsubmit="SubmitUsageAsync" @onsubmit:preventDefault="true">
 								<div class="maintenance-form-grid">
 									<div class="filter-field">
 										<label>Selected part</label>
@@ -554,7 +559,7 @@
 						}
 
 						<div class="maintenance-usage-history">
-							<h3>Recorded usage for this work order</h3>
+							<h3>Recorded usage</h3>
 							@if (isUsagesLoading)
 							{
 								<LoadingState Message="Loading usage..." />
@@ -569,7 +574,7 @@
 							}
 							else
 							{
-								<table class="maintenance-table">
+								<table class="maintenance-table maintenance-usage-table">
 									<caption class="visually-hidden">Parts already used on this work order</caption>
 									<thead>
 										<tr>
@@ -594,7 +599,7 @@
 							}
 						</div>
 
-						<div class="maintenance-form-actions">
+						<div class="maintenance-form-actions maintenance-usage-close-actions">
 							<button type="button" class="maintenance-reset" @onclick="CloseUsageForm">Close</button>
 						</div>
 					</section>

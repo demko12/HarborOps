@@ -55,7 +55,7 @@
     </div>
 
     <section class="nc-card nc-results-card">
-        <div class="nc-list-heading"><div><h2>Non-conformity register</h2><p>@(page?.TotalCount ?? 0) findings found</p></div></div>
+        <div class="nc-list-heading"><div><h2>Non-conformity register</h2><p>@(page?.TotalCount ?? 0) findings found</p></div><span class="nc-panel-icon bi bi-exclamation-diamond" aria-hidden="true"></span></div>
         @if (isLoading)
         {
             <LoadingState Message="Loading non-conformities..." />
@@ -74,6 +74,7 @@
                 @foreach (var row in rows)
                 {
                     <button type="button" class="nc-record @(row.IsOverdue ? "is-overdue" : null)" @onclick="() => SelectRowAsync(row.Id)">
+                        <span class="nc-record-icon bi bi-exclamation-diamond" aria-hidden="true"></span>
                         <div class="nc-record-cell"><span>Finding</span><strong>#@row.Id</strong></div>
                         <div class="nc-record-cell"><span>Vessel</span><strong>@row.VesselName</strong></div>
                         <div class="nc-record-cell"><span>Severity</span><span class="compliance-badge @SeverityBadgeClass(row.Severity)">@row.Severity</span></div>

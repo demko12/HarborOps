@@ -25,6 +25,7 @@ internal sealed class GetDocumentByIdQuery(DbContext dbContext, TimeProvider? ti
                 candidate.ExpiryDate,
                 candidate.IssuingAuthority,
                 candidate.Status == Document.ActiveStatus && candidate.ExpiryDate < today ? "Expired" : candidate.Status,
+                candidate.ReviewStatus,
                 candidate.StorageKey != null,
                 candidate.FileName,
                 candidate.ContentType,

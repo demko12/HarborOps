@@ -1,0 +1,314 @@
+@using HarborOps.Web.Api.Cargo
+@implements IDisposable
+@inject CargoBookingsApiClient CargoApi
+@inject CurrentUserAuthorizationState AuthorizationState
+
+@if (!IsHazardous)
+{
+    <p class="booking-note">This cargo carries no IMDG declaration requirement.</p>
+}
+else if (isLoading)
+{
+    <p class="booking-note" role="status">Loading safety information...</p>
+}
+else if (failure is not null)
+{
+    <ApiErrorState Title="@failure.Title" Message="@failure.Message" OnRetry="ReloadAsync" />
+}
+else
+{
+    @if (Declaration is { } declaration)
+    {
+        <div class="safety-status-row">
+            <span class="@CargoBookingFormat.SafetyStatusClass(declaration.ReviewStatus)">
+                @CargoBookingFormat.SafetyStatusLabel(declaration.ReviewStatus)
+            </span>
+        </div>
+    }
+    else
+    {
+        <p class="booking-note booking-note-warning" role="status">
+            Safety information has not been declared for this hazardous cargo yet.
+        </p>
+    }
+
+    @if (ShowsForm)
+    {
+        <EditForm EditContext="safetyEditContext" OnValidSubmit="SubmitSafetyDeclarationAsync">
+            <DataAnnotationsValidator />
+
+            @if (safetyError is not null)
+            {
+                <div class="booking-form-error" role="alert">@safetyError</div>
+            }
+
+            <dl class="booking-facts safety-facts-editing">
+                <div>
+                    <dt><label for="safety-imdg-class">IMDG class</label></dt>
+                    <dd>
+                        <InputText id="safety-imdg-class" @bind-Value="safetyModel.ImdgClass" />
+                        <ValidationMessage For="() => safetyModel.ImdgClass" />
+                    </dd>
+                </div>
+                <div>
+                    <dt><label for="safety-un-number">UN number</label></dt>
+                    <dd>
+                        <InputText id="safety-un-number" @bind-Value="safetyModel.UnNumber" />
+                        <ValidationMessage For="() => safetyModel.UnNumber" />
+                    </dd>
+                </div>
+                <div>
+                    <dt><label for="safety-storage">Storage conditions</label></dt>
+                    <dd>
+                        <InputText id="safety-storage" @bind-Value="safetyModel.StorageConditions" />
+                        <ValidationMessage For="() => safetyModel.StorageConditions" />
+                    </dd>
+                </div>
+                <div>
+                    <dt><label for="safety-handling-notes">Handling notes</label></dt>
+                    <dd>
+                        <InputTextArea id="safety-handling-notes" rows="2" @bind-Value="safetyModel.HandlingNotes" />
+                        <ValidationMessage For="() => safetyModel.HandlingNotes" />
+                    </dd>
+                </div>
+            </dl>
+
+            <div class="booking-form-actions">
+                @if (isEditing)
+                {
+                    <button type="button"
+                            class="safety-edit-cancel"
+                            disabled="@isDeclaringSafety"
+                            @onclick="CancelEditing">Cancel</button>
+                }
+
+                <button class="booking-submit safety-submit" type="submit" disabled="@isDeclaringSafety">
+                    @SubmitLabel
+                </button>
+            </div>
+        </EditForm>
+    }
+    else if (Declaration is { } shown)
+    {
+        <dl class="booking-facts">
+            <div>
+                <dt>IMDG class</dt>
+                <dd>@shown.ImdgClass</dd>
+            </div>
+            <div>
+                <dt>UN number</dt>
+                <dd>@shown.UnNumber</dd>
+            </div>
+            <div>
+                <dt>Storage conditions</dt>
+                <dd>@shown.StorageConditions</dd>
+            </div>
+            <div>
+                <dt>Handling notes</dt>
+                <dd>@(string.IsNullOrWhiteSpace(shown.HandlingNotes) ? "None recorded" : shown.HandlingNotes)</dd>
+            </div>
+        </dl>
+
+        @if (CanStartEditing)
+        {
+            <div class="booking-form-actions">
+                <button type="button"
+                        class="booking-submit safety-edit"
+                        @onclick="StartEditing">Edit declaration</button>
+            </div>
+        }
+        else if (IsLocked)
+        {
+            <p class="booking-note safety-locked" role="status">
+                @LockedReason(shown.ReviewStatus)
+            </p>
+        }
+    }
+
+    @if (Declaration is { } audited && (audited.SubmittedAtUtc is not null || audited.ReviewedAtUtc is not null))
+    {
+        <dl class="booking-facts safety-facts-audit">
+            @if (audited.SubmittedAtUtc is { } submittedAtUtc)
+            {
+                <div>
+                    <dt>Submitted</dt>
+                    <dd>
+                        <span class="safety-audit-time">@CargoBookingFormat.CreatedUtc(submittedAtUtc)</span>
+                        <span class="safety-audit-actor">@audited.SubmittedByUserId</span>
+                    </dd>
+                </div>
+            }
+            @if (audited.ReviewedAtUtc is { } reviewedAtUtc)
+            {
+                <div>
+                    <dt>Reviewed</dt>
+                    <dd>
+                        <span class="safety-audit-time">@CargoBookingFormat.CreatedUtc(reviewedAtUtc)</span>
+                        <span class="safety-audit-actor">@audited.ReviewedByUserId</span>
+                    </dd>
+                </div>
+            }
+        </dl>
+    }
+
+    @if (Declaration is { ReviewNotes: not null and not "" } reviewed)
+    {
+        <p class="booking-note safety-review-notes">@reviewed.ReviewNotes</p>
+    }
+
+    @if (Timeline.Count > 0)
+    {
+        <div class="booking-form-actions">
+            <button type="button"
+                    class="safety-history-open"
+                    @onclick="ShowHistory">
+                Review history (@Timeline.Count)
+            </button>
+        </div>
+    }
+
+    @if (CanSubmit || CanReview)
+    {
+        <div class="safety-actions">
+            @if (CanSubmit)
+            {
+                <button type="button"
+                        class="booking-submit safety-action-submit"
+                        @onclick="() => AskToConfirm(SubmitAction)">
+                    Submit for review
+                </button>
+            }
+
+            @if (CanReview)
+            {
+                <button type="button"
+                        class="booking-submit safety-action-approve"
+                        @onclick="() => AskToConfirm(ApproveAction)">
+                    Approve
+                </button>
+                <button type="button"
+                        class="safety-action-reject"
+                        @onclick="() => AskToConfirm(RejectAction)">
+                    Reject
+                </button>
+            }
+        </div>
+    }
+
+    @if (isHistoryOpen)
+    {
+        <div class="operation-modal-backdrop" @onclick="HideHistory">
+            <section class="operation-modal safety-history-modal"
+                     role="dialog"
+                     aria-modal="true"
+                     aria-labelledby="safety-history-title"
+                     @onclick:stopPropagation="true">
+                <div class="operation-modal-header">
+                    <h2 id="safety-history-title">Review history</h2>
+                    <button type="button"
+                            class="operation-modal-close"
+                            aria-label="Close review history"
+                            @onclick="HideHistory">
+                        &times;
+                    </button>
+                </div>
+
+                <ol class="safety-timeline">
+                    @foreach (var entry in Timeline)
+                    {
+                        <li class="safety-timeline-entry">
+                            <div class="safety-timeline-head">
+                                <span class="safety-timeline-change">
+                                    @CargoBookingFormat.SafetyStatusLabel(entry.FromStatus)
+                                    &rarr;
+                                    @CargoBookingFormat.SafetyStatusLabel(entry.ToStatus)
+                                </span>
+                                <span class="safety-timeline-time">@CargoBookingFormat.CreatedUtc(entry.OccurredUtc)</span>
+                            </div>
+
+                            <dl class="safety-timeline-actor">
+                                <dt>User ID</dt>
+                                <dd>@entry.ActorUserId</dd>
+                            </dl>
+
+                            @if (!string.IsNullOrWhiteSpace(entry.Notes))
+                            {
+                                <p class="safety-timeline-notes">@entry.Notes</p>
+                            }
+                        </li>
+                    }
+                </ol>
+
+                <div class="operation-modal-actions">
+                    <button type="button"
+                            class="operation-confirm-dismiss"
+                            @onclick="HideHistory">
+                        Close
+                    </button>
+                </div>
+            </section>
+        </div>
+    }
+
+    @if (pendingAction is not null)
+    {
+        <div class="operation-modal-backdrop" @onclick="DismissConfirmation">
+            <section class="operation-modal"
+                     role="alertdialog"
+                     aria-modal="true"
+                     aria-labelledby="safety-confirm-title"
+                     @onclick:stopPropagation="true">
+                <div class="operation-modal-header">
+                    <h2 id="safety-confirm-title">Confirm</h2>
+                    <button type="button"
+                            class="operation-modal-close"
+                            aria-label="Close confirmation dialog"
+                            disabled="@isActing"
+                            @onclick="DismissConfirmation">
+                        &times;
+                    </button>
+                </div>
+
+                <p class="operation-confirm-question">@ConfirmationQuestion</p>
+
+                @if (ShowsNotes)
+                {
+                    <div class="booking-field booking-field-wide">
+                        <label for="safety-review-notes">
+                            @(NotesRequired ? "Review notes" : "Review notes (optional)")
+                        </label>
+                        <textarea id="safety-review-notes"
+                                  rows="3"
+                                  disabled="@isActing"
+                                  @bind="actionNotes"></textarea>
+
+                        @if (notesError is not null)
+                        {
+                            <div class="booking-form-error" role="alert">@notesError</div>
+                        }
+                    </div>
+                }
+
+                @if (actionError is not null)
+                {
+                    <div class="booking-form-error" role="alert">@actionError</div>
+                }
+
+                <div class="operation-modal-actions">
+                    <button type="button"
+                            class="booking-submit safety-confirm"
+                            disabled="@isActing"
+                            @onclick="ConfirmPendingActionAsync">
+                        @(isActing ? "Working..." : ConfirmLabel)
+                    </button>
+                    <button type="button"
+                            class="operation-confirm-dismiss"
+                            disabled="@isActing"
+                            @onclick="DismissConfirmation">
+                        Cancel
+                    </button>
+                </div>
+            </section>
+        </div>
+    }
+}

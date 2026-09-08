@@ -58,6 +58,14 @@ public sealed class CargoOperationExecutionController(
                 "Cargo manifest is not ready for this operation.",
                 exception.Message);
         }
+        catch (CargoSafetyApprovalRequiredException exception)
+        {
+            return ConflictProblem(
+                exception.ReviewStatus is null
+                    ? "Cargo safety information is required before loading."
+                    : "Cargo safety declaration is not approved.",
+                exception.Message);
+        }
         catch (CargoOperationTransitionException exception)
         {
             return TransitionNotAllowed(exception);

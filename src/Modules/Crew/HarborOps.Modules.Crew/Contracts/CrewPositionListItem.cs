@@ -4,4 +4,6 @@ public sealed record CrewPositionListItem(
     Guid CrewPositionId,
     string RankName,
     string Department,
-    string SeniorityLevel);
+    string SeniorityLevel,
+    int CrewMemberUsageCount,
+    int AssignmentUsageCount);

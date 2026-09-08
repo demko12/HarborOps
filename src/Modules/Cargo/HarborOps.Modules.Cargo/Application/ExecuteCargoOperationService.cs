@@ -15,6 +15,7 @@ public sealed class ExecuteCargoOperationService(DbContext dbContext, TimeProvid
         if (operation.State is CargoOperationState.Planned)
         {
             await EnsureBookingPhaseAllowsAsync(operation, cancellationToken);
+            await EnsureHazardousCargoIsApprovedAsync(operation, cancellationToken);
             await EnsureNoOtherOperationInProgressAsync(operation, cancellationToken);
             await EnsureManifestIsReadyAsync(operation, cancellationToken);
         }
@@ -110,6 +111,33 @@ public sealed class ExecuteCargoOperationService(DbContext dbContext, TimeProvid
         {
             throw new CargoOperationAlreadyInProgressException(operation.CargoBookingId);
         }
+    }
+
+    private async Task EnsureHazardousCargoIsApprovedAsync(
+        LoadUnloadOperation operation,
+        CancellationToken cancellationToken)
+    {
+        if (operation.OperationType is not CargoOperationType.Load)
+        {
+            return;
+        }
+
+        var isHazardous = await dbContext
+            .Set<CargoBooking>()
+            .AsNoTracking()
+            .Where(booking => booking.Id == operation.CargoBookingId)
+            .Select(booking => booking.IsHazardous)
+            .SingleAsync(cancellationToken);
+
+        if (!isHazardous)
+        {
+            return;
+        }
+
+        await CargoSafetyInfoGuard.EnsureApprovedForLoadingAsync(
+            dbContext,
+            operation.CargoBookingId,
+            cancellationToken);
     }
 
     private async Task EnsureManifestIsReadyAsync(

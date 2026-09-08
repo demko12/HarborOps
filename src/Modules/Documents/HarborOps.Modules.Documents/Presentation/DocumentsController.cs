@@ -1,8 +1,11 @@
 using System.Security.Claims;
 using HarborOps.Modules.Documents.Application;
 using HarborOps.Modules.Documents.Contracts;
+using HarborOps.Modules.Documents.Domain;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 using Microsoft.Net.Http.Headers;
 
@@ -21,10 +24,27 @@ public sealed class DocumentsController(
     IReplaceDocumentFileService replaceDocumentFileService,
     IGetDocumentFileQuery getDocumentFileQuery,
     DocumentLifecycleService documentLifecycleService,
+    IAuthorizationService authorizationService,
     IOptions<DocumentFileValidationOptions> documentFileValidationOptions)
     : ControllerBase
 {
     private const string FileField = "file";
+    private const string ManageCapability = "documents.manage";
+
+    // GetDocumentByIdQuery relabels an Active document's Status as "Expired" once its
+    // ExpiryDate has passed (display-only - the persisted Status column is unchanged),
+    // so "Expired" is treated as visibility-equivalent to Active here.
+    private static readonly string[] ReadOnlyVisibleStatuses = [Document.ActiveStatus, "Expired", Document.SupersededStatus];
+
+    private async Task<bool> HasManageCapabilityAsync() =>
+        (await authorizationService.AuthorizeAsync(User, ManageCapability)).Succeeded;
+
+    private static bool IsVisibleToReadOnlyUsers(string status, string reviewStatus) =>
+        string.Equals(reviewStatus, Document.ApprovedReviewStatus, StringComparison.Ordinal)
+        && ReadOnlyVisibleStatuses.Contains(status, StringComparer.Ordinal);
+
+    private async Task<bool> CanViewAsync(string status, string reviewStatus) =>
+        await HasManageCapabilityAsync() || IsVisibleToReadOnlyUsers(status, reviewStatus);
 
     [HttpPut("{documentId:guid}/metadata")]
     public async Task<IActionResult> CorrectMetadata(Guid documentId, [FromBody] CorrectDocumentMetadataRequest request, CancellationToken cancellationToken)
@@ -58,6 +78,211 @@ public sealed class DocumentsController(
         catch (DocumentNotFoundException exception) { return NotFound(Problem(exception.Message)); }
     }
 
+    [HttpPost("/api/documents/{documentId:guid}/submit-for-review")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]
+    public async Task<IActionResult> SubmitForReview(Guid documentId, CancellationToken cancellationToken)
+    {
+        if (!Guid.TryParse(User.FindFirstValue(ClaimTypes.NameIdentifier), out var actorId))
+        {
+            return Unauthorized();
+        }
+
+        try
+        {
+            await documentLifecycleService.SubmitForReviewAsync(documentId, actorId, cancellationToken);
+
+            return NoContent();
+        }
+        catch (DocumentNotFoundException exception)
+        {
+            return NotFound(new ProblemDetails
+            {
+                Status = StatusCodes.Status404NotFound,
+                Title = "Document not found.",
+                Detail = exception.Message,
+            });
+        }
+        catch (InvalidOperationException exception)
+        {
+            return Conflict(new ProblemDetails
+            {
+                Status = StatusCodes.Status409Conflict,
+                Title = "Document cannot be submitted for review.",
+                Detail = exception.Message,
+            });
+        }
+    }
+
+    [HttpPost("/api/documents/{documentId:guid}/review")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType<HttpValidationProblemDetails>(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]
+    public async Task<IActionResult> Review(Guid documentId, [FromBody] ReviewDocumentRequest request, CancellationToken cancellationToken)
+    {
+        var errors = ReviewDocumentValidator.Validate(request);
+        if (errors.Count > 0)
+        {
+            return BadRequest(new HttpValidationProblemDetails(
+                errors.ToDictionary(error => error.Key, error => error.Value, StringComparer.Ordinal))
+            {
+                Status = StatusCodes.Status400BadRequest,
+                Title = "One or more validation errors occurred.",
+            });
+        }
+
+        if (!Guid.TryParse(User.FindFirstValue(ClaimTypes.NameIdentifier), out var reviewerId))
+        {
+            return Unauthorized();
+        }
+
+        try
+        {
+            await documentLifecycleService.ReviewAsync(documentId, reviewerId, request.Decision!, request.Notes, cancellationToken);
+
+            return NoContent();
+        }
+        catch (DocumentNotFoundException exception)
+        {
+            return NotFound(new ProblemDetails
+            {
+                Status = StatusCodes.Status404NotFound,
+                Title = "Document not found.",
+                Detail = exception.Message,
+            });
+        }
+        catch (DocumentLifecycleConflictException exception)
+        {
+            return Conflict(new ProblemDetails
+            {
+                Status = StatusCodes.Status409Conflict,
+                Title = "Document review conflict.",
+                Detail = exception.Message,
+            });
+        }
+        catch (InvalidOperationException exception)
+        {
+            return Conflict(new ProblemDetails
+            {
+                Status = StatusCodes.Status409Conflict,
+                Title = "Document cannot be reviewed.",
+                Detail = exception.Message,
+            });
+        }
+        catch (ArgumentException exception)
+        {
+            return BadRequest(new ProblemDetails
+            {
+                Status = StatusCodes.Status400BadRequest,
+                Title = "One or more validation errors occurred.",
+                Detail = exception.Message,
+            });
+        }
+        catch (DbUpdateConcurrencyException)
+        {
+            return Conflict(new ProblemDetails
+            {
+                Status = StatusCodes.Status409Conflict,
+                Title = "Document was modified concurrently.",
+                Detail = "The document was changed by another request. Reload and try again.",
+            });
+        }
+    }
+
+    [HttpPost("/api/documents/{documentId:guid}/revoke")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType<HttpValidationProblemDetails>(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]
+    public async Task<IActionResult> Revoke(Guid documentId, [FromBody] RevokeDocumentRequest request, CancellationToken cancellationToken)
+    {
+        var errors = RevokeDocumentValidator.Validate(request);
+        if (errors.Count > 0)
+        {
+            return BadRequest(new HttpValidationProblemDetails(
+                errors.ToDictionary(error => error.Key, error => error.Value, StringComparer.Ordinal))
+            {
+                Status = StatusCodes.Status400BadRequest,
+                Title = "One or more validation errors occurred.",
+            });
+        }
+
+        if (!Guid.TryParse(User.FindFirstValue(ClaimTypes.NameIdentifier), out var actorId))
+        {
+            return Unauthorized();
+        }
+
+        try
+        {
+            await documentLifecycleService.RevokeAsync(documentId, actorId, request.Reason!, cancellationToken);
+
+            return NoContent();
+        }
+        catch (DocumentNotFoundException exception)
+        {
+            return NotFound(new ProblemDetails
+            {
+                Status = StatusCodes.Status404NotFound,
+                Title = "Document not found.",
+                Detail = exception.Message,
+            });
+        }
+        catch (InvalidOperationException exception)
+        {
+            return Conflict(new ProblemDetails
+            {
+                Status = StatusCodes.Status409Conflict,
+                Title = "Document cannot be revoked.",
+                Detail = exception.Message,
+            });
+        }
+        catch (DbUpdateConcurrencyException)
+        {
+            return Conflict(new ProblemDetails
+            {
+                Status = StatusCodes.Status409Conflict,
+                Title = "Document was modified concurrently.",
+                Detail = "The document was changed by another request. Reload and try again.",
+            });
+        }
+    }
+
+    [HttpGet("/api/documents/{documentId:guid}/review-history")]
+    [ProducesResponseType<IReadOnlyList<DocumentReviewEventResponse>>(StatusCodes.Status200OK)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<IReadOnlyList<DocumentReviewEventResponse>>> ReviewHistory(Guid documentId, CancellationToken cancellationToken)
+    {
+        try
+        {
+            // GetReviewHistoryAsync returns only the event log (no Status/ReviewStatus of
+            // the document itself), so an extra GetByIdAsync call supplies what the
+            // visibility check needs - same approach as DownloadFile above.
+            var details = await getDocumentByIdQuery.GetByIdAsync(documentId, cancellationToken);
+
+            if (!await CanViewAsync(details.Status, details.ReviewStatus))
+            {
+                return Forbid();
+            }
+
+            return Ok(await documentLifecycleService.GetReviewHistoryAsync(documentId, cancellationToken));
+        }
+        catch (DocumentNotFoundException exception)
+        {
+            return NotFound(new ProblemDetails
+            {
+                Status = StatusCodes.Status404NotFound,
+                Title = "Document not found.",
+                Detail = exception.Message,
+            });
+        }
+    }
+
     private static ProblemDetails Problem(string detail) => new() { Status = StatusCodes.Status404NotFound, Title = "Document not found.", Detail = detail };
     private static HttpValidationProblemDetails Validation(IReadOnlyDictionary<string, string[]> errors, int status) => new(errors) { Status = status, Title = status == 409 ? "Document lifecycle conflict." : "One or more validation errors occurred." };
 
@@ -70,7 +295,8 @@ public sealed class DocumentsController(
     {
         try
         {
-            var response = await getExpiringDocumentsQuery.GetExpiringDocumentsAsync(request, cancellationToken);
+            var restrictToReadOnlyVisible = !await HasManageCapabilityAsync();
+            var response = await getExpiringDocumentsQuery.GetExpiringDocumentsAsync(request, cancellationToken, restrictToReadOnlyVisible);
 
             return Ok(response);
         }
@@ -124,7 +350,8 @@ public sealed class DocumentsController(
     {
         try
         {
-            var response = await getDocumentsQuery.GetDocumentsAsync(request, cancellationToken);
+            var restrictToReadOnlyVisible = !await HasManageCapabilityAsync();
+            var response = await getDocumentsQuery.GetDocumentsAsync(request, cancellationToken, restrictToReadOnlyVisible);
 
             return Ok(response);
         }
@@ -152,6 +379,11 @@ public sealed class DocumentsController(
         try
         {
             var response = await getDocumentByIdQuery.GetByIdAsync(documentId, cancellationToken);
+
+            if (!await CanViewAsync(response.Status, response.ReviewStatus))
+            {
+                return Forbid();
+            }
 
             return Ok(response);
         }
@@ -481,6 +713,17 @@ public sealed class DocumentsController(
     {
         try
         {
+            // A second lookup, in addition to GetFileAsync below: GetDocumentFileQuery's
+            // DocumentFileContent carries only stream/filename/content-type/size, not
+            // Status/ReviewStatus, so the visibility check needs this extra round trip
+            // rather than a change to GetDocumentFileQuery (out of scope for this step).
+            var details = await getDocumentByIdQuery.GetByIdAsync(documentId, cancellationToken);
+
+            if (!await CanViewAsync(details.Status, details.ReviewStatus))
+            {
+                return Forbid();
+            }
+
             var file = await getDocumentFileQuery.GetFileAsync(documentId, cancellationToken);
 
             var contentDisposition = new ContentDispositionHeaderValue("attachment")

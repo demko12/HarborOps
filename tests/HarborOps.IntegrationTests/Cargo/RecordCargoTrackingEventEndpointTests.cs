@@ -292,13 +292,14 @@ public sealed class RecordCargoTrackingEventEndpointTests : IntegrationTestBase
     }
 
     [Fact]
-    public async Task Post_loads_hazardous_cargo_after_its_safety_information_is_declared()
+    public async Task Post_loads_hazardous_cargo_after_its_safety_declaration_is_approved()
     {
         using var client = await _application.CreateAuthenticatedClientWithPermissionsAsync(Permissions.Cargo.Manage);
         var bookingId = await RegisterBookingAsync(client, "BK-TRACK-INT-0009", isHazardous: true);
 
         await AdvanceAsync(client, bookingId, nameof(CargoStatus.Planned));
         await DeclareSafetyInfoAsync(client, bookingId);
+        await ApproveSafetyInfoAsync(client, bookingId);
 
         using var response = await client.PostAsJsonAsync(
             TrackingEventsEndpoint(bookingId),
@@ -334,7 +335,7 @@ public sealed class RecordCargoTrackingEventEndpointTests : IntegrationTestBase
 
     private static async Task DeclareSafetyInfoAsync(HttpClient client, Guid bookingId)
     {
-        var request = new DeclareCargoSafetyInfoRequest
+        var request = new UpdateCargoSafetyInfoRequest
         {
             ImdgClass = "5.1",
             UnNumber = "UN1942",
@@ -342,12 +343,34 @@ public sealed class RecordCargoTrackingEventEndpointTests : IntegrationTestBase
             HandlingNotes = null,
         };
 
-        using var response = await client.PostAsJsonAsync(
+        using var response = await client.PutAsJsonAsync(
             $"{BookingsEndpoint}/{bookingId}/safety-information",
             request,
             CancellationToken.None);
 
-        Assert.Equal(HttpStatusCode.Created, response.StatusCode);
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+    }
+
+    private static async Task ApproveSafetyInfoAsync(HttpClient client, Guid bookingId)
+    {
+        using var submitResponse = await client.PostAsync(
+            $"{BookingsEndpoint}/{bookingId}/safety-information/submit",
+            content: null,
+            CancellationToken.None);
+
+        Assert.Equal(HttpStatusCode.OK, submitResponse.StatusCode);
+
+        var reviewRequest = new ReviewCargoSafetyInfoRequest
+        {
+            Status = nameof(CargoSafetyReviewStatus.Approved),
+        };
+
+        using var reviewResponse = await client.PostAsJsonAsync(
+            $"{BookingsEndpoint}/{bookingId}/safety-information/review",
+            reviewRequest,
+            CancellationToken.None);
+
+        Assert.Equal(HttpStatusCode.OK, reviewResponse.StatusCode);
     }
 
     [Fact]

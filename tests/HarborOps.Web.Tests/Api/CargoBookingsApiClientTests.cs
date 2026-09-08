@@ -11,10 +11,21 @@ public sealed class CargoBookingsApiClientTests
         """;
 
     private const string DetailsJson = """
-        {"cargoBookingId":"20000000-0000-0000-0000-000000000001","bookingNumber":"BK-2026-0143","voyageId":"30000000-0000-0000-0000-000000000002","description":"Ammonium nitrate","cargoType":"Dangerous Goods","weightKg":24000.000,"packageCount":480,"isHazardous":true,"status":"Planned","nextStatus":"Loaded","createdUtc":"2026-08-11T09:42:00Z","safetyInfo":{"cargoSafetyInfoId":"40000000-0000-0000-0000-000000000003","imdgClass":"1.4S","unNumber":"UN1234","storageConditions":"Keep below 25 C","handlingNotes":null},"trackingEvents":[{"cargoTrackingEventId":"50000000-0000-0000-0000-000000000004","status":"Planned","occurredUtc":"2026-08-12T06:00:00Z","location":"Yard A","responsibleUserId":"60000000-0000-0000-0000-000000000005"}]}
+        {"cargoBookingId":"20000000-0000-0000-0000-000000000001","bookingNumber":"BK-2026-0143","voyageId":"30000000-0000-0000-0000-000000000002","description":"Ammonium nitrate","cargoType":"Dangerous Goods","weightKg":24000.000,"packageCount":480,"isHazardous":true,"status":"Planned","nextStatus":"Loaded","createdUtc":"2026-08-11T09:42:00Z","safetyInfo":{"cargoSafetyInfoId":"40000000-0000-0000-0000-000000000003","imdgClass":"1.4S","unNumber":"UN1234","storageConditions":"Keep below 25 C","handlingNotes":null,"reviewStatus":"Approved","submittedByUserId":"70000000-0000-0000-0000-000000000006","submittedAtUtc":"2026-09-01T10:00:00Z","reviewedByUserId":"70000000-0000-0000-0000-000000000006","reviewedAtUtc":"2026-09-01T14:30:00Z","reviewNotes":null},"trackingEvents":[{"cargoTrackingEventId":"50000000-0000-0000-0000-000000000004","status":"Planned","occurredUtc":"2026-08-12T06:00:00Z","location":"Yard A","responsibleUserId":"60000000-0000-0000-0000-000000000005"}]}
+        """;
+
+    private const string DeclarationJson = """
+        {"cargoSafetyInfoId":"40000000-0000-0000-0000-000000000003","imdgClass":"1.4S","unNumber":"UN1234","storageConditions":"Keep below 25 C","handlingNotes":null,"reviewStatus":"Submitted","submittedByUserId":"70000000-0000-0000-0000-000000000006","submittedAtUtc":"2026-09-01T10:00:00Z","reviewedByUserId":null,"reviewedAtUtc":null,"reviewNotes":null}
+        """;
+
+    private const string SafetyInformationJson = """
+        {"declaration":{"cargoSafetyInfoId":"40000000-0000-0000-0000-000000000003","imdgClass":"1.4S","unNumber":"UN1234","storageConditions":"Keep below 25 C","handlingNotes":null,"reviewStatus":"Submitted","submittedByUserId":"70000000-0000-0000-0000-000000000006","submittedAtUtc":"2026-09-01T10:00:00Z","reviewedByUserId":null,"reviewedAtUtc":null,"reviewNotes":null},"timeline":[{"cargoSafetyReviewId":"90000000-0000-0000-0000-000000000008","fromStatus":"Draft","toStatus":"Submitted","actorUserId":"70000000-0000-0000-0000-000000000006","occurredUtc":"2026-09-01T10:00:00Z","notes":null}]}
         """;
 
     private static readonly Guid BookingId = Guid.Parse("20000000-0000-0000-0000-000000000001");
+
+    private static readonly Guid SubmittedByUserId =
+        Guid.Parse("70000000-0000-0000-0000-000000000006");
 
     private static readonly Guid VoyageId = Guid.Parse("30000000-0000-0000-0000-000000000002");
 
@@ -309,42 +320,192 @@ public sealed class CargoBookingsApiClientTests
     }
 
     [Fact]
-    public async Task DeclareSafetyInformationAsync_posts_to_the_booking_safety_route()
+    public async Task GetSafetyInformationAsync_reads_the_declaration_and_the_timeline()
     {
         HttpRequestMessage? captured = null;
         using var httpClient = CreateHttpClient((request, _) =>
         {
             captured = request;
-            return Json(HttpStatusCode.Created, $$"""{"id":"{{BookingId}}"}""");
+            return Json(HttpStatusCode.OK, SafetyInformationJson);
         });
 
-        var result = await CreateClient(httpClient).DeclareSafetyInformationAsync(
+        var result = await CreateClient(httpClient).GetSafetyInformationAsync(
             BookingId,
-            new DeclareCargoSafetyInfoWebRequest("1.4S", "UN1234", "Keep below 25 C", null),
             CancellationToken.None);
 
-        Assert.Equal(HttpMethod.Post, captured!.Method);
+        Assert.Equal(HttpMethod.Get, captured!.Method);
         Assert.Equal(
             $"/api/cargo/bookings/{BookingId}/safety-information",
             captured.RequestUri!.AbsolutePath);
         Assert.True(result.IsSuccess);
+        Assert.Equal("Submitted", result.Value!.Declaration.ReviewStatus);
+        Assert.Equal(SubmittedByUserId, result.Value.Declaration.SubmittedByUserId);
+        Assert.Null(result.Value.Declaration.ReviewedAtUtc);
+
+        var entry = Assert.Single(result.Value.Timeline);
+
+        Assert.Equal("Draft", entry.FromStatus);
+        Assert.Equal("Submitted", entry.ToStatus);
+        Assert.Equal(SubmittedByUserId, entry.ActorUserId);
     }
 
     [Fact]
-    public async Task DeclareSafetyInformationAsync_reports_a_non_hazardous_booking()
+    public async Task GetSafetyInformationAsync_reports_a_missing_declaration()
+    {
+        using var httpClient = CreateHttpClient((_, _) => Json(
+            HttpStatusCode.NotFound,
+            """{"title":"Cargo safety information not found.","status":404}"""));
+
+        var result = await CreateClient(httpClient).GetSafetyInformationAsync(
+            BookingId,
+            CancellationToken.None);
+
+        Assert.False(result.IsSuccess);
+        Assert.True(result.Failure!.IsNotFound);
+        Assert.Equal("Cargo safety information not found.", result.Failure.Title);
+    }
+
+    [Fact]
+    public async Task SaveSafetyInformationAsync_puts_the_declaration_to_the_safety_route()
+    {
+        HttpRequestMessage? captured = null;
+        string? body = null;
+        using var httpClient = CreateHttpClient(async (request, token) =>
+        {
+            captured = request;
+            body = request.Content is null ? null : await request.Content.ReadAsStringAsync(token);
+
+            return await Json(HttpStatusCode.OK, DeclarationJson);
+        });
+
+        var result = await CreateClient(httpClient).SaveSafetyInformationAsync(
+            BookingId,
+            new UpdateCargoSafetyInfoWebRequest("1.4S", "UN1234", "Keep below 25 C", null),
+            CancellationToken.None);
+
+        Assert.Equal(HttpMethod.Put, captured!.Method);
+        Assert.Equal(
+            $"/api/cargo/bookings/{BookingId}/safety-information",
+            captured.RequestUri!.AbsolutePath);
+        Assert.Contains("\"imdgClass\":\"1.4S\"", body, StringComparison.Ordinal);
+        Assert.True(result.IsSuccess);
+        Assert.Equal("Submitted", result.Value!.ReviewStatus);
+    }
+
+    [Fact]
+    public async Task SaveSafetyInformationAsync_reports_the_invalid_fields()
+    {
+        using var httpClient = CreateHttpClient((_, _) => Json(
+            HttpStatusCode.BadRequest,
+            """{"title":"One or more validation errors occurred.","status":400,"errors":{"unNumber":["UN number must be 4 digits, optionally prefixed with 'UN'."]}}"""));
+
+        var result = await CreateClient(httpClient).SaveSafetyInformationAsync(
+            BookingId,
+            new UpdateCargoSafetyInfoWebRequest("1.4S", "12A4", "Keep below 25 C", null),
+            CancellationToken.None);
+
+        Assert.False(result.IsSuccess);
+        Assert.True(result.Failure!.IsValidation);
+        Assert.Single(result.Failure.Errors["unNumber"]);
+    }
+
+    [Fact]
+    public async Task SaveSafetyInformationAsync_reports_a_non_hazardous_booking()
     {
         using var httpClient = CreateHttpClient((_, _) => Json(
             HttpStatusCode.Conflict,
             """{"title":"Cargo booking is not hazardous.","status":409}"""));
 
-        var result = await CreateClient(httpClient).DeclareSafetyInformationAsync(
+        var result = await CreateClient(httpClient).SaveSafetyInformationAsync(
             BookingId,
-            new DeclareCargoSafetyInfoWebRequest("1.4S", "UN1234", "Keep below 25 C", null),
+            new UpdateCargoSafetyInfoWebRequest("1.4S", "UN1234", "Keep below 25 C", null),
             CancellationToken.None);
 
         Assert.False(result.IsSuccess);
         Assert.True(result.Failure!.IsConflict);
         Assert.Equal("Cargo booking is not hazardous.", result.Failure.Title);
+    }
+
+    [Fact]
+    public async Task SubmitSafetyInformationAsync_posts_to_the_submit_route()
+    {
+        HttpRequestMessage? captured = null;
+        using var httpClient = CreateHttpClient((request, _) =>
+        {
+            captured = request;
+            return Json(HttpStatusCode.OK, DeclarationJson);
+        });
+
+        var result = await CreateClient(httpClient).SubmitSafetyInformationAsync(
+            BookingId,
+            CancellationToken.None);
+
+        Assert.Equal(HttpMethod.Post, captured!.Method);
+        Assert.Equal(
+            $"/api/cargo/bookings/{BookingId}/safety-information/submit",
+            captured.RequestUri!.AbsolutePath);
+        Assert.True(result.IsSuccess);
+        Assert.Equal("Submitted", result.Value!.ReviewStatus);
+    }
+
+    [Fact]
+    public async Task SubmitSafetyInformationAsync_reports_a_transition_conflict()
+    {
+        using var httpClient = CreateHttpClient((_, _) => Json(
+            HttpStatusCode.Conflict,
+            """{"title":"Cargo safety information transition is not allowed.","status":409}"""));
+
+        var result = await CreateClient(httpClient).SubmitSafetyInformationAsync(
+            BookingId,
+            CancellationToken.None);
+
+        Assert.False(result.IsSuccess);
+        Assert.True(result.Failure!.IsConflict);
+        Assert.Equal("Cargo safety information transition is not allowed.", result.Failure.Title);
+    }
+
+    [Fact]
+    public async Task ReviewSafetyInformationAsync_posts_the_decision_to_the_review_route()
+    {
+        HttpRequestMessage? captured = null;
+        string? body = null;
+        using var httpClient = CreateHttpClient(async (request, token) =>
+        {
+            captured = request;
+            body = request.Content is null ? null : await request.Content.ReadAsStringAsync(token);
+
+            return await Json(HttpStatusCode.OK, DeclarationJson);
+        });
+
+        var result = await CreateClient(httpClient).ReviewSafetyInformationAsync(
+            BookingId,
+            new ReviewCargoSafetyInfoWebRequest("Rejected", "Storage conditions are unclear."),
+            CancellationToken.None);
+
+        Assert.Equal(HttpMethod.Post, captured!.Method);
+        Assert.Equal(
+            $"/api/cargo/bookings/{BookingId}/safety-information/review",
+            captured.RequestUri!.AbsolutePath);
+        Assert.Contains("\"status\":\"Rejected\"", body, StringComparison.Ordinal);
+        Assert.Contains("Storage conditions are unclear.", body, StringComparison.Ordinal);
+        Assert.True(result.IsSuccess);
+    }
+
+    [Fact]
+    public async Task ReviewSafetyInformationAsync_reports_missing_review_notes()
+    {
+        using var httpClient = CreateHttpClient((_, _) => Json(
+            HttpStatusCode.BadRequest,
+            """{"title":"One or more validation errors occurred.","status":400,"errors":{"notes":["Review notes are required when a declaration is rejected."]}}"""));
+
+        var result = await CreateClient(httpClient).ReviewSafetyInformationAsync(
+            BookingId,
+            new ReviewCargoSafetyInfoWebRequest("Rejected", null),
+            CancellationToken.None);
+
+        Assert.False(result.IsSuccess);
+        Assert.True(result.Failure!.IsValidation);
+        Assert.Single(result.Failure.Errors["notes"]);
     }
 
     [Fact]

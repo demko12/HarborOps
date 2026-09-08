@@ -4,5 +4,6 @@ public interface IGetDocumentsQuery
 {
     Task<GetDocumentsResponse> GetDocumentsAsync(
         GetDocumentsRequest request,
-        CancellationToken cancellationToken);
+        CancellationToken cancellationToken,
+        bool restrictToReadOnlyVisible = false);
 }

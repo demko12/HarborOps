@@ -1,4 +1,5 @@
 using HarborOps.Modules.Documents.Contracts;
+using HarborOps.Modules.Documents.Domain;
 
 namespace HarborOps.Modules.Documents.Application;
 
@@ -7,8 +8,17 @@ internal static class GetExpiringDocumentsValidator
     internal const string FromField = "from";
     internal const string ToField = "to";
     internal const string VesselIdField = "vesselId";
+    internal const string ReviewStatusField = "reviewStatus";
     internal const string PageNumberField = "pageNumber";
     internal const string PageSizeField = "pageSize";
+
+    private static readonly string[] KnownReviewStatuses =
+    [
+        Document.DraftReviewStatus,
+        Document.PendingReviewReviewStatus,
+        Document.ApprovedReviewStatus,
+        Document.RejectedReviewStatus,
+    ];
 
     internal const int DefaultPageNumber = 1;
     internal const int DefaultPageSize = 25;
@@ -34,6 +44,11 @@ internal static class GetExpiringDocumentsValidator
         if (request.VesselId == Guid.Empty)
         {
             errors[VesselIdField] = ["Vessel is required when supplied."];
+        }
+
+        if (request.ReviewStatus is not null && !KnownReviewStatuses.Contains(request.ReviewStatus, StringComparer.Ordinal))
+        {
+            errors[ReviewStatusField] = ["Review status must be one of: Draft, PendingReview, Approved, Rejected."];
         }
 
         if (request.PageNumber is { } pageNumber && pageNumber < 1)

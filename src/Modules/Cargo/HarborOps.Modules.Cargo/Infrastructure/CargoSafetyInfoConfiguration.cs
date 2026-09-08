@@ -34,6 +34,14 @@ internal sealed class CargoSafetyInfoConfiguration : IEntityTypeConfiguration<Ca
         builder.Property(safetyInfo => safetyInfo.HandlingNotes)
             .HasMaxLength(CargoSafetyInfo.HandlingNotesMaxLength);
 
+        builder.Property(safetyInfo => safetyInfo.ReviewStatus)
+            .HasConversion<string>()
+            .HasMaxLength(CargoSafetyInfo.ReviewStatusMaxLength)
+            .IsRequired();
+
+        builder.Property(safetyInfo => safetyInfo.ReviewNotes)
+            .HasMaxLength(CargoSafetyInfo.ReviewNotesMaxLength);
+
         builder.HasIndex(safetyInfo => safetyInfo.CargoBookingId)
             .IsUnique();
 

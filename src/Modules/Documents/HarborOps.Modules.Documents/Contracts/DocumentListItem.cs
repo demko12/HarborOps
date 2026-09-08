@@ -6,4 +6,5 @@ public sealed record DocumentListItem(
     string Number,
     string DocumentTypeName,
     string Status,
+    string ReviewStatus,
     DateOnly ExpiryDate);

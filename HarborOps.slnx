@@ -27,6 +27,9 @@
   <Folder Name="/src/Modules/Maintenance/">
     <Project Path="src/Modules/Maintenance/HarborOps.Modules.Maintenance/HarborOps.Modules.Maintenance.csproj" />
   </Folder>
+  <Folder Name="/src/Modules/Notifications/">
+    <Project Path="src/Modules/Notifications/HarborOps.Modules.Notifications/HarborOps.Modules.Notifications.csproj" />
+  </Folder>
   <Folder Name="/src/Modules/Voyages/">
     <Project Path="src/Modules/Voyages/HarborOps.Modules.Voyages/HarborOps.Modules.Voyages.csproj" />
   </Folder>

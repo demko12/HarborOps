@@ -90,6 +90,24 @@ public sealed class SearchCargoBookingsQueryTests
     }
 
     [Fact]
+    public async Task SearchAsync_prioritizes_active_cargo_statuses_before_completed_bookings()
+    {
+        await using var dbContext = CreateDbContext();
+        await AddBookingAsync(dbContext, "BK-COMPLETED", status: CargoStatus.Completed);
+        await AddBookingAsync(dbContext, "BK-REGISTERED", status: CargoStatus.Registered);
+        await AddBookingAsync(dbContext, "BK-LOADED", status: CargoStatus.Loaded);
+        await AddBookingAsync(dbContext, "BK-IN-TRANSIT", status: CargoStatus.InTransit);
+
+        var response = await new SearchCargoBookingsQuery(dbContext).SearchAsync(
+            new SearchCargoBookingsRequest(),
+            CancellationToken.None);
+
+        Assert.Equal(
+            ["BK-IN-TRANSIT", "BK-LOADED", "BK-REGISTERED", "BK-COMPLETED"],
+            response.Items.Select(item => item.BookingNumber));
+    }
+
+    [Fact]
     public async Task SearchAsync_filters_by_hazardous_cargo()
     {
         await using var dbContext = CreateDbContext();

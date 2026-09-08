@@ -263,6 +263,118 @@ internal sealed class DocumentsApiClient(HttpClient httpClient)
         }
     }
 
+    internal async Task<DocumentsApiResult<object>> SubmitForReviewAsync(Guid documentId, CancellationToken cancellationToken)
+    {
+        try
+        {
+            using var response = await httpClient.PostAsync($"{BasePath}/{documentId}/submit-for-review", null, cancellationToken);
+
+            if (!response.IsSuccessStatusCode)
+            {
+                return new DocumentsApiResult<object>(null, await ReadFailureAsync(response, "Unable to submit the document for review", cancellationToken));
+            }
+
+            return new DocumentsApiResult<object>(new object(), null);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (HttpRequestException)
+        {
+            return new DocumentsApiResult<object>(null, Unavailable());
+        }
+        catch (TaskCanceledException) when (!cancellationToken.IsCancellationRequested)
+        {
+            return new DocumentsApiResult<object>(null, Unavailable());
+        }
+    }
+
+    internal async Task<DocumentsApiResult<object>> ReviewAsync(Guid documentId, ReviewDocumentRequest request, CancellationToken cancellationToken)
+    {
+        try
+        {
+            using var response = await httpClient.PostAsJsonAsync($"{BasePath}/{documentId}/review", request, cancellationToken);
+
+            if (!response.IsSuccessStatusCode)
+            {
+                return new DocumentsApiResult<object>(null, await ReadFailureAsync(response, "Unable to review the document", cancellationToken));
+            }
+
+            return new DocumentsApiResult<object>(new object(), null);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (HttpRequestException)
+        {
+            return new DocumentsApiResult<object>(null, Unavailable());
+        }
+        catch (TaskCanceledException) when (!cancellationToken.IsCancellationRequested)
+        {
+            return new DocumentsApiResult<object>(null, Unavailable());
+        }
+    }
+
+    internal async Task<DocumentsApiResult<object>> RevokeAsync(Guid documentId, RevokeDocumentRequest request, CancellationToken cancellationToken)
+    {
+        try
+        {
+            using var response = await httpClient.PostAsJsonAsync($"{BasePath}/{documentId}/revoke", request, cancellationToken);
+
+            if (!response.IsSuccessStatusCode)
+            {
+                return new DocumentsApiResult<object>(null, await ReadFailureAsync(response, "Unable to revoke the document", cancellationToken));
+            }
+
+            return new DocumentsApiResult<object>(new object(), null);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (HttpRequestException)
+        {
+            return new DocumentsApiResult<object>(null, Unavailable());
+        }
+        catch (TaskCanceledException) when (!cancellationToken.IsCancellationRequested)
+        {
+            return new DocumentsApiResult<object>(null, Unavailable());
+        }
+    }
+
+    internal async Task<DocumentsApiResult<IReadOnlyList<DocumentReviewEventResponseDto>>> GetReviewHistoryAsync(Guid documentId, CancellationToken cancellationToken)
+    {
+        try
+        {
+            using var response = await httpClient.GetAsync($"{BasePath}/{documentId}/review-history", HttpCompletionOption.ResponseHeadersRead, cancellationToken);
+
+            if (!response.IsSuccessStatusCode)
+            {
+                return new(null, await ReadFailureAsync(response, "Unable to load review history", cancellationToken));
+            }
+
+            return new(await response.Content.ReadFromJsonAsync<IReadOnlyList<DocumentReviewEventResponseDto>>(cancellationToken), null);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (HttpRequestException)
+        {
+            return new(null, Unavailable());
+        }
+        catch (TaskCanceledException) when (!cancellationToken.IsCancellationRequested)
+        {
+            return new(null, Unavailable());
+        }
+        catch (JsonException)
+        {
+            return new(null, new DocumentsApiFailure(0, "Unable to load review history", "Please try again.", NoErrors));
+        }
+    }
+
     internal async Task<DocumentsApiResult<DocumentFileResponseDto>> UploadDocumentFileAsync(
         Guid documentId,
         IBrowserFile file,
@@ -423,6 +535,11 @@ internal sealed class DocumentsApiClient(HttpClient httpClient)
         if (query.VesselId is { } vesselId)
         {
             extra.Add($"vesselId={vesselId}");
+        }
+
+        if (!string.IsNullOrWhiteSpace(query.ReviewStatus))
+        {
+            extra.Add($"reviewStatus={Uri.EscapeDataString(query.ReviewStatus)}");
         }
 
         if (query.PageNumber is { } pageNumber)
