@@ -109,6 +109,82 @@ public sealed class StartMaintenanceWorkOrderServiceTests
         Assert.Equal(WorkOrderStatus.Open, stored.Status);
     }
 
+    [Fact]
+    public async Task StartAsync_accepts_a_work_order_whose_reservations_are_fully_covered()
+    {
+        await using var dbContext = CreateDbContext();
+        var workOrder = await SeedAsync(dbContext, WorkOrderStatus.Open);
+        await SeedReservationAsync(dbContext, workOrder.Id, requested: 4m, available: 10m);
+
+        var response = await CreateService(dbContext).StartAsync(workOrder.Id, CancellationToken.None);
+
+        Assert.Equal("InProgress", response.Status);
+    }
+
+    [Fact]
+    public async Task StartAsync_rejects_a_work_order_with_a_reservation_shortage()
+    {
+        await using var dbContext = CreateDbContext();
+        var workOrder = await SeedAsync(dbContext, WorkOrderStatus.Open);
+        var covered = await SeedReservationAsync(dbContext, workOrder.Id, 2m, available: 10m);
+        var uncovered = await SeedReservationAsync(dbContext, workOrder.Id, 5m, available: 1m);
+
+        var exception = await Assert.ThrowsAsync<WorkOrderPartReservationShortageException>(
+            () => CreateService(dbContext).StartAsync(workOrder.Id, CancellationToken.None));
+
+        Assert.Equal(workOrder.Id, exception.WorkOrderId);
+        Assert.Equal([uncovered.InventoryItemId], exception.InventoryItemIds);
+        Assert.DoesNotContain(covered.InventoryItemId, exception.InventoryItemIds);
+    }
+
+    [Fact]
+    public async Task A_start_blocked_by_a_shortage_persists_nothing()
+    {
+        await using var dbContext = CreateDbContext();
+        var workOrder = await SeedAsync(dbContext, WorkOrderStatus.Open);
+        await SeedReservationAsync(dbContext, workOrder.Id, requested: 5m, available: 1m);
+        dbContext.ChangeTracker.Clear();
+
+        await Assert.ThrowsAsync<WorkOrderPartReservationShortageException>(
+            () => CreateService(dbContext).StartAsync(workOrder.Id, CancellationToken.None));
+
+        var stored = await dbContext.Set<MaintenanceWorkOrder>().AsNoTracking().SingleAsync();
+
+        Assert.Equal(WorkOrderStatus.Open, stored.Status);
+    }
+
+    [Fact]
+    public async Task A_shortage_on_another_work_order_does_not_block_the_start()
+    {
+        await using var dbContext = CreateDbContext();
+        var workOrder = await SeedAsync(dbContext, WorkOrderStatus.Open);
+        var other = await SeedAsync(dbContext, WorkOrderStatus.Open);
+        await SeedReservationAsync(dbContext, other.Id, requested: 5m, available: 1m);
+
+        var response = await CreateService(dbContext).StartAsync(workOrder.Id, CancellationToken.None);
+
+        Assert.Equal("InProgress", response.Status);
+    }
+
+    private static async Task<WorkOrderPartReservation> SeedReservationAsync(
+        HarborOpsDbContext dbContext,
+        Guid workOrderId,
+        decimal requested,
+        decimal available)
+    {
+        var reservation = WorkOrderPartReservation.Create(
+            workOrderId,
+            Guid.NewGuid(),
+            requested,
+            available,
+            UtcNow);
+
+        await dbContext.Set<WorkOrderPartReservation>().AddAsync(reservation);
+        await dbContext.SaveChangesAsync();
+
+        return reservation;
+    }
+
     private static async Task<MaintenanceWorkOrder> SeedAsync(
         HarborOpsDbContext dbContext,
         WorkOrderStatus status)

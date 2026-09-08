@@ -8,6 +8,9 @@ namespace HarborOps.UnitTests.Maintenance;
 
 public sealed class RecordInventoryItemUsageServiceTests
 {
+    private static readonly DateTimeOffset FixedNow = new(2026, 6, 15, 9, 0, 0, TimeSpan.Zero);
+    private static readonly DateTime UtcNow = FixedNow.UtcDateTime;
+
     [Fact]
     public async Task RecordUsage_reduces_inventory_and_persists_usage()
     {
@@ -20,7 +23,7 @@ public sealed class RecordInventoryItemUsageServiceTests
         await dbContext.Set<InventoryItem>().AddAsync(inventoryItem);
         await dbContext.SaveChangesAsync();
 
-        var service = new RecordInventoryItemUsageService(dbContext);
+        var service = CreateService(dbContext);
         var request = CreateValidRequest(2.500m);
 
         var response = await service.RecordUsageAsync(
@@ -53,7 +56,7 @@ public sealed class RecordInventoryItemUsageServiceTests
     public async Task RecordUsage_rejects_zero_quantity()
     {
         await using var dbContext = CreateDbContext();
-        var service = new RecordInventoryItemUsageService(dbContext);
+        var service = CreateService(dbContext);
         var request = CreateValidRequest(0m);
 
         var exception = await Assert.ThrowsAsync<RecordInventoryItemUsageValidationException>(
@@ -72,7 +75,7 @@ public sealed class RecordInventoryItemUsageServiceTests
     public async Task RecordUsage_rejects_negative_quantity()
     {
         await using var dbContext = CreateDbContext();
-        var service = new RecordInventoryItemUsageService(dbContext);
+        var service = CreateService(dbContext);
         var request = CreateValidRequest(-1m);
 
         var exception = await Assert.ThrowsAsync<RecordInventoryItemUsageValidationException>(
@@ -99,7 +102,7 @@ public sealed class RecordInventoryItemUsageServiceTests
         await dbContext.Set<InventoryItem>().AddAsync(inventoryItem);
         await dbContext.SaveChangesAsync();
 
-        var service = new RecordInventoryItemUsageService(dbContext);
+        var service = CreateService(dbContext);
         var request = CreateValidRequest(3m);
 
         var exception = await Assert.ThrowsAsync<RecordInventoryItemUsageConflictException>(
@@ -137,7 +140,7 @@ public sealed class RecordInventoryItemUsageServiceTests
         await dbContext.Set<InventoryItem>().AddAsync(inventoryItem);
         await dbContext.SaveChangesAsync();
 
-        var service = new RecordInventoryItemUsageService(dbContext);
+        var service = CreateService(dbContext);
         var request = CreateValidRequest(2m);
 
         var exception = await Assert.ThrowsAsync<RecordInventoryItemUsageConflictException>(
@@ -179,7 +182,7 @@ public sealed class RecordInventoryItemUsageServiceTests
         await dbContext.Set<InventoryItemUsage>().AddAsync(existingUsage);
         await dbContext.SaveChangesAsync();
 
-        var service = new RecordInventoryItemUsageService(dbContext);
+        var service = CreateService(dbContext);
         var request = CreateValidRequest(3m);
 
         var exception = await Assert.ThrowsAsync<RecordInventoryItemUsageConflictException>(
@@ -202,6 +205,190 @@ public sealed class RecordInventoryItemUsageServiceTests
         Assert.Equal(10m, savedInventoryItem.Quantity);
         Assert.Single(usages);
         Assert.Equal(2m, usages[0].QuantityUsed);
+    }
+
+    [Fact]
+    public async Task RecordUsage_consumes_the_reservation_and_the_stock_together()
+    {
+        await using var dbContext = CreateDbContext();
+
+        var workOrder = CreateWorkOrder();
+        var inventoryItem = CreateInventoryItem(10m);
+        var reservation = WorkOrderPartReservation.Create(
+            workOrder.Id,
+            inventoryItem.Id,
+            quantityRequested: 6m,
+            availableQuantity: 10m,
+            UtcNow);
+
+        await dbContext.Set<MaintenanceWorkOrder>().AddAsync(workOrder);
+        await dbContext.Set<InventoryItem>().AddAsync(inventoryItem);
+        await dbContext.Set<WorkOrderPartReservation>().AddAsync(reservation);
+        await dbContext.SaveChangesAsync();
+
+        var service = CreateService(dbContext);
+
+        var response = await service.RecordUsageAsync(
+            workOrder.Id,
+            inventoryItem.Id,
+            CreateValidRequest(4m),
+            CancellationToken.None);
+
+        dbContext.ChangeTracker.Clear();
+
+        var storedItem = await dbContext.Set<InventoryItem>().AsNoTracking().SingleAsync();
+        var storedReservation = await dbContext
+            .Set<WorkOrderPartReservation>()
+            .AsNoTracking()
+            .SingleAsync();
+
+        Assert.Equal(6m, response.RemainingQuantity);
+        Assert.Equal(6m, storedItem.Quantity);
+        Assert.Equal(6m, storedReservation.QuantityReserved);
+        Assert.Equal(4m, storedReservation.QuantityConsumed);
+        Assert.Equal(2m, storedReservation.QuantityRemaining);
+        Assert.Equal(UtcNow, storedReservation.UpdatedUtc);
+    }
+
+    [Fact]
+    public async Task RecordUsage_rejects_more_than_the_reserved_quantity()
+    {
+        await using var dbContext = CreateDbContext();
+
+        var workOrder = CreateWorkOrder();
+        var inventoryItem = CreateInventoryItem(10m);
+        var reservation = WorkOrderPartReservation.Create(
+            workOrder.Id,
+            inventoryItem.Id,
+            quantityRequested: 3m,
+            availableQuantity: 10m,
+            UtcNow);
+
+        await dbContext.Set<MaintenanceWorkOrder>().AddAsync(workOrder);
+        await dbContext.Set<InventoryItem>().AddAsync(inventoryItem);
+        await dbContext.Set<WorkOrderPartReservation>().AddAsync(reservation);
+        await dbContext.SaveChangesAsync();
+
+        var service = CreateService(dbContext);
+
+        var exception = await Assert.ThrowsAsync<RecordInventoryItemUsageConflictException>(
+            () => service.RecordUsageAsync(
+                workOrder.Id,
+                inventoryItem.Id,
+                CreateValidRequest(5m),
+                CancellationToken.None));
+
+        Assert.Contains(
+            "exceeds the remaining reserved quantity",
+            exception.Message,
+            StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task A_rejected_usage_leaves_stock_and_reservation_untouched()
+    {
+        await using var dbContext = CreateDbContext();
+
+        var workOrder = CreateWorkOrder();
+        var inventoryItem = CreateInventoryItem(10m);
+        var reservation = WorkOrderPartReservation.Create(
+            workOrder.Id,
+            inventoryItem.Id,
+            quantityRequested: 3m,
+            availableQuantity: 10m,
+            UtcNow);
+
+        await dbContext.Set<MaintenanceWorkOrder>().AddAsync(workOrder);
+        await dbContext.Set<InventoryItem>().AddAsync(inventoryItem);
+        await dbContext.Set<WorkOrderPartReservation>().AddAsync(reservation);
+        await dbContext.SaveChangesAsync();
+
+        var service = CreateService(dbContext);
+
+        await Assert.ThrowsAsync<RecordInventoryItemUsageConflictException>(
+            () => service.RecordUsageAsync(
+                workOrder.Id,
+                inventoryItem.Id,
+                CreateValidRequest(5m),
+                CancellationToken.None));
+
+        dbContext.ChangeTracker.Clear();
+
+        var storedItem = await dbContext.Set<InventoryItem>().AsNoTracking().SingleAsync();
+        var storedReservation = await dbContext
+            .Set<WorkOrderPartReservation>()
+            .AsNoTracking()
+            .SingleAsync();
+
+        Assert.Equal(10m, storedItem.Quantity);
+        Assert.Equal(0m, storedReservation.QuantityConsumed);
+        Assert.Empty(await dbContext.Set<InventoryItemUsage>().AsNoTracking().ToListAsync());
+    }
+
+    [Fact]
+    public async Task Usage_without_a_reservation_keeps_the_existing_behaviour()
+    {
+        await using var dbContext = CreateDbContext();
+
+        var workOrder = CreateWorkOrder();
+        var inventoryItem = CreateInventoryItem(10m);
+
+        await dbContext.Set<MaintenanceWorkOrder>().AddAsync(workOrder);
+        await dbContext.Set<InventoryItem>().AddAsync(inventoryItem);
+        await dbContext.SaveChangesAsync();
+
+        var service = CreateService(dbContext);
+
+        var response = await service.RecordUsageAsync(
+            workOrder.Id,
+            inventoryItem.Id,
+            CreateValidRequest(4m),
+            CancellationToken.None);
+
+        dbContext.ChangeTracker.Clear();
+
+        Assert.Equal(6m, response.RemainingQuantity);
+        Assert.Empty(await dbContext.Set<WorkOrderPartReservation>().AsNoTracking().ToListAsync());
+        Assert.Single(await dbContext.Set<InventoryItemUsage>().AsNoTracking().ToListAsync());
+    }
+
+    [Fact]
+    public async Task A_reservation_for_another_work_order_is_not_consumed()
+    {
+        await using var dbContext = CreateDbContext();
+
+        var workOrder = CreateWorkOrder();
+        var otherWorkOrder = CreateWorkOrder();
+        var inventoryItem = CreateInventoryItem(10m);
+        var reservation = WorkOrderPartReservation.Create(
+            otherWorkOrder.Id,
+            inventoryItem.Id,
+            quantityRequested: 6m,
+            availableQuantity: 10m,
+            UtcNow);
+
+        await dbContext.Set<MaintenanceWorkOrder>().AddAsync(workOrder);
+        await dbContext.Set<MaintenanceWorkOrder>().AddAsync(otherWorkOrder);
+        await dbContext.Set<InventoryItem>().AddAsync(inventoryItem);
+        await dbContext.Set<WorkOrderPartReservation>().AddAsync(reservation);
+        await dbContext.SaveChangesAsync();
+
+        var service = CreateService(dbContext);
+
+        await service.RecordUsageAsync(
+            workOrder.Id,
+            inventoryItem.Id,
+            CreateValidRequest(2m),
+            CancellationToken.None);
+
+        dbContext.ChangeTracker.Clear();
+
+        var storedReservation = await dbContext
+            .Set<WorkOrderPartReservation>()
+            .AsNoTracking()
+            .SingleAsync();
+
+        Assert.Equal(0m, storedReservation.QuantityConsumed);
     }
 
     private static RecordInventoryItemUsageRequest CreateValidRequest(
@@ -236,6 +423,11 @@ public sealed class RecordInventoryItemUsageServiceTests
             150m);
     }
 
+    private static RecordInventoryItemUsageService CreateService(HarborOpsDbContext dbContext)
+    {
+        return new RecordInventoryItemUsageService(dbContext, new FixedTimeProvider(FixedNow));
+    }
+
     private static HarborOpsDbContext CreateDbContext()
     {
         var options = new DbContextOptionsBuilder<HarborOpsDbContext>()
@@ -243,5 +435,10 @@ public sealed class RecordInventoryItemUsageServiceTests
             .Options;
 
         return new HarborOpsDbContext(options);
+    }
+
+    private sealed class FixedTimeProvider(DateTimeOffset utcNow) : TimeProvider
+    {
+        public override DateTimeOffset GetUtcNow() => utcNow;
     }
 }
