@@ -506,6 +506,144 @@ public sealed class ExecuteCargoOperationServiceTests
         Assert.Equal(nameof(CargoOperationState.InProgress), response.OperationState);
     }
 
+    [Fact]
+    public async Task StartAsync_rejects_a_load_when_a_container_was_never_released()
+    {
+        await using var dbContext = CreateDbContext();
+        var booking = await AddBookingAsync(dbContext, "BK-EXECUTE-CTRL-1");
+        var operation = await AddOperationAsync(dbContext, booking.Id, CargoOperationType.Load);
+        await AddContainerAsync(
+            dbContext,
+            booking.Id,
+            "MSKU1234567",
+            controlState: ContainerControlState.Pending);
+
+        var exception = await Assert.ThrowsAsync<CargoContainersNotReleasedException>(
+            () => CreateService(dbContext, StartedAtUtc)
+                .StartAsync(operation.Id, CancellationToken.None));
+
+        Assert.Equal(["MSKU1234567"], exception.ContainerNumbers);
+        Assert.Null(operation.StartedAtUtc);
+    }
+
+    [Fact]
+    public async Task StartAsync_rejects_a_load_when_a_container_is_held()
+    {
+        await using var dbContext = CreateDbContext();
+        var booking = await AddBookingAsync(dbContext, "BK-EXECUTE-CTRL-2");
+        var operation = await AddOperationAsync(dbContext, booking.Id, CargoOperationType.Load);
+        await AddContainerAsync(
+            dbContext,
+            booking.Id,
+            "MSKU1234567",
+            controlState: ContainerControlState.Held);
+
+        var exception = await Assert.ThrowsAsync<CargoContainersNotReleasedException>(
+            () => CreateService(dbContext, StartedAtUtc)
+                .StartAsync(operation.Id, CancellationToken.None));
+
+        Assert.Equal(["MSKU1234567"], exception.ContainerNumbers);
+    }
+
+    [Fact]
+    public async Task StartAsync_rejects_a_load_after_a_failed_inspection()
+    {
+        await using var dbContext = CreateDbContext();
+        var booking = await AddBookingAsync(dbContext, "BK-EXECUTE-CTRL-3");
+        var operation = await AddOperationAsync(dbContext, booking.Id, CargoOperationType.Load);
+        var container = await AddContainerAsync(
+            dbContext,
+            booking.Id,
+            "MSKU1234567",
+            controlState: ContainerControlState.Pending);
+        await AddControlAsync(
+            dbContext,
+            container.Id,
+            ContainerControlState.Pending,
+            ContainerInspectionResult.Failed);
+
+        await Assert.ThrowsAsync<CargoContainersNotReleasedException>(
+            () => CreateService(dbContext, StartedAtUtc)
+                .StartAsync(operation.Id, CancellationToken.None));
+    }
+
+    [Fact]
+    public async Task StartAsync_names_every_container_that_blocks_the_load()
+    {
+        await using var dbContext = CreateDbContext();
+        var booking = await AddBookingAsync(dbContext, "BK-EXECUTE-CTRL-4");
+        var operation = await AddOperationAsync(dbContext, booking.Id, CargoOperationType.Load);
+        await AddContainerAsync(dbContext, booking.Id, "MSKU1111111");
+        await AddContainerAsync(
+            dbContext,
+            booking.Id,
+            "MSKU3333333",
+            controlState: ContainerControlState.Held);
+        await AddContainerAsync(
+            dbContext,
+            booking.Id,
+            "MSKU2222222",
+            controlState: ContainerControlState.Pending);
+
+        var exception = await Assert.ThrowsAsync<CargoContainersNotReleasedException>(
+            () => CreateService(dbContext, StartedAtUtc)
+                .StartAsync(operation.Id, CancellationToken.None));
+
+        Assert.Equal(["MSKU2222222", "MSKU3333333"], exception.ContainerNumbers);
+    }
+
+    [Fact]
+    public async Task StartAsync_loads_once_every_container_is_released()
+    {
+        await using var dbContext = CreateDbContext();
+        var booking = await AddBookingAsync(dbContext, "BK-EXECUTE-CTRL-5");
+        var operation = await AddOperationAsync(dbContext, booking.Id, CargoOperationType.Load);
+        await AddContainerAsync(dbContext, booking.Id, "MSKU1111111");
+        await AddContainerAsync(dbContext, booking.Id, "MSKU2222222");
+
+        var response = await CreateService(dbContext, StartedAtUtc)
+            .StartAsync(operation.Id, CancellationToken.None);
+
+        Assert.Equal(nameof(CargoOperationState.InProgress), response.OperationState);
+    }
+
+    [Fact]
+    public async Task StartAsync_does_not_require_a_release_to_unload()
+    {
+        await using var dbContext = CreateDbContext();
+        var booking = await AddBookingAsync(dbContext, "BK-EXECUTE-CTRL-6", CargoStatus.Arrived);
+        var operation = await AddOperationAsync(dbContext, booking.Id, CargoOperationType.Unload);
+        await AddContainerAsync(
+            dbContext,
+            booking.Id,
+            "MSKU1234567",
+            CargoStatus.Loaded,
+            ContainerControlState.Pending);
+
+        var response = await CreateService(dbContext, StartedAtUtc)
+            .StartAsync(operation.Id, CancellationToken.None);
+
+        Assert.Equal(nameof(CargoOperationState.InProgress), response.OperationState);
+    }
+
+    [Fact]
+    public async Task StartAsync_reports_the_unreleased_containers_after_the_manifest_check()
+    {
+        await using var dbContext = CreateDbContext();
+        var booking = await AddBookingAsync(dbContext, "BK-EXECUTE-CTRL-7");
+        var operation = await AddOperationAsync(dbContext, booking.Id, CargoOperationType.Load);
+        await AddContainerAsync(
+            dbContext,
+            booking.Id,
+            "MSKU1234567",
+            CargoStatus.Loaded,
+            ContainerControlState.Pending);
+
+        await Assert.ThrowsAsync<CargoManifestNotReadyException>(
+            () => CreateService(dbContext, StartedAtUtc)
+                .StartAsync(operation.Id, CancellationToken.None));
+    }
+
     private static async Task AddDeclarationAsync(
         HarborOpsDbContext dbContext,
         Guid cargoBookingId,
@@ -599,7 +737,8 @@ public sealed class ExecuteCargoOperationServiceTests
         HarborOpsDbContext dbContext,
         Guid cargoBookingId,
         string containerNumber,
-        CargoStatus status = CargoStatus.Registered)
+        CargoStatus status = CargoStatus.Registered,
+        ContainerControlState controlState = ContainerControlState.Released)
     {
         var container = Container.Register(
             containerNumber,
@@ -611,7 +750,50 @@ public sealed class ExecuteCargoOperationServiceTests
         await dbContext.Set<Container>().AddAsync(container, CancellationToken.None);
         await dbContext.SaveChangesAsync(CancellationToken.None);
 
+        await AddControlAsync(dbContext, container.Id, controlState);
+
         return container;
+    }
+
+    private static async Task AddControlAsync(
+        HarborOpsDbContext dbContext,
+        Guid containerId,
+        ContainerControlState controlState,
+        ContainerInspectionResult inspectionResult = ContainerInspectionResult.Passed)
+    {
+        if (controlState is ContainerControlState.Pending
+            && inspectionResult is ContainerInspectionResult.Passed)
+        {
+            return;
+        }
+
+        var control = ContainerControl.Start(containerId);
+        var entries = new List<ContainerControlEvent>
+        {
+            control.AssignSeal($"SEAL{containerId:N}"[..20], ResponsibleUserId, PlannedAtUtc),
+        };
+
+        entries.AddRange(control.RecordInspection(
+            inspectionResult,
+            "Doors aligned",
+            null,
+            isReefer: false,
+            ResponsibleUserId,
+            PlannedAtUtc));
+
+        if (controlState is ContainerControlState.Released)
+        {
+            entries.Add(control.Release(ResponsibleUserId, PlannedAtUtc, null));
+        }
+
+        if (controlState is ContainerControlState.Held)
+        {
+            entries.Add(control.Hold("Damaged corner post", ResponsibleUserId, PlannedAtUtc));
+        }
+
+        await dbContext.Set<ContainerControl>().AddAsync(control, CancellationToken.None);
+        await dbContext.Set<ContainerControlEvent>().AddRangeAsync(entries, CancellationToken.None);
+        await dbContext.SaveChangesAsync(CancellationToken.None);
     }
 
     private static HarborOpsDbContext CreateDbContext(

@@ -104,6 +104,66 @@ internal static class CargoBookingFormat
             : "pending";
     }
 
+    internal const string PendingControlState = "Pending";
+    internal const string ReleasedControlState = "Released";
+    internal const string HeldControlState = "Held";
+
+    internal static string ControlStateLabel(string? state)
+    {
+        return state switch
+        {
+            ReleasedControlState => "Released",
+            HeldControlState => "On hold",
+            _ => "Awaiting release",
+        };
+    }
+
+    internal static string ControlStateClass(string? state)
+    {
+        return state switch
+        {
+            ReleasedControlState => "control-status control-status-released",
+            HeldControlState => "control-status control-status-held",
+            _ => "control-status control-status-pending",
+        };
+    }
+
+    internal static string ControlBlockedExplanation(string? blockedReason)
+    {
+        return blockedReason switch
+        {
+            null => "This container is ready to be released.",
+            "the container is already released" => "This container is already released for loading.",
+            "the container is held" => "This container is on hold and cannot be released.",
+            "it has not been inspected yet" =>
+                "This container has not been inspected yet, so it cannot be released.",
+            "its latest inspection did not pass" =>
+                "The latest inspection did not pass, so this container cannot be released.",
+            "it has no intact seal" =>
+                "This container has no intact seal, so it cannot be released.",
+            _ => $"This container cannot be released because {blockedReason}.",
+        };
+    }
+
+    internal static string ControlActionLabel(string action)
+    {
+        return action switch
+        {
+            "SealAssigned" => "Seal assigned",
+            "SealBroken" => "Seal broken",
+            "InspectionRecorded" => "Inspection recorded",
+            "Released" => "Released",
+            "Held" => "Put on hold",
+            "HoldLifted" => "Hold lifted",
+            _ => action,
+        };
+    }
+
+    internal static string TemperatureCelsius(decimal temperatureCelsius)
+    {
+        return $"{temperatureCelsius.ToString("0.##", CultureInfo.InvariantCulture)} °C";
+    }
+
     internal static string SafetyStatusLabel(string? reviewStatus)
     {
         return reviewStatus switch

@@ -22,7 +22,18 @@ public sealed class CargoBookingsApiClientTests
         {"declaration":{"cargoSafetyInfoId":"40000000-0000-0000-0000-000000000003","imdgClass":"1.4S","unNumber":"UN1234","storageConditions":"Keep below 25 C","handlingNotes":null,"reviewStatus":"Submitted","submittedByUserId":"70000000-0000-0000-0000-000000000006","submittedAtUtc":"2026-09-01T10:00:00Z","reviewedByUserId":null,"reviewedAtUtc":null,"reviewNotes":null},"timeline":[{"cargoSafetyReviewId":"90000000-0000-0000-0000-000000000008","fromStatus":"Draft","toStatus":"Submitted","actorUserId":"70000000-0000-0000-0000-000000000006","occurredUtc":"2026-09-01T10:00:00Z","notes":null}]}
         """;
 
+    private const string ContainerControlJson = """
+        {"containerId":"a0000000-0000-0000-0000-000000000009","containerNumber":"MSKU1234567","containerType":"40RH","isReefer":true,"sealNumber":"ML458821","sealStatus":"Intact","state":"Released","latestInspectionResult":"Passed","latestInspectionNotes":"Cooling steady","latestInspectionTemperatureCelsius":-18.5,"latestInspectedAtUtc":"2026-09-07T09:15:00Z","latestInspectedByUserId":"70000000-0000-0000-0000-000000000006","stateReason":"Cleared for loading","stateChangedByUserId":"70000000-0000-0000-0000-000000000006","stateChangedAtUtc":"2026-09-07T10:30:00Z","canRelease":false,"releaseBlockedReason":"the container is already released"}
+        """;
+
+    private const string ContainerControlViewJson = """
+        {"control":{"containerId":"a0000000-0000-0000-0000-000000000009","containerNumber":"MSKU1234567","containerType":"40RH","isReefer":true,"sealNumber":"ML458821","sealStatus":"Intact","state":"Released","latestInspectionResult":"Passed","latestInspectionNotes":"Cooling steady","latestInspectionTemperatureCelsius":-18.5,"latestInspectedAtUtc":"2026-09-07T09:15:00Z","latestInspectedByUserId":"70000000-0000-0000-0000-000000000006","stateReason":"Cleared for loading","stateChangedByUserId":"70000000-0000-0000-0000-000000000006","stateChangedAtUtc":"2026-09-07T10:30:00Z","canRelease":false,"releaseBlockedReason":"the container is already released"},"history":[{"containerControlEventId":"b0000000-0000-0000-0000-000000000010","action":"SealAssigned","fromState":"Pending","toState":"Pending","sealNumber":"ML458821","inspectionResult":null,"temperatureCelsius":null,"notes":null,"actorUserId":"70000000-0000-0000-0000-000000000006","occurredUtc":"2026-09-07T08:00:00Z"}]}
+        """;
+
     private static readonly Guid BookingId = Guid.Parse("20000000-0000-0000-0000-000000000001");
+
+    private static readonly Guid ControlContainerId =
+        Guid.Parse("a0000000-0000-0000-0000-000000000009");
 
     private static readonly Guid SubmittedByUserId =
         Guid.Parse("70000000-0000-0000-0000-000000000006");
@@ -795,6 +806,238 @@ public sealed class CargoBookingsApiClientTests
         Assert.False(result.IsSuccess);
         Assert.Equal(0, result.Failure!.StatusCode);
         Assert.Equal("HarborOps API is unavailable", result.Failure.Title);
+    }
+
+    [Fact]
+    public async Task GetContainerControlAsync_returns_the_control_and_its_history()
+    {
+        using var httpClient = CreateHttpClient((request, _) =>
+        {
+            Assert.Equal(HttpMethod.Get, request.Method);
+            Assert.Equal(
+                $"/api/cargo/containers/{ControlContainerId}/control",
+                request.RequestUri!.AbsolutePath);
+
+            return Json(HttpStatusCode.OK, ContainerControlViewJson);
+        });
+
+        var result = await CreateClient(httpClient).GetContainerControlAsync(
+            ControlContainerId,
+            CancellationToken.None);
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal("ML458821", result.Value!.Control.SealNumber);
+        Assert.Equal("Released", result.Value.Control.State);
+        Assert.True(result.Value.Control.IsReefer);
+        Assert.Equal(-18.5m, result.Value.Control.LatestInspectionTemperatureCelsius);
+        Assert.Equal("SealAssigned", Assert.Single(result.Value.History).Action);
+    }
+
+    [Fact]
+    public async Task AssignContainerSealAsync_posts_the_seal_number()
+    {
+        using var httpClient = CreateHttpClient(async (request, token) =>
+        {
+            Assert.Equal(HttpMethod.Post, request.Method);
+            Assert.Equal(
+                $"/api/cargo/containers/{ControlContainerId}/seal",
+                request.RequestUri!.AbsolutePath);
+            Assert.Contains(
+                "ML458821",
+                await request.Content!.ReadAsStringAsync(token),
+                StringComparison.Ordinal);
+
+            return await Json(HttpStatusCode.OK, ContainerControlJson);
+        });
+
+        var result = await CreateClient(httpClient).AssignContainerSealAsync(
+            ControlContainerId,
+            new AssignContainerSealWebRequest("ML458821"),
+            CancellationToken.None);
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal("Intact", result.Value!.SealStatus);
+    }
+
+    [Fact]
+    public async Task BreakContainerSealAsync_posts_to_the_seal_break_endpoint()
+    {
+        using var httpClient = CreateHttpClient(async (request, token) =>
+        {
+            Assert.Equal(HttpMethod.Post, request.Method);
+            Assert.Equal(
+                $"/api/cargo/containers/{ControlContainerId}/seal/break",
+                request.RequestUri!.AbsolutePath);
+            Assert.Contains(
+                "Opened for customs",
+                await request.Content!.ReadAsStringAsync(token),
+                StringComparison.Ordinal);
+
+            return await Json(HttpStatusCode.OK, ContainerControlJson);
+        });
+
+        var result = await CreateClient(httpClient).BreakContainerSealAsync(
+            ControlContainerId,
+            new BreakContainerSealWebRequest("Opened for customs"),
+            CancellationToken.None);
+
+        Assert.True(result.IsSuccess);
+    }
+
+    [Fact]
+    public async Task BreakContainerSealAsync_reports_a_missing_seal_as_a_conflict()
+    {
+        using var httpClient = CreateHttpClient((_, _) => Json(
+            HttpStatusCode.Conflict,
+            """{"title":"Container control transition is not allowed.","status":409}"""));
+
+        var result = await CreateClient(httpClient).BreakContainerSealAsync(
+            ControlContainerId,
+            new BreakContainerSealWebRequest(null),
+            CancellationToken.None);
+
+        Assert.False(result.IsSuccess);
+        Assert.True(result.Failure!.IsConflict);
+    }
+
+    [Fact]
+    public async Task AssignContainerSealAsync_reports_a_duplicate_seal_as_a_conflict()
+    {
+        using var httpClient = CreateHttpClient((_, _) => Json(
+            HttpStatusCode.Conflict,
+            """{"title":"Seal number is already in use.","status":409,"detail":"Seal number 'ML458821' is already active on another container."}"""));
+
+        var result = await CreateClient(httpClient).AssignContainerSealAsync(
+            ControlContainerId,
+            new AssignContainerSealWebRequest("ML458821"),
+            CancellationToken.None);
+
+        Assert.False(result.IsSuccess);
+        Assert.True(result.Failure!.IsConflict);
+        Assert.Equal("Seal number is already in use.", result.Failure.Title);
+    }
+
+    [Fact]
+    public async Task RecordContainerInspectionAsync_posts_the_result_and_the_temperature()
+    {
+        using var httpClient = CreateHttpClient(async (request, token) =>
+        {
+            Assert.Equal(
+                $"/api/cargo/containers/{ControlContainerId}/inspections",
+                request.RequestUri!.AbsolutePath);
+
+            var body = await request.Content!.ReadAsStringAsync(token);
+
+            Assert.Contains("Passed", body, StringComparison.Ordinal);
+            Assert.Contains("-18.5", body, StringComparison.Ordinal);
+
+            return await Json(HttpStatusCode.Created, ContainerControlJson);
+        });
+
+        var result = await CreateClient(httpClient).RecordContainerInspectionAsync(
+            ControlContainerId,
+            new RecordContainerInspectionWebRequest("Passed", "Cooling steady", -18.5m),
+            CancellationToken.None);
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal("Passed", result.Value!.LatestInspectionResult);
+    }
+
+    [Fact]
+    public async Task RecordContainerInspectionAsync_surfaces_field_validation_errors()
+    {
+        using var httpClient = CreateHttpClient((_, _) => Json(
+            HttpStatusCode.BadRequest,
+            """{"title":"One or more validation errors occurred.","status":400,"errors":{"temperatureCelsius":["A temperature can only be recorded for a reefer container."]}}"""));
+
+        var result = await CreateClient(httpClient).RecordContainerInspectionAsync(
+            ControlContainerId,
+            new RecordContainerInspectionWebRequest("Passed", null, -18.5m),
+            CancellationToken.None);
+
+        Assert.False(result.IsSuccess);
+        Assert.True(result.Failure!.IsValidation);
+        Assert.Contains("temperatureCelsius", result.Failure.Errors.Keys, StringComparer.Ordinal);
+    }
+
+    [Fact]
+    public async Task ReleaseContainerAsync_posts_the_notes()
+    {
+        using var httpClient = CreateHttpClient(async (request, token) =>
+        {
+            Assert.Equal(
+                $"/api/cargo/containers/{ControlContainerId}/release",
+                request.RequestUri!.AbsolutePath);
+            Assert.Contains(
+                "Cleared for loading",
+                await request.Content!.ReadAsStringAsync(token),
+                StringComparison.Ordinal);
+
+            return await Json(HttpStatusCode.OK, ContainerControlJson);
+        });
+
+        var result = await CreateClient(httpClient).ReleaseContainerAsync(
+            ControlContainerId,
+            new ReleaseContainerWebRequest("Cleared for loading"),
+            CancellationToken.None);
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal("Released", result.Value!.State);
+    }
+
+    [Fact]
+    public async Task ReleaseContainerAsync_reports_a_blocked_release_as_a_conflict()
+    {
+        using var httpClient = CreateHttpClient((_, _) => Json(
+            HttpStatusCode.Conflict,
+            """{"title":"Container control transition is not allowed.","status":409,"detail":"The container is held."}"""));
+
+        var result = await CreateClient(httpClient).ReleaseContainerAsync(
+            ControlContainerId,
+            new ReleaseContainerWebRequest(null),
+            CancellationToken.None);
+
+        Assert.False(result.IsSuccess);
+        Assert.True(result.Failure!.IsConflict);
+    }
+
+    [Fact]
+    public async Task HoldContainerAsync_posts_the_reason()
+    {
+        using var httpClient = CreateHttpClient(async (request, token) =>
+        {
+            Assert.Equal(
+                $"/api/cargo/containers/{ControlContainerId}/hold",
+                request.RequestUri!.AbsolutePath);
+            Assert.Contains(
+                "Damaged corner post",
+                await request.Content!.ReadAsStringAsync(token),
+                StringComparison.Ordinal);
+
+            return await Json(HttpStatusCode.OK, ContainerControlJson);
+        });
+
+        var result = await CreateClient(httpClient).HoldContainerAsync(
+            ControlContainerId,
+            new HoldContainerWebRequest("Damaged corner post"),
+            CancellationToken.None);
+
+        Assert.True(result.IsSuccess);
+    }
+
+    [Fact]
+    public async Task GetContainerControlAsync_reports_an_unknown_container_as_not_found()
+    {
+        using var httpClient = CreateHttpClient((_, _) => Json(
+            HttpStatusCode.NotFound,
+            """{"title":"Container not found.","status":404}"""));
+
+        var result = await CreateClient(httpClient).GetContainerControlAsync(
+            ControlContainerId,
+            CancellationToken.None);
+
+        Assert.False(result.IsSuccess);
+        Assert.True(result.Failure!.IsNotFound);
     }
 
     private static CargoBookingFilter Filter()

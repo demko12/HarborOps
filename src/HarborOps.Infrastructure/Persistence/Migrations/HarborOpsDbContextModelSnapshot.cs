@@ -291,6 +291,150 @@ namespace HarborOps.Infrastructure.Persistence.Migrations
                             }));
                 });
 
+            modelBuilder.Entity("HarborOps.Modules.Cargo.Domain.ContainerControl", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("ConcurrencyToken")
+                        .IsConcurrencyToken()
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier")
+                        .HasDefaultValueSql("NEWID()");
+
+                    b.Property<Guid>("ContainerId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime?>("LatestInspectedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("LatestInspectedByUserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("LatestInspectionNotes")
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
+
+                    b.Property<string>("LatestInspectionResult")
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<decimal?>("LatestInspectionTemperatureCelsius")
+                        .HasPrecision(5, 2)
+                        .HasColumnType("decimal(5,2)");
+
+                    b.Property<DateTime>("PeriodEnd")
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("datetime2")
+                        .HasColumnName("PeriodEnd");
+
+                    b.Property<DateTime>("PeriodStart")
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("datetime2")
+                        .HasColumnName("PeriodStart");
+
+                    b.Property<string>("SealNumber")
+                        .HasMaxLength(30)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(30)");
+
+                    b.Property<string>("SealStatus")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<string>("State")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<DateTime?>("StateChangedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("StateChangedByUserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("StateReason")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ContainerId")
+                        .IsUnique();
+
+                    b.HasIndex("SealNumber")
+                        .IsUnique()
+                        .HasDatabaseName("IX_ContainerControls_ActiveSealNumber")
+                        .HasFilter("[SealNumber] IS NOT NULL AND [SealStatus] = 'Intact'");
+
+                    b.ToTable("ContainerControls", "cargo");
+
+                    b.ToTable(tb => tb.IsTemporal(ttb =>
+                            {
+                                ttb.UseHistoryTable("ContainerControlsHistory", "cargo");
+                                ttb
+                                    .HasPeriodStart("PeriodStart")
+                                    .HasColumnName("PeriodStart");
+                                ttb
+                                    .HasPeriodEnd("PeriodEnd")
+                                    .HasColumnName("PeriodEnd");
+                            }));
+                });
+
+            modelBuilder.Entity("HarborOps.Modules.Cargo.Domain.ContainerControlEvent", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Action")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<Guid>("ActorUserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("ContainerControlId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("FromState")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<string>("InspectionResult")
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<string>("Notes")
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
+
+                    b.Property<DateTime>("OccurredUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("SealNumber")
+                        .HasMaxLength(30)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(30)");
+
+                    b.Property<decimal?>("TemperatureCelsius")
+                        .HasPrecision(5, 2)
+                        .HasColumnType("decimal(5,2)");
+
+                    b.Property<string>("ToState")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ContainerControlId", "OccurredUtc");
+
+                    b.ToTable("ContainerControlEvents", "cargo");
+                });
+
             modelBuilder.Entity("HarborOps.Modules.Cargo.Domain.LoadUnloadOperation", b =>
                 {
                     b.Property<Guid>("Id")
@@ -2874,6 +3018,24 @@ namespace HarborOps.Infrastructure.Persistence.Migrations
                         .WithMany()
                         .HasForeignKey("CargoBookingId")
                         .OnDelete(DeleteBehavior.Restrict);
+                });
+
+            modelBuilder.Entity("HarborOps.Modules.Cargo.Domain.ContainerControl", b =>
+                {
+                    b.HasOne("HarborOps.Modules.Cargo.Domain.Container", null)
+                        .WithMany()
+                        .HasForeignKey("ContainerId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("HarborOps.Modules.Cargo.Domain.ContainerControlEvent", b =>
+                {
+                    b.HasOne("HarborOps.Modules.Cargo.Domain.ContainerControl", null)
+                        .WithMany()
+                        .HasForeignKey("ContainerControlId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
                 });
 
             modelBuilder.Entity("HarborOps.Modules.Cargo.Domain.LoadUnloadOperation", b =>

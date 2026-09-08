@@ -58,6 +58,12 @@ public sealed class CargoOperationExecutionController(
                 "Cargo manifest is not ready for this operation.",
                 exception.Message);
         }
+        catch (CargoContainersNotReleasedException exception)
+        {
+            return ConflictProblem(
+                "Containers are not released for loading.",
+                exception.Message);
+        }
         catch (CargoSafetyApprovalRequiredException exception)
         {
             return ConflictProblem(

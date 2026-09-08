@@ -240,6 +240,119 @@ public sealed class GetCargoBookingDetailsQueryTests
         return booking;
     }
 
+    [Fact]
+    public async Task GetDetailsAsync_returns_no_container_controls_for_an_empty_manifest()
+    {
+        await using var dbContext = CreateDbContext();
+        var booking = await AddBookingAsync(dbContext, "BK-DETAILS-CTRL-1");
+
+        var details = await new GetCargoBookingDetailsQuery(dbContext)
+            .GetDetailsAsync(booking.Id, CancellationToken.None);
+
+        Assert.Empty(details.ContainerControls);
+    }
+
+    [Fact]
+    public async Task GetDetailsAsync_reports_a_container_that_has_no_control_yet_as_pending()
+    {
+        await using var dbContext = CreateDbContext();
+        var booking = await AddBookingAsync(dbContext, "BK-DETAILS-CTRL-2");
+        await AddContainerAsync(dbContext, booking.Id, "MSKU1234567");
+
+        var details = await new GetCargoBookingDetailsQuery(dbContext)
+            .GetDetailsAsync(booking.Id, CancellationToken.None);
+
+        var control = Assert.Single(details.ContainerControls);
+        Assert.Equal("MSKU1234567", control.ContainerNumber);
+        Assert.Equal(nameof(ContainerControlState.Pending), control.State);
+        Assert.Null(control.SealNumber);
+        Assert.False(control.CanRelease);
+        Assert.Equal(
+            ContainerControlTransitionNotAllowedException.SealNotIntactReason,
+            control.ReleaseBlockedReason);
+    }
+
+    [Fact]
+    public async Task GetDetailsAsync_reports_the_control_state_of_every_container()
+    {
+        await using var dbContext = CreateDbContext();
+        var booking = await AddBookingAsync(dbContext, "BK-DETAILS-CTRL-3");
+        var released = await AddContainerAsync(dbContext, booking.Id, "MSKU2222222");
+        await AddContainerAsync(dbContext, booking.Id, "MSKU1111111");
+        await AddReleasedControlAsync(dbContext, released.Id);
+
+        var details = await new GetCargoBookingDetailsQuery(dbContext)
+            .GetDetailsAsync(booking.Id, CancellationToken.None);
+
+        Assert.Equal(
+            ["MSKU1111111", "MSKU2222222"],
+            details.ContainerControls.Select(control => control.ContainerNumber));
+        Assert.Equal(
+            [nameof(ContainerControlState.Pending), nameof(ContainerControlState.Released)],
+            details.ContainerControls.Select(control => control.State));
+        Assert.Equal(
+            "ML458821",
+            details.ContainerControls[1].SealNumber);
+        Assert.Equal(
+            nameof(ContainerInspectionResult.Passed),
+            details.ContainerControls[1].LatestInspectionResult);
+    }
+
+    [Fact]
+    public async Task GetDetailsAsync_ignores_containers_of_another_booking()
+    {
+        await using var dbContext = CreateDbContext();
+        var booking = await AddBookingAsync(dbContext, "BK-DETAILS-CTRL-4");
+        var otherBooking = await AddBookingAsync(dbContext, "BK-DETAILS-OTHER");
+        await AddContainerAsync(dbContext, booking.Id, "MSKU1111111");
+        await AddContainerAsync(dbContext, otherBooking.Id, "MSKU2222222");
+
+        var details = await new GetCargoBookingDetailsQuery(dbContext)
+            .GetDetailsAsync(booking.Id, CancellationToken.None);
+
+        var control = Assert.Single(details.ContainerControls);
+        Assert.Equal("MSKU1111111", control.ContainerNumber);
+    }
+
+    private static async Task<Container> AddContainerAsync(
+        HarborOpsDbContext dbContext,
+        Guid cargoBookingId,
+        string containerNumber)
+    {
+        var container = Container.Register(
+            containerNumber,
+            "40HC",
+            CargoStatus.Registered,
+            vesselId: null,
+            cargoBookingId: cargoBookingId);
+
+        await dbContext.Set<Container>().AddAsync(container, CancellationToken.None);
+        await dbContext.SaveChangesAsync(CancellationToken.None);
+
+        return container;
+    }
+
+    private static async Task AddReleasedControlAsync(
+        HarborOpsDbContext dbContext,
+        Guid containerId)
+    {
+        var control = ContainerControl.Start(containerId);
+        var sealEntry = control.AssignSeal("ML458821", ResponsibleUserId, FirstEventUtc);
+        var inspectionEntry = control.RecordInspection(
+            ContainerInspectionResult.Passed,
+            "Doors aligned",
+            null,
+            isReefer: false,
+            ResponsibleUserId,
+            FirstEventUtc);
+        var releaseEntry = control.Release(ResponsibleUserId, FirstEventUtc, null);
+
+        await dbContext.Set<ContainerControl>().AddAsync(control, CancellationToken.None);
+        await dbContext.Set<ContainerControlEvent>()
+            .AddRangeAsync([sealEntry, .. inspectionEntry, releaseEntry], CancellationToken.None);
+        await dbContext.SaveChangesAsync(CancellationToken.None);
+    }
+
     private static async Task AddTrackingEventAsync(
         HarborOpsDbContext dbContext,
         Guid cargoBookingId,

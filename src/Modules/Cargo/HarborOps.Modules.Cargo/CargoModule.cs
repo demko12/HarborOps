@@ -15,14 +15,20 @@ public static class CargoModule
     public static IServiceCollection AddCargoModule(this IServiceCollection services)
     {
         services.AddScoped<AddCargoContainerService>();
+        services.AddScoped<AssignContainerSealService>();
+        services.AddScoped<BreakContainerSealService>();
         services.AddScoped<ExecuteCargoOperationService>();
         services.AddScoped<GetCargoBookingDetailsQuery>();
         services.AddScoped<GetCargoContainersQuery>();
         services.AddScoped<GetCargoOperationsQuery>();
         services.AddScoped<GetCargoSafetyInformationQuery>();
+        services.AddScoped<GetContainerControlQuery>();
+        services.AddScoped<HoldContainerService>();
         services.AddScoped<PlanCargoOperationService>();
         services.AddScoped<RecordCargoTrackingEventService>();
+        services.AddScoped<RecordContainerInspectionService>();
         services.AddScoped<RegisterCargoBookingService>();
+        services.AddScoped<ReleaseContainerService>();
         services.AddScoped<ReviewCargoSafetyInfoService>();
         services.AddScoped<SearchCargoBookingsQuery>();
         services.AddScoped<SubmitCargoSafetyInfoService>();

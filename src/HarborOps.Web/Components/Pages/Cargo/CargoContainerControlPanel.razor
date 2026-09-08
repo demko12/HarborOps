@@ -1,0 +1,388 @@
+@using HarborOps.Web.Api.Cargo
+@implements IDisposable
+@inject CargoBookingsApiClient CargoApi
+@inject CurrentUserAuthorizationState AuthorizationState
+
+<section class="container-control-panel" aria-labelledby="container-control-title">
+    <div class="booking-card-heading">
+        <h3 id="container-control-title">Control for @ContainerNumber</h3>
+        <span class="@CargoBookingFormat.ControlStateClass(Control?.State)">
+            @CargoBookingFormat.ControlStateLabel(Control?.State)
+        </span>
+    </div>
+
+    @if (isLoading)
+    {
+        <p class="booking-note control-loading" role="status">Loading the container control...</p>
+    }
+    else if (failure is not null)
+    {
+        <ApiErrorState Title="@failure.Title" Message="@failure.Message" OnRetry="LoadAsync" />
+    }
+    else if (Control is { } control)
+    {
+        @if (IsHeld)
+        {
+            <div class="control-hold-banner" role="status">
+                <p class="control-hold-title">This container is on hold.</p>
+                @if (!string.IsNullOrWhiteSpace(control.StateReason))
+                {
+                    <p class="control-state-reason">@control.StateReason</p>
+                }
+                <p class="control-hold-hint">Record a passing inspection to lift the hold.</p>
+            </div>
+        }
+
+        <ol class="control-steps">
+            <li class="@StepClass(SealStep)">
+                <span class="control-step-index" aria-hidden="true">1</span>
+
+                <div class="control-step-body">
+                    <h4 class="control-step-title">Seal</h4>
+
+                    @if (SealStep is ControlStepState.Done)
+                    {
+                        <p class="control-seal">
+                            @control.SealNumber
+                            <span class="control-seal-status">@control.SealStatus</span>
+                        </p>
+                    }
+                    else
+                    {
+                        <p class="control-step-summary">No seal assigned yet.</p>
+                    }
+
+                    @if (ShowSealForm)
+                    {
+                        <EditForm class="control-seal-form control-step-form"
+                                  EditContext="sealEditContext"
+                                  OnValidSubmit="SubmitSealAsync">
+                            <DataAnnotationsValidator />
+
+                            @if (sealError is not null)
+                            {
+                                <div class="booking-form-error" role="alert">@sealError</div>
+                            }
+
+                            <div class="booking-field">
+                                <label for="control-seal-number">Seal number</label>
+                                <InputText id="control-seal-number" @bind-Value="sealModel.SealNumber" />
+                                <ValidationMessage For="() => sealModel.SealNumber" />
+                            </div>
+
+                            <div class="booking-form-actions">
+                                @if (isReplacingSeal)
+                                {
+                                    <button type="button"
+                                            class="operation-confirm-dismiss control-seal-cancel"
+                                            disabled="@isSealing"
+                                            @onclick="CancelSealReplacement">
+                                        Cancel
+                                    </button>
+                                }
+
+                                <button class="booking-submit control-seal-submit" type="submit" disabled="@isSealing">
+                                    @(isSealing ? "Saving..." : isReplacingSeal ? "Replace seal" : "Assign seal")
+                                </button>
+                            </div>
+                        </EditForm>
+                    }
+                    else if (CanManage && SealStep is ControlStepState.Done)
+                    {
+                        <div class="control-step-links">
+                            <button type="button" class="control-step-link control-seal-replace" @onclick="StartSealReplacement">
+                                Replace seal
+                            </button>
+                            <button type="button"
+                                    class="control-step-link control-seal-break"
+                                    @onclick="() => AskToConfirm(BreakSealAction)">
+                                Break seal
+                            </button>
+                        </div>
+                        <p class="control-step-hint">
+                            Replacing or breaking the seal withdraws an existing release.
+                        </p>
+                    }
+                </div>
+            </li>
+
+            <li class="@StepClass(InspectionStep)">
+                <span class="control-step-index" aria-hidden="true">2</span>
+
+                <div class="control-step-body">
+                    <h4 class="control-step-title">Inspection</h4>
+
+                    @if (control.LatestInspectionResult is { } inspectionResult)
+                    {
+                        <p class="control-inspection">
+                            <span class="control-inspection-result">@inspectionResult</span>
+                            @if (control.LatestInspectedAtUtc is { } inspectedAtUtc)
+                            {
+                                <span class="control-inspection-time">@CargoBookingFormat.CreatedUtc(inspectedAtUtc)</span>
+                            }
+                            @if (control.LatestInspectedByUserId is { } inspectedByUserId)
+                            {
+                                <span class="control-audit-actor" title="@inspectedByUserId">
+                                    @CargoBookingFormat.ShortUser(inspectedByUserId)
+                                </span>
+                            }
+                            @if (control.LatestInspectionTemperatureCelsius is { } temperature)
+                            {
+                                <span class="control-inspection-temperature">@CargoBookingFormat.TemperatureCelsius(temperature)</span>
+                            }
+                        </p>
+
+                        @if (!string.IsNullOrWhiteSpace(control.LatestInspectionNotes))
+                        {
+                            <p class="control-inspection-notes">@control.LatestInspectionNotes</p>
+                        }
+                    }
+                    else if (InspectionStep is ControlStepState.Locked)
+                    {
+                        <p class="control-step-summary">Assign a seal before inspecting this container.</p>
+                    }
+                    else
+                    {
+                        <p class="control-step-summary">Not inspected yet.</p>
+                    }
+
+                    @if (CanManage && InspectionStep is not ControlStepState.Locked)
+                    {
+                        <EditForm class="control-inspection-form control-step-form"
+                                  EditContext="inspectionEditContext"
+                                  OnValidSubmit="SubmitInspectionAsync">
+                            <DataAnnotationsValidator />
+
+                            @if (inspectionError is not null)
+                            {
+                                <div class="booking-form-error" role="alert">@inspectionError</div>
+                            }
+
+                            <div class="booking-form-grid">
+                                <div class="booking-field">
+                                    <label for="control-inspection-result">Inspection result</label>
+                                    <InputSelect id="control-inspection-result" @bind-Value="inspectionModel.Result">
+                                        <option value="">Select result...</option>
+                                        <option value="Passed">Passed</option>
+                                        <option value="Failed">Failed</option>
+                                    </InputSelect>
+                                    <ValidationMessage For="() => inspectionModel.Result" />
+                                </div>
+
+                                @if (control.IsReefer)
+                                {
+                                    <div class="booking-field">
+                                        <label for="control-inspection-temperature">Temperature (°C)</label>
+                                        <InputNumber id="control-inspection-temperature"
+                                                     @bind-Value="inspectionModel.TemperatureCelsius" />
+                                        <ValidationMessage For="() => inspectionModel.TemperatureCelsius" />
+                                    </div>
+                                }
+
+                                <div class="booking-field booking-field-wide">
+                                    <label for="control-inspection-notes">Condition notes</label>
+                                    <InputTextArea id="control-inspection-notes" rows="2" @bind-Value="inspectionModel.ConditionNotes" />
+                                    <ValidationMessage For="() => inspectionModel.ConditionNotes" />
+                                </div>
+                            </div>
+
+                            <div class="booking-form-actions">
+                                <button class="booking-submit control-inspection-submit" type="submit" disabled="@isInspecting">
+                                    @(isInspecting ? "Recording..." : "Record inspection")
+                                </button>
+                            </div>
+                        </EditForm>
+                    }
+                </div>
+            </li>
+
+            <li class="@StepClass(ReleaseStep)">
+                <span class="control-step-index" aria-hidden="true">3</span>
+
+                <div class="control-step-body">
+                    <h4 class="control-step-title">Release</h4>
+
+                    @if (ReleaseStep is ControlStepState.Done)
+                    {
+                        <p class="control-step-summary control-released">
+                            Released for cargo operations
+                            @if (control.StateChangedAtUtc is { } releasedAtUtc)
+                            {
+                                <span class="control-audit-time">@CargoBookingFormat.CreatedUtc(releasedAtUtc)</span>
+                            }
+                            @if (control.StateChangedByUserId is { } releasedByUserId)
+                            {
+                                <span class="control-audit-actor" title="@releasedByUserId">
+                                    @CargoBookingFormat.ShortUser(releasedByUserId)
+                                </span>
+                            }
+                        </p>
+                    }
+                    else
+                    {
+                        <p class="booking-note control-blocked" role="status">
+                            @CargoBookingFormat.ControlBlockedExplanation(control.ReleaseBlockedReason)
+                        </p>
+                    }
+
+                    @if (CanManage)
+                    {
+                        <div class="control-actions">
+                            <button type="button"
+                                    class="booking-submit control-action-release"
+                                    disabled="@(!control.CanRelease)"
+                                    @onclick="() => AskToConfirm(ReleaseAction)">
+                                Release for operations
+                            </button>
+
+                            <button type="button"
+                                    class="control-action-hold"
+                                    disabled="@IsHeld"
+                                    @onclick="() => AskToConfirm(HoldAction)">
+                                Put on hold
+                            </button>
+                        </div>
+                    }
+                </div>
+            </li>
+        </ol>
+
+        @if (!CanManage)
+        {
+            <p class="booking-note control-readonly" role="status">
+                You can view this container control but not change it.
+            </p>
+        }
+
+        @if (History.Count > 0)
+        {
+            <div class="booking-form-actions control-history-actions">
+                <button type="button" class="control-history-open" @onclick="ShowHistory">
+                    Control history (@History.Count)
+                </button>
+            </div>
+        }
+    }
+
+    @if (isHistoryOpen)
+    {
+        <div class="operation-modal-backdrop" @onclick="HideHistory">
+            <section class="operation-modal control-history-modal"
+                     role="dialog"
+                     aria-modal="true"
+                     aria-labelledby="control-history-title"
+                     @onclick:stopPropagation="true">
+                <div class="operation-modal-header">
+                    <h2 id="control-history-title">Control history</h2>
+                    <button type="button"
+                            class="operation-modal-close"
+                            aria-label="Close control history"
+                            @onclick="HideHistory">
+                        &times;
+                    </button>
+                </div>
+
+                <ol class="control-timeline">
+                    @foreach (var entry in History)
+                    {
+                        <li class="control-timeline-entry">
+                            <div class="control-timeline-head">
+                                <span class="control-timeline-action">
+                                    @CargoBookingFormat.ControlActionLabel(entry.Action)
+                                </span>
+                                <span class="control-timeline-time">@CargoBookingFormat.CreatedUtc(entry.OccurredUtc)</span>
+                            </div>
+
+                            <p class="control-timeline-meta">
+                                <span class="control-timeline-actor" title="@entry.ActorUserId">
+                                    @CargoBookingFormat.ShortUser(entry.ActorUserId)
+                                </span>
+                                @if (!string.IsNullOrWhiteSpace(entry.SealNumber))
+                                {
+                                    <span class="control-timeline-seal">@entry.SealNumber</span>
+                                }
+                                @if (entry.TemperatureCelsius is { } entryTemperature)
+                                {
+                                    <span class="control-timeline-temperature">@CargoBookingFormat.TemperatureCelsius(entryTemperature)</span>
+                                }
+                            </p>
+
+                            @if (entry.InspectionResult is { } result)
+                            {
+                                <p class="control-timeline-result">@result</p>
+                            }
+
+                            @if (!string.IsNullOrWhiteSpace(entry.Notes))
+                            {
+                                <p class="control-timeline-notes">@entry.Notes</p>
+                            }
+                        </li>
+                    }
+                </ol>
+
+                <div class="operation-modal-actions">
+                    <button type="button" class="operation-confirm-dismiss" @onclick="HideHistory">
+                        Close
+                    </button>
+                </div>
+            </section>
+        </div>
+    }
+
+    @if (pendingAction is not null)
+    {
+        <div class="operation-modal-backdrop" @onclick="DismissConfirmation">
+            <section class="operation-modal"
+                     role="alertdialog"
+                     aria-modal="true"
+                     aria-labelledby="control-confirm-title"
+                     @onclick:stopPropagation="true">
+                <div class="operation-modal-header">
+                    <h2 id="control-confirm-title">Confirm</h2>
+                    <button type="button"
+                            class="operation-modal-close"
+                            aria-label="Close confirmation dialog"
+                            disabled="@isActing"
+                            @onclick="DismissConfirmation">
+                        &times;
+                    </button>
+                </div>
+
+                <p class="operation-confirm-question">@ConfirmationQuestion</p>
+
+                <div class="booking-field booking-field-wide">
+                    <label for="control-action-notes">@NotesLabel</label>
+                    <textarea id="control-action-notes"
+                              rows="3"
+                              disabled="@isActing"
+                              @bind="actionNotes"></textarea>
+
+                    @if (notesError is not null)
+                    {
+                        <div class="booking-form-error" role="alert">@notesError</div>
+                    }
+                </div>
+
+                @if (actionError is not null)
+                {
+                    <div class="booking-form-error" role="alert">@actionError</div>
+                }
+
+                <div class="operation-modal-actions">
+                    <button type="button"
+                            class="booking-submit control-confirm"
+                            disabled="@isActing"
+                            @onclick="ConfirmPendingActionAsync">
+                        @(isActing ? "Working..." : ConfirmLabel)
+                    </button>
+                    <button type="button"
+                            class="operation-confirm-dismiss"
+                            disabled="@isActing"
+                            @onclick="DismissConfirmation">
+                        Cancel
+                    </button>
+                </div>
+            </section>
+        </div>
+    }
+</section>

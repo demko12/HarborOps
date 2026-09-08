@@ -254,6 +254,7 @@
                                 <th scope="col">Container</th>
                                 <th scope="col">Type</th>
                                 <th scope="col">Status</th>
+                                <th scope="col">Control</th>
                                 <th scope="col">Vessel</th>
                             </tr>
                         </thead>
@@ -266,6 +267,16 @@
                                     <td>
                                         <span class="cargo-status @CargoBookingFormat.StatusModifier(container.Status)">@container.Status</span>
                                     </td>
+                                    <td class="manifest-control">
+                                        <span class="@CargoBookingFormat.ControlStateClass(ControlStateFor(container.ContainerId))">
+                                            @CargoBookingFormat.ControlStateLabel(ControlStateFor(container.ContainerId))
+                                        </span>
+                                        <button type="button"
+                                                class="manifest-control-open"
+                                                @onclick="() => ToggleControl(container.ContainerId)">
+                                            @(selectedControlContainerId == container.ContainerId ? "Hide control" : "Open control")
+                                        </button>
+                                    </td>
                                     <td class="manifest-vessel">
                                         @(container.VesselId is { } vesselId
                                             ? CargoBookingFormat.ShortVoyage(vesselId)
@@ -276,6 +287,13 @@
                         </tbody>
                     </table>
                 </div>
+
+                @if (SelectedControlContainer is { } selectedContainer)
+                {
+                    <CargoContainerControlPanel ContainerId="selectedContainer.ContainerId"
+                                                ContainerNumber="@selectedContainer.ContainerNumber"
+                                                OnChanged="RefreshAfterControlChangeAsync" />
+                }
                 }
             }
         </section>
