@@ -6,6 +6,7 @@ namespace HarborOps.Web.Api.Cargo;
 internal sealed class CargoBookingsApiClient(HttpClient httpClient)
 {
     private const string BasePath = "api/cargo/bookings";
+    private const string ContainersPath = "api/cargo/containers";
     private const string OperationsPath = "api/cargo/operations";
 
     private const string ReviewAccessDetail = "Please review your access and try again.";
@@ -168,6 +169,83 @@ internal sealed class CargoBookingsApiClient(HttpClient httpClient)
             "Unable to complete the operation",
             cancellationToken);
     }
+
+    internal Task<CargoApiResult<ContainerControlView>> GetContainerControlAsync(
+        Guid containerId,
+        CancellationToken cancellationToken)
+    {
+        return GetAsync<ContainerControlView>(
+            $"{ContainerPath(containerId)}/control",
+            "Unable to load the container control",
+            ReviewAccessDetail,
+            cancellationToken);
+    }
+
+    internal Task<CargoApiResult<ContainerControlRow>> AssignContainerSealAsync(
+        Guid containerId,
+        AssignContainerSealWebRequest request,
+        CancellationToken cancellationToken)
+    {
+        return PostAsync<ContainerControlRow>(
+            $"{ContainerPath(containerId)}/seal",
+            request,
+            "Unable to assign the seal",
+            cancellationToken);
+    }
+
+    internal Task<CargoApiResult<ContainerControlRow>> BreakContainerSealAsync(
+        Guid containerId,
+        BreakContainerSealWebRequest request,
+        CancellationToken cancellationToken)
+    {
+        return PostAsync<ContainerControlRow>(
+            $"{ContainerPath(containerId)}/seal/break",
+            request,
+            "Unable to break the seal",
+            cancellationToken);
+    }
+
+    internal Task<CargoApiResult<ContainerControlRow>> RecordContainerInspectionAsync(
+        Guid containerId,
+        RecordContainerInspectionWebRequest request,
+        CancellationToken cancellationToken)
+    {
+        return PostAsync<ContainerControlRow>(
+            $"{ContainerPath(containerId)}/inspections",
+            request,
+            "Unable to record the inspection",
+            cancellationToken);
+    }
+
+    internal Task<CargoApiResult<ContainerControlRow>> ReleaseContainerAsync(
+        Guid containerId,
+        ReleaseContainerWebRequest request,
+        CancellationToken cancellationToken)
+    {
+        return PostAsync<ContainerControlRow>(
+            $"{ContainerPath(containerId)}/release",
+            request,
+            "Unable to release the container",
+            cancellationToken);
+    }
+
+    internal Task<CargoApiResult<ContainerControlRow>> HoldContainerAsync(
+        Guid containerId,
+        HoldContainerWebRequest request,
+        CancellationToken cancellationToken)
+    {
+        return PostAsync<ContainerControlRow>(
+            $"{ContainerPath(containerId)}/hold",
+            request,
+            "Unable to hold the container",
+            cancellationToken);
+    }
+
+    private static string ContainerPath(Guid containerId)
+    {
+        return $"{ContainersPath}/{containerId}";
+    }
+
     private static string SafetyPath(Guid bookingId)
     {
         return $"{BasePath}/{bookingId}/safety-information";

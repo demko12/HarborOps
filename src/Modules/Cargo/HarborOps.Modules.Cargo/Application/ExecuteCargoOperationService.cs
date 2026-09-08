@@ -18,6 +18,7 @@ public sealed class ExecuteCargoOperationService(DbContext dbContext, TimeProvid
             await EnsureHazardousCargoIsApprovedAsync(operation, cancellationToken);
             await EnsureNoOtherOperationInProgressAsync(operation, cancellationToken);
             await EnsureManifestIsReadyAsync(operation, cancellationToken);
+            await EnsureContainerControlsAllowLoadingAsync(operation, cancellationToken);
         }
 
         try
@@ -135,6 +136,21 @@ public sealed class ExecuteCargoOperationService(DbContext dbContext, TimeProvid
         }
 
         await CargoSafetyInfoGuard.EnsureApprovedForLoadingAsync(
+            dbContext,
+            operation.CargoBookingId,
+            cancellationToken);
+    }
+
+    private async Task EnsureContainerControlsAllowLoadingAsync(
+        LoadUnloadOperation operation,
+        CancellationToken cancellationToken)
+    {
+        if (operation.OperationType is not CargoOperationType.Load)
+        {
+            return;
+        }
+
+        await ContainerControlGuard.EnsureContainersAreReleasedAsync(
             dbContext,
             operation.CargoBookingId,
             cancellationToken);

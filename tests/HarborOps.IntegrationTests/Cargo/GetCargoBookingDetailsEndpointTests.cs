@@ -165,6 +165,86 @@ public sealed class GetCargoBookingDetailsEndpointTests : IntegrationTestBase
         return result.Id;
     }
 
+    [Fact]
+    public async Task Get_returns_the_control_state_of_every_container()
+    {
+        using var client = await _application.CreateAuthenticatedClientWithPermissionsAsync(
+            Permissions.Cargo.Manage);
+        var bookingId = await RegisterBookingAsync(client, "BK-DETAIL-INT-CTRL", isHazardous: false);
+        var releasedContainerId = await AddContainerAsync(client, bookingId, "MSKU2222222");
+        await AddContainerAsync(client, bookingId, "MSKU1111111");
+        await ReleaseContainerAsync(client, releasedContainerId);
+
+        using var response = await client.GetAsync(
+            $"{BookingsEndpoint}/{bookingId}",
+            CancellationToken.None);
+        var details = await response.Content.ReadFromJsonAsync<GetCargoBookingDetailsResponse>(
+            CancellationToken.None);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.NotNull(details);
+        Assert.Equal(
+            ["MSKU1111111", "MSKU2222222"],
+            details.ContainerControls.Select(control => control.ContainerNumber));
+        Assert.Equal(
+            [nameof(ContainerControlState.Pending), nameof(ContainerControlState.Released)],
+            details.ContainerControls.Select(control => control.State));
+        Assert.Equal("ML458821", details.ContainerControls[1].SealNumber);
+        Assert.NotNull(details.ContainerControls[0].ReleaseBlockedReason);
+    }
+
+    private static async Task<Guid> AddContainerAsync(
+        HttpClient client,
+        Guid bookingId,
+        string containerNumber)
+    {
+        using var response = await client.PostAsJsonAsync(
+            $"{BookingsEndpoint}/{bookingId}/containers",
+            new AddCargoContainerRequest
+            {
+                ContainerNumber = containerNumber,
+                ContainerType = "40HC",
+            },
+            CancellationToken.None);
+        var result = await response.Content.ReadFromJsonAsync<AddCargoContainerResponse>(
+            CancellationToken.None);
+
+        Assert.Equal(HttpStatusCode.Created, response.StatusCode);
+        Assert.NotNull(result);
+
+        return result.Id;
+    }
+
+    private static async Task ReleaseContainerAsync(HttpClient client, Guid containerId)
+    {
+        var containersEndpoint = $"/api/cargo/containers/{containerId}";
+
+        using var sealResponse = await client.PostAsJsonAsync(
+            $"{containersEndpoint}/seal",
+            new AssignContainerSealRequest { SealNumber = "ML458821" },
+            CancellationToken.None);
+
+        Assert.Equal(HttpStatusCode.OK, sealResponse.StatusCode);
+
+        using var inspectionResponse = await client.PostAsJsonAsync(
+            $"{containersEndpoint}/inspections",
+            new RecordContainerInspectionRequest
+            {
+                Result = nameof(ContainerInspectionResult.Passed),
+                ConditionNotes = "Doors aligned",
+            },
+            CancellationToken.None);
+
+        Assert.Equal(HttpStatusCode.Created, inspectionResponse.StatusCode);
+
+        using var releaseResponse = await client.PostAsJsonAsync(
+            $"{containersEndpoint}/release",
+            new ReleaseContainerRequest(),
+            CancellationToken.None);
+
+        Assert.Equal(HttpStatusCode.OK, releaseResponse.StatusCode);
+    }
+
     private static async Task DeclareSafetyInformationAsync(HttpClient client, Guid bookingId)
     {
         var request = new UpdateCargoSafetyInfoRequest

@@ -66,6 +66,8 @@ public sealed class GetCargoBookingDetailsQuery(DbContext dbContext)
                 trackingEvent.ResponsibleUserId))
             .ToListAsync(cancellationToken);
 
+        var containerControls = await GetContainerControlsAsync(cargoBookingId, cancellationToken);
+
         return new GetCargoBookingDetailsResponse(
             booking.Id,
             booking.BookingNumber,
@@ -79,6 +81,39 @@ public sealed class GetCargoBookingDetailsQuery(DbContext dbContext)
             CargoBooking.NextStatusFor(booking.Status)?.ToString(),
             booking.CreatedUtc,
             safetyInfo,
-            trackingEvents);
+            trackingEvents,
+            containerControls);
+    }
+
+    private async Task<IReadOnlyList<ContainerControlDetails>> GetContainerControlsAsync(
+        Guid cargoBookingId,
+        CancellationToken cancellationToken)
+    {
+        var containers = await dbContext
+            .Set<Container>()
+            .AsNoTracking()
+            .Where(container => container.CargoBookingId == cargoBookingId)
+            .OrderBy(container => container.ContainerNumber)
+            .ToListAsync(cancellationToken);
+
+        if (containers.Count == 0)
+        {
+            return [];
+        }
+
+        var containerIds = containers.ConvertAll(container => container.Id);
+
+        var controls = await dbContext
+            .Set<ContainerControl>()
+            .AsNoTracking()
+            .Where(control => containerIds.Contains(control.ContainerId))
+            .ToListAsync(cancellationToken);
+
+        return
+        [
+            .. containers.Select(container => ContainerControlMapper.ToDetails(
+                container,
+                controls.Find(control => control.ContainerId == container.Id))),
+        ];
     }
 }

@@ -66,6 +66,52 @@ public sealed class ContainerTests
         Assert.Equal(CargoStatus.Unloaded, container.Status);
     }
 
+    [Theory]
+    [InlineData("ml458821", "ML458821")]
+    [InlineData("  ML458821  ", "ML458821")]
+    [InlineData("ML 458 821", "ML458821")]
+    [InlineData("ml-458821", "ML-458821")]
+    public void NormalizeSealNumber_uppercases_and_strips_whitespace(
+        string sealNumber,
+        string expected)
+    {
+        Assert.Equal(expected, Container.NormalizeSealNumber(sealNumber));
+    }
+
+    [Theory]
+    [InlineData("40RH")]
+    [InlineData("20RF")]
+    [InlineData("45R1")]
+    [InlineData("reefer")]
+    [InlineData("  Reefer  ")]
+    public void IsReeferType_recognizes_refrigerated_containers(string containerType)
+    {
+        Assert.True(Container.IsReeferType(containerType));
+    }
+
+    [Theory]
+    [InlineData("40HC")]
+    [InlineData("20GP")]
+    [InlineData("45G1")]
+    [InlineData("R")]
+    public void IsReeferType_rejects_dry_containers(string containerType)
+    {
+        Assert.False(Container.IsReeferType(containerType));
+    }
+
+    [Fact]
+    public void IsReefer_follows_the_container_type()
+    {
+        var reefer = Container.Register(
+            "MSKU1234567",
+            "40RH",
+            CargoStatus.Registered,
+            cargoBookingId: CargoBookingId);
+
+        Assert.True(reefer.IsReefer);
+        Assert.False(RegisterContainer().IsReefer);
+    }
+
     private static Container RegisterContainer()
     {
         return Container.Register(

@@ -13,4 +13,5 @@ public sealed record GetCargoBookingDetailsResponse(
     string? NextStatus,
     DateTime CreatedUtc,
     CargoSafetyInfoDetails? SafetyInfo,
-    IReadOnlyList<CargoTrackingEventListItem> TrackingEvents);
+    IReadOnlyList<CargoTrackingEventListItem> TrackingEvents,
+    IReadOnlyList<ContainerControlDetails> ContainerControls);

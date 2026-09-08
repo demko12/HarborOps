@@ -1968,6 +1968,118 @@ public sealed class CargoBookingDetailsPageTests : BunitContext
         return Json(HttpStatusCode.OK, details);
     }
 
+    [Fact]
+    public void The_manifest_shows_the_control_state_of_every_container()
+    {
+        respond = request => SectionResponse(
+            request,
+            Items(
+                ContainerJson(ContainerId, "MSKU1234567"),
+                ContainerJson(SecondContainerId, "MSKU7654321")),
+            EmptyItems,
+            Details(containerControls:
+            [
+                ContainerControlJson(ContainerId, "Released", releaseBlockedReason: null),
+                ContainerControlJson(SecondContainerId, "Held", "MSKU7654321", "the container is held"),
+            ]));
+
+        var page = RenderDetailsPage();
+
+        var states = page.FindAll(".manifest-control .control-status");
+
+        Assert.Equal(2, states.Count);
+        Assert.Contains("Released", states[0].TextContent, StringComparison.Ordinal);
+        Assert.Contains("On hold", states[1].TextContent, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void A_container_without_a_control_record_is_shown_as_not_released()
+    {
+        respond = request => SectionResponse(
+            request,
+            Items(ContainerJson(ContainerId, "MSKU1234567")),
+            EmptyItems,
+            Details());
+
+        var page = RenderDetailsPage();
+
+        Assert.Contains(
+            "Awaiting release",
+            page.Find(".manifest-control .control-status").TextContent,
+            StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Opening_a_container_control_loads_it_and_closing_it_hides_the_panel()
+    {
+        respond = request =>
+            request.RequestUri!.AbsolutePath.EndsWith("/control", StringComparison.Ordinal)
+                ? Json(
+                    HttpStatusCode.OK,
+                    $$"""{"control":{{ContainerControlJson(ContainerId, "Pending")}},"history":[]}""")
+                : SectionResponse(
+                    request,
+                    Items(ContainerJson(ContainerId, "MSKU1234567")),
+                    EmptyItems,
+                    Details(containerControls: [ContainerControlJson(ContainerId, "Pending")]));
+
+        var page = RenderDetailsPage();
+
+        page.Find(".manifest-control-open").Click();
+
+        page.WaitForAssertion(() => Assert.NotEmpty(page.FindAll(".container-control-panel")));
+        Assert.Contains(
+            $"/api/cargo/containers/{ContainerId}/control",
+            requestedUris.Select(uri => uri.AbsolutePath));
+
+        page.Find(".manifest-control-open").Click();
+
+        Assert.Empty(page.FindAll(".container-control-panel"));
+    }
+
+    [Fact]
+    public void A_seal_conflict_keeps_the_panel_and_its_message_on_the_page()
+    {
+        respond = request =>
+            request.Method == HttpMethod.Post
+                ? Json(
+                    HttpStatusCode.Conflict,
+                    """{"title":"Seal number is already in use.","status":409,"detail":"Seal number 'ML458821' is already active on another container."}""")
+                : request.RequestUri!.AbsolutePath.EndsWith("/control", StringComparison.Ordinal)
+                    ? Json(
+                        HttpStatusCode.OK,
+                        $$"""{"control":{{ContainerControlJson(ContainerId, "Pending")}},"history":[]}""")
+                    : SectionResponse(
+                        request,
+                        Items(ContainerJson(ContainerId, "MSKU1234567")),
+                        EmptyItems,
+                        Details(containerControls: [ContainerControlJson(ContainerId, "Pending")]));
+
+        var page = RenderDetailsPage();
+        page.Find(".manifest-control-open").Click();
+        page.WaitForAssertion(() => Assert.NotEmpty(page.FindAll(".control-seal-form")));
+
+        var beforeSubmit = requestedUris.Count;
+
+        page.Find("#control-seal-number").Change("ML458821");
+        page.Find(".control-seal-form").Submit();
+
+        page.WaitForAssertion(() => Assert.Contains(
+            "already in use",
+            page.Markup,
+            StringComparison.Ordinal));
+        Assert.NotEmpty(page.FindAll(".container-control-panel"));
+
+        var refreshed = requestedUris
+            .Skip(beforeSubmit)
+            .Select(uri => uri.AbsolutePath)
+            .ToList();
+
+        Assert.DoesNotContain(
+            refreshed,
+            path => path.EndsWith("/containers", StringComparison.Ordinal));
+    }
+
     private static string Items(params string[] rows)
     {
         return $$"""{"items":[{{string.Join(',', rows)}}]}""";
@@ -2019,10 +2131,24 @@ public sealed class CargoBookingDetailsPageTests : BunitContext
         string status = "Registered",
         string? nextStatus = "Planned",
         string? safetyInfo = null,
-        string[]? trackingEvents = null)
+        string[]? trackingEvents = null,
+        string[]? containerControls = null)
     {
         return $$"""
-            {"cargoBookingId":"{{BookingId}}","bookingNumber":"{{bookingNumber}}","voyageId":"{{VoyageId}}","description":"{{description}}","cargoType":"{{cargoType}}","weightKg":{{weightKg}},"packageCount":{{packageCount}},"isHazardous":{{(isHazardous ? "true" : "false")}},"status":"{{status}}","nextStatus":{{(nextStatus is null ? "null" : $"\"{nextStatus}\"")}},"createdUtc":"2026-08-11T09:42:00Z","safetyInfo":{{safetyInfo ?? "null"}},"trackingEvents":[{{string.Join(',', trackingEvents ?? [])}}]}
+            {"cargoBookingId":"{{BookingId}}","bookingNumber":"{{bookingNumber}}","voyageId":"{{VoyageId}}","description":"{{description}}","cargoType":"{{cargoType}}","weightKg":{{weightKg}},"packageCount":{{packageCount}},"isHazardous":{{(isHazardous ? "true" : "false")}},"status":"{{status}}","nextStatus":{{(nextStatus is null ? "null" : $"\"{nextStatus}\"")}},"createdUtc":"2026-08-11T09:42:00Z","safetyInfo":{{safetyInfo ?? "null"}},"trackingEvents":[{{string.Join(',', trackingEvents ?? [])}}],"containerControls":[{{string.Join(',', containerControls ?? [])}}]}
+            """;
+    }
+
+    private static string ContainerControlJson(
+        string containerId,
+        string state,
+        string containerNumber = "MSKU1234567",
+        string? releaseBlockedReason = "it has no intact seal")
+    {
+        var blockedReason = releaseBlockedReason is null ? "null" : $"\"{releaseBlockedReason}\"";
+
+        return $$"""
+            {"containerId":"{{containerId}}","containerNumber":"{{containerNumber}}","containerType":"20GP","isReefer":false,"sealNumber":null,"sealStatus":"None","state":"{{state}}","latestInspectionResult":null,"latestInspectionNotes":null,"latestInspectionTemperatureCelsius":null,"latestInspectedAtUtc":null,"latestInspectedByUserId":null,"stateReason":null,"stateChangedByUserId":null,"stateChangedAtUtc":null,"canRelease":false,"releaseBlockedReason":{{blockedReason}}}
             """;
     }
 

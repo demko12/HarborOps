@@ -16,6 +16,7 @@ namespace HarborOps.IntegrationTests.Cargo;
 public sealed class CargoOperationsEndpointTests : IntegrationTestBase
 {
     private const string BookingsEndpoint = "/api/cargo/bookings";
+    private const string ContainersEndpoint = "/api/cargo/containers";
     private const string OperationsEndpoint = "/api/cargo/operations";
 
     private static readonly Guid VoyageId = Guid.Parse("2b1a0c9d-8e7f-4a6b-9c5d-4e3f2a1b0c9d");
@@ -492,6 +493,111 @@ public sealed class CargoOperationsEndpointTests : IntegrationTestBase
         return result.Id;
     }
 
+    [Fact]
+    public async Task Start_returns_conflict_when_a_container_is_not_released()
+    {
+        using var client = await _application.CreateAuthenticatedClientWithPermissionsAsync(
+            Permissions.Cargo.Manage);
+        var bookingId = await RegisterBookingAsync(client, "BK-OPS-INT-CTRL-1");
+        await AddContainerAsync(client, bookingId, "MSKU1234567", release: false);
+        await AdvanceBookingToAsync(bookingId, CargoStatus.Planned);
+        var operationId = await PlanOperationAsync(client, bookingId, "Load", PlannedAtUtc);
+
+        using var response = await client.PostAsync(
+            $"{OperationsEndpoint}/{operationId}/start",
+            content: null,
+            CancellationToken.None);
+        var problem = await response.Content.ReadFromJsonAsync<ProblemDetails>(
+            CancellationToken.None);
+
+        Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
+        Assert.NotNull(problem);
+        Assert.Equal(StatusCodes.Status409Conflict, problem.Status);
+        Assert.Equal("Containers are not released for loading.", problem.Title);
+        Assert.Contains("MSKU1234567", problem.Detail, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task Start_returns_conflict_when_a_container_is_held()
+    {
+        using var client = await _application.CreateAuthenticatedClientWithPermissionsAsync(
+            Permissions.Cargo.Manage);
+        var bookingId = await RegisterBookingAsync(client, "BK-OPS-INT-CTRL-2");
+        var containerId = await AddContainerAsync(client, bookingId, "MSKU1234567");
+        await HoldContainerAsync(client, containerId);
+        await AdvanceBookingToAsync(bookingId, CargoStatus.Planned);
+        var operationId = await PlanOperationAsync(client, bookingId, "Load", PlannedAtUtc);
+
+        using var response = await client.PostAsync(
+            $"{OperationsEndpoint}/{operationId}/start",
+            content: null,
+            CancellationToken.None);
+
+        Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task Start_names_only_the_containers_that_block_the_load()
+    {
+        using var client = await _application.CreateAuthenticatedClientWithPermissionsAsync(
+            Permissions.Cargo.Manage);
+        var bookingId = await RegisterBookingAsync(client, "BK-OPS-INT-CTRL-3");
+        await AddContainerAsync(client, bookingId, "MSKU1111111");
+        await AddContainerAsync(client, bookingId, "MSKU2222222", release: false);
+        await AdvanceBookingToAsync(bookingId, CargoStatus.Planned);
+        var operationId = await PlanOperationAsync(client, bookingId, "Load", PlannedAtUtc);
+
+        using var response = await client.PostAsync(
+            $"{OperationsEndpoint}/{operationId}/start",
+            content: null,
+            CancellationToken.None);
+        var problem = await response.Content.ReadFromJsonAsync<ProblemDetails>(
+            CancellationToken.None);
+
+        Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
+        Assert.NotNull(problem);
+        Assert.Contains("MSKU2222222", problem.Detail, StringComparison.Ordinal);
+        Assert.DoesNotContain("MSKU1111111", problem.Detail, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task Start_allows_an_unload_without_a_release()
+    {
+        using var client = await _application.CreateAuthenticatedClientWithPermissionsAsync(
+            Permissions.Cargo.Manage);
+        var bookingId = await RegisterBookingAsync(client, "BK-OPS-INT-CTRL-4");
+        await AddContainerAsync(client, bookingId, "MSKU1234567", release: false);
+        await AdvanceBookingToAsync(bookingId, CargoStatus.Loaded);
+        await SetContainerStatusAsync(bookingId, CargoStatus.Loaded);
+        await AdvanceBookingToAsync(bookingId, CargoStatus.Arrived);
+        var operationId = await PlanOperationAsync(client, bookingId, "Unload", PlannedAtUtc);
+
+        using var response = await client.PostAsync(
+            $"{OperationsEndpoint}/{operationId}/start",
+            content: null,
+            CancellationToken.None);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+    }
+
+    private async Task SetContainerStatusAsync(Guid bookingId, CargoStatus status)
+    {
+        await using var scope = _application.Services.CreateAsyncScope();
+        var dbContext = scope.ServiceProvider.GetRequiredService<HarborOpsDbContext>();
+        var containers = await dbContext
+            .Set<Container>()
+            .Where(container => container.CargoBookingId == bookingId)
+            .ToListAsync(CancellationToken.None);
+
+        foreach (var container in containers)
+        {
+            container.ApplyOperationOutcome(
+                status is CargoStatus.Loaded ? CargoOperationType.Load : CargoOperationType.Unload);
+        }
+
+        await dbContext.SaveChangesAsync(CancellationToken.None);
+    }
+
     private static async Task StartOperationAsync(HttpClient client, Guid operationId)
     {
         using var response = await client.PostAsync(
@@ -502,10 +608,11 @@ public sealed class CargoOperationsEndpointTests : IntegrationTestBase
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
     }
 
-    private static async Task AddContainerAsync(
+    private static async Task<Guid> AddContainerAsync(
         HttpClient client,
         Guid bookingId,
-        string containerNumber)
+        string containerNumber,
+        bool release = true)
     {
         using var response = await client.PostAsJsonAsync(
             $"{BookingsEndpoint}/{bookingId}/containers",
@@ -515,8 +622,59 @@ public sealed class CargoOperationsEndpointTests : IntegrationTestBase
                 ContainerType = "20GP",
             },
             CancellationToken.None);
+        var result = await response.Content.ReadFromJsonAsync<AddCargoContainerResponse>(
+            CancellationToken.None);
 
         Assert.Equal(HttpStatusCode.Created, response.StatusCode);
+        Assert.NotNull(result);
+
+        if (release)
+        {
+            await ReleaseContainerAsync(client, result.Id, containerNumber);
+        }
+
+        return result.Id;
+    }
+
+    private static async Task ReleaseContainerAsync(
+        HttpClient client,
+        Guid containerId,
+        string containerNumber)
+    {
+        using var sealResponse = await client.PostAsJsonAsync(
+            $"{ContainersEndpoint}/{containerId}/seal",
+            new AssignContainerSealRequest { SealNumber = $"SEAL{containerNumber}" },
+            CancellationToken.None);
+
+        Assert.Equal(HttpStatusCode.OK, sealResponse.StatusCode);
+
+        using var inspectionResponse = await client.PostAsJsonAsync(
+            $"{ContainersEndpoint}/{containerId}/inspections",
+            new RecordContainerInspectionRequest
+            {
+                Result = nameof(ContainerInspectionResult.Passed),
+                ConditionNotes = "Doors aligned",
+            },
+            CancellationToken.None);
+
+        Assert.Equal(HttpStatusCode.Created, inspectionResponse.StatusCode);
+
+        using var releaseResponse = await client.PostAsJsonAsync(
+            $"{ContainersEndpoint}/{containerId}/release",
+            new ReleaseContainerRequest(),
+            CancellationToken.None);
+
+        Assert.Equal(HttpStatusCode.OK, releaseResponse.StatusCode);
+    }
+
+    private static async Task HoldContainerAsync(HttpClient client, Guid containerId)
+    {
+        using var response = await client.PostAsJsonAsync(
+            $"{ContainersEndpoint}/{containerId}/hold",
+            new HoldContainerRequest { Reason = "Damaged corner post" },
+            CancellationToken.None);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
     }
 
     private Task CompleteBookingAsync(Guid bookingId)

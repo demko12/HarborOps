@@ -77,6 +77,17 @@ internal sealed class CargoManifestNotReadyException(
     internal CargoStatus RequiredContainerStatus { get; } = requiredContainerStatus;
 }
 
+internal sealed class CargoContainersNotReleasedException(
+    Guid cargoBookingId,
+    IReadOnlyList<string> containerNumbers)
+    : Exception(
+        $"Cargo booking with ID '{cargoBookingId}' cannot be loaded because these containers are not released: {string.Join(", ", containerNumbers)}.")
+{
+    internal Guid CargoBookingId { get; } = cargoBookingId;
+
+    internal IReadOnlyList<string> ContainerNumbers { get; } = containerNumbers;
+}
+
 internal sealed class CargoOperationBookingPhaseException(
     Guid cargoBookingId,
     CargoOperationType operationType,

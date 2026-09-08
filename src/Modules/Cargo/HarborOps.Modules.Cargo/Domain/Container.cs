@@ -6,6 +6,11 @@ internal sealed class Container
     internal const int ContainerTypeMaxLength = 50;
     internal const int StatusMaxLength = 50;
 
+    private const char ReeferGroupCharacter = 'R';
+    private const int ReeferGroupIndex = 2;
+    private const int IsoSizeTypeLength = 4;
+    private const string ReeferTypeName = "REEFER";
+
     private Container()
     {
     }
@@ -38,11 +43,32 @@ internal sealed class Container
 
     public Guid? CargoBookingId { get; private set; }
 
+    internal bool IsReefer => IsReeferType(ContainerType);
+
     internal static string NormalizeNumber(string containerNumber)
     {
         ArgumentNullException.ThrowIfNull(containerNumber);
 
         return containerNumber.Trim().ToUpperInvariant();
+    }
+
+    internal static string NormalizeSealNumber(string sealNumber)
+    {
+        ArgumentNullException.ThrowIfNull(sealNumber);
+
+        return string.Concat(sealNumber.Where(character => !char.IsWhiteSpace(character)))
+            .ToUpperInvariant();
+    }
+
+    internal static bool IsReeferType(string containerType)
+    {
+        ArgumentNullException.ThrowIfNull(containerType);
+
+        var normalized = containerType.Trim().ToUpperInvariant();
+
+        return normalized is ReeferTypeName
+            || (normalized.Length >= IsoSizeTypeLength
+                && normalized[ReeferGroupIndex] is ReeferGroupCharacter);
     }
 
     internal static Container Register(
