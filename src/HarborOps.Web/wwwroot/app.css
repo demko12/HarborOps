@@ -831,7 +831,7 @@ html[data-theme="light"] .cargo-track.done { color: #0f766e; }
 }
 
 html[data-theme="dark"] .timeline-map .leaflet-tile {
-    filter: brightness(.58) saturate(.72) contrast(1.15) hue-rotate(165deg);
+    filter: grayscale(1) invert(1) sepia(.2) hue-rotate(170deg) saturate(1.4) brightness(.8) contrast(.9);
 }
 
 html[data-theme="dark"] .timeline-map .leaflet-control-attribution,
@@ -860,3 +860,27 @@ html[data-theme="dark"] .timeline-map .leaflet-control-zoom a {
 .voyage-map-popup span { color: var(--text-muted); font-size: .75rem; }
 @keyframes voyage-route-flow { to { stroke-dashoffset: -29; } }
 @media (prefers-reduced-motion: reduce) { .voyage-map-flow { animation: none; } }
+
+html[data-theme="dark"] .timeline-map { background: #131e2c; }
+html[data-theme="dark"] .voyage-map-marker,
+html[data-theme="dark"] .timeline-map-legend-marker {
+    color: #dbeafe;
+    border-color: #70aaff;
+    background: #17283f;
+}
+html[data-theme="dark"] .voyage-map-marker.arrived,
+html[data-theme="dark"] .timeline-map-legend-marker.arrived { color: #99f6e4; border-color: #4ccbb4; background: #15332f; }
+html[data-theme="dark"] .voyage-map-marker.departed,
+html[data-theme="dark"] .timeline-map-legend-marker.departed { color: #d0daea; border-color: #8a9bb3; background: #253145; }
+html[data-theme="dark"] .timeline-map .leaflet-popup-content-wrapper,
+html[data-theme="dark"] .timeline-map .leaflet-popup-tip,
+html[data-theme="dark"] .timeline-map .voyage-map-tooltip { color: #e2e8f0; background: #19283c; }
+html[data-theme="dark"] .timeline-map .leaflet-tooltip-top::before { border-top-color: #19283c; }
+html[data-theme="dark"] .timeline-map .leaflet-popup-close-button { color: #b6c6dc; }
+html[data-theme="dark"] .timeline-map .leaflet-control-attribution a { color: #93c5fd; }
+html[data-theme="dark"] .timeline-map .leaflet-control-zoom a:hover { background: #263952; color: #f1f5f9; }
+html[data-theme="dark"] .timeline-map .voyage-map-flow { opacity: .7; }
+html[data-theme="dark"] .timeline-route-map .timeline-eyebrow { color: #8ab9ff; }
+html[data-theme="dark"] .timeline-map-status-key i.planned { background: #70aaff; }
+html[data-theme="dark"] .timeline-map-status-key i.arrived { background: #4ccbb4; }
+html[data-theme="dark"] .timeline-map-status-key i.departed { background: #8a9bb3; }
