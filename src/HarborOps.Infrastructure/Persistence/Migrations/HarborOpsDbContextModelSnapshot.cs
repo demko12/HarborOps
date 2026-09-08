@@ -1894,6 +1894,42 @@ namespace HarborOps.Infrastructure.Persistence.Migrations
                     b.ToTable("WorkOrderEquipment", "maintenance");
                 });
 
+            modelBuilder.Entity("HarborOps.Modules.Maintenance.Domain.WorkOrderPartReservation", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("CreatedUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid>("InventoryItemId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<decimal>("QuantityConsumed")
+                        .HasColumnType("decimal(18,3)");
+
+                    b.Property<decimal>("QuantityRequested")
+                        .HasColumnType("decimal(18,3)");
+
+                    b.Property<decimal>("QuantityReserved")
+                        .HasColumnType("decimal(18,3)");
+
+                    b.Property<DateTime>("UpdatedUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid>("WorkOrderId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("InventoryItemId");
+
+                    b.HasIndex("WorkOrderId", "InventoryItemId")
+                        .IsUnique();
+
+                    b.ToTable("WorkOrderPartReservations", "maintenance");
+                });
+
             modelBuilder.Entity("HarborOps.Modules.Notifications.Domain.NotificationAcknowledgement", b =>
                 {
                     b.Property<Guid>("AlertId")
@@ -2924,6 +2960,21 @@ namespace HarborOps.Infrastructure.Persistence.Migrations
                     b.HasOne("HarborOps.Modules.Maintenance.Domain.Equipment", null)
                         .WithMany()
                         .HasForeignKey("EquipmentId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("HarborOps.Modules.Maintenance.Domain.MaintenanceWorkOrder", null)
+                        .WithMany()
+                        .HasForeignKey("WorkOrderId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("HarborOps.Modules.Maintenance.Domain.WorkOrderPartReservation", b =>
+                {
+                    b.HasOne("HarborOps.Modules.Maintenance.Domain.InventoryItem", null)
+                        .WithMany()
+                        .HasForeignKey("InventoryItemId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
