@@ -2015,6 +2015,59 @@ namespace HarborOps.Infrastructure.Persistence.Migrations
                             }));
                 });
 
+            modelBuilder.Entity("HarborOps.Modules.Voyages.Domain.BerthAllocationChange", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("ChangedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid>("ChangedByUserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("NewBerthId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("NewPlannedArrivalUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime>("NewPlannedDepartureUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("PreviousBerthId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("PreviousPlannedArrivalUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime>("PreviousPlannedDepartureUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Reason")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<Guid>("VoyageId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("VoyageStopId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("NewBerthId");
+
+                    b.HasIndex("PreviousBerthId");
+
+                    b.HasIndex("VoyageId");
+
+                    b.HasIndex("VoyageStopId", "ChangedAtUtc");
+
+                    b.ToTable("BerthAllocationChanges", "voyages");
+                });
+
             modelBuilder.Entity("HarborOps.Modules.Voyages.Domain.BerthSchedule", b =>
                 {
                     b.Property<Guid>("Id")
@@ -2049,9 +2102,9 @@ namespace HarborOps.Infrastructure.Persistence.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("BerthId");
-
                     b.HasIndex("VoyageStopId");
+
+                    b.HasIndex("BerthId", "Status", "StartTime", "EndTime");
 
                     b.ToTable("BerthSchedules", "voyages");
 
@@ -2949,6 +3002,32 @@ namespace HarborOps.Infrastructure.Persistence.Migrations
                         .WithMany()
                         .HasForeignKey("PortId")
                         .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("HarborOps.Modules.Voyages.Domain.BerthAllocationChange", b =>
+                {
+                    b.HasOne("HarborOps.Modules.Voyages.Domain.Berth", null)
+                        .WithMany()
+                        .HasForeignKey("NewBerthId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("HarborOps.Modules.Voyages.Domain.Berth", null)
+                        .WithMany()
+                        .HasForeignKey("PreviousBerthId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("HarborOps.Modules.Voyages.Domain.Voyage", null)
+                        .WithMany()
+                        .HasForeignKey("VoyageId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("HarborOps.Modules.Voyages.Domain.VoyageStop", null)
+                        .WithMany()
+                        .HasForeignKey("VoyageStopId")
+                        .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
                 });
 

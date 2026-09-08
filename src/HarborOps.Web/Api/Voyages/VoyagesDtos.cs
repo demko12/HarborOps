@@ -210,6 +210,18 @@ internal sealed record AssignBerthWebRequest(Guid? BerthId);
 
 internal sealed record AssignBerthResult(Guid StopId, Guid BerthId, DateTime StartTime, DateTime EndTime, string ScheduleStatus);
 
+internal sealed record BerthAvailabilityModel(Guid BerthId, string BerthName, decimal Length, decimal MaxDraft, bool IsAvailableForRequestedWindow, DateTime? NearestAvailableFromUtc, DateTime? NearestAvailableToUtc);
+
+internal sealed record BerthAvailability(Guid PortId, DateTime FromUtc, DateTime ToUtc, DateTime SearchHorizonEndsUtc, IReadOnlyList<BerthAvailabilityModel> Berths);
+
+internal sealed record ReplaceBerthAllocationWebRequest(Guid? BerthId, DateTime? PlannedArrivalUtc, DateTime? PlannedDepartureUtc, string? Reason);
+
+internal sealed record ReplacedBerthAllocation(Guid StopId, Guid BerthId, DateTime PlannedArrivalUtc, DateTime PlannedDepartureUtc, DateTime ChangedAtUtc);
+
+internal sealed record BerthAllocationHistoryItemModel(Guid ChangeId, Guid? PreviousBerthId, string? PreviousBerthName, Guid NewBerthId, string NewBerthName, DateTime PreviousPlannedArrivalUtc, DateTime PreviousPlannedDepartureUtc, DateTime NewPlannedArrivalUtc, DateTime NewPlannedDepartureUtc, string Reason, Guid ChangedByUserId, DateTime ChangedAtUtc);
+
+internal sealed record BerthAllocationHistory(Guid VoyageId, Guid StopId, IReadOnlyList<BerthAllocationHistoryItemModel> Changes);
+
 internal sealed record RecordStopArrivalWebRequest(DateTime ActualArrivalUtc);
 
 internal sealed record RecordStopDepartureWebRequest(DateTime ActualDepartureUtc);

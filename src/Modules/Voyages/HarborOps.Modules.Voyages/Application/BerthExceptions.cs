@@ -50,10 +50,10 @@ internal sealed class BerthPortMismatchException(Guid berthId, Guid portId)
     internal Guid PortId { get; } = portId;
 }
 
-internal sealed class BerthOverlapException(Guid berthId, DateTime startTime, DateTime endTime)
+internal sealed class BerthOverlapException(Guid berthId, DateTime startTime, DateTime endTime, Exception? innerException = null)
     : Exception(
         $"Berth '{berthId}' already has an active schedule overlapping "
-        + $"{startTime:O}–{endTime:O}.")
+        + $"{startTime:O}–{endTime:O}.", innerException)
 {
     internal Guid BerthId { get; } = berthId;
 

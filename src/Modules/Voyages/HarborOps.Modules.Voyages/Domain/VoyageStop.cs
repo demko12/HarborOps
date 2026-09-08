@@ -80,6 +80,18 @@ internal sealed class VoyageStop
         BerthId = berthId;
     }
 
+    internal void ReplaceBerthAllocation(Guid berthId, DateTime etaUtc, DateTime etdUtc)
+    {
+        if (!string.Equals(Status, PlannedStatus, StringComparison.Ordinal))
+        {
+            throw new VoyageStopNotPlannedException(Id, Status);
+        }
+
+        BerthId = berthId;
+        Eta = etaUtc;
+        Etd = etdUtc;
+    }
+
     internal void RecordArrival(DateTime ataUtc)
     {
         if (!string.Equals(Status, PlannedStatus, StringComparison.Ordinal) || Ata is not null)

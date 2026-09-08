@@ -138,17 +138,58 @@
                                             @if (activeStopId == stop.StopId && activeActionKind == BerthActionKind)
                                             {
                                                 <div class="timeline-action-form" @onkeydown="args => CancelAction(args)">
-                                                    <label for="timeline-berth-select">@(stop.BerthId is null ? "Assign berth" : "Change berth")</label>
-                                                    <BerthPicker InputId="timeline-berth-select"
-                                                                 PortId="@(activeStopPortId ?? stop.PortId)"
-                                                                 Value="selectedBerthId"
-                                                                 ValueChanged="value => selectedBerthId = value" />
+                                                    <label for="timeline-berth-select">@(stop.BerthId is null ? "Assign berth" : "Reschedule berth")</label>
+                                                    <div class="timeline-allocation-grid">
+                                                        <BerthPicker InputId="timeline-berth-select"
+                                                                     PortId="@(activeStopPortId ?? stop.PortId)"
+                                                                     Value="selectedBerthId"
+                                                                     ValueChanged="value => selectedBerthId = value" />
+                                                        <div class="timeline-action-stamp">
+                                                            <input id="timeline-berth-arrival-date" type="date" aria-label="Planned arrival date" @bind="berthArrivalDate" />
+                                                            <input id="timeline-berth-arrival-time" type="time" aria-label="Planned arrival time" @bind="berthArrivalTime" />
+                                                        </div>
+                                                        <div class="timeline-action-stamp">
+                                                            <input id="timeline-berth-departure-date" type="date" aria-label="Planned departure date" @bind="berthDepartureDate" />
+                                                            <input id="timeline-berth-departure-time" type="time" aria-label="Planned departure time" @bind="berthDepartureTime" />
+                                                        </div>
+                                                        <input id="timeline-berth-reason" aria-label="Reason for rescheduling" @bind="berthReason" placeholder="Reason for rescheduling" />
+                                                    </div>
+                                                    @if (isLoadingBerthAvailability)
+                                                    {
+                                                        <p class="timeline-availability-note" role="status">Finding compatible berths…</p>
+                                                    }
+                                                    else if (berthAvailabilityFailure is not null)
+                                                    {
+                                                        <div class="timeline-inline-error" role="alert">@berthAvailabilityFailure.Message <button type="button" class="timeline-inline-retry" @onclick="() => LoadBerthAllocationContextAsync(stop)">Retry</button></div>
+                                                    }
+                                                    else if (berthAvailability is not null)
+                                                    {
+                                                        <div class="timeline-alternatives" aria-label="Compatible berth alternatives">
+                                                            @foreach (var berth in berthAvailability.Berths ?? [])
+                                                            {
+                                                                <button type="button" class="timeline-alternative @(berth.IsAvailableForRequestedWindow ? "available" : "conflict")" @onclick="() => UseAlternative(berth)">
+                                                                    <strong>@berth.BerthName</strong>
+                                                                    <span>@(berth.IsAvailableForRequestedWindow ? "Available for requested window" : berth.NearestAvailableFromUtc is { } availableFrom ? $"Next free {FormatUtc(availableFrom)}" : "No free window within 31 days")</span>
+                                                                </button>
+                                                            }
+                                                        </div>
+                                                    }
+                                                    @if (berthAllocationHistory is { Changes.Count: > 0 })
+                                                    {
+                                                        <details class="timeline-allocation-history">
+                                                            <summary>Allocation history (@berthAllocationHistory.Changes.Count)</summary>
+                                                            @foreach (var change in berthAllocationHistory.Changes)
+                                                            {
+                                                                <p><strong>@(change.PreviousBerthName ?? MissingValue) → @change.NewBerthName</strong><span>@FormatUtc(change.ChangedAtUtc) · @change.Reason</span></p>
+                                                            }
+                                                        </details>
+                                                    }
                                                     @if (actionFailure is not null)
                                                     {
                                                         <p class="timeline-inline-error" role="alert">@(actionFailure.Errors.Count > 0 ? string.Join(" ", actionFailure.Errors.SelectMany(entry => entry.Value)) : actionFailure.Message)</p>
                                                     }
                                                     <div class="timeline-action-buttons">
-                                                        <button class="timeline-button" type="button" @onclick="ConfirmBerthAsync" disabled="@(isActionSubmitting || selectedBerthId is null)">
+                                                        <button class="timeline-button" type="button" @onclick="ConfirmBerthAsync" disabled="@(isActionSubmitting || selectedBerthId is null || (IsReschedulingActiveStop && string.IsNullOrWhiteSpace(berthReason)))">
                                                             @(isActionSubmitting ? "Saving..." : "Confirm")
                                                         </button>
                                                         <button class="timeline-reset" type="button" @onclick="() => CancelAction(null)" disabled="@isActionSubmitting">Cancel</button>

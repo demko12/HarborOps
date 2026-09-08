@@ -23,7 +23,10 @@ public sealed class VoyagesController(
     RecordDelayService recordDelayService,
     AmendVoyageScheduleService amendVoyageScheduleService,
     CancelVoyageService cancelVoyageService,
-    IGetVoyageScheduleChangesQuery getVoyageScheduleChangesQuery)
+    IGetVoyageScheduleChangesQuery getVoyageScheduleChangesQuery,
+    IGetBerthAvailabilityQuery getBerthAvailabilityQuery,
+    ReplaceBerthAllocationService replaceBerthAllocationService,
+    IGetBerthAllocationHistoryQuery getBerthAllocationHistoryQuery)
     : ControllerBase
 {
     private const string ManageVoyagesPolicy = "voyages.manage";
@@ -297,6 +300,53 @@ public sealed class VoyagesController(
                 Detail = exception.Message,
             });
         }
+    }
+
+    [HttpGet("ports/{portId:guid}/berth-availability")]
+    [Authorize(ReadVoyagesPolicy)]
+    [ProducesResponseType<BerthAvailabilityResponse>(StatusCodes.Status200OK)]
+    [ProducesResponseType<HttpValidationProblemDetails>(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<BerthAvailabilityResponse>> GetBerthAvailability(
+        Guid portId,
+        [FromQuery] BerthAvailabilityRequest request,
+        CancellationToken cancellationToken)
+    {
+        try { return Ok(await getBerthAvailabilityQuery.GetAsync(portId, request, cancellationToken)); }
+        catch (BerthAvailabilityValidationException exception) { return BadRequest(ToValidationProblem(exception.Errors)); }
+        catch (PortNotFoundException exception) { return NotFound(new ProblemDetails { Status = StatusCodes.Status404NotFound, Title = "The requested port was not found.", Detail = exception.Message }); }
+    }
+
+    [HttpPut("{voyageId:guid}/stops/{stopId:guid}/berth-allocation")]
+    [Authorize(ManageVoyagesPolicy)]
+    [ProducesResponseType<ReplaceBerthAllocationResponse>(StatusCodes.Status200OK)]
+    [ProducesResponseType<HttpValidationProblemDetails>(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]
+    public async Task<ActionResult<ReplaceBerthAllocationResponse>> ReplaceBerthAllocation(
+        Guid voyageId, Guid stopId, [FromBody] ReplaceBerthAllocationRequest request, CancellationToken cancellationToken)
+    {
+        try { return Ok(await replaceBerthAllocationService.ReplaceAsync(voyageId, stopId, request, GetActingUserId(), cancellationToken)); }
+        catch (ReplaceBerthAllocationValidationException exception) { return BadRequest(ToValidationProblem(exception.Errors)); }
+        catch (VoyageNotFoundException exception) { return NotFound(new ProblemDetails { Status = StatusCodes.Status404NotFound, Title = "The requested voyage was not found.", Detail = exception.Message }); }
+        catch (VoyageStopNotFoundException exception) { return NotFound(new ProblemDetails { Status = StatusCodes.Status404NotFound, Title = "The requested voyage stop was not found.", Detail = exception.Message }); }
+        catch (BerthNotFoundException exception) { return NotFound(new ProblemDetails { Status = StatusCodes.Status404NotFound, Title = "The requested berth was not found.", Detail = exception.Message }); }
+        catch (BerthPortMismatchException exception) { return Conflict(new ProblemDetails { Status = StatusCodes.Status409Conflict, Title = "The berth belongs to a different port.", Detail = exception.Message }); }
+        catch (BerthDimensionMismatchException exception) { return Conflict(new ProblemDetails { Status = StatusCodes.Status409Conflict, Title = "The berth cannot accommodate the vessel.", Detail = exception.Message }); }
+        catch (BerthOverlapException exception) { return Conflict(new ProblemDetails { Status = StatusCodes.Status409Conflict, Title = "The berth is not available for the requested window.", Detail = exception.Message }); }
+        catch (VoyageBerthAllocationNotAllowedException exception) { return Conflict(new ProblemDetails { Status = StatusCodes.Status409Conflict, Title = "The voyage cannot be rescheduled from its current status.", Detail = exception.Message }); }
+        catch (VoyageStopNotPlannedException exception) { return Conflict(new ProblemDetails { Status = StatusCodes.Status409Conflict, Title = "The voyage stop cannot be rescheduled from its current status.", Detail = exception.Message }); }
+    }
+
+    [HttpGet("{voyageId:guid}/stops/{stopId:guid}/berth-allocation-history")]
+    [Authorize(ReadVoyagesPolicy)]
+    [ProducesResponseType<BerthAllocationHistoryResponse>(StatusCodes.Status200OK)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<BerthAllocationHistoryResponse>> GetBerthAllocationHistory(
+        Guid voyageId, Guid stopId, CancellationToken cancellationToken)
+    {
+        try { return Ok(await getBerthAllocationHistoryQuery.GetAsync(voyageId, stopId, cancellationToken)); }
+        catch (VoyageStopNotFoundException exception) { return NotFound(new ProblemDetails { Status = StatusCodes.Status404NotFound, Title = "The requested voyage stop was not found.", Detail = exception.Message }); }
     }
 
     [HttpPost("{voyageId:guid}/stops/{stopId:guid}/berth")]

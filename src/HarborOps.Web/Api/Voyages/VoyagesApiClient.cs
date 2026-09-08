@@ -231,6 +231,22 @@ internal sealed class VoyagesApiClient(HttpClient httpClient)
             cancellationToken);
     }
 
+    internal Task<VoyagesApiResult<BerthAvailability>> GetBerthAvailabilityAsync(
+        Guid portId, DateTime fromUtc, DateTime toUtc, CancellationToken cancellationToken)
+    {
+        var path = string.Create(CultureInfo.InvariantCulture,
+            $"{BasePath}/ports/{portId}/berth-availability?fromUtc={Uri.EscapeDataString(fromUtc.ToString("O", CultureInfo.InvariantCulture))}&toUtc={Uri.EscapeDataString(toUtc.ToString("O", CultureInfo.InvariantCulture))}");
+        return GetAsync<BerthAvailability>(path, "Unable to find berth availability", cancellationToken);
+    }
+
+    internal Task<VoyagesApiResult<ReplacedBerthAllocation>> ReplaceBerthAllocationAsync(
+        Guid voyageId, Guid stopId, ReplaceBerthAllocationWebRequest request, CancellationToken cancellationToken)
+        => SendAsync<ReplacedBerthAllocation>(HttpMethod.Put, $"{BasePath}/{voyageId}/stops/{stopId}/berth-allocation", request, "Unable to reschedule the berth allocation", cancellationToken);
+
+    internal Task<VoyagesApiResult<BerthAllocationHistory>> GetBerthAllocationHistoryAsync(
+        Guid voyageId, Guid stopId, CancellationToken cancellationToken)
+        => GetAsync<BerthAllocationHistory>($"{BasePath}/{voyageId}/stops/{stopId}/berth-allocation-history", "Unable to load berth allocation history", cancellationToken);
+
     internal Task<VoyagesApiResult<StopTransition>> RecordStopArrivalAsync(
         Guid voyageId,
         Guid stopId,
