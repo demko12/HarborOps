@@ -63,6 +63,13 @@
 				@onclick="() => SelectTab(MaintenanceTab.Suppliers)">
 			Suppliers
 		</button>
+		<button type="button"
+				role="tab"
+				class="workspace-tab @(activeTab == MaintenanceTab.Replenishment ? "active" : null)"
+				aria-selected="@(activeTab == MaintenanceTab.Replenishment)"
+				@onclick="() => SelectTab(MaintenanceTab.Replenishment)">
+			Replenishment
+		</button>
 	</nav>
 
 	@if (activeTab == MaintenanceTab.Equipment)
@@ -74,9 +81,13 @@
 	{
 		<PreventiveSchedulesPanel />
 	}
+	@if (activeTab == MaintenanceTab.Replenishment)
+	{
+		<ReplenishmentPanel OnOrderRequested="StartPurchaseOrderAsync" />
+	}
 	@if (activeTab == MaintenanceTab.PurchaseOrders)
 	{
-		<PurchaseOrdersPanel />
+		<PurchaseOrdersPanel Seed="purchaseOrderSeed" />
 	}
 
 	@if (activeTab == MaintenanceTab.Suppliers)

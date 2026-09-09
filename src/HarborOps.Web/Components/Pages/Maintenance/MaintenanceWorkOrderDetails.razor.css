@@ -809,3 +809,169 @@ html[data-theme="light"] .work-order-details-error {
         transition: none;
     }
 }
+
+/* Part reservations */
+
+.work-order-card-heading-actions {
+    display: flex;
+    align-items: center;
+    gap: .5rem;
+}
+
+.work-order-details-warning {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    margin-bottom: 1rem;
+    padding: .8rem 1.05rem;
+    color: var(--status-warning);
+    border: 1px solid rgba(251, 191, 36, .3);
+    border-radius: var(--radius-card);
+    background: rgba(251, 191, 36, .12);
+    font-size: .88rem;
+}
+
+    .work-order-details-warning a {
+        color: inherit;
+        font-weight: 600;
+        white-space: nowrap;
+    }
+
+html[data-theme="light"] .work-order-details-warning {
+    color: var(--status-warning-strong);
+    border-color: rgba(180, 83, 9, .3);
+    background: rgba(180, 83, 9, .1);
+}
+
+.work-order-reservation-state {
+    display: inline-flex;
+    align-items: center;
+    padding: .18rem .55rem;
+    border-radius: var(--radius-pill);
+    font-size: .78rem;
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+    .work-order-reservation-state.reserved {
+        color: var(--status-info);
+        background: rgba(96, 165, 250, .14);
+    }
+
+    .work-order-reservation-state.short {
+        color: var(--status-danger);
+        background: rgba(248, 113, 113, .14);
+    }
+
+    .work-order-reservation-state.used {
+        color: var(--text-secondary);
+        background: rgba(148, 163, 184, .14);
+    }
+
+html[data-theme="light"] .work-order-reservation-state.reserved {
+    color: var(--status-info-strong);
+    background: rgba(37, 99, 235, .12);
+}
+
+html[data-theme="light"] .work-order-reservation-state.short {
+    color: var(--status-danger-strong);
+    background: rgba(185, 28, 28, .1);
+}
+
+/* Reservation editor */
+
+.work-order-reservation-search {
+    display: grid;
+    gap: .35rem;
+    margin-top: 1.1rem;
+}
+
+    .work-order-reservation-search label {
+        color: var(--text-secondary);
+        font-size: .78rem;
+        font-weight: 600;
+        letter-spacing: .04em;
+        text-transform: uppercase;
+    }
+
+    .work-order-reservation-search input {
+        padding: .5rem .65rem;
+        color: var(--text-primary);
+        border: 1px solid var(--border-medium);
+        border-radius: var(--radius-control);
+        background: var(--bg-surface);
+        font: inherit;
+    }
+
+        .work-order-reservation-search input:focus-visible {
+            outline: 2px solid var(--accent);
+            outline-offset: 1px;
+        }
+
+.work-order-reservation-rows {
+    display: flex;
+    flex-direction: column;
+    gap: .55rem;
+    max-height: 18rem;
+    margin: .9rem 0 0;
+    padding: 0;
+    overflow-y: auto;
+    list-style: none;
+}
+
+    .work-order-reservation-rows > li {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) 7rem auto;
+        align-items: center;
+        gap: .5rem;
+        padding: .55rem .7rem;
+        border: 1px solid var(--border-medium);
+        border-radius: var(--radius-control);
+        background: var(--bg-surface);
+    }
+
+.work-order-reservation-part,
+.work-order-reservation-quantity {
+    min-width: 0;
+    padding: .45rem .55rem;
+    color: var(--text-primary);
+    border: 1px solid var(--border-medium);
+    border-radius: var(--radius-control);
+    background: var(--bg-surface-strong);
+    font: inherit;
+}
+
+    .work-order-reservation-part:focus-visible,
+    .work-order-reservation-quantity:focus-visible {
+        outline: 2px solid var(--accent);
+        outline-offset: 1px;
+    }
+
+.work-order-reservation-quantity {
+    text-align: right;
+}
+
+.work-order-reservation-duplicate {
+    grid-column: 1 / -1;
+    color: var(--status-danger);
+    font-size: .8rem;
+}
+
+html[data-theme="light"] .work-order-reservation-duplicate {
+    color: var(--status-danger-strong);
+}
+
+.work-order-reservation-add {
+    margin-top: .65rem;
+}
+
+@media (max-width: 640px) {
+    .work-order-reservation-rows > li {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    .work-order-reservation-quantity {
+        text-align: left;
+    }
+}

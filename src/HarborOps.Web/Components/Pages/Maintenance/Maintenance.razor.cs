@@ -67,9 +67,20 @@ public partial class Maintenance
 
     private MaintenanceTab activeTab = MaintenanceTab.WorkOrders;
 
+    private ReplenishmentOrderIntent? purchaseOrderSeed;
+
     private void SelectTab(MaintenanceTab tab)
     {
+        purchaseOrderSeed = null;
         activeTab = tab;
+    }
+
+    private Task StartPurchaseOrderAsync(ReplenishmentOrderIntent intent)
+    {
+        purchaseOrderSeed = intent;
+        activeTab = MaintenanceTab.PurchaseOrders;
+
+        return Task.CompletedTask;
     }
 
     protected override Task OnInitializedAsync()
@@ -93,6 +104,9 @@ public partial class Maintenance
             "dry-docks" => MaintenanceTab.DryDocks,
             "equipment" => MaintenanceTab.Equipment,
             "schedules" => MaintenanceTab.PreventiveSchedules,
+            "replenishment" => MaintenanceTab.Replenishment,
+            "purchase-orders" => MaintenanceTab.PurchaseOrders,
+            "suppliers" => MaintenanceTab.Suppliers,
             _ => MaintenanceTab.WorkOrders,
         };
     }

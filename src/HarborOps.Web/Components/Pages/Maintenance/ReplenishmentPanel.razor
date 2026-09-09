@@ -1,0 +1,142 @@
+@using HarborOps.Web.Api.Maintenance
+@implements IDisposable
+@inject MaintenanceApiClient MaintenanceApi
+
+<div class="replenishment-panel maintenance-tabpanel" role="tabpanel">
+	<section class="maintenance-summary" aria-label="Replenishment summary">
+		<article class="maintenance-summary-card">
+			<div>
+				<span>Parts below reorder level</span>
+				<strong>@totalCount</strong>
+				<small>Availability counts active reservations</small>
+			</div>
+			<span class="summary-icon summary-icon-blue" aria-hidden="true"><span class="bi bi-clipboard-data"></span></span>
+		</article>
+		<article class="maintenance-summary-card">
+			<div>
+				<span>Out of stock</span>
+				<strong>@CriticalCount</strong>
+				<small>Nothing available on this page</small>
+			</div>
+			<span class="summary-icon summary-icon-red" aria-hidden="true"><span class="bi bi-exclamation-octagon"></span></span>
+		</article>
+		<article class="maintenance-summary-card">
+			<div>
+				<span>Already on order</span>
+				<strong>@CoveredCount</strong>
+				<small>Open purchase orders cover the gap</small>
+			</div>
+			<span class="summary-icon summary-icon-green" aria-hidden="true"><span class="bi bi-truck"></span></span>
+		</article>
+		<article class="maintenance-summary-card">
+			<div>
+				<span>Shortage on this page</span>
+				<strong>@MaintenanceFormat.Quantity(PageShortage)</strong>
+				<small>Units missing to reach the reorder level</small>
+			</div>
+			<span class="summary-icon summary-icon-amber" aria-hidden="true"><span class="bi bi-box-seam"></span></span>
+		</article>
+	</section>
+
+	<section class="maintenance-filters" aria-label="Replenishment paging">
+		<div class="filter-field">
+			<label for="replenishment-page-size">Per page</label>
+			<select id="replenishment-page-size" @bind="pageSize" @bind:after="ApplyPageSizeAsync">
+				<option value="25">25</option>
+				<option value="50">50</option>
+				<option value="100">100</option>
+			</select>
+		</div>
+		<button class="maintenance-reset" type="button" @onclick="RetryAsync" disabled="@isLoading">Refresh</button>
+	</section>
+
+	<section class="maintenance-card" aria-labelledby="replenishment-list-title">
+		<div class="maintenance-card-heading">
+			<div>
+				<h2 id="replenishment-list-title">Replenishment needs</h2>
+				<p>@totalCount parts need attention, worst shortage first</p>
+			</div>
+			<span class="maintenance-card-icon" aria-hidden="true"><span class="bi bi-clipboard-data"></span></span>
+		</div>
+
+		@if (isLoading)
+		{
+			<LoadingState Message="Loading replenishment needs..." />
+		}
+		else if (failure is { IsForbidden: true })
+		{
+			<EmptyState Title="You cannot view the replenishment board"
+						Message="Your account does not carry a maintenance permission. Ask an administrator for access." />
+		}
+		else if (failure is not null)
+		{
+			<ApiErrorState Title="@failure.Title" Message="@failure.Message" OnRetry="RetryAsync" />
+		}
+		else if (rows.Count == 0)
+		{
+			<EmptyState Title="Every part is above its reorder level"
+						Message="Nothing needs replenishment right now. Reserving parts for planned work may change that." />
+		}
+		else
+		{
+			<div class="maintenance-table-scroll replenishment-table-scroll">
+				<table class="maintenance-table replenishment-table">
+					<caption class="visually-hidden">Parts below their reorder level, worst shortage first</caption>
+					<thead>
+						<tr>
+							<th scope="col" class="col-part">Part</th>
+							<th scope="col" class="col-part-number">Part number</th>
+							<th scope="col" class="col-supplier">Supplier</th>
+							<th scope="col" class="numeric col-stock">Stock</th>
+							<th scope="col" class="numeric col-reserved">Reserved</th>
+							<th scope="col" class="numeric col-available">Available</th>
+							<th scope="col" class="numeric col-reorder">Reorder at</th>
+							<th scope="col" class="numeric col-shortage">Shortage</th>
+							<th scope="col" class="numeric col-on-order">On order</th>
+							<th scope="col" class="col-state">State</th>
+							<th scope="col" class="col-order"><span class="visually-hidden">Actions</span></th>
+						</tr>
+					</thead>
+					<tbody>
+						@foreach (var row in rows)
+						{
+							<tr @key="row.InventoryItemId">
+								<td><span class="maintenance-title">@row.Name</span></td>
+								<td class="maintenance-muted">@row.PartNumber</td>
+								<td>@row.SupplierName</td>
+								<td class="numeric">@MaintenanceFormat.Quantity(row.StockOnHand)</td>
+								<td class="numeric">@MaintenanceFormat.Quantity(row.ReservedQuantity)</td>
+								<td class="numeric">@MaintenanceFormat.Quantity(row.AvailableQuantity)</td>
+								<td class="numeric maintenance-muted">@MaintenanceFormat.Quantity(row.ReorderLevel)</td>
+								<td class="numeric">@MaintenanceFormat.Quantity(row.ShortageQuantity)</td>
+								<td class="numeric">@MaintenanceFormat.Quantity(row.OpenPurchaseOrderQuantity)</td>
+								<td>
+									<span class="replenishment-state @MaintenanceFormat.ReplenishmentModifier(row.Classification)">
+										@MaintenanceFormat.ReplenishmentLabel(row.Classification)
+									</span>
+								</td>
+								<td>
+									<button type="button"
+											class="maintenance-button replenishment-order"
+											title="@($"Order {MaintenanceFormat.Quantity(row.ShortageQuantity)} of {row.Name} from {row.SupplierName}")"
+											@onclick="() => RequestOrderAsync(row)">
+										Order
+									</button>
+								</td>
+							</tr>
+						}
+					</tbody>
+				</table>
+			</div>
+
+			<div class="maintenance-pagination">
+				<span>Showing @FirstRowNumber&ndash;@LastRowNumber of @totalCount parts</span>
+				<div class="maintenance-pages">
+					<button type="button" @onclick="PreviousPageAsync" disabled="@(pageNumber <= 1)">Previous</button>
+					<span class="maintenance-page-indicator">Page @pageNumber of @TotalPages</span>
+					<button type="button" @onclick="NextPageAsync" disabled="@(pageNumber >= TotalPages)">Next</button>
+				</div>
+			</div>
+		}
+	</section>
+</div>

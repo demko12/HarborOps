@@ -1187,4 +1187,145 @@ internal sealed class MaintenanceApiClient(HttpClient httpClient)
             return new MaintenanceApiResult<MaintenanceWorkOrderTransition>(null, Unavailable());
         }
     }
+
+    private const string InventoryReplenishmentPath = "api/maintenance/inventory/replenishment";
+
+    internal async Task<MaintenanceApiResult<WorkOrderPartReservationsResult>> GetWorkOrderPartReservationsAsync(
+        Guid workOrderId,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            using var response = await httpClient.GetAsync(
+                $"{BasePath}/{workOrderId}/part-reservations",
+                HttpCompletionOption.ResponseHeadersRead,
+                cancellationToken);
+
+            if (!response.IsSuccessStatusCode)
+            {
+                return new MaintenanceApiResult<WorkOrderPartReservationsResult>(
+                    null,
+                    await ReadFailureAsync(response, "Unable to load the part reservations", cancellationToken));
+            }
+
+            var result = await response.Content.ReadFromJsonAsync<WorkOrderPartReservationsResult>(
+                cancellationToken);
+
+            return new MaintenanceApiResult<WorkOrderPartReservationsResult>(result, null);
+        }
+        catch (HttpRequestException)
+        {
+            return new MaintenanceApiResult<WorkOrderPartReservationsResult>(null, Unavailable());
+        }
+        catch (TaskCanceledException) when (!cancellationToken.IsCancellationRequested)
+        {
+            return new MaintenanceApiResult<WorkOrderPartReservationsResult>(null, Unavailable());
+        }
+    }
+
+    internal async Task<MaintenanceApiResult<ReplaceWorkOrderPartReservationsResult>> ReplaceWorkOrderPartReservationsAsync(
+        Guid workOrderId,
+        ReplaceWorkOrderPartReservationsWebRequest request,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+
+        try
+        {
+            using var response = await httpClient.PutAsJsonAsync(
+                $"{BasePath}/{workOrderId}/part-reservations",
+                request,
+                cancellationToken);
+
+            if (!response.IsSuccessStatusCode)
+            {
+                return new MaintenanceApiResult<ReplaceWorkOrderPartReservationsResult>(
+                    null,
+                    await ReadFailureAsync(response, "Unable to update the part reservations", cancellationToken));
+            }
+
+            var result = await response.Content.ReadFromJsonAsync<ReplaceWorkOrderPartReservationsResult>(
+                cancellationToken);
+
+            return new MaintenanceApiResult<ReplaceWorkOrderPartReservationsResult>(result, null);
+        }
+        catch (HttpRequestException)
+        {
+            return new MaintenanceApiResult<ReplaceWorkOrderPartReservationsResult>(null, Unavailable());
+        }
+        catch (TaskCanceledException) when (!cancellationToken.IsCancellationRequested)
+        {
+            return new MaintenanceApiResult<ReplaceWorkOrderPartReservationsResult>(null, Unavailable());
+        }
+    }
+
+    internal async Task<MaintenanceApiResult<ReleasedWorkOrderPartReservations>> ReleaseWorkOrderPartReservationsAsync(
+        Guid workOrderId,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            using var response = await httpClient.PostAsync(
+                $"{BasePath}/{workOrderId}/part-reservations/release",
+                content: null,
+                cancellationToken);
+
+            if (!response.IsSuccessStatusCode)
+            {
+                return new MaintenanceApiResult<ReleasedWorkOrderPartReservations>(
+                    null,
+                    await ReadFailureAsync(response, "Unable to release the part reservations", cancellationToken));
+            }
+
+            return new MaintenanceApiResult<ReleasedWorkOrderPartReservations>(
+                new ReleasedWorkOrderPartReservations(workOrderId),
+                null);
+        }
+        catch (HttpRequestException)
+        {
+            return new MaintenanceApiResult<ReleasedWorkOrderPartReservations>(null, Unavailable());
+        }
+        catch (TaskCanceledException) when (!cancellationToken.IsCancellationRequested)
+        {
+            return new MaintenanceApiResult<ReleasedWorkOrderPartReservations>(null, Unavailable());
+        }
+    }
+
+    internal async Task<MaintenanceApiResult<InventoryReplenishmentPage>> GetInventoryReplenishmentAsync(
+        InventoryReplenishmentFilter filter,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(filter);
+
+        try
+        {
+            using var response = await httpClient.GetAsync(
+                $"{InventoryReplenishmentPath}?pageNumber={filter.PageNumber.ToString(CultureInfo.InvariantCulture)}&pageSize={filter.PageSize.ToString(CultureInfo.InvariantCulture)}",
+                HttpCompletionOption.ResponseHeadersRead,
+                cancellationToken);
+
+            if (!response.IsSuccessStatusCode)
+            {
+                return new MaintenanceApiResult<InventoryReplenishmentPage>(
+                    null,
+                    await ReadFailureAsync(response, "Unable to load the replenishment board", cancellationToken));
+            }
+
+            var page = await response.Content.ReadFromJsonAsync<InventoryReplenishmentPage>(cancellationToken);
+
+            return new MaintenanceApiResult<InventoryReplenishmentPage>(page, null);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (HttpRequestException)
+        {
+            return new MaintenanceApiResult<InventoryReplenishmentPage>(null, Unavailable());
+        }
+        catch (TaskCanceledException) when (!cancellationToken.IsCancellationRequested)
+        {
+            return new MaintenanceApiResult<InventoryReplenishmentPage>(null, Unavailable());
+        }
+    }
 }

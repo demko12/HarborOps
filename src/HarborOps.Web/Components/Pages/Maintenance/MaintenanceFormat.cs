@@ -10,6 +10,9 @@ internal static class MaintenanceFormat
     internal const string CompletedStatus = "Completed";
     internal const string CanceledStatus = "Canceled";
     internal const string MissingValue = "—";
+    internal const string CriticalReplenishment = "Critical";
+    internal const string LowReplenishment = "Low";
+    internal const string CoveredReplenishment = "Covered";
 
     internal static readonly IReadOnlyList<string> Statuses =
         [OpenStatus, InProgressStatus, CompletedStatus, CanceledStatus];
@@ -116,6 +119,8 @@ internal static class MaintenanceFormat
             "actualCost" => "Actual cost",
             "status" => "Status",
             "technicianId" => "Technician",
+            "reservations" => "Part reservations",
+            "inventoryItemId" => "Part",
             _ => field,
         };
     }
@@ -269,5 +274,46 @@ internal static class MaintenanceFormat
         return value is { } hours
             ? hours.ToString("N2", CultureInfo.InvariantCulture)
             : MissingValue;
+    }
+
+    internal static string Quantity(decimal value)
+    {
+        return value.ToString("0.###", CultureInfo.InvariantCulture);
+    }
+
+    internal static string ReplenishmentLabel(string classification)
+    {
+        return classification switch
+        {
+            CriticalReplenishment => "Out of stock",
+            CoveredReplenishment => "On order",
+            LowReplenishment => "Below reorder level",
+            _ => classification,
+        };
+    }
+
+    internal static string ReplenishmentModifier(string classification)
+    {
+        return classification.ToLowerInvariant();
+    }
+
+    internal static string ReservationState(decimal shortageQuantity, decimal quantityRemaining)
+    {
+        if (shortageQuantity > 0)
+        {
+            return $"Short by {Quantity(shortageQuantity)}";
+        }
+
+        return quantityRemaining > 0 ? "Reserved" : "Fully used";
+    }
+
+    internal static string ReservationModifier(decimal shortageQuantity, decimal quantityRemaining)
+    {
+        if (shortageQuantity > 0)
+        {
+            return "short";
+        }
+
+        return quantityRemaining > 0 ? "reserved" : "used";
     }
 }
