@@ -55,6 +55,12 @@ public partial class VesselDetails : IDisposable
 
     private bool CanManageFleet => AuthorizationState.HasPermission(CurrentUserAuthorizationState.FleetManagePermission);
 
+    // Reporting a defect is a Maintenance action (it creates a VesselDefect via the
+    // Maintenance API, gated server-side by maintenance.manage), not a Fleet edit -
+    // deliberately independent of CanManageFleet so it neither hides for Fleet-read-only
+    // users who can still manage maintenance, nor shows for Fleet managers who can't.
+    private bool CanReportDefects => AuthorizationState.HasPermission("maintenance.manage");
+
     private string FleetHref => !string.IsNullOrWhiteSpace(ReturnTo)
         && ReturnTo.StartsWith("/fleet", StringComparison.Ordinal)
         ? ReturnTo

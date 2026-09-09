@@ -1328,4 +1328,230 @@ internal sealed class MaintenanceApiClient(HttpClient httpClient)
             return new MaintenanceApiResult<InventoryReplenishmentPage>(null, Unavailable());
         }
     }
+
+    private const string DefectsPath = "api/maintenance/defects";
+
+    internal async Task<MaintenanceApiResult<DefectsPage>> GetDefectsAsync(
+        DefectFilter filter,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(filter);
+
+        try
+        {
+            using var response = await httpClient.GetAsync(
+                BuildDefectsPath(filter),
+                HttpCompletionOption.ResponseHeadersRead,
+                cancellationToken);
+
+            if (!response.IsSuccessStatusCode)
+            {
+                return new MaintenanceApiResult<DefectsPage>(
+                    null, await ReadFailureAsync(response, "Unable to load defects", cancellationToken));
+            }
+
+            var page = await response.Content.ReadFromJsonAsync<DefectsPage>(cancellationToken);
+
+            return new MaintenanceApiResult<DefectsPage>(page, null);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (HttpRequestException)
+        {
+            return new MaintenanceApiResult<DefectsPage>(null, Unavailable());
+        }
+        catch (TaskCanceledException) when (!cancellationToken.IsCancellationRequested)
+        {
+            return new MaintenanceApiResult<DefectsPage>(null, Unavailable());
+        }
+    }
+
+    private static string BuildDefectsPath(DefectFilter filter)
+    {
+        var query = new List<string>
+        {
+            $"pageNumber={filter.PageNumber}",
+            $"pageSize={filter.PageSize}",
+        };
+
+        if (filter.VesselId is { } vesselId)
+        {
+            query.Add($"vesselId={vesselId}");
+        }
+
+        if (!string.IsNullOrWhiteSpace(filter.Status))
+        {
+            query.Add($"status={Uri.EscapeDataString(filter.Status)}");
+        }
+
+        if (!string.IsNullOrWhiteSpace(filter.Severity))
+        {
+            query.Add($"severity={Uri.EscapeDataString(filter.Severity)}");
+        }
+
+        return $"{DefectsPath}?{string.Join('&', query)}";
+    }
+
+    internal async Task<MaintenanceApiResult<DefectDetailsModel>> RegisterDefectAsync(
+        RegisterDefectRequest request,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+
+        try
+        {
+            using var response = await httpClient.PostAsJsonAsync(DefectsPath, request, cancellationToken);
+
+            if (response.StatusCode != HttpStatusCode.Created)
+            {
+                return new MaintenanceApiResult<DefectDetailsModel>(
+                    null, await ReadFailureAsync(response, "Unable to register the defect", cancellationToken));
+            }
+
+            var created = await response.Content.ReadFromJsonAsync<DefectDetailsModel>(cancellationToken);
+
+            return new MaintenanceApiResult<DefectDetailsModel>(created, null);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (HttpRequestException)
+        {
+            return new MaintenanceApiResult<DefectDetailsModel>(null, Unavailable());
+        }
+        catch (TaskCanceledException) when (!cancellationToken.IsCancellationRequested)
+        {
+            return new MaintenanceApiResult<DefectDetailsModel>(null, Unavailable());
+        }
+    }
+
+    internal async Task<MaintenanceApiResult<DefectDetailsModel>> GetDefectAsync(
+        Guid defectId,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            using var response = await httpClient.GetAsync(
+                $"{DefectsPath}/{defectId}",
+                HttpCompletionOption.ResponseHeadersRead,
+                cancellationToken);
+
+            if (!response.IsSuccessStatusCode)
+            {
+                return new MaintenanceApiResult<DefectDetailsModel>(
+                    null, await ReadFailureAsync(response, "Unable to load the defect", cancellationToken));
+            }
+
+            var details = await response.Content.ReadFromJsonAsync<DefectDetailsModel>(cancellationToken);
+
+            return new MaintenanceApiResult<DefectDetailsModel>(details, null);
+        }
+        catch (HttpRequestException)
+        {
+            return new MaintenanceApiResult<DefectDetailsModel>(null, Unavailable());
+        }
+        catch (TaskCanceledException) when (!cancellationToken.IsCancellationRequested)
+        {
+            return new MaintenanceApiResult<DefectDetailsModel>(null, Unavailable());
+        }
+    }
+
+    internal async Task<MaintenanceApiResult<DefectDetailsModel>> TriageDefectAsync(
+        Guid defectId,
+        TriageDefectRequest request,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+
+        try
+        {
+            using var response = await httpClient.PostAsJsonAsync(
+                $"{DefectsPath}/{defectId}/triage", request, cancellationToken);
+
+            if (!response.IsSuccessStatusCode)
+            {
+                return new MaintenanceApiResult<DefectDetailsModel>(
+                    null, await ReadFailureAsync(response, "Unable to triage the defect", cancellationToken));
+            }
+
+            var details = await response.Content.ReadFromJsonAsync<DefectDetailsModel>(cancellationToken);
+
+            return new MaintenanceApiResult<DefectDetailsModel>(details, null);
+        }
+        catch (HttpRequestException)
+        {
+            return new MaintenanceApiResult<DefectDetailsModel>(null, Unavailable());
+        }
+        catch (TaskCanceledException) when (!cancellationToken.IsCancellationRequested)
+        {
+            return new MaintenanceApiResult<DefectDetailsModel>(null, Unavailable());
+        }
+    }
+
+    internal async Task<MaintenanceApiResult<DefectDetailsModel>> RejectDefectAsync(
+        Guid defectId,
+        RejectDefectRequest request,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+
+        try
+        {
+            using var response = await httpClient.PostAsJsonAsync(
+                $"{DefectsPath}/{defectId}/reject", request, cancellationToken);
+
+            if (!response.IsSuccessStatusCode)
+            {
+                return new MaintenanceApiResult<DefectDetailsModel>(
+                    null, await ReadFailureAsync(response, "Unable to reject the defect", cancellationToken));
+            }
+
+            var details = await response.Content.ReadFromJsonAsync<DefectDetailsModel>(cancellationToken);
+
+            return new MaintenanceApiResult<DefectDetailsModel>(details, null);
+        }
+        catch (HttpRequestException)
+        {
+            return new MaintenanceApiResult<DefectDetailsModel>(null, Unavailable());
+        }
+        catch (TaskCanceledException) when (!cancellationToken.IsCancellationRequested)
+        {
+            return new MaintenanceApiResult<DefectDetailsModel>(null, Unavailable());
+        }
+    }
+
+    internal async Task<MaintenanceApiResult<ConvertDefectToWorkOrderResponse>> ConvertDefectToWorkOrderAsync(
+        Guid defectId,
+        ConvertDefectToWorkOrderRequest request,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+
+        try
+        {
+            using var response = await httpClient.PostAsJsonAsync(
+                $"{DefectsPath}/{defectId}/convert-to-work-order", request, cancellationToken);
+
+            if (response.StatusCode != HttpStatusCode.Created)
+            {
+                return new MaintenanceApiResult<ConvertDefectToWorkOrderResponse>(
+                    null, await ReadFailureAsync(response, "Unable to convert the defect", cancellationToken));
+            }
+
+            var result = await response.Content.ReadFromJsonAsync<ConvertDefectToWorkOrderResponse>(cancellationToken);
+
+            return new MaintenanceApiResult<ConvertDefectToWorkOrderResponse>(result, null);
+        }
+        catch (HttpRequestException)
+        {
+            return new MaintenanceApiResult<ConvertDefectToWorkOrderResponse>(null, Unavailable());
+        }
+        catch (TaskCanceledException) when (!cancellationToken.IsCancellationRequested)
+        {
+            return new MaintenanceApiResult<ConvertDefectToWorkOrderResponse>(null, Unavailable());
+        }
+    }
 }

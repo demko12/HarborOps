@@ -9,4 +9,5 @@ internal enum MaintenanceTab
     PurchaseOrders,
     Suppliers,
     Replenishment,
+    Defects,
 }
