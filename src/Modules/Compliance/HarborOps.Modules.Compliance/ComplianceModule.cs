@@ -29,6 +29,14 @@ public static class ComplianceModule
         services.AddScoped<IGetNonConformityDetailQuery, GetNonConformityDetailQuery>();
         services.AddScoped<RecordCorrectiveActionService>();
         services.AddScoped<CloseNonConformityService>();
+        services.AddScoped<IGetAuditPlansQuery, GetAuditPlansQuery>();
+        services.AddScoped<IGetAuditPlanDetailQuery, GetAuditPlanDetailQuery>();
+        services.AddScoped<RegisterAuditPlanService>();
+        services.AddScoped<RescheduleAuditPlanService>();
+        services.AddScoped<AssignAuditPlanInspectorService>();
+        services.AddScoped<StartAuditPlanService>();
+        services.AddScoped<CompleteAuditPlanService>();
+        services.AddScoped<CancelAuditPlanService>();
         services.TryAddSingleton(TimeProvider.System);
         services.AddControllers()
             .AddApplicationPart(Assembly);

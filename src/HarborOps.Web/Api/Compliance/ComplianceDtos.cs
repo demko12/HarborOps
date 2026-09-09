@@ -119,4 +119,126 @@ internal sealed record ComplianceApiFailure(int StatusCode, string Title, string
     IReadOnlyDictionary<string, string[]> Errors)
 {
     internal bool IsValidation => StatusCode == StatusCodes.Status400BadRequest;
+    internal bool IsConflict => StatusCode == StatusCodes.Status409Conflict;
+    internal bool IsNotFound => StatusCode == StatusCodes.Status404NotFound;
 }
+
+internal sealed record GetAuditPlansRequest
+{
+    public Guid? VesselId { get; init; }
+
+    public string? Type { get; init; }
+
+    public string? Status { get; init; }
+
+    public DateOnly? From { get; init; }
+
+    public DateOnly? To { get; init; }
+
+    public int PageNumber { get; init; } = 1;
+
+    public int PageSize { get; init; } = 25;
+}
+
+internal sealed record AuditPlanListItem(
+    Guid Id,
+    Guid VesselId,
+    string Type,
+    string Status,
+    DateOnly PlannedStartDate,
+    DateOnly DueDate,
+    Guid? AssignedInspectorUserId,
+    bool IsOverdue);
+
+internal sealed record GetAuditPlansResponse(
+    IReadOnlyList<AuditPlanListItem> Items,
+    int TotalCount,
+    int PageNumber,
+    int PageSize);
+
+internal sealed record AuditPlanHistoryItem(
+    Guid Id,
+    string EventType,
+    string? Reason,
+    Guid ActorUserId,
+    DateTime OccurredAtUtc,
+    string PreviousStatus,
+    string NewStatus,
+    DateOnly? PreviousPlannedStartDate,
+    DateOnly? NewPlannedStartDate,
+    DateOnly? PreviousDueDate,
+    DateOnly? NewDueDate,
+    Guid? PreviousInspectorUserId,
+    Guid? NewInspectorUserId);
+
+internal sealed record GetAuditPlanDetailResponse(
+    Guid Id,
+    Guid VesselId,
+    string Type,
+    string Status,
+    DateOnly PlannedStartDate,
+    DateOnly DueDate,
+    Guid? AssignedInspectorUserId,
+    string Scope,
+    string? Notes,
+    bool IsOverdue,
+    int? SurveyAuditId,
+    IReadOnlyList<AuditPlanHistoryItem> History);
+
+internal sealed record RegisterAuditPlanRequest
+{
+    public Guid? VesselId { get; init; }
+
+    public string? Type { get; init; }
+
+    public DateOnly? PlannedStartDate { get; init; }
+
+    public DateOnly? DueDate { get; init; }
+
+    public Guid? AssignedInspectorUserId { get; init; }
+
+    public string? Scope { get; init; }
+
+    public string? Notes { get; init; }
+}
+
+internal sealed record RegisterAuditPlanResponse(Guid Id);
+
+internal sealed record RescheduleAuditPlanRequest
+{
+    public DateOnly? PlannedStartDate { get; init; }
+
+    public DateOnly? DueDate { get; init; }
+
+    public string? Reason { get; init; }
+}
+
+internal sealed record RescheduleAuditPlanResponse(Guid Id, DateOnly PlannedStartDate, DateOnly DueDate);
+
+internal sealed record AssignAuditPlanInspectorRequest
+{
+    public Guid? InspectorUserId { get; init; }
+
+    public string? Reason { get; init; }
+}
+
+internal sealed record AssignAuditPlanInspectorResponse(Guid Id, Guid InspectorUserId);
+
+internal sealed record StartAuditPlanResponse(Guid Id, string Status, DateTime StartedAtUtc);
+
+internal sealed record CompleteAuditPlanRequest
+{
+    public string? Result { get; init; }
+
+    public string? Findings { get; init; }
+
+    public Guid? DocumentId { get; init; }
+
+    public DateOnly? ActualAuditDate { get; init; }
+}
+
+internal sealed record CompleteAuditPlanResponse(Guid Id, int SurveyAuditId, DateTime CompletedAtUtc);
+
+internal sealed record CancelAuditPlanRequest(string? Reason);
+
+internal sealed record CancelAuditPlanResponse(Guid Id, string Status, DateTime CancelledAtUtc);

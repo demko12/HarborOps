@@ -493,6 +493,125 @@ namespace HarborOps.Infrastructure.Persistence.Migrations
                             }));
                 });
 
+            modelBuilder.Entity("HarborOps.Modules.Compliance.Domain.AuditPlan", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid?>("AssignedInspectorUserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("CancellationReason")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<DateTime?>("CancelledAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime?>("CompletedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateOnly>("DueDate")
+                        .HasColumnType("date");
+
+                    b.Property<string>("Notes")
+                        .HasMaxLength(2000)
+                        .HasColumnType("nvarchar(2000)");
+
+                    b.Property<DateOnly>("PlannedStartDate")
+                        .HasColumnType("date");
+
+                    b.Property<string>("Scope")
+                        .IsRequired()
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
+
+                    b.Property<DateTime?>("StartedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<int?>("SurveyAuditId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Type")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<Guid>("VesselId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("SurveyAuditId");
+
+                    b.HasIndex("VesselId", "Type", "Status");
+
+                    b.ToTable("AuditPlans", "compliance");
+                });
+
+            modelBuilder.Entity("HarborOps.Modules.Compliance.Domain.AuditPlanHistory", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("ActorUserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("AuditPlanId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("EventType")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("nvarchar(30)");
+
+                    b.Property<DateOnly?>("NewDueDate")
+                        .HasColumnType("date");
+
+                    b.Property<Guid?>("NewInspectorUserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateOnly?>("NewPlannedStartDate")
+                        .HasColumnType("date");
+
+                    b.Property<string>("NewStatus")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<DateTime>("OccurredAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateOnly?>("PreviousDueDate")
+                        .HasColumnType("date");
+
+                    b.Property<Guid?>("PreviousInspectorUserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateOnly?>("PreviousPlannedStartDate")
+                        .HasColumnType("date");
+
+                    b.Property<string>("PreviousStatus")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<string>("Reason")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AuditPlanId", "OccurredAtUtc");
+
+                    b.ToTable("AuditPlanHistories", "compliance");
+                });
+
             modelBuilder.Entity("HarborOps.Modules.Compliance.Domain.ComplianceCertificate", b =>
                 {
                     b.Property<Guid>("Id")
@@ -3079,6 +3198,25 @@ namespace HarborOps.Infrastructure.Persistence.Migrations
                     b.HasOne("HarborOps.Modules.Cargo.Domain.CargoBooking", null)
                         .WithMany()
                         .HasForeignKey("CargoBookingId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("HarborOps.Modules.Compliance.Domain.AuditPlan", b =>
+                {
+                    b.HasOne("HarborOps.Modules.Compliance.Domain.SurveyAudit", "Survey")
+                        .WithMany()
+                        .HasForeignKey("SurveyAuditId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.Navigation("Survey");
+                });
+
+            modelBuilder.Entity("HarborOps.Modules.Compliance.Domain.AuditPlanHistory", b =>
+                {
+                    b.HasOne("HarborOps.Modules.Compliance.Domain.AuditPlan", null)
+                        .WithMany()
+                        .HasForeignKey("AuditPlanId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
                 });

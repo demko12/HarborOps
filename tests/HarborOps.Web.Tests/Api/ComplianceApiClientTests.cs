@@ -55,6 +55,74 @@ public sealed class ComplianceApiClientTests
         Assert.Equal("Required", Assert.Single(result.Failure.Errors["certificateNumber"]));
     }
 
+    [Fact]
+    public async Task Client_uses_the_actual_audit_plan_endpoints()
+    {
+        var requests = new List<(HttpMethod Method, string Path)>();
+        var planId = Guid.NewGuid();
+        using var http = CreateClient((request, _) =>
+        {
+            requests.Add((request.Method, request.RequestUri!.AbsolutePath));
+            var body = request.RequestUri!.AbsolutePath.Contains("/complete", StringComparison.Ordinal)
+                ? $"{{\"id\":\"{planId}\",\"surveyAuditId\":1,\"completedAtUtc\":\"2026-09-15T10:00:00Z\"}}"
+                : request.RequestUri!.AbsolutePath.EndsWith("/start", StringComparison.Ordinal)
+                    ? $"{{\"id\":\"{planId}\",\"status\":\"InProgress\",\"startedAtUtc\":\"2026-09-15T10:00:00Z\"}}"
+                    : request.RequestUri!.AbsolutePath.EndsWith("/cancel", StringComparison.Ordinal)
+                        ? $"{{\"id\":\"{planId}\",\"status\":\"Cancelled\",\"cancelledAtUtc\":\"2026-09-15T10:00:00Z\"}}"
+                        : request.RequestUri!.AbsolutePath.EndsWith("/schedule", StringComparison.Ordinal)
+                            ? $"{{\"id\":\"{planId}\",\"plannedStartDate\":\"2026-10-01\",\"dueDate\":\"2026-10-15\"}}"
+                            : request.RequestUri!.AbsolutePath.EndsWith("/assignment", StringComparison.Ordinal)
+                                ? $"{{\"id\":\"{planId}\",\"inspectorUserId\":\"{Guid.NewGuid()}\"}}"
+                                : request.Method == HttpMethod.Post
+                                    ? $"{{\"id\":\"{planId}\"}}"
+                                    : request.RequestUri!.AbsolutePath.EndsWith($"/{planId}", StringComparison.Ordinal)
+                                        ? $"{{\"id\":\"{planId}\",\"vesselId\":\"{Guid.NewGuid()}\",\"type\":\"Annual survey\",\"status\":\"Scheduled\",\"plannedStartDate\":\"2026-10-01\",\"dueDate\":\"2026-10-15\",\"assignedInspectorUserId\":null,\"scope\":\"Full survey.\",\"notes\":null,\"isOverdue\":false,\"surveyAuditId\":null,\"history\":[]}}"
+                                        : "{\"items\":[],\"totalCount\":0,\"pageNumber\":1,\"pageSize\":25}";
+
+            return Json(request.Method == HttpMethod.Post
+                ? request.RequestUri!.AbsolutePath.EndsWith("/audit-plans", StringComparison.Ordinal) ? HttpStatusCode.Created : HttpStatusCode.OK
+                : HttpStatusCode.OK, body);
+        });
+        var client = new ComplianceApiClient(http);
+
+        await client.GetAuditPlansAsync(new GetAuditPlansRequest(), CancellationToken.None);
+        await client.GetAuditPlanDetailAsync(planId, CancellationToken.None);
+        await client.RegisterAuditPlanAsync(
+            new RegisterAuditPlanRequest { VesselId = Guid.NewGuid(), Type = "Annual survey", PlannedStartDate = new(2026, 10, 1), DueDate = new(2026, 10, 15), Scope = "Scope." },
+            CancellationToken.None);
+        await client.RescheduleAuditPlanAsync(
+            planId, new RescheduleAuditPlanRequest { PlannedStartDate = new(2026, 10, 1), DueDate = new(2026, 10, 15), Reason = "Reason." }, CancellationToken.None);
+        await client.AssignAuditPlanInspectorAsync(
+            planId, new AssignAuditPlanInspectorRequest { InspectorUserId = Guid.NewGuid() }, CancellationToken.None);
+        await client.StartAuditPlanAsync(planId, CancellationToken.None);
+        await client.CompleteAuditPlanAsync(
+            planId, new CompleteAuditPlanRequest { Result = "Satisfactory", Findings = "Fine.", ActualAuditDate = new(2026, 9, 15) }, CancellationToken.None);
+        await client.CancelAuditPlanAsync(planId, new CancelAuditPlanRequest("Reason."), CancellationToken.None);
+
+        Assert.Contains((HttpMethod.Get, "/api/compliance/audit-plans"), requests);
+        Assert.Contains((HttpMethod.Get, $"/api/compliance/audit-plans/{planId}"), requests);
+        Assert.Contains((HttpMethod.Post, "/api/compliance/audit-plans"), requests);
+        Assert.Contains((HttpMethod.Put, $"/api/compliance/audit-plans/{planId}/schedule"), requests);
+        Assert.Contains((HttpMethod.Put, $"/api/compliance/audit-plans/{planId}/assignment"), requests);
+        Assert.Contains((HttpMethod.Post, $"/api/compliance/audit-plans/{planId}/start"), requests);
+        Assert.Contains((HttpMethod.Post, $"/api/compliance/audit-plans/{planId}/complete"), requests);
+        Assert.Contains((HttpMethod.Post, $"/api/compliance/audit-plans/{planId}/cancel"), requests);
+    }
+
+    [Fact]
+    public async Task Client_maps_audit_plan_conflict_and_not_found_failures()
+    {
+        using var conflictHttp = CreateClient((_, _) => Json(HttpStatusCode.Conflict, "{\"title\":\"Conflict\",\"detail\":\"Overlaps another plan.\"}"));
+        var conflictResult = await new ComplianceApiClient(conflictHttp).RegisterAuditPlanAsync(
+            new RegisterAuditPlanRequest { VesselId = Guid.NewGuid(), Type = "Annual survey", PlannedStartDate = new(2026, 10, 1), DueDate = new(2026, 10, 15), Scope = "Scope." },
+            CancellationToken.None);
+        Assert.True(conflictResult.Failure!.IsConflict);
+
+        using var notFoundHttp = CreateClient((_, _) => Json(HttpStatusCode.NotFound, "{\"title\":\"Not found\"}"));
+        var notFoundResult = await new ComplianceApiClient(notFoundHttp).GetAuditPlanDetailAsync(Guid.NewGuid(), CancellationToken.None);
+        Assert.True(notFoundResult.Failure!.IsNotFound);
+    }
+
     private const string EmptyOverview = "{\"certificates\":[],\"pscInspections\":[],\"openNonConformities\":[]}";
     private static HttpClient CreateClient(Func<HttpRequestMessage, CancellationToken, HttpResponseMessage> handler) =>
         new(new Handler(handler)) { BaseAddress = new Uri("https://localhost/") };
