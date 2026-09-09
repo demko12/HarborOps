@@ -66,6 +66,45 @@
             </article>
         </section>
 
+        <section class="timeline-card timeline-route-map" aria-labelledby="timeline-route-map-title">
+            <div class="timeline-card-heading">
+                <div>
+                    <p class="timeline-eyebrow">Voyage plan</p>
+                    <h2 id="timeline-route-map-title">Route map</h2>
+                </div>
+                <div class="timeline-map-actions">
+                    <span class="timeline-count">@MappedStops.Count / @itinerary.Stops.Count mapped stops</span>
+                    @if (MappedStops.Count >= 2)
+                    {
+                        <button class="timeline-map-reset" type="button" @onclick="FitRouteMapAsync"><span class="bi bi-arrows-fullscreen" aria-hidden="true"></span> Fit route</button>
+                    }
+                </div>
+            </div>
+            @if (MappedStops.Count < 2)
+            {
+                <p class="timeline-route-empty">Add coordinates to at least two itinerary ports to show the route.</p>
+            }
+            else
+            {
+                <div class="timeline-map-shell" aria-label="Planned route across @MappedStops.Count port calls">
+                    <div class="timeline-map" @ref="routeMapElement" aria-label="Interactive world route map"></div>
+                    <div class="timeline-map-caption">
+                        <span><span class="bi bi-signpost-split" aria-hidden="true"></span> Schematic route · port call sequence</span>
+                        <span class="timeline-map-status-key"><i class="planned" aria-hidden="true"></i> Planned <i class="arrived" aria-hidden="true"></i> Arrived <i class="departed" aria-hidden="true"></i> Departed</span>
+                    </div>
+                </div>
+                <ol class="timeline-map-legend" aria-label="Mapped ports in itinerary order">
+                    @foreach (var stop in MappedStops)
+                    {
+                        <li>
+                            <span class="timeline-map-legend-marker @StatusModifier(stop.Status)">@stop.StopOrder</span>
+                            <span><strong>@stop.PortName</strong><small>@stop.PortCountry · @stop.Status</small></span>
+                        </li>
+                    }
+                </ol>
+            }
+        </section>
+
         @if (actionSuccess is not null)
         {
             <div class="timeline-action-success" role="status">@actionSuccess</div>
@@ -100,7 +139,7 @@
                                 <th scope="col">Port</th>
                                 <th scope="col">Berth</th>
                                 <th scope="col">Status</th>
-                                <th scope="col">Planned</th>
+                                <th scope="col">Estimates</th>
                                 <th scope="col">Actual</th>
                                 @if (CanManageVoyages)
                                 {
@@ -125,8 +164,16 @@
                                         <span class="timeline-status @StatusModifier(stop.Status)">@stop.Status</span>
                                     </td>
                                     <td class="timeline-stamps">
-                                        <span><b>ETA</b>@FormatUtc(stop.Eta)</span>
-                                        <span><b>ETD</b>@FormatUtc(stop.Etd)</span>
+                                        @{
+                                            var revisedStop = RevisedStop(stop.StopId);
+                                        }
+                                        <span class="@(revisedStop is null ? null : "superseded")"><b>ETA</b>@FormatUtc(stop.Eta)</span>
+                                        <span class="@(revisedStop is null ? null : "superseded")"><b>ETD</b>@FormatUtc(stop.Etd)</span>
+                                        @if (revisedStop is not null)
+                                        {
+                                            <span class="timeline-revised"><b>Revised ETA</b>@FormatUtc(revisedStop.RevisedEta)</span>
+                                            <span class="timeline-revised"><b>Revised ETD</b>@FormatUtc(revisedStop.RevisedEtd)</span>
+                                        }
                                     </td>
                                     <td class="timeline-stamps">
                                         <span class="@(stop.Ata is null ? "missing" : null)"><b>ATA</b>@FormatUtc(stop.Ata)</span>
@@ -138,17 +185,58 @@
                                             @if (activeStopId == stop.StopId && activeActionKind == BerthActionKind)
                                             {
                                                 <div class="timeline-action-form" @onkeydown="args => CancelAction(args)">
-                                                    <label for="timeline-berth-select">@(stop.BerthId is null ? "Assign berth" : "Change berth")</label>
-                                                    <BerthPicker InputId="timeline-berth-select"
-                                                                 PortId="@(activeStopPortId ?? stop.PortId)"
-                                                                 Value="selectedBerthId"
-                                                                 ValueChanged="value => selectedBerthId = value" />
+                                                    <label for="timeline-berth-select">@(stop.BerthId is null ? "Assign berth" : "Reschedule berth")</label>
+                                                    <div class="timeline-allocation-grid">
+                                                        <BerthPicker InputId="timeline-berth-select"
+                                                                     PortId="@(activeStopPortId ?? stop.PortId)"
+                                                                     Value="selectedBerthId"
+                                                                     ValueChanged="value => selectedBerthId = value" />
+                                                        <div class="timeline-action-stamp">
+                                                            <input id="timeline-berth-arrival-date" type="date" aria-label="Planned arrival date" @bind="berthArrivalDate" />
+                                                            <input id="timeline-berth-arrival-time" type="time" aria-label="Planned arrival time" @bind="berthArrivalTime" />
+                                                        </div>
+                                                        <div class="timeline-action-stamp">
+                                                            <input id="timeline-berth-departure-date" type="date" aria-label="Planned departure date" @bind="berthDepartureDate" />
+                                                            <input id="timeline-berth-departure-time" type="time" aria-label="Planned departure time" @bind="berthDepartureTime" />
+                                                        </div>
+                                                        <input id="timeline-berth-reason" aria-label="Reason for rescheduling" @bind="berthReason" placeholder="Reason for rescheduling" />
+                                                    </div>
+                                                    @if (isLoadingBerthAvailability)
+                                                    {
+                                                        <p class="timeline-availability-note" role="status">Finding compatible berths…</p>
+                                                    }
+                                                    else if (berthAvailabilityFailure is not null)
+                                                    {
+                                                        <div class="timeline-inline-error" role="alert">@berthAvailabilityFailure.Message <button type="button" class="timeline-inline-retry" @onclick="() => LoadBerthAllocationContextAsync(stop)">Retry</button></div>
+                                                    }
+                                                    else if (berthAvailability is not null)
+                                                    {
+                                                        <div class="timeline-alternatives" aria-label="Compatible berth alternatives">
+                                                            @foreach (var berth in berthAvailability.Berths ?? [])
+                                                            {
+                                                                <button type="button" class="timeline-alternative @(berth.IsAvailableForRequestedWindow ? "available" : "conflict")" @onclick="() => UseAlternative(berth)">
+                                                                    <strong>@berth.BerthName</strong>
+                                                                    <span>@(berth.IsAvailableForRequestedWindow ? "Available for requested window" : berth.NearestAvailableFromUtc is { } availableFrom ? $"Next free {FormatUtc(availableFrom)}" : "No free window within 31 days")</span>
+                                                                </button>
+                                                            }
+                                                        </div>
+                                                    }
+                                                    @if (berthAllocationHistory is { Changes.Count: > 0 })
+                                                    {
+                                                        <details class="timeline-allocation-history">
+                                                            <summary>Allocation history (@berthAllocationHistory.Changes.Count)</summary>
+                                                            @foreach (var change in berthAllocationHistory.Changes)
+                                                            {
+                                                                <p><strong>@(change.PreviousBerthName ?? MissingValue) → @change.NewBerthName</strong><span>@FormatUtc(change.ChangedAtUtc) · @change.Reason</span></p>
+                                                            }
+                                                        </details>
+                                                    }
                                                     @if (actionFailure is not null)
                                                     {
                                                         <p class="timeline-inline-error" role="alert">@(actionFailure.Errors.Count > 0 ? string.Join(" ", actionFailure.Errors.SelectMany(entry => entry.Value)) : actionFailure.Message)</p>
                                                     }
                                                     <div class="timeline-action-buttons">
-                                                        <button class="timeline-button" type="button" @onclick="ConfirmBerthAsync" disabled="@(isActionSubmitting || selectedBerthId is null)">
+                                                        <button class="timeline-button" type="button" @onclick="ConfirmBerthAsync" disabled="@(isActionSubmitting || selectedBerthId is null || (IsReschedulingActiveStop && string.IsNullOrWhiteSpace(berthReason)))">
                                                             @(isActionSubmitting ? "Saving..." : "Confirm")
                                                         </button>
                                                         <button class="timeline-reset" type="button" @onclick="() => CancelAction(null)" disabled="@isActionSubmitting">Cancel</button>
@@ -293,6 +381,7 @@
                                 <th scope="col">Duration</th>
                                 <th scope="col">Recorded (UTC)</th>
                                 <th scope="col">Description</th>
+                                <th scope="col">Downstream impact</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -304,11 +393,249 @@
                                     <td class="timeline-num">@delay.Duration min</td>
                                     <td>@FormatUtc(delay.CreatedAt)</td>
                                     <td>@(delay.Description ?? MissingValue)</td>
+                                    <td class="timeline-actions">
+                                        @if (IsDelayApplied(delay.DelayId))
+                                        {
+                                            <span class="timeline-impact-applied">Applied</span>
+                                        }
+                                        else if (CanManageVoyages)
+                                        {
+                                            <button class="timeline-row-action"
+                                                    type="button"
+                                                    disabled="@(isLoadingImpact || isApplyingImpact)"
+                                                    @onclick="() => BeginImpactAsync(delay)">
+                                                Assess impact
+                                            </button>
+                                        }
+                                        else
+                                        {
+                                            <span class="timeline-actions-none" aria-hidden="true">@MissingValue</span>
+                                        }
+                                    </td>
                                 </tr>
                             }
                         </tbody>
                     </table>
                 </div>
+            }
+        </section>
+
+        @if (impactDelayId is not null)
+        {
+            <section class="timeline-card timeline-impact" aria-labelledby="timeline-impact-title">
+                <div class="timeline-card-heading">
+                    <h2 id="timeline-impact-title">Delay impact</h2>
+                    @if (impactPreview is not null)
+                    {
+                        <span class="timeline-count">@impactPreview.Stops.Count stops affected</span>
+                    }
+                </div>
+
+                @if (isLoadingImpact)
+                {
+                    <LoadingState Message="Assessing the downstream impact..." />
+                }
+                else
+                {
+                    @if (impactFailure is not null)
+                    {
+                        <div class="timeline-form-error" role="alert">
+                            <strong>@impactFailure.Title</strong>
+                            @if (impactFailure.Errors.Count > 0)
+                            {
+                                <ul>
+                                    @foreach (var entry in impactFailure.Errors)
+                                    {
+                                        @foreach (var message in entry.Value)
+                                        {
+                                            <li>@message</li>
+                                        }
+                                    }
+                                </ul>
+                            }
+                            else
+                            {
+                                <p>@impactFailure.Message</p>
+                            }
+                        </div>
+                    }
+
+                    @if (impactPreview is null)
+                    {
+                        <div class="timeline-form-actions">
+                            <button class="timeline-reset" type="button" @onclick="CancelImpact">Close</button>
+                        </div>
+                    }
+                    else
+                    {
+                        <dl class="timeline-impact-summary">
+                            <div>
+                                <dt>Recorded delay</dt>
+                                <dd>@impactPreview.DelayMinutes min</dd>
+                            </div>
+                            <div>
+                                <dt>Planned arrival</dt>
+                                <dd>@FormatUtc(impactPreview.PlannedArrival)</dd>
+                            </div>
+                            <div>
+                                <dt>Proposed arrival</dt>
+                                <dd>@FormatUtc(impactPreview.ProposedArrival) (@FormatDelta(impactPreview.PlannedArrivalDeltaMinutes))</dd>
+                            </div>
+                        </dl>
+
+                        @if (impactPreview.Warnings.Count > 0)
+                        {
+                            <div class="timeline-impact-warnings" role="alert">
+                                <strong>Berth conflicts</strong>
+                                <ul>
+                                    @foreach (var warning in impactPreview.Warnings)
+                                    {
+                                        <li @key="@($"{warning.StopId}-{warning.BerthId}-{warning.ConflictStart:O}")">
+                                            Stop @warning.StopOrder overlaps berth @warning.BerthName between @FormatUtc(warning.ConflictStart) and @FormatUtc(warning.ConflictEnd).
+                                        </li>
+                                    }
+                                </ul>
+                            </div>
+                        }
+
+                        @if (impactPreview.Stops.Count == 0)
+                        {
+                            <EmptyState Title="No downstream stops"
+                                        Message="This delay does not move any remaining port call." />
+                            <div class="timeline-form-actions">
+                                <button class="timeline-reset" type="button" @onclick="CancelImpact">Close</button>
+                            </div>
+                        }
+                        else
+                        {
+                            <div class="timeline-table-scroll">
+                                <table class="timeline-table">
+                                    <caption class="visually-hidden">Proposed estimate changes per stop</caption>
+                                    <thead>
+                                        <tr>
+                                            <th scope="col">#</th>
+                                            <th scope="col">Port</th>
+                                            <th scope="col">Current</th>
+                                            <th scope="col">Proposed</th>
+                                            <th scope="col">Shift</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        @foreach (var stop in impactPreview.Stops)
+                                        {
+                                            <tr @key="stop.StopId">
+                                                <td class="timeline-num">@stop.StopOrder</td>
+                                                <td>@stop.PortName</td>
+                                                <td class="timeline-stamps">
+                                                    <span><b>ETA</b>@FormatUtc(stop.CurrentEta)</span>
+                                                    <span><b>ETD</b>@FormatUtc(stop.CurrentEtd)</span>
+                                                </td>
+                                                <td class="timeline-stamps">
+                                                    <span class="timeline-revised"><b>ETA</b>@FormatUtc(stop.ProposedEta)</span>
+                                                    <span class="timeline-revised"><b>ETD</b>@FormatUtc(stop.ProposedEtd)</span>
+                                                </td>
+                                                <td class="timeline-stamps">
+                                                    <span><b>ETA</b>@FormatDelta(stop.EtaDeltaMinutes)</span>
+                                                    <span><b>ETD</b>@FormatDelta(stop.EtdDeltaMinutes)</span>
+                                                </td>
+                                            </tr>
+                                        }
+                                    </tbody>
+                                </table>
+                            </div>
+
+                            <div class="timeline-form-grid">
+                                <div class="timeline-field timeline-field-wide">
+                                    <label for="impact-reason">Reason</label>
+                                    <input id="impact-reason" @bind="impactReason" placeholder="Downstream schedule revised after port congestion" />
+                                </div>
+                            </div>
+
+                            <div class="timeline-form-actions">
+                                <button class="timeline-submit" type="button" @onclick="ApplyImpactAsync" disabled="@isApplyingImpact">
+                                    @(isApplyingImpact ? "Publishing..." : "Publish revised estimates")
+                                </button>
+                                <button class="timeline-reset" type="button" @onclick="CancelImpact" disabled="@isApplyingImpact">Cancel</button>
+                            </div>
+                        }
+                    }
+                }
+            </section>
+        }
+
+        <section class="timeline-card" aria-labelledby="timeline-revisions-title">
+            <div class="timeline-card-heading">
+                <h2 id="timeline-revisions-title">Estimate revisions</h2>
+                <span class="timeline-count">@(estimateRevisions?.Revisions.Count ?? 0) published</span>
+            </div>
+
+            @if (impactSuccess is not null)
+            {
+                <div class="timeline-action-success" role="status">@impactSuccess</div>
+            }
+
+            @if (alertFailure is not null)
+            {
+                <div class="timeline-form-error" role="alert">
+                    <strong>@alertFailure.Title</strong>
+                    <p>@alertFailure.Message</p>
+                </div>
+            }
+
+            @if (estimateRevisionsFailure is not null)
+            {
+                <ApiErrorState Title="@estimateRevisionsFailure.Title"
+                               Message="@estimateRevisionsFailure.Message"
+                               OnRetry="LoadEstimateRevisionsAsync" />
+            }
+            else if (estimateRevisions is null || estimateRevisions.Revisions.Count == 0)
+            {
+                <EmptyState Title="No revised estimates"
+                            Message="Applying a delay impact publishes revised ETAs and ETDs here." />
+            }
+            else
+            {
+                <ol class="timeline-schedule-changes">
+                    @foreach (var revision in estimateRevisions.Revisions)
+                    {
+                        <li class="timeline-schedule-change" @key="revision.RevisionBatchId">
+                            <div class="timeline-schedule-change-heading">
+                                <span class="timeline-status amended">Estimates revised</span>
+                                <span class="timeline-schedule-change-time">@FormatUtc(revision.RevisedAtUtc)</span>
+                                <code class="timeline-schedule-change-actor" title="@revision.RevisedByUserId">@FormatActor(revision.RevisedByUserId)</code>
+                                @if (revision.AlertCreated)
+                                {
+                                    <span class="timeline-alert-state sent">Alert sent</span>
+                                }
+                                else
+                                {
+                                    <span class="timeline-alert-state failed">Alert not sent</span>
+                                    @if (CanManageVoyages)
+                                    {
+                                        <button class="timeline-row-action"
+                                                type="button"
+                                                disabled="@(retryingRevisionBatchId == revision.RevisionBatchId)"
+                                                @onclick="() => RetryAlertAsync(revision.RevisionBatchId)">
+                                            @(retryingRevisionBatchId == revision.RevisionBatchId ? "Resending..." : "Retry alert")
+                                        </button>
+                                    }
+                                }
+                            </div>
+                            <p class="timeline-schedule-change-reason">@revision.Reason</p>
+                            <ul class="timeline-schedule-change-fields">
+                                @foreach (var change in revision.Changes)
+                                {
+                                    <li @key="change.StopId">
+                                        <span class="timeline-schedule-change-label">Stop @change.StopOrder — @change.PortName</span>
+                                        <span class="timeline-schedule-change-old">@FormatUtc(change.PreviousEta) → @FormatUtc(change.PreviousEtd)</span>
+                                        <span class="timeline-schedule-change-arrow" aria-hidden="true">→</span>
+                                        <span class="timeline-schedule-change-new">@FormatUtc(change.NewEta) → @FormatUtc(change.NewEtd)</span>
+                                    </li>
+                                }
+                            </ul>
+                        </li>
+                    }
+                </ol>
             }
         </section>
 

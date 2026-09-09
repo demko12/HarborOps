@@ -31,6 +31,8 @@ internal sealed class BerthScheduleConfiguration : IEntityTypeConfiguration<Bert
             .HasMaxLength(BerthSchedule.StatusMaxLength)
             .IsRequired();
 
+        builder.HasIndex(berthSchedule => new { berthSchedule.BerthId, berthSchedule.Status, berthSchedule.StartTime, berthSchedule.EndTime });
+
         builder.HasOne<Berth>()
             .WithMany()
             .HasForeignKey(berthSchedule => berthSchedule.BerthId)

@@ -39,7 +39,8 @@ internal sealed record CargoBookingDetails(
     string? NextStatus,
     DateTime CreatedUtc,
     CargoSafetyInformation? SafetyInfo,
-    IReadOnlyList<CargoTrackingEventRow> TrackingEvents);
+    IReadOnlyList<CargoTrackingEventRow> TrackingEvents,
+    IReadOnlyList<ContainerControlRow>? ContainerControls);
 
 internal sealed record CargoSafetyInformation(
     Guid CargoSafetyInfoId,
@@ -146,6 +147,54 @@ internal sealed record AddedCargoContainer(Guid Id, string ContainerNumber, stri
 internal sealed record PlanCargoOperationWebRequest(string OperationType, DateTime PlannedAtUtc);
 
 internal sealed record PlannedCargoOperation(Guid Id, string OperationType, string OperationState);
+
+internal sealed record ContainerControlRow(
+    Guid ContainerId,
+    string ContainerNumber,
+    string ContainerType,
+    bool IsReefer,
+    string? SealNumber,
+    string SealStatus,
+    string State,
+    string? LatestInspectionResult,
+    string? LatestInspectionNotes,
+    decimal? LatestInspectionTemperatureCelsius,
+    DateTime? LatestInspectedAtUtc,
+    Guid? LatestInspectedByUserId,
+    string? StateReason,
+    Guid? StateChangedByUserId,
+    DateTime? StateChangedAtUtc,
+    bool CanRelease,
+    string? ReleaseBlockedReason);
+
+internal sealed record ContainerControlEventRow(
+    Guid ContainerControlEventId,
+    string Action,
+    string FromState,
+    string ToState,
+    string? SealNumber,
+    string? InspectionResult,
+    decimal? TemperatureCelsius,
+    string? Notes,
+    Guid ActorUserId,
+    DateTime OccurredUtc);
+
+internal sealed record ContainerControlView(
+    ContainerControlRow Control,
+    IReadOnlyList<ContainerControlEventRow> History);
+
+internal sealed record AssignContainerSealWebRequest(string SealNumber);
+
+internal sealed record BreakContainerSealWebRequest(string? Notes);
+
+internal sealed record RecordContainerInspectionWebRequest(
+    string Result,
+    string? ConditionNotes,
+    decimal? TemperatureCelsius);
+
+internal sealed record ReleaseContainerWebRequest(string? Notes);
+
+internal sealed record HoldContainerWebRequest(string Reason);
 
 internal sealed record CargoOperationTransition(
     Guid OperationId,

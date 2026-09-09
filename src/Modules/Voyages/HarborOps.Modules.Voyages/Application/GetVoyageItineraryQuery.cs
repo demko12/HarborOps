@@ -41,7 +41,9 @@ internal sealed class GetVoyageItineraryQuery(DbContext dbContext) : IGetVoyageI
                 stop.Etd,
                 stop.Ata,
                 stop.Atd,
-                stop.Status))
+                stop.Status,
+                port.Latitude,
+                port.Longitude))
             .ToListAsync(cancellationToken);
 
         var delays = await dbContext.Set<Delay>()

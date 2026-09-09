@@ -75,8 +75,16 @@
 									<div class="notification-item severity-@alert.Severity">
 										<a href="@SourceUrl(alert)">
 											<span class="notification-source">@SourceLabel(alert)</span>
-											<strong>Expires @alert.ExpiryDate.ToString("dd MMM yyyy")</strong>
-											<small><span class="bi bi-clock" aria-hidden="true"></span> @alert.ThresholdDays days remaining</small>
+											@if (IsEstimateRevision(alert))
+											{
+												<strong>Revised @alert.ExpiryDate.ToString("dd MMM yyyy")</strong>
+												<small><span class="bi bi-arrow-repeat" aria-hidden="true"></span> Downstream estimates updated</small>
+											}
+											else
+											{
+												<strong>Expires @alert.ExpiryDate.ToString("dd MMM yyyy")</strong>
+												<small><span class="bi bi-clock" aria-hidden="true"></span> @alert.ThresholdDays days remaining</small>
+											}
 										</a>
 										<button type="button" title="Acknowledge" aria-label="Acknowledge notification" @onclick="() => AcknowledgeAsync(alert.NotificationId)"><span class="bi bi-check2" aria-hidden="true"></span></button>
 									</div>
@@ -280,8 +288,10 @@
 	private async Task PreviousPageAsync() { if (notificationPage is not null && notificationPage.PageNumber > 1) { notificationPage = notificationPage with { PageNumber = notificationPage.PageNumber - 1 }; await LoadNotificationsAsync(); } }
 	private async Task NextPageAsync() { if (notificationPage is not null && notificationPage.PageNumber * notificationPage.PageSize < notificationPage.TotalCount) { notificationPage = notificationPage with { PageNumber = notificationPage.PageNumber + 1 }; await LoadNotificationsAsync(); } }
 	private static int SeverityRank(string severity) => severity switch { "critical" => 0, "warning" => 1, _ => 2 };
-	private static string SourceLabel(NotificationItem item) => item.Capability switch { "documents" => "Vessel document", "crew" => "Crew certificate", "compliance" => "Compliance certificate", _ => item.SourceType };
-	private static string SourceUrl(NotificationItem item) => item.Capability switch { "crew" when item.CrewMemberId is Guid id => $"/crew/{id}", "documents" => "/documents", "compliance" => "/compliance", _ => "/" };
+	private const string EstimateRevisionSourceType = "VoyageEstimateRevision";
+	private static bool IsEstimateRevision(NotificationItem item) => string.Equals(item.SourceType, EstimateRevisionSourceType, StringComparison.Ordinal);
+	private static string SourceLabel(NotificationItem item) => item.Capability switch { "documents" => "Vessel document", "crew" => "Crew certificate", "compliance" => "Compliance certificate", "voyages" when IsEstimateRevision(item) => "Voyage estimate revision", _ => item.SourceType };
+	private static string SourceUrl(NotificationItem item) => item.Capability switch { "crew" when item.CrewMemberId is Guid id => $"/crew/{id}", "documents" => "/documents", "compliance" => "/compliance", "voyages" => "/voyages", _ => "/" };
 
 	private void ToggleAccountMenu()
 	{

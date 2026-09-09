@@ -68,6 +68,19 @@ internal sealed class VoyagesApiClient(HttpClient httpClient)
         }
     }
 
+    internal Task<VoyagesApiResult<VoyagePage>> GetDelayedVoyageCountAsync(
+        DateOnly from,
+        DateOnly to,
+        string? search,
+        CancellationToken cancellationToken)
+    {
+        var path = string.Create(
+            CultureInfo.InvariantCulture,
+            $"{BasePath}?from={from:yyyy-MM-dd}&to={to:yyyy-MM-dd}&search={Uri.EscapeDataString(search ?? string.Empty)}&includeActive=true&delayImpactApplied=true&pageNumber=1&pageSize=1");
+
+        return GetAsync<VoyagePage>(path, "Unable to load delayed voyages", cancellationToken);
+    }
+
     internal Task<VoyagesApiResult<ScheduledVoyage>> ScheduleAsync(
         ScheduleVoyageWebRequest request,
         CancellationToken cancellationToken)
@@ -231,6 +244,22 @@ internal sealed class VoyagesApiClient(HttpClient httpClient)
             cancellationToken);
     }
 
+    internal Task<VoyagesApiResult<BerthAvailability>> GetBerthAvailabilityAsync(
+        Guid portId, DateTime fromUtc, DateTime toUtc, CancellationToken cancellationToken)
+    {
+        var path = string.Create(CultureInfo.InvariantCulture,
+            $"{BasePath}/ports/{portId}/berth-availability?fromUtc={Uri.EscapeDataString(fromUtc.ToString("O", CultureInfo.InvariantCulture))}&toUtc={Uri.EscapeDataString(toUtc.ToString("O", CultureInfo.InvariantCulture))}");
+        return GetAsync<BerthAvailability>(path, "Unable to find berth availability", cancellationToken);
+    }
+
+    internal Task<VoyagesApiResult<ReplacedBerthAllocation>> ReplaceBerthAllocationAsync(
+        Guid voyageId, Guid stopId, ReplaceBerthAllocationWebRequest request, CancellationToken cancellationToken)
+        => SendAsync<ReplacedBerthAllocation>(HttpMethod.Put, $"{BasePath}/{voyageId}/stops/{stopId}/berth-allocation", request, "Unable to reschedule the berth allocation", cancellationToken);
+
+    internal Task<VoyagesApiResult<BerthAllocationHistory>> GetBerthAllocationHistoryAsync(
+        Guid voyageId, Guid stopId, CancellationToken cancellationToken)
+        => GetAsync<BerthAllocationHistory>($"{BasePath}/{voyageId}/stops/{stopId}/berth-allocation-history", "Unable to load berth allocation history", cancellationToken);
+
     internal Task<VoyagesApiResult<StopTransition>> RecordStopArrivalAsync(
         Guid voyageId,
         Guid stopId,
@@ -266,6 +295,53 @@ internal sealed class VoyagesApiClient(HttpClient httpClient)
             $"{BasePath}/{voyageId}/delays",
             request,
             "Unable to record the delay",
+            cancellationToken);
+    }
+
+    internal Task<VoyagesApiResult<DelayImpactPreview>> PreviewDelayImpactAsync(
+        Guid voyageId,
+        Guid delayId,
+        CancellationToken cancellationToken)
+    {
+        return PostAsync<DelayImpactPreview>(
+            $"{BasePath}/{voyageId}/delays/{delayId}/impact-preview",
+            new { },
+            "Unable to assess the delay impact",
+            cancellationToken);
+    }
+
+    internal Task<VoyagesApiResult<VoyageEstimateRevisionModel>> ApplyDelayImpactAsync(
+        Guid voyageId,
+        Guid delayId,
+        ApplyDelayImpactWebRequest request,
+        CancellationToken cancellationToken)
+    {
+        return PostAsync<VoyageEstimateRevisionModel>(
+            $"{BasePath}/{voyageId}/delays/{delayId}/apply-impact",
+            request,
+            "Unable to publish the revised estimates",
+            cancellationToken);
+    }
+
+    internal Task<VoyagesApiResult<VoyageEstimateRevisions>> GetEstimateRevisionsAsync(
+        Guid voyageId,
+        CancellationToken cancellationToken)
+    {
+        return GetAsync<VoyageEstimateRevisions>(
+            $"{BasePath}/{voyageId}/estimate-revisions",
+            "Unable to load the estimate revisions",
+            cancellationToken);
+    }
+
+    internal Task<VoyagesApiResult<EstimateRevisionAlert>> RetryEstimateRevisionAlertAsync(
+        Guid voyageId,
+        Guid revisionBatchId,
+        CancellationToken cancellationToken)
+    {
+        return PostAsync<EstimateRevisionAlert>(
+            $"{BasePath}/{voyageId}/estimate-revisions/{revisionBatchId}/alert",
+            new { },
+            "Unable to resend the operational alert",
             cancellationToken);
     }
 

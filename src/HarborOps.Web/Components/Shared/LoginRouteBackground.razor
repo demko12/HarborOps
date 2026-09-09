@@ -1,0 +1,44 @@
+<div class="login-route-background" aria-hidden="true">
+    <svg viewBox="0 0 1536 1024" preserveAspectRatio="xMidYMid slice" fill="none" focusable="false">
+        <image href="/images/login-route-map.png" width="1536" height="1024" />
+        @foreach (var route in Routes)
+        {
+            <g class="ocean-route" style="--route-duration: @(route.Duration)s; --route-delay: @(route.Delay)s">
+                <path class="ocean-route-line" d="@route.Path" />
+                <path class="ocean-route-trail" d="@route.Path" pathLength="100" />
+                <path class="ocean-route-light" d="@route.Path" pathLength="100" />
+            </g>
+        }
+        @foreach (var port in Ports)
+        {
+            <g class="ocean-port" style="--port-delay: @(port.Delay)s">
+                <circle class="ocean-port-pulse" cx="@port.X" cy="@port.Y" r="10" />
+                <circle class="ocean-port-dot" cx="@port.X" cy="@port.Y" r="3" />
+            </g>
+        }
+    </svg>
+</div>
+
+@code {
+    private static readonly (string Path, int Duration, int Delay)[] Routes =
+    [
+        ("M433 352C534 247 665 204 796 328", 22, -7),
+        ("M477 279C568 222 705 203 847 174", 26, -18),
+        ("M395 537C536 600 654 498 727 417", 24, -12),
+        ("M471 747C560 675 699 670 842 802", 28, -3),
+        ("M842 802C887 840 1081 724 1212 757", 30, -19),
+        ("M947 560C989 565 1021 533 1055 518", 16, -5),
+        ("M1066 588C1111 590 1132 638 1190 656", 18, -11),
+        ("M1190 656C1242 580 1282 514 1327 452", 22, -16),
+        ("M1327 452C1407 421 1475 417 1550 428", 24, -9),
+        ("M-20 678C78 657 155 596 292 619", 26, -14),
+    ];
+
+    private static readonly (int X, int Y, int Delay)[] Ports =
+    [
+        (433, 352, 0), (477, 279, -2), (796, 328, -1), (847, 174, -3),
+        (395, 537, -2), (727, 417, -4), (471, 747, -1), (842, 802, -3),
+        (947, 560, -2), (1055, 518, -4), (1190, 656, 0), (1327, 452, -3),
+        (1212, 757, -1), (292, 619, -4),
+    ];
+}

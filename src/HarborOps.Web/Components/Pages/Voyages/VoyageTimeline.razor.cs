@@ -55,6 +55,15 @@ public partial class VoyageTimeline : IDisposable
 
     private Guid? activeStopPortId;
     private Guid? selectedBerthId;
+    private DateOnly berthArrivalDate;
+    private TimeOnly berthArrivalTime;
+    private DateOnly berthDepartureDate;
+    private TimeOnly berthDepartureTime;
+    private string berthReason = string.Empty;
+    private BerthAvailability? berthAvailability;
+    private VoyagesApiFailure? berthAvailabilityFailure;
+    private bool isLoadingBerthAvailability;
+    private BerthAllocationHistory? berthAllocationHistory;
 
     private string delayReason = string.Empty;
     private string? delayDescription;
@@ -74,6 +83,20 @@ public partial class VoyageTimeline : IDisposable
     private VoyagesApiFailure? scheduleFailure;
     private string? scheduleSuccess;
 
+    private VoyageEstimateRevisions? estimateRevisions;
+    private VoyagesApiFailure? estimateRevisionsFailure;
+
+    private Guid? impactDelayId;
+    private DelayImpactPreview? impactPreview;
+    private VoyagesApiFailure? impactFailure;
+    private bool isLoadingImpact;
+    private bool isApplyingImpact;
+    private string impactReason = string.Empty;
+    private string? impactSuccess;
+
+    private Guid? retryingRevisionBatchId;
+    private VoyagesApiFailure? alertFailure;
+
     private bool isAmendModalOpen;
     private Guid? amendDeparturePortId;
     private Guid? amendArrivalPortId;
@@ -90,12 +113,33 @@ public partial class VoyageTimeline : IDisposable
     private string cancelReason = string.Empty;
     private VoyagesApiFailure? cancelFailure;
     private bool isSubmittingCancel;
+    private ElementReference routeMapElement;
+
+    private IReadOnlyList<VoyageItineraryStopModel> MappedStops => itinerary?.Stops
+        .Where(stop => stop.Latitude is not null && stop.Longitude is not null)
+        .OrderBy(stop => stop.StopOrder)
+        .ToList()
+        ?? [];
+
 
     internal static string FormatUtc(DateTime? value)
     {
         return value is { } stamp
             ? stamp.ToString("dd MMM yyyy HH:mm", CultureInfo.InvariantCulture)
             : MissingValue;
+    }
+
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        await base.OnAfterRenderAsync(firstRender);
+        if (MappedStops.Count < 2 || disposeCancellation.IsCancellationRequested) return;
+        await JS.InvokeVoidAsync("voyageRouteMap.render", routeMapElement, MappedStops);
+    }
+
+    private async Task FitRouteMapAsync()
+    {
+        await JS.InvokeVoidAsync("voyageRouteMap.fit", routeMapElement);
     }
 
     internal static string StatusModifier(string status)
@@ -218,6 +262,40 @@ public partial class VoyageTimeline : IDisposable
         itinerary = result.Value;
 
         await LoadScheduleAsync();
+        await LoadEstimateRevisionsAsync();
+    }
+
+    private async Task LoadEstimateRevisionsAsync()
+    {
+        var requestedVoyageId = VoyageId;
+        estimateRevisionsFailure = null;
+
+        VoyagesApiResult<VoyageEstimateRevisions> result;
+        try
+        {
+            result = await VoyagesApi.GetEstimateRevisionsAsync(
+                requestedVoyageId,
+                disposeCancellation.Token);
+        }
+        catch (OperationCanceledException) when (disposeCancellation.IsCancellationRequested)
+        {
+            return;
+        }
+
+        if (disposeCancellation.IsCancellationRequested || requestedVoyageId != VoyageId)
+        {
+            return;
+        }
+
+        if (!result.IsSuccess)
+        {
+            estimateRevisionsFailure = result.Failure;
+            estimateRevisions = null;
+
+            return;
+        }
+
+        estimateRevisions = result.Value;
     }
 
     private async Task LoadScheduleAsync()
@@ -280,7 +358,16 @@ public partial class VoyageTimeline : IDisposable
         activeActionKind = BerthActionKind;
         actionFailure = null;
         actionSuccess = null;
-        selectedBerthId = null;
+        selectedBerthId = stop.BerthId;
+        berthArrivalDate = DateOnly.FromDateTime(stop.Eta);
+        berthArrivalTime = TimeOnly.FromTimeSpan(stop.Eta.TimeOfDay);
+        berthDepartureDate = DateOnly.FromDateTime(stop.Etd);
+        berthDepartureTime = TimeOnly.FromTimeSpan(stop.Etd.TimeOfDay);
+        berthReason = string.Empty;
+        berthAvailability = null;
+        berthAvailabilityFailure = null;
+        berthAllocationHistory = null;
+        _ = LoadBerthAllocationContextAsync(stop);
     }
 
     private void BeginStopAction(VoyageItineraryStopModel stop, string kind)
@@ -305,6 +392,43 @@ public partial class VoyageTimeline : IDisposable
         activeActionKind = null;
         actionFailure = null;
         selectedBerthId = null;
+        berthAvailability = null;
+        berthAllocationHistory = null;
+    }
+
+    private async Task LoadBerthAllocationContextAsync(VoyageItineraryStopModel stop)
+    {
+        isLoadingBerthAvailability = true;
+        berthAvailabilityFailure = null;
+        try
+        {
+            var start = CombineUtc(berthArrivalDate, berthArrivalTime);
+            var end = CombineUtc(berthDepartureDate, berthDepartureTime);
+            var availabilityTask = VoyagesApi.GetBerthAvailabilityAsync(stop.PortId, start, end, disposeCancellation.Token);
+            var historyTask = VoyagesApi.GetBerthAllocationHistoryAsync(VoyageId, stop.StopId, disposeCancellation.Token);
+            await Task.WhenAll(availabilityTask, historyTask);
+            if (disposeCancellation.IsCancellationRequested || activeStopId != stop.StopId) return;
+            var availabilityResult = await availabilityTask;
+            var historyResult = await historyTask;
+            if (availabilityResult.IsSuccess) berthAvailability = availabilityResult.Value;
+            else berthAvailabilityFailure = availabilityResult.Failure;
+            if (historyResult.IsSuccess) berthAllocationHistory = historyResult.Value;
+        }
+        catch (OperationCanceledException) when (disposeCancellation.IsCancellationRequested) { }
+        finally
+        {
+            if (!disposeCancellation.IsCancellationRequested && activeStopId == stop.StopId) isLoadingBerthAvailability = false;
+        }
+    }
+
+    private void UseAlternative(BerthAvailabilityModel berth)
+    {
+        selectedBerthId = berth.BerthId;
+        if (berth.NearestAvailableFromUtc is not { } start || berth.NearestAvailableToUtc is not { } end) return;
+        berthArrivalDate = DateOnly.FromDateTime(start);
+        berthArrivalTime = TimeOnly.FromTimeSpan(start.TimeOfDay);
+        berthDepartureDate = DateOnly.FromDateTime(end);
+        berthDepartureTime = TimeOnly.FromTimeSpan(end.TimeOfDay);
     }
 
     private async Task ConfirmBerthAsync()
@@ -319,10 +443,29 @@ public partial class VoyageTimeline : IDisposable
 
         try
         {
-            var result = await VoyagesApi.AssignBerthAsync(
-                VoyageId,
-                stopId,
-                new AssignBerthWebRequest(berthId),
+            var isInitialAssignment = itinerary?.Stops.FirstOrDefault(stop => stop.StopId == stopId)?.BerthId is null;
+            var result = isInitialAssignment
+                ? await VoyagesApi.AssignBerthAsync(VoyageId, stopId, new AssignBerthWebRequest(berthId), disposeCancellation.Token)
+                : null;
+
+            if (result is not null)
+            {
+                if (!result.IsSuccess)
+                {
+                    actionFailure = result.Failure;
+                    if (result.Failure!.IsConflict || result.Failure.IsNotFound) await LoadAsync();
+                    return;
+                }
+
+                actionSuccess = "Berth assigned.";
+                CancelAction();
+                await LoadAsync();
+                return;
+            }
+
+            var replacement = await VoyagesApi.ReplaceBerthAllocationAsync(
+                VoyageId, stopId,
+                new ReplaceBerthAllocationWebRequest(berthId, CombineUtc(berthArrivalDate, berthArrivalTime), CombineUtc(berthDepartureDate, berthDepartureTime), berthReason),
                 disposeCancellation.Token);
 
             if (disposeCancellation.IsCancellationRequested)
@@ -330,11 +473,11 @@ public partial class VoyageTimeline : IDisposable
                 return;
             }
 
-            if (!result.IsSuccess)
+            if (!replacement.IsSuccess)
             {
-                actionFailure = result.Failure;
+                actionFailure = replacement.Failure;
 
-                if (result.Failure!.IsConflict || result.Failure.IsNotFound)
+                if (replacement.Failure!.IsConflict || replacement.Failure.IsNotFound)
                 {
                     await LoadAsync();
                 }
@@ -342,7 +485,7 @@ public partial class VoyageTimeline : IDisposable
                 return;
             }
 
-            actionSuccess = "Berth assigned.";
+            actionSuccess = "Berth allocation rescheduled.";
             CancelAction();
 
             await LoadAsync();
@@ -352,6 +495,9 @@ public partial class VoyageTimeline : IDisposable
             isActionSubmitting = false;
         }
     }
+
+    private bool IsReschedulingActiveStop => activeStopId is { } stopId
+        && itinerary?.Stops.FirstOrDefault(stop => stop.StopId == stopId)?.BerthId is not null;
 
     private async Task ConfirmStopActionAsync()
     {
@@ -455,6 +601,168 @@ public partial class VoyageTimeline : IDisposable
         finally
         {
             isSubmittingDelay = false;
+        }
+    }
+
+    internal bool IsDelayApplied(Guid delayId)
+    {
+        return estimateRevisions is not null
+            && estimateRevisions.Revisions.Any(revision => revision.DelayId == delayId);
+    }
+
+    internal VoyageEstimateStopModel? RevisedStop(Guid stopId)
+    {
+        return estimateRevisions?.Stops
+            .FirstOrDefault(stop => stop.StopId == stopId && stop.RevisedEta is not null);
+    }
+
+    internal static string FormatDelta(int minutes)
+    {
+        return minutes > 0
+            ? string.Create(CultureInfo.InvariantCulture, $"+{minutes} min")
+            : string.Create(CultureInfo.InvariantCulture, $"{minutes} min");
+    }
+
+    private async Task BeginImpactAsync(VoyageDelayModel delay)
+    {
+        impactDelayId = delay.DelayId;
+        impactPreview = null;
+        impactFailure = null;
+        impactSuccess = null;
+        impactReason = string.Empty;
+        isLoadingImpact = true;
+
+        try
+        {
+            var result = await VoyagesApi.PreviewDelayImpactAsync(
+                VoyageId,
+                delay.DelayId,
+                disposeCancellation.Token);
+
+            if (disposeCancellation.IsCancellationRequested)
+            {
+                return;
+            }
+
+            if (!result.IsSuccess)
+            {
+                impactFailure = result.Failure;
+
+                return;
+            }
+
+            impactPreview = result.Value;
+        }
+        finally
+        {
+            isLoadingImpact = false;
+        }
+    }
+
+    private void CancelImpact()
+    {
+        impactDelayId = null;
+        impactPreview = null;
+        impactFailure = null;
+        impactReason = string.Empty;
+    }
+
+    private async Task ApplyImpactAsync()
+    {
+        if (isApplyingImpact || impactDelayId is not { } delayId || impactPreview is null)
+        {
+            return;
+        }
+
+        isApplyingImpact = true;
+        impactFailure = null;
+
+        try
+        {
+            var request = new ApplyDelayImpactWebRequest(
+                impactReason,
+                impactPreview.Stops
+                    .Select(stop => new ApplyDelayImpactStopWebRequest(
+                        stop.StopId,
+                        stop.CurrentEta,
+                        stop.CurrentEtd,
+                        stop.ProposedEta,
+                        stop.ProposedEtd))
+                    .ToList());
+
+            var result = await VoyagesApi.ApplyDelayImpactAsync(
+                VoyageId,
+                delayId,
+                request,
+                disposeCancellation.Token);
+
+            if (disposeCancellation.IsCancellationRequested)
+            {
+                return;
+            }
+
+            if (!result.IsSuccess)
+            {
+                impactFailure = result.Failure;
+
+                if (result.Failure!.IsConflict || result.Failure.IsNotFound)
+                {
+                    impactPreview = null;
+
+                    await LoadAsync();
+                }
+
+                return;
+            }
+
+            impactSuccess = result.Value!.AlertCreated
+                ? "Revised estimates published and the operations team was alerted."
+                : "Revised estimates published. The operational alert could not be sent.";
+
+            CancelImpact();
+
+            await LoadAsync();
+        }
+        finally
+        {
+            isApplyingImpact = false;
+        }
+    }
+
+    private async Task RetryAlertAsync(Guid revisionBatchId)
+    {
+        if (retryingRevisionBatchId is not null)
+        {
+            return;
+        }
+
+        retryingRevisionBatchId = revisionBatchId;
+        alertFailure = null;
+
+        try
+        {
+            var result = await VoyagesApi.RetryEstimateRevisionAlertAsync(
+                VoyageId,
+                revisionBatchId,
+                disposeCancellation.Token);
+
+            if (disposeCancellation.IsCancellationRequested)
+            {
+                return;
+            }
+
+            if (!result.IsSuccess)
+            {
+                alertFailure = result.Failure;
+
+                return;
+            }
+
+            await LoadEstimateRevisionsAsync();
+        }
+        finally
+        {
+            retryingRevisionBatchId = null;
         }
     }
 

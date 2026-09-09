@@ -208,6 +208,7 @@ public partial class CargoBookingDetails : IDisposable
     private IReadOnlyList<CargoContainerRow> containers = [];
     private CargoApiFailure? containersFailure;
     private bool isLoadingContainers;
+    private Guid? selectedControlContainerId;
 
     private IReadOnlyList<CargoOperationRow> operations = [];
     private CargoApiFailure? operationsFailure;
@@ -228,6 +229,52 @@ public partial class CargoBookingDetails : IDisposable
     private int LoadedPercent => containers.Count == 0
         ? 0
         : (int)Math.Round(LoadedContainerCount * 100d / containers.Count);
+
+    private IReadOnlyList<ContainerControlRow> ContainerControls =>
+        details?.ContainerControls ?? [];
+
+    private CargoContainerRow? SelectedControlContainer =>
+        selectedControlContainerId is { } containerId
+            ? containers.FirstOrDefault(container => container.ContainerId == containerId)
+            : null;
+
+    private string? ControlStateFor(Guid containerId)
+    {
+        return ContainerControls
+            .FirstOrDefault(control => control.ContainerId == containerId)?
+            .State;
+    }
+
+    private void ToggleControl(Guid containerId)
+    {
+        selectedControlContainerId = selectedControlContainerId == containerId
+            ? null
+            : containerId;
+    }
+
+    private async Task RefreshAfterControlChangeAsync()
+    {
+        var requestedBookingId = BookingId;
+
+        CargoApiResult<CargoBookingDetailsModel> result;
+        try
+        {
+            result = await CargoApi.GetDetailsAsync(requestedBookingId, disposeCancellation.Token);
+        }
+        catch (OperationCanceledException) when (disposeCancellation.IsCancellationRequested)
+        {
+            return;
+        }
+
+        if (disposeCancellation.IsCancellationRequested
+            || requestedBookingId != BookingId
+            || !result.IsSuccess)
+        {
+            return;
+        }
+
+        details = result.Value;
+    }
 
     private async Task LoadExecutionAsync()
     {

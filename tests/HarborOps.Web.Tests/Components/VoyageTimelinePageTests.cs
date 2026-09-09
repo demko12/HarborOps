@@ -426,6 +426,11 @@ public sealed class VoyageTimelinePageTests : BunitContext
                 return Json(HttpStatusCode.OK, Schedule());
             }
 
+            if (request.RequestUri!.AbsolutePath.EndsWith("/estimate-revisions", StringComparison.Ordinal))
+            {
+                return Json(HttpStatusCode.OK, EstimateRevisions());
+            }
+
             if (request.Method != HttpMethod.Get)
             {
                 writes.Add((
@@ -508,6 +513,13 @@ public sealed class VoyageTimelinePageTests : BunitContext
     {
         return $$"""
             {"voyage":{"voyageId":"{{VoyageId}}","voyageNumber":"VOY-100","status":"Planned","routeId":null,"routeName":null,"departurePortId":"{{PortOneId}}","departurePortName":"Port of Bar","arrivalPortId":"{{PortTwoId}}","arrivalPortName":"Port of Kotor","plannedDeparture":"2026-09-01T08:00:00Z","plannedArrival":"2026-09-04T17:30:00Z"},"changes":[]}
+            """;
+    }
+
+    private static string EstimateRevisions()
+    {
+        return $$"""
+            {"voyageId":"{{VoyageId}}","stops":[],"revisions":[]}
             """;
     }
 

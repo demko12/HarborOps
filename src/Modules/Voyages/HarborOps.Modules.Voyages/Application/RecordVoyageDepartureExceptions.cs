@@ -1,9 +1,9 @@
 namespace HarborOps.Modules.Voyages.Application;
 
-internal sealed class VoyageNotFoundException(Guid voyageId)
+public sealed class VoyageNotFoundException(Guid voyageId)
     : Exception($"Voyage '{voyageId}' was not found.")
 {
-    internal Guid VoyageId { get; } = voyageId;
+    public Guid VoyageId { get; } = voyageId;
 }
 
 internal sealed class RecordVoyageDepartureValidationException(

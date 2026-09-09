@@ -175,7 +175,9 @@ internal sealed record VoyageItineraryStopModel(
     DateTime Etd,
     DateTime? Ata,
     DateTime? Atd,
-    string Status);
+    string Status,
+    decimal? Latitude = null,
+    decimal? Longitude = null);
 
 internal sealed record VoyageDelayModel(
     Guid DelayId,
@@ -209,6 +211,18 @@ internal sealed record PlanVoyageItineraryResult(Guid VoyageId, IReadOnlyList<Pl
 internal sealed record AssignBerthWebRequest(Guid? BerthId);
 
 internal sealed record AssignBerthResult(Guid StopId, Guid BerthId, DateTime StartTime, DateTime EndTime, string ScheduleStatus);
+
+internal sealed record BerthAvailabilityModel(Guid BerthId, string BerthName, decimal Length, decimal MaxDraft, bool IsAvailableForRequestedWindow, DateTime? NearestAvailableFromUtc, DateTime? NearestAvailableToUtc);
+
+internal sealed record BerthAvailability(Guid PortId, DateTime FromUtc, DateTime ToUtc, DateTime SearchHorizonEndsUtc, IReadOnlyList<BerthAvailabilityModel> Berths);
+
+internal sealed record ReplaceBerthAllocationWebRequest(Guid? BerthId, DateTime? PlannedArrivalUtc, DateTime? PlannedDepartureUtc, string? Reason);
+
+internal sealed record ReplacedBerthAllocation(Guid StopId, Guid BerthId, DateTime PlannedArrivalUtc, DateTime PlannedDepartureUtc, DateTime ChangedAtUtc);
+
+internal sealed record BerthAllocationHistoryItemModel(Guid ChangeId, Guid? PreviousBerthId, string? PreviousBerthName, Guid NewBerthId, string NewBerthName, DateTime PreviousPlannedArrivalUtc, DateTime PreviousPlannedDepartureUtc, DateTime NewPlannedArrivalUtc, DateTime NewPlannedDepartureUtc, string Reason, Guid ChangedByUserId, DateTime ChangedAtUtc);
+
+internal sealed record BerthAllocationHistory(Guid VoyageId, Guid StopId, IReadOnlyList<BerthAllocationHistoryItemModel> Changes);
 
 internal sealed record RecordStopArrivalWebRequest(DateTime ActualArrivalUtc);
 
@@ -282,3 +296,83 @@ internal sealed record VoyageScheduleChangeModel(
 internal sealed record VoyageSchedule(
     VoyageScheduleSummaryModel Voyage,
     IReadOnlyList<VoyageScheduleChangeModel> Changes);
+
+internal sealed record DelayImpactStopModel(
+    Guid StopId,
+    int StopOrder,
+    Guid PortId,
+    string PortName,
+    string Status,
+    DateTime CurrentEta,
+    DateTime CurrentEtd,
+    DateTime ProposedEta,
+    DateTime ProposedEtd,
+    int EtaDeltaMinutes,
+    int EtdDeltaMinutes);
+
+internal sealed record BerthConflictWarningModel(
+    Guid StopId,
+    int StopOrder,
+    Guid BerthId,
+    string BerthName,
+    DateTime ConflictStart,
+    DateTime ConflictEnd);
+
+internal sealed record DelayImpactPreview(
+    Guid VoyageId,
+    Guid DelayId,
+    int DelayMinutes,
+    DateTime PlannedArrival,
+    DateTime ProposedArrival,
+    int PlannedArrivalDeltaMinutes,
+    IReadOnlyList<DelayImpactStopModel> Stops,
+    IReadOnlyList<BerthConflictWarningModel> Warnings);
+
+internal sealed record ApplyDelayImpactStopWebRequest(
+    Guid VoyageStopId,
+    DateTime ExpectedEta,
+    DateTime ExpectedEtd,
+    DateTime Eta,
+    DateTime Etd);
+
+internal sealed record ApplyDelayImpactWebRequest(
+    string? Reason,
+    IReadOnlyList<ApplyDelayImpactStopWebRequest> Stops);
+
+internal sealed record EstimateRevisionStopChangeModel(
+    Guid StopId,
+    int StopOrder,
+    string PortName,
+    DateTime PreviousEta,
+    DateTime PreviousEtd,
+    DateTime NewEta,
+    DateTime NewEtd);
+
+internal sealed record VoyageEstimateRevisionModel(
+    Guid RevisionBatchId,
+    Guid DelayId,
+    string Reason,
+    Guid RevisedByUserId,
+    DateTime RevisedAtUtc,
+    bool AlertCreated,
+    IReadOnlyList<EstimateRevisionStopChangeModel> Changes);
+
+internal sealed record VoyageEstimateStopModel(
+    Guid StopId,
+    int StopOrder,
+    Guid PortId,
+    string PortName,
+    string Status,
+    DateTime PlannedEta,
+    DateTime PlannedEtd,
+    DateTime? RevisedEta,
+    DateTime? RevisedEtd,
+    DateTime? Ata,
+    DateTime? Atd);
+
+internal sealed record VoyageEstimateRevisions(
+    Guid VoyageId,
+    IReadOnlyList<VoyageEstimateStopModel> Stops,
+    IReadOnlyList<VoyageEstimateRevisionModel> Revisions);
+
+internal sealed record EstimateRevisionAlert(Guid RevisionBatchId, bool AlertCreated);

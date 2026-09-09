@@ -12,6 +12,8 @@ public sealed record GetVoyagesRequest
 
     public bool? IncludeActive { get; init; }
 
+    public bool? DelayImpactApplied { get; init; }
+
     public int? PageNumber { get; init; }
 
     public int? PageSize { get; init; }

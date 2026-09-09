@@ -45,6 +45,33 @@ public sealed class VoyagesApiClientTests
     }
 
     [Fact]
+    public async Task GetDelayedVoyageCountAsync_asks_the_board_endpoint_for_applied_delay_impacts()
+    {
+        HttpRequestMessage? captured = null;
+        using var httpClient = CreateHttpClient((request, _) =>
+        {
+            captured = request;
+            return Json(HttpStatusCode.OK, PageJson);
+        });
+
+        var result = await CreateClient(httpClient).GetDelayedVoyageCountAsync(
+            new DateOnly(2026, 9, 1),
+            new DateOnly(2026, 9, 30),
+            "VOY-6",
+            CancellationToken.None);
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal(1, result.Value!.TotalCount);
+        Assert.Equal("/api/voyages", captured!.RequestUri!.AbsolutePath);
+        Assert.Contains("from=2026-09-01", captured.RequestUri.Query, StringComparison.Ordinal);
+        Assert.Contains("to=2026-09-30", captured.RequestUri.Query, StringComparison.Ordinal);
+        Assert.Contains("search=VOY-6", captured.RequestUri.Query, StringComparison.Ordinal);
+        Assert.Contains("delayImpactApplied=true", captured.RequestUri.Query, StringComparison.Ordinal);
+        Assert.Contains("pageSize=1", captured.RequestUri.Query, StringComparison.Ordinal);
+        Assert.DoesNotContain("status=", captured.RequestUri.Query, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public async Task GetVoyagesAsync_sends_an_empty_status_when_no_status_is_selected()
     {
         HttpRequestMessage? captured = null;

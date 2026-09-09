@@ -34,9 +34,15 @@ public static class VoyagesModule
         services.AddScoped<PlanVoyageItineraryService>();
         services.AddScoped<IGetVoyageItineraryQuery, GetVoyageItineraryQuery>();
         services.AddScoped<AssignBerthService>();
+        services.AddScoped<IGetBerthAvailabilityQuery, GetBerthAvailabilityQuery>();
+        services.AddScoped<ReplaceBerthAllocationService>();
+        services.AddScoped<IGetBerthAllocationHistoryQuery, GetBerthAllocationHistoryQuery>();
         services.AddScoped<RecordStopArrivalService>();
         services.AddScoped<RecordStopDepartureService>();
         services.AddScoped<RecordDelayService>();
+        services.AddScoped<DelayImpactPreviewService>();
+        services.AddScoped<ApplyDelayImpactService>();
+        services.AddScoped<IGetVoyageEstimateRevisionsQuery, GetVoyageEstimateRevisionsQuery>();
         services.AddScoped<AmendVoyageScheduleService>();
         services.AddScoped<CancelVoyageService>();
         services.AddScoped<IGetVoyageScheduleChangesQuery, GetVoyageScheduleChangesQuery>();

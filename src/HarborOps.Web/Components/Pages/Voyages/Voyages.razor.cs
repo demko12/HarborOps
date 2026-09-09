@@ -43,6 +43,7 @@ public partial class Voyages
     private readonly List<VoyageListItemModel> voyages = [];
     private IReadOnlyDictionary<Guid, string> vesselNames = new Dictionary<Guid, string>();
     private readonly Dictionary<string, int?> statusCounts = new(StringComparer.Ordinal);
+    private int? delayedKpiCount;
     private readonly CancellationTokenSource actionCancellation = new();
 
     private bool masterDataKpiRequested;
@@ -668,6 +669,7 @@ public partial class Voyages
             voyages.Clear();
             totalCount = 0;
             statusCounts.Clear();
+            delayedKpiCount = null;
             return;
         }
 
@@ -709,6 +711,27 @@ public partial class Voyages
 
             statusCounts[status] = result.IsSuccess ? result.Value!.TotalCount : null;
         }
+
+        VoyagesApiResult<VoyagePage> delayedResult;
+        try
+        {
+            delayedResult = await VoyagesApi.GetDelayedVoyageCountAsync(
+                appliedFrom,
+                appliedTo,
+                appliedSearch,
+                cancellationToken);
+        }
+        catch (OperationCanceledException) when (disposeCancellation.IsCancellationRequested)
+        {
+            return;
+        }
+
+        if (disposeCancellation.IsCancellationRequested || requestVersion != loadVersion)
+        {
+            return;
+        }
+
+        delayedKpiCount = delayedResult.IsSuccess ? delayedResult.Value!.TotalCount : null;
     }
 
     private int? StatusCount(string status)

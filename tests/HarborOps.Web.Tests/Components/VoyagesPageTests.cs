@@ -87,14 +87,18 @@ public sealed class VoyagesPageTests : BunitContext
     }
 
     [Fact]
-    public void Summary_cards_show_a_count_for_each_tracked_status()
+    public void Summary_cards_show_a_count_for_each_board_metric()
     {
         respond = request =>
         {
             var query = request.RequestUri!.Query;
             var total = 22;
 
-            if (query.Contains("status=Planned", StringComparison.Ordinal))
+            if (query.Contains("delayImpactApplied=true", StringComparison.Ordinal))
+            {
+                total = 5;
+            }
+            else if (query.Contains("status=Planned", StringComparison.Ordinal))
             {
                 total = 7;
             }
@@ -120,7 +124,7 @@ public sealed class VoyagesPageTests : BunitContext
             Assert.Equal("7", values[0].TextContent.Trim());
             Assert.Equal("3", values[1].TextContent.Trim());
             Assert.Equal("12", values[2].TextContent.Trim());
-            Assert.Equal(Voyages.MissingValue, values[3].TextContent.Trim());
+            Assert.Equal("5", values[3].TextContent.Trim());
         });
     }
 
