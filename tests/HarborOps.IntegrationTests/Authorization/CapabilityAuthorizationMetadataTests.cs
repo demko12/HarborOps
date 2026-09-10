@@ -97,7 +97,13 @@ public sealed class CapabilityAuthorizationMetadataTests : IntegrationTestBase
             ["cargo"] = await _application.CreateAuthenticatedClientWithPermissionsAsync(Permissions.Cargo.Read, Permissions.Cargo.Manage),
             ["maintenance"] = await _application.CreateAuthenticatedClientWithPermissionsAsync(Permissions.Maintenance.Read, Permissions.Maintenance.Manage),
             ["compliance"] = await _application.CreateAuthenticatedClientWithPermissionsAsync(Permissions.Compliance.Read, Permissions.Compliance.Manage),
-            ["documents"] = await _application.CreateAuthenticatedClientWithPermissionsAsync(Permissions.Documents.Read, Permissions.Documents.Manage),
+            // Documents.Dispose is added on top of Read/Manage because two Documents
+            // endpoints (disposition approve/reject) opt out of the blanket per-route
+            // read/manage split via their own [Authorize] attribute and require this more
+            // specific capability instead - see CapabilityAuthorizationConvention's
+            // IAuthorizeData opt-out check.
+            ["documents"] = await _application.CreateAuthenticatedClientWithPermissionsAsync(
+                Permissions.Documents.Read, Permissions.Documents.Manage, Permissions.Documents.Dispose),
             ["reports"] = await _application.CreateAuthenticatedClientWithPermissionsAsync(
                 Permissions.Reports.Read,
                 Permissions.Reports.Manage,

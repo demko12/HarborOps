@@ -1247,6 +1247,59 @@ namespace HarborOps.Infrastructure.Persistence.Migrations
                     b.ToTable("MedicalExaminations", "crew");
                 });
 
+            modelBuilder.Entity("HarborOps.Modules.Documents.Domain.DispositionRequest", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("ConcurrencyToken")
+                        .IsConcurrencyToken()
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier")
+                        .HasDefaultValueSql("NEWID()");
+
+                    b.Property<DateTime?>("DecidedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("DecidedByUserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("DecisionReason")
+                        .HasMaxLength(2000)
+                        .HasColumnType("nvarchar(2000)");
+
+                    b.Property<Guid>("DocumentId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Reason")
+                        .IsRequired()
+                        .HasMaxLength(2000)
+                        .HasColumnType("nvarchar(2000)");
+
+                    b.Property<DateTime>("RequestedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid>("RequestedByUserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("SnapshotLifecycleTriggerAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("SnapshotRetentionPeriodDays")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("DocumentId", "Status");
+
+                    b.ToTable("DispositionRequests", "documents");
+                });
+
             modelBuilder.Entity("HarborOps.Modules.Documents.Domain.Document", b =>
                 {
                     b.Property<Guid>("Id")
@@ -1305,6 +1358,12 @@ namespace HarborOps.Infrastructure.Persistence.Migrations
                         .HasColumnType("nvarchar(50)")
                         .HasDefaultValue("Draft");
 
+                    b.Property<DateTime?>("RevokedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("RevokedByUserId")
+                        .HasColumnType("uniqueidentifier");
+
                     b.Property<long?>("SizeBytes")
                         .HasColumnType("bigint");
 
@@ -1347,6 +1406,64 @@ namespace HarborOps.Infrastructure.Persistence.Migrations
                     b.ToTable(tb => tb.IsTemporal(ttb =>
                             {
                                 ttb.UseHistoryTable("DocumentsHistory", "documents");
+                                ttb
+                                    .HasPeriodStart("PeriodStart")
+                                    .HasColumnName("PeriodStart");
+                                ttb
+                                    .HasPeriodEnd("PeriodEnd")
+                                    .HasColumnName("PeriodEnd");
+                            }));
+                });
+
+            modelBuilder.Entity("HarborOps.Modules.Documents.Domain.DocumentRetentionState", b =>
+                {
+                    b.Property<Guid>("DocumentId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime?>("ArchivedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("ArchivedByUserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("ConcurrencyToken")
+                        .IsConcurrencyToken()
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier")
+                        .HasDefaultValueSql("NEWID()");
+
+                    b.Property<DateTime>("PeriodEnd")
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("datetime2")
+                        .HasColumnName("PeriodEnd");
+
+                    b.Property<DateTime>("PeriodStart")
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("datetime2")
+                        .HasColumnName("PeriodStart");
+
+                    b.Property<string>("PreDispositionState")
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<DateTime?>("RestoredAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("RestoredByUserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("State")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.HasKey("DocumentId");
+
+                    b.ToTable("DocumentRetentionStates", "documents");
+
+                    b.ToTable(tb => tb.IsTemporal(ttb =>
+                            {
+                                ttb.UseHistoryTable("DocumentRetentionStatesHistory", "documents");
                                 ttb
                                     .HasPeriodStart("PeriodStart")
                                     .HasColumnName("PeriodStart");
@@ -1415,6 +1532,55 @@ namespace HarborOps.Infrastructure.Persistence.Migrations
                     b.ToTable("DocumentTypes", "documents");
                 });
 
+            modelBuilder.Entity("HarborOps.Modules.Documents.Domain.LegalHold", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("ConcurrencyToken")
+                        .IsConcurrencyToken()
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier")
+                        .HasDefaultValueSql("NEWID()");
+
+                    b.Property<Guid>("DocumentId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("bit");
+
+                    b.Property<DateTime>("PlacedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid>("PlacedByUserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Reason")
+                        .IsRequired()
+                        .HasMaxLength(2000)
+                        .HasColumnType("nvarchar(2000)");
+
+                    b.Property<string>("Reference")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<string>("ReleaseReason")
+                        .HasMaxLength(2000)
+                        .HasColumnType("nvarchar(2000)");
+
+                    b.Property<DateTime?>("ReleasedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("ReleasedByUserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("DocumentId", "IsActive");
+
+                    b.ToTable("LegalHolds", "documents");
+                });
+
             modelBuilder.Entity("HarborOps.Modules.Documents.Domain.Notification", b =>
                 {
                     b.Property<int>("Id")
@@ -1447,6 +1613,25 @@ namespace HarborOps.Infrastructure.Persistence.Migrations
                     b.HasIndex("UserId");
 
                     b.ToTable("Notifications", "documents");
+                });
+
+            modelBuilder.Entity("HarborOps.Modules.Documents.Domain.RetentionPolicy", b =>
+                {
+                    b.Property<int>("DocumentTypeId")
+                        .HasColumnType("int");
+
+                    b.Property<Guid>("ConcurrencyToken")
+                        .IsConcurrencyToken()
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier")
+                        .HasDefaultValueSql("NEWID()");
+
+                    b.Property<int>("RetentionPeriodDays")
+                        .HasColumnType("int");
+
+                    b.HasKey("DocumentTypeId");
+
+                    b.ToTable("RetentionPolicies", "documents");
                 });
 
             modelBuilder.Entity("HarborOps.Modules.Fleet.Domain.Fleet", b =>
@@ -3376,6 +3561,15 @@ namespace HarborOps.Infrastructure.Persistence.Migrations
                     b.Navigation("Survey");
                 });
 
+            modelBuilder.Entity("HarborOps.Modules.Documents.Domain.DispositionRequest", b =>
+                {
+                    b.HasOne("HarborOps.Modules.Documents.Domain.Document", null)
+                        .WithMany()
+                        .HasForeignKey("DocumentId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("HarborOps.Modules.Documents.Domain.Document", b =>
                 {
                     b.HasOne("HarborOps.Modules.Documents.Domain.DocumentType", "DocumentType")
@@ -3394,6 +3588,15 @@ namespace HarborOps.Infrastructure.Persistence.Migrations
                     b.Navigation("PredecessorDocument");
                 });
 
+            modelBuilder.Entity("HarborOps.Modules.Documents.Domain.DocumentRetentionState", b =>
+                {
+                    b.HasOne("HarborOps.Modules.Documents.Domain.Document", null)
+                        .WithMany()
+                        .HasForeignKey("DocumentId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("HarborOps.Modules.Documents.Domain.DocumentReviewEvent", b =>
                 {
                     b.HasOne("HarborOps.Modules.Documents.Domain.Document", "Document")
@@ -3405,6 +3608,15 @@ namespace HarborOps.Infrastructure.Persistence.Migrations
                     b.Navigation("Document");
                 });
 
+            modelBuilder.Entity("HarborOps.Modules.Documents.Domain.LegalHold", b =>
+                {
+                    b.HasOne("HarborOps.Modules.Documents.Domain.Document", null)
+                        .WithMany()
+                        .HasForeignKey("DocumentId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("HarborOps.Modules.Documents.Domain.Notification", b =>
                 {
                     b.HasOne("HarborOps.Modules.Documents.Domain.Document", "Document")
@@ -3414,6 +3626,15 @@ namespace HarborOps.Infrastructure.Persistence.Migrations
                         .IsRequired();
 
                     b.Navigation("Document");
+                });
+
+            modelBuilder.Entity("HarborOps.Modules.Documents.Domain.RetentionPolicy", b =>
+                {
+                    b.HasOne("HarborOps.Modules.Documents.Domain.DocumentType", null)
+                        .WithMany()
+                        .HasForeignKey("DocumentTypeId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
                 });
 
             modelBuilder.Entity("HarborOps.Modules.Maintenance.Domain.InventoryItem", b =>

@@ -29,6 +29,14 @@ public static class DocumentsModule
         services.TryAddSingleton<IDateTimeProvider, SystemDateTimeProvider>();
         services.TryAddSingleton(TimeProvider.System);
 
+        services.AddScoped<IGetRetentionPoliciesQuery, GetRetentionPoliciesQuery>();
+        services.AddScoped<RetentionPolicyAdminService>();
+        services.AddScoped<IGetRetentionQueueQuery, GetRetentionQueueQuery>();
+        services.AddScoped<DocumentRetentionService>();
+        services.AddScoped<LegalHoldService>();
+        services.AddScoped<DispositionRequestService>();
+        services.AddScoped<IGetDocumentRetentionStateQuery, GetDocumentRetentionStateQuery>();
+
         services.Configure<DocumentFileValidationOptions>(
             configuration.GetSection(DocumentFileValidationOptions.SectionName));
         services.Configure<LocalDiskDocumentFileStorageOptions>(

@@ -48,6 +48,10 @@ public sealed class Document
 
     public Guid? SupersededByUserId { get; private set; }
 
+    public DateTime? RevokedAtUtc { get; private set; }
+
+    public Guid? RevokedByUserId { get; private set; }
+
     public string? FileName { get; private set; }
 
     public string? StorageKey { get; private set; }
@@ -218,6 +222,8 @@ public sealed class Document
         }
 
         Status = RevokedStatus;
+        RevokedAtUtc = utcNow.UtcDateTime;
+        RevokedByUserId = actorId;
         ConcurrencyToken = Guid.NewGuid();
     }
 }

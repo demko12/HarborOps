@@ -121,11 +121,14 @@ public sealed class DocumentReviewWorkflowTests
     {
         var document = CreateApprovedActiveDocument();
         var tokenBefore = document.ConcurrencyToken;
+        var actorId = Guid.NewGuid();
 
-        document.Revoke(Guid.NewGuid(), "No longer valid.", FixedUtcNow);
+        document.Revoke(actorId, "No longer valid.", FixedUtcNow);
 
         Assert.Equal(Document.RevokedStatus, document.Status);
         Assert.Equal(Document.ApprovedReviewStatus, document.ReviewStatus);
+        Assert.Equal(FixedUtcNow.UtcDateTime, document.RevokedAtUtc);
+        Assert.Equal(actorId, document.RevokedByUserId);
         Assert.NotEqual(tokenBefore, document.ConcurrencyToken);
     }
 

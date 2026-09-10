@@ -109,8 +109,8 @@
                                 @onkeydown="(args) => HandleRowKeyDown(args, row.DefectId)">
                                 <td><span class="maintenance-title">@row.Title</span></td>
                                 <td class="col-vessel">@row.VesselDisplayName</td>
-                                <td><span class="maintenance-status status-@MaintenanceFormat.StatusModifier(row.Status)">@row.Status</span></td>
-                                <td>@row.EffectiveSeverity</td>
+                                <td><span class="maintenance-status @MaintenanceFormat.StatusModifier(row.Status)">@row.Status</span></td>
+                                <td><span class="maintenance-priority priority-@MaintenanceFormat.PriorityModifier(row.EffectiveSeverity)">@row.EffectiveSeverity</span></td>
                                 <td class="maintenance-muted">@MaintenanceFormat.CreatedUtc(row.ReportedAtUtc)</td>
                             </tr>
                         }
