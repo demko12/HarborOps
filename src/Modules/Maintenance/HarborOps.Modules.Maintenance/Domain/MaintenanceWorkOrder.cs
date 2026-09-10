@@ -61,6 +61,10 @@ internal sealed class MaintenanceWorkOrder
 
     public DateTime? CompletedUtc { get; private set; }
 
+    public Guid? SourceScheduleId { get; private set; }
+
+    public DateOnly? SourceOccurrenceDueDate { get; private set; }
+
     internal static MaintenanceWorkOrder Create(
         Guid vesselId,
         string title,
@@ -82,6 +86,27 @@ internal sealed class MaintenanceWorkOrder
             dueUtc,
             DateTime.UtcNow,
             null);
+    }
+
+    internal static MaintenanceWorkOrder CreateFromSchedule(
+        Guid vesselId,
+        string title,
+        string? description,
+        WorkOrderPriority priority,
+        Guid scheduleId,
+        DateOnly occurrenceDueDate)
+    {
+        var workOrder = Create(
+            vesselId,
+            title,
+            description,
+            priority,
+            PreventiveWorkDueTime.ForDueDate(occurrenceDueDate));
+
+        workOrder.SourceScheduleId = scheduleId;
+        workOrder.SourceOccurrenceDueDate = occurrenceDueDate;
+
+        return workOrder;
     }
 
     internal IReadOnlyList<WorkOrderAction> AllowedActions => AllowedActionsFor(Status);

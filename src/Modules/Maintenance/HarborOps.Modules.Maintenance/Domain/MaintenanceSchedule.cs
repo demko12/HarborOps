@@ -90,4 +90,21 @@ internal sealed class MaintenanceSchedule
             _ => null,
         };
     }
+
+    internal bool TryGetTimeBasedFrequency(out MaintenanceFrequency frequency)
+    {
+        return TryGetFrequency(out frequency)
+            && ScheduleOccurrenceCalculator.IsTimeBased(frequency)
+            && NextDueDate.HasValue;
+    }
+
+    internal void AdvanceAfterOccurrence(MaintenanceFrequency frequency, DateOnly occurrenceDueDate)
+    {
+        if (NextDueDate is { } currentDueDate && currentDueDate > occurrenceDueDate)
+        {
+            return;
+        }
+
+        NextDueDate = ScheduleOccurrenceCalculator.Advance(occurrenceDueDate, frequency, 1);
+    }
 }

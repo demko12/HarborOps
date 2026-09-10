@@ -57,5 +57,20 @@ internal sealed class MaintenanceWorkOrderConfiguration : IEntityTypeConfigurati
             .WithMany()
             .HasForeignKey(workOrder => workOrder.DryDockId)
             .OnDelete(DeleteBehavior.Restrict);
+
+        builder.Property(workOrder => workOrder.SourceScheduleId);
+
+        builder.Property(workOrder => workOrder.SourceOccurrenceDueDate);
+
+        builder.HasIndex(workOrder => new
+        {
+            workOrder.SourceScheduleId,
+            workOrder.SourceOccurrenceDueDate,
+        });
+
+        builder.HasOne<MaintenanceSchedule>()
+            .WithMany()
+            .HasForeignKey(workOrder => workOrder.SourceScheduleId)
+            .OnDelete(DeleteBehavior.Restrict);
     }
 }

@@ -45,6 +45,8 @@ public sealed class CompleteMaintenanceWorkOrderService(DbContext dbContext, Tim
             throw new CompleteMaintenanceWorkOrderConflictException(exception.WorkOrderId, exception.CurrentStatus);
         }
 
+        await AdvanceScheduleAsync(workOrder, completedUtc, cancellationToken);
+
         var maintenanceRecord = MaintenanceRecord.Create
             (workOrder.Id,
             technicianId,
@@ -60,5 +62,51 @@ public sealed class CompleteMaintenanceWorkOrderService(DbContext dbContext, Tim
             workOrder.Id,
             maintenanceRecord.Id,
             workOrder.CompletedUtc!.Value);
+    }
+
+    private async Task AdvanceScheduleAsync(
+    MaintenanceWorkOrder workOrder,
+    DateTime completedUtc,
+    CancellationToken cancellationToken)
+    {
+        if (workOrder.SourceScheduleId is not { } scheduleId
+            || workOrder.SourceOccurrenceDueDate is not { } dueDate)
+        {
+            return;
+        }
+
+        var occurrence = await dbContext.Set<ScheduleOccurrence>()
+            .SingleOrDefaultAsync(
+                candidate => candidate.ScheduleId == scheduleId && candidate.DueDate == dueDate,
+                cancellationToken);
+
+        if (occurrence is null || !occurrence.IsLinkedTo(workOrder.Id))
+        {
+            throw new PreventiveWorkCompletionLinkInvalidException(workOrder.Id, scheduleId, dueDate);
+        }
+
+        var schedule = await dbContext.Set<MaintenanceSchedule>()
+            .SingleOrDefaultAsync(candidate => candidate.Id == scheduleId, cancellationToken);
+
+        if (schedule is null)
+        {
+            throw new MaintenanceScheduleNotFoundException(scheduleId);
+        }
+
+        if (!schedule.TryGetFrequency(out var frequency) || !ScheduleOccurrenceCalculator.IsTimeBased(frequency))
+        {
+            throw new MaintenanceScheduleNotTimeBasedException(schedule.Id, schedule.Frequency);
+        }
+
+        try
+        {
+            occurrence.MarkCompleted(workOrder.Id, completedUtc);
+        }
+        catch (ScheduleOccurrenceTransitionNotAllowedException)
+        {
+            throw new PreventiveWorkCompletionLinkInvalidException(workOrder.Id, scheduleId, dueDate);
+        }
+
+        schedule.AdvanceAfterOccurrence(frequency, occurrence.DueDate);
     }
 }

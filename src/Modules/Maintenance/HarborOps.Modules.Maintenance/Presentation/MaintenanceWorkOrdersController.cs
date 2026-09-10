@@ -109,6 +109,24 @@ public class MaintenanceWorkOrdersController(
                 Detail = exception.Message,
             });
         }
+        catch (PreventiveWorkCompletionLinkInvalidException exception)
+        {
+            return Conflict(new ProblemDetails
+            {
+                Status = StatusCodes.Status409Conflict,
+                Title = "Preventive completion link is invalid.",
+                Detail = exception.Message,
+            });
+        }
+        catch (MaintenanceScheduleNotTimeBasedException exception)
+        {
+            return Conflict(new ProblemDetails
+            {
+                Status = StatusCodes.Status409Conflict,
+                Title = "Maintenance schedule is not time based.",
+                Detail = exception.Message,
+            });
+        }
     }
 
     [HttpPost("{workOrderId:guid}/parts/{partId:guid}/usage")]
@@ -406,6 +424,15 @@ public class MaintenanceWorkOrdersController(
                 Detail = exception.Message,
             });
 
+        }
+        catch (ScheduleOccurrenceTransitionNotAllowedException exception)
+        {
+            return Conflict(new ProblemDetails
+            {
+                Status = StatusCodes.Status409Conflict,
+                Title = "Schedule occurrence cannot be cancelled from its current state.",
+                Detail = exception.Message,
+            });
         }
     }
 

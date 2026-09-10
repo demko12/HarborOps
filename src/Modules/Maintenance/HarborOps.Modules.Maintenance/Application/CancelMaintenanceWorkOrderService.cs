@@ -20,12 +20,25 @@ public sealed class CancelMaintenanceWorkOrderService(DbContext dbContext, TimeP
         {
             throw new MaintenanceWorkOrderNotFoundException(workOrderId);
         }
+        var transitionedUtc = timeProvider.GetUtcNow().UtcDateTime;
 
         workOrder.Cancel();
 
-        await dbContext.SaveChangesAsync(cancellationToken);
+        if (workOrder.SourceScheduleId is { } scheduleId
+            && workOrder.SourceOccurrenceDueDate is { } dueDate)
+        {
+            var occurrence = await dbContext.Set<ScheduleOccurrence>()
+                .SingleOrDefaultAsync(
+                    candidate => candidate.ScheduleId == scheduleId && candidate.DueDate == dueDate,
+                    cancellationToken);
 
-        var transitionedUtc = timeProvider.GetUtcNow().UtcDateTime;
+            if (occurrence is not null && occurrence.IsLinkedTo(workOrder.Id))
+            {
+                occurrence.MarkCancelled(workOrder.Id, transitionedUtc);
+            }
+        }
+
+        await dbContext.SaveChangesAsync(cancellationToken);
 
         return new MaintenanceWorkOrderTransitionResponse(
             workOrder.Id,

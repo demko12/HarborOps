@@ -49,6 +49,10 @@ public static class MaintenanceModule
         services.AddScoped<ReplaceWorkOrderPartReservationsService>();
         services.AddScoped<ReleaseWorkOrderPartReservationsService>();
         services.AddScoped<GetInventoryReplenishmentQuery>();
+        services.AddScoped<GetPreventiveWorkForecastQuery>();
+        services.AddScoped<GeneratePreventiveWorkService>();
+        services.AddScoped<GetScheduleOccurrencesQuery>();
+        services.AddScoped<GetScheduleWorkOrdersQuery>();
         services.AddScoped<IVesselMaintenanceOverviewQuery>(serviceProvider =>
             serviceProvider.GetRequiredService<GetVesselMaintenanceOverviewService>());
         services.TryAddSingleton(TimeProvider.System);

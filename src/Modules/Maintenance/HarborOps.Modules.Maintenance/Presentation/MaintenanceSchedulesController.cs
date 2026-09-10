@@ -12,7 +12,9 @@ public sealed class MaintenanceSchedulesController(
     RegisterMaintenanceScheduleService registerMaintenanceScheduleService,
     GetMaintenanceSchedulesQuery getMaintenanceSchedulesQuery,
     GetMaintenanceScheduleDetailsQuery getMaintenanceScheduleDetailsQuery,
-    UpdateScheduleNextDueService updateScheduleNextDueService)
+    UpdateScheduleNextDueService updateScheduleNextDueService,
+    GetScheduleOccurrencesQuery getScheduleOccurrencesQuery,
+    GetScheduleWorkOrdersQuery getScheduleWorkOrdersQuery)
     : ControllerBase
 {
     [HttpPost]
@@ -115,6 +117,56 @@ public sealed class MaintenanceSchedulesController(
         catch (UpdateScheduleNextDueValidationException exception)
         {
             return BadRequest(ToValidationProblem(exception.Errors));
+        }
+        catch (MaintenanceScheduleNotFoundException exception)
+        {
+            return NotFound(ScheduleNotFound(exception));
+        }
+    }
+
+    [HttpGet("{scheduleId:guid}/occurrences")]
+    [Authorize("maintenance.read")]
+    [ProducesResponseType<GetScheduleOccurrencesResponse>(StatusCodes.Status200OK)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]
+    public async Task<ActionResult<GetScheduleOccurrencesResponse>> GetOccurrences(
+    Guid scheduleId,
+    CancellationToken cancellationToken)
+    {
+        try
+        {
+            var response = await getScheduleOccurrencesQuery.GetOccurrencesAsync(scheduleId, cancellationToken);
+
+            return Ok(response);
+        }
+        catch (MaintenanceScheduleNotFoundException exception)
+        {
+            return NotFound(ScheduleNotFound(exception));
+        }
+        catch (MaintenanceScheduleNotTimeBasedException exception)
+        {
+            return Conflict(new ProblemDetails
+            {
+                Status = StatusCodes.Status409Conflict,
+                Title = "Maintenance schedule is not time based.",
+                Detail = exception.Message,
+            });
+        }
+    }
+
+    [HttpGet("{scheduleId:guid}/work-orders")]
+    [Authorize("maintenance.read")]
+    [ProducesResponseType<GetScheduleWorkOrdersResponse>(StatusCodes.Status200OK)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<GetScheduleWorkOrdersResponse>> GetWorkOrders(
+        Guid scheduleId,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            var response = await getScheduleWorkOrdersQuery.GetWorkOrdersAsync(scheduleId, cancellationToken);
+
+            return Ok(response);
         }
         catch (MaintenanceScheduleNotFoundException exception)
         {
