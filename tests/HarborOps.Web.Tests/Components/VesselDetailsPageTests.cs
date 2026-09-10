@@ -231,6 +231,28 @@ public sealed class VesselDetailsPageTests : BunitContext
     }
 
     [Fact]
+    public void The_report_defect_link_is_offered_with_the_maintenance_manage_permission()
+    {
+        var page = RenderDetailsPage(permissions: "maintenance.manage");
+
+        var link = page.Find(".vessel-defect-card .vessel-card-edit");
+
+        Assert.Equal($"/maintenance/defects/report?vesselId={VesselId}", link.GetAttribute("href"));
+    }
+
+    [Fact]
+    public void The_report_defect_link_is_withheld_without_the_maintenance_manage_permission()
+    {
+        var page = RenderDetailsPage(permissions: CurrentUserAuthorizationState.FleetManagePermission);
+
+        Assert.Empty(page.FindAll(".vessel-defect-card .vessel-card-edit"));
+        Assert.Contains(
+            "does not have permission to report maintenance defects",
+            page.Find(".vessel-defect-card").TextContent,
+            StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void The_status_form_is_withheld_from_a_read_only_operator()
     {
         var page = RenderDetailsPage(permissions: CurrentUserAuthorizationState.FleetReadPermission);

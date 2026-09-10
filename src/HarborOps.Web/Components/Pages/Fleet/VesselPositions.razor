@@ -152,6 +152,10 @@
 								<p class="positions-overview-meta">
 									@FormatTimestamp(vessel.LastPositionReportedAtUtc) &middot; @(vessel.FleetName ?? "Unassigned")
 								</p>
+								@if (CanReportDefects)
+								{
+									<a href="@($"/maintenance/defects/report?vesselId={vessel.VesselId}")">Report defect</a>
+								}
 							</li>
 						}
 					</ul>

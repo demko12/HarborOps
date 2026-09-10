@@ -49,6 +49,12 @@ public static class MaintenanceModule
         services.AddScoped<ReplaceWorkOrderPartReservationsService>();
         services.AddScoped<ReleaseWorkOrderPartReservationsService>();
         services.AddScoped<GetInventoryReplenishmentQuery>();
+        services.AddScoped<RegisterDefectService>();
+        services.AddScoped<TriageDefectService>();
+        services.AddScoped<RejectDefectService>();
+        services.AddScoped<ConvertDefectToWorkOrderService>();
+        services.AddScoped<GetDefectsQuery>();
+        services.AddScoped<GetDefectByIdQuery>();
         services.AddScoped<GetPreventiveWorkForecastQuery>();
         services.AddScoped<GeneratePreventiveWorkService>();
         services.AddScoped<GetScheduleOccurrencesQuery>();

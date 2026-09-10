@@ -107,6 +107,124 @@ internal sealed class ComplianceApiClient(HttpClient httpClient)
             "Unable to close non-conformity",
             cancellationToken);
 
+    internal Task<ComplianceApiResult<GetAuditPlansResponse>> GetAuditPlansAsync(
+        GetAuditPlansRequest request,
+        CancellationToken cancellationToken) =>
+        SendAsync<GetAuditPlansResponse>(
+            () => httpClient.GetAsync(
+                $"{BasePath}/audit-plans?{BuildAuditPlansQuery(request)}",
+                HttpCompletionOption.ResponseHeadersRead,
+                cancellationToken),
+            HttpStatusCode.OK,
+            "Unable to load audit plans",
+            cancellationToken);
+
+    internal Task<ComplianceApiResult<GetAuditPlanDetailResponse>> GetAuditPlanDetailAsync(
+        Guid auditPlanId,
+        CancellationToken cancellationToken) =>
+        SendAsync<GetAuditPlanDetailResponse>(
+            () => httpClient.GetAsync(
+                $"{BasePath}/audit-plans/{auditPlanId}",
+                HttpCompletionOption.ResponseHeadersRead,
+                cancellationToken),
+            HttpStatusCode.OK,
+            "Unable to load audit plan details",
+            cancellationToken);
+
+    internal Task<ComplianceApiResult<RegisterAuditPlanResponse>> RegisterAuditPlanAsync(
+        RegisterAuditPlanRequest request,
+        CancellationToken cancellationToken) =>
+        SendAsync<RegisterAuditPlanResponse>(
+            () => httpClient.PostAsJsonAsync($"{BasePath}/audit-plans", request, cancellationToken),
+            HttpStatusCode.Created,
+            "Unable to schedule audit plan",
+            cancellationToken);
+
+    internal Task<ComplianceApiResult<RescheduleAuditPlanResponse>> RescheduleAuditPlanAsync(
+        Guid auditPlanId,
+        RescheduleAuditPlanRequest request,
+        CancellationToken cancellationToken) =>
+        SendAsync<RescheduleAuditPlanResponse>(
+            () => httpClient.PutAsJsonAsync($"{BasePath}/audit-plans/{auditPlanId}/schedule", request, cancellationToken),
+            HttpStatusCode.OK,
+            "Unable to reschedule audit plan",
+            cancellationToken);
+
+    internal Task<ComplianceApiResult<AssignAuditPlanInspectorResponse>> AssignAuditPlanInspectorAsync(
+        Guid auditPlanId,
+        AssignAuditPlanInspectorRequest request,
+        CancellationToken cancellationToken) =>
+        SendAsync<AssignAuditPlanInspectorResponse>(
+            () => httpClient.PutAsJsonAsync($"{BasePath}/audit-plans/{auditPlanId}/assignment", request, cancellationToken),
+            HttpStatusCode.OK,
+            "Unable to assign inspector",
+            cancellationToken);
+
+    internal Task<ComplianceApiResult<StartAuditPlanResponse>> StartAuditPlanAsync(
+        Guid auditPlanId,
+        CancellationToken cancellationToken) =>
+        SendAsync<StartAuditPlanResponse>(
+            () => httpClient.PostAsync($"{BasePath}/audit-plans/{auditPlanId}/start", content: null, cancellationToken),
+            HttpStatusCode.OK,
+            "Unable to start audit plan",
+            cancellationToken);
+
+    internal Task<ComplianceApiResult<CompleteAuditPlanResponse>> CompleteAuditPlanAsync(
+        Guid auditPlanId,
+        CompleteAuditPlanRequest request,
+        CancellationToken cancellationToken) =>
+        SendAsync<CompleteAuditPlanResponse>(
+            () => httpClient.PostAsJsonAsync($"{BasePath}/audit-plans/{auditPlanId}/complete", request, cancellationToken),
+            HttpStatusCode.OK,
+            "Unable to complete audit plan",
+            cancellationToken);
+
+    internal Task<ComplianceApiResult<CancelAuditPlanResponse>> CancelAuditPlanAsync(
+        Guid auditPlanId,
+        CancelAuditPlanRequest request,
+        CancellationToken cancellationToken) =>
+        SendAsync<CancelAuditPlanResponse>(
+            () => httpClient.PostAsJsonAsync($"{BasePath}/audit-plans/{auditPlanId}/cancel", request, cancellationToken),
+            HttpStatusCode.OK,
+            "Unable to cancel audit plan",
+            cancellationToken);
+
+    private static string BuildAuditPlansQuery(GetAuditPlansRequest request)
+    {
+        var parameters = new List<string>
+        {
+            $"pageNumber={request.PageNumber}",
+            $"pageSize={request.PageSize}",
+        };
+
+        if (request.VesselId is not null)
+        {
+            parameters.Add($"vesselId={request.VesselId}");
+        }
+
+        if (!string.IsNullOrWhiteSpace(request.Type))
+        {
+            parameters.Add($"type={Uri.EscapeDataString(request.Type)}");
+        }
+
+        if (!string.IsNullOrWhiteSpace(request.Status))
+        {
+            parameters.Add($"status={Uri.EscapeDataString(request.Status)}");
+        }
+
+        if (request.From is { } from)
+        {
+            parameters.Add($"from={from:yyyy-MM-dd}");
+        }
+
+        if (request.To is { } to)
+        {
+            parameters.Add($"to={to:yyyy-MM-dd}");
+        }
+
+        return string.Join("&", parameters);
+    }
+
     private static string BuildNonConformitiesQuery(GetNonConformitiesRequest request)
     {
         var parameters = new List<string>
