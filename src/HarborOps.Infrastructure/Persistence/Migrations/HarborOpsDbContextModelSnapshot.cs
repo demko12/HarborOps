@@ -1972,6 +1972,12 @@ namespace HarborOps.Infrastructure.Persistence.Migrations
                         .HasMaxLength(20)
                         .HasColumnType("nvarchar(20)");
 
+                    b.Property<DateOnly?>("SourceOccurrenceDueDate")
+                        .HasColumnType("date");
+
+                    b.Property<Guid?>("SourceScheduleId")
+                        .HasColumnType("uniqueidentifier");
+
                     b.Property<string>("Status")
                         .IsRequired()
                         .HasMaxLength(20)
@@ -1988,6 +1994,8 @@ namespace HarborOps.Infrastructure.Persistence.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("DryDockId");
+
+                    b.HasIndex("SourceScheduleId", "SourceOccurrenceDueDate");
 
                     b.ToTable("MaintenanceWorkOrders", "maintenance");
 
@@ -2089,6 +2097,44 @@ namespace HarborOps.Infrastructure.Persistence.Migrations
                     b.HasIndex("EquipmentId");
 
                     b.ToTable("ScheduleEquipment", "maintenance");
+                });
+
+            modelBuilder.Entity("HarborOps.Modules.Maintenance.Domain.ScheduleOccurrence", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateOnly>("DueDate")
+                        .HasColumnType("date");
+
+                    b.Property<DateTime>("GeneratedUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("ReplacedWorkOrderId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime?>("ResolvedUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid>("ScheduleId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("State")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<Guid>("WorkOrderId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("WorkOrderId");
+
+                    b.HasIndex("ScheduleId", "DueDate")
+                        .IsUnique();
+
+                    b.ToTable("ScheduleOccurrences", "maintenance");
                 });
 
             modelBuilder.Entity("HarborOps.Modules.Maintenance.Domain.Supplier", b =>
@@ -3450,6 +3496,11 @@ namespace HarborOps.Infrastructure.Persistence.Migrations
                         .WithMany()
                         .HasForeignKey("DryDockId")
                         .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("HarborOps.Modules.Maintenance.Domain.MaintenanceSchedule", null)
+                        .WithMany()
+                        .HasForeignKey("SourceScheduleId")
+                        .OnDelete(DeleteBehavior.Restrict);
                 });
 
             modelBuilder.Entity("HarborOps.Modules.Maintenance.Domain.PurchaseOrder", b =>
@@ -3487,6 +3538,21 @@ namespace HarborOps.Infrastructure.Persistence.Migrations
                     b.HasOne("HarborOps.Modules.Maintenance.Domain.MaintenanceSchedule", null)
                         .WithMany()
                         .HasForeignKey("ScheduleId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("HarborOps.Modules.Maintenance.Domain.ScheduleOccurrence", b =>
+                {
+                    b.HasOne("HarborOps.Modules.Maintenance.Domain.MaintenanceSchedule", null)
+                        .WithMany()
+                        .HasForeignKey("ScheduleId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("HarborOps.Modules.Maintenance.Domain.MaintenanceWorkOrder", null)
+                        .WithMany()
+                        .HasForeignKey("WorkOrderId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
                 });
