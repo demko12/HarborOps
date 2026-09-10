@@ -175,6 +175,108 @@
 			</section>
 		</div>
 
+		<section class="work-order-card" aria-labelledby="work-order-reservations-title">
+			<div class="work-order-card-heading">
+				<div>
+					<h2 id="work-order-reservations-title">Part reservations</h2>
+					<p>Stock held for this work order before execution</p>
+				</div>
+				<div class="work-order-card-heading-actions">
+					@if (CanChangeReservations)
+					{
+						<button type="button"
+								class="work-order-button work-order-reservations-edit"
+								disabled="@(isActing || isReservationsLoading)"
+								@onclick="OpenReservationEditorAsync">
+							Change reservations
+						</button>
+					}
+					@if (CanReleaseReservations)
+					{
+						<button type="button"
+								class="work-order-quiet-button work-order-reservations-release"
+								disabled="@isActing"
+								@onclick="() => AskToConfirm(ReleaseReservationsAction)">
+							Release reservations
+						</button>
+					}
+					<span class="work-order-card-icon" aria-hidden="true"><span class="bi bi-bookmark-check"></span></span>
+				</div>
+			</div>
+
+			@if (isReservationsLoading)
+			{
+				<LoadingState Message="Loading part reservations..." />
+			}
+			else if (reservationsFailure is not null)
+			{
+				<ApiErrorState Title="@reservationsFailure.Title"
+							   Message="@reservationsFailure.Message"
+							   OnRetry="RetryReservationsAsync" />
+			}
+			else if (reservations.Count == 0)
+			{
+				<p class="work-order-details-note">
+					No parts are reserved for this work order.
+					@if (CanChangeReservations)
+					{
+						<span>Reserve them before the work starts so procurement sees the shortages.</span>
+					}
+				</p>
+			}
+			else
+			{
+				@if (HasReservationShortages)
+				{
+					<div class="work-order-details-warning" role="status">
+						<span>
+							@ShortageCount of @reservations.Count reserved parts are short by
+							@MaintenanceFormat.Quantity(TotalReservationShortage) in total.
+							This work order cannot start until every reservation is covered.
+						</span>
+						<a href="/maintenance?tab=replenishment">Open the replenishment board</a>
+					</div>
+				}
+
+				<div class="work-order-table-scroll">
+					<table class="work-order-table work-order-reservations-table">
+						<caption class="visually-hidden">Parts reserved for this work order</caption>
+						<thead>
+							<tr>
+								<th scope="col">Part</th>
+								<th scope="col">Part number</th>
+								<th scope="col" class="numeric">Requested</th>
+								<th scope="col" class="numeric">Reserved</th>
+								<th scope="col" class="numeric">Used</th>
+								<th scope="col" class="numeric">Still held</th>
+								<th scope="col" class="numeric">Available</th>
+								<th scope="col">State</th>
+							</tr>
+						</thead>
+						<tbody>
+							@foreach (var reservation in reservations)
+							{
+								<tr @key="reservation.InventoryItemId">
+									<td>@reservation.Name</td>
+									<td class="work-order-muted">@reservation.PartNumber</td>
+									<td class="numeric">@MaintenanceFormat.Quantity(reservation.QuantityRequested)</td>
+									<td class="numeric">@MaintenanceFormat.Quantity(reservation.QuantityReserved)</td>
+									<td class="numeric">@MaintenanceFormat.Quantity(reservation.QuantityConsumed)</td>
+									<td class="numeric">@MaintenanceFormat.Quantity(reservation.QuantityRemaining)</td>
+									<td class="numeric">@MaintenanceFormat.Quantity(reservation.AvailableQuantity)</td>
+									<td>
+										<span class="work-order-reservation-state @MaintenanceFormat.ReservationModifier(reservation.ShortageQuantity, reservation.QuantityRemaining)">
+											@MaintenanceFormat.ReservationState(reservation.ShortageQuantity, reservation.QuantityRemaining)
+										</span>
+									</td>
+								</tr>
+							}
+						</tbody>
+					</table>
+				</div>
+			}
+		</section>
+
 		<section class="work-order-card" aria-labelledby="work-order-parts-title">
 			<div class="work-order-card-heading">
 				<div>
@@ -362,6 +464,143 @@
 								class="work-order-quiet-button work-order-confirm-dismiss"
 								@onclick="DismissConfirmation">
 							Keep as is
+						</button>
+					</div>
+				</section>
+			</div>
+		}
+
+		@if (isReservationEditorOpen)
+		{
+			<div class="work-order-modal-backdrop" @onclick="CloseReservationEditor">
+				<section class="work-order-modal"
+						 role="dialog"
+						 aria-modal="true"
+						 aria-labelledby="work-order-reservation-editor-title"
+						 @onclick:stopPropagation="true">
+					<div class="work-order-modal-header">
+						<h2 id="work-order-reservation-editor-title">Change part reservations</h2>
+						<button type="button"
+								class="work-order-modal-close"
+								aria-label="Close reservation dialog"
+								disabled="@isSavingReservations"
+								@onclick="CloseReservationEditor">
+							&times;
+						</button>
+					</div>
+
+					<p class="work-order-modal-note">
+						Saving replaces the whole reservation list. Stock that is not available yet is
+						reported as a shortage instead of being rejected.
+					</p>
+
+					<div class="work-order-reservation-search">
+						<label for="work-order-reservation-search-input">Find a part</label>
+						<input id="work-order-reservation-search-input"
+							   @bind="inventorySearchText"
+							   @bind:event="oninput"
+							   @bind:after="SearchInventoryAsync"
+							   disabled="@isSavingReservations"
+							   placeholder="Name or part number" />
+					</div>
+
+					@if (isInventoryLoading)
+					{
+						<LoadingState Message="Loading inventory items..." />
+					}
+					else if (inventoryFailure is not null)
+					{
+						<ApiErrorState Title="@inventoryFailure.Title"
+									   Message="@inventoryFailure.Message"
+									   OnRetry="SearchInventoryAsync" />
+					}
+
+					<ul class="work-order-reservation-rows">
+						@foreach (var row in reservationRows)
+						{
+							<li @key="row.Key">
+								<select class="work-order-reservation-part"
+										aria-label="Part"
+										disabled="@isSavingReservations"
+										@bind="row.InventoryItemIdText">
+									<option value="">Select a part</option>
+									@if (IsMissingFromOptions(row) && row.InventoryItemId is { } current)
+									{
+										<option value="@current">@row.Label</option>
+									}
+									@foreach (var option in inventoryOptions)
+									{
+										<option value="@option.InventoryItemId">
+											@option.Name (@option.PartNumber) &middot; @MaintenanceFormat.Quantity(option.Quantity) in stock
+										</option>
+									}
+								</select>
+								<input type="number"
+									   class="work-order-reservation-quantity"
+									   aria-label="Quantity"
+									   step="0.001"
+									   min="0"
+									   disabled="@isSavingReservations"
+									   @bind="row.Quantity" />
+								<button type="button"
+										class="work-order-quiet-button work-order-reservation-remove"
+										aria-label="Remove part"
+										disabled="@isSavingReservations"
+										@onclick="() => RemoveReservationRow(row)">
+									Remove
+								</button>
+								@if (IsDuplicateReservationRow(row))
+								{
+									<span class="work-order-reservation-duplicate" role="alert">
+										This part is listed more than once.
+									</span>
+								}
+							</li>
+						}
+					</ul>
+
+					<button type="button"
+							class="work-order-quiet-button work-order-reservation-add"
+							disabled="@isSavingReservations"
+							@onclick="AddReservationRow">
+						Add part
+					</button>
+
+					@if (reservationEditorFailure is { IsValidation: true })
+					{
+						<div class="work-order-field-errors" role="alert">
+							<strong>Please correct the following before saving</strong>
+							<ul>
+								@foreach (var entry in reservationEditorFailure.Errors)
+								{
+									@foreach (var message in entry.Value)
+									{
+										<li>
+											<span class="work-order-error-field">@MaintenanceFormat.FieldLabel(entry.Key)</span>
+											<span>@message</span>
+										</li>
+									}
+								}
+							</ul>
+						</div>
+					}
+					else if (reservationEditorFailure is not null)
+					{
+						<div class="work-order-details-error" role="alert">@reservationEditorFailure.Message</div>
+					}
+
+					<div class="work-order-form-actions">
+						<button type="button"
+								class="work-order-button work-order-reservations-save"
+								disabled="@(!CanSaveReservations)"
+								@onclick="SaveReservationsAsync">
+							@(isSavingReservations ? "Saving..." : "Save reservations")
+						</button>
+						<button type="button"
+								class="work-order-quiet-button work-order-reservations-dismiss"
+								disabled="@isSavingReservations"
+								@onclick="CloseReservationEditor">
+							Cancel
 						</button>
 					</div>
 				</section>

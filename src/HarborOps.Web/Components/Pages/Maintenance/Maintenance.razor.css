@@ -2456,3 +2456,114 @@ html[data-theme="light"] .maintenance-page ::deep .procurement-line-table input,
 html[data-theme="light"] .maintenance-page ::deep .procurement-line-table select {
     color-scheme: light;
 }
+
+/* Replenishment board */
+
+.maintenance-page ::deep .summary-icon-red {
+    color: var(--status-danger);
+    border-color: rgba(248, 113, 113, .25);
+    background: rgba(248, 113, 113, .14);
+}
+
+.maintenance-page ::deep .summary-icon-green {
+    color: var(--status-success);
+    border-color: rgba(52, 211, 153, .25);
+    background: rgba(52, 211, 153, .14);
+}
+
+.maintenance-page ::deep .replenishment-table-scroll {
+    overflow-x: auto;
+}
+
+.maintenance-page ::deep .replenishment-table {
+    min-width: 82rem;
+}
+
+    /* The shared header rule breaks words anywhere, which mangles short numeric labels. */
+    .maintenance-page ::deep .replenishment-table th {
+        white-space: nowrap;
+        overflow-wrap: normal;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .maintenance-page ::deep .replenishment-table .col-part {
+        width: 12rem;
+    }
+
+    .maintenance-page ::deep .replenishment-table .col-part-number {
+        width: 8.5rem;
+    }
+
+    .maintenance-page ::deep .replenishment-table .col-supplier {
+        width: 10rem;
+    }
+
+    .maintenance-page ::deep .replenishment-table .col-stock {
+        width: 4.5rem;
+    }
+
+    .maintenance-page ::deep .replenishment-table .col-reserved,
+    .maintenance-page ::deep .replenishment-table .col-available,
+    .maintenance-page ::deep .replenishment-table .col-shortage,
+    .maintenance-page ::deep .replenishment-table .col-on-order {
+        width: 6rem;
+    }
+
+    .maintenance-page ::deep .replenishment-table .col-reorder {
+        width: 6.5rem;
+    }
+
+    .maintenance-page ::deep .replenishment-table .col-state {
+        width: 9.5rem;
+    }
+
+    .maintenance-page ::deep .replenishment-table .col-order {
+        width: 5.5rem;
+    }
+
+.maintenance-page ::deep .replenishment-order {
+    padding: .3rem .7rem;
+    font-size: .8rem;
+    white-space: nowrap;
+}
+
+.maintenance-page ::deep .replenishment-state {
+    display: inline-flex;
+    align-items: center;
+    padding: .18rem .55rem;
+    border-radius: var(--radius-pill);
+    font-size: .78rem;
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+    .maintenance-page ::deep .replenishment-state.critical {
+        color: var(--status-danger);
+        background: rgba(248, 113, 113, .14);
+    }
+
+    .maintenance-page ::deep .replenishment-state.low {
+        color: var(--status-warning);
+        background: rgba(251, 191, 36, .14);
+    }
+
+    .maintenance-page ::deep .replenishment-state.covered {
+        color: var(--status-success);
+        background: rgba(52, 211, 153, .14);
+    }
+
+html[data-theme="light"] .maintenance-page ::deep .replenishment-state.critical {
+    color: var(--status-danger-strong);
+    background: rgba(185, 28, 28, .1);
+}
+
+html[data-theme="light"] .maintenance-page ::deep .replenishment-state.low {
+    color: var(--status-warning-strong);
+    background: rgba(180, 83, 9, .12);
+}
+
+html[data-theme="light"] .maintenance-page ::deep .replenishment-state.covered {
+    color: var(--status-success-strong);
+    background: rgba(15, 118, 110, .12);
+}

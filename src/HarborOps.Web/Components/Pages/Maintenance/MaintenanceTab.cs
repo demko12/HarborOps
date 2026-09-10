@@ -8,4 +8,6 @@ internal enum MaintenanceTab
     DryDocks,
     PurchaseOrders,
     Suppliers,
+    Replenishment,
+    Defects,
 }

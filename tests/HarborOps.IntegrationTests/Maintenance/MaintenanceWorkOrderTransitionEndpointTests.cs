@@ -228,6 +228,104 @@ public sealed class MaintenanceWorkOrderTransitionEndpointTests : IntegrationTes
         Assert.Equal(WorkOrderStatus.Open, (await StoredAsync(workOrder.Id)).Status);
     }
 
+    [Fact]
+    public async Task Start_returns_409_when_a_reservation_is_not_fully_covered()
+    {
+        using var client = await _application.CreateAuthenticatedClientWithPermissionsAsync(
+            Permissions.Maintenance.Manage);
+        var workOrder = await SeedWorkOrderAsync(WorkOrderStatus.Open);
+        var filter = await SeedInventoryItemAsync("Main engine filter", "FILTER-001", quantity: 1m);
+        await SeedReservationAsync(workOrder.Id, filter.Id, requested: 5m, available: 1m);
+
+        using var response = await client.PostAsync(
+            ActionUri(workOrder.Id, "start"),
+            content: null,
+            CancellationToken.None);
+
+        Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
+        Assert.Equal(WorkOrderStatus.Open, (await StoredAsync(workOrder.Id)).Status);
+    }
+
+    [Fact]
+    public async Task Start_returns_200_when_every_reservation_is_covered()
+    {
+        using var client = await _application.CreateAuthenticatedClientWithPermissionsAsync(
+            Permissions.Maintenance.Manage);
+        var workOrder = await SeedWorkOrderAsync(WorkOrderStatus.Open);
+        var filter = await SeedInventoryItemAsync("Main engine filter", "FILTER-001", quantity: 10m);
+        await SeedReservationAsync(workOrder.Id, filter.Id, requested: 4m, available: 10m);
+
+        using var response = await client.PostAsync(
+            ActionUri(workOrder.Id, "start"),
+            content: null,
+            CancellationToken.None);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Equal(WorkOrderStatus.InProgress, (await StoredAsync(workOrder.Id)).Status);
+    }
+
+    [Fact]
+    public async Task A_shortage_on_another_work_order_does_not_block_the_start()
+    {
+        using var client = await _application.CreateAuthenticatedClientWithPermissionsAsync(
+            Permissions.Maintenance.Manage);
+        var workOrder = await SeedWorkOrderAsync(WorkOrderStatus.Open);
+        var other = await SeedWorkOrderAsync(WorkOrderStatus.Open);
+        var filter = await SeedInventoryItemAsync("Main engine filter", "FILTER-001", quantity: 1m);
+        await SeedReservationAsync(other.Id, filter.Id, requested: 5m, available: 1m);
+
+        using var response = await client.PostAsync(
+            ActionUri(workOrder.Id, "start"),
+            content: null,
+            CancellationToken.None);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+    }
+
+    private async Task<InventoryItem> SeedInventoryItemAsync(
+        string name,
+        string partNumber,
+        decimal quantity)
+    {
+        await using var scope = _application.Services.CreateAsyncScope();
+        var dbContext = scope.ServiceProvider.GetRequiredService<HarborOpsDbContext>();
+
+        var item = InventoryItem.Create(
+            Guid.NewGuid(),
+            Guid.NewGuid(),
+            Guid.NewGuid(),
+            name,
+            partNumber,
+            quantity,
+            minimumQuantity: 2m,
+            unitCost: 150m);
+
+        await dbContext.Set<InventoryItem>().AddAsync(item, CancellationToken.None);
+        await dbContext.SaveChangesAsync(CancellationToken.None);
+
+        return item;
+    }
+
+    private async Task SeedReservationAsync(
+        Guid workOrderId,
+        Guid inventoryItemId,
+        decimal requested,
+        decimal available)
+    {
+        await using var scope = _application.Services.CreateAsyncScope();
+        var dbContext = scope.ServiceProvider.GetRequiredService<HarborOpsDbContext>();
+
+        var reservation = WorkOrderPartReservation.Create(
+            workOrderId,
+            inventoryItemId,
+            requested,
+            available,
+            DateTime.UtcNow);
+
+        await dbContext.Set<WorkOrderPartReservation>().AddAsync(reservation, CancellationToken.None);
+        await dbContext.SaveChangesAsync(CancellationToken.None);
+    }
+
     private static Uri ActionUri(Guid workOrderId, string action)
     {
         return new Uri($"/api/maintenance/work-orders/{workOrderId}/{action}", UriKind.Relative);

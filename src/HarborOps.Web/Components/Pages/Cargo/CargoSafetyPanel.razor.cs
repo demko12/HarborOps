@@ -11,6 +11,75 @@ public partial class CargoSafetyPanel : IDisposable
     private const string ApproveAction = "approve";
     private const string RejectAction = "reject";
 
+    internal static readonly IReadOnlyList<ImdgClassOption> ImdgClasses =
+    [
+        new("1.1", "Explosives with a mass explosion hazard"),
+        new("1.2", "Explosives with a projection hazard"),
+        new("1.3", "Explosives with a fire hazard"),
+        new("1.4", "Explosives with no significant hazard"),
+        new("1.5", "Very insensitive explosives"),
+        new("1.6", "Extremely insensitive explosives"),
+        new("2.1", "Flammable gases"),
+        new("2.2", "Non-flammable, non-toxic gases"),
+        new("2.3", "Toxic gases"),
+        new("3", "Flammable liquids"),
+        new("4.1", "Flammable solids"),
+        new("4.2", "Substances liable to spontaneous combustion"),
+        new("4.3", "Substances which emit flammable gases with water"),
+        new("5.1", "Oxidising substances"),
+        new("5.2", "Organic peroxides"),
+        new("6.1", "Toxic substances"),
+        new("6.2", "Infectious substances"),
+        new("7", "Radioactive material"),
+        new("8", "Corrosive substances"),
+        new("9", "Miscellaneous dangerous goods"),
+    ];
+
+    internal sealed record ImdgClassOption(string Code, string Description);
+
+    private bool isImdgListOpen;
+
+    private IReadOnlyList<ImdgClassOption> FilteredImdgClasses
+    {
+        get
+        {
+            var search = safetyModel.ImdgClass?.Trim();
+
+            return string.IsNullOrEmpty(search)
+                ? ImdgClasses
+                : [.. ImdgClasses.Where(option => option.Code.StartsWith(
+                    search,
+                    StringComparison.OrdinalIgnoreCase))];
+        }
+    }
+
+    private void OnImdgInput(ChangeEventArgs args)
+    {
+        safetyModel.ImdgClass = args.Value?.ToString();
+        isImdgListOpen = true;
+    }
+
+    private void OnImdgChange(ChangeEventArgs args)
+    {
+        safetyModel.ImdgClass = args.Value?.ToString();
+    }
+
+    private void OpenImdgList()
+    {
+        isImdgListOpen = true;
+    }
+
+    private void CloseImdgList()
+    {
+        isImdgListOpen = false;
+    }
+
+    private void SelectImdgClass(string code)
+    {
+        safetyModel.ImdgClass = code;
+        isImdgListOpen = false;
+    }
+
     private static readonly IReadOnlyDictionary<string, string> SafetyFieldMap =
         new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
         {

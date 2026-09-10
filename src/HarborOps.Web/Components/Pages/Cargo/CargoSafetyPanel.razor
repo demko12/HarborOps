@@ -46,7 +46,37 @@ else
                 <div>
                     <dt><label for="safety-imdg-class">IMDG class</label></dt>
                     <dd>
-                        <InputText id="safety-imdg-class" @bind-Value="safetyModel.ImdgClass" />
+                        <div class="imdg-picker" @onfocusin="OpenImdgList" @onfocusout="CloseImdgList">
+                            <input id="safety-imdg-class"
+                                   class="imdg-picker-input"
+                                   type="text"
+                                   placeholder="e.g. 1.4S"
+                                   autocomplete="off"
+                                   role="combobox"
+                                   aria-expanded="@(isImdgListOpen ? "true" : "false")"
+                                   value="@safetyModel.ImdgClass"
+                                   @oninput="OnImdgInput"
+                                   @onchange="OnImdgChange" />
+
+                            @if (isImdgListOpen && FilteredImdgClasses.Count > 0)
+                            {
+                                <ul class="imdg-picker-dropdown" role="listbox">
+                                    @foreach (var imdgClass in FilteredImdgClasses)
+                                    {
+                                        <li>
+                                            <button type="button"
+                                                    class="imdg-picker-option"
+                                                    role="option"
+                                                    aria-selected="false"
+                                                    @onmousedown="() => SelectImdgClass(imdgClass.Code)">
+                                                <span class="imdg-picker-code">@imdgClass.Code</span>
+                                                <span class="imdg-picker-description">@imdgClass.Description</span>
+                                            </button>
+                                        </li>
+                                    }
+                                </ul>
+                            }
+                        </div>
                         <ValidationMessage For="() => safetyModel.ImdgClass" />
                     </dd>
                 </div>

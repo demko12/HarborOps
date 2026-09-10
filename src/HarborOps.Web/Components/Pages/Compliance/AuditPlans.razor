@@ -1,0 +1,821 @@
+@page "/compliance/audit-plans"
+@attribute [Microsoft.AspNetCore.Authorization.Authorize(Policy = "AccessCompliance")]
+@using HarborOps.Web.Api.Compliance
+@implements IDisposable
+@inject ComplianceApiClient ComplianceApi
+@inject CurrentUserAuthorizationState AuthorizationState
+
+<PageTitle>Audit plans | HarborOps</PageTitle>
+
+<section class="audit-plans-page">
+    <header class="audit-plans-header">
+        <div>
+            <nav class="page-breadcrumb" aria-label="Breadcrumb"><a href="/compliance">Compliance operations</a><span aria-hidden="true">/</span><span>Audit plans</span></nav>
+            <h1>Audit plans</h1>
+            <p>Schedule vessel surveys and audits, assign an accountable inspector, and track each plan through to a linked result.</p>
+        </div>
+        @if (AuthorizationState.CanManageCompliance)
+        {
+            <button type="button" class="audit-plans-add-button" @onclick="OpenCreateDialog">Schedule audit</button>
+        }
+    </header>
+
+    <div class="audit-plans-filters">
+        <div class="filter-field filter-field-wide">
+            <label for="audit-plans-vessel">Vessel</label>
+            <VesselPicker @key="vesselPickerResetToken" InputId="audit-plans-vessel" Value="vesselFilter" ValueChanged="OnVesselFilterChangedAsync" Placeholder="All vessels" />
+        </div>
+        <div class="filter-field">
+            <label for="audit-plans-type">Type</label>
+            <select id="audit-plans-type" @bind="typeFilter" @bind:after="SearchAsync">
+                <option value="">All types</option>
+                @foreach (var type in Types)
+                {
+                    <option value="@type">@type</option>
+                }
+            </select>
+        </div>
+        <div class="filter-field">
+            <label for="audit-plans-status">Status</label>
+            <select id="audit-plans-status" @bind="statusFilter" @bind:after="SearchAsync">
+                <option value="">All statuses</option>
+                @foreach (var status in Statuses)
+                {
+                    <option value="@status">@status</option>
+                }
+            </select>
+        </div>
+        <div class="filter-field">
+            <label for="audit-plans-from">From</label>
+            <input id="audit-plans-from" type="date" @bind="fromFilter" @bind:after="SearchAsync" />
+        </div>
+        <div class="filter-field">
+            <label for="audit-plans-to">To</label>
+            <input id="audit-plans-to" type="date" @bind="toFilter" @bind:after="SearchAsync" />
+        </div>
+        <div class="audit-plans-filter-actions">
+            <button type="button" class="audit-plans-reset-button" @onclick="ResetFiltersAsync" disabled="@isLoading">Reset</button>
+        </div>
+    </div>
+
+    <section class="audit-plans-card" aria-labelledby="audit-plans-list-title">
+        <div class="audit-plans-card-heading">
+            <div><h2 id="audit-plans-list-title">Planned audits</h2><p>@totalCount plans found</p></div>
+            <span class="bi bi-calendar-check" aria-hidden="true"></span>
+        </div>
+
+        @if (isLoading)
+        {
+            <LoadingState Message="Loading audit plans..." />
+        }
+        else if (failure is not null)
+        {
+            <ApiErrorState Title="@failure.Title" Message="@failure.Message" OnRetry="LoadAsync" />
+        }
+        else if (plans.Count == 0)
+        {
+            <EmptyState Title="No audit plans found" Message="Try another filter, or schedule the first audit." />
+        }
+        else
+        {
+            <div class="audit-plans-list-labels" aria-hidden="true">
+                <span>Type</span><span>Planned start</span><span>Due</span><span>Inspector</span><span>Status</span>
+            </div>
+            <div class="audit-plans-list">
+                @foreach (var plan in plans)
+                {
+                    <button type="button" class="audit-plans-row" @key="plan.Id" @onclick="() => OpenDetailAsync(plan.Id)">
+                        <div class="audit-plans-row-primary"><strong>@plan.Type</strong></div>
+                        <div class="audit-plans-row-cell">@plan.PlannedStartDate.ToString("dd MMM yyyy")</div>
+                        <div class="audit-plans-row-cell">@plan.DueDate.ToString("dd MMM yyyy")</div>
+                        <div class="audit-plans-row-cell">@(plan.AssignedInspectorUserId?.ToString() ?? "Unassigned")</div>
+                        <span class="compliance-badge @StatusClass(plan)">@(plan.IsOverdue ? "Overdue" : plan.Status)</span>
+                    </button>
+                }
+            </div>
+            <div class="audit-plans-pagination">
+                <span>Showing @FirstRowNumber&ndash;@LastRowNumber of @totalCount plans</span>
+                <div>
+                    <button type="button" @onclick="PreviousPageAsync" disabled="@(pageNumber <= 1)">Previous</button>
+                    <span class="audit-plans-page-indicator">Page @pageNumber of @TotalPages</span>
+                    <button type="button" @onclick="NextPageAsync" disabled="@(pageNumber >= TotalPages)">Next</button>
+                </div>
+            </div>
+        }
+    </section>
+
+    @if (selectedPlanId is not null)
+    {
+        <div class="audit-plans-modal-backdrop" role="presentation" @onclick="CloseDetail">
+            <section class="audit-plans-modal" role="dialog" aria-modal="true" aria-labelledby="audit-plan-detail-title" @onclick:stopPropagation="true">
+                <div class="audit-plans-modal-heading">
+                    <div>
+                        <p class="audit-plans-modal-eyebrow">Audit plan</p>
+                        <h2 id="audit-plan-detail-title">@(detail?.Type ?? "Loading...")</h2>
+                    </div>
+                    <button type="button" class="audit-plans-modal-close" @onclick="CloseDetail" aria-label="Close">
+                        <span class="bi bi-x-lg" aria-hidden="true"></span>
+                    </button>
+                </div>
+
+                @if (isLoadingDetail)
+                {
+                    <LoadingState Message="Loading plan details..." />
+                }
+                else if (detailFailure is not null)
+                {
+                    <ApiErrorState Title="@detailFailure.Title" Message="@detailFailure.Message" OnRetry="() => OpenDetailAsync(selectedPlanId!.Value)" />
+                }
+                else if (detail is not null)
+                {
+                    <dl class="audit-plans-modal-details">
+                        <div><dt>Status</dt><dd><span class="compliance-badge @StatusClass(detail)">@(detail.IsOverdue ? "Overdue" : detail.Status)</span></dd></div>
+                        <div><dt>Planned start</dt><dd>@detail.PlannedStartDate.ToString("dd MMM yyyy")</dd></div>
+                        <div><dt>Due date</dt><dd>@detail.DueDate.ToString("dd MMM yyyy")</dd></div>
+                        <div><dt>Assigned inspector</dt><dd>@(detail.AssignedInspectorUserId?.ToString() ?? "Unassigned")</dd></div>
+                        <div class="audit-plans-modal-details-wide"><dt>Scope</dt><dd>@detail.Scope</dd></div>
+                        @if (!string.IsNullOrWhiteSpace(detail.Notes))
+                        {
+                            <div class="audit-plans-modal-details-wide"><dt>Notes</dt><dd>@detail.Notes</dd></div>
+                        }
+                        @if (detail.SurveyAuditId is { } surveyAuditId)
+                        {
+                            <div class="audit-plans-modal-details-wide"><dt>Result</dt><dd><a href="/compliance/surveys">View survey #@surveyAuditId in the survey register</a></dd></div>
+                        }
+                    </dl>
+
+                    @if (actionSuccess is not null)
+                    {
+                        <div class="audit-plans-form-success" role="status">@actionSuccess</div>
+                    }
+
+                    @if (actionFailure is not null)
+                    {
+                        @if (actionFailure.IsValidation)
+                        {
+                            <ul class="audit-plans-form-field-errors" role="alert">
+                                @foreach (var message in actionFailure.Errors.Values.SelectMany(messages => messages))
+                                {
+                                    <li>@message</li>
+                                }
+                            </ul>
+                        }
+                        else if (actionFailure.IsConflict)
+                        {
+                            <div class="audit-plans-form-conflict" role="alert">@actionFailure.Message</div>
+                        }
+                        else
+                        {
+                            <div class="audit-plans-form-error" role="alert">@actionFailure.Message</div>
+                        }
+                    }
+
+                    @if (AuthorizationState.CanManageCompliance)
+                    {
+                        @if (isConfirmingStart)
+                        {
+                            <div class="audit-plans-confirm">
+                                <span>Start this audit now?</span>
+                                <button type="button" disabled="@isSubmittingAction" @onclick="ConfirmStartAsync">@(isSubmittingAction ? "Starting..." : "Yes, start")</button>
+                                <button type="button" disabled="@isSubmittingAction" @onclick="() => isConfirmingStart = false">Cancel</button>
+                            </div>
+                        }
+                        else if (activeAction is null)
+                        {
+                            <div class="audit-plans-action-buttons">
+                                @if (detail.Status == "Scheduled")
+                                {
+                                    <button type="button" @onclick='() => OpenAction("reschedule")'>Reschedule</button>
+                                }
+                                @if (detail.Status is "Scheduled" or "InProgress")
+                                {
+                                    <button type="button" @onclick='() => OpenAction("assign")'>@(detail.AssignedInspectorUserId is null ? "Assign inspector" : "Reassign inspector")</button>
+                                }
+                                @if (detail.Status == "Scheduled" && !isConfirmingStart)
+                                {
+                                    <button type="button" class="audit-plans-start-button" @onclick="() => isConfirmingStart = true" disabled="@(detail.AssignedInspectorUserId is null)">Start</button>
+                                }
+                                @if (detail.Status == "InProgress")
+                                {
+                                    <button type="button" @onclick='() => OpenAction("complete")'>Complete</button>
+                                }
+                                @if (detail.Status is "Scheduled" or "InProgress")
+                                {
+                                    <button type="button" class="audit-plans-danger-button" @onclick='() => OpenAction("cancel")'>Cancel plan</button>
+                                }
+                            </div>
+                        }
+                        else if (activeAction == "reschedule")
+                        {
+                            <form class="audit-plans-form-grid" @onsubmit="SubmitRescheduleAsync" @onsubmit:preventDefault="true">
+                                <div class="audit-plans-form-field"><label for="reschedule-start">Planned start date</label><input id="reschedule-start" type="date" @bind="rescheduleModel.PlannedStartDate" /></div>
+                                <div class="audit-plans-form-field"><label for="reschedule-due">Due date</label><input id="reschedule-due" type="date" @bind="rescheduleModel.DueDate" /></div>
+                                <div class="audit-plans-form-field audit-plans-form-field-wide"><label for="reschedule-reason">Reason</label><input id="reschedule-reason" type="text" @bind="rescheduleModel.Reason" maxlength="500" /></div>
+                                <button type="submit" class="audit-plans-form-submit" disabled="@isSubmittingAction">@(isSubmittingAction ? "Saving..." : "Save new schedule")</button>
+                                <button type="button" class="audit-plans-form-cancel" @onclick="CloseAction">Cancel</button>
+                            </form>
+                        }
+                        else if (activeAction == "assign")
+                        {
+                            <form class="audit-plans-form-grid" @onsubmit="SubmitAssignAsync" @onsubmit:preventDefault="true">
+                                <div class="audit-plans-form-field audit-plans-form-field-wide"><label for="assign-inspector">Inspector user ID</label><input id="assign-inspector" type="text" @bind="assignModel.InspectorUserId" placeholder="00000000-0000-0000-0000-000000000000" /></div>
+                                <div class="audit-plans-form-field audit-plans-form-field-wide"><label for="assign-reason">Reason (optional)</label><input id="assign-reason" type="text" @bind="assignModel.Reason" maxlength="500" /></div>
+                                <button type="submit" class="audit-plans-form-submit" disabled="@isSubmittingAction">@(isSubmittingAction ? "Saving..." : "Save assignment")</button>
+                                <button type="button" class="audit-plans-form-cancel" @onclick="CloseAction">Cancel</button>
+                            </form>
+                        }
+                        else if (activeAction == "complete")
+                        {
+                            <form class="audit-plans-form-grid" @onsubmit="SubmitCompleteAsync" @onsubmit:preventDefault="true">
+                                <div class="audit-plans-form-field"><label for="complete-result">Result</label><select id="complete-result" @bind="completeModel.Result"><option value="">Select...</option>@foreach (var result in Results) { <option value="@result">@result</option> }</select></div>
+                                <div class="audit-plans-form-field"><label for="complete-date">Actual audit date</label><input id="complete-date" type="date" @bind="completeModel.ActualAuditDate" /></div>
+                                <div class="audit-plans-form-field audit-plans-form-field-wide"><label for="complete-findings">Findings</label><input id="complete-findings" type="text" @bind="completeModel.Findings" maxlength="4000" /></div>
+                                <button type="submit" class="audit-plans-form-submit" disabled="@isSubmittingAction">@(isSubmittingAction ? "Completing..." : "Complete audit")</button>
+                                <button type="button" class="audit-plans-form-cancel" @onclick="CloseAction">Cancel</button>
+                            </form>
+                        }
+                        else if (activeAction == "cancel")
+                        {
+                            <form class="audit-plans-form-grid" @onsubmit="SubmitCancelAsync" @onsubmit:preventDefault="true">
+                                <div class="audit-plans-form-field audit-plans-form-field-wide"><label for="cancel-reason">Reason</label><input id="cancel-reason" type="text" @bind="cancelModel.Reason" maxlength="500" /></div>
+                                <button type="submit" class="audit-plans-form-submit audit-plans-danger-button" disabled="@isSubmittingAction">@(isSubmittingAction ? "Cancelling..." : "Confirm cancellation")</button>
+                                <button type="button" class="audit-plans-form-cancel" @onclick="CloseAction">Keep plan</button>
+                            </form>
+                        }
+                    }
+
+                    <div class="audit-plans-history">
+                        <h3>History</h3>
+                        @if (detail.History.Count == 0)
+                        {
+                            <p class="audit-plans-history-empty">No schedule or assignment changes recorded yet.</p>
+                        }
+                        else
+                        {
+                            <ol class="audit-plans-history-list">
+                                @foreach (var entry in detail.History)
+                                {
+                                    <li @key="entry.Id">
+                                        <div class="audit-plans-history-heading">
+                                            <span class="compliance-badge neutral">@entry.EventType</span>
+                                            <span class="audit-plans-history-time">@entry.OccurredAtUtc.ToString("dd MMM yyyy HH:mm 'UTC'")</span>
+                                        </div>
+                                        <p class="audit-plans-history-actor">By @entry.ActorUserId</p>
+                                        @if (!string.IsNullOrWhiteSpace(entry.Reason))
+                                        {
+                                            <p class="audit-plans-history-reason">@entry.Reason</p>
+                                        }
+                                        @if (entry.NewPlannedStartDate is not null)
+                                        {
+                                            <p class="audit-plans-history-detail">Dates: @entry.PreviousPlannedStartDate?.ToString("dd MMM yyyy") &rarr; @entry.NewPlannedStartDate?.ToString("dd MMM yyyy"), due @entry.PreviousDueDate?.ToString("dd MMM yyyy") &rarr; @entry.NewDueDate?.ToString("dd MMM yyyy")</p>
+                                        }
+                                        @if (entry.NewInspectorUserId is not null)
+                                        {
+                                            <p class="audit-plans-history-detail">Inspector: @(entry.PreviousInspectorUserId?.ToString() ?? "none") &rarr; @entry.NewInspectorUserId</p>
+                                        }
+                                    </li>
+                                }
+                            </ol>
+                        }
+                    </div>
+                }
+            </section>
+        </div>
+    }
+
+    @if (isCreateDialogOpen)
+    {
+        <div class="audit-plans-modal-backdrop" role="presentation" @onclick="CloseCreateDialog">
+            <section class="audit-plans-modal" role="dialog" aria-modal="true" aria-labelledby="audit-plan-create-title" @onclick:stopPropagation="true">
+                <div class="audit-plans-modal-heading">
+                    <h2 id="audit-plan-create-title">Schedule audit</h2>
+                    <button type="button" class="audit-plans-modal-close" @onclick="CloseCreateDialog" aria-label="Close">
+                        <span class="bi bi-x-lg" aria-hidden="true"></span>
+                    </button>
+                </div>
+
+                @if (createFailure is not null)
+                {
+                    @if (createFailure.IsValidation)
+                    {
+                        <ul class="audit-plans-form-field-errors" role="alert">
+                            @foreach (var message in createFailure.Errors.Values.SelectMany(messages => messages))
+                            {
+                                <li>@message</li>
+                            }
+                        </ul>
+                    }
+                    else if (createFailure.IsConflict)
+                    {
+                        <div class="audit-plans-form-conflict" role="alert">@createFailure.Message</div>
+                    }
+                    else
+                    {
+                        <div class="audit-plans-form-error" role="alert">@createFailure.Message</div>
+                    }
+                }
+
+                <form class="audit-plans-form-grid" @onsubmit="SubmitCreateAsync" @onsubmit:preventDefault="true">
+                    <div class="audit-plans-form-field audit-plans-form-field-wide">
+                        <label for="create-vessel">Vessel</label>
+                        <VesselPicker @key="createVesselPickerResetToken" InputId="create-vessel" Value="createModel.VesselId" ValueChanged="value => createModel.VesselId = value" Placeholder="Search vessel by name or IMO..." />
+                    </div>
+                    <div class="audit-plans-form-field">
+                        <label for="create-type">Audit type</label>
+                        <select id="create-type" @bind="createModel.Type">
+                            <option value="">Select...</option>
+                            @foreach (var type in Types)
+                            {
+                                <option value="@type">@type</option>
+                            }
+                        </select>
+                    </div>
+                    <div class="audit-plans-form-field">
+                        <label for="create-inspector">Inspector user ID (optional)</label>
+                        <input id="create-inspector" type="text" @bind="createModel.AssignedInspectorUserId" placeholder="00000000-0000-0000-0000-000000000000" />
+                    </div>
+                    <div class="audit-plans-form-field">
+                        <label for="create-start">Planned start date</label>
+                        <input id="create-start" type="date" @bind="createModel.PlannedStartDate" />
+                    </div>
+                    <div class="audit-plans-form-field">
+                        <label for="create-due">Due date</label>
+                        <input id="create-due" type="date" @bind="createModel.DueDate" />
+                    </div>
+                    <div class="audit-plans-form-field audit-plans-form-field-wide">
+                        <label for="create-scope">Scope</label>
+                        <input id="create-scope" type="text" @bind="createModel.Scope" maxlength="1000" />
+                    </div>
+                    <div class="audit-plans-form-field audit-plans-form-field-wide">
+                        <label for="create-notes">Notes (optional)</label>
+                        <input id="create-notes" type="text" @bind="createModel.Notes" maxlength="2000" />
+                    </div>
+                    <button type="submit" class="audit-plans-form-submit" disabled="@isSubmittingCreate">@(isSubmittingCreate ? "Scheduling..." : "Schedule audit")</button>
+                </form>
+            </section>
+        </div>
+    }
+</section>
+
+@code {
+    private const int PageSize = 25;
+
+    private static readonly string[] Types = ["Annual survey", "Intermediate survey", "Internal audit", "External audit", "Flag state inspection"];
+    private static readonly string[] Results = ["Satisfactory", "Findings raised", "Unsatisfactory"];
+    private static readonly string[] Statuses = ["Scheduled", "InProgress", "Completed", "Cancelled"];
+
+    private readonly CancellationTokenSource disposeCts = new();
+    private int loadVersion;
+
+    private Guid? vesselFilter;
+    private int vesselPickerResetToken;
+    private string? typeFilter;
+    private string? statusFilter;
+    private DateOnly? fromFilter;
+    private DateOnly? toFilter;
+
+    private int pageNumber = 1;
+    private int totalCount;
+    private bool isLoading = true;
+    private ComplianceApiFailure? failure;
+    private IReadOnlyList<AuditPlanListItem> plans = [];
+
+    private Guid? selectedPlanId;
+    private bool isLoadingDetail;
+    private ComplianceApiFailure? detailFailure;
+    private GetAuditPlanDetailResponse? detail;
+
+    private string? activeAction;
+    private bool isSubmittingAction;
+    private bool isConfirmingStart;
+    private ComplianceApiFailure? actionFailure;
+    private string? actionSuccess;
+    private RescheduleFormModel rescheduleModel = new();
+    private AssignFormModel assignModel = new();
+    private CompleteFormModel completeModel = new();
+    private CancelFormModel cancelModel = new();
+
+    private bool isCreateDialogOpen;
+    private CreateFormModel createModel = new();
+    private int createVesselPickerResetToken;
+    private bool isSubmittingCreate;
+    private ComplianceApiFailure? createFailure;
+
+    private int TotalPages => totalCount == 0 ? 1 : ((totalCount + PageSize - 1) / PageSize);
+    private int FirstRowNumber => plans.Count == 0 ? 0 : ((pageNumber - 1) * PageSize) + 1;
+    private int LastRowNumber => FirstRowNumber + plans.Count - 1;
+
+    protected override Task OnInitializedAsync() => LoadAsync();
+
+    private static string StatusClass(AuditPlanListItem plan) =>
+        plan.IsOverdue ? "danger" : plan.Status switch { "InProgress" => "success", "Cancelled" => "neutral", _ => "neutral" };
+
+    private static string StatusClass(GetAuditPlanDetailResponse plan) =>
+        plan.IsOverdue ? "danger" : plan.Status switch { "InProgress" => "success", "Cancelled" => "neutral", _ => "neutral" };
+
+    private Task OnVesselFilterChangedAsync(Guid? vesselId)
+    {
+        vesselFilter = vesselId;
+
+        return SearchAsync();
+    }
+
+    private Task SearchAsync()
+    {
+        pageNumber = 1;
+
+        return LoadAsync();
+    }
+
+    private Task ResetFiltersAsync()
+    {
+        vesselFilter = null;
+        vesselPickerResetToken++;
+        typeFilter = null;
+        statusFilter = null;
+        fromFilter = null;
+        toFilter = null;
+        pageNumber = 1;
+
+        return LoadAsync();
+    }
+
+    private Task PreviousPageAsync()
+    {
+        if (pageNumber <= 1)
+        {
+            return Task.CompletedTask;
+        }
+
+        pageNumber--;
+
+        return LoadAsync();
+    }
+
+    private Task NextPageAsync()
+    {
+        if (pageNumber >= TotalPages)
+        {
+            return Task.CompletedTask;
+        }
+
+        pageNumber++;
+
+        return LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        var requestVersion = ++loadVersion;
+        var cancellationToken = disposeCts.Token;
+        isLoading = true;
+        failure = null;
+
+        ComplianceApiResult<GetAuditPlansResponse> result;
+        try
+        {
+            result = await ComplianceApi.GetAuditPlansAsync(
+                new GetAuditPlansRequest
+                {
+                    VesselId = vesselFilter,
+                    Type = typeFilter,
+                    Status = statusFilter,
+                    From = fromFilter,
+                    To = toFilter,
+                    PageNumber = pageNumber,
+                    PageSize = PageSize,
+                },
+                cancellationToken);
+        }
+        catch (OperationCanceledException) when (disposeCts.IsCancellationRequested)
+        {
+            return;
+        }
+
+        if (disposeCts.IsCancellationRequested || requestVersion != loadVersion)
+        {
+            return;
+        }
+
+        isLoading = false;
+
+        if (!result.IsSuccess)
+        {
+            failure = result.Failure;
+            plans = [];
+            totalCount = 0;
+
+            return;
+        }
+
+        var page = result.Value!;
+        pageNumber = page.PageNumber;
+        totalCount = page.TotalCount;
+        plans = page.Items;
+    }
+
+    private async Task OpenDetailAsync(Guid planId)
+    {
+        selectedPlanId = planId;
+        ResetActionState();
+        isLoadingDetail = true;
+        detailFailure = null;
+        detail = null;
+
+        var result = await ComplianceApi.GetAuditPlanDetailAsync(planId, disposeCts.Token);
+
+        isLoadingDetail = false;
+
+        if (result.IsSuccess)
+        {
+            detail = result.Value;
+        }
+        else
+        {
+            detailFailure = result.Failure;
+        }
+    }
+
+    private void CloseDetail()
+    {
+        selectedPlanId = null;
+        detail = null;
+        ResetActionState();
+    }
+
+    private void ResetActionState()
+    {
+        activeAction = null;
+        actionFailure = null;
+        actionSuccess = null;
+        isConfirmingStart = false;
+        rescheduleModel = detail is null
+            ? new RescheduleFormModel()
+            : new RescheduleFormModel { PlannedStartDate = detail.PlannedStartDate, DueDate = detail.DueDate };
+        assignModel = new AssignFormModel();
+        completeModel = new CompleteFormModel { ActualAuditDate = DateOnly.FromDateTime(DateTime.UtcNow) };
+        cancelModel = new CancelFormModel();
+    }
+
+    private void OpenAction(string action)
+    {
+        actionFailure = null;
+        actionSuccess = null;
+        activeAction = action;
+    }
+
+    private void CloseAction()
+    {
+        activeAction = null;
+        actionFailure = null;
+    }
+
+    private async Task RefreshAfterActionAsync(string successMessage)
+    {
+        actionSuccess = successMessage;
+        activeAction = null;
+        isConfirmingStart = false;
+
+        if (selectedPlanId is { } planId)
+        {
+            var result = await ComplianceApi.GetAuditPlanDetailAsync(planId, disposeCts.Token);
+            if (result.IsSuccess)
+            {
+                detail = result.Value;
+            }
+        }
+
+        await LoadAsync();
+    }
+
+    private async Task SubmitRescheduleAsync()
+    {
+        if (isSubmittingAction || selectedPlanId is not { } planId)
+        {
+            return;
+        }
+
+        isSubmittingAction = true;
+        actionFailure = null;
+
+        var result = await ComplianceApi.RescheduleAuditPlanAsync(
+            planId,
+            new RescheduleAuditPlanRequest
+            {
+                PlannedStartDate = rescheduleModel.PlannedStartDate,
+                DueDate = rescheduleModel.DueDate,
+                Reason = rescheduleModel.Reason,
+            },
+            disposeCts.Token);
+
+        isSubmittingAction = false;
+
+        if (!result.IsSuccess)
+        {
+            actionFailure = result.Failure;
+            return;
+        }
+
+        await RefreshAfterActionAsync("Schedule updated.");
+    }
+
+    private async Task SubmitAssignAsync()
+    {
+        if (isSubmittingAction || selectedPlanId is not { } planId)
+        {
+            return;
+        }
+
+        isSubmittingAction = true;
+        actionFailure = null;
+
+        var inspectorUserId = Guid.TryParse(assignModel.InspectorUserId, out var parsed) ? parsed : (Guid?)null;
+
+        var result = await ComplianceApi.AssignAuditPlanInspectorAsync(
+            planId,
+            new AssignAuditPlanInspectorRequest { InspectorUserId = inspectorUserId, Reason = assignModel.Reason },
+            disposeCts.Token);
+
+        isSubmittingAction = false;
+
+        if (!result.IsSuccess)
+        {
+            actionFailure = result.Failure;
+            return;
+        }
+
+        await RefreshAfterActionAsync("Inspector assigned.");
+    }
+
+    private async Task ConfirmStartAsync()
+    {
+        if (isSubmittingAction || selectedPlanId is not { } planId)
+        {
+            return;
+        }
+
+        isSubmittingAction = true;
+        actionFailure = null;
+
+        var result = await ComplianceApi.StartAuditPlanAsync(planId, disposeCts.Token);
+
+        isSubmittingAction = false;
+
+        if (!result.IsSuccess)
+        {
+            actionFailure = result.Failure;
+            isConfirmingStart = false;
+            return;
+        }
+
+        await RefreshAfterActionAsync("Audit started.");
+    }
+
+    private async Task SubmitCompleteAsync()
+    {
+        if (isSubmittingAction || selectedPlanId is not { } planId)
+        {
+            return;
+        }
+
+        isSubmittingAction = true;
+        actionFailure = null;
+
+        var result = await ComplianceApi.CompleteAuditPlanAsync(
+            planId,
+            new CompleteAuditPlanRequest
+            {
+                Result = completeModel.Result,
+                Findings = completeModel.Findings,
+                ActualAuditDate = completeModel.ActualAuditDate,
+            },
+            disposeCts.Token);
+
+        isSubmittingAction = false;
+
+        if (!result.IsSuccess)
+        {
+            actionFailure = result.Failure;
+            return;
+        }
+
+        await RefreshAfterActionAsync("Audit completed and linked to a new survey record.");
+    }
+
+    private async Task SubmitCancelAsync()
+    {
+        if (isSubmittingAction || selectedPlanId is not { } planId)
+        {
+            return;
+        }
+
+        isSubmittingAction = true;
+        actionFailure = null;
+
+        var result = await ComplianceApi.CancelAuditPlanAsync(
+            planId, new CancelAuditPlanRequest(cancelModel.Reason), disposeCts.Token);
+
+        isSubmittingAction = false;
+
+        if (!result.IsSuccess)
+        {
+            actionFailure = result.Failure;
+            return;
+        }
+
+        await RefreshAfterActionAsync("Audit plan cancelled.");
+    }
+
+    private void OpenCreateDialog()
+    {
+        createModel = new CreateFormModel();
+        createFailure = null;
+        createVesselPickerResetToken++;
+        isCreateDialogOpen = true;
+    }
+
+    private void CloseCreateDialog()
+    {
+        isCreateDialogOpen = false;
+        createFailure = null;
+    }
+
+    private async Task SubmitCreateAsync()
+    {
+        if (isSubmittingCreate)
+        {
+            return;
+        }
+
+        isSubmittingCreate = true;
+        createFailure = null;
+
+        var inspectorUserId = Guid.TryParse(createModel.AssignedInspectorUserId, out var parsed) ? parsed : (Guid?)null;
+
+        var result = await ComplianceApi.RegisterAuditPlanAsync(
+            new RegisterAuditPlanRequest
+            {
+                VesselId = createModel.VesselId,
+                Type = createModel.Type,
+                PlannedStartDate = createModel.PlannedStartDate,
+                DueDate = createModel.DueDate,
+                AssignedInspectorUserId = inspectorUserId,
+                Scope = createModel.Scope,
+                Notes = createModel.Notes,
+            },
+            disposeCts.Token);
+
+        isSubmittingCreate = false;
+
+        if (!result.IsSuccess)
+        {
+            createFailure = result.Failure;
+            return;
+        }
+
+        isCreateDialogOpen = false;
+        await LoadAsync();
+    }
+
+    public void Dispose()
+    {
+        disposeCts.Cancel();
+        disposeCts.Dispose();
+    }
+
+    private sealed class RescheduleFormModel
+    {
+        public DateOnly? PlannedStartDate { get; set; }
+        public DateOnly? DueDate { get; set; }
+        public string? Reason { get; set; }
+    }
+
+    private sealed class AssignFormModel
+    {
+        public string? InspectorUserId { get; set; }
+        public string? Reason { get; set; }
+    }
+
+    private sealed class CompleteFormModel
+    {
+        public string? Result { get; set; }
+        public string? Findings { get; set; }
+        public DateOnly? ActualAuditDate { get; set; }
+    }
+
+    private sealed class CancelFormModel
+    {
+        public string? Reason { get; set; }
+    }
+
+    private sealed class CreateFormModel
+    {
+        public Guid? VesselId { get; set; }
+        public string? Type { get; set; }
+        public string? AssignedInspectorUserId { get; set; }
+        public DateOnly? PlannedStartDate { get; set; }
+        public DateOnly? DueDate { get; set; }
+        public string? Scope { get; set; }
+        public string? Notes { get; set; }
+    }
+}

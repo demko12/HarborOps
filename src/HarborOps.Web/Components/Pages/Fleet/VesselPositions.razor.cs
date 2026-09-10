@@ -33,6 +33,10 @@ public partial class VesselPositions : IDisposable
     private bool CanManageFleet =>
         AuthorizationState.HasPermission(CurrentUserAuthorizationState.FleetManagePermission);
 
+    // Same distinction as VesselDetails: reporting a defect is a Maintenance action, gated
+    // by maintenance.manage, independent of the Fleet-specific CanManageFleet permission.
+    private bool CanReportDefects => AuthorizationState.HasPermission("maintenance.manage");
+
     private int MissingCount => positions?.Items.Count(vessel => !vessel.HasPosition) ?? 0;
 
     private int StaleCount => positions?.Items.Count(vessel => vessel.HasPosition && vessel.IsPositionStale) ?? 0;

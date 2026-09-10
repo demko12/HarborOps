@@ -476,3 +476,144 @@ internal sealed record MaintenanceWorkOrderTransition(
     IReadOnlyList<string> AllowedActions,
     DateTime? CompletedUtc,
     DateTime TransitionedUtc);
+
+internal sealed record WorkOrderPartReservationItem(
+    Guid InventoryItemId,
+    string Name,
+    string PartNumber,
+    decimal QuantityRequested,
+    decimal QuantityReserved,
+    decimal QuantityConsumed,
+    decimal QuantityRemaining,
+    decimal ShortageQuantity,
+    bool HasShortage,
+    decimal StockOnHand,
+    decimal AvailableQuantity);
+
+internal sealed record WorkOrderPartReservationsResult(
+    Guid WorkOrderId,
+    string Status,
+    IReadOnlyList<string> AllowedActions,
+    IReadOnlyList<WorkOrderPartReservationItem> Items,
+    bool HasShortages,
+    DateTime RetrievedUtc);
+
+internal sealed record WorkOrderPartReservationEntry(Guid InventoryItemId, decimal Quantity);
+
+internal sealed record ReplaceWorkOrderPartReservationsWebRequest(
+    IReadOnlyList<WorkOrderPartReservationEntry> Reservations);
+
+internal sealed record ReplaceWorkOrderPartReservationsResult(
+    Guid WorkOrderId,
+    string Status,
+    IReadOnlyList<WorkOrderPartReservationItem> Items,
+    bool HasShortages,
+    DateTime UpdatedUtc);
+
+internal sealed record ReleasedWorkOrderPartReservations(Guid WorkOrderId);
+
+internal sealed record InventoryReplenishmentRow(
+    Guid InventoryItemId,
+    string Name,
+    string PartNumber,
+    Guid SupplierId,
+    string SupplierName,
+    decimal StockOnHand,
+    decimal ReservedQuantity,
+    decimal AvailableQuantity,
+    decimal ReorderLevel,
+    decimal ShortageQuantity,
+    decimal OpenPurchaseOrderQuantity,
+    string Classification);
+
+internal sealed record InventoryReplenishmentPage(
+    IReadOnlyList<InventoryReplenishmentRow> Items,
+    int PageNumber,
+    int PageSize,
+    int TotalCount);
+
+internal sealed record InventoryReplenishmentFilter(int PageNumber, int PageSize);
+
+internal sealed record RegisterDefectRequest
+{
+    public Guid? VesselId { get; init; }
+
+    public Guid? EquipmentId { get; init; }
+
+    public string? Title { get; init; }
+
+    public string? Description { get; init; }
+
+    public string? ReportedSeverity { get; init; }
+
+    public DateTime? ObservedAtUtc { get; init; }
+}
+
+internal sealed record DefectListItem(
+    Guid Id,
+    Guid VesselId,
+    Guid? EquipmentId,
+    string Title,
+    string ReportedSeverity,
+    string? ConfirmedSeverity,
+    string? Priority,
+    string Status,
+    DateTime ObservedAtUtc,
+    DateTime ReportedAtUtc);
+
+internal sealed record DefectsPage(
+    IReadOnlyList<DefectListItem> Items,
+    int PageNumber,
+    int PageSize,
+    int TotalCount);
+
+internal sealed record DefectFilter(
+    Guid? VesselId,
+    string? Status,
+    string? Severity,
+    int PageNumber,
+    int PageSize);
+
+internal sealed record DefectDetailsModel(
+    Guid Id,
+    Guid VesselId,
+    Guid? EquipmentId,
+    string Title,
+    string? Description,
+    string ReportedSeverity,
+    DateTime ObservedAtUtc,
+    string Status,
+    Guid ReportedByUserId,
+    DateTime ReportedAtUtc,
+    string? ConfirmedSeverity,
+    string? Priority,
+    string? TriageNotes,
+    Guid? TriagedByUserId,
+    DateTime? TriagedAtUtc,
+    string? RejectionReason,
+    Guid? RejectedByUserId,
+    DateTime? RejectedAtUtc,
+    Guid? WorkOrderId,
+    Guid? ConvertedByUserId,
+    DateTime? ConvertedAtUtc);
+
+internal sealed record TriageDefectRequest
+{
+    public string? ConfirmedSeverity { get; init; }
+
+    public string? Priority { get; init; }
+
+    public string? Notes { get; init; }
+}
+
+internal sealed record RejectDefectRequest
+{
+    public string? Reason { get; init; }
+}
+
+internal sealed record ConvertDefectToWorkOrderRequest
+{
+    public DateTime? DueUtc { get; init; }
+}
+
+internal sealed record ConvertDefectToWorkOrderResponse(Guid DefectId, Guid WorkOrderId);

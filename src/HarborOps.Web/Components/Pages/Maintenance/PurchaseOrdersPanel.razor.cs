@@ -1,10 +1,17 @@
 using System.Globalization;
 using HarborOps.Web.Api.Maintenance;
+using Microsoft.AspNetCore.Components;
 
 namespace HarborOps.Web.Components.Pages.Maintenance;
 
 public partial class PurchaseOrdersPanel : IDisposable
 {
+    /// <summary>
+    /// A part carried over from the replenishment board, used to open a prefilled purchase order.
+    /// </summary>
+    [Parameter]
+    public ReplenishmentOrderIntent? Seed { get; set; }
+
     internal const int SuccessToastMilliseconds = 3000;
 
     private const int SupplierOptionsPageSize = 100;
@@ -71,10 +78,33 @@ public partial class PurchaseOrdersPanel : IDisposable
     private decimal CreateTotalCost => createModel.Lines
         .Sum(line => ProcurementFormat.LineTotal(line.QuantityOrdered, line.UnitCost));
 
+    private ReplenishmentOrderIntent? consumedSeed;
+
     protected override async Task OnInitializedAsync()
     {
         await LoadSupplierOptionsAsync();
         await LoadAsync();
+    }
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (Seed is not { } seed || ReferenceEquals(seed, consumedSeed))
+        {
+            return;
+        }
+
+        consumedSeed = seed;
+
+        await OpenCreateFormAsync();
+
+        createModel.SupplierIdText = seed.SupplierId.ToString();
+        inventorySearchText = seed.PartNumber;
+
+        await SearchInventoryAsync();
+
+        var line = createModel.Lines[0];
+        line.InventoryItemIdText = seed.InventoryItemId.ToString();
+        line.QuantityOrdered = seed.Quantity;
     }
 
     private Task ApplyFiltersAsync()

@@ -1,0 +1,449 @@
+@page "/maintenance/defects/{DefectId:guid}"
+@attribute [Microsoft.AspNetCore.Authorization.Authorize(Policy = "AccessMaintenance")]
+@using HarborOps.Web.Api.Fleet
+@using HarborOps.Web.Api.Maintenance
+@implements IDisposable
+@inject MaintenanceApiClient MaintenanceApi
+@inject FleetApiClient FleetApi
+@inject CurrentUserAuthorizationState AuthorizationState
+
+<PageTitle>@PageHeading | HarborOps</PageTitle>
+
+<section class="work-order-details-page">
+	<header class="work-order-details-header">
+		<div>
+			<nav class="page-breadcrumb" aria-label="Breadcrumb"><a href="@MaintenanceHref">Maintenance operations</a><span aria-hidden="true">/</span><span>Defect details</span></nav>
+			<p class="work-order-details-eyebrow">Defect</p>
+			<h1>@PageHeading</h1>
+			@if (details is not null)
+			{
+				<p class="work-order-details-vessel" title="@details.VesselId">@VesselDisplayName</p>
+			}
+		</div>
+		@if (details is not null)
+		{
+			<div class="work-order-details-state">
+				<span class="work-order-status @MaintenanceFormat.StatusModifier(details.Status)">
+					@details.Status
+				</span>
+				<span class="work-order-priority @MaintenanceFormat.PriorityModifier(EffectiveSeverity)">
+					@EffectiveSeverity
+				</span>
+			</div>
+		}
+	</header>
+
+	@if (isLoading)
+	{
+		<LoadingState Message="Loading the defect..." />
+	}
+	else if (failure is { IsNotFound: true })
+	{
+		<EmptyState Title="Defect not found"
+					Message="This defect is no longer recorded. Return to the intake board to pick another one." />
+	}
+	else if (failure is { IsForbidden: true })
+	{
+		<EmptyState Title="You cannot view this defect"
+					Message="Your account does not carry a maintenance permission. Ask an administrator for access." />
+	}
+	else if (failure is not null)
+	{
+		<ApiErrorState Title="@failure.Title" Message="@failure.Message" OnRetry="RetryAsync" />
+	}
+	else if (details is not null)
+	{
+		@if (successMessage is not null)
+		{
+			<div class="work-order-details-success" role="status">
+				<span>@successMessage</span>
+				@if (convertedWorkOrderId is { } workOrderId)
+				{
+					<a href="@($"/maintenance/work-orders/{workOrderId}")">View work order</a>
+				}
+				<button type="button" aria-label="Dismiss message" @onclick="DismissSuccess">&times;</button>
+			</div>
+		}
+
+		<section class="work-order-card" aria-labelledby="defect-scope-title">
+			<div class="work-order-card-heading">
+				<div>
+					<h2 id="defect-scope-title">Scope</h2>
+					<p>What was reported</p>
+				</div>
+				<span class="work-order-card-icon" aria-hidden="true"><span class="bi bi-list-check"></span></span>
+			</div>
+
+			<p class="work-order-details-description">
+				@MaintenanceFormat.OptionalText(details.Description)
+			</p>
+
+			<dl class="work-order-details-facts">
+				<div>
+					<dt>Vessel</dt>
+					<dd title="@details.VesselId">@VesselDisplayName</dd>
+				</div>
+				<div>
+					<dt>Equipment</dt>
+					<dd>@EquipmentDisplayName</dd>
+				</div>
+				<div>
+					<dt>Reported severity</dt>
+					<dd>@details.ReportedSeverity</dd>
+				</div>
+				<div>
+					<dt>Observed at</dt>
+					<dd>@MaintenanceFormat.DueUtc(details.ObservedAtUtc)</dd>
+				</div>
+				<div>
+					<dt>Reported by</dt>
+					<dd title="@details.ReportedByUserId">@ActorLabel(details.ReportedByUserId)</dd>
+				</div>
+				<div>
+					<dt>Reported at</dt>
+					<dd>@MaintenanceFormat.DueUtc(details.ReportedAtUtc)</dd>
+				</div>
+			</dl>
+		</section>
+
+		@if (details.TriagedAtUtc is not null)
+		{
+			<section class="work-order-card" aria-labelledby="defect-triage-record-title">
+				<div class="work-order-card-heading">
+					<div>
+						<h2 id="defect-triage-record-title">Triage record</h2>
+						<p>What was confirmed during triage</p>
+					</div>
+					<span class="work-order-card-icon" aria-hidden="true"><span class="bi bi-clipboard-check"></span></span>
+				</div>
+
+				<dl class="work-order-details-facts">
+					<div>
+						<dt>Confirmed severity</dt>
+						<dd>@MaintenanceFormat.OptionalText(details.ConfirmedSeverity)</dd>
+					</div>
+					<div>
+						<dt>Priority</dt>
+						<dd>@MaintenanceFormat.OptionalText(details.Priority)</dd>
+					</div>
+					<div>
+						<dt>Triaged by</dt>
+						<dd title="@details.TriagedByUserId">@ActorLabel(details.TriagedByUserId)</dd>
+					</div>
+					<div>
+						<dt>Triaged at</dt>
+						<dd>@MaintenanceFormat.CompletedUtc(details.TriagedAtUtc)</dd>
+					</div>
+				</dl>
+
+				<p class="work-order-details-notes">@MaintenanceFormat.OptionalText(details.TriageNotes)</p>
+			</section>
+		}
+
+		@if (details.Status == RejectedStatus)
+		{
+			<section class="work-order-card" aria-labelledby="defect-rejection-title">
+				<div class="work-order-card-heading">
+					<div>
+						<h2 id="defect-rejection-title">Rejection record</h2>
+						<p>Why this defect was rejected</p>
+					</div>
+					<span class="work-order-card-icon" aria-hidden="true"><span class="bi bi-x-octagon"></span></span>
+				</div>
+
+				<dl class="work-order-details-facts">
+					<div>
+						<dt>Rejected by</dt>
+						<dd title="@details.RejectedByUserId">@ActorLabel(details.RejectedByUserId)</dd>
+					</div>
+					<div>
+						<dt>Rejected at</dt>
+						<dd>@MaintenanceFormat.CompletedUtc(details.RejectedAtUtc)</dd>
+					</div>
+				</dl>
+
+				<p class="work-order-details-notes">@MaintenanceFormat.OptionalText(details.RejectionReason)</p>
+			</section>
+		}
+
+		@if (details.Status == ConvertedStatus)
+		{
+			<section class="work-order-card" aria-labelledby="defect-conversion-title">
+				<div class="work-order-card-heading">
+					<div>
+						<h2 id="defect-conversion-title">Conversion record</h2>
+						<p>The work order created from this defect</p>
+					</div>
+					<span class="work-order-card-icon" aria-hidden="true"><span class="bi bi-arrow-right-circle"></span></span>
+				</div>
+
+				<dl class="work-order-details-facts">
+					<div>
+						<dt>Work order</dt>
+						<dd>
+							@if (details.WorkOrderId is { } workOrderId)
+							{
+								<a href="@($"/maintenance/work-orders/{workOrderId}")">Open work order</a>
+							}
+							else
+							{
+								@MaintenanceFormat.MissingValue
+							}
+						</dd>
+					</div>
+					<div>
+						<dt>Converted by</dt>
+						<dd title="@details.ConvertedByUserId">@ActorLabel(details.ConvertedByUserId)</dd>
+					</div>
+					<div>
+						<dt>Converted at</dt>
+						<dd>@MaintenanceFormat.CompletedUtc(details.ConvertedAtUtc)</dd>
+					</div>
+				</dl>
+			</section>
+		}
+
+		<section class="work-order-card" aria-labelledby="defect-actions-title">
+			<div class="work-order-card-heading">
+				<div>
+					<h2 id="defect-actions-title">Triage &amp; disposition</h2>
+					<p>Move this defect through its lifecycle</p>
+				</div>
+				<span class="work-order-card-icon" aria-hidden="true"><span class="bi bi-signpost-split-fill"></span></span>
+			</div>
+
+			@if (!CanManage)
+			{
+				<p class="work-order-details-note work-order-details-readonly">
+					Your account can view this defect but not change it.
+					Ask an administrator for the maintenance management permission.
+				</p>
+			}
+			else if (IsSettled)
+			{
+				<p class="work-order-details-note work-order-details-closed">
+					This defect is @details.Status.ToLowerInvariant(). It can no longer be triaged, rejected, or converted.
+				</p>
+			}
+			else
+			{
+				<div class="work-order-details-actions">
+					@if (CanTriage)
+					{
+						<div class="work-order-action">
+							<button type="button" class="work-order-button defect-triage-open" @onclick="OpenTriageForm">
+								Triage defect
+							</button>
+							<p class="work-order-action-note">Confirm the severity and priority before it can be converted.</p>
+						</div>
+					}
+					@if (CanConvert)
+					{
+						<div class="work-order-action">
+							<button type="button" class="work-order-button defect-convert-open" @onclick="OpenConvertForm">
+								Convert to work order
+							</button>
+							<p class="work-order-action-note">Creates a work order carrying the confirmed priority.</p>
+						</div>
+					}
+					@if (CanReject)
+					{
+						<div class="work-order-action">
+							<button type="button" class="work-order-quiet-button defect-reject-open" @onclick="OpenRejectForm">
+								Reject defect
+							</button>
+							<p class="work-order-action-note">Closes the defect with no work order created.</p>
+						</div>
+					}
+				</div>
+			}
+
+			@if (isRejectFormOpen)
+			{
+				<section class="documents-lifecycle-panel" aria-label="Reject defect">
+					<div class="filter-field">
+						<label for="defect-reject-reason">Rejection reason <span class="required-marker" aria-hidden="true">*</span></label>
+						<textarea id="defect-reject-reason" @bind="rejectReason" maxlength="4000" disabled="@isRejecting"></textarea>
+					</div>
+					@if (rejectFailure is { IsValidation: true })
+					{
+						@foreach (var entry in rejectFailure.Errors)
+						{
+							@foreach (var message in entry.Value)
+							{
+								<div class="documents-type-inline-error" role="alert">@message</div>
+							}
+						}
+					}
+					else if (rejectFailure is not null)
+					{
+						<div class="documents-type-inline-error" role="alert">
+							@rejectFailure.Message
+							@if (IsBusinessConflict(rejectFailure))
+							{
+								<button type="button" class="documents-modal-cancel" @onclick="RefreshAsync">Refresh</button>
+							}
+						</div>
+					}
+					<button type="button"
+							class="documents-search-button"
+							disabled="@(isRejecting || string.IsNullOrWhiteSpace(rejectReason))"
+							@onclick="SubmitRejectAsync">
+						@(isRejecting ? "Rejecting..." : "Confirm reject")
+					</button>
+					<button type="button" class="documents-modal-cancel" disabled="@isRejecting" @onclick="CloseRejectForm">
+						Cancel
+					</button>
+				</section>
+			}
+		</section>
+
+		@if (isTriageFormOpen)
+		{
+			<div class="maintenance-modal-backdrop" @onclick="CloseTriageForm">
+				<section class="maintenance-form-card"
+						 role="dialog"
+						 aria-modal="true"
+						 aria-labelledby="defect-triage-title"
+						 @onclick:stopPropagation="true">
+					<div class="maintenance-modal-header">
+						<h2 id="defect-triage-title">Triage defect</h2>
+						<button type="button"
+								class="maintenance-modal-close"
+								aria-label="Close triage dialog"
+								disabled="@isTriaging"
+								@onclick="CloseTriageForm">&times;</button>
+					</div>
+					<form class="maintenance-form" @onsubmit="SubmitTriageAsync" @onsubmit:preventDefault="true">
+						@if (triageFailure is { IsValidation: true })
+						{
+							<div class="maintenance-field-errors" role="alert">
+								<strong>Please correct the following before saving</strong>
+								<ul>
+									@foreach (var entry in triageFailure.Errors)
+									{
+										@foreach (var message in entry.Value)
+										{
+											<li>
+												<span class="maintenance-error-field">@MaintenanceFormat.FieldLabel(entry.Key)</span>
+												<span>@message</span>
+											</li>
+										}
+									}
+								</ul>
+							</div>
+						}
+						else if (triageFailure is not null)
+						{
+							<div class="maintenance-inline-error" role="alert">
+								@triageFailure.Message
+								@if (IsBusinessConflict(triageFailure))
+								{
+									<button type="button" class="maintenance-reset" @onclick="RefreshAsync">Refresh</button>
+								}
+							</div>
+						}
+
+						<div class="maintenance-form-grid">
+							<div class="filter-field">
+								<label for="defect-triage-severity">Confirmed severity <span class="required-marker" aria-hidden="true">*</span></label>
+								<select id="defect-triage-severity" @bind="triageModel.ConfirmedSeverity" disabled="@isTriaging">
+									<option value="">Select a severity</option>
+									@foreach (var severity in Severities)
+									{
+										<option value="@severity">@severity</option>
+									}
+								</select>
+							</div>
+							<div class="filter-field">
+								<label for="defect-triage-priority">Priority <span class="required-marker" aria-hidden="true">*</span></label>
+								<select id="defect-triage-priority" @bind="triageModel.Priority" disabled="@isTriaging">
+									<option value="">Select a priority</option>
+									@foreach (var priority in MaintenanceFormat.Priorities)
+									{
+										<option value="@priority">@priority</option>
+									}
+								</select>
+							</div>
+							<div class="filter-field filter-field-wide">
+								<label for="defect-triage-notes">Notes</label>
+								<textarea id="defect-triage-notes" @bind="triageModel.Notes" maxlength="4000" disabled="@isTriaging"></textarea>
+							</div>
+						</div>
+
+						<div class="maintenance-form-actions">
+							<button type="submit" class="maintenance-button" disabled="@(!CanSubmitTriage)">
+								@(isTriaging ? "Triaging..." : "Confirm triage")
+							</button>
+							<button type="button" class="maintenance-reset" @onclick="CloseTriageForm">Cancel</button>
+						</div>
+					</form>
+				</section>
+			</div>
+		}
+
+		@if (isConvertFormOpen)
+		{
+			<div class="maintenance-modal-backdrop" @onclick="CloseConvertForm">
+				<section class="maintenance-form-card"
+						 role="dialog"
+						 aria-modal="true"
+						 aria-labelledby="defect-convert-title"
+						 @onclick:stopPropagation="true">
+					<div class="maintenance-modal-header">
+						<h2 id="defect-convert-title">Convert to work order</h2>
+						<button type="button"
+								class="maintenance-modal-close"
+								aria-label="Close convert dialog"
+								disabled="@isConverting"
+								@onclick="CloseConvertForm">&times;</button>
+					</div>
+					<form class="maintenance-form" @onsubmit="SubmitConvertAsync" @onsubmit:preventDefault="true">
+						@if (convertFailure is { IsValidation: true })
+						{
+							<div class="maintenance-field-errors" role="alert">
+								<strong>Please correct the following before saving</strong>
+								<ul>
+									@foreach (var entry in convertFailure.Errors)
+									{
+										@foreach (var message in entry.Value)
+										{
+											<li>
+												<span class="maintenance-error-field">@MaintenanceFormat.FieldLabel(entry.Key)</span>
+												<span>@message</span>
+											</li>
+										}
+									}
+								</ul>
+							</div>
+						}
+						else if (convertFailure is not null)
+						{
+							<div class="maintenance-inline-error" role="alert">
+								@convertFailure.Message
+								@if (IsBusinessConflict(convertFailure))
+								{
+									<button type="button" class="maintenance-reset" @onclick="RefreshAsync">Refresh</button>
+								}
+							</div>
+						}
+
+						<div class="maintenance-form-grid">
+							<div class="filter-field">
+								<label for="defect-convert-due">Due (UTC) <span class="required-marker" aria-hidden="true">*</span></label>
+								<input id="defect-convert-due" type="datetime-local" @bind="convertDueUtcLocal" disabled="@isConverting" />
+							</div>
+						</div>
+
+						<div class="maintenance-form-actions">
+							<button type="submit" class="maintenance-button" disabled="@(isConverting || convertDueUtcLocal is null)">
+								@(isConverting ? "Converting..." : "Convert to work order")
+							</button>
+							<button type="button" class="maintenance-reset" @onclick="CloseConvertForm">Cancel</button>
+						</div>
+					</form>
+				</section>
+			</div>
+		}
+	}
+</section>

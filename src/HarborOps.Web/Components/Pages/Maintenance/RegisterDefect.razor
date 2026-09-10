@@ -1,0 +1,171 @@
+@page "/maintenance/defects/report"
+@attribute [Microsoft.AspNetCore.Authorization.Authorize(Policy = "AccessMaintenance")]
+@using HarborOps.Web.Api.Fleet
+@using HarborOps.Web.Api.Maintenance
+@implements IDisposable
+@inject MaintenanceApiClient MaintenanceApi
+@inject FleetApiClient FleetApi
+@inject CurrentUserAuthorizationState AuthorizationState
+
+<PageTitle>Report a defect | HarborOps</PageTitle>
+
+<section class="maintenance-card" aria-labelledby="defect-report-title">
+	<nav class="page-breadcrumb" aria-label="Breadcrumb">
+		<a href="/maintenance">Maintenance operations</a><span aria-hidden="true">/</span><span>Report a defect</span>
+	</nav>
+
+	<div class="maintenance-card-heading">
+		<div>
+			<h2 id="defect-report-title">Report a defect</h2>
+			<p>Log a defect or fault for the maintenance team to triage.</p>
+		</div>
+	</div>
+
+	@if (!CanManage)
+	{
+		<div class="maintenance-inline-error" role="alert">
+			Your account does not have permission to report maintenance defects. Ask an administrator for the
+			maintenance management permission.
+		</div>
+	}
+	else if (registeredDefectId is { } newDefectId)
+	{
+		<div class="maintenance-toast" role="status" aria-live="polite">
+			<span class="bi bi-check-circle-fill" aria-hidden="true"></span>
+			<span>@successMessage</span>
+		</div>
+
+		<div class="maintenance-form-actions">
+			<a class="maintenance-button" href="@($"/maintenance/defects/{newDefectId}")">View defect details</a>
+			<a class="maintenance-reset" href="@CancelHref">Back</a>
+		</div>
+	}
+	else
+	{
+		@if (submitFailure is { IsValidation: false })
+		{
+			<div class="maintenance-inline-error" role="alert">@submitFailure.Message</div>
+		}
+		else if (UnmappedFieldErrors().Count > 0)
+		{
+			<div class="maintenance-field-errors" role="alert">
+				<strong>Please correct the following before saving</strong>
+				<ul>
+					@foreach (var message in UnmappedFieldErrors())
+					{
+						<li>@message</li>
+					}
+				</ul>
+			</div>
+		}
+
+		<form class="maintenance-form" @onsubmit="SubmitAsync" @onsubmit:preventDefault="true">
+			<div class="maintenance-form-grid">
+				<div class="filter-field filter-field-wide">
+					<label id="defect-vessel-label">Vessel <span class="required-marker" aria-hidden="true">*</span></label>
+					@if (isVesselFixed)
+					{
+						<p class="maintenance-title" aria-labelledby="defect-vessel-label">
+							@(isLoadingVesselName ? "Loading vessel..." : vesselDisplayName)
+						</p>
+					}
+					else
+					{
+						<VesselPicker Value="model.VesselId" ValueChanged="OnVesselSelectedAsync" Disabled="isSubmitting" Placeholder="Select a vessel" />
+					}
+					@foreach (var message in FieldErrors("vesselId"))
+					{
+						<span class="maintenance-inline-error" role="alert">@message</span>
+					}
+				</div>
+
+				<div class="filter-field">
+					<label for="defect-title">Title <span class="required-marker" aria-hidden="true">*</span></label>
+					<input id="defect-title" @bind="model.Title" maxlength="200" disabled="@isSubmitting" />
+					@foreach (var message in FieldErrors("title"))
+					{
+						<span class="maintenance-inline-error" role="alert">@message</span>
+					}
+				</div>
+
+				<div class="filter-field filter-field-wide">
+					<label for="defect-description">Description</label>
+					<textarea id="defect-description" @bind="model.Description" maxlength="2000" disabled="@isSubmitting"></textarea>
+					@foreach (var message in FieldErrors("description"))
+					{
+						<span class="maintenance-inline-error" role="alert">@message</span>
+					}
+				</div>
+
+				<div class="filter-field">
+					<label for="defect-severity">Reported severity <span class="required-marker" aria-hidden="true">*</span></label>
+					<select id="defect-severity" @bind="model.ReportedSeverity" disabled="@isSubmitting">
+						<option value="">Select a severity</option>
+						@foreach (var severity in Severities)
+						{
+							<option value="@severity">@severity</option>
+						}
+					</select>
+					@foreach (var message in FieldErrors("reportedSeverity"))
+					{
+						<span class="maintenance-inline-error" role="alert">@message</span>
+					}
+				</div>
+
+				<div class="filter-field">
+					<label for="defect-observed">Observed at <span class="required-marker" aria-hidden="true">*</span></label>
+					<input id="defect-observed" type="datetime-local" @bind="model.ObservedAtUtcLocal" disabled="@isSubmitting" />
+					@if (IsFutureObservedAtUtc)
+					{
+						<small class="maintenance-muted">This time is in the future &mdash; double-check it before saving.</small>
+					}
+					@foreach (var message in FieldErrors("observedAtUtc"))
+					{
+						<span class="maintenance-inline-error" role="alert">@message</span>
+					}
+				</div>
+
+				<div class="filter-field">
+					<label for="defect-equipment">Equipment</label>
+					@if (model.VesselId is null)
+					{
+						<select id="defect-equipment" disabled="true">
+							<option value="">Select a vessel first</option>
+						</select>
+					}
+					else if (isLoadingEquipment)
+					{
+						<select id="defect-equipment" disabled="true">
+							<option value="">Loading equipment...</option>
+						</select>
+					}
+					else if (equipmentLoadFailure is not null)
+					{
+						<ApiErrorState Title="@equipmentLoadFailure.Title" Message="@equipmentLoadFailure.Message" OnRetry="RetryEquipmentAsync" />
+					}
+					else
+					{
+						<select id="defect-equipment" @bind="model.EquipmentId" disabled="@isSubmitting">
+							<option value="">No specific equipment</option>
+							@foreach (var item in equipmentOptions)
+							{
+								<option value="@item.EquipmentId">@item.Name</option>
+							}
+						</select>
+					}
+					@foreach (var message in FieldErrors("equipmentId"))
+					{
+						<span class="maintenance-inline-error" role="alert">@message</span>
+					}
+				</div>
+			</div>
+
+			<div class="maintenance-form-actions">
+				<button type="submit" class="maintenance-button" disabled="@(!CanSubmit)">
+					@(isSubmitting ? "Reporting..." : "Report defect")
+				</button>
+				<a class="maintenance-reset" href="@CancelHref">Cancel</a>
+			</div>
+		</form>
+	}
+</section>

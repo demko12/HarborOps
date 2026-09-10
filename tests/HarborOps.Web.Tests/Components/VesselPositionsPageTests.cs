@@ -169,6 +169,30 @@ public sealed class VesselPositionsPageTests : BunitContext
     }
 
     [Fact]
+    public void An_attention_card_links_to_report_a_defect_with_the_maintenance_manage_permission()
+    {
+        var page = RenderPositionsPage("maintenance.manage");
+
+        var card = page.FindAll(".positions-overview-card")
+            .Single(item => item.TextContent.Contains("Western Gale", StringComparison.Ordinal));
+
+        Assert.Equal(
+            $"/maintenance/defects/report?vesselId={MissingVesselId}",
+            card.QuerySelector("a[href*='defects/report']")!.GetAttribute("href"));
+    }
+
+    [Fact]
+    public void An_attention_card_offers_no_defect_link_without_the_maintenance_manage_permission()
+    {
+        var page = RenderPositionsPage(CurrentUserAuthorizationState.FleetManagePermission);
+
+        var card = page.FindAll(".positions-overview-card")
+            .Single(item => item.TextContent.Contains("Western Gale", StringComparison.Ordinal));
+
+        Assert.Null(card.QuerySelector("a[href*='defects/report']"));
+    }
+
+    [Fact]
     public void The_overview_confirms_when_every_position_is_current()
     {
         respond = _ => Json(HttpStatusCode.OK, Positions(items: Item(
