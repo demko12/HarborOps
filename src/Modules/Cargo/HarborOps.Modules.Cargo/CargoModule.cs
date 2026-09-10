@@ -15,6 +15,7 @@ public static class CargoModule
     public static IServiceCollection AddCargoModule(this IServiceCollection services)
     {
         services.AddScoped<AddCargoContainerService>();
+        services.AddScoped<ContainerManifestImportService>();
         services.AddScoped<AssignContainerSealService>();
         services.AddScoped<BreakContainerSealService>();
         services.AddScoped<ExecuteCargoOperationService>();
@@ -32,6 +33,7 @@ public static class CargoModule
         services.AddScoped<ReviewCargoSafetyInfoService>();
         services.AddScoped<SearchCargoBookingsQuery>();
         services.AddScoped<SubmitCargoSafetyInfoService>();
+        services.AddScoped<UpdateCargoContainerService>();
         services.AddScoped<UpdateCargoSafetyInfoService>();
         services.AddScoped<IOperationsDashboardCargoQuery, OperationsDashboardCargoQuery>();
         services.TryAddSingleton(TimeProvider.System);

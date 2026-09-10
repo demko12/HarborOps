@@ -1557,6 +1557,9 @@ public sealed class CargoBookingDetailsPageTests : BunitContext
         var page = RenderDetailsPage();
         page.Find("#container-number").Change("MSKU1234567");
         page.Find("#container-type").Change("45G1");
+        page.Find("#container-pol").Change("NLRTM");
+        page.Find("#container-pod").Change("USNYC");
+        page.Find("#container-weight").Change("12500");
         page.Find(".container-submit").Click();
 
         page.WaitForAssertion(() => Assert.Single(page.FindAll(".manifest-row")));
@@ -1577,6 +1580,9 @@ public sealed class CargoBookingDetailsPageTests : BunitContext
         var page = RenderDetailsPage();
         page.Find("#container-number").Change("MSKU1234567");
         page.Find("#container-type").Change("45G1");
+        page.Find("#container-pol").Change("NLRTM");
+        page.Find("#container-pod").Change("USNYC");
+        page.Find("#container-weight").Change("12500");
         page.Find(".container-submit").Click();
 
         page.WaitForAssertion(() =>

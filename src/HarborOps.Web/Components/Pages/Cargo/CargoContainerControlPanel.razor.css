@@ -355,6 +355,8 @@ html[data-theme="light"] .operation-modal {
     background: var(--bg-surface);
 }
 
+.container-control-panel-modal { margin-top: 1rem; }
+
 .booking-card-heading {
     display: flex;
     align-items: center;

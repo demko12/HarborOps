@@ -691,6 +691,9 @@ public sealed class ContainerControlEndpointTests : IntegrationTestBase
             {
                 ContainerNumber = containerNumber,
                 ContainerType = containerType,
+                PortOfLoadingCode = "NLRTM",
+                PortOfDischargeCode = "USNYC",
+                WeightKg = 12500m,
             },
             CancellationToken.None);
         var result = await response.Content.ReadFromJsonAsync<AddCargoContainerResponse>(

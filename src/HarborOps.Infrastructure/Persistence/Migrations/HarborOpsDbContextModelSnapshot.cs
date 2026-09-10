@@ -265,6 +265,16 @@ namespace HarborOps.Infrastructure.Persistence.Migrations
                         .HasColumnType("datetime2")
                         .HasColumnName("PeriodStart");
 
+                    b.Property<string>("PortOfDischargeCode")
+                        .HasMaxLength(5)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(5)");
+
+                    b.Property<string>("PortOfLoadingCode")
+                        .HasMaxLength(5)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(5)");
+
                     b.Property<string>("Status")
                         .IsRequired()
                         .HasMaxLength(50)
@@ -273,9 +283,16 @@ namespace HarborOps.Infrastructure.Persistence.Migrations
                     b.Property<Guid?>("VesselId")
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<decimal?>("WeightKg")
+                        .HasPrecision(18, 3)
+                        .HasColumnType("decimal(18,3)");
+
                     b.HasKey("Id");
 
                     b.HasIndex("CargoBookingId");
+
+                    b.HasIndex("ContainerNumber")
+                        .IsUnique();
 
                     b.ToTable("Containers", "cargo");
 

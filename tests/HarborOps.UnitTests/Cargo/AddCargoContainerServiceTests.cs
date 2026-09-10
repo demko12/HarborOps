@@ -19,7 +19,7 @@ public sealed class AddCargoContainerServiceTests
 
         var response = await service.AddAsync(
             booking.Id,
-            Request("MSKU1234567", "40HC"),
+            Request("MSKU1234567", "42G1"),
             CancellationToken.None);
 
         var container = await dbContext.Set<Container>().SingleAsync(CancellationToken.None);
@@ -27,7 +27,10 @@ public sealed class AddCargoContainerServiceTests
         Assert.Equal("MSKU1234567", response.ContainerNumber);
         Assert.Equal(nameof(CargoStatus.Registered), response.Status);
         Assert.Equal(booking.Id, container.CargoBookingId);
-        Assert.Equal("40HC", container.ContainerType);
+        Assert.Equal("42G1", container.ContainerType);
+        Assert.Equal("NLRTM", container.PortOfLoadingCode);
+        Assert.Equal("USNYC", container.PortOfDischargeCode);
+        Assert.Equal(12500m, container.WeightKg);
     }
 
     [Fact]
@@ -167,12 +170,15 @@ public sealed class AddCargoContainerServiceTests
 
     private static AddCargoContainerRequest Request(
         string? containerNumber,
-        string? containerType = "20GP")
+        string? containerType = "22G1")
     {
         return new AddCargoContainerRequest
         {
             ContainerNumber = containerNumber,
             ContainerType = containerType,
+            PortOfLoadingCode = "NLRTM",
+            PortOfDischargeCode = "USNYC",
+            WeightKg = 12500m,
         };
     }
 

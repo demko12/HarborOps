@@ -63,6 +63,9 @@ public partial class CargoContainerControlPanel : IDisposable
     public string ContainerNumber { get; set; } = string.Empty;
 
     [Parameter]
+    public bool HideHeading { get; set; }
+
+    [Parameter]
     public EventCallback OnChanged { get; set; }
 
     private ContainerControlRow? Control => view?.Control;

@@ -10,12 +10,7 @@ internal static class AddCargoContainerValidator
 
     internal static IReadOnlyDictionary<string, string[]> Validate(AddCargoContainerRequest request)
     {
-        var errors = new Dictionary<string, string[]>(StringComparer.Ordinal);
-
-        ValidateContainerNumber(request.ContainerNumber, errors);
-        ValidateContainerType(request.ContainerType, errors);
-
-        return errors;
+        return ContainerEntryValidator.Validate(request);
     }
 
     private static void ValidateContainerNumber(

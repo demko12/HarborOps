@@ -206,6 +206,10 @@ public partial class CargoBookingDetails : IDisposable
     private const string LoadedStatus = "Loaded";
 
     private IReadOnlyList<CargoContainerRow> containers = [];
+    private int containerPageNumber = 1;
+    private int containerTotalCount;
+    private int loadedContainerCount;
+    private const int ContainersPerPage = 15;
     private CargoApiFailure? containersFailure;
     private bool isLoadingContainers;
     private Guid? selectedControlContainerId;
@@ -214,8 +218,7 @@ public partial class CargoBookingDetails : IDisposable
     private CargoApiFailure? operationsFailure;
     private bool isLoadingOperations;
 
-    private int LoadedContainerCount => containers.Count(container =>
-        string.Equals(container.Status, LoadedStatus, StringComparison.OrdinalIgnoreCase));
+    private int LoadedContainerCount => loadedContainerCount;
 
     private int PlannedOperationCount => operations.Count(operation =>
         string.Equals(operation.OperationState, "Planned", StringComparison.OrdinalIgnoreCase));
@@ -226,9 +229,9 @@ public partial class CargoBookingDetails : IDisposable
 
     private bool CanAddContainers => CanManageCargo && !IsBookingClosed;
 
-    private int LoadedPercent => containers.Count == 0
+    private int LoadedPercent => containerTotalCount == 0
         ? 0
-        : (int)Math.Round(LoadedContainerCount * 100d / containers.Count);
+        : (int)Math.Round(LoadedContainerCount * 100d / containerTotalCount);
 
     private IReadOnlyList<ContainerControlRow> ContainerControls =>
         details?.ContainerControls ?? [];
@@ -290,7 +293,7 @@ public partial class CargoBookingDetails : IDisposable
         CargoApiResult<CargoContainerList> result;
         try
         {
-            result = await CargoApi.GetContainersAsync(requestedBookingId, disposeCancellation.Token);
+            result = await CargoApi.GetContainersAsync(requestedBookingId, containerPageNumber, disposeCancellation.Token);
         }
         catch (OperationCanceledException) when (disposeCancellation.IsCancellationRequested)
         {
@@ -313,6 +316,23 @@ public partial class CargoBookingDetails : IDisposable
         }
 
         containers = result.Value?.Items ?? [];
+        var isLegacyResponse = result.Value?.TotalCount is 0 && containers.Count > 0;
+        containerTotalCount = isLegacyResponse ? containers.Count : result.Value?.TotalCount ?? 0;
+        loadedContainerCount = isLegacyResponse
+            ? containers.Count(container => string.Equals(container.Status, LoadedStatus, StringComparison.OrdinalIgnoreCase))
+            : result.Value?.LoadedCount ?? 0;
+        containerPageNumber = result.Value?.PageNumber ?? 1;
+    }
+
+    private int ContainerPageCount => Math.Max(1, (int)Math.Ceiling(containerTotalCount / (double)ContainersPerPage));
+
+    private async Task ChangeContainerPageAsync(int pageNumber)
+    {
+        if (pageNumber < 1 || pageNumber > ContainerPageCount || pageNumber == containerPageNumber) return;
+        containerPageNumber = pageNumber;
+        selectedControlContainerId = null;
+        CancelContainerEdit();
+        await LoadContainersAsync();
     }
 
     private async Task LoadOperationsAsync()
@@ -352,9 +372,61 @@ public partial class CargoBookingDetails : IDisposable
     private InputText? containerNumberInput;
     private bool isAddingContainer;
     private string? containerError;
+    private Guid? editingContainerId;
+    private bool isUpdatingContainer;
+    private string? editContainerError;
+    private ContainerFormModel editContainerModel = new();
+    private EditContext editContainerEditContext = null!;
+    private ValidationMessageStore editContainerMessages = null!;
     private ContainerFormModel containerModel = new();
     private EditContext containerEditContext = null!;
     private ValidationMessageStore containerMessages = null!;
+    private IBrowserFile? manifestFile;
+    private ContainerManifestPreview? manifestPreview;
+    private CargoApiFailure? manifestImportFailure;
+    private bool isPreviewingManifest;
+    private bool isImportingManifest;
+
+    private void SelectManifestFile(InputFileChangeEventArgs args)
+    {
+        manifestFile = args.File;
+        manifestPreview = null;
+        manifestImportFailure = null;
+    }
+
+    private async Task PreviewManifestAsync()
+    {
+        if (manifestFile is null || isPreviewingManifest) return;
+        isPreviewingManifest = true;
+        manifestImportFailure = null;
+        try
+        {
+            await using var stream = manifestFile.OpenReadStream(5 * 1024 * 1024, disposeCancellation.Token);
+            var result = await CargoApi.PreviewContainerManifestAsync(BookingId, stream, manifestFile.Name, disposeCancellation.Token);
+            if (result.IsSuccess) manifestPreview = result.Value;
+            else manifestImportFailure = result.Failure;
+        }
+        catch (OperationCanceledException) when (disposeCancellation.IsCancellationRequested) { }
+        finally { isPreviewingManifest = false; }
+    }
+
+    private async Task ImportManifestAsync()
+    {
+        if (manifestFile is null || manifestPreview is null || manifestPreview.InvalidCount > 0 || isImportingManifest) return;
+        isImportingManifest = true;
+        manifestImportFailure = null;
+        try
+        {
+            await using var stream = manifestFile.OpenReadStream(5 * 1024 * 1024, disposeCancellation.Token);
+            var result = await CargoApi.ImportContainerManifestAsync(BookingId, stream, manifestFile.Name, disposeCancellation.Token);
+            if (!result.IsSuccess) { manifestImportFailure = result.Failure; return; }
+            manifestFile = null;
+            manifestPreview = null;
+            await LoadContainersAsync();
+        }
+        catch (OperationCanceledException) when (disposeCancellation.IsCancellationRequested) { }
+        finally { isImportingManifest = false; }
+    }
 
     private static readonly IReadOnlyList<ContainerTypeOption> StandardContainerTypes =
     [
@@ -391,7 +463,10 @@ public partial class CargoBookingDetails : IDisposable
         {
             var request = new AddCargoContainerWebRequest(
                 containerModel.ContainerNumber!.Trim(),
-                containerModel.ContainerType!.Trim());
+                containerModel.ContainerType!.Trim(),
+                containerModel.PortOfLoadingCode!.Trim(),
+                containerModel.PortOfDischargeCode!.Trim(),
+                containerModel.WeightKg!.Value);
 
             var result = await CargoApi.AddContainerAsync(
                 BookingId,
@@ -428,11 +503,62 @@ public partial class CargoBookingDetails : IDisposable
         }
     }
 
+    private bool CanEdit(CargoContainerRow container) => CanAddContainers && string.Equals(container.Status, "Registered", StringComparison.OrdinalIgnoreCase);
+
+    private void BeginContainerEdit(CargoContainerRow container)
+    {
+        editingContainerId = container.ContainerId;
+        editContainerError = null;
+        editContainerModel = new ContainerFormModel
+        {
+            ContainerNumber = container.ContainerNumber,
+            ContainerType = container.ContainerType,
+            PortOfLoadingCode = container.PortOfLoadingCode,
+            PortOfDischargeCode = container.PortOfDischargeCode,
+            WeightKg = container.WeightKg,
+        };
+        editContainerEditContext = new EditContext(editContainerModel);
+        editContainerMessages = new ValidationMessageStore(editContainerEditContext);
+    }
+
+    private void CancelContainerEdit()
+    {
+        editingContainerId = null;
+        editContainerError = null;
+    }
+
+    private async Task SubmitContainerUpdateAsync()
+    {
+        if (editingContainerId is not { } containerId || isUpdatingContainer) return;
+        editContainerMessages.Clear();
+        editContainerError = null;
+        if (!editContainerEditContext.Validate()) return;
+        isUpdatingContainer = true;
+        try
+        {
+            var request = new UpdateCargoContainerWebRequest(editContainerModel.ContainerNumber!.Trim(), editContainerModel.ContainerType!.Trim(), editContainerModel.PortOfLoadingCode!.Trim(), editContainerModel.PortOfDischargeCode!.Trim(), editContainerModel.WeightKg!.Value);
+            var result = await CargoApi.UpdateContainerAsync(BookingId, containerId, request, disposeCancellation.Token);
+            if (!result.IsSuccess)
+            {
+                CargoFormFailure.Apply(result.Failure!, editContainerEditContext, editContainerMessages, ContainerFieldMap, message => editContainerError = message);
+                if (result.Failure!.IsConflict) await LoadContainersAsync();
+                return;
+            }
+
+            CancelContainerEdit();
+            await LoadContainersAsync();
+        }
+        catch (OperationCanceledException) when (disposeCancellation.IsCancellationRequested) { }
+        finally { isUpdatingContainer = false; }
+    }
+
     private void ResetContainerForm()
     {
         containerModel = new ContainerFormModel();
         containerEditContext = new EditContext(containerModel);
         containerMessages = new ValidationMessageStore(containerEditContext);
+        editContainerEditContext = new EditContext(editContainerModel);
+        editContainerMessages = new ValidationMessageStore(editContainerEditContext);
     }
 
     private static readonly IReadOnlyDictionary<string, string> ContainerFieldMap =
@@ -440,6 +566,9 @@ public partial class CargoBookingDetails : IDisposable
         {
             ["containerNumber"] = nameof(ContainerFormModel.ContainerNumber),
             ["containerType"] = nameof(ContainerFormModel.ContainerType),
+            ["portOfLoadingCode"] = nameof(ContainerFormModel.PortOfLoadingCode),
+            ["portOfDischargeCode"] = nameof(ContainerFormModel.PortOfDischargeCode),
+            ["weightKg"] = nameof(ContainerFormModel.WeightKg),
         };
 
     private sealed class ContainerFormModel
@@ -451,6 +580,18 @@ public partial class CargoBookingDetails : IDisposable
         [Required(ErrorMessage = "Container type is required.")]
         [StringLength(50, ErrorMessage = "Container type must not exceed 50 characters.")]
         public string? ContainerType { get; set; }
+
+        [Required(ErrorMessage = "POL is required.")]
+        [StringLength(5, MinimumLength = 5, ErrorMessage = "POL must contain five characters.")]
+        public string? PortOfLoadingCode { get; set; }
+
+        [Required(ErrorMessage = "POD is required.")]
+        [StringLength(5, MinimumLength = 5, ErrorMessage = "POD must contain five characters.")]
+        public string? PortOfDischargeCode { get; set; }
+
+        [Required(ErrorMessage = "Weight is required.")]
+        [Range(typeof(decimal), "0.001", "999999999999999.999", ErrorMessage = "Weight must be greater than zero.")]
+        public decimal? WeightKg { get; set; }
     }
 
     private sealed record ContainerTypeOption(string Code, string Label);
