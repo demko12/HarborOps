@@ -166,6 +166,37 @@ public sealed class StartMaintenanceWorkOrderServiceTests
         Assert.Equal("InProgress", response.Status);
     }
 
+    [Fact]
+    public async Task StartAsync_starts_a_generated_work_order_and_keeps_its_occurrence_generated()
+    {
+        await using var dbContext = CreateDbContext();
+        var dueDate = DateOnly.FromDateTime(UtcNow).AddDays(5);
+        var schedule = MaintenanceSchedule.Create("Main engine overhaul", MaintenanceFrequency.Monthly, dueDate, null);
+        var workOrder = MaintenanceWorkOrder.CreateFromSchedule(
+            Guid.NewGuid(),
+            "Main engine overhaul - due",
+            null,
+            WorkOrderPriority.Medium,
+            schedule.Id,
+            dueDate);
+        await dbContext.Set<MaintenanceSchedule>().AddAsync(schedule);
+        await dbContext.Set<MaintenanceWorkOrder>().AddAsync(workOrder);
+        await dbContext.Set<ScheduleOccurrence>().AddAsync(
+            ScheduleOccurrence.Generate(schedule.Id, dueDate, workOrder.Id, UtcNow));
+        await dbContext.SaveChangesAsync();
+
+        var response = await CreateService(dbContext).StartAsync(workOrder.Id, CancellationToken.None);
+
+        var occurrence = await dbContext.Set<ScheduleOccurrence>().AsNoTracking().SingleAsync();
+        var storedSchedule = await dbContext.Set<MaintenanceSchedule>().AsNoTracking().SingleAsync();
+
+        Assert.Equal("InProgress", response.Status);
+        Assert.Equal(["Cancel", "ReplaceEquipment"], response.AllowedActions);
+        Assert.Equal(ScheduleOccurrenceState.Generated, occurrence.State);
+        Assert.Null(occurrence.ResolvedUtc);
+        Assert.Equal(dueDate, storedSchedule.NextDueDate);
+    }
+
     private static async Task<WorkOrderPartReservation> SeedReservationAsync(
         HarborOpsDbContext dbContext,
         Guid workOrderId,

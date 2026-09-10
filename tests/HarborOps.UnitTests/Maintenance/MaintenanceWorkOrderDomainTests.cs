@@ -210,4 +210,64 @@ public sealed class MaintenanceWorkOrderDomainTests
     {
         Assert.False(MaintenanceWorkOrder.IsOverdue(WorkOrderStatus.Open, DueUtc, DueUtc.AddMinutes(-1)));
     }
+
+    [Fact]
+    public void CreateFromSchedule_retains_the_source_and_uses_the_utc_due_time_convention()
+    {
+        var vesselId = Guid.NewGuid();
+        var scheduleId = Guid.NewGuid();
+        var dueDate = new DateOnly(2026, 10, 25);
+
+        var workOrder = MaintenanceWorkOrder.CreateFromSchedule(
+            vesselId,
+            "Main engine overhaul - due 2026-10-25",
+            "Generated from schedule",
+            WorkOrderPriority.Medium,
+            scheduleId,
+            dueDate);
+
+        Assert.Equal(vesselId, workOrder.VesselId);
+        Assert.Equal(scheduleId, workOrder.SourceScheduleId);
+        Assert.Equal(dueDate, workOrder.SourceOccurrenceDueDate);
+        Assert.Equal(new DateTime(2026, 10, 25, 23, 59, 59, DateTimeKind.Utc), workOrder.DueUtc);
+        Assert.Equal(WorkOrderStatus.Open, workOrder.Status);
+        Assert.Null(workOrder.DryDockId);
+        Assert.Null(workOrder.AssignedEngineerId);
+    }
+
+    [Fact]
+    public void Create_leaves_the_source_empty_for_a_manual_work_order()
+    {
+        var workOrder = MaintenanceWorkOrder.Create(
+            Guid.NewGuid(),
+            "Replace filter",
+            null,
+            WorkOrderPriority.High,
+            new DateTime(2026, 10, 1, 12, 0, 0, DateTimeKind.Utc));
+
+        Assert.Null(workOrder.SourceScheduleId);
+        Assert.Null(workOrder.SourceOccurrenceDueDate);
+    }
+
+    [Fact]
+    public void A_generated_work_order_follows_the_existing_lifecycle()
+    {
+        var workOrder = MaintenanceWorkOrder.CreateFromSchedule(
+            Guid.NewGuid(),
+            "Inspection",
+            null,
+            WorkOrderPriority.Medium,
+            Guid.NewGuid(),
+            new DateOnly(2026, 10, 1));
+        var completedUtc = new DateTime(2026, 10, 1, 15, 0, 0, DateTimeKind.Utc);
+
+        Assert.Equal(MaintenanceWorkOrder.AllowedActionsFor(WorkOrderStatus.Open), workOrder.AllowedActions);
+
+        workOrder.Start();
+        Assert.Equal(WorkOrderStatus.InProgress, workOrder.Status);
+
+        workOrder.Complete(completedUtc);
+        Assert.Equal(WorkOrderStatus.Completed, workOrder.Status);
+        Assert.Equal(completedUtc, workOrder.CompletedUtc);
+    }
 }

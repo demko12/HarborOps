@@ -114,6 +114,55 @@ public sealed class CancelMaintenanceWorkOrderServiceTests
         Assert.Equal(missingId, exception.WorkOrderId);
     }
 
+    [Fact]
+    public async Task CancelAsync_marks_a_generated_occurrence_cancelled_without_advancing_the_schedule()
+    {
+        await using var dbContext = CreateDbContext();
+        var (schedule, workOrder) = await SeedGeneratedAsync(dbContext, WorkOrderStatus.InProgress);
+        var nextDueDate = schedule.NextDueDate;
+
+        var response = await CreateService(dbContext).CancelAsync(workOrder.Id, CancellationToken.None);
+
+        var occurrence = await dbContext.Set<ScheduleOccurrence>().AsNoTracking().SingleAsync();
+        var storedSchedule = await dbContext.Set<MaintenanceSchedule>().AsNoTracking().SingleAsync();
+
+        Assert.Equal("Canceled", response.Status);
+        Assert.Equal(ScheduleOccurrenceState.Cancelled, occurrence.State);
+        Assert.Equal(workOrder.Id, occurrence.WorkOrderId);
+        Assert.Equal(UtcNow, occurrence.ResolvedUtc);
+        Assert.Equal(nextDueDate, storedSchedule.NextDueDate);
+    }
+
+    [Fact]
+    public async Task Cancelling_a_manual_work_order_leaves_generated_occurrences_untouched()
+    {
+        await using var dbContext = CreateDbContext();
+        await SeedGeneratedAsync(dbContext, WorkOrderStatus.Open);
+        var manual = await SeedAsync(dbContext, WorkOrderStatus.Open);
+
+        await CreateService(dbContext).CancelAsync(manual.Id, CancellationToken.None);
+
+        var occurrence = await dbContext.Set<ScheduleOccurrence>().AsNoTracking().SingleAsync();
+
+        Assert.Equal(ScheduleOccurrenceState.Generated, occurrence.State);
+        Assert.Null(occurrence.ResolvedUtc);
+    }
+
+    [Fact]
+    public async Task A_rejected_cancellation_keeps_the_completed_occurrence_of_a_generated_work_order()
+    {
+        await using var dbContext = CreateDbContext();
+        var (_, workOrder) = await SeedGeneratedAsync(dbContext, WorkOrderStatus.Completed);
+        dbContext.ChangeTracker.Clear();
+
+        await Assert.ThrowsAsync<WorkOrderTransitionNotAllowedException>(
+            () => CreateService(dbContext).CancelAsync(workOrder.Id, CancellationToken.None));
+
+        var occurrence = await dbContext.Set<ScheduleOccurrence>().AsNoTracking().SingleAsync();
+
+        Assert.Equal(ScheduleOccurrenceState.Completed, occurrence.State);
+    }
+
     private static async Task<MaintenanceWorkOrder> SeedAsync(
         HarborOpsDbContext dbContext,
         WorkOrderStatus status)
@@ -167,5 +216,47 @@ public sealed class CancelMaintenanceWorkOrderServiceTests
     private sealed class FixedTimeProvider(DateTimeOffset utcNow) : TimeProvider
     {
         public override DateTimeOffset GetUtcNow() => utcNow;
+    }
+
+    private static async Task<(MaintenanceSchedule Schedule, MaintenanceWorkOrder WorkOrder)> SeedGeneratedAsync(
+    HarborOpsDbContext dbContext,
+    WorkOrderStatus status)
+    {
+        var dueDate = DateOnly.FromDateTime(UtcNow).AddDays(5);
+        var equipment = Equipment.Register(Guid.NewGuid(), "Main engine", "Propulsion", null, null);
+        var schedule = MaintenanceSchedule.Create("Main engine overhaul", MaintenanceFrequency.Monthly, dueDate, null);
+        var workOrder = MaintenanceWorkOrder.CreateFromSchedule(
+            equipment.VesselId,
+            "Main engine overhaul - due",
+            null,
+            WorkOrderPriority.Medium,
+            schedule.Id,
+            dueDate);
+        var occurrence = ScheduleOccurrence.Generate(schedule.Id, dueDate, workOrder.Id, UtcNow);
+
+        switch (status)
+        {
+            case WorkOrderStatus.InProgress:
+                workOrder.Start();
+                break;
+
+            case WorkOrderStatus.Completed:
+                workOrder.Complete(UtcNow);
+                occurrence.MarkCompleted(workOrder.Id, UtcNow);
+                break;
+
+            default:
+                break;
+        }
+
+        await dbContext.Set<Equipment>().AddAsync(equipment);
+        await dbContext.Set<MaintenanceSchedule>().AddAsync(schedule);
+        await dbContext.Set<ScheduleEquipment>().AddAsync(ScheduleEquipment.Create(schedule.Id, equipment.Id));
+        await dbContext.Set<MaintenanceWorkOrder>().AddAsync(workOrder);
+        await dbContext.Set<WorkOrderEquipment>().AddAsync(WorkOrderEquipment.Create(workOrder.Id, equipment.Id));
+        await dbContext.Set<ScheduleOccurrence>().AddAsync(occurrence);
+        await dbContext.SaveChangesAsync();
+
+        return (schedule, workOrder);
     }
 }

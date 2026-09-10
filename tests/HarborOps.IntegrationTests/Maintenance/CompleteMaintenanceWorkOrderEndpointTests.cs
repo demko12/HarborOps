@@ -152,6 +152,84 @@ public sealed class CompleteMaintenanceWorkOrderEndpointTests : IntegrationTestB
         Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
     }
 
+    [Fact]
+    public async Task Post_completes_a_generated_work_order_and_advances_its_schedule_once()
+    {
+        using var client = await _application.CreateAuthenticatedClientAsync();
+        var dueDate = DateOnly.FromDateTime(DateTime.UtcNow);
+        var (scheduleId, workOrderId) = await SeedGeneratedWorkOrderAsync(dueDate);
+
+        using var first = await client.PostAsJsonAsync(
+            $"/api/maintenance/work-orders/{workOrderId}/completion",
+            CreateValidRequest(),
+            CancellationToken.None);
+        using var second = await client.PostAsJsonAsync(
+            $"/api/maintenance/work-orders/{workOrderId}/completion",
+            CreateValidRequest(),
+            CancellationToken.None);
+
+        await using var scope = _application.Services.CreateAsyncScope();
+        var dbContext = scope.ServiceProvider.GetRequiredService<HarborOpsDbContext>();
+        var occurrence = await dbContext.Set<ScheduleOccurrence>()
+            .AsNoTracking()
+            .SingleAsync(candidate => candidate.ScheduleId == scheduleId, CancellationToken.None);
+        var schedule = await dbContext.Set<MaintenanceSchedule>()
+            .AsNoTracking()
+            .SingleAsync(candidate => candidate.Id == scheduleId, CancellationToken.None);
+
+        Assert.Equal(HttpStatusCode.OK, first.StatusCode);
+        Assert.Equal(HttpStatusCode.Conflict, second.StatusCode);
+        Assert.Equal(ScheduleOccurrenceState.Completed, occurrence.State);
+        Assert.Equal(dueDate.AddMonths(1), schedule.NextDueDate);
+    }
+
+    [Fact]
+    public async Task Post_returns_409_for_a_generated_work_order_without_its_occurrence()
+    {
+        using var client = await _application.CreateAuthenticatedClientAsync();
+        var (_, workOrderId) = await SeedGeneratedWorkOrderAsync(
+            DateOnly.FromDateTime(DateTime.UtcNow),
+            seedOccurrence: false);
+
+        using var response = await client.PostAsJsonAsync(
+            $"/api/maintenance/work-orders/{workOrderId}/completion",
+            CreateValidRequest(),
+            CancellationToken.None);
+
+        await using var scope = _application.Services.CreateAsyncScope();
+        var dbContext = scope.ServiceProvider.GetRequiredService<HarborOpsDbContext>();
+        var workOrder = await dbContext.Set<MaintenanceWorkOrder>()
+            .AsNoTracking()
+            .SingleAsync(candidate => candidate.Id == workOrderId, CancellationToken.None);
+
+        Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
+        Assert.Equal(WorkOrderStatus.Open, workOrder.Status);
+        Assert.False(await dbContext.Set<MaintenanceRecord>().AnyAsync(CancellationToken.None));
+    }
+
+    [Fact]
+    public async Task Post_returns_409_when_the_generated_work_orders_schedule_is_hour_based()
+    {
+        using var client = await _application.CreateAuthenticatedClientAsync();
+        var (scheduleId, workOrderId) = await SeedGeneratedWorkOrderAsync(
+            DateOnly.FromDateTime(DateTime.UtcNow),
+            frequency: MaintenanceFrequency.RunningHours);
+
+        using var response = await client.PostAsJsonAsync(
+            $"/api/maintenance/work-orders/{workOrderId}/completion",
+            CreateValidRequest(),
+            CancellationToken.None);
+
+        await using var scope = _application.Services.CreateAsyncScope();
+        var dbContext = scope.ServiceProvider.GetRequiredService<HarborOpsDbContext>();
+        var occurrence = await dbContext.Set<ScheduleOccurrence>()
+            .AsNoTracking()
+            .SingleAsync(candidate => candidate.ScheduleId == scheduleId, CancellationToken.None);
+
+        Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
+        Assert.Equal(ScheduleOccurrenceState.Generated, occurrence.State);
+        Assert.False(await dbContext.Set<MaintenanceRecord>().AnyAsync(CancellationToken.None));
+    }
     private async Task<Guid> SeedWorkOrderAsync()
     {
         await using var scope = _application.Services.CreateAsyncScope();
@@ -203,5 +281,40 @@ public sealed class CompleteMaintenanceWorkOrderEndpointTests : IntegrationTestB
             Cost = 150.50m,
             LaborHours = 2.5m,
         };
+    }
+
+    private async Task<(Guid ScheduleId, Guid WorkOrderId)> SeedGeneratedWorkOrderAsync(
+    DateOnly dueDate,
+    bool seedOccurrence = true,
+    MaintenanceFrequency frequency = MaintenanceFrequency.Monthly)
+    {
+        await using var scope = _application.Services.CreateAsyncScope();
+        var dbContext = scope.ServiceProvider.GetRequiredService<HarborOpsDbContext>();
+
+        var schedule = MaintenanceSchedule.Create(
+            "Main engine overhaul",
+            frequency,
+            dueDate,
+            frequency is MaintenanceFrequency.RunningHours ? 500 : null);
+        var workOrder = MaintenanceWorkOrder.CreateFromSchedule(
+            Guid.NewGuid(),
+            "Main engine overhaul - due",
+            null,
+            WorkOrderPriority.Medium,
+            schedule.Id,
+            dueDate);
+
+        await dbContext.Set<MaintenanceSchedule>().AddAsync(schedule);
+        await dbContext.Set<MaintenanceWorkOrder>().AddAsync(workOrder);
+
+        if (seedOccurrence)
+        {
+            await dbContext.Set<ScheduleOccurrence>().AddAsync(
+                ScheduleOccurrence.Generate(schedule.Id, dueDate, workOrder.Id, DateTime.UtcNow));
+        }
+
+        await dbContext.SaveChangesAsync();
+
+        return (schedule.Id, workOrder.Id);
     }
 }
