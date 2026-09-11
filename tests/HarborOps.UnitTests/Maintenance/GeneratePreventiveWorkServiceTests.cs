@@ -110,6 +110,7 @@ public sealed class GeneratePreventiveWorkServiceTests
         Assert.Equal(schedule.Id, workOrder.SourceScheduleId);
         Assert.Equal(Today.AddDays(5), workOrder.SourceOccurrenceDueDate);
         Assert.Null(workOrder.AssignedEngineerId);
+        Assert.Equal(FixedNow.UtcDateTime, workOrder.CreatedUtc);
         Assert.Equal(new[] { mainEngine.Id, boiler.Id }.Order(), scope.Order());
 
         Assert.Equal(schedule.Id, occurrence.ScheduleId);
@@ -495,6 +496,31 @@ public sealed class GeneratePreventiveWorkServiceTests
     }
 
     [Fact]
+    public async Task ReplaceAsync_rejects_an_unknown_priority_without_changing_anything()
+    {
+        await using var dbContext = CreateDbContext();
+        var equipment = await SeedEquipmentAsync(dbContext, Guid.NewGuid(), "Main engine");
+        await SeedScheduleAsync(dbContext, "Overhaul", MaintenanceFrequency.Monthly, Today.AddDays(5), null, equipment.Id);
+        var service = CreateService(dbContext);
+        var generated = Assert.Single(
+            (await service.GenerateAsync(Through(Today.AddDays(10)), CancellationToken.None)).Results);
+        await CancelAsync(dbContext, generated.WorkOrderId);
+
+        var exception = await Assert.ThrowsAsync<GeneratePreventiveWorkValidationException>(
+            () => service.ReplaceAsync(
+                generated.OccurrenceId,
+                new GeneratePreventiveWorkRequest { Priority = "Urgent" },
+                CancellationToken.None));
+
+        var occurrence = await dbContext.Set<ScheduleOccurrence>().AsNoTracking().SingleAsync();
+
+        Assert.Contains(GeneratePreventiveWorkValidator.PriorityField, exception.Errors);
+        Assert.Equal(ScheduleOccurrenceState.Cancelled, occurrence.State);
+        Assert.Equal(generated.WorkOrderId, occurrence.WorkOrderId);
+        Assert.Single(await dbContext.Set<MaintenanceWorkOrder>().AsNoTracking().ToListAsync());
+    }
+
+    [Fact]
     public async Task ReplaceAsync_rejects_an_unknown_occurrence()
     {
         await using var dbContext = CreateDbContext();
@@ -607,7 +633,8 @@ public sealed class GeneratePreventiveWorkServiceTests
             null,
             WorkOrderPriority.Medium,
             schedule.Id,
-            dueDate);
+            dueDate,
+            FixedNow.UtcDateTime);
         var occurrence = ScheduleOccurrence.Generate(schedule.Id, dueDate, workOrder.Id, FixedNow.UtcDateTime);
         workOrder.Cancel();
         occurrence.MarkCancelled(workOrder.Id, FixedNow.UtcDateTime);

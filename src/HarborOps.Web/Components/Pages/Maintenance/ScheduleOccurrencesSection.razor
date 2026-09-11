@@ -1,0 +1,117 @@
+@using HarborOps.Web.Api.Maintenance
+@implements IDisposable
+@inject MaintenanceApiClient MaintenanceApi
+
+<section class="schedules-occurrences" aria-label="Generated preventive work">
+	<h3 class="schedules-occurrences-title">Generated work</h3>
+
+	@if (successMessage is not null)
+	{
+		<div class="maintenance-toast preventive-toast" role="status" aria-live="polite">
+			<span class="bi bi-check-circle-fill" aria-hidden="true"></span>
+			<span>@successMessage</span>
+			@if (successWorkOrderId is { } successWorkOrder)
+			{
+				<a href="@WorkOrderHref(successWorkOrder)">Open work order</a>
+			}
+		</div>
+	}
+
+	@if (isLoading)
+	{
+		<LoadingState Message="Loading generated work..." />
+	}
+	else if (failure is { IsConflict: true })
+	{
+		<EmptyState Title="Hour-based schedules are not generated yet"
+					Message="Only calendar schedules with a next due date produce preventive work orders." />
+	}
+	else if (failure is not null)
+	{
+		<ApiErrorState Title="@failure.Title" Message="@failure.Message" OnRetry="RetryAsync" />
+	}
+	else if (rows.Count == 0)
+	{
+		<EmptyState Title="No work generated for this schedule"
+					Message="Preview and generate due work orders from the Preventive work tab." />
+	}
+	else
+	{
+		<div class="maintenance-table-scroll">
+			<table class="maintenance-table schedules-occurrences-table">
+				<caption class="visually-hidden">Occurrences of this schedule and their work orders</caption>
+				<thead>
+					<tr>
+						<th scope="col">Due date</th>
+						<th scope="col">State</th>
+						<th scope="col">Work order</th>
+						<th scope="col">Replaced</th>
+						<th scope="col">Resolved</th>
+						<th scope="col" class="col-actions"><span class="visually-hidden">Actions</span></th>
+					</tr>
+				</thead>
+				<tbody>
+					@foreach (var row in rows)
+					{
+						<tr @key="row.OccurrenceId">
+							<td>@MaintenanceFormat.DueDate(row.DueDate)</td>
+							<td>
+								<span class="preventive-state @MaintenanceFormat.OccurrenceStateModifier(row.State)">
+									@MaintenanceFormat.OccurrenceStateLabel(row.State)
+								</span>
+							</td>
+							<td>
+								<a href="@WorkOrderHref(row.WorkOrderId)">Open work order</a>
+								@if (row.WorkOrderStatus is { } status)
+								{
+									<span class="work-order-status @MaintenanceFormat.StatusModifier(status)">@status</span>
+								}
+							</td>
+							<td>
+								@if (row.ReplacedWorkOrderId is { } replacedId)
+								{
+									<a href="@WorkOrderHref(replacedId)">Cancelled work order</a>
+								}
+								else
+								{
+									<span class="maintenance-muted">@MaintenanceFormat.MissingValue</span>
+								}
+							</td>
+							<td class="maintenance-muted">@MaintenanceFormat.CompletedUtc(row.ResolvedUtc)</td>
+							<td class="col-actions">
+								@if (CanManage && MaintenanceFormat.IsReplaceable(row.State))
+								{
+									<button type="button" class="maintenance-usage-button preventive-replace" @onclick="() => AskToReplace(row)">
+										Create replacement
+									</button>
+								}
+							</td>
+						</tr>
+					}
+				</tbody>
+			</table>
+		</div>
+	}
+
+	@if (pendingReplacement is { } replacement)
+	{
+		<div class="preventive-confirm-inline" role="alertdialog" aria-labelledby="schedules-replace-question">
+			<p id="schedules-replace-question">
+				Create a replacement work order for the cancelled occurrence due @MaintenanceFormat.DueDate(replacement.DueDate)?
+				The schedule's next due date stays unchanged until the replacement is completed.
+			</p>
+
+			@if (replacementFailure is not null)
+			{
+				<div class="maintenance-inline-error" role="alert">@replacementFailure.Message</div>
+			}
+
+			<div class="maintenance-form-actions">
+				<button type="button" class="maintenance-button" disabled="@isReplacing" @onclick="ConfirmReplacementAsync">
+					@(isReplacing ? "Creating..." : "Create replacement")
+				</button>
+				<button type="button" class="maintenance-reset" disabled="@isReplacing" @onclick="DismissReplacement">Keep cancelled</button>
+			</div>
+		</div>
+	}
+</section>

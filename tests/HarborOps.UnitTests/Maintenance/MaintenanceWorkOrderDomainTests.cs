@@ -6,6 +6,7 @@ public sealed class MaintenanceWorkOrderDomainTests
 {
     private static readonly DateTime DueUtc = new(2026, 7, 1, 8, 0, 0, DateTimeKind.Utc);
     private static readonly DateTime CompletedUtc = new(2026, 6, 20, 14, 30, 0, DateTimeKind.Utc);
+    private static readonly DateTime CreatedUtc = new(2026, 6, 10, 9, 15, 0, DateTimeKind.Utc);
 
     private static MaintenanceWorkOrder CreateOpen()
     {
@@ -224,12 +225,14 @@ public sealed class MaintenanceWorkOrderDomainTests
             "Generated from schedule",
             WorkOrderPriority.Medium,
             scheduleId,
-            dueDate);
+            dueDate,
+            CreatedUtc);
 
         Assert.Equal(vesselId, workOrder.VesselId);
         Assert.Equal(scheduleId, workOrder.SourceScheduleId);
         Assert.Equal(dueDate, workOrder.SourceOccurrenceDueDate);
         Assert.Equal(new DateTime(2026, 10, 25, 23, 59, 59, DateTimeKind.Utc), workOrder.DueUtc);
+        Assert.Equal(CreatedUtc, workOrder.CreatedUtc);
         Assert.Equal(WorkOrderStatus.Open, workOrder.Status);
         Assert.Null(workOrder.DryDockId);
         Assert.Null(workOrder.AssignedEngineerId);
@@ -258,7 +261,8 @@ public sealed class MaintenanceWorkOrderDomainTests
             null,
             WorkOrderPriority.Medium,
             Guid.NewGuid(),
-            new DateOnly(2026, 10, 1));
+            new DateOnly(2026, 10, 1),
+            CreatedUtc);
         var completedUtc = new DateTime(2026, 10, 1, 15, 0, 0, DateTimeKind.Utc);
 
         Assert.Equal(MaintenanceWorkOrder.AllowedActionsFor(WorkOrderStatus.Open), workOrder.AllowedActions);

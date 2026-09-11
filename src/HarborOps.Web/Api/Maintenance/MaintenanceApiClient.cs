@@ -1554,4 +1554,248 @@ internal sealed class MaintenanceApiClient(HttpClient httpClient)
             return new MaintenanceApiResult<ConvertDefectToWorkOrderResponse>(null, Unavailable());
         }
     }
+
+    private const string PreventiveWorkPath = "api/maintenance/preventive-work";
+
+    internal async Task<MaintenanceApiResult<PreventiveWorkForecastPage>> GetPreventiveWorkForecastAsync(
+        PreventiveWorkForecastFilter filter,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(filter);
+
+        try
+        {
+            using var response = await httpClient.GetAsync(
+                BuildPreventiveWorkForecastPath(filter),
+                HttpCompletionOption.ResponseHeadersRead,
+                cancellationToken);
+
+            if (!response.IsSuccessStatusCode)
+            {
+                return new MaintenanceApiResult<PreventiveWorkForecastPage>(
+                    null,
+                    await ReadFailureAsync(response, "Unable to load the preventive work forecast", cancellationToken));
+            }
+
+            var page = await response.Content.ReadFromJsonAsync<PreventiveWorkForecastPage>(cancellationToken);
+
+            return new MaintenanceApiResult<PreventiveWorkForecastPage>(page, null);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (HttpRequestException)
+        {
+            return new MaintenanceApiResult<PreventiveWorkForecastPage>(null, Unavailable());
+        }
+        catch (TaskCanceledException) when (!cancellationToken.IsCancellationRequested)
+        {
+            return new MaintenanceApiResult<PreventiveWorkForecastPage>(null, Unavailable());
+        }
+    }
+
+    internal async Task<MaintenanceApiResult<PreventiveWorkPreview>> PreviewPreventiveWorkAsync(
+        GeneratePreventiveWorkWebRequest request,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+
+        try
+        {
+            using var response = await httpClient.PostAsJsonAsync(
+                $"{PreventiveWorkPath}/generate/preview", request, cancellationToken);
+
+            if (!response.IsSuccessStatusCode)
+            {
+                return new MaintenanceApiResult<PreventiveWorkPreview>(
+                    null,
+                    await ReadFailureAsync(response, "Unable to preview preventive work", cancellationToken));
+            }
+
+            var preview = await response.Content.ReadFromJsonAsync<PreventiveWorkPreview>(cancellationToken);
+
+            return new MaintenanceApiResult<PreventiveWorkPreview>(preview, null);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (HttpRequestException)
+        {
+            return new MaintenanceApiResult<PreventiveWorkPreview>(null, Unavailable());
+        }
+        catch (TaskCanceledException) when (!cancellationToken.IsCancellationRequested)
+        {
+            return new MaintenanceApiResult<PreventiveWorkPreview>(null, Unavailable());
+        }
+    }
+
+    internal async Task<MaintenanceApiResult<PreventiveWorkGenerationResult>> GeneratePreventiveWorkAsync(
+        GeneratePreventiveWorkWebRequest request,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+
+        try
+        {
+            using var response = await httpClient.PostAsJsonAsync(
+                $"{PreventiveWorkPath}/generate", request, cancellationToken);
+
+            if (response.StatusCode != HttpStatusCode.Created)
+            {
+                return new MaintenanceApiResult<PreventiveWorkGenerationResult>(
+                    null,
+                    await ReadFailureAsync(response, "Unable to generate preventive work orders", cancellationToken));
+            }
+
+            var result = await response.Content.ReadFromJsonAsync<PreventiveWorkGenerationResult>(cancellationToken);
+
+            return new MaintenanceApiResult<PreventiveWorkGenerationResult>(result, null);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (HttpRequestException)
+        {
+            return new MaintenanceApiResult<PreventiveWorkGenerationResult>(null, Unavailable());
+        }
+        catch (TaskCanceledException) when (!cancellationToken.IsCancellationRequested)
+        {
+            return new MaintenanceApiResult<PreventiveWorkGenerationResult>(null, Unavailable());
+        }
+    }
+
+    internal async Task<MaintenanceApiResult<PreventiveWorkReplacement>> ReplacePreventiveWorkOrderAsync(
+        Guid occurrenceId,
+        GeneratePreventiveWorkWebRequest request,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+
+        try
+        {
+            using var response = await httpClient.PostAsJsonAsync(
+                $"{PreventiveWorkPath}/occurrences/{occurrenceId}/replacement", request, cancellationToken);
+
+            if (response.StatusCode != HttpStatusCode.Created)
+            {
+                return new MaintenanceApiResult<PreventiveWorkReplacement>(
+                    null,
+                    await ReadFailureAsync(response, "Unable to create the replacement work order", cancellationToken));
+            }
+
+            var replacement = await response.Content.ReadFromJsonAsync<PreventiveWorkReplacement>(cancellationToken);
+
+            return new MaintenanceApiResult<PreventiveWorkReplacement>(replacement, null);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (HttpRequestException)
+        {
+            return new MaintenanceApiResult<PreventiveWorkReplacement>(null, Unavailable());
+        }
+        catch (TaskCanceledException) when (!cancellationToken.IsCancellationRequested)
+        {
+            return new MaintenanceApiResult<PreventiveWorkReplacement>(null, Unavailable());
+        }
+    }
+
+    internal async Task<MaintenanceApiResult<ScheduleOccurrencesResult>> GetScheduleOccurrencesAsync(
+        Guid scheduleId,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            using var response = await httpClient.GetAsync(
+                $"{SchedulesPath}/{scheduleId}/occurrences",
+                HttpCompletionOption.ResponseHeadersRead,
+                cancellationToken);
+
+            if (!response.IsSuccessStatusCode)
+            {
+                return new MaintenanceApiResult<ScheduleOccurrencesResult>(
+                    null,
+                    await ReadFailureAsync(response, "Unable to load the schedule occurrences", cancellationToken));
+            }
+
+            var result = await response.Content.ReadFromJsonAsync<ScheduleOccurrencesResult>(cancellationToken);
+
+            return new MaintenanceApiResult<ScheduleOccurrencesResult>(result, null);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (HttpRequestException)
+        {
+            return new MaintenanceApiResult<ScheduleOccurrencesResult>(null, Unavailable());
+        }
+        catch (TaskCanceledException) when (!cancellationToken.IsCancellationRequested)
+        {
+            return new MaintenanceApiResult<ScheduleOccurrencesResult>(null, Unavailable());
+        }
+    }
+
+    internal async Task<MaintenanceApiResult<ScheduleWorkOrdersResult>> GetScheduleWorkOrdersAsync(
+        Guid scheduleId,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            using var response = await httpClient.GetAsync(
+                $"{SchedulesPath}/{scheduleId}/work-orders",
+                HttpCompletionOption.ResponseHeadersRead,
+                cancellationToken);
+
+            if (!response.IsSuccessStatusCode)
+            {
+                return new MaintenanceApiResult<ScheduleWorkOrdersResult>(
+                    null,
+                    await ReadFailureAsync(response, "Unable to load the generated work orders", cancellationToken));
+            }
+
+            var result = await response.Content.ReadFromJsonAsync<ScheduleWorkOrdersResult>(cancellationToken);
+
+            return new MaintenanceApiResult<ScheduleWorkOrdersResult>(result, null);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (HttpRequestException)
+        {
+            return new MaintenanceApiResult<ScheduleWorkOrdersResult>(null, Unavailable());
+        }
+        catch (TaskCanceledException) when (!cancellationToken.IsCancellationRequested)
+        {
+            return new MaintenanceApiResult<ScheduleWorkOrdersResult>(null, Unavailable());
+        }
+    }
+
+    private static string BuildPreventiveWorkForecastPath(PreventiveWorkForecastFilter filter)
+    {
+        var query = new List<string>
+        {
+            $"from={FormatDate(filter.From)}",
+            $"to={FormatDate(filter.To)}",
+            $"pageNumber={filter.PageNumber}",
+            $"pageSize={filter.PageSize}",
+        };
+
+        if (filter.VesselId is { } vesselId)
+        {
+            query.Add($"vesselId={vesselId}");
+        }
+
+        if (!string.IsNullOrWhiteSpace(filter.State))
+        {
+            query.Add($"state={Uri.EscapeDataString(filter.State)}");
+        }
+
+        return $"{PreventiveWorkPath}/forecast?{string.Join('&', query)}";
+    }
 }

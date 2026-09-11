@@ -1,0 +1,473 @@
+@using HarborOps.Web.Api.Fleet
+@using HarborOps.Web.Api.Maintenance
+@implements IDisposable
+@inject MaintenanceApiClient MaintenanceApi
+@inject FleetApiClient VesselLookupApi
+@inject CurrentUserAuthorizationState AuthorizationState
+
+<div class="preventive-work-panel maintenance-tabpanel" role="tabpanel">
+	<section class="maintenance-summary" aria-label="Preventive work summary">
+		<article class="maintenance-summary-card">
+			<div>
+				<span>Occurrences in the window</span>
+				<strong>@totalCount</strong>
+				<small>@MaintenanceFormat.DueDate(fromFilter) to @MaintenanceFormat.DueDate(toFilter)</small>
+			</div>
+			<span class="summary-icon summary-icon-blue" aria-hidden="true"><span class="bi bi-calendar-range"></span></span>
+		</article>
+		<article class="maintenance-summary-card">
+			<div>
+				<span>Not generated</span>
+				<strong>@pendingCount</strong>
+				<small>Ready to become work orders</small>
+			</div>
+			<span class="summary-icon summary-icon-amber" aria-hidden="true"><span class="bi bi-hourglass-split"></span></span>
+		</article>
+		<article class="maintenance-summary-card">
+			<div>
+				<span>Generated</span>
+				<strong>@generatedCount</strong>
+				<small>Linked to an open work order</small>
+			</div>
+			<span class="summary-icon summary-icon-green" aria-hidden="true"><span class="bi bi-link-45deg"></span></span>
+		</article>
+		<article class="maintenance-summary-card">
+			<div>
+				<span>Overdue</span>
+				<strong>@overdueCount</strong>
+				<small>Past due and not completed</small>
+			</div>
+			<span class="summary-icon summary-icon-red" aria-hidden="true"><span class="bi bi-exclamation-triangle-fill"></span></span>
+		</article>
+	</section>
+
+	<section class="maintenance-filters" aria-label="Preventive work filters">
+		<div class="filter-field">
+			<label for="preventive-window">Due window</label>
+			<select id="preventive-window" @bind="windowPreset" @bind:after="ApplyWindowPresetAsync" disabled="@isLoading">
+				<option value="@NextThirtyDaysPreset">Next 30 days</option>
+				<option value="@NextNinetyDaysPreset">Next 90 days</option>
+				<option value="@OverduePreset">Overdue (past year)</option>
+				<option value="@CustomPreset">Custom</option>
+			</select>
+		</div>
+		<div class="filter-field">
+			<label for="preventive-from">From</label>
+			<input id="preventive-from" type="date" @bind="fromFilter" @bind:after="ApplyCustomWindowAsync" />
+		</div>
+		<div class="filter-field">
+			<label for="preventive-to">To</label>
+			<input id="preventive-to" type="date" @bind="toFilter" @bind:after="ApplyCustomWindowAsync" />
+		</div>
+		<div class="filter-field filter-field-vessel">
+			<label for="preventive-vessel">Vessel</label>
+			<VesselPicker InputId="preventive-vessel" Value="vesselFilter" ValueChanged="SelectVesselFilterAsync" Disabled="isLoading" />
+		</div>
+		<div class="filter-field">
+			<label for="preventive-state">State</label>
+			<select id="preventive-state" @bind="stateFilter" @bind:after="ApplyFiltersAsync">
+				<option value="">All</option>
+				@foreach (var state in MaintenanceFormat.OccurrenceStates)
+				{
+					<option value="@state">@MaintenanceFormat.OccurrenceStateLabel(state)</option>
+				}
+			</select>
+		</div>
+		<div class="filter-field">
+			<label for="preventive-page-size">Per page</label>
+			<select id="preventive-page-size" @bind="pageSize" @bind:after="ApplyFiltersAsync">
+				<option value="25">25</option>
+				<option value="50">50</option>
+				<option value="100">100</option>
+			</select>
+		</div>
+		<button class="maintenance-reset" type="button" @onclick="ResetFiltersAsync" disabled="@isLoading">Reset</button>
+	</section>
+
+	@if (successMessage is not null)
+	{
+		<div class="maintenance-toast preventive-toast" role="status" aria-live="polite">
+			<span class="bi bi-check-circle-fill" aria-hidden="true"></span>
+			<span>@successMessage</span>
+			@if (successWorkOrderId is { } successWorkOrder)
+			{
+				<a href="@WorkOrderHref(successWorkOrder)">Open work order</a>
+			}
+		</div>
+	}
+
+	<section class="maintenance-card" aria-labelledby="preventive-list-title">
+		<div class="maintenance-card-heading">
+			<div>
+				<h2 id="preventive-list-title">Preventive work forecast</h2>
+				<p>Time-based schedule occurrences, earliest due first. Due times are end of day UTC.</p>
+			</div>
+			<div class="maintenance-card-heading-actions">
+				@if (CanManage)
+				{
+					<button type="button" class="maintenance-button preventive-generate-toggle" @onclick="OpenGenerateDialog">
+						Generate work orders
+					</button>
+				}
+				<span class="maintenance-card-icon" aria-hidden="true"><span class="bi bi-calendar-range"></span></span>
+			</div>
+		</div>
+
+		@if (isLoading)
+		{
+			<LoadingState Message="Loading the preventive work forecast..." />
+		}
+		else if (failure is { IsForbidden: true })
+		{
+			<EmptyState Title="You cannot view preventive work"
+						Message="Your account does not carry a maintenance permission. Ask an administrator for access." />
+		}
+		else if (failure is { IsValidation: true })
+		{
+			<div class="maintenance-field-errors preventive-filter-errors" role="alert">
+				<strong>Adjust the due window</strong>
+				<ul>
+					@foreach (var entry in failure.Errors)
+					{
+						@foreach (var message in entry.Value)
+						{
+							<li>
+								<span class="maintenance-error-field">@MaintenanceFormat.FieldLabel(entry.Key)</span>
+								<span>@message</span>
+							</li>
+						}
+					}
+				</ul>
+			</div>
+		}
+		else if (failure is not null)
+		{
+			<ApiErrorState Title="@failure.Title" Message="@failure.Message" OnRetry="RetryAsync" />
+		}
+		else if (rows.Count == 0)
+		{
+			<EmptyState Title="No preventive work is due in this window"
+						Message="Widen the due window or clear the state filter. Only calendar schedules with a next due date and linked equipment appear here." />
+		}
+		else
+		{
+			<div class="maintenance-table-scroll">
+				<table class="maintenance-table preventive-table">
+					<caption class="visually-hidden">Preventive work occurrences ordered by due date</caption>
+					<thead>
+						<tr>
+							<th scope="col">Due date</th>
+							<th scope="col">Maintenance type</th>
+							<th scope="col">Frequency</th>
+							<th scope="col" class="col-vessel">Vessel</th>
+							<th scope="col">Equipment</th>
+							<th scope="col">State</th>
+							<th scope="col">Work order</th>
+							<th scope="col" class="col-actions"><span class="visually-hidden">Actions</span></th>
+						</tr>
+					</thead>
+					<tbody>
+						@foreach (var row in rows)
+						{
+							<tr class="preventive-row @(row.IsOverdue ? "maintenance-overdue-row" : null)" @key="(row.ScheduleId, row.DueDate)">
+								<td title="@($"Due by {MaintenanceFormat.DueUtc(row.DueUtc)} UTC")">@MaintenanceFormat.DueDate(row.DueDate)</td>
+								<td><span class="maintenance-title">@row.MaintenanceType</span></td>
+								<td>@row.Frequency</td>
+								<td class="col-vessel">@row.VesselDisplayName</td>
+								<td class="maintenance-muted">@row.EquipmentCount</td>
+								<td>
+									<span class="preventive-state @MaintenanceFormat.OccurrenceStateModifier(row.State)">
+										@MaintenanceFormat.OccurrenceStateLabel(row.State)
+									</span>
+									@if (row.IsOverdue)
+									{
+										<span class="schedules-due-badge schedules-due-overdue">Overdue</span>
+									}
+								</td>
+								<td>
+									@if (row.WorkOrderId is { } workOrderId)
+									{
+										<a href="@WorkOrderHref(workOrderId)">Open work order</a>
+									}
+									else
+									{
+										<span class="maintenance-muted">@MaintenanceFormat.MissingValue</span>
+									}
+								</td>
+								<td class="col-actions">
+									@if (CanReplace(row))
+									{
+										<button type="button" class="maintenance-usage-button preventive-replace" @onclick="() => AskToReplace(row)">
+											Create replacement
+										</button>
+									}
+								</td>
+							</tr>
+						}
+					</tbody>
+				</table>
+			</div>
+
+			<div class="maintenance-pagination">
+				<span>Showing @FirstRowNumber&ndash;@LastRowNumber of @totalCount occurrences</span>
+				<div class="maintenance-pages">
+					<button type="button" @onclick="PreviousPageAsync" disabled="@(pageNumber <= 1)">Previous</button>
+					<span class="maintenance-page-indicator">Page @pageNumber of @TotalPages</span>
+					<button type="button" @onclick="NextPageAsync" disabled="@(pageNumber >= TotalPages)">Next</button>
+				</div>
+			</div>
+		}
+	</section>
+
+	@if (isGenerateOpen)
+	{
+		<div class="maintenance-modal-backdrop" @onclick="CloseGenerateDialog">
+			<section class="maintenance-form-card preventive-generate-card"
+					 role="dialog"
+					 aria-modal="true"
+					 aria-labelledby="preventive-generate-title"
+					 @onclick:stopPropagation="true">
+				<div class="maintenance-modal-header">
+					<h2 id="preventive-generate-title">Generate preventive work orders</h2>
+					<button type="button"
+							class="maintenance-modal-close"
+							aria-label="Close generate dialog"
+							disabled="@IsGenerateBusy"
+							@onclick="CloseGenerateDialog">
+						&times;
+					</button>
+				</div>
+
+				@if (generationResult is { } outcome)
+				{
+					<div class="preventive-result" role="status" aria-live="polite">
+						<div class="preventive-preview-totals">
+							<div class="preventive-total"><strong>@outcome.CreatedCount</strong><span>Created</span></div>
+							<div class="preventive-total"><strong>@outcome.SkippedCount</strong><span>Skipped, already generated</span></div>
+						</div>
+
+						@if (outcome.Results.Count > 0)
+						{
+							<div class="maintenance-table-scroll preventive-preview-table-scroll">
+								<table class="maintenance-table preventive-result-table">
+									<caption class="visually-hidden">Generation results</caption>
+									<thead>
+										<tr>
+											<th scope="col">Due date</th>
+											<th scope="col">Maintenance type</th>
+											<th scope="col">Outcome</th>
+											<th scope="col">Work order</th>
+										</tr>
+									</thead>
+									<tbody>
+										@foreach (var item in outcome.Results)
+										{
+											<tr @key="item.OccurrenceId">
+												<td>@MaintenanceFormat.DueDate(item.DueDate)</td>
+												<td>@item.MaintenanceType</td>
+												<td>
+													@if (string.Equals(item.Outcome, MaintenanceFormat.CreatedOutcome, StringComparison.Ordinal))
+													{
+														<span class="preventive-state generated">Created</span>
+													}
+													else
+													{
+														<span class="preventive-state @MaintenanceFormat.OccurrenceStateModifier(item.State)">
+															Skipped: @MaintenanceFormat.OccurrenceStateLabel(item.State)
+														</span>
+													}
+												</td>
+												<td><a href="@WorkOrderHref(item.WorkOrderId)">Open work order</a></td>
+											</tr>
+										}
+									</tbody>
+								</table>
+							</div>
+						}
+
+						<div class="maintenance-form-actions">
+							<button type="button" class="maintenance-button preventive-done" @onclick="CloseGenerateDialog">Done</button>
+						</div>
+					</div>
+				}
+				else
+				{
+					<form class="maintenance-form preventive-generate-form" @onsubmit="PreviewAsync" @onsubmit:preventDefault="true">
+						@if (generateFailure is { IsValidation: true })
+						{
+							<div class="maintenance-field-errors preventive-generate-errors" role="alert">
+								<strong>Please correct the following before previewing</strong>
+								<ul>
+									@foreach (var entry in generateFailure.Errors)
+									{
+										@foreach (var message in entry.Value)
+										{
+											<li>
+												<span class="maintenance-error-field">@MaintenanceFormat.FieldLabel(entry.Key)</span>
+												<span>@message</span>
+											</li>
+										}
+									}
+								</ul>
+							</div>
+						}
+						else if (generateFailure is { IsForbidden: true })
+						{
+							<div class="maintenance-inline-error preventive-generate-error" role="alert">
+								Generating preventive work requires the maintenance manage permission.
+							</div>
+						}
+						else if (generateFailure is not null)
+						{
+							<div class="maintenance-inline-error preventive-generate-error" role="alert">
+								<span>@generateFailure.Message</span>
+								@if (generateFailure.IsConflict)
+								{
+									<span> The due work changed while you were reviewing it. Preview again to see the current state.</span>
+								}
+							</div>
+							<button type="submit" class="maintenance-reset preventive-retry" disabled="@IsGenerateBusy">Preview again</button>
+						}
+
+						<div class="maintenance-form-grid">
+							<div class="filter-field">
+								<label for="preventive-through">Generate through <span class="required-marker" aria-hidden="true">*</span></label>
+								<input id="preventive-through" type="date" @bind="generateModel.Through" @bind:after="ResetPreview" disabled="@IsGenerateBusy" />
+							</div>
+							<div class="filter-field filter-field-wide">
+								<label for="preventive-generate-vessel">Vessel</label>
+								<VesselPicker InputId="preventive-generate-vessel"
+											  Value="generateModel.VesselId"
+											  ValueChanged="SelectGenerateVessel"
+											  Placeholder="All vessels"
+											  Disabled="IsGenerateBusy" />
+							</div>
+							<div class="filter-field">
+								<label for="preventive-priority">Priority</label>
+								<select id="preventive-priority" @bind="generateModel.Priority" @bind:after="ResetPreview" disabled="@IsGenerateBusy">
+									@foreach (var priority in MaintenanceFormat.Priorities)
+									{
+										<option value="@priority">@priority</option>
+									}
+								</select>
+							</div>
+						</div>
+
+						<p class="maintenance-muted preventive-generate-hint">
+							Vessel and equipment scope come from each schedule. Occurrences that already have a work order are skipped.
+						</p>
+
+						<div class="maintenance-form-actions">
+							<button type="submit" class="maintenance-button preventive-preview-submit" disabled="@IsGenerateBusy">
+								@(isPreviewing ? "Previewing..." : "Preview")
+							</button>
+							<button type="button" class="maintenance-reset" @onclick="CloseGenerateDialog" disabled="@IsGenerateBusy">Cancel</button>
+						</div>
+					</form>
+
+					@if (isPreviewing)
+					{
+						<LoadingState Message="Preparing the preview..." />
+					}
+					else if (preview is { } previewed)
+					{
+						<section class="preventive-preview" aria-label="Generation preview" aria-live="polite">
+							<div class="preventive-preview-totals">
+								<div class="preventive-total"><strong>@previewed.EligibleCount</strong><span>Will be created</span></div>
+								<div class="preventive-total"><strong>@previewed.SkippedCount</strong><span>Skipped, already generated</span></div>
+							</div>
+
+							@if (previewRows.Count == 0)
+							{
+								<p class="maintenance-muted">No time-based occurrences are due through @MaintenanceFormat.DueDate(previewed.Through).</p>
+							}
+							else
+							{
+								<div class="maintenance-table-scroll preventive-preview-table-scroll">
+									<table class="maintenance-table preventive-preview-table">
+										<caption class="visually-hidden">Occurrences that the generation would process</caption>
+										<thead>
+											<tr>
+												<th scope="col">Due date</th>
+												<th scope="col">Maintenance type</th>
+												<th scope="col" class="col-vessel">Vessel</th>
+												<th scope="col">Equipment</th>
+												<th scope="col">Outcome</th>
+											</tr>
+										</thead>
+										<tbody>
+											@foreach (var row in previewRows)
+											{
+												<tr class="@(row.IsOverdue ? "maintenance-overdue-row" : null)" @key="(row.ScheduleId, row.DueDate)">
+													<td>@MaintenanceFormat.DueDate(row.DueDate)</td>
+													<td>@row.MaintenanceType</td>
+													<td class="col-vessel">@row.VesselDisplayName</td>
+													<td class="maintenance-muted">@row.EquipmentCount</td>
+													<td>
+														<span class="preventive-state @MaintenanceFormat.OccurrenceStateModifier(row.State)">
+															@MaintenanceFormat.PreviewOutcome(row.State)
+														</span>
+													</td>
+												</tr>
+											}
+										</tbody>
+									</table>
+								</div>
+							}
+
+							<div class="maintenance-form-actions">
+								<button type="button"
+										class="maintenance-button preventive-confirm"
+										disabled="@(isGenerating || previewed.EligibleCount == 0)"
+										@onclick="ConfirmGenerateAsync">
+									@(isGenerating ? "Generating..." : MaintenanceFormat.GenerateLabel(previewed.EligibleCount))
+								</button>
+							</div>
+						</section>
+					}
+				}
+			</section>
+		</div>
+	}
+
+	@if (pendingReplacement is { } replacement)
+	{
+		<div class="maintenance-modal-backdrop" @onclick="DismissReplacement">
+			<section class="maintenance-form-card preventive-replace-card"
+					 role="dialog"
+					 aria-modal="true"
+					 aria-labelledby="preventive-replace-title"
+					 @onclick:stopPropagation="true">
+				<div class="maintenance-modal-header">
+					<h2 id="preventive-replace-title">Create replacement work order</h2>
+					<button type="button"
+							class="maintenance-modal-close"
+							aria-label="Close replacement dialog"
+							disabled="@isReplacing"
+							@onclick="DismissReplacement">
+						&times;
+					</button>
+				</div>
+
+				<p>
+					The work order for <strong>@replacement.MaintenanceType</strong> due
+					@MaintenanceFormat.DueDate(replacement.DueDate) was cancelled. A new work order will be created for
+					the same due occurrence and equipment scope. The schedule's next due date stays unchanged until the
+					replacement is completed.
+				</p>
+
+				@if (replacementFailure is not null)
+				{
+					<div class="maintenance-inline-error preventive-replace-error" role="alert">@replacementFailure.Message</div>
+				}
+
+				<div class="maintenance-form-actions">
+					<button type="button" class="maintenance-button preventive-replace-confirm" disabled="@isReplacing" @onclick="ConfirmReplacementAsync">
+						@(isReplacing ? "Creating..." : "Create replacement")
+					</button>
+					<button type="button" class="maintenance-reset" disabled="@isReplacing" @onclick="DismissReplacement">Keep cancelled</button>
+				</div>
+			</section>
+		</div>
+	}
+</div>

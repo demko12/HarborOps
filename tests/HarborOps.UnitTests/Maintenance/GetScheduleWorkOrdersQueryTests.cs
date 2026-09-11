@@ -60,9 +60,11 @@ public sealed class GetScheduleWorkOrdersQueryTests
         var dueDate = Today.AddDays(5);
 
         var cancelled = MaintenanceWorkOrder.CreateFromSchedule(
-            vesselId, "Preventive work", null, WorkOrderPriority.Medium, schedule.Id, dueDate);
+            vesselId, "Preventive work", null, WorkOrderPriority.Medium, schedule.Id, dueDate,
+            GeneratedUtc);
         var replacement = MaintenanceWorkOrder.CreateFromSchedule(
-            vesselId, "Preventive work", null, WorkOrderPriority.Medium, schedule.Id, dueDate);
+            vesselId, "Preventive work", null, WorkOrderPriority.Medium, schedule.Id, dueDate,
+            GeneratedUtc);
         var occurrence = ScheduleOccurrence.Generate(schedule.Id, dueDate, cancelled.Id, GeneratedUtc);
         cancelled.Cancel();
         occurrence.MarkCancelled(cancelled.Id, GeneratedUtc);
@@ -129,7 +131,8 @@ public sealed class GetScheduleWorkOrdersQueryTests
             null,
             WorkOrderPriority.Medium,
             schedule.Id,
-            dueDate);
+            dueDate,
+            GeneratedUtc);
         var occurrence = ScheduleOccurrence.Generate(schedule.Id, dueDate, workOrder.Id, GeneratedUtc);
 
         if (complete)

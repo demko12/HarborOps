@@ -17,6 +17,14 @@ public sealed class MaintenanceSchedulesPanelTests : BunitContext
     private const string EquipmentId = "c0000000-0000-0000-0000-00000000000c";
     private const string ScheduleId = "d0000000-0000-0000-0000-00000000000d";
 
+    private const string OccurrenceId = "e0000000-0000-0000-0000-00000000000e";
+    private const string WorkOrderId = "f0000000-0000-0000-0000-00000000000f";
+
+    private Func<HttpRequestMessage, Task<HttpResponseMessage>> respondToGeneratedWork =
+        request => Json(
+            HttpStatusCode.OK,
+            IsScheduleOccurrences(request) ? NoOccurrences() : NoScheduleWorkOrders());
+
     private readonly List<Uri> requestedUris = [];
     private readonly List<string> requestBodies = [];
 
@@ -439,6 +447,49 @@ public sealed class MaintenanceSchedulesPanelTests : BunitContext
         Assert.True(observed.IsCancellationRequested);
     }
 
+    [Fact]
+    public void Details_list_the_generated_work_of_the_schedule()
+    {
+        respondToMaintenance = request =>
+            request.RequestUri!.AbsolutePath == $"/api/maintenance/schedules/{ScheduleId}"
+                ? Json(HttpStatusCode.OK, ScheduleDetails())
+                : Json(HttpStatusCode.OK, SchedulesPage(Schedule()));
+        respondToGeneratedWork = request => Json(
+            HttpStatusCode.OK,
+            IsScheduleOccurrences(request) ? OneOccurrence() : OneScheduleWorkOrder());
+
+        var panel = RenderPanel();
+
+        panel.Find(".schedules-details").Click();
+
+        panel.WaitForAssertion(() =>
+        {
+            var row = panel.Find(".schedules-occurrences-table tbody tr");
+
+            Assert.Contains("2026-09-30", row.TextContent, StringComparison.Ordinal);
+            Assert.Equal("Generated", row.QuerySelector(".preventive-state")!.TextContent.Trim());
+            Assert.Equal($"/maintenance/work-orders/{WorkOrderId}", row.QuerySelector("a")!.GetAttribute("href"));
+        });
+    }
+
+    [Fact]
+    public void Details_explain_when_no_work_has_been_generated()
+    {
+        respondToMaintenance = request =>
+            request.RequestUri!.AbsolutePath == $"/api/maintenance/schedules/{ScheduleId}"
+                ? Json(HttpStatusCode.OK, ScheduleDetails())
+                : Json(HttpStatusCode.OK, SchedulesPage(Schedule()));
+
+        var panel = RenderPanel();
+
+        panel.Find(".schedules-details").Click();
+
+        panel.WaitForAssertion(() => Assert.Contains(
+            "No work generated for this schedule",
+            panel.Find(".schedules-occurrences").TextContent,
+            StringComparison.Ordinal));
+    }
+
     private static void SelectVesselInTheRegisterForm(IRenderedComponent<PreventiveSchedulesPanel> panel)
     {
         panel.InvokeAsync(() => panel.Find(".schedules-form-card .vessel-picker-input").Input("Aurora"))
@@ -460,6 +511,11 @@ public sealed class MaintenanceSchedulesPanelTests : BunitContext
             if (request.Content is not null)
             {
                 requestBodies.Add(await request.Content.ReadAsStringAsync(token));
+            }
+
+            if (IsGeneratedWork(request))
+            {
+                return await respondToGeneratedWork(request);
             }
 
             return respondToMaintenanceWithToken is not null
@@ -575,5 +631,53 @@ public sealed class MaintenanceSchedulesPanelTests : BunitContext
         protected override Task<HttpResponseMessage> SendAsync(
             HttpRequestMessage request,
             CancellationToken cancellationToken) => responseFactory(request, cancellationToken);
+    }
+
+    private static bool IsGeneratedWork(HttpRequestMessage request)
+    {
+        var path = request.RequestUri!.AbsolutePath;
+
+        return path.StartsWith("/api/maintenance/schedules/", StringComparison.Ordinal)
+            && (path.EndsWith("/occurrences", StringComparison.Ordinal)
+                || path.EndsWith("/work-orders", StringComparison.Ordinal));
+    }
+
+    private static bool IsScheduleOccurrences(HttpRequestMessage request)
+    {
+        return request.RequestUri!.AbsolutePath.EndsWith("/occurrences", StringComparison.Ordinal);
+    }
+
+    private static string NoOccurrences()
+    {
+        return $$"""
+            {"scheduleId":"{{ScheduleId}}","maintenanceType":"Quarterly inspection","frequency":"Quarterly",
+            "nextDueDate":"2026-09-30","items":[]}
+            """;
+    }
+
+    private static string NoScheduleWorkOrders()
+    {
+        return $$"""{"scheduleId":"{{ScheduleId}}","items":[]}""";
+    }
+
+    private static string OneOccurrence()
+    {
+        return $$"""
+            {"scheduleId":"{{ScheduleId}}","maintenanceType":"Quarterly inspection","frequency":"Quarterly",
+            "nextDueDate":"2026-09-30","items":[{"occurrenceId":"{{OccurrenceId}}","scheduleId":"{{ScheduleId}}",
+            "dueDate":"2026-09-30","dueUtc":"2026-09-30T23:59:59Z","state":"Generated",
+            "workOrderId":"{{WorkOrderId}}","replacedWorkOrderId":null,
+            "generatedUtc":"2026-09-10T09:00:00Z","resolvedUtc":null}]}
+            """;
+    }
+
+    private static string OneScheduleWorkOrder()
+    {
+        return $$"""
+            {"scheduleId":"{{ScheduleId}}","items":[{"workOrderId":"{{WorkOrderId}}","occurrenceId":"{{OccurrenceId}}",
+            "vesselId":"{{VesselId}}","occurrenceDueDate":"2026-09-30","title":"Quarterly inspection - due 2026-09-30",
+            "status":"Open","priority":"Medium","occurrenceState":"Generated","dueUtc":"2026-09-30T23:59:59Z",
+            "createdUtc":"2026-09-10T09:00:00Z","completedUtc":null}]}
+            """;
     }
 }

@@ -253,6 +253,31 @@ public sealed class PreventiveWorkGenerationEndpointTests : IntegrationTestBase
     }
 
     [Fact]
+    public async Task Replacement_returns_400_for_an_unknown_priority()
+    {
+        using var client = await _application.CreateAuthenticatedClientWithPermissionsAsync(
+            Permissions.Maintenance.Manage);
+        var equipment = await SeedEquipmentAsync(Guid.NewGuid(), "Main engine");
+        await SeedScheduleAsync("Overhaul", MaintenanceFrequency.Monthly, _today.AddDays(5), null, equipment.Id);
+        var generated = Assert.Single((await GenerateAsync(client, _today.AddDays(10))).Results);
+        await PostActionAsync(client, generated.WorkOrderId, "cancel");
+
+        using var response = await client.PostAsJsonAsync(
+            ReplacementUri(generated.OccurrenceId),
+            new GeneratePreventiveWorkRequest { Priority = "Urgent" },
+            CancellationToken.None);
+        var problem = await response.Content.ReadFromJsonAsync<HttpValidationProblemDetails>(CancellationToken.None);
+
+        var occurrence = await QueryAsync(db => db.Set<ScheduleOccurrence>().AsNoTracking().SingleAsync());
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        Assert.NotNull(problem);
+        Assert.Contains(GeneratePreventiveWorkValidator.PriorityField, problem.Errors);
+        Assert.Equal(ScheduleOccurrenceState.Cancelled, occurrence.State);
+        Assert.Single(await QueryAsync(db => db.Set<MaintenanceWorkOrder>().AsNoTracking().ToListAsync()));
+    }
+
+    [Fact]
     public async Task Replacement_returns_404_for_an_unknown_occurrence()
     {
         using var client = await _application.CreateAuthenticatedClientWithPermissionsAsync(

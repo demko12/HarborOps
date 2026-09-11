@@ -96,6 +96,12 @@ public sealed class GeneratePreventiveWorkService(DbContext dbContext, TimeProvi
     {
         ArgumentNullException.ThrowIfNull(request);
 
+        var errors = GeneratePreventiveWorkValidator.ValidateReplacement(request);
+        if (errors.Count > 0)
+        {
+            throw new GeneratePreventiveWorkValidationException(errors);
+        }
+
         var priority = GeneratePreventiveWorkValidator.ResolvePriority(request.Priority);
 
         var occurrence = await dbContext.Set<ScheduleOccurrence>()
@@ -143,7 +149,8 @@ public sealed class GeneratePreventiveWorkService(DbContext dbContext, TimeProvi
             schedule.Frequency,
             occurrence.DueDate,
             scheduleScope,
-            priority);
+            priority,
+            generatedUtc);
 
         occurrence.Replace(workOrder.Id, generatedUtc);
 
@@ -214,7 +221,8 @@ public sealed class GeneratePreventiveWorkService(DbContext dbContext, TimeProvi
                 occurrence.Frequency,
                 occurrence.DueDate,
                 new PreventiveWorkScheduleScope(occurrence.VesselId, occurrence.EquipmentIds),
-                priority);
+                priority,
+                generatedUtc);
 
             var scheduleOccurrence = ScheduleOccurrence.Generate(
                 occurrence.ScheduleId,
@@ -260,7 +268,8 @@ public sealed class GeneratePreventiveWorkService(DbContext dbContext, TimeProvi
         string frequency,
         DateOnly dueDate,
         PreventiveWorkScheduleScope scope,
-        WorkOrderPriority priority)
+        WorkOrderPriority priority,
+        DateTime createdUtc)
     {
         var workOrder = MaintenanceWorkOrder.CreateFromSchedule(
             scope.VesselId,
@@ -268,7 +277,8 @@ public sealed class GeneratePreventiveWorkService(DbContext dbContext, TimeProvi
             PreventiveWorkNaming.Description(maintenanceType, frequency, scheduleId, dueDate),
             priority,
             scheduleId,
-            dueDate);
+            dueDate,
+            createdUtc);
 
         dbContext.Set<MaintenanceWorkOrder>().Add(workOrder);
 

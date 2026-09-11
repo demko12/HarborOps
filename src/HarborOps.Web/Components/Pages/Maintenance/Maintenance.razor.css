@@ -2567,3 +2567,134 @@ html[data-theme="light"] .maintenance-page ::deep .replenishment-state.covered {
     color: var(--status-success-strong);
     background: rgba(15, 118, 110, .12);
 }
+
+.maintenance-page ::deep .preventive-state {
+    display: inline-flex;
+    align-items: center;
+    padding: .18rem .55rem;
+    border-radius: var(--radius-pill);
+    font-size: .78rem;
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+    .maintenance-page ::deep .preventive-state.pending {
+        color: var(--accent);
+        background: var(--accent-bg);
+    }
+
+    .maintenance-page ::deep .preventive-state.generated {
+        color: var(--status-warning);
+        background: rgba(251, 191, 36, .14);
+    }
+
+    .maintenance-page ::deep .preventive-state.completed {
+        color: var(--status-success);
+        background: rgba(52, 211, 153, .14);
+    }
+
+    .maintenance-page ::deep .preventive-state.cancelled {
+        color: var(--text-muted);
+        background: rgba(148, 163, 184, .14);
+    }
+
+html[data-theme="light"] .maintenance-page ::deep .preventive-state.generated {
+    color: var(--status-warning-strong);
+    background: rgba(180, 83, 9, .12);
+}
+
+html[data-theme="light"] .maintenance-page ::deep .preventive-state.completed {
+    color: var(--status-success-strong);
+    background: rgba(15, 118, 110, .12);
+}
+
+.maintenance-page ::deep .preventive-row .schedules-due-badge {
+    margin-left: .35rem;
+}
+
+.maintenance-page ::deep .preventive-generate-card {
+    width: min(56rem, 100%);
+}
+
+.maintenance-page ::deep .preventive-replace-card {
+    width: min(36rem, 100%);
+}
+
+.maintenance-page ::deep .preventive-generate-hint {
+    margin: .25rem 0 1rem;
+    font-size: .82rem;
+}
+
+.maintenance-page ::deep .preventive-retry {
+    margin: .5rem 0 1rem;
+}
+
+.maintenance-page ::deep .preventive-preview,
+.maintenance-page ::deep .preventive-result {
+    margin-top: 1rem;
+    padding-top: 1rem;
+    border-top: 1px solid var(--border-medium);
+}
+
+.maintenance-page ::deep .preventive-preview-totals {
+    display: flex;
+    flex-wrap: wrap;
+    gap: .75rem;
+    margin-bottom: .9rem;
+}
+
+.maintenance-page ::deep .preventive-total {
+    display: flex;
+    flex-direction: column;
+    min-width: 9rem;
+    padding: .6rem .9rem;
+    border: 1px solid var(--border-medium);
+    border-radius: var(--radius-control);
+    background: var(--bg-surface);
+}
+
+    .maintenance-page ::deep .preventive-total strong {
+        font-size: 1.3rem;
+        line-height: 1.2;
+    }
+
+    .maintenance-page ::deep .preventive-total span {
+        color: var(--text-muted);
+        font-size: .78rem;
+    }
+
+.maintenance-page ::deep .preventive-preview-table-scroll {
+    max-height: 18rem;
+    overflow: auto;
+}
+
+.maintenance-page ::deep .preventive-toast a {
+    margin-left: .5rem;
+    color: inherit;
+    font-weight: 600;
+}
+
+.maintenance-page ::deep .schedules-occurrences {
+    margin-top: 1.25rem;
+}
+
+.maintenance-page ::deep .schedules-occurrences-title {
+    margin: 0 0 .75rem;
+    font-size: 1rem;
+}
+
+.maintenance-page ::deep .schedules-occurrences-table .work-order-status {
+    margin-left: .4rem;
+}
+
+.maintenance-page ::deep .preventive-confirm-inline {
+    margin-top: .75rem;
+    padding: .75rem 1rem;
+    border: 1px solid var(--border-medium);
+    border-radius: var(--radius-control);
+    background: var(--bg-surface);
+}
+
+    .maintenance-page ::deep .preventive-confirm-inline p {
+        margin: 0 0 .5rem;
+    }

@@ -465,7 +465,8 @@ public sealed class MaintenanceWorkOrderTransitionEndpointTests : IntegrationTes
             null,
             WorkOrderPriority.Medium,
             schedule.Id,
-            dueDate);
+            dueDate,
+            DateTime.UtcNow);
 
         await dbContext.Set<Equipment>().AddAsync(equipment, CancellationToken.None);
         await dbContext.Set<MaintenanceSchedule>().AddAsync(schedule, CancellationToken.None);

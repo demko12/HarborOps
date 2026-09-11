@@ -56,4 +56,53 @@ public sealed class MaintenanceFormatTests
     {
         Assert.Equal("Unassigned", MaintenanceFormat.AssignedEngineer(null));
     }
+
+    [Theory]
+    [InlineData(MaintenanceFormat.PendingOccurrence, "Not generated", "pending")]
+    [InlineData(MaintenanceFormat.GeneratedOccurrence, "Generated", "generated")]
+    [InlineData(MaintenanceFormat.CompletedOccurrence, "Completed", "completed")]
+    [InlineData(MaintenanceFormat.CancelledOccurrence, "Cancelled", "cancelled")]
+    public void Occurrence_states_have_a_label_and_a_badge_modifier(string state, string label, string modifier)
+    {
+        Assert.Equal(label, MaintenanceFormat.OccurrenceStateLabel(state));
+        Assert.Equal(modifier, MaintenanceFormat.OccurrenceStateModifier(state));
+    }
+
+    [Theory]
+    [InlineData(MaintenanceFormat.PendingOccurrence, false)]
+    [InlineData(MaintenanceFormat.GeneratedOccurrence, false)]
+    [InlineData(MaintenanceFormat.CompletedOccurrence, false)]
+    [InlineData(MaintenanceFormat.CancelledOccurrence, true)]
+    public void Only_cancelled_occurrences_can_be_replaced(string state, bool expected)
+    {
+        Assert.Equal(expected, MaintenanceFormat.IsReplaceable(state));
+    }
+
+    [Theory]
+    [InlineData(0, "Generate 0 work orders")]
+    [InlineData(1, "Generate 1 work order")]
+    [InlineData(3, "Generate 3 work orders")]
+    public void The_confirmation_label_counts_the_work_orders(int eligibleCount, string expected)
+    {
+        Assert.Equal(expected, MaintenanceFormat.GenerateLabel(eligibleCount));
+    }
+
+    [Fact]
+    public void The_preview_outcome_separates_new_work_from_skipped_work()
+    {
+        Assert.Equal("Will be created", MaintenanceFormat.PreviewOutcome(MaintenanceFormat.PendingOccurrence));
+        Assert.Equal("Skipped: generated", MaintenanceFormat.PreviewOutcome(MaintenanceFormat.GeneratedOccurrence));
+        Assert.Equal("Skipped: cancelled", MaintenanceFormat.PreviewOutcome(MaintenanceFormat.CancelledOccurrence));
+    }
+
+    [Theory]
+    [InlineData("through", "Through date")]
+    [InlineData("from", "From")]
+    [InlineData("to", "To")]
+    [InlineData("state", "State")]
+    [InlineData("priority", "Priority")]
+    public void Preventive_work_fields_have_readable_labels(string field, string expected)
+    {
+        Assert.Equal(expected, MaintenanceFormat.FieldLabel(field));
+    }
 }

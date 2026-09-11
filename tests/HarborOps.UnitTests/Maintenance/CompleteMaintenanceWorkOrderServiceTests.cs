@@ -410,7 +410,8 @@ public sealed class CompleteMaintenanceWorkOrderServiceTests
             null,
             WorkOrderPriority.Medium,
             schedule.Id,
-            occurrenceDueDate);
+            occurrenceDueDate,
+            FixedNow.UtcDateTime);
 
         await dbContext.Set<Equipment>().AddAsync(equipment);
         await dbContext.Set<MaintenanceSchedule>().AddAsync(schedule);

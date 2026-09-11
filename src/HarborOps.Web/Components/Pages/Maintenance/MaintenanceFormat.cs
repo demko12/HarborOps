@@ -13,6 +13,11 @@ internal static class MaintenanceFormat
     internal const string CriticalReplenishment = "Critical";
     internal const string LowReplenishment = "Low";
     internal const string CoveredReplenishment = "Covered";
+    internal const string PendingOccurrence = "Pending";
+    internal const string GeneratedOccurrence = "Generated";
+    internal const string CompletedOccurrence = "Completed";
+    internal const string CancelledOccurrence = "Cancelled";
+    internal const string CreatedOutcome = "Created";
 
     internal static readonly IReadOnlyList<string> Statuses =
         [OpenStatus, InProgressStatus, CompletedStatus, CanceledStatus];
@@ -21,6 +26,9 @@ internal static class MaintenanceFormat
         ["Low", "Medium", "High", CriticalPriority];
 
     private static readonly string[] CompletableStatuses = [OpenStatus, InProgressStatus];
+
+    internal static readonly IReadOnlyList<string> OccurrenceStates =
+        [PendingOccurrence, GeneratedOccurrence, CompletedOccurrence, CancelledOccurrence];
 
     internal static bool IsCritical(string priority)
     {
@@ -121,6 +129,11 @@ internal static class MaintenanceFormat
             "technicianId" => "Technician",
             "reservations" => "Part reservations",
             "inventoryItemId" => "Part",
+            "through" => "Through date",
+            "from" => "From",
+            "to" => "To",
+            "state" => "State",
+            "priority" => "Priority",
             _ => field,
         };
     }
@@ -315,5 +328,41 @@ internal static class MaintenanceFormat
         }
 
         return quantityRemaining > 0 ? "reserved" : "used";
+    }
+
+    internal static string OccurrenceStateLabel(string state)
+    {
+        return state switch
+        {
+            PendingOccurrence => "Not generated",
+            GeneratedOccurrence => "Generated",
+            CompletedOccurrence => "Completed",
+            CancelledOccurrence => "Cancelled",
+            _ => state,
+        };
+    }
+
+    internal static string OccurrenceStateModifier(string state)
+    {
+        return state.ToLowerInvariant();
+    }
+
+    internal static bool IsReplaceable(string state)
+    {
+        return string.Equals(state, CancelledOccurrence, StringComparison.Ordinal);
+    }
+
+    internal static string GenerateLabel(int eligibleCount)
+    {
+        return eligibleCount == 1
+            ? "Generate 1 work order"
+            : $"Generate {eligibleCount.ToString(CultureInfo.InvariantCulture)} work orders";
+    }
+
+    internal static string PreviewOutcome(string state)
+    {
+        return string.Equals(state, PendingOccurrence, StringComparison.Ordinal)
+            ? "Will be created"
+            : $"Skipped: {OccurrenceStateLabel(state).ToLowerInvariant()}";
     }
 }

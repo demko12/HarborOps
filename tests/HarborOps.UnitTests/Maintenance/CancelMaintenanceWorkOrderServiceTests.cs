@@ -231,7 +231,8 @@ public sealed class CancelMaintenanceWorkOrderServiceTests
             null,
             WorkOrderPriority.Medium,
             schedule.Id,
-            dueDate);
+            dueDate,
+            UtcNow);
         var occurrence = ScheduleOccurrence.Generate(schedule.Id, dueDate, workOrder.Id, UtcNow);
 
         switch (status)

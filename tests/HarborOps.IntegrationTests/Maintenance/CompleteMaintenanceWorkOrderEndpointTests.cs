@@ -302,7 +302,8 @@ public sealed class CompleteMaintenanceWorkOrderEndpointTests : IntegrationTestB
             null,
             WorkOrderPriority.Medium,
             schedule.Id,
-            dueDate);
+            dueDate,
+            DateTime.UtcNow);
 
         await dbContext.Set<MaintenanceSchedule>().AddAsync(schedule);
         await dbContext.Set<MaintenanceWorkOrder>().AddAsync(workOrder);

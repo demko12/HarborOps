@@ -428,7 +428,8 @@ public sealed class GetPreventiveWorkForecastQueryTests
             null,
             WorkOrderPriority.Medium,
             schedule.Id,
-            dueDate);
+            dueDate,
+            FixedNow.UtcDateTime);
         var occurrence = ScheduleOccurrence.Generate(schedule.Id, dueDate, workOrder.Id, FixedNow.UtcDateTime);
 
         switch (state)

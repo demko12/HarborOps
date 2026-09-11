@@ -94,19 +94,25 @@ internal sealed class MaintenanceWorkOrder
         string? description,
         WorkOrderPriority priority,
         Guid scheduleId,
-        DateOnly occurrenceDueDate)
+        DateOnly occurrenceDueDate,
+        DateTime createdUtc)
     {
-        var workOrder = Create(
+        return new MaintenanceWorkOrder(
+            Guid.NewGuid(),
             vesselId,
+            null,
+            null,
             title,
             description,
             priority,
-            PreventiveWorkDueTime.ForDueDate(occurrenceDueDate));
-
-        workOrder.SourceScheduleId = scheduleId;
-        workOrder.SourceOccurrenceDueDate = occurrenceDueDate;
-
-        return workOrder;
+            WorkOrderStatus.Open,
+            PreventiveWorkDueTime.ForDueDate(occurrenceDueDate),
+            createdUtc,
+            null)
+        {
+            SourceScheduleId = scheduleId,
+            SourceOccurrenceDueDate = occurrenceDueDate,
+        };
     }
 
     internal IReadOnlyList<WorkOrderAction> AllowedActions => AllowedActionsFor(Status);

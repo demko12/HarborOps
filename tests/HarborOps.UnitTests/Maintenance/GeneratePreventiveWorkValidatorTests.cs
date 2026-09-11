@@ -68,6 +68,31 @@ public sealed class GeneratePreventiveWorkValidatorTests
         Assert.Contains(GeneratePreventiveWorkValidator.PriorityField, errors);
     }
 
+    [Fact]
+    public void ValidateReplacement_accepts_a_request_without_a_through_date_or_priority()
+    {
+        Assert.Empty(GeneratePreventiveWorkValidator.ValidateReplacement(new GeneratePreventiveWorkRequest()));
+    }
+
+    [Fact]
+    public void ValidateReplacement_accepts_a_known_priority()
+    {
+        var request = new GeneratePreventiveWorkRequest { Priority = "high" };
+
+        Assert.Empty(GeneratePreventiveWorkValidator.ValidateReplacement(request));
+    }
+
+    [Fact]
+    public void ValidateReplacement_rejects_an_unknown_priority()
+    {
+        var request = new GeneratePreventiveWorkRequest { Priority = "Urgent" };
+
+        var errors = GeneratePreventiveWorkValidator.ValidateReplacement(request);
+
+        Assert.Contains(GeneratePreventiveWorkValidator.PriorityField, errors);
+        Assert.DoesNotContain(GeneratePreventiveWorkValidator.ThroughField, errors);
+    }
+
     [Theory]
     [InlineData(null)]
     [InlineData("")]

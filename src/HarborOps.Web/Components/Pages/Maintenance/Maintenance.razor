@@ -44,6 +44,13 @@
 		</button>
 		<button type="button"
 				role="tab"
+				class="workspace-tab @(activeTab == MaintenanceTab.PreventiveWork ? "active" : null)"
+				aria-selected="@(activeTab == MaintenanceTab.PreventiveWork)"
+				@onclick="() => SelectTab(MaintenanceTab.PreventiveWork)">
+			Preventive work
+		</button>
+		<button type="button"
+				role="tab"
 				class="workspace-tab @(activeTab == MaintenanceTab.DryDocks ? "active" : null)"
 				aria-selected="@(activeTab == MaintenanceTab.DryDocks)"
 				@onclick="() => SelectTab(MaintenanceTab.DryDocks)">
@@ -92,6 +99,10 @@
 	@if (activeTab == MaintenanceTab.PreventiveSchedules)
 	{
 		<PreventiveSchedulesPanel />
+	}
+		@if (activeTab == MaintenanceTab.PreventiveWork)
+	{
+		<PreventiveWorkPanel />
 	}
 	@if (activeTab == MaintenanceTab.Replenishment)
 	{

@@ -330,6 +330,10 @@
                         </table>
                     </div>
 
+					<ScheduleOccurrencesSection ScheduleId="details.ScheduleId"
+												CanManage="CanManage"
+												OnChanged="LoadAsync" />
+
                     @if (completionSuccessMessage is not null)
                     {
                         <div class="maintenance-toast schedules-completion-success" role="status" aria-live="polite">

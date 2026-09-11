@@ -178,7 +178,8 @@ public sealed class StartMaintenanceWorkOrderServiceTests
             null,
             WorkOrderPriority.Medium,
             schedule.Id,
-            dueDate);
+            dueDate,
+            UtcNow);
         await dbContext.Set<MaintenanceSchedule>().AddAsync(schedule);
         await dbContext.Set<MaintenanceWorkOrder>().AddAsync(workOrder);
         await dbContext.Set<ScheduleOccurrence>().AddAsync(

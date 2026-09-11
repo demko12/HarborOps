@@ -78,7 +78,7 @@ public sealed class MaintenanceWorkspaceTabsTests : BunitContext
     {
         var page = RenderWorkspace();
 
-        page.FindAll(".workspace-tab")[4].Click();
+        page.FindAll(".workspace-tab")[5].Click();
 
         page.WaitForAssertion(() =>
         {
@@ -92,13 +92,37 @@ public sealed class MaintenanceWorkspaceTabsTests : BunitContext
     {
         var page = RenderWorkspace();
 
-        page.FindAll(".workspace-tab")[5].Click();
+        page.FindAll(".workspace-tab")[6].Click();
 
         page.WaitForAssertion(() =>
         {
             Assert.NotNull(page.Find(".suppliers-panel"));
             Assert.Empty(page.FindAll(".maintenance-tabpanel"));
         });
+    }
+
+    [Fact]
+    public void The_preventive_work_tab_shows_the_forecast()
+    {
+        var page = RenderWorkspace();
+
+        page.FindAll(".workspace-tab")[3].Click();
+
+        page.WaitForAssertion(() =>
+        {
+            Assert.NotNull(page.Find(".preventive-work-panel"));
+            Assert.Single(page.FindAll(".maintenance-tabpanel"));
+            Assert.Empty(page.FindAll(".schedules-panel"));
+        });
+    }
+
+    [Fact]
+    public void The_tab_in_the_address_opens_the_preventive_work_forecast()
+    {
+        var page = RenderWorkspace("/maintenance?tab=preventive-work");
+
+        Assert.NotNull(page.Find(".preventive-work-panel"));
+        Assert.Empty(page.FindAll(".schedules-panel"));
     }
 
     private IRenderedComponent<Maintenance> RenderWorkspace(string? workspaceUrl = null)

@@ -617,3 +617,115 @@ internal sealed record ConvertDefectToWorkOrderRequest
 }
 
 internal sealed record ConvertDefectToWorkOrderResponse(Guid DefectId, Guid WorkOrderId);
+
+internal sealed record PreventiveWorkForecastFilter(
+    DateOnly From,
+    DateOnly To,
+    Guid? VesselId,
+    string? State,
+    int PageNumber,
+    int PageSize);
+
+internal sealed record PreventiveWorkOccurrenceItem(
+    Guid ScheduleId,
+    Guid? OccurrenceId,
+    Guid VesselId,
+    string MaintenanceType,
+    string Frequency,
+    DateOnly DueDate,
+    DateTime DueUtc,
+    string State,
+    bool IsOverdue,
+    Guid? WorkOrderId,
+    IReadOnlyList<Guid> EquipmentIds);
+
+internal sealed record PreventiveWorkForecastPage(
+    IReadOnlyList<PreventiveWorkOccurrenceItem> Items,
+    int PageNumber,
+    int PageSize,
+    int TotalCount,
+    int PendingCount,
+    int GeneratedCount,
+    int OverdueCount);
+
+internal sealed record GeneratePreventiveWorkWebRequest
+{
+    public DateOnly? Through { get; init; }
+
+    public Guid? VesselId { get; init; }
+
+    public string? Priority { get; init; }
+}
+
+internal sealed record PreventiveWorkPreview(
+    IReadOnlyList<PreventiveWorkOccurrenceItem> Items,
+    DateOnly Through,
+    int EligibleCount,
+    int SkippedCount,
+    DateTime PreviewedUtc);
+
+internal sealed record PreventiveWorkGenerationItem(
+    Guid ScheduleId,
+    Guid OccurrenceId,
+    Guid VesselId,
+    string MaintenanceType,
+    DateOnly DueDate,
+    DateTime DueUtc,
+    string State,
+    string Outcome,
+    Guid WorkOrderId,
+    IReadOnlyList<Guid> EquipmentIds);
+
+internal sealed record PreventiveWorkGenerationResult(
+    IReadOnlyList<PreventiveWorkGenerationItem> Results,
+    DateOnly Through,
+    int CreatedCount,
+    int SkippedCount,
+    DateTime GeneratedUtc);
+
+internal sealed record PreventiveWorkReplacement(
+    Guid OccurrenceId,
+    Guid ScheduleId,
+    Guid VesselId,
+    DateOnly DueDate,
+    DateTime DueUtc,
+    string State,
+    Guid WorkOrderId,
+    Guid? ReplacedWorkOrderId,
+    IReadOnlyList<Guid> EquipmentIds,
+    DateTime GeneratedUtc);
+
+internal sealed record ScheduleOccurrenceItem(
+    Guid OccurrenceId,
+    Guid ScheduleId,
+    DateOnly DueDate,
+    DateTime DueUtc,
+    string State,
+    Guid WorkOrderId,
+    Guid? ReplacedWorkOrderId,
+    DateTime GeneratedUtc,
+    DateTime? ResolvedUtc);
+
+internal sealed record ScheduleOccurrencesResult(
+    Guid ScheduleId,
+    string MaintenanceType,
+    string Frequency,
+    DateOnly? NextDueDate,
+    IReadOnlyList<ScheduleOccurrenceItem> Items);
+
+internal sealed record ScheduleWorkOrderItem(
+    Guid WorkOrderId,
+    Guid OccurrenceId,
+    Guid VesselId,
+    DateOnly OccurrenceDueDate,
+    string Title,
+    string Status,
+    string Priority,
+    string OccurrenceState,
+    DateTime DueUtc,
+    DateTime CreatedUtc,
+    DateTime? CompletedUtc);
+
+internal sealed record ScheduleWorkOrdersResult(
+    Guid ScheduleId,
+    IReadOnlyList<ScheduleWorkOrderItem> Items);

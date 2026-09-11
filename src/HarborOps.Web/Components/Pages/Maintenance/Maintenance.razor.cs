@@ -104,6 +104,7 @@ public partial class Maintenance
             "dry-docks" => MaintenanceTab.DryDocks,
             "equipment" => MaintenanceTab.Equipment,
             "schedules" => MaintenanceTab.PreventiveSchedules,
+            "preventive-work" => MaintenanceTab.PreventiveWork,
             "replenishment" => MaintenanceTab.Replenishment,
             "purchase-orders" => MaintenanceTab.PurchaseOrders,
             "suppliers" => MaintenanceTab.Suppliers,

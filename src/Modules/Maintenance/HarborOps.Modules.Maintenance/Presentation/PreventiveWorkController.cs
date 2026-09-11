@@ -89,6 +89,7 @@ public sealed class PreventiveWorkController(
     [HttpPost("occurrences/{occurrenceId:guid}/replacement")]
     [Authorize(ManagePolicy)]
     [ProducesResponseType<ReplacePreventiveWorkOrderResponse>(StatusCodes.Status201Created)]
+    [ProducesResponseType<HttpValidationProblemDetails>(StatusCodes.Status400BadRequest)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]
     public async Task<ActionResult<ReplacePreventiveWorkOrderResponse>> Replace(
@@ -104,6 +105,10 @@ public sealed class PreventiveWorkController(
                 cancellationToken);
 
             return Created($"/api/maintenance/work-orders/{response.WorkOrderId}", response);
+        }
+        catch (GeneratePreventiveWorkValidationException exception)
+        {
+            return BadRequest(ToValidationProblem(exception.Errors));
         }
         catch (ScheduleOccurrenceNotFoundException exception)
         {

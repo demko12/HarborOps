@@ -32,10 +32,16 @@ internal static class GeneratePreventiveWorkValidator
             errors[ThroughField] = [$"The generation window must not exceed {MaxWindowDays} days."];
         }
 
-        if (!string.IsNullOrWhiteSpace(request.Priority) && !TryParsePriority(request.Priority, out _))
-        {
-            errors[PriorityField] = ["Must be one of Low, Medium, High or Critical."];
-        }
+        ValidatePriority(request, errors);
+
+        return errors;
+    }
+
+    internal static IReadOnlyDictionary<string, string[]> ValidateReplacement(GeneratePreventiveWorkRequest request)
+    {
+        var errors = new Dictionary<string, string[]>(StringComparer.Ordinal);
+
+        ValidatePriority(request, errors);
 
         return errors;
     }
@@ -45,6 +51,14 @@ internal static class GeneratePreventiveWorkValidator
         return TryParsePriority(priority, out var parsedPriority)
             ? parsedPriority
             : PreventiveWorkNaming.DefaultPriority;
+    }
+
+    private static void ValidatePriority(GeneratePreventiveWorkRequest request, Dictionary<string, string[]> errors)
+    {
+        if (!string.IsNullOrWhiteSpace(request.Priority) && !TryParsePriority(request.Priority, out _))
+        {
+            errors[PriorityField] = ["Must be one of Low, Medium, High or Critical."];
+        }
     }
 
     private static bool TryParsePriority(string? priority, out WorkOrderPriority parsedPriority)
