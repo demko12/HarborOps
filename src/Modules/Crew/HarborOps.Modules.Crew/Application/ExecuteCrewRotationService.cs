@@ -43,12 +43,19 @@ public sealed class ExecuteCrewRotationService(DbContext dbContext, TimeProvider
             throw new CrewAssignmentNotEligibleForRotationException(assignmentId);
         }
 
-        await CrewRotationEligibility.EnsureRelievingCrewMemberAvailableAsync(
-            dbContext, assignment.CrewMemberId, relievingCrewMemberId, cancellationToken);
-
         var executedAtUtc = timeProvider.GetUtcNow().UtcDateTime;
         var today = DateOnly.FromDateTime(executedAtUtc);
         var tourLengthDays = assignment.PlannedSignOffDate.DayNumber - assignment.SignOnDate.DayNumber;
+
+        // The replacement assignment runs today .. today + tour length, so the relieving member must
+        // be free (no open assignment and no approved unavailability) across that whole window.
+        await CrewRotationEligibility.EnsureRelievingCrewMemberAvailableAsync(
+            dbContext,
+            assignment.CrewMemberId,
+            relievingCrewMemberId,
+            today,
+            today.AddDays(tourLengthDays),
+            cancellationToken);
 
         var replacement = CrewAssignment.CreatePlanned(
             relievingCrewMemberId,

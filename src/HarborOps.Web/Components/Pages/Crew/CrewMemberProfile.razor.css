@@ -555,3 +555,61 @@ html[data-theme="light"] .crew-rotation-execute { color: #047857; border-color: 
     .crew-assignment-action-row button { width: 100%; }
     .crew-assignment-modal .crew-profile-form-grid { grid-template-columns: 1fr; }
 }
+
+/* Availability section */
+.crew-availability-request-toggle { margin-bottom: 1rem; }
+.crew-availability-profile-row { display: block; padding: 0; }
+.crew-availability-profile-row-heading {
+    display: flex;
+    width: 100%;
+    align-items: center;
+    justify-content: space-between;
+    gap: .75rem;
+    padding: .85rem 1rem;
+    color: inherit;
+    border: 0;
+    background: none;
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+}
+.crew-availability-status {
+    display: inline-flex;
+    align-items: center;
+    padding: .16rem .6rem;
+    border: 1px solid var(--border-medium);
+    border-radius: var(--radius-pill);
+    background: var(--bg-surface-strong);
+    font-size: .74rem;
+    font-weight: 550;
+    white-space: nowrap;
+}
+.crew-availability-status-requested { color: var(--status-info); border-color: rgba(96, 165, 250, .35); background: rgba(30, 64, 175, .18); }
+.crew-availability-status-approved { color: #6ee7b7; border-color: rgba(52, 211, 153, .3); background: rgba(16, 185, 129, .12); }
+.crew-availability-status-rejected { color: var(--status-danger); border-color: rgba(248, 113, 113, .35); background: rgba(127, 29, 29, .18); }
+.crew-availability-status-cancelled { color: var(--text-secondary); border-color: var(--border-medium); background: var(--bg-surface-strong); }
+.crew-availability-profile-detail { padding: 0 1rem 1rem; border-top: 1px solid var(--border-subtle); }
+.crew-availability-profile-reason { margin: .8rem 0 .3rem; color: var(--text-primary); font-size: .86rem; }
+.crew-availability-profile-notes { margin: 0 0 .5rem; color: var(--text-secondary); font-size: .82rem; }
+.crew-availability-profile-history { display: grid; gap: .35rem; margin: .6rem 0 0; padding-left: 1.1rem; color: var(--text-muted); font-size: .8rem; }
+.crew-availability-profile-history li { display: flex; flex-wrap: wrap; gap: .5rem; }
+.crew-availability-profile-history-reason { color: var(--text-secondary); }
+.crew-availability-profile-actions { display: flex; flex-wrap: wrap; gap: .5rem; margin-top: .85rem; }
+.crew-availability-approve, .crew-availability-reject, .crew-availability-cancel, .crew-availability-decision-submit {
+    height: 2rem;
+    padding: 0 .75rem;
+    border-radius: var(--radius-button);
+    background: transparent;
+    font: inherit;
+    font-size: .78rem;
+    font-weight: 600;
+    cursor: pointer;
+}
+.crew-availability-approve { color: #047857; border: 1px solid rgba(5, 150, 105, .35); }
+.crew-availability-reject, .crew-availability-cancel, .crew-availability-decision-submit { color: var(--status-danger-strong); border: 1px solid rgba(248, 113, 113, .35); }
+.crew-availability-approve:disabled, .crew-availability-reject:disabled, .crew-availability-cancel:disabled, .crew-availability-decision-submit:disabled { opacity: .5; cursor: not-allowed; }
+.crew-availability-decision-form { display: grid; gap: .5rem; margin-top: .8rem; }
+.crew-availability-decision-form label { color: var(--text-muted); font-size: .68rem; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; }
+.crew-availability-decision-form input { height: var(--control-height); padding: 0 .85rem; color: var(--text-primary); border: 1px solid var(--border-medium); border-radius: var(--radius-control); background-color: var(--control-surface); font: inherit; font-size: .88rem; }
+.crew-availability-decision-form-actions { display: flex; gap: .5rem; }
+.crew-availability-decision-form-actions button[type="button"] { height: 2rem; padding: 0 .75rem; color: var(--text-secondary); border: 1px solid var(--border-medium); border-radius: var(--radius-button); background: transparent; font: inherit; font-size: .78rem; font-weight: 600; cursor: pointer; }

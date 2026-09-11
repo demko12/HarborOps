@@ -1,0 +1,167 @@
+@page "/crew/availability"
+@attribute [Microsoft.AspNetCore.Authorization.Authorize(Policy = "AccessCrew")]
+@using HarborOps.Web.Components.Shared
+@implements IDisposable
+@inject CrewApiClient CrewApi
+@inject CurrentUserAuthorizationState CurrentUser
+
+<PageTitle>Crew availability | HarborOps</PageTitle>
+
+<section class="crew-availability-page">
+    <header class="crew-availability-header">
+        <div>
+            <nav class="page-breadcrumb" aria-label="Breadcrumb"><a href="/crew">Crewing operations</a><span aria-hidden="true">/</span><span>Availability</span></nav>
+            <h1>Crew availability</h1>
+            <p>Track planned unavailability so assignments and reliefs never land on a crew member who is on leave, sick, or in training.</p>
+        </div>
+    </header>
+
+    <div class="crew-availability-filters">
+        <div class="filter-field filter-field-wide">
+            <label for="crew-availability-member">Crew member</label>
+            <RelievingMemberPicker @key="memberPickerResetToken" InputId="crew-availability-member" Value="crewMemberIdFilter" ValueChanged="OnMemberFilterChangedAsync" Placeholder="All crew members" />
+        </div>
+        <div class="filter-field">
+            <label for="crew-availability-type">Type</label>
+            <select id="crew-availability-type" @bind="typeFilter" @bind:after="SearchAsync">
+                <option value="">All types</option>
+                <option value="AnnualLeave">Annual leave</option>
+                <option value="SickLeave">Sick leave</option>
+                <option value="Training">Training</option>
+                <option value="OtherUnavailable">Other</option>
+            </select>
+        </div>
+        <div class="filter-field">
+            <label for="crew-availability-status">Status</label>
+            <select id="crew-availability-status" @bind="statusFilter" @bind:after="SearchAsync">
+                <option value="">All statuses</option>
+                <option value="Requested">Requested</option>
+                <option value="Approved">Approved</option>
+                <option value="Rejected">Rejected</option>
+                <option value="Cancelled">Cancelled</option>
+            </select>
+        </div>
+        <div class="filter-field">
+            <label for="crew-availability-from">From</label>
+            <input id="crew-availability-from" type="date" @bind="fromFilter" @bind:after="SearchAsync" />
+        </div>
+        <div class="filter-field">
+            <label for="crew-availability-to">To</label>
+            <input id="crew-availability-to" type="date" @bind="toFilter" @bind:after="SearchAsync" />
+        </div>
+        <div class="crew-availability-filter-actions">
+            <button type="button" class="crew-reset-button" @onclick="ResetFiltersAsync" disabled="@isLoading">Reset</button>
+        </div>
+    </div>
+
+    @if (filterValidationMessage is not null)
+    {
+        <div class="crew-availability-validation" role="alert">@filterValidationMessage</div>
+    }
+
+    <section class="crew-card" aria-labelledby="crew-availability-list-title">
+        <div class="crew-card-heading">
+            <div><h2 id="crew-availability-list-title">Unavailability periods</h2><p>@totalCount periods found</p></div>
+            <span class="bi bi-calendar-x" aria-hidden="true"></span>
+        </div>
+
+        @if (isLoading)
+        {
+            <LoadingState Message="Loading crew availability..." />
+        }
+        else if (failure is not null)
+        {
+            <ApiErrorState Title="@failure.Title" Message="@failure.Message" OnRetry="LoadAsync" />
+        }
+        else if (items.Count == 0)
+        {
+            <EmptyState Title="No unavailability on record" Message="File an unavailability request from a crew member's profile to see it here." />
+        }
+        else
+        {
+            <div class="crew-availability-list">
+                @foreach (var item in items)
+                {
+                    var isExpanded = expandedIds.Contains(item.Id);
+                    <article class="crew-availability-row" @key="item.Id">
+                        <button type="button" class="crew-availability-row-heading" aria-expanded="@(isExpanded ? "true" : "false")" @onclick="() => ToggleExpanded(item.Id)">
+                            <span class="crew-availability-row-member"><a href="@($"/crew/{item.CrewMemberId}")" @onclick:stopPropagation="true">@item.CrewMemberName</a></span>
+                            <span class="crew-availability-row-type">@TypeLabel(item.Type)</span>
+                            <span class="crew-availability-row-dates">@item.StartDate.ToString("dd MMM yyyy") &ndash; @item.EndDate.ToString("dd MMM yyyy")</span>
+                            <span class="crew-availability-status @StatusClass(item.Status)">@item.Status</span>
+                            <span class="bi bi-chevron-down crew-availability-row-chevron" aria-hidden="true"></span>
+                        </button>
+
+                        @if (isExpanded)
+                        {
+                            <div class="crew-availability-row-detail">
+                                <dl>
+                                    <div><dt>Reason</dt><dd>@item.Reason</dd></div>
+                                    @if (!string.IsNullOrWhiteSpace(item.Notes)) { <div><dt>Notes</dt><dd>@item.Notes</dd></div> }
+                                    <div><dt>Requested</dt><dd>@item.RequestedAtUtc.ToString("dd MMM yyyy HH:mm 'UTC'")</dd></div>
+                                    @if (item.ReviewedAtUtc is { } reviewedAtUtc) { <div><dt>Reviewed</dt><dd>@reviewedAtUtc.ToString("dd MMM yyyy HH:mm 'UTC'")</dd></div> }
+                                    @if (!string.IsNullOrWhiteSpace(item.DecisionReason)) { <div><dt>Decision reason</dt><dd>@item.DecisionReason</dd></div> }
+                                </dl>
+
+                                @if (CanManage)
+                                {
+                                    <div class="crew-availability-row-actions">
+                                        @if (item.Status == "Requested")
+                                        {
+                                            <button type="button" class="crew-availability-approve" disabled="@isSubmitting" @onclick="() => ApproveAsync(item.Id)">Approve</button>
+                                            <button type="button" class="crew-availability-reject" disabled="@isSubmitting" @onclick="() => BeginDecision(item.Id, DecisionKind.Reject)">Reject</button>
+                                            <button type="button" class="crew-availability-cancel" disabled="@isSubmitting" @onclick="() => BeginDecision(item.Id, DecisionKind.Cancel)">Cancel</button>
+                                        }
+                                        else if (item.Status == "Approved")
+                                        {
+                                            <button type="button" class="crew-availability-cancel" disabled="@isSubmitting" @onclick="() => BeginDecision(item.Id, DecisionKind.Cancel)">Cancel</button>
+                                            <p class="crew-availability-row-hint">An approved period can only be cancelled before it starts.</p>
+                                        }
+                                        else
+                                        {
+                                            <p class="crew-availability-row-hint">This @item.Status.ToLowerInvariant() period is retained as history.</p>
+                                        }
+                                    </div>
+
+                                    @if (decisionRequestId == item.Id)
+                                    {
+                                        <form class="crew-availability-decision-form" @onsubmit="SubmitDecisionAsync" @onsubmit:preventDefault="true">
+                                            <label for="crew-availability-decision-reason">@(decisionKind == DecisionKind.Reject ? "Rejection reason" : "Cancellation reason")</label>
+                                            <input id="crew-availability-decision-reason" @bind="decisionReason" maxlength="500" />
+                                            <div class="crew-availability-decision-form-actions">
+                                                <button type="submit" class="crew-availability-decision-submit" disabled="@isSubmitting">@(decisionKind == DecisionKind.Reject ? "Reject period" : "Cancel period")</button>
+                                                <button type="button" @onclick="CancelDecision">Keep</button>
+                                            </div>
+                                        </form>
+                                    }
+                                }
+
+                                @if (actionRequestId == item.Id)
+                                {
+                                    @if (actionConflictMessage is not null) { <div class="crew-profile-form-conflict" role="alert">@actionConflictMessage</div> }
+                                    @if (actionFieldErrors.Count > 0)
+                                    {
+                                        <ul class="crew-profile-form-field-errors" role="alert">
+                                            @foreach (var error in actionFieldErrors) { <li>@error</li> }
+                                        </ul>
+                                    }
+                                    @if (actionGeneralError is not null) { <div class="crew-profile-form-error" role="alert">@actionGeneralError</div> }
+                                    @if (actionSuccessMessage is not null) { <div class="crew-profile-form-success" role="status">@actionSuccessMessage</div> }
+                                }
+                            </div>
+                        }
+                    </article>
+                }
+            </div>
+
+            <div class="crew-pagination">
+                <span>Showing @FirstRowNumber&ndash;@LastRowNumber of @totalCount periods</span>
+                <div>
+                    <button type="button" @onclick="PreviousPageAsync" disabled="@(pageNumber <= 1)">Previous</button>
+                    <span class="crew-page-indicator">Page @pageNumber of @TotalPages</span>
+                    <button type="button" @onclick="NextPageAsync" disabled="@(pageNumber >= TotalPages)">Next</button>
+                </div>
+            </div>
+        }
+    </section>
+</section>

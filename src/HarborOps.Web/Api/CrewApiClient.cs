@@ -596,6 +596,127 @@ internal sealed class CrewApiClient(HttpClient httpClient)
         }
     }
 
+    internal async Task<CrewApiResult<GetCrewAvailabilityResponse>> GetAvailabilityAsync(
+        Guid? crewMemberId,
+        DateOnly? from,
+        DateOnly? to,
+        string? type,
+        string? status,
+        int pageNumber,
+        int pageSize,
+        CancellationToken cancellationToken)
+    {
+        var query = new List<string> { $"pageNumber={pageNumber}", $"pageSize={pageSize}" };
+
+        if (crewMemberId is { } member)
+        {
+            query.Add($"crewMemberId={member}");
+        }
+
+        if (from is { } fromDate)
+        {
+            query.Add($"from={FormatIsoDate(fromDate)}");
+        }
+
+        if (to is { } toDate)
+        {
+            query.Add($"to={FormatIsoDate(toDate)}");
+        }
+
+        if (!string.IsNullOrWhiteSpace(type))
+        {
+            query.Add($"type={Uri.EscapeDataString(type)}");
+        }
+
+        if (!string.IsNullOrWhiteSpace(status))
+        {
+            query.Add($"status={Uri.EscapeDataString(status)}");
+        }
+
+        return await GetJsonAsync<GetCrewAvailabilityResponse>(
+            $"api/crew/availability?{string.Join('&', query)}", "Unable to load crew availability", cancellationToken);
+    }
+
+    internal Task<CrewApiResult<GetCrewMemberAvailabilityResponse>> GetMemberAvailabilityAsync(
+        Guid crewMemberId,
+        CancellationToken cancellationToken)
+        => GetJsonAsync<GetCrewMemberAvailabilityResponse>(
+            $"api/crew/members/{crewMemberId}/availability", "Unable to load crew availability", cancellationToken);
+
+    internal Task<CrewApiResult<GetCrewAvailabilityConflictsResponse>> GetAvailabilityConflictsAsync(
+        Guid crewMemberId,
+        DateOnly from,
+        DateOnly to,
+        CancellationToken cancellationToken)
+        => GetJsonAsync<GetCrewAvailabilityConflictsResponse>(
+            $"api/crew/availability/conflicts?crewMemberId={crewMemberId}&from={FormatIsoDate(from)}&to={FormatIsoDate(to)}",
+            "Unable to check crew availability",
+            cancellationToken);
+
+    internal Task<CrewApiWriteResult<CreateCrewAvailabilityRequestResponse>> RequestAvailabilityAsync(
+        Guid crewMemberId,
+        CreateCrewAvailabilityRequestRequest request,
+        CancellationToken cancellationToken)
+        => PostAsync<CreateCrewAvailabilityRequestRequest, CreateCrewAvailabilityRequestResponse>(
+            $"api/crew/members/{crewMemberId}/availability-requests", request, cancellationToken);
+
+    internal Task<CrewApiWriteResult<CrewAvailabilityDecisionResponse>> ApproveAvailabilityRequestAsync(
+        Guid requestId,
+        CancellationToken cancellationToken)
+        => PostAsync<object?, CrewAvailabilityDecisionResponse>(
+            $"api/crew/availability-requests/{requestId}/approve", null, cancellationToken);
+
+    internal Task<CrewApiWriteResult<CrewAvailabilityDecisionResponse>> RejectAvailabilityRequestAsync(
+        Guid requestId,
+        RejectCrewAvailabilityRequestRequest request,
+        CancellationToken cancellationToken)
+        => PostAsync<RejectCrewAvailabilityRequestRequest, CrewAvailabilityDecisionResponse>(
+            $"api/crew/availability-requests/{requestId}/reject", request, cancellationToken);
+
+    internal Task<CrewApiWriteResult<CrewAvailabilityDecisionResponse>> CancelAvailabilityRequestAsync(
+        Guid requestId,
+        CancelCrewAvailabilityRequestRequest request,
+        CancellationToken cancellationToken)
+        => PostAsync<CancelCrewAvailabilityRequestRequest, CrewAvailabilityDecisionResponse>(
+            $"api/crew/availability-requests/{requestId}/cancel", request, cancellationToken);
+
+    private async Task<CrewApiResult<T>> GetJsonAsync<T>(
+        string path,
+        string failureTitle,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            using var response = await httpClient.GetAsync(path, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
+
+            if (response.IsSuccessStatusCode)
+            {
+                return new CrewApiResult<T>(
+                    await response.Content.ReadFromJsonAsync<T>(cancellationToken), null);
+            }
+
+            var problem = await TryReadProblemAsync(response, cancellationToken);
+            var isForbidden = response.StatusCode == HttpStatusCode.Forbidden;
+            var isNotFound = response.StatusCode == HttpStatusCode.NotFound;
+
+            return new CrewApiResult<T>(default, new CrewApiFailure(
+                (int)response.StatusCode,
+                problem?.Title ?? (isForbidden ? "Crew access denied" : isNotFound ? "Not found" : failureTitle),
+                problem?.Detail ?? (isForbidden
+                    ? "Your account does not have permission to view crew availability."
+                    : "Please try again."),
+                problem?.Errors ?? EmptyErrors));
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (HttpRequestException)
+        {
+            return new CrewApiResult<T>(default, new CrewApiFailure(0, "HarborOps API is unavailable", "Please try again.", EmptyErrors));
+        }
+    }
+
     private static readonly IReadOnlyDictionary<string, string[]> EmptyErrors =
         new Dictionary<string, string[]>(StringComparer.OrdinalIgnoreCase);
 
@@ -863,3 +984,87 @@ internal sealed record ExecuteCrewRotationResponse(
     Guid ReplacementAssignmentId,
     DateOnly ReplacementSignOnDate,
     DateOnly ReplacementPlannedSignOffDate);
+
+internal sealed record CreateCrewAvailabilityRequestRequest
+{
+    public string? Type { get; init; }
+    public DateOnly? StartDate { get; init; }
+    public DateOnly? EndDate { get; init; }
+    public string? Reason { get; init; }
+    public string? Notes { get; init; }
+}
+
+internal sealed record CreateCrewAvailabilityRequestResponse(Guid Id);
+
+internal sealed record RejectCrewAvailabilityRequestRequest
+{
+    public string? Reason { get; init; }
+}
+
+internal sealed record CancelCrewAvailabilityRequestRequest
+{
+    public string? Reason { get; init; }
+}
+
+internal sealed record CrewAvailabilityDecisionResponse(
+    Guid Id,
+    Guid CrewMemberId,
+    string PreviousStatus,
+    string NewStatus,
+    Guid ActorUserId,
+    string? Reason,
+    DateTime OccurredAtUtc);
+
+internal sealed record CrewAvailabilityListItemResponse(
+    Guid Id,
+    Guid CrewMemberId,
+    string CrewMemberName,
+    string Type,
+    string Status,
+    DateOnly StartDate,
+    DateOnly EndDate,
+    string Reason,
+    string? Notes,
+    Guid RequestedByUserId,
+    DateTime RequestedAtUtc,
+    Guid? ReviewedByUserId,
+    DateTime? ReviewedAtUtc,
+    string? DecisionReason);
+
+internal sealed record GetCrewAvailabilityResponse(
+    IReadOnlyList<CrewAvailabilityListItemResponse> Items,
+    int PageNumber,
+    int PageSize,
+    int TotalCount);
+
+internal sealed record CrewAvailabilityTransitionItemResponse(
+    Guid Id,
+    string EventType,
+    string? Reason,
+    DateTime OccurredAtUtc,
+    string PreviousStatus,
+    string NewStatus);
+
+internal sealed record CrewMemberAvailabilityItemResponse(
+    Guid Id,
+    string Type,
+    string Status,
+    DateOnly StartDate,
+    DateOnly EndDate,
+    string Reason,
+    string? Notes,
+    DateTime RequestedAtUtc,
+    DateTime? ReviewedAtUtc,
+    string? DecisionReason,
+    IReadOnlyList<CrewAvailabilityTransitionItemResponse> History);
+
+internal sealed record GetCrewMemberAvailabilityResponse(IReadOnlyList<CrewMemberAvailabilityItemResponse> Items);
+
+internal sealed record CrewAvailabilityConflictResponse(
+    string RecordType,
+    string Status,
+    DateOnly StartDate,
+    DateOnly EndDate,
+    string? Detail);
+
+internal sealed record GetCrewAvailabilityConflictsResponse(IReadOnlyList<CrewAvailabilityConflictResponse> Conflicts);

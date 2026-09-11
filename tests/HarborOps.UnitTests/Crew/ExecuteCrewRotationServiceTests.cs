@@ -153,6 +153,29 @@ public sealed class ExecuteCrewRotationServiceTests
         Assert.True(await dbContext.Set<CrewRotation>().AnyAsync(r => r.AssignmentId == assignment.Id));
     }
 
+    [Fact]
+    public async Task ExecuteAsync_throws_and_keeps_the_originals_when_the_relieving_member_has_approved_unavailability()
+    {
+        await using var dbContext = CreateDbContext();
+        var (assignment, relievingMember) = await SeedRotationReadyForExecutionAsync(dbContext);
+        var unavailability = CrewAvailabilityRequest.Create(
+            relievingMember.Id, "SickLeave", new DateOnly(2026, 8, 1), new DateOnly(2026, 8, 20),
+            "Recovering.", null, Guid.NewGuid(), new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc));
+        unavailability.Approve(Guid.NewGuid(), new DateTime(2026, 1, 2, 0, 0, 0, DateTimeKind.Utc));
+        await dbContext.Set<CrewAvailabilityRequest>().AddAsync(unavailability);
+        await dbContext.SaveChangesAsync();
+        var service = new ExecuteCrewRotationService(dbContext, new FakeDateTimeProvider(Today));
+
+        await Assert.ThrowsAsync<CrewMemberUnavailableException>(
+            () => service.ExecuteAsync(assignment.Id, CancellationToken.None));
+
+        var original = await dbContext.Set<CrewAssignment>().SingleAsync(a => a.Id == assignment.Id);
+        Assert.Null(original.ActualSignOffDate);
+        var rotation = await dbContext.Set<CrewRotation>().SingleAsync(r => r.AssignmentId == assignment.Id);
+        Assert.Equal(CrewRotation.PlannedStatus, rotation.Status);
+        Assert.Equal(0, await dbContext.Set<CrewAssignment>().CountAsync(a => a.CrewMemberId == relievingMember.Id));
+    }
+
     private static async Task<(CrewAssignment Assignment, CrewMember RelievingMember)> SeedRotationReadyForExecutionAsync(
         HarborOpsDbContext dbContext,
         DateOnly? signOnDate = null,
