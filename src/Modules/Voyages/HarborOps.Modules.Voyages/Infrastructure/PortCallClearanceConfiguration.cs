@@ -44,5 +44,7 @@ internal sealed class PortCallClearanceConfiguration : IEntityTypeConfiguration<
 
         builder.HasIndex(clearance => clearance.VoyageStopId)
             .IsUnique();
+
+        builder.HasIndex(clearance => new { clearance.VoyageId, clearance.Status });
     }
 }
