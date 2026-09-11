@@ -1,0 +1,182 @@
+@page "/cargo/{BookingId:guid}/bills-of-lading/{BillOfLadingId:guid}/print"
+@attribute [Microsoft.AspNetCore.Authorization.Authorize(Policy = "AccessCargo")]
+@using HarborOps.Web.Api.Cargo
+@implements IDisposable
+@inject CargoBookingsApiClient CargoApi
+
+<PageTitle>@PageHeading | HarborOps</PageTitle>
+
+<section class="print-page">
+    <nav class="print-toolbar" aria-label="Printable bill actions">
+        <a class="print-back" href="@BookingHref">Back to booking</a>
+    </nav>
+
+    @if (isLoading)
+    {
+        <p class="print-note" role="status">Loading the printable bill of lading...</p>
+    }
+    else if (failure is not null)
+    {
+        <ApiErrorState Title="@failure.Title" Message="@failure.Message" OnRetry="LoadAsync" />
+    }
+    else if (model is { } bill)
+    {
+        <article class="print-sheet">
+            @if (bill.Watermark is { } watermark)
+            {
+                <p class="print-watermark" aria-label="@($"This bill is {watermark}")">@watermark</p>
+            }
+
+            <header class="print-head">
+                <div>
+                    <p class="print-kicker">Bill of lading</p>
+                    <h1 class="print-number">@bill.BillNumber</h1>
+                </div>
+                <dl class="print-head-meta">
+                    <div>
+                        <dt>Freight terms</dt>
+                        <dd>@bill.FreightTerms</dd>
+                    </div>
+                    <div>
+                        <dt>Place and date of issue</dt>
+                        <dd>@bill.IssuePlace, @CargoBookingFormat.RequestedIssueDate(bill.RequestedIssueDate)</dd>
+                    </div>
+                </dl>
+            </header>
+
+            <section class="print-parties">
+                <div class="print-box">
+                    <h2>Shipper</h2>
+                    <p class="print-party-name">@bill.ShipperName</p>
+                    <p class="print-party-address">@bill.ShipperAddress</p>
+                </div>
+
+                <div class="print-box">
+                    <h2>Consignee</h2>
+                    <p class="print-party-name">@bill.ConsigneeName</p>
+                    <p class="print-party-address">@bill.ConsigneeAddress</p>
+                </div>
+
+                <div class="print-box">
+                    <h2>Notify party</h2>
+                    @if (string.IsNullOrWhiteSpace(bill.NotifyPartyName))
+                    {
+                        <p class="print-party-empty">Not stated</p>
+                    }
+                    else
+                    {
+                        <p class="print-party-name">@bill.NotifyPartyName</p>
+                        <p class="print-party-address">@bill.NotifyPartyAddress</p>
+                    }
+                </div>
+            </section>
+
+            <section class="print-routing">
+                <div>
+                    <h2>Place of receipt</h2>
+                    <p>@bill.PlaceOfReceipt</p>
+                </div>
+                <div>
+                    <h2>Port of loading</h2>
+                    <p>@bill.PortOfLoading</p>
+                </div>
+                <div>
+                    <h2>Port of discharge</h2>
+                    <p>@bill.PortOfDischarge</p>
+                </div>
+                <div>
+                    <h2>Place of delivery</h2>
+                    <p>@bill.PlaceOfDelivery</p>
+                </div>
+            </section>
+
+            <section class="print-box print-cargo">
+                <h2>Marks and numbers, description of goods</h2>
+                <p class="print-marks">@bill.CargoMarks</p>
+                <p class="print-description">@bill.CargoDescription</p>
+
+                <dl class="print-totals">
+                    <div>
+                        <dt>Packages</dt>
+                        <dd>@CargoBookingFormat.PackageCount(bill.PackageCount)</dd>
+                    </div>
+                    <div>
+                        <dt>Gross weight</dt>
+                        <dd>@CargoBookingFormat.WeightKg(bill.WeightKg) kg</dd>
+                    </div>
+                    <div>
+                        <dt>Containers</dt>
+                        <dd>@bill.Containers.Count</dd>
+                    </div>
+                </dl>
+            </section>
+
+            <section class="print-box print-containers">
+                <h2>Containers</h2>
+
+                @if (bill.Containers.Count == 0)
+                {
+                    <p class="print-party-empty">No container is listed on this bill.</p>
+                }
+                else
+                {
+                    <table class="print-table">
+                        <thead>
+                            <tr>
+                                <th scope="col">Container</th>
+                                <th scope="col">Type</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var container in bill.Containers)
+                            {
+                                <tr>
+                                    <td>@container.ContainerNumber</td>
+                                    <td>@container.ContainerType</td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                }
+            </section>
+
+            <footer class="print-foot">
+                @if (bill.BookingNumber is { } bookingNumber)
+                {
+                    <div>
+                        <h2>Booking</h2>
+                        <p>@bookingNumber</p>
+                    </div>
+                }
+
+                @if (bill.IssuedAtUtc is { } issuedAtUtc)
+                {
+                    <div>
+                        <h2>Issued</h2>
+                        <p>
+                            @CargoBookingFormat.CreatedUtc(issuedAtUtc)
+                            @if (bill.IssuedByUserId is { } issuedByUserId)
+                            {
+                                <span class="print-actor">@CargoBookingFormat.ShortUser(issuedByUserId)</span>
+                            }
+                        </p>
+                    </div>
+                }
+
+                @if (bill.VoidedAtUtc is { } voidedAtUtc)
+                {
+                    <div class="print-voided">
+                        <h2>Voided</h2>
+                        <p>
+                            @CargoBookingFormat.CreatedUtc(voidedAtUtc)
+                            @if (!string.IsNullOrWhiteSpace(bill.VoidReason))
+                            {
+                                <span class="print-void-reason">@bill.VoidReason</span>
+                            }
+                        </p>
+                    </div>
+                }
+            </footer>
+        </article>
+    }
+</section>

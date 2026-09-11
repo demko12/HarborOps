@@ -36,10 +36,29 @@ public partial class PortPicker : IDisposable
     [Parameter]
     public bool Disabled { get; set; }
 
+    [Parameter]
+    public string? InitialLabel { get; set; }
+
+    [Parameter]
+    public bool AllowFreeText { get; set; }
+
+    private bool hasSeededInitialLabel;
+
     public void Dispose()
     {
         searchCts?.Cancel();
         searchCts?.Dispose();
+    }
+
+    protected override void OnParametersSet()
+    {
+        if (hasSeededInitialLabel || string.IsNullOrWhiteSpace(InitialLabel))
+        {
+            return;
+        }
+
+        hasSeededInitialLabel = true;
+        displayText = InitialLabel;
     }
 
     private async Task OnInputAsync(ChangeEventArgs e)
@@ -50,6 +69,15 @@ public partial class PortPicker : IDisposable
         {
             Value = null;
             await ValueChanged.InvokeAsync(null);
+        }
+
+        if (AllowFreeText)
+        {
+            await SelectedLabelChanged.InvokeAsync(
+                string.IsNullOrWhiteSpace(displayText) ? null : displayText);
+        }
+        else if (Value is null)
+        {
             await SelectedLabelChanged.InvokeAsync(null);
         }
 

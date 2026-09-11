@@ -5,6 +5,9 @@ using Bunit;
 using HarborOps.Web.Api;
 using HarborOps.Web.Api.Cargo;
 using HarborOps.Web.Components.Pages.Cargo;
+using Microsoft.AspNetCore.Components;
+using Microsoft.AspNetCore.Components.Rendering;
+using Microsoft.AspNetCore.Components.Sections;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
@@ -647,7 +650,7 @@ public sealed class CargoContainerControlPanelTests : BunitContext
         });
     }
 
-    private IRenderedComponent<CargoContainerControlPanel> RenderPanel(params string[] permissions)
+    private IRenderedComponent<ControlOverlayHost> RenderPanel(params string[] permissions)
     {
         var httpClient = new HttpClient(new StubHttpMessageHandler(async (request, _) =>
         {
@@ -667,9 +670,8 @@ public sealed class CargoContainerControlPanelTests : BunitContext
             ? [CurrentUserAuthorizationState.CargoManagePermission]
             : permissions);
 
-        var panel = Render<CargoContainerControlPanel>(parameters => parameters
-            .Add(component => component.ContainerId, Guid.Parse(ContainerId))
-            .Add(component => component.ContainerNumber, "MSKU1234567"));
+        var panel = Render<ControlOverlayHost>(parameters => parameters
+            .Add(component => component.ContainerId, Guid.Parse(ContainerId)));
         panel.WaitForAssertion(() => Assert.NotEmpty(requests));
 
         return panel;
@@ -693,6 +695,35 @@ public sealed class CargoContainerControlPanelTests : BunitContext
             },
         });
         Services.AddScoped<CurrentUserAuthorizationState>();
+    }
+
+    internal sealed class ControlOverlayHost : ComponentBase
+    {
+        [Parameter]
+        public Guid ContainerId { get; set; }
+
+        protected override void BuildRenderTree(RenderTreeBuilder builder)
+        {
+            ArgumentNullException.ThrowIfNull(builder);
+
+            builder.OpenComponent<CargoContainerControlPanel>(0);
+            builder.AddComponentParameter(
+                1,
+                nameof(CargoContainerControlPanel.ContainerId),
+                ContainerId);
+            builder.AddComponentParameter(
+                2,
+                nameof(CargoContainerControlPanel.ContainerNumber),
+                "MSKU1234567");
+            builder.CloseComponent();
+
+            builder.OpenComponent<SectionOutlet>(3);
+            builder.AddComponentParameter(
+                4,
+                nameof(SectionOutlet.SectionName),
+                "harborops-overlay");
+            builder.CloseComponent();
+        }
     }
 
     private sealed class StubHttpMessageHandler(

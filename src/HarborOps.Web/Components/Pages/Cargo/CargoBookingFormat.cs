@@ -2,7 +2,6 @@ using System.Globalization;
 
 namespace HarborOps.Web.Components.Pages.Cargo;
 
-
 internal static class CargoBookingFormat
 {
     internal const string HazardousLabel = "Hazardous";
@@ -185,5 +184,62 @@ internal static class CargoBookingFormat
             RejectedStatus => "safety-status safety-status-rejected",
             _ => "safety-status safety-status-draft",
         };
+    }
+
+    internal const string DraftBillStatus = "Draft";
+    internal const string IssuedBillStatus = "Issued";
+    internal const string VoidedBillStatus = "Voided";
+
+    internal static string BillStatusLabel(string? status)
+    {
+        return status switch
+        {
+            IssuedBillStatus => "Issued",
+            VoidedBillStatus => "Voided",
+            _ => "Draft",
+        };
+    }
+
+    internal static string BillStatusClass(string? status)
+    {
+        return status switch
+        {
+            IssuedBillStatus => "bill-status bill-status-issued",
+            VoidedBillStatus => "bill-status bill-status-voided",
+            _ => "bill-status bill-status-draft",
+        };
+    }
+
+    internal static string BillActionLabel(string action)
+    {
+        return action switch
+        {
+            "Drafted" => "Draft created",
+            "Updated" => "Draft edited",
+            "Issued" => "Issued",
+            "Voided" => "Voided",
+            _ => action,
+        };
+    }
+
+    internal static string BillBlockedExplanation(string? blockedReason)
+    {
+        return blockedReason switch
+        {
+            null => "Every prerequisite is met. This bill can be issued.",
+            "it is already issued" => "This bill is already issued and can no longer change.",
+            "it is already voided" => "This bill is voided. Create a replacement instead.",
+            "no container is selected" => "Select at least one container before issuing.",
+            "its party, routing or cargo details are incomplete" =>
+                "Fill in every required party, routing and cargo field before issuing.",
+            "its booking has not reached the Loaded status" =>
+                "The booking must reach the Loaded status before this bill can be issued.",
+            _ => $"This bill cannot be issued because {blockedReason}.",
+        };
+    }
+
+    internal static string RequestedIssueDate(DateOnly requestedIssueDate)
+    {
+        return requestedIssueDate.ToString("dd MMM yyyy", CultureInfo.InvariantCulture);
     }
 }

@@ -1,0 +1,602 @@
+@using HarborOps.Web.Api.Cargo
+@implements IDisposable
+@inject CargoBookingsApiClient CargoApi
+@inject CurrentUserAuthorizationState AuthorizationState
+
+<section class="bills-panel" aria-labelledby="bills-title">
+    <div class="booking-card-heading">
+        <h3 id="bills-title">Bills of lading</h3>
+
+        @if (CanManage && !ShowForm)
+        {
+            <button type="button" class="bill-new" @onclick="StartCreate">New draft</button>
+        }
+    </div>
+
+    @if (isLoading)
+    {
+        <p class="booking-note bills-loading" role="status">Loading the bills of lading...</p>
+    }
+    else if (failure is not null)
+    {
+        <ApiErrorState Title="@failure.Title" Message="@failure.Message" OnRetry="LoadListAsync" />
+    }
+    else
+    {
+        @if (Bills.Count == 0 && !ShowForm)
+        {
+            <p class="booking-note bills-empty" role="status">
+                No bill of lading has been prepared for this booking yet.
+            </p>
+        }
+
+        @if (Bills.Count > 0)
+        {
+            <ul class="bill-list">
+                @foreach (var bill in Bills)
+                {
+                    <li class="@(bill.BillOfLadingId == selectedBillId ? "bill-list-item bill-list-item-open" : "bill-list-item")">
+                        <button type="button"
+                                class="bill-list-button"
+                                @onclick="() => SelectBillAsync(bill.BillOfLadingId)">
+                            <span class="bill-list-number">@bill.BillNumber</span>
+                            <span class="@CargoBookingFormat.BillStatusClass(bill.Status)">
+                                @CargoBookingFormat.BillStatusLabel(bill.Status)
+                            </span>
+                            <span class="bill-list-route">
+                                @bill.PortOfLoading <span aria-hidden="true">&rarr;</span> @bill.PortOfDischarge
+                            </span>
+                            <span class="bill-list-containers">
+                                @bill.ContainerCount @(bill.ContainerCount == 1 ? "container" : "containers")
+                            </span>
+                        </button>
+                    </li>
+                }
+            </ul>
+        }
+
+        @if (ShowForm)
+        {
+        <SectionContent SectionName="harborops-overlay">
+        <div class="operation-modal-backdrop" @onclick="CancelForm">
+        <section class="operation-modal bill-form-modal"
+                 role="dialog"
+                 aria-modal="true"
+                 aria-labelledby="bill-form-title"
+                 @onclick:stopPropagation="true">
+            <div class="operation-modal-header">
+                <h2 id="bill-form-title">@(isCreating ? "New bill of lading" : "Edit draft")</h2>
+                <button type="button"
+                        class="operation-modal-close"
+                        aria-label="Close the form"
+                        disabled="@isSaving"
+                        @onclick="CancelForm">
+                    &times;
+                </button>
+            </div>
+
+            <EditForm class="bill-form" EditContext="formEditContext" OnValidSubmit="SubmitFormAsync">
+                <DataAnnotationsValidator />
+
+                <datalist id="bill-known-ports">
+                    @foreach (var port in KnownPorts)
+                    {
+                        <option value="@port"></option>
+                    }
+                </datalist>
+
+                <fieldset class="bill-fieldset">
+                    <legend>Identification</legend>
+
+                    <div class="booking-form-grid">
+                        <div class="booking-field">
+                            <label for="bill-number">Bill number</label>
+                            <InputText id="bill-number" placeholder="e.g. BL-2026-0001" @bind-Value="formModel.BillNumber" />
+                            <ValidationMessage For="() => formModel.BillNumber" />
+                        </div>
+
+                        <div class="booking-field">
+                            <label for="bill-freight-terms">Freight terms</label>
+                            <InputSelect id="bill-freight-terms" @bind-Value="formModel.FreightTerms">
+                                <option value="Prepaid">Prepaid</option>
+                                <option value="Collect">Collect</option>
+                            </InputSelect>
+                            <ValidationMessage For="() => formModel.FreightTerms" />
+                        </div>
+
+                        <div class="booking-field">
+                            <label for="bill-issue-place">Issue place</label>
+                            <InputText id="bill-issue-place" list="bill-known-ports" @bind-Value="formModel.IssuePlace" />
+                            <ValidationMessage For="() => formModel.IssuePlace" />
+                        </div>
+
+                        <div class="booking-field">
+                            <label for="bill-issue-date">Requested issue date</label>
+                            <InputDate id="bill-issue-date" @bind-Value="formModel.RequestedIssueDate" />
+                            <ValidationMessage For="() => formModel.RequestedIssueDate" />
+                        </div>
+                    </div>
+                </fieldset>
+
+                <fieldset class="bill-fieldset">
+                    <legend>Parties</legend>
+
+                    <div class="booking-form-grid">
+                        <div class="booking-field">
+                            <label for="bill-shipper">Shipper</label>
+                            <InputText id="bill-shipper" @bind-Value="formModel.ShipperName" />
+                            <ValidationMessage For="() => formModel.ShipperName" />
+                        </div>
+
+                        <div class="booking-field">
+                            <label for="bill-shipper-address">Shipper address</label>
+                            <InputText id="bill-shipper-address" @bind-Value="formModel.ShipperAddress" />
+                            <ValidationMessage For="() => formModel.ShipperAddress" />
+                        </div>
+
+                        <div class="booking-field">
+                            <label for="bill-consignee">Consignee</label>
+                            <InputText id="bill-consignee" @bind-Value="formModel.ConsigneeName" />
+                            <ValidationMessage For="() => formModel.ConsigneeName" />
+                        </div>
+
+                        <div class="booking-field">
+                            <label for="bill-consignee-address">Consignee address</label>
+                            <InputText id="bill-consignee-address" @bind-Value="formModel.ConsigneeAddress" />
+                            <ValidationMessage For="() => formModel.ConsigneeAddress" />
+                        </div>
+
+                        <div class="booking-field">
+                            <label for="bill-notify">Notify party <span class="bill-optional">optional</span></label>
+                            <InputText id="bill-notify" placeholder="e.g. the port agent to notify on arrival" @bind-Value="formModel.NotifyPartyName" />
+                            <ValidationMessage For="() => formModel.NotifyPartyName" />
+                        </div>
+
+                        <div class="booking-field">
+                            <label for="bill-notify-address">Notify party address <span class="bill-optional">optional</span></label>
+                            <InputText id="bill-notify-address" @bind-Value="formModel.NotifyPartyAddress" />
+                            <ValidationMessage For="() => formModel.NotifyPartyAddress" />
+                        </div>
+                    </div>
+                </fieldset>
+
+                <fieldset class="bill-fieldset">
+                    <legend>Routing</legend>
+
+                    <div class="booking-form-grid">
+                        <div class="booking-field">
+                            <label for="bill-receipt">Place of receipt</label>
+                            <InputText id="bill-receipt" list="bill-known-ports" @bind-Value="formModel.PlaceOfReceipt" />
+                            <ValidationMessage For="() => formModel.PlaceOfReceipt" />
+                        </div>
+
+                        <div class="booking-field">
+                            <label for="bill-loading">Port of loading</label>
+                            <PortPicker InputId="bill-loading"
+                                        Placeholder="Search ports"
+                                        InitialLabel="@formModel.PortOfLoading"
+                                        AllowFreeText="true"
+                                        SelectedLabelChanged="value => formModel.PortOfLoading = value" />
+                            <ValidationMessage For="() => formModel.PortOfLoading" />
+                        </div>
+
+                        <div class="booking-field">
+                            <label for="bill-discharge">Port of discharge</label>
+                            <PortPicker InputId="bill-discharge"
+                                        Placeholder="Search ports"
+                                        InitialLabel="@formModel.PortOfDischarge"
+                                        AllowFreeText="true"
+                                        SelectedLabelChanged="value => formModel.PortOfDischarge = value" />
+                            <ValidationMessage For="() => formModel.PortOfDischarge" />
+                        </div>
+
+                        <div class="booking-field">
+                            <label for="bill-delivery">Place of delivery</label>
+                            <InputText id="bill-delivery" list="bill-known-ports" @bind-Value="formModel.PlaceOfDelivery" />
+                            <ValidationMessage For="() => formModel.PlaceOfDelivery" />
+                        </div>
+                    </div>
+                </fieldset>
+
+                <fieldset class="bill-fieldset">
+                    <legend>Cargo</legend>
+
+                    <div class="booking-form-grid">
+                        <div class="booking-field booking-field-wide">
+                            <label for="bill-marks">Marks and numbers</label>
+                            <InputText id="bill-marks" placeholder="e.g. ADT/2026/0001" @bind-Value="formModel.CargoMarks" />
+                            <ValidationMessage For="() => formModel.CargoMarks" />
+                        </div>
+
+                        <div class="booking-field booking-field-wide">
+                            <label for="bill-description">Description of goods</label>
+                            <InputTextArea id="bill-description" @bind-Value="formModel.CargoDescription" />
+                            <ValidationMessage For="() => formModel.CargoDescription" />
+                        </div>
+
+                        <div class="booking-field">
+                            <label for="bill-packages">Package count</label>
+                            <InputNumber id="bill-packages" @bind-Value="formModel.PackageCount" />
+                            <ValidationMessage For="() => formModel.PackageCount" />
+                        </div>
+
+                        <div class="booking-field">
+                            <label for="bill-weight">Gross weight (kg)</label>
+                            <InputNumber id="bill-weight" @bind-Value="formModel.WeightKg" />
+                            <ValidationMessage For="() => formModel.WeightKg" />
+                        </div>
+                    </div>
+                </fieldset>
+
+                <fieldset class="bill-fieldset">
+                    <legend>Containers</legend>
+
+                    @if (Containers.Count == 0)
+                    {
+                        <p class="booking-note bill-no-containers" role="status">
+                            This booking has no containers yet, so none can be selected.
+                        </p>
+                    }
+                    else
+                    {
+                        <ul class="bill-container-picker">
+                            @foreach (var container in Containers)
+                            {
+                                <li class="bill-container-option">
+                                    <label>
+                                        <input type="checkbox"
+                                               checked="@IsContainerSelected(container.ContainerId)"
+                                               @onchange="args => ToggleContainer(container.ContainerId, (bool)args.Value!)" />
+                                        <span class="bill-container-number">@container.ContainerNumber</span>
+                                        <span class="bill-container-type">@container.ContainerType</span>
+                                    </label>
+                                </li>
+                            }
+                        </ul>
+                    }
+
+                    <dl class="bill-summary">
+                        <div>
+                            <dt>Containers selected</dt>
+                            <dd>@SelectedContainerCount</dd>
+                        </div>
+                        <div>
+                            <dt>Packages</dt>
+                            <dd>@CargoBookingFormat.PackageCount(SelectedPackageCount)</dd>
+                        </div>
+                        <div>
+                            <dt>Gross weight</dt>
+                            <dd>@CargoBookingFormat.WeightKg(SelectedWeightKg) kg</dd>
+                        </div>
+                    </dl>
+                </fieldset>
+
+                @if (formError is not null)
+                {
+                    <p class="booking-form-error" role="alert">@formError</p>
+                }
+
+                <div class="bill-form-actions">
+                    <button type="button" class="bill-cancel" disabled="@isSaving" @onclick="CancelForm">
+                        Cancel
+                    </button>
+                    <button type="submit" class="booking-submit" disabled="@isSaving">
+                        @(isCreating ? "Create draft" : "Save draft")
+                    </button>
+                </div>
+            </EditForm>
+        </section>
+        </div>
+        </SectionContent>
+        }
+
+        @if (isLoadingSelected)
+        {
+            <p class="booking-note bills-loading" role="status">Loading the bill of lading...</p>
+        }
+        else if (selectedFailure is not null)
+        {
+            <ApiErrorState Title="@selectedFailure.Title"
+                           Message="@selectedFailure.Message"
+                           OnRetry="LoadSelectedAsync" />
+        }
+        else if (Bill is { } bill)
+        {
+            <article class="bill-detail">
+                <header class="bill-detail-header">
+                    <div>
+                        <h4 class="bill-detail-number">@bill.BillNumber</h4>
+                        <p class="bill-detail-route">
+                            @bill.PlaceOfReceipt <span aria-hidden="true">&rarr;</span> @bill.PortOfLoading
+                            <span aria-hidden="true">&rarr;</span> @bill.PortOfDischarge
+                            <span aria-hidden="true">&rarr;</span> @bill.PlaceOfDelivery
+                        </p>
+                    </div>
+                    <span class="@CargoBookingFormat.BillStatusClass(bill.Status)">
+                        @CargoBookingFormat.BillStatusLabel(bill.Status)
+                    </span>
+                </header>
+
+                @if (bill.Status == CargoBookingFormat.VoidedBillStatus)
+                {
+                    <div class="bill-void-banner" role="status">
+                        <p class="bill-void-title">This bill was voided.</p>
+                        @if (!string.IsNullOrWhiteSpace(bill.VoidReason))
+                        {
+                            <p class="bill-void-reason">@bill.VoidReason</p>
+                        }
+                        <p class="bill-void-hint">
+                            The issued record is kept. Create a replacement bill to correct it.
+                        </p>
+                    </div>
+                }
+                else if (bill.Status == CargoBookingFormat.IssuedBillStatus)
+                {
+                    <p class="booking-note bill-immutable" role="status">
+                        This bill is issued and can no longer be edited.
+                    </p>
+                }
+
+                <dl class="bill-facts">
+                    <div>
+                        <dt>Shipper</dt>
+                        <dd>@bill.ShipperName<span class="bill-address">@bill.ShipperAddress</span></dd>
+                    </div>
+                    <div>
+                        <dt>Consignee</dt>
+                        <dd>@bill.ConsigneeName<span class="bill-address">@bill.ConsigneeAddress</span></dd>
+                    </div>
+                    @if (!string.IsNullOrWhiteSpace(bill.NotifyPartyName))
+                    {
+                        <div>
+                            <dt>Notify party</dt>
+                            <dd>@bill.NotifyPartyName<span class="bill-address">@bill.NotifyPartyAddress</span></dd>
+                        </div>
+                    }
+                    <div>
+                        <dt>Freight terms</dt>
+                        <dd>@bill.FreightTerms</dd>
+                    </div>
+                    <div>
+                        <dt>Marks and numbers</dt>
+                        <dd>@bill.CargoMarks</dd>
+                    </div>
+                    <div>
+                        <dt>Description of goods</dt>
+                        <dd>@bill.CargoDescription</dd>
+                    </div>
+                    <div>
+                        <dt>Packages</dt>
+                        <dd>@CargoBookingFormat.PackageCount(bill.PackageCount)</dd>
+                    </div>
+                    <div>
+                        <dt>Gross weight</dt>
+                        <dd>@CargoBookingFormat.WeightKg(bill.WeightKg) kg</dd>
+                    </div>
+                    <div>
+                        <dt>Issue place and date</dt>
+                        <dd>@bill.IssuePlace, @CargoBookingFormat.RequestedIssueDate(bill.RequestedIssueDate)</dd>
+                    </div>
+                </dl>
+
+                <h5 class="bill-section-title">Containers</h5>
+
+                @if (bill.Containers.Count == 0)
+                {
+                    <p class="booking-note bill-no-containers" role="status">
+                        No container is selected on this bill yet.
+                    </p>
+                }
+                else
+                {
+                    <ul class="bill-container-list">
+                        @foreach (var container in bill.Containers)
+                        {
+                            <li>
+                                <span class="bill-container-number">@container.ContainerNumber</span>
+                                <span class="bill-container-type">@container.ContainerType</span>
+                                @if (container.IsSnapshotted)
+                                {
+                                    <span class="bill-container-snapshot" title="Captured when the bill was issued">
+                                        as issued
+                                    </span>
+                                }
+                            </li>
+                        }
+                    </ul>
+                }
+
+                @if (bill.IssuedAtUtc is { } issuedAtUtc)
+                {
+                    <dl class="bill-audit">
+                        <div>
+                            <dt>Issued</dt>
+                            <dd>
+                                @CargoBookingFormat.CreatedUtc(issuedAtUtc)
+                                @if (bill.IssuedByUserId is { } issuedByUserId)
+                                {
+                                    <span class="bill-audit-actor" title="@issuedByUserId">
+                                        @CargoBookingFormat.ShortUser(issuedByUserId)
+                                    </span>
+                                }
+                            </dd>
+                        </div>
+                        @if (bill.VoidedAtUtc is { } voidedAtUtc)
+                        {
+                            <div>
+                                <dt>Voided</dt>
+                                <dd>
+                                    @CargoBookingFormat.CreatedUtc(voidedAtUtc)
+                                    @if (bill.VoidedByUserId is { } voidedByUserId)
+                                    {
+                                        <span class="bill-audit-actor" title="@voidedByUserId">
+                                            @CargoBookingFormat.ShortUser(voidedByUserId)
+                                        </span>
+                                    }
+                                </dd>
+                            </div>
+                        }
+                        @if (!string.IsNullOrWhiteSpace(bill.SnapshotBookingNumber))
+                        {
+                            <div>
+                                <dt>Booking as issued</dt>
+                                <dd>@bill.SnapshotBookingNumber (@bill.SnapshotBookingStatus)</dd>
+                            </div>
+                        }
+                    </dl>
+                }
+
+                @if (bill.Status == CargoBookingFormat.DraftBillStatus)
+                {
+                    <p class="booking-note bill-blocked" role="status">
+                        @CargoBookingFormat.BillBlockedExplanation(bill.IssueBlockedReason)
+                    </p>
+                }
+
+                <div class="bill-actions">
+                    <a class="bill-print" href="@PrintHref(bill.BillOfLadingId)">Open printable bill</a>
+
+                    @if (History.Count > 0)
+                    {
+                        <button type="button" class="bill-history-open" @onclick="ShowHistory">
+                            History (@History.Count)
+                        </button>
+                    }
+
+                    @if (CanManage)
+                    {
+                        @if (bill.IsEditable)
+                        {
+                            <button type="button" class="bill-edit" @onclick="StartEdit">Edit draft</button>
+                            <button type="button"
+                                    class="booking-submit bill-issue"
+                                    disabled="@(!bill.CanIssue)"
+                                    @onclick="() => AskToConfirm(IssueAction)">
+                                Issue bill
+                            </button>
+                        }
+                        else if (bill.Status == CargoBookingFormat.IssuedBillStatus)
+                        {
+                            <button type="button" class="bill-void" @onclick="() => AskToConfirm(VoidAction)">
+                                Void bill
+                            </button>
+                        }
+                        else
+                        {
+                            <button type="button" class="bill-replace" @onclick="StartReplacement">
+                                Create replacement
+                            </button>
+                        }
+                    }
+                </div>
+
+                @if (!CanManage)
+                {
+                    <p class="booking-note bill-readonly" role="status">
+                        You can view these bills of lading but not change them.
+                    </p>
+                }
+            </article>
+        }
+    }
+
+    @if (pendingAction is not null)
+    {
+        <SectionContent SectionName="harborops-overlay">
+        <div class="operation-modal-backdrop" @onclick="DismissConfirmation">
+            <section class="operation-modal bill-confirm-modal"
+                     role="dialog"
+                     aria-modal="true"
+                     aria-labelledby="bill-confirm-title"
+                     @onclick:stopPropagation="true">
+                <div class="operation-modal-header">
+                    <h2 id="bill-confirm-title">Please confirm</h2>
+                </div>
+
+                <p class="bill-confirm-question">@ConfirmationQuestion</p>
+
+                @if (pendingAction == VoidAction)
+                {
+                    <div class="booking-field bill-confirm-field">
+                        <label for="bill-void-reason">Void reason</label>
+                        <textarea id="bill-void-reason"
+                                  rows="3"
+                                  disabled="@isActing"
+                                  value="@voidReason"
+                                  @onchange="args => voidReason = args.Value?.ToString()"></textarea>
+                        @if (voidReasonError is not null)
+                        {
+                            <p class="booking-form-error" role="alert">@voidReasonError</p>
+                        }
+                    </div>
+                }
+
+                @if (actionError is not null)
+                {
+                    <p class="booking-form-error" role="alert">@actionError</p>
+                }
+
+                <div class="bill-confirm-actions">
+                    <button type="button" class="bill-cancel" disabled="@isActing" @onclick="DismissConfirmation">
+                        Cancel
+                    </button>
+                    <button type="button"
+                            class="booking-submit"
+                            disabled="@isActing"
+                            @onclick="ConfirmPendingActionAsync">
+                        @ConfirmLabel
+                    </button>
+                </div>
+            </section>
+        </div>
+        </SectionContent>
+    }
+
+    @if (isHistoryOpen)
+    {
+        <SectionContent SectionName="harborops-overlay">
+        <div class="operation-modal-backdrop" @onclick="HideHistory">
+            <section class="operation-modal bill-history-modal"
+                     role="dialog"
+                     aria-modal="true"
+                     aria-labelledby="bill-history-title"
+                     @onclick:stopPropagation="true">
+                <div class="operation-modal-header">
+                    <h2 id="bill-history-title">Bill of lading history</h2>
+                    <button type="button"
+                            class="operation-modal-close"
+                            aria-label="Close history"
+                            @onclick="HideHistory">
+                        &times;
+                    </button>
+                </div>
+
+                <ol class="bill-timeline">
+                    @foreach (var entry in History)
+                    {
+                        <li class="bill-timeline-entry">
+                            <div class="bill-timeline-head">
+                                <span class="bill-timeline-action">
+                                    @CargoBookingFormat.BillActionLabel(entry.Action)
+                                </span>
+                                <span class="bill-timeline-time">
+                                    @CargoBookingFormat.CreatedUtc(entry.OccurredUtc)
+                                </span>
+                            </div>
+                            <div class="bill-timeline-meta">
+                                <span class="bill-timeline-actor" title="@entry.ActorUserId">
+                                    @CargoBookingFormat.ShortUser(entry.ActorUserId)
+                                </span>
+                                @if (!string.IsNullOrWhiteSpace(entry.Notes))
+                                {
+                                    <span class="bill-timeline-notes">@entry.Notes</span>
+                                }
+                            </div>
+                        </li>
+                    }
+                </ol>
+            </section>
+        </div>
+        </SectionContent>
+    }
+</section>

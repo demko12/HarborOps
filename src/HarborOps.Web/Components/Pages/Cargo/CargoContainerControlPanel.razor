@@ -269,6 +269,7 @@
 
     @if (isHistoryOpen)
     {
+        <SectionContent SectionName="harborops-overlay">
         <div class="operation-modal-backdrop" @onclick="HideHistory">
             <section class="operation-modal control-history-modal"
                      role="dialog"
@@ -330,10 +331,12 @@
                 </div>
             </section>
         </div>
+        </SectionContent>
     }
 
     @if (pendingAction is not null)
     {
+        <SectionContent SectionName="harborops-overlay">
         <div class="operation-modal-backdrop" @onclick="DismissConfirmation">
             <section class="operation-modal"
                      role="alertdialog"
@@ -387,5 +390,6 @@
                 </div>
             </section>
         </div>
+        </SectionContent>
     }
 </section>
