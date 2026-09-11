@@ -110,6 +110,12 @@ public sealed class PlanVoyageItineraryService(DbContext dbContext)
 
         await dbContext.Set<VoyageStop>().AddRangeAsync(stops, cancellationToken);
 
+        var clearances = stops
+            .Select(stop => PortCallClearance.Create(voyageId, stop.Id))
+            .ToList();
+
+        await dbContext.Set<PortCallClearance>().AddRangeAsync(clearances, cancellationToken);
+
         var legs = new List<VoyageLeg>(stops.Count - 1);
 
         for (var index = 1; index < stops.Count; index++)

@@ -15,4 +15,8 @@ public sealed record VoyageItineraryStopItem(
     DateTime? Atd,
     string Status,
     decimal? Latitude = null,
-    decimal? Longitude = null);
+    decimal? Longitude = null,
+    string? ClearanceStatus = null,
+    int ClearanceRequiredItemCount = 0,
+    int ClearanceRequiredResolvedCount = 0,
+    int ClearanceOverdueRequiredItemCount = 0);

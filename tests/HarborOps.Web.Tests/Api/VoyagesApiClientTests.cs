@@ -386,6 +386,54 @@ public sealed class VoyagesApiClientTests
         Assert.Equal("The voyage cannot depart from its current status.", result.Failure.Title);
     }
 
+    [Fact]
+    public async Task UpdateClearanceItemAsync_treats_an_empty_204_response_as_success()
+    {
+        HttpRequestMessage? captured = null;
+        using var httpClient = CreateHttpClient((request, _) =>
+        {
+            captured = request;
+
+            return Task.FromResult(new HttpResponseMessage(HttpStatusCode.NoContent));
+        });
+        var voyageId = Guid.NewGuid();
+        var stopId = Guid.NewGuid();
+        var itemId = Guid.NewGuid();
+
+        var result = await CreateClient(httpClient).UpdateClearanceItemAsync(
+            voyageId,
+            stopId,
+            itemId,
+            new UpdateClearanceItemWebRequest("Customs", "Customs declaration", true, null, null, null),
+            CancellationToken.None);
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal(HttpMethod.Put, captured!.Method);
+        Assert.Equal(
+            $"/api/voyages/{voyageId}/stops/{stopId}/clearance/items/{itemId}",
+            captured.RequestUri!.AbsolutePath);
+    }
+
+    [Fact]
+    public async Task UpdateClearanceItemAsync_reports_a_conflict_from_the_problem_details()
+    {
+        using var httpClient = CreateHttpClient((_, _) => Json(
+            HttpStatusCode.Conflict,
+            """{"title":"The clearance item is no longer pending.","detail":"It was already cleared."}"""));
+
+        var result = await CreateClient(httpClient).UpdateClearanceItemAsync(
+            Guid.NewGuid(),
+            Guid.NewGuid(),
+            Guid.NewGuid(),
+            new UpdateClearanceItemWebRequest("Customs", "Customs declaration", true, null, null, null),
+            CancellationToken.None);
+
+        Assert.False(result.IsSuccess);
+        Assert.True(result.Failure!.IsConflict);
+        Assert.Equal("The clearance item is no longer pending.", result.Failure.Title);
+        Assert.Equal("It was already cleared.", result.Failure.Message);
+    }
+
     private static VoyagesApiClient CreateClient(HttpClient httpClient) => new(httpClient);
 
     private static HttpClient CreateHttpClient(

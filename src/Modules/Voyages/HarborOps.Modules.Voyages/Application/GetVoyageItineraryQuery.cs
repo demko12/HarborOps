@@ -4,20 +4,27 @@ using Microsoft.EntityFrameworkCore;
 
 namespace HarborOps.Modules.Voyages.Application;
 
-internal sealed class GetVoyageItineraryQuery(DbContext dbContext) : IGetVoyageItineraryQuery
+internal sealed class GetVoyageItineraryQuery(DbContext dbContext, TimeProvider timeProvider)
+    : IGetVoyageItineraryQuery
 {
     public async Task<VoyageItineraryResponse> GetItineraryAsync(
         Guid voyageId,
         CancellationToken cancellationToken)
     {
-        var voyageExists = await dbContext.Set<Voyage>()
+        var vesselId = await dbContext.Set<Voyage>()
             .AsNoTracking()
-            .AnyAsync(voyage => voyage.Id == voyageId, cancellationToken);
+            .Where(voyage => voyage.Id == voyageId)
+            .Select(voyage => (Guid?)voyage.VesselId)
+            .SingleOrDefaultAsync(cancellationToken);
 
-        if (!voyageExists)
+        if (vesselId is null)
         {
             throw new VoyageNotFoundException(voyageId);
         }
+
+        var utcNow = timeProvider.GetUtcNow().UtcDateTime;
+        var clearances = dbContext.Set<PortCallClearance>().AsNoTracking();
+        var clearanceItems = dbContext.Set<PortCallClearanceItem>().AsNoTracking();
 
         var stops = await (
             from stop in dbContext.Set<VoyageStop>().AsNoTracking()
@@ -26,6 +33,9 @@ internal sealed class GetVoyageItineraryQuery(DbContext dbContext) : IGetVoyageI
             join berth in dbContext.Set<Berth>().AsNoTracking()
                 on stop.BerthId equals berth.Id into berthJoin
             from berth in berthJoin.DefaultIfEmpty()
+            join clearance in clearances
+                on stop.Id equals clearance.VoyageStopId into clearanceJoin
+            from clearance in clearanceJoin.DefaultIfEmpty()
             where stop.VoyageId == voyageId
             orderby stop.StopOrder, stop.Id
             select new VoyageItineraryStopItem(
@@ -43,7 +53,26 @@ internal sealed class GetVoyageItineraryQuery(DbContext dbContext) : IGetVoyageI
                 stop.Atd,
                 stop.Status,
                 port.Latitude,
-                port.Longitude))
+                port.Longitude,
+                clearance != null ? clearance.Status : null,
+                clearance == null
+                    ? 0
+                    : clearanceItems.Count(item =>
+                        item.PortCallClearanceId == clearance.Id && item.IsRequired),
+                clearance == null
+                    ? 0
+                    : clearanceItems.Count(item =>
+                        item.PortCallClearanceId == clearance.Id
+                        && item.IsRequired
+                        && item.Status != PortCallClearanceItem.PendingStatus),
+                clearance == null
+                    ? 0
+                    : clearanceItems.Count(item =>
+                        item.PortCallClearanceId == clearance.Id
+                        && item.IsRequired
+                        && item.Status == PortCallClearanceItem.PendingStatus
+                        && item.DueAtUtc != null
+                        && item.DueAtUtc < utcNow)))
             .ToListAsync(cancellationToken);
 
         var delays = await dbContext.Set<Delay>()
@@ -60,6 +89,6 @@ internal sealed class GetVoyageItineraryQuery(DbContext dbContext) : IGetVoyageI
                 delay.CreatedAt))
             .ToListAsync(cancellationToken);
 
-        return new VoyageItineraryResponse(voyageId, stops, delays);
+        return new VoyageItineraryResponse(voyageId, vesselId.Value, stops, delays);
     }
 }

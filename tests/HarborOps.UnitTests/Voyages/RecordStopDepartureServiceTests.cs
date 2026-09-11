@@ -22,7 +22,7 @@ public sealed class RecordStopDepartureServiceTests
         var schedule = BerthSchedule.Create(berth.Id, stop.Id, stop.Eta, stop.Etd);
         schedule.MarkOccupied();
         await dbContext.Set<BerthSchedule>().AddAsync(schedule);
-        await dbContext.SaveChangesAsync();
+        await CompleteClearanceAsync(dbContext, voyage.Id, stop.Id);
 
         var actualDepartureUtc = stop.Ata!.Value.AddHours(2);
         var service = CreateService(dbContext, actualDepartureUtc.AddHours(1));
@@ -63,10 +63,116 @@ public sealed class RecordStopDepartureServiceTests
     }
 
     [Fact]
+    public async Task Departure_is_blocked_while_the_port_call_clearance_is_not_completed()
+    {
+        await using var dbContext = CreateDbContext();
+        var (voyage, stop, _) = await SeedArrivedStopAsync(dbContext);
+        var clearance = PortCallClearance.Create(voyage.Id, stop.Id);
+        var (item, _) = clearance.AddItem(
+            PortCallClearanceCategory.Customs,
+            "Customs declaration",
+            true,
+            null,
+            null,
+            null,
+            Guid.NewGuid(),
+            stop.Ata!.Value);
+        await dbContext.Set<PortCallClearance>().AddAsync(clearance);
+        await dbContext.Set<PortCallClearanceItem>().AddAsync(item);
+        await dbContext.SaveChangesAsync();
+
+        var service = CreateService(dbContext, stop.Ata.Value.AddHours(2));
+
+        var exception = await Assert.ThrowsAsync<VoyageStopClearanceNotCompletedException>(
+            () => service.RecordDepartureAsync(
+                voyage.Id,
+                stop.Id,
+                new RecordStopDepartureRequest { ActualDepartureUtc = stop.Ata.Value.AddHours(1) },
+                CancellationToken.None));
+
+        Assert.Equal(PortCallClearance.PendingStatus, exception.ClearanceStatus);
+        Assert.Equal(1, exception.RequiredItemCount);
+        Assert.Equal(1, exception.UnresolvedRequiredItemCount);
+
+        var persisted = await dbContext.Set<VoyageStop>()
+            .SingleAsync(candidate => candidate.Id == stop.Id, CancellationToken.None);
+        Assert.Equal(VoyageStop.ArrivedStatus, persisted.Status);
+        Assert.Null(persisted.Atd);
+    }
+
+    [Fact]
+    public async Task Departure_is_blocked_when_a_reopened_clearance_supersedes_a_completed_one()
+    {
+        await using var dbContext = CreateDbContext();
+        var (voyage, stop, _) = await SeedArrivedStopAsync(dbContext);
+        var clearance = await CompleteClearanceAsync(dbContext, voyage.Id, stop.Id);
+        clearance.Reopen("Customs raised a new query.", Guid.NewGuid(), stop.Ata!.Value);
+        await dbContext.SaveChangesAsync();
+
+        var service = CreateService(dbContext, stop.Ata.Value.AddHours(2));
+
+        var exception = await Assert.ThrowsAsync<VoyageStopClearanceNotCompletedException>(
+            () => service.RecordDepartureAsync(
+                voyage.Id,
+                stop.Id,
+                new RecordStopDepartureRequest { ActualDepartureUtc = stop.Ata.Value.AddHours(1) },
+                CancellationToken.None));
+
+        Assert.Equal(PortCallClearance.ReopenedStatus, exception.ClearanceStatus);
+    }
+
+    [Fact]
+    public async Task Departure_is_blocked_when_the_stop_has_no_port_call_clearance_at_all()
+    {
+        await using var dbContext = CreateDbContext();
+        var (voyage, stop, _) = await SeedArrivedStopAsync(dbContext);
+        var service = CreateService(dbContext, stop.Ata!.Value.AddHours(2));
+
+        await Assert.ThrowsAsync<VoyageStopClearanceNotCompletedException>(
+            () => service.RecordDepartureAsync(
+                voyage.Id,
+                stop.Id,
+                new RecordStopDepartureRequest { ActualDepartureUtc = stop.Ata.Value.AddHours(1) },
+                CancellationToken.None));
+    }
+
+    [Fact]
+    public async Task Departure_is_blocked_when_a_completed_clearance_still_has_a_pending_required_item()
+    {
+        await using var dbContext = CreateDbContext();
+        var (voyage, stop, _) = await SeedArrivedStopAsync(dbContext);
+        var clearance = await CompleteClearanceAsync(dbContext, voyage.Id, stop.Id);
+        await dbContext.Set<PortCallClearanceItem>().AddAsync(PortCallClearanceItem.Add(
+            clearance.Id,
+            PortCallClearanceCategory.Customs,
+            "Customs declaration",
+            true,
+            null,
+            null,
+            null,
+            Guid.NewGuid(),
+            stop.Ata!.Value));
+        await dbContext.SaveChangesAsync();
+
+        var service = CreateService(dbContext, stop.Ata.Value.AddHours(2));
+
+        var exception = await Assert.ThrowsAsync<VoyageStopClearanceNotCompletedException>(
+            () => service.RecordDepartureAsync(
+                voyage.Id,
+                stop.Id,
+                new RecordStopDepartureRequest { ActualDepartureUtc = stop.Ata.Value.AddHours(1) },
+                CancellationToken.None));
+
+        Assert.Equal(PortCallClearance.CompletedStatus, exception.ClearanceStatus);
+        Assert.Equal(1, exception.UnresolvedRequiredItemCount);
+    }
+
+    [Fact]
     public async Task Departure_rejects_a_timestamp_earlier_than_actual_arrival()
     {
         await using var dbContext = CreateDbContext();
         var (voyage, stop, _) = await SeedArrivedStopAsync(dbContext);
+        await CompleteClearanceAsync(dbContext, voyage.Id, stop.Id);
         var service = CreateService(dbContext, stop.Ata!.Value.AddHours(2));
 
         var exception = await Assert.ThrowsAsync<RecordStopDepartureValidationException>(
@@ -102,6 +208,35 @@ public sealed class RecordStopDepartureServiceTests
                 CancellationToken.None));
 
         Assert.Equal(Voyage.CompletedStatus, exception.CurrentStatus);
+    }
+
+    private static async Task<PortCallClearance> CompleteClearanceAsync(
+        HarborOpsDbContext dbContext,
+        Guid voyageId,
+        Guid stopId)
+    {
+        var actorId = Guid.NewGuid();
+        var occurredAtUtc = PlannedDepartureUtc.AddHours(1);
+        var clearance = PortCallClearance.Create(voyageId, stopId);
+        var (item, addedEvent) = clearance.AddItem(
+            PortCallClearanceCategory.PortAuthority,
+            "Port authority clearance",
+            true,
+            null,
+            null,
+            null,
+            actorId,
+            occurredAtUtc);
+        var clearedEvent = clearance.ClearItem(item, "PA-1", null, actorId, occurredAtUtc);
+        var completedEvent = clearance.Complete([item], actorId, occurredAtUtc);
+
+        await dbContext.Set<PortCallClearance>().AddAsync(clearance);
+        await dbContext.Set<PortCallClearanceItem>().AddAsync(item);
+        await dbContext.Set<PortCallClearanceEvent>()
+            .AddRangeAsync(addedEvent, clearedEvent, completedEvent);
+        await dbContext.SaveChangesAsync();
+
+        return clearance;
     }
 
     private static RecordStopDepartureService CreateService(

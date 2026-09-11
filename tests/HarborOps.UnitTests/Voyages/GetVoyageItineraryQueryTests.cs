@@ -62,7 +62,7 @@ public sealed class GetVoyageItineraryQueryTests
         await dbContext.Set<Delay>().AddRangeAsync([delayOne, delayTwo]);
         await dbContext.SaveChangesAsync();
 
-        var query = new GetVoyageItineraryQuery(dbContext);
+        var query = new GetVoyageItineraryQuery(dbContext, TimeProvider.System);
 
         var response = await query.GetItineraryAsync(voyage.Id, CancellationToken.None);
 
@@ -85,16 +85,79 @@ public sealed class GetVoyageItineraryQueryTests
     }
 
     [Fact]
+    public async Task Itinerary_carries_the_clearance_summary_and_overdue_count_per_stop()
+    {
+        await using var dbContext = PortCallClearanceScenario.CreateDbContext();
+        var utcNow = PortCallClearanceScenario.UtcNow;
+        var (voyageId, stopId) = await PortCallClearanceScenario
+            .SeedArrivedStopWithClearanceAsync(dbContext);
+        var clearance = await PortCallClearanceScenario.GetClearanceAsync(dbContext, stopId);
+
+        await PortCallClearanceScenario.SeedItemAsync(
+            dbContext,
+            stopId,
+            PortCallClearanceCategory.Customs,
+            "Overdue required",
+            true,
+            utcNow.AddHours(-2));
+        var resolved = await PortCallClearanceScenario.SeedItemAsync(
+            dbContext,
+            stopId,
+            PortCallClearanceCategory.Health,
+            "Free pratique",
+            true,
+            utcNow.AddHours(-4));
+
+        clearance.ClearItem(resolved, null, null, Guid.NewGuid(), utcNow);
+        await dbContext.SaveChangesAsync();
+
+        var query = new GetVoyageItineraryQuery(
+            dbContext,
+            new PortCallClearanceScenario.FixedTimeProvider(new DateTimeOffset(utcNow)));
+
+        var response = await query.GetItineraryAsync(voyageId, CancellationToken.None);
+
+        var stop = Assert.Single(response.Stops);
+        Assert.Equal(PortCallClearance.PendingStatus, stop.ClearanceStatus);
+        Assert.Equal(2, stop.ClearanceRequiredItemCount);
+        Assert.Equal(1, stop.ClearanceRequiredResolvedCount);
+        Assert.Equal(1, stop.ClearanceOverdueRequiredItemCount);
+    }
+
+    [Fact]
     public async Task Itinerary_rejects_unknown_voyage()
     {
         await using var dbContext = CreateDbContext();
-        var query = new GetVoyageItineraryQuery(dbContext);
+        var query = new GetVoyageItineraryQuery(dbContext, TimeProvider.System);
         var unknownVoyageId = Guid.NewGuid();
 
         var exception = await Assert.ThrowsAsync<VoyageNotFoundException>(
             () => query.GetItineraryAsync(unknownVoyageId, CancellationToken.None));
 
         Assert.Equal(unknownVoyageId, exception.VoyageId);
+    }
+
+    [Fact]
+    public async Task Itinerary_carries_the_vessel_the_voyage_is_scheduled_for()
+    {
+        await using var dbContext = CreateDbContext();
+        var vesselId = Guid.NewGuid();
+        var voyage = Voyage.Schedule(
+            vesselId,
+            "VOY-1400",
+            "MERIJ",
+            "ITGOA",
+            PlannedDepartureUtc,
+            PlannedArrivalUtc);
+
+        await dbContext.Set<Voyage>().AddAsync(voyage);
+        await dbContext.SaveChangesAsync();
+
+        var query = new GetVoyageItineraryQuery(dbContext, TimeProvider.System);
+
+        var response = await query.GetItineraryAsync(voyage.Id, CancellationToken.None);
+
+        Assert.Equal(vesselId, response.VesselId);
     }
 
     private static HarborOpsDbContext CreateDbContext()
