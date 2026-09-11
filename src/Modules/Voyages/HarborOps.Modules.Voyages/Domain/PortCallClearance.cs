@@ -211,6 +211,20 @@ internal sealed class PortCallClearance
             occurredAtUtc);
     }
 
+    internal void ConfirmDeparture(int requiredItemCount, int unresolvedRequiredItemCount)
+    {
+        if (!AllowsDeparture || unresolvedRequiredItemCount > 0)
+        {
+            throw new VoyageStopClearanceNotCompletedException(
+                VoyageStopId,
+                Status,
+                requiredItemCount,
+                unresolvedRequiredItemCount);
+        }
+
+        Touch();
+    }
+
     private int NextSequence() => ++LastEventSequence;
 
     private void Touch()

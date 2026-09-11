@@ -103,36 +103,24 @@ public sealed class RecordStopDepartureService(
         CancellationToken cancellationToken)
     {
         var clearance = await dbContext.Set<PortCallClearance>()
+            .SingleOrDefaultAsync(candidate => candidate.VoyageStopId == stopId, cancellationToken)
+            ?? throw new VoyageStopClearanceNotCompletedException(
+                stopId,
+                PortCallClearance.PendingStatus,
+                0,
+                0);
+
+        var requiredItems = await dbContext.Set<PortCallClearanceItem>()
             .AsNoTracking()
-            .SingleOrDefaultAsync(candidate => candidate.VoyageStopId == stopId, cancellationToken);
+            .Where(item => item.PortCallClearanceId == clearance.Id && item.IsRequired)
+            .Select(item => item.Status)
+            .ToListAsync(cancellationToken);
 
-        var requiredItemCount = 0;
-        var unresolvedRequiredItemCount = 0;
+        var unresolvedRequiredItemCount = requiredItems.Count(status => string.Equals(
+            status,
+            PortCallClearanceItem.PendingStatus,
+            StringComparison.Ordinal));
 
-        if (clearance is not null)
-        {
-            var requiredItems = await dbContext.Set<PortCallClearanceItem>()
-                .AsNoTracking()
-                .Where(item => item.PortCallClearanceId == clearance.Id && item.IsRequired)
-                .Select(item => item.Status)
-                .ToListAsync(cancellationToken);
-
-            requiredItemCount = requiredItems.Count;
-            unresolvedRequiredItemCount = requiredItems.Count(status => string.Equals(
-                status,
-                PortCallClearanceItem.PendingStatus,
-                StringComparison.Ordinal));
-        }
-
-        if (clearance is not null && clearance.AllowsDeparture && unresolvedRequiredItemCount == 0)
-        {
-            return;
-        }
-
-        throw new VoyageStopClearanceNotCompletedException(
-            stopId,
-            clearance?.Status ?? PortCallClearance.PendingStatus,
-            requiredItemCount,
-            unresolvedRequiredItemCount);
+        clearance.ConfirmDeparture(requiredItems.Count, unresolvedRequiredItemCount);
     }
 }

@@ -572,9 +572,9 @@ public sealed class VoyagesController(
                 Detail = exception.Message,
             });
         }
-        catch (PortCallClearanceConflictException)
+        catch (PortCallClearanceConflictException exception)
         {
-            return ClearanceConcurrentChange();
+            return ConflictProblem("The voyage stop was modified concurrently.", exception.Message);
         }
     }
 

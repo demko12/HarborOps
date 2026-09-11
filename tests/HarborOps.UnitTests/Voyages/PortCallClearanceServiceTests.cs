@@ -1032,6 +1032,90 @@ public sealed class PortCallClearanceServiceTests
             events.Select(recorded => recorded.EventType));
     }
 
+    [Fact]
+    public async Task A_reopen_read_before_the_departure_cannot_commit_after_the_stop_departs()
+    {
+        var databaseName = $"HarborOpsUnitTests-{Guid.NewGuid()}";
+        Guid voyageId;
+        Guid stopId;
+
+        await using (var seedContext = PortCallClearanceScenario.CreateDbContext(databaseName))
+        {
+            (voyageId, stopId) = await CompletedClearanceAsync(seedContext);
+        }
+
+        await using var reopenContext = PortCallClearanceScenario.CreateDbContext(databaseName);
+        await using var departureContext = PortCallClearanceScenario.CreateDbContext(databaseName);
+
+        var reopenClearance = await PortCallClearanceScenario.GetClearanceAsync(reopenContext, stopId);
+        var reopenedEvent = reopenClearance.Reopen(
+            "Authority reversed the clearance.",
+            ActorId,
+            UtcNow.AddMinutes(5));
+        await reopenContext.Set<PortCallClearanceEvent>().AddAsync(reopenedEvent);
+
+        await new RecordStopDepartureService(departureContext, Clock(UtcNow.AddMinutes(5)))
+            .RecordDepartureAsync(
+                voyageId,
+                stopId,
+                new RecordStopDepartureRequest
+                {
+                    ActualDepartureUtc = PortCallClearanceScenario.PlannedDepartureUtc.AddHours(3),
+                },
+                CancellationToken.None);
+
+        await Assert.ThrowsAsync<DbUpdateConcurrencyException>(
+            () => reopenContext.SaveChangesAsync());
+
+        await using var verifyContext = PortCallClearanceScenario.CreateDbContext(databaseName);
+        var stop = await verifyContext.Set<VoyageStop>()
+            .AsNoTracking()
+            .SingleAsync(candidate => candidate.Id == stopId);
+        var stored = await PortCallClearanceScenario.GetClearanceAsync(verifyContext, stopId);
+
+        Assert.Equal(VoyageStop.DepartedStatus, stop.Status);
+        Assert.Equal(PortCallClearance.CompletedStatus, stored.Status);
+    }
+
+    [Fact]
+    public async Task A_departure_read_before_a_reopen_cannot_commit_after_the_clearance_reopens()
+    {
+        var databaseName = $"HarborOpsUnitTests-{Guid.NewGuid()}";
+        Guid voyageId;
+        Guid stopId;
+
+        await using (var seedContext = PortCallClearanceScenario.CreateDbContext(databaseName))
+        {
+            (voyageId, stopId) = await CompletedClearanceAsync(seedContext);
+        }
+
+        await using var departureContext = PortCallClearanceScenario.CreateDbContext(databaseName);
+        await using var reopenContext = PortCallClearanceScenario.CreateDbContext(databaseName);
+
+        var departingStop = await departureContext.Set<VoyageStop>()
+            .SingleAsync(candidate => candidate.Id == stopId);
+        var departureClearance = await PortCallClearanceScenario.GetClearanceAsync(
+            departureContext,
+            stopId);
+        departingStop.RecordDeparture(departingStop.Ata!.Value.AddHours(1));
+        departureClearance.ConfirmDeparture(1, 0);
+
+        await ReopenService(reopenContext, UtcNow.AddMinutes(5)).ReopenAsync(
+            voyageId,
+            stopId,
+            new ReopenPortCallClearanceRequest { Reason = "Authority reversed the clearance." },
+            ActorId,
+            CancellationToken.None);
+
+        await Assert.ThrowsAsync<DbUpdateConcurrencyException>(
+            () => departureContext.SaveChangesAsync());
+
+        await using var verifyContext = PortCallClearanceScenario.CreateDbContext(databaseName);
+        var stored = await PortCallClearanceScenario.GetClearanceAsync(verifyContext, stopId);
+
+        Assert.Equal(PortCallClearance.ReopenedStatus, stored.Status);
+    }
+
     private static async Task<(Guid VoyageId, Guid StopId)> CompletedClearanceAsync(
         HarborOpsDbContext dbContext)
     {
