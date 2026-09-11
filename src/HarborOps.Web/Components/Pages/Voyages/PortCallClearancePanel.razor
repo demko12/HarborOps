@@ -1,0 +1,393 @@
+@using HarborOps.Web.Api
+@using HarborOps.Web.Api.Documents
+@using HarborOps.Web.Api.Voyages
+@implements IDisposable
+@inject VoyagesApiClient VoyagesApi
+@inject DocumentsApiClient DocumentsApi
+@inject CurrentUserAuthorizationState AuthorizationState
+
+<section class="clearance-panel" aria-labelledby="clearance-title" @onkeydown="args => CancelAction(args)">
+    <div class="clearance-heading">
+        <h3 id="clearance-title">Port-call clearance</h3>
+        @if (clearance is { } header)
+        {
+            <span class="clearance-status @ClearanceStatusModifier(header.Status)">@header.Status</span>
+        }
+        @if (OnClose.HasDelegate)
+        {
+            <button type="button" class="clearance-close" @onclick="OnClose">Close</button>
+        }
+    </div>
+
+    @if (isLoading)
+    {
+        <p class="clearance-note" role="status">Loading the port-call clearance…</p>
+    }
+    else if (failure is not null)
+    {
+        <ApiErrorState Title="@failure.Title" Message="@failure.Message" OnRetry="RetryAsync" />
+    }
+    else if (clearance is { } view)
+    {
+        <div class="clearance-progress" aria-label="Clearance progress">
+            <p class="clearance-progress-counts">
+                <strong data-testid="clearance-required-progress">
+                    @view.Progress.RequiredResolvedCount / @view.Progress.RequiredItemCount required resolved
+                </strong>
+                <span>@view.Progress.ClearedCount cleared · @view.Progress.WaivedCount waived</span>
+                @if (view.Progress.OverdueRequiredItemCount > 0)
+                {
+                    <span class="clearance-overdue-note" data-testid="clearance-overdue-note">
+                        @view.Progress.OverdueRequiredItemCount required item(s) are past their due time.
+                    </span>
+                }
+                @if (view.Progress.OptionalPendingCount > 0)
+                {
+                    <span class="clearance-optional-note">
+                        @view.Progress.OptionalPendingCount optional item(s) still pending — they do not block completion.
+                    </span>
+                }
+            </p>
+
+            @if (HasDeparted)
+            {
+                <p class="clearance-departure-done" role="status" data-testid="clearance-departure-done">
+                    The stop departed on @FormatUtc(StopDepartedAtUtc).
+                </p>
+            }
+            else if (!string.Equals(view.Status, CompletedStatus, StringComparison.Ordinal))
+            {
+                <p class="clearance-departure-block" role="status" data-testid="clearance-departure-block">
+                    @if (view.Progress.RequiredItemCount == 0)
+                    {
+                        <text>Departure is blocked: add at least one required clearance item, then complete the clearance.</text>
+                    }
+                    else if (view.Progress.RequiredPendingCount > 0)
+                    {
+                        <text>
+                            Departure is blocked: @view.Progress.RequiredPendingCount required item(s) are neither cleared nor waived.
+                        </text>
+                    }
+                    else
+                    {
+                        <text>Departure is blocked until the clearance is completed.</text>
+                    }
+                </p>
+            }
+            else
+            {
+                <p class="clearance-departure-ready" role="status" data-testid="clearance-departure-ready">
+                    Clearance completed @FormatUtc(view.CompletedAtUtc) — the stop may depart.
+                </p>
+            }
+        </div>
+
+        @if (actionSuccess is not null)
+        {
+            <p class="clearance-success" role="status">@actionSuccess</p>
+        }
+
+        @if (HasDeparted)
+        {
+            <p class="clearance-note clearance-locked" role="status">
+                This stop has departed. Its clearance history is read-only.
+            </p>
+        }
+
+        @if (view.Items.Count == 0)
+        {
+            <p class="clearance-note clearance-empty">No clearance items have been added yet.</p>
+        }
+        else
+        {
+            @foreach (var group in GroupedItems())
+            {
+                <div class="clearance-group" data-testid="clearance-group">
+                    <h4 class="clearance-group-title">
+                        @CategoryLabel(group.Key)
+                        <span class="clearance-group-summary" data-testid="clearance-group-summary">
+                            @GroupSummary(group)
+                        </span>
+                    </h4>
+
+                    <ul class="clearance-items">
+                        @foreach (var item in group)
+                        {
+                            <li class="clearance-item @(IsBlocking(item) ? "clearance-item-blocking" : null)"
+                                data-testid="@(IsBlocking(item) ? "clearance-item-blocking" : null)"
+                                @key="item.ItemId">
+                                <div class="clearance-item-head">
+                                    <span class="clearance-item-title">@item.Title</span>
+                                    <span class="clearance-item-status @ItemStatusModifier(item.Status)">@item.Status</span>
+                                    <span class="clearance-item-flag">@(item.IsRequired ? "Required" : "Optional")</span>
+                                    @if (item.IsOverdue)
+                                    {
+                                        <span class="clearance-item-overdue" data-testid="clearance-item-overdue">Overdue</span>
+                                    }
+                                </div>
+
+                                <dl class="clearance-item-meta">
+                                    <dt>Due</dt>
+                                    <dd class="@(item.IsOverdue ? "clearance-due-overdue" : null)"
+                                        data-testid="clearance-item-due"
+                                        title="@FormatUtc(item.DueAtUtc)">
+                                        @DueState(item)
+                                    </dd>
+                                    <dt>Authority reference</dt>
+                                    <dd data-testid="clearance-item-reference">@(item.AuthorityReference ?? MissingValue)</dd>
+                                    <dt>Evidence document</dt>
+                                    <dd data-testid="clearance-item-evidence" title="@item.EvidenceDocumentId">
+                                        @ResolveDocumentLabel(item.EvidenceDocumentId)
+                                    </dd>
+                                    @if (item.DecidedAtUtc is not null)
+                                    {
+                                        <dt>Decided</dt>
+                                        <dd>
+                                            @FormatUtc(item.DecidedAtUtc) ·
+                                            @if (item.DecidedByUserId is { } decidedBy)
+                                            {
+                                                <code class="clearance-actor" title="@decidedBy">@VoyageTimeline.FormatActor(decidedBy)</code>
+                                            }
+                                        </dd>
+                                    }
+                                    @if (!string.IsNullOrWhiteSpace(item.DecisionReason))
+                                    {
+                                        <dt>Waiver reason</dt>
+                                        <dd>@item.DecisionReason</dd>
+                                    }
+                                </dl>
+
+                                @if (activeItemId == item.ItemId && activeAction == EditAction)
+                                {
+                                    <div class="clearance-form">
+                                        <label for="clearance-edit-category">Category</label>
+                                        <select id="clearance-edit-category" @bind="formCategory">
+                                            @foreach (var category in Categories)
+                                            {
+                                                <option value="@category">@CategoryLabel(category)</option>
+                                            }
+                                        </select>
+
+                                        <label for="clearance-edit-title">Title</label>
+                                        <input id="clearance-edit-title" @bind="formTitle" />
+
+                                        <label class="clearance-checkbox">
+                                            <input type="checkbox" @bind="formIsRequired" />
+                                            Required for departure
+                                        </label>
+
+                                        <label for="clearance-edit-due-date">Due (UTC)</label>
+                                        <div class="clearance-stamp">
+                                            <input id="clearance-edit-due-date" type="date" @bind="formDueDate" />
+                                            <input id="clearance-edit-due-time" type="time" aria-label="Due time UTC" @bind="formDueTime" />
+                                        </div>
+
+                                        <label for="clearance-edit-reference">Authority reference</label>
+                                        <input id="clearance-edit-reference" @bind="formAuthorityReference" />
+
+                                        <label>Evidence document</label>
+                                        <DocumentPicker VesselId="VesselId" Value="formEvidenceDocumentId" ValueChanged="@((Guid? id) => formEvidenceDocumentId = id)" />
+
+                                        <ClearanceActionFeedback Message="@ActionErrorMessage" IsConflict="@ActionErrorIsConflict" />
+
+                                        <div class="clearance-form-buttons">
+                                            <button type="button" class="clearance-submit" @onclick="SubmitEditAsync" disabled="@isSubmitting">
+                                                @(isSubmitting ? "Saving…" : "Save item")
+                                            </button>
+                                            <button type="button" class="clearance-cancel" @onclick="() => CancelAction(null)" disabled="@isSubmitting">Cancel</button>
+                                        </div>
+                                    </div>
+                                }
+                                else if (activeItemId == item.ItemId && activeAction == ClearAction)
+                                {
+                                    <div class="clearance-form clearance-confirm">
+                                        <p class="clearance-confirm-text">
+                                            Clearing is permanent. Correct a mistake by reopening the clearance and adding a replacement item.
+                                        </p>
+
+                                        <label for="clearance-clear-reference">Authority reference</label>
+                                        <input id="clearance-clear-reference" @bind="formAuthorityReference" />
+
+                                        <label>Evidence document</label>
+                                        <DocumentPicker VesselId="VesselId" Value="formEvidenceDocumentId" ValueChanged="@((Guid? id) => formEvidenceDocumentId = id)" />
+
+                                        <ClearanceActionFeedback Message="@ActionErrorMessage" IsConflict="@ActionErrorIsConflict" />
+
+                                        <div class="clearance-form-buttons">
+                                            <button type="button" class="clearance-submit" @onclick="SubmitClearAsync" disabled="@isSubmitting">
+                                                @(isSubmitting ? "Saving…" : "Confirm clear")
+                                            </button>
+                                            <button type="button" class="clearance-cancel" @onclick="() => CancelAction(null)" disabled="@isSubmitting">Cancel</button>
+                                        </div>
+                                    </div>
+                                }
+                                else if (activeItemId == item.ItemId && activeAction == WaiveAction)
+                                {
+                                    <div class="clearance-form clearance-confirm">
+                                        <p class="clearance-confirm-text">
+                                            Waiving is permanent and requires a reason.
+                                        </p>
+
+                                        <label for="clearance-waive-reason">Waiver reason</label>
+                                        <input id="clearance-waive-reason" @bind="formReason" />
+
+                                        <ClearanceActionFeedback Message="@ActionErrorMessage" IsConflict="@ActionErrorIsConflict" />
+
+                                        <div class="clearance-form-buttons">
+                                            <button type="button" class="clearance-submit" @onclick="SubmitWaiveAsync" disabled="@isSubmitting">
+                                                @(isSubmitting ? "Saving…" : "Confirm waiver")
+                                            </button>
+                                            <button type="button" class="clearance-cancel" @onclick="() => CancelAction(null)" disabled="@isSubmitting">Cancel</button>
+                                        </div>
+                                    </div>
+                                }
+                                else if (CanAct && string.Equals(item.Status, PendingStatus, StringComparison.Ordinal))
+                                {
+                                    <div class="clearance-item-actions">
+                                        @if (!string.Equals(view.Status, CompletedStatus, StringComparison.Ordinal))
+                                        {
+                                            <button type="button" class="clearance-item-action" @onclick="() => BeginEdit(item)">Edit</button>
+                                        }
+                                        <button type="button" class="clearance-item-action" @onclick="() => BeginDecision(item, ClearAction)">Clear</button>
+                                        <button type="button" class="clearance-item-action" @onclick="() => BeginDecision(item, WaiveAction)">Waive</button>
+                                    </div>
+                                }
+                            </li>
+                        }
+                    </ul>
+                </div>
+            }
+        }
+
+        @if (CanAct)
+        {
+            <div class="clearance-actions">
+                @if (activeAction == AddAction)
+                {
+                    <div class="clearance-form">
+                        <label for="clearance-add-category">Category</label>
+                        <select id="clearance-add-category" @bind="formCategory">
+                            @foreach (var category in Categories)
+                            {
+                                <option value="@category">@CategoryLabel(category)</option>
+                            }
+                        </select>
+
+                        <label for="clearance-add-title">Title</label>
+                        <input id="clearance-add-title" @bind="formTitle" />
+
+                        <label class="clearance-checkbox">
+                            <input type="checkbox" @bind="formIsRequired" />
+                            Required for departure
+                        </label>
+
+                        <label for="clearance-add-due-date">Due (UTC)</label>
+                        <div class="clearance-stamp">
+                            <input id="clearance-add-due-date" type="date" @bind="formDueDate" />
+                            <input id="clearance-add-due-time" type="time" aria-label="Due time UTC" @bind="formDueTime" />
+                        </div>
+
+                        <label for="clearance-add-reference">Authority reference</label>
+                        <input id="clearance-add-reference" @bind="formAuthorityReference" />
+
+                        <label>Evidence document</label>
+                        <DocumentPicker VesselId="VesselId" Value="formEvidenceDocumentId" ValueChanged="@((Guid? id) => formEvidenceDocumentId = id)" />
+
+                        <ClearanceActionFeedback Message="@ActionErrorMessage" IsConflict="@ActionErrorIsConflict" />
+
+                        <div class="clearance-form-buttons">
+                            <button type="button" class="clearance-submit" @onclick="SubmitAddAsync" disabled="@isSubmitting">
+                                @(isSubmitting ? "Saving…" : "Add item")
+                            </button>
+                            <button type="button" class="clearance-cancel" @onclick="() => CancelAction(null)" disabled="@isSubmitting">Cancel</button>
+                        </div>
+                    </div>
+                }
+                else if (activeAction == CompleteAction)
+                {
+                    <div class="clearance-form clearance-confirm">
+                        <p class="clearance-confirm-text">
+                            Complete the clearance for this port call? The stop can depart once it is completed.
+                        </p>
+
+                        <ClearanceActionFeedback Message="@ActionErrorMessage" IsConflict="@ActionErrorIsConflict" />
+
+                        <div class="clearance-form-buttons">
+                            <button type="button" class="clearance-submit" @onclick="SubmitCompleteAsync" disabled="@isSubmitting">
+                                @(isSubmitting ? "Saving…" : "Confirm completion")
+                            </button>
+                            <button type="button" class="clearance-cancel" @onclick="() => CancelAction(null)" disabled="@isSubmitting">Cancel</button>
+                        </div>
+                    </div>
+                }
+                else if (activeAction == ReopenAction)
+                {
+                    <div class="clearance-form clearance-confirm">
+                        <p class="clearance-confirm-text">
+                            Reopening records an append-only event and blocks departure until the clearance is completed again.
+                        </p>
+
+                        <label for="clearance-reopen-reason">Reopen reason</label>
+                        <input id="clearance-reopen-reason" @bind="formReason" />
+
+                        <ClearanceActionFeedback Message="@ActionErrorMessage" IsConflict="@ActionErrorIsConflict" />
+
+                        <div class="clearance-form-buttons">
+                            <button type="button" class="clearance-submit" @onclick="SubmitReopenAsync" disabled="@isSubmitting">
+                                @(isSubmitting ? "Saving…" : "Confirm reopen")
+                            </button>
+                            <button type="button" class="clearance-cancel" @onclick="() => CancelAction(null)" disabled="@isSubmitting">Cancel</button>
+                        </div>
+                    </div>
+                }
+                else
+                {
+                    <div class="clearance-action-buttons">
+                        @if (!string.Equals(view.Status, CompletedStatus, StringComparison.Ordinal))
+                        {
+                            <button type="button" class="clearance-action" @onclick="BeginAdd">Add item</button>
+
+                            <button type="button"
+                                    class="clearance-action"
+                                    data-testid="clearance-complete"
+                                    disabled="@(!view.Progress.CanComplete)"
+                                    title="@(view.Progress.CanComplete ? null : "Resolve every required item first.")"
+                                    @onclick="() => BeginClearanceAction(CompleteAction)">
+                                Complete clearance
+                            </button>
+                        }
+                        else
+                        {
+                            <button type="button"
+                                    class="clearance-action"
+                                    data-testid="clearance-reopen"
+                                    @onclick="() => BeginClearanceAction(ReopenAction)">
+                                Reopen clearance
+                            </button>
+                        }
+                    </div>
+                }
+            </div>
+        }
+
+        <details class="clearance-history">
+            <summary>History (@view.History.Count)</summary>
+            <ol class="clearance-history-list">
+                @foreach (var entry in view.History)
+                {
+                    <li @key="entry.EventId">
+                        <strong>@EventLabel(entry.EventType)</strong>
+                        <span>
+                            @FormatUtc(entry.OccurredAtUtc) ·
+                            <code class="clearance-actor" title="@entry.ActorUserId">@VoyageTimeline.FormatActor(entry.ActorUserId)</code>
+                        </span>
+                        @if (!string.IsNullOrWhiteSpace(entry.Reason))
+                        {
+                            <span class="clearance-history-reason">@entry.Reason</span>
+                        }
+                    </li>
+                }
+            </ol>
+        </details>
+    }
+</section>

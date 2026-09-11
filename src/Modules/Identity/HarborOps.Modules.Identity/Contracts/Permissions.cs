@@ -44,6 +44,7 @@ public static class Permissions
     {
         public const string Read = "documents.read";
         public const string Manage = "documents.manage";
+        public const string Dispose = "documents.dispose";
     }
 
     public static class Reports
@@ -90,6 +91,7 @@ public static class Permissions
         new(Compliance.Manage, "compliance", "manage"),
         new(Documents.Read, "documents", "read"),
         new(Documents.Manage, "documents", "manage"),
+        new(Documents.Dispose, "documents", "dispose"),
         new(Reports.Read, "reports", "read"),
         new(Reports.Manage, "reports", "manage"),
         new(Notifications.Read, "notifications", "read"),

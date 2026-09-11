@@ -12,6 +12,9 @@ internal sealed class ContainerConfiguration : IEntityTypeConfiguration<Containe
 
         builder.HasKey(container => container.Id);
 
+        builder.HasIndex(container => container.ContainerNumber)
+            .IsUnique();
+
         builder.Property(container => container.Id)
             .ValueGeneratedNever();
 
@@ -32,6 +35,17 @@ internal sealed class ContainerConfiguration : IEntityTypeConfiguration<Containe
         builder.Property(container => container.VesselId);
 
         builder.Property(container => container.CargoBookingId);
+
+        builder.Property(container => container.PortOfLoadingCode)
+            .HasMaxLength(Container.PortCodeLength)
+            .IsUnicode(false);
+
+        builder.Property(container => container.PortOfDischargeCode)
+            .HasMaxLength(Container.PortCodeLength)
+            .IsUnicode(false);
+
+        builder.Property(container => container.WeightKg)
+            .HasPrecision(Container.WeightKgPrecision, Container.WeightKgScale);
 
         builder.HasOne<CargoBooking>()
             .WithMany()

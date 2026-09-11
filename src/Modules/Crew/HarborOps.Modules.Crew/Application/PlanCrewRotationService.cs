@@ -54,8 +54,9 @@ public sealed class PlanCrewRotationService(DbContext dbContext)
         var relievingCrewMemberId = request.RelievingCrewMemberId;
         if (relievingCrewMemberId is { } relievingId)
         {
+            var plannedReliefDate = request.PlannedReliefDate!.Value;
             await CrewRotationEligibility.EnsureRelievingCrewMemberAvailableAsync(
-                dbContext, assignment.CrewMemberId, relievingId, cancellationToken);
+                dbContext, assignment.CrewMemberId, relievingId, plannedReliefDate, plannedReliefDate, cancellationToken);
         }
 
         var rotation = CrewRotation.Create(

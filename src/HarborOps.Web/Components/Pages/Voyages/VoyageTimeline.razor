@@ -141,6 +141,7 @@
                                 <th scope="col">Status</th>
                                 <th scope="col">Estimates</th>
                                 <th scope="col">Actual</th>
+                                <th scope="col">Clearance</th>
                                 @if (CanManageVoyages)
                                 {
                                     <th scope="col">Actions</th>
@@ -178,6 +179,28 @@
                                     <td class="timeline-stamps">
                                         <span class="@(stop.Ata is null ? "missing" : null)"><b>ATA</b>@FormatUtc(stop.Ata)</span>
                                         <span class="@(stop.Atd is null ? "missing" : null)"><b>ATD</b>@FormatUtc(stop.Atd)</span>
+                                    </td>
+                                    <td class="timeline-clearance">
+                                        <span class="timeline-clearance-status @ClearanceStatusModifier(stop)"
+                                              data-testid="timeline-clearance-status">
+                                            @ClearanceStatusLabel(stop)
+                                        </span>
+                                        <span class="timeline-clearance-progress" data-testid="timeline-clearance-progress">
+                                            @ClearanceProgressLabel(stop)
+                                        </span>
+                                        @if (stop.ClearanceOverdueRequiredItemCount > 0)
+                                        {
+                                            <span class="timeline-clearance-overdue" data-testid="timeline-clearance-overdue">
+                                                @stop.ClearanceOverdueRequiredItemCount overdue
+                                            </span>
+                                        }
+                                        <button type="button"
+                                                class="timeline-clearance-toggle"
+                                                data-testid="timeline-clearance-toggle"
+                                                aria-expanded="@(clearanceStopId == stop.StopId ? "true" : "false")"
+                                                @onclick="() => ToggleClearance(stop)">
+                                            @(clearanceStopId == stop.StopId ? "Hide clearance" : "View clearance")
+                                        </button>
                                     </td>
                                     @if (CanManageVoyages)
                                     {
@@ -276,7 +299,20 @@
                                                     }
                                                     @if (CanDepart(stop))
                                                     {
-                                                        <button class="timeline-row-action" type="button" @onclick="() => BeginStopAction(stop, DepartActionKind)">Depart</button>
+                                                        <button class="timeline-row-action"
+                                                                type="button"
+                                                                data-testid="timeline-depart"
+                                                                disabled="@IsDepartureBlockedByClearance(stop)"
+                                                                title="@(IsDepartureBlockedByClearance(stop) ? DepartureBlockedExplanation(stop) : null)"
+                                                                @onclick="() => BeginStopAction(stop, DepartActionKind)">
+                                                            Depart
+                                                        </button>
+                                                        @if (IsDepartureBlockedByClearance(stop))
+                                                        {
+                                                            <span class="timeline-departure-blocked" data-testid="timeline-departure-blocked">
+                                                                @DepartureBlockedExplanation(stop)
+                                                            </span>
+                                                        }
                                                     }
                                                     @if (!CanAssignBerth(stop) && !CanArrive(stop) && !CanDepart(stop))
                                                     {
@@ -287,6 +323,21 @@
                                         </td>
                                     }
                                 </tr>
+
+                                @if (clearanceStopId == stop.StopId)
+                                {
+                                    <tr class="timeline-clearance-row">
+                                        <td colspan="@(CanManageVoyages ? 8 : 7)">
+                                            <PortCallClearancePanel VoyageId="VoyageId"
+                                                                    VesselId="itinerary.VesselId"
+                                                                    StopId="stop.StopId"
+                                                                    StopStatus="@stop.Status"
+                                                                    StopDepartedAtUtc="stop.Atd"
+                                                                    OnChanged="LoadAsync"
+                                                                    OnClose="CloseClearance" />
+                                        </td>
+                                    </tr>
+                                }
                             }
                         </tbody>
                     </table>

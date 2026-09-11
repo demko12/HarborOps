@@ -26,45 +26,101 @@ public sealed class RecordStopDepartureService(
 
         var actualDepartureUtc = request.ActualDepartureUtc!.Value;
 
-        var voyage = await dbContext.Set<Voyage>()
-            .FirstOrDefaultAsync(candidate => candidate.Id == voyageId, cancellationToken)
-            ?? throw new VoyageNotFoundException(voyageId);
+        var transaction = await PortCallClearanceGuard.BeginSerializableTransactionAsync(
+            dbContext,
+            cancellationToken);
 
-        if (!string.Equals(voyage.Status, Voyage.InProgressStatus, StringComparison.Ordinal))
+        try
         {
-            throw new VoyageNotExecutingException(voyageId, voyage.Status);
-        }
+            var voyage = await dbContext.Set<Voyage>()
+                .FirstOrDefaultAsync(candidate => candidate.Id == voyageId, cancellationToken)
+                ?? throw new VoyageNotFoundException(voyageId);
 
-        var stop = await dbContext.Set<VoyageStop>()
-            .FirstOrDefaultAsync(
-                candidate => candidate.Id == stopId && candidate.VoyageId == voyageId,
-                cancellationToken)
-            ?? throw new VoyageStopNotFoundException(stopId);
-
-        if (stop.Ata is { } actualArrival)
-        {
-            var chronologyErrors = RecordStopDepartureValidator.ValidateAgainstActualArrival(
-                actualDepartureUtc,
-                actualArrival);
-
-            if (chronologyErrors.Count > 0)
+            if (!string.Equals(voyage.Status, Voyage.InProgressStatus, StringComparison.Ordinal))
             {
-                throw new RecordStopDepartureValidationException(chronologyErrors);
+                throw new VoyageNotExecutingException(voyageId, voyage.Status);
+            }
+
+            var stop = await dbContext.Set<VoyageStop>()
+                .FirstOrDefaultAsync(
+                    candidate => candidate.Id == stopId && candidate.VoyageId == voyageId,
+                    cancellationToken)
+                ?? throw new VoyageStopNotFoundException(stopId);
+
+            if (stop.Ata is { } actualArrival)
+            {
+                var chronologyErrors = RecordStopDepartureValidator.ValidateAgainstActualArrival(
+                    actualDepartureUtc,
+                    actualArrival);
+
+                if (chronologyErrors.Count > 0)
+                {
+                    throw new RecordStopDepartureValidationException(chronologyErrors);
+                }
+            }
+
+            if (!stop.IsAwaitingDeparture)
+            {
+                throw new VoyageStopNotArrivedException(stop.Id, stop.Status);
+            }
+
+            await EnsureClearanceAllowsDepartureAsync(stopId, cancellationToken);
+
+            stop.RecordDeparture(actualDepartureUtc);
+
+            var activeSchedule = await dbContext.Set<BerthSchedule>()
+                .FirstOrDefaultAsync(
+                    schedule => schedule.VoyageStopId == stopId
+                        && schedule.Status == BerthSchedule.OccupiedStatus,
+                    cancellationToken);
+
+            activeSchedule?.Release();
+
+            await dbContext.SaveChangesAsync(cancellationToken);
+
+            if (transaction is not null)
+            {
+                await transaction.CommitAsync(cancellationToken);
+            }
+
+            return new RecordStopDepartureResponse(stop.Id, actualDepartureUtc, stop.Status);
+        }
+        catch (DbUpdateException exception)
+        {
+            throw new PortCallClearanceConflictException(stopId, exception);
+        }
+        finally
+        {
+            if (transaction is not null)
+            {
+                await transaction.DisposeAsync();
             }
         }
+    }
 
-        stop.RecordDeparture(actualDepartureUtc);
+    private async Task EnsureClearanceAllowsDepartureAsync(
+        Guid stopId,
+        CancellationToken cancellationToken)
+    {
+        var clearance = await dbContext.Set<PortCallClearance>()
+            .SingleOrDefaultAsync(candidate => candidate.VoyageStopId == stopId, cancellationToken)
+            ?? throw new VoyageStopClearanceNotCompletedException(
+                stopId,
+                PortCallClearance.PendingStatus,
+                0,
+                0);
 
-        var activeSchedule = await dbContext.Set<BerthSchedule>()
-            .FirstOrDefaultAsync(
-                schedule => schedule.VoyageStopId == stopId
-                    && schedule.Status == BerthSchedule.OccupiedStatus,
-                cancellationToken);
+        var requiredItems = await dbContext.Set<PortCallClearanceItem>()
+            .AsNoTracking()
+            .Where(item => item.PortCallClearanceId == clearance.Id && item.IsRequired)
+            .Select(item => item.Status)
+            .ToListAsync(cancellationToken);
 
-        activeSchedule?.Release();
+        var unresolvedRequiredItemCount = requiredItems.Count(status => string.Equals(
+            status,
+            PortCallClearanceItem.PendingStatus,
+            StringComparison.Ordinal));
 
-        await dbContext.SaveChangesAsync(cancellationToken);
-
-        return new RecordStopDepartureResponse(stop.Id, actualDepartureUtc, stop.Status);
+        clearance.ConfirmDeparture(requiredItems.Count, unresolvedRequiredItemCount);
     }
 }

@@ -60,6 +60,15 @@ public sealed class RegisterCrewAssignmentService(DbContext dbContext)
             throw new OpenCrewAssignmentExistsException(crewMemberId);
         }
 
+        var unavailability = await CrewAvailabilityOverlap.FindApprovedUnavailabilityAsync(
+            dbContext, crewMemberId, signOnDate, plannedSignOffDate, cancellationToken);
+
+        if (unavailability is { } hit)
+        {
+            throw new CrewMemberUnavailableException(
+                crewMemberId, hit.StartDate, hit.EndDate, "ApprovedUnavailability");
+        }
+
         var crewAssignment = CrewAssignment.CreatePlanned(
             crewMemberId,
             vesselId,

@@ -208,6 +208,56 @@ public sealed class PlanCrewRotationServiceTests
     }
 
     [Fact]
+    public async Task PlanAsync_throws_when_the_relieving_member_has_approved_unavailability_on_the_relief_date()
+    {
+        await using var dbContext = CreateDbContext();
+        var assignment = await SeedAssignmentAsync(dbContext);
+        var relievingMember = await SeedCrewMemberAsync(dbContext, assignment.RankId, "Relief Member");
+        await SeedApprovedUnavailabilityAsync(dbContext, relievingMember.Id, new DateOnly(2026, 6, 25), new DateOnly(2026, 7, 5));
+        var service = new PlanCrewRotationService(dbContext);
+
+        var exception = await Assert.ThrowsAsync<CrewMemberUnavailableException>(
+            () => service.PlanAsync(
+                assignment.Id,
+                new PlanCrewRotationRequest
+                {
+                    RelievingCrewMemberId = relievingMember.Id,
+                    RotationPattern = "2-2",
+                    PlannedReliefDate = new DateOnly(2026, 7, 1),
+                },
+                CancellationToken.None));
+
+        Assert.Equal(relievingMember.Id, exception.CrewMemberId);
+        Assert.False(await dbContext.Set<CrewRotation>().AnyAsync());
+    }
+
+    [Fact]
+    public async Task PlanAsync_allows_a_relieving_member_with_only_a_requested_unavailability()
+    {
+        await using var dbContext = CreateDbContext();
+        var assignment = await SeedAssignmentAsync(dbContext);
+        var relievingMember = await SeedCrewMemberAsync(dbContext, assignment.RankId, "Relief Member");
+        var pending = CrewAvailabilityRequest.Create(
+            relievingMember.Id, "AnnualLeave", new DateOnly(2026, 6, 25), new DateOnly(2026, 7, 5),
+            "Pending leave.", null, Guid.NewGuid(), new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc));
+        await dbContext.Set<CrewAvailabilityRequest>().AddAsync(pending);
+        await dbContext.SaveChangesAsync();
+        var service = new PlanCrewRotationService(dbContext);
+
+        var response = await service.PlanAsync(
+            assignment.Id,
+            new PlanCrewRotationRequest
+            {
+                RelievingCrewMemberId = relievingMember.Id,
+                RotationPattern = "2-2",
+                PlannedReliefDate = new DateOnly(2026, 7, 1),
+            },
+            CancellationToken.None);
+
+        Assert.NotEqual(Guid.Empty, response.Id);
+    }
+
+    [Fact]
     public async Task PlanAsync_does_not_persist_anything_when_a_guard_fails()
     {
         await using var dbContext = CreateDbContext();
@@ -226,6 +276,17 @@ public sealed class PlanCrewRotationServiceTests
                 CancellationToken.None));
 
         Assert.False(await dbContext.Set<CrewRotation>().AnyAsync());
+    }
+
+    private static async Task SeedApprovedUnavailabilityAsync(
+        HarborOpsDbContext dbContext, Guid crewMemberId, DateOnly startDate, DateOnly endDate)
+    {
+        var request = CrewAvailabilityRequest.Create(
+            crewMemberId, "AnnualLeave", startDate, endDate, "Approved leave.", null,
+            Guid.NewGuid(), new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc));
+        request.Approve(Guid.NewGuid(), new DateTime(2026, 1, 2, 0, 0, 0, DateTimeKind.Utc));
+        await dbContext.Set<CrewAvailabilityRequest>().AddAsync(request);
+        await dbContext.SaveChangesAsync();
     }
 
     private static async Task<CrewMember> SeedCrewMemberAsync(HarborOpsDbContext dbContext, Guid baseRankId, string name)

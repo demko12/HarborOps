@@ -35,10 +35,13 @@ public sealed class AddCargoContainerService(DbContext dbContext)
 
         var container = Container.Register(
             containerNumber,
-            request.ContainerType!.Trim(),
+            request.ContainerType!.Trim().ToUpperInvariant(),
             CargoStatus.Registered,
             vesselId: null,
-            cargoBookingId: cargoBookingId);
+            cargoBookingId: cargoBookingId,
+            portOfLoadingCode: ContainerEntryValidator.NormalizePort(request.PortOfLoadingCode!),
+            portOfDischargeCode: ContainerEntryValidator.NormalizePort(request.PortOfDischargeCode!),
+            weightKg: request.WeightKg!.Value);
 
         await containers.AddAsync(container, cancellationToken);
         await dbContext.SaveChangesAsync(cancellationToken);

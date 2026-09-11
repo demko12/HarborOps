@@ -20,6 +20,10 @@ public partial class VoyageTimeline : IDisposable
 
     internal const string ManageVoyagesPermission = "voyages.manage";
 
+    internal const string PendingClearanceStatus = "Pending";
+    internal const string CompletedClearanceStatus = "Completed";
+    internal const string ReopenedClearanceStatus = "Reopened";
+
     internal const string BerthActionKind = "berth";
     internal const string ArriveActionKind = "arrive";
     internal const string DepartActionKind = "depart";
@@ -64,6 +68,8 @@ public partial class VoyageTimeline : IDisposable
     private VoyagesApiFailure? berthAvailabilityFailure;
     private bool isLoadingBerthAvailability;
     private BerthAllocationHistory? berthAllocationHistory;
+
+    private Guid? clearanceStopId;
 
     private string delayReason = string.Empty;
     private string? delayDescription;
@@ -167,6 +173,52 @@ public partial class VoyageTimeline : IDisposable
         return string.Equals(stop.Status, ArrivedStatus, StringComparison.Ordinal);
     }
 
+    internal static bool IsClearanceCompleted(VoyageItineraryStopModel stop)
+    {
+        return string.Equals(stop.ClearanceStatus, CompletedClearanceStatus, StringComparison.Ordinal);
+    }
+
+    internal static bool IsDepartureBlockedByClearance(VoyageItineraryStopModel stop)
+    {
+        return !IsClearanceCompleted(stop);
+    }
+
+    internal static string DepartureBlockedExplanation(VoyageItineraryStopModel stop)
+    {
+        if (stop.ClearanceRequiredItemCount == 0)
+        {
+            return "Departure is blocked: the port-call clearance has no required items yet.";
+        }
+
+        var unresolved = stop.ClearanceRequiredItemCount - stop.ClearanceRequiredResolvedCount;
+
+        return unresolved > 0
+            ? $"Departure is blocked: {unresolved} required clearance item(s) are neither cleared nor waived."
+            : "Departure is blocked until the port-call clearance is completed.";
+    }
+
+    internal static string ClearanceStatusLabel(VoyageItineraryStopModel stop)
+    {
+        return string.IsNullOrWhiteSpace(stop.ClearanceStatus)
+            ? PendingClearanceStatus
+            : stop.ClearanceStatus;
+    }
+
+    internal static string ClearanceStatusModifier(VoyageItineraryStopModel stop)
+    {
+        return ClearanceStatusLabel(stop) switch
+        {
+            CompletedClearanceStatus => "completed",
+            ReopenedClearanceStatus => "reopened",
+            _ => "pending",
+        };
+    }
+
+    internal static string ClearanceProgressLabel(VoyageItineraryStopModel stop)
+    {
+        return $"{stop.ClearanceRequiredResolvedCount}/{stop.ClearanceRequiredItemCount} required";
+    }
+
     internal static string BerthState(VoyageItineraryStopModel stop)
     {
         if (stop.BerthId is null)
@@ -233,11 +285,22 @@ public partial class VoyageTimeline : IDisposable
         var requestedVoyageId = VoyageId;
         isLoading = true;
         failure = null;
+        scheduleFailure = null;
+        estimateRevisionsFailure = null;
 
-        VoyagesApiResult<VoyageItinerary> result;
+        var itineraryTask = VoyagesApi.GetItineraryAsync(
+            requestedVoyageId,
+            disposeCancellation.Token);
+        var scheduleTask = VoyagesApi.GetScheduleChangesAsync(
+            requestedVoyageId,
+            disposeCancellation.Token);
+        var revisionsTask = VoyagesApi.GetEstimateRevisionsAsync(
+            requestedVoyageId,
+            disposeCancellation.Token);
+
         try
         {
-            result = await VoyagesApi.GetItineraryAsync(requestedVoyageId, disposeCancellation.Token);
+            await Task.WhenAll(itineraryTask, scheduleTask, revisionsTask);
         }
         catch (OperationCanceledException) when (disposeCancellation.IsCancellationRequested)
         {
@@ -251,18 +314,20 @@ public partial class VoyageTimeline : IDisposable
 
         isLoading = false;
 
-        if (!result.IsSuccess)
+        var itineraryResult = await itineraryTask;
+
+        if (!itineraryResult.IsSuccess)
         {
-            failure = result.Failure;
+            failure = itineraryResult.Failure;
             itinerary = null;
 
             return;
         }
 
-        itinerary = result.Value;
+        itinerary = itineraryResult.Value;
 
-        await LoadScheduleAsync();
-        await LoadEstimateRevisionsAsync();
+        ApplySchedule(await scheduleTask);
+        ApplyEstimateRevisions(await revisionsTask);
     }
 
     private async Task LoadEstimateRevisionsAsync()
@@ -287,6 +352,11 @@ public partial class VoyageTimeline : IDisposable
             return;
         }
 
+        ApplyEstimateRevisions(result);
+    }
+
+    private void ApplyEstimateRevisions(VoyagesApiResult<VoyageEstimateRevisions> result)
+    {
         if (!result.IsSuccess)
         {
             estimateRevisionsFailure = result.Failure;
@@ -295,6 +365,7 @@ public partial class VoyageTimeline : IDisposable
             return;
         }
 
+        estimateRevisionsFailure = null;
         estimateRevisions = result.Value;
     }
 
@@ -320,6 +391,11 @@ public partial class VoyageTimeline : IDisposable
             return;
         }
 
+        ApplySchedule(result);
+    }
+
+    private void ApplySchedule(VoyagesApiResult<VoyageSchedule> result)
+    {
         if (!result.IsSuccess)
         {
             scheduleFailure = result.Failure;
@@ -328,6 +404,7 @@ public partial class VoyageTimeline : IDisposable
             return;
         }
 
+        scheduleFailure = null;
         schedule = result.Value;
     }
 
@@ -368,6 +445,16 @@ public partial class VoyageTimeline : IDisposable
         berthAvailabilityFailure = null;
         berthAllocationHistory = null;
         _ = LoadBerthAllocationContextAsync(stop);
+    }
+
+    private void ToggleClearance(VoyageItineraryStopModel stop)
+    {
+        clearanceStopId = clearanceStopId == stop.StopId ? null : stop.StopId;
+    }
+
+    private void CloseClearance()
+    {
+        clearanceStopId = null;
     }
 
     private void BeginStopAction(VoyageItineraryStopModel stop, string kind)

@@ -1118,6 +1118,9 @@ html[data-theme="light"] .maintenance-modal-backdrop .maintenance-form-card {
 }
 
 .maintenance-page ::deep .maintenance-button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
     height: var(--control-height);
     padding: 0 1rem;
     color: var(--apply-text);
@@ -1127,6 +1130,7 @@ html[data-theme="light"] .maintenance-modal-backdrop .maintenance-form-card {
     font: inherit;
     font-size: .88rem;
     font-weight: 600;
+    text-decoration: none;
     cursor: pointer;
     box-shadow: var(--button-shadow);
     transition: border-color .16s ease, background .16s ease, transform .16s ease;
@@ -1145,6 +1149,9 @@ html[data-theme="light"] .maintenance-modal-backdrop .maintenance-form-card {
 }
 
 .maintenance-page ::deep .maintenance-reset {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
     height: var(--control-height);
     padding: 0 .9rem;
     color: var(--accent);
@@ -1154,6 +1161,7 @@ html[data-theme="light"] .maintenance-modal-backdrop .maintenance-form-card {
     font: inherit;
     font-size: .88rem;
     font-weight: 600;
+    text-decoration: none;
     cursor: pointer;
     transition: background .15s ease, border-color .15s ease;
 }
@@ -1305,6 +1313,23 @@ html[data-theme="light"] .maintenance-modal-backdrop .maintenance-form-card {
 
 .maintenance-page ::deep .maintenance-overdue-row {
     background: color-mix(in srgb, var(--status-danger) 5%, transparent);
+}
+
+/* Other panels (e.g. Defects) reuse the same clickable-row class as the work
+   order board's own rows; those rows' hover/focus treatment lives outside
+   ::deep, so it never reached them without this. */
+
+.maintenance-page ::deep .maintenance-work-order-row {
+    cursor: pointer;
+}
+
+.maintenance-page ::deep .maintenance-work-order-row:hover {
+    background: color-mix(in srgb, var(--accent) 8%, var(--bg-surface));
+}
+
+.maintenance-page ::deep .maintenance-work-order-row:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: -2px;
 }
 
 .maintenance-page ::deep .maintenance-usage-button {
@@ -1946,6 +1971,98 @@ html[data-theme="light"] .maintenance-page ::deep .maintenance-toast {
     margin: 0;
     accent-color: var(--accent);
     cursor: pointer;
+}
+
+/* ---------- Defects ---------- */
+
+/* Reported/Triaged/Converted/Rejected mirror the same colour language as the
+   work order board's own statuses: an initial state reads as info, an
+   in-progress-like state as warning, a successful terminal state as success,
+   and a closed-without-action terminal state as danger. */
+
+.maintenance-page ::deep .maintenance-status.reported {
+    color: var(--status-info);
+    background: rgba(96, 165, 250, .14);
+}
+
+.maintenance-page ::deep .maintenance-status.triaged {
+    color: var(--status-warning);
+    background: rgba(251, 191, 36, .14);
+}
+
+.maintenance-page ::deep .maintenance-status.converted {
+    color: #5eead4;
+    background: rgba(45, 212, 191, .14);
+}
+
+.maintenance-page ::deep .maintenance-status.rejected {
+    color: var(--status-danger);
+    background: rgba(248, 113, 113, .14);
+}
+
+html[data-theme="light"] .maintenance-page ::deep .maintenance-status.reported {
+    color: var(--status-info-strong);
+    background: rgba(37, 99, 235, .12);
+}
+
+html[data-theme="light"] .maintenance-page ::deep .maintenance-status.triaged {
+    color: var(--status-warning-strong);
+    background: rgba(180, 83, 9, .12);
+}
+
+html[data-theme="light"] .maintenance-page ::deep .maintenance-status.converted {
+    color: var(--status-success-strong);
+    background: rgba(15, 118, 110, .12);
+}
+
+html[data-theme="light"] .maintenance-page ::deep .maintenance-status.rejected {
+    color: var(--status-danger-strong);
+    background: rgba(185, 28, 28, .1);
+}
+
+/* The severity badge on the defect intake board reuses the priority pill
+   shape (already reachable via ::deep) and the same four values, but the
+   colour variants themselves were only ever defined for the work order
+   board's own markup. */
+
+.maintenance-page ::deep .priority-critical {
+    color: var(--status-danger);
+    background: rgba(248, 113, 113, .14);
+}
+
+.maintenance-page ::deep .priority-low {
+    color: #94a3b8;
+    background: rgba(148, 163, 184, .12);
+}
+
+.maintenance-page ::deep .priority-medium {
+    color: var(--status-info);
+    background: rgba(96, 165, 250, .14);
+}
+
+.maintenance-page ::deep .priority-high {
+    color: var(--status-warning);
+    background: rgba(251, 191, 36, .14);
+}
+
+html[data-theme="light"] .maintenance-page ::deep .priority-low {
+    color: #475569;
+    background: rgba(71, 85, 105, .1);
+}
+
+html[data-theme="light"] .maintenance-page ::deep .priority-medium {
+    color: var(--status-info-strong);
+    background: rgba(37, 99, 235, .12);
+}
+
+html[data-theme="light"] .maintenance-page ::deep .priority-high {
+    color: var(--status-warning-strong);
+    background: rgba(180, 83, 9, .12);
+}
+
+html[data-theme="light"] .maintenance-page ::deep .priority-critical {
+    color: var(--status-danger-strong);
+    background: rgba(185, 28, 28, .1);
 }
 
 /* ---------- Dry docks ---------- */

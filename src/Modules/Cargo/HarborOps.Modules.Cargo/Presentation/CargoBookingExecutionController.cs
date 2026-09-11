@@ -12,6 +12,8 @@ namespace HarborOps.Modules.Cargo.Presentation;
 public sealed class CargoBookingExecutionController(
     GetCargoContainersQuery getCargoContainersQuery,
     AddCargoContainerService addCargoContainerService,
+    ContainerManifestImportService containerManifestImportService,
+    UpdateCargoContainerService updateCargoContainerService,
     GetCargoOperationsQuery getCargoOperationsQuery,
     PlanCargoOperationService planCargoOperationService)
     : ControllerBase
@@ -25,12 +27,16 @@ public sealed class CargoBookingExecutionController(
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
     public async Task<ActionResult<GetCargoContainersResponse>> GetContainers(
         Guid bookingId,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        [FromQuery] int pageNumber = 1,
+        [FromQuery] int pageSize = GetCargoContainersQuery.DefaultPageSize)
     {
         try
         {
             var response = await getCargoContainersQuery.GetContainersAsync(
                 bookingId,
+                pageNumber,
+                pageSize,
                 cancellationToken);
 
             return Ok(response);
@@ -39,9 +45,14 @@ public sealed class CargoBookingExecutionController(
         {
             return BookingNotFound(exception);
         }
+        catch (CargoContainerPageValidationException)
+        {
+            return BadRequest(new ProblemDetails { Title = "Page number must be positive and page size must be between 1 and 15." });
+        }
     }
 
     [HttpPost("containers")]
+    [Authorize("cargo.manage")]
     [ProducesResponseType<AddCargoContainerResponse>(StatusCodes.Status201Created)]
     [ProducesResponseType<HttpValidationProblemDetails>(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
@@ -87,6 +98,50 @@ public sealed class CargoBookingExecutionController(
                 Title = "A container with this number already exists.",
             });
         }
+    }
+
+    [HttpPost("containers/import/preview")]
+    [Authorize("cargo.manage")]
+    public async Task<ActionResult<ContainerManifestPreviewResponse>> PreviewImport(Guid bookingId, [FromForm] IFormFile file, CancellationToken cancellationToken)
+    {
+        try
+        {
+            if (file is null || file.Length == 0 || file.Length > ContainerManifestImportService.MaxFileSizeBytes) return BadRequest(new ProblemDetails { Title = "Upload a non-empty .xlsx or .xml file smaller than 5 MB." });
+            await using var stream = file.OpenReadStream();
+            return Ok(await containerManifestImportService.PreviewAsync(bookingId, stream, file.FileName, cancellationToken));
+        }
+        catch (CargoBookingNotFoundException exception) { return BookingNotFound(exception); }
+        catch (ContainerManifestFileException exception) { return BadRequest(new ProblemDetails { Title = "Invalid manifest file.", Detail = exception.Message }); }
+    }
+
+    [HttpPost("containers/import")]
+    [Authorize("cargo.manage")]
+    public async Task<ActionResult<ContainerManifestImportResponse>> Import(Guid bookingId, [FromForm] IFormFile file, CancellationToken cancellationToken)
+    {
+        try
+        {
+            if (file is null || file.Length == 0 || file.Length > ContainerManifestImportService.MaxFileSizeBytes) return BadRequest(new ProblemDetails { Title = "Upload a non-empty .xlsx or .xml file smaller than 5 MB." });
+            await using var stream = file.OpenReadStream();
+            return Ok(await containerManifestImportService.ImportAsync(bookingId, stream, file.FileName, cancellationToken));
+        }
+        catch (CargoBookingNotFoundException exception) { return BookingNotFound(exception); }
+        catch (CargoBookingCompletedException exception) { return BookingCompleted(exception); }
+        catch (ContainerManifestImportValidationException exception) { return BadRequest(new ContainerManifestPreviewResponse(exception.Rows.Count, exception.Rows.Count(row => row.Errors.Count == 0), exception.Rows.Count(row => row.Errors.Count > 0), exception.Rows)); }
+        catch (ContainerManifestFileException exception) { return BadRequest(new ProblemDetails { Title = "Invalid manifest file.", Detail = exception.Message }); }
+        catch (DuplicateContainerNumberException exception) { return Conflict(new ProblemDetails { Title = "A container with this number already exists.", Detail = exception.Message }); }
+    }
+
+    [HttpPut("containers/{containerId:guid}")]
+    [Authorize("cargo.manage")]
+    public async Task<ActionResult<UpdateCargoContainerResponse>> UpdateContainer(Guid bookingId, Guid containerId, [FromBody] UpdateCargoContainerRequest request, CancellationToken cancellationToken)
+    {
+        try { return Ok(await updateCargoContainerService.UpdateAsync(bookingId, containerId, request, cancellationToken)); }
+        catch (AddCargoContainerValidationException exception) { return ValidationFailed(exception.Errors); }
+        catch (CargoBookingNotFoundException exception) { return BookingNotFound(exception); }
+        catch (CargoContainerNotFoundException exception) { return NotFound(new ProblemDetails { Title = "Container not found.", Detail = exception.Message }); }
+        catch (CargoBookingCompletedException exception) { return BookingCompleted(exception); }
+        catch (CargoContainerNotEditableException exception) { return Conflict(new ProblemDetails { Title = "Container can no longer be edited.", Detail = exception.Message }); }
+        catch (DuplicateContainerNumberException exception) { return Conflict(new ProblemDetails { Title = "A container with this number already exists.", Detail = exception.Message }); }
     }
 
     [HttpGet("operations")]

@@ -125,9 +125,12 @@ internal sealed record CargoContainerRow(
     string ContainerType,
     string Status,
     Guid CargoBookingId,
-    Guid? VesselId);
+    Guid? VesselId,
+    string? PortOfLoadingCode = null,
+    string? PortOfDischargeCode = null,
+    decimal? WeightKg = null);
 
-internal sealed record CargoContainerList(IReadOnlyList<CargoContainerRow> Items);
+internal sealed record CargoContainerList(IReadOnlyList<CargoContainerRow> Items, int TotalCount = 0, int PageNumber = 1, int PageSize = 15, int LoadedCount = 0);
 
 internal sealed record CargoOperationRow(
     Guid OperationId,
@@ -140,9 +143,15 @@ internal sealed record CargoOperationRow(
 
 internal sealed record CargoOperationList(IReadOnlyList<CargoOperationRow> Items);
 
-internal sealed record AddCargoContainerWebRequest(string ContainerNumber, string ContainerType);
+internal sealed record AddCargoContainerWebRequest(string ContainerNumber, string ContainerType, string PortOfLoadingCode = "", string PortOfDischargeCode = "", decimal WeightKg = 0m);
 
 internal sealed record AddedCargoContainer(Guid Id, string ContainerNumber, string Status);
+internal sealed record UpdateCargoContainerWebRequest(string ContainerNumber, string ContainerType, string PortOfLoadingCode, string PortOfDischargeCode, decimal WeightKg);
+internal sealed record UpdatedCargoContainer(Guid Id, string ContainerNumber, string ContainerType, string PortOfLoadingCode, string PortOfDischargeCode, decimal WeightKg);
+
+internal sealed record ContainerManifestImportRow(int RowNumber, string? ContainerNumber, string? ContainerType, string? PortOfLoadingCode, string? PortOfDischargeCode, decimal? WeightKg, IReadOnlyDictionary<string, string[]> Errors);
+internal sealed record ContainerManifestPreview(int TotalCount, int ValidCount, int InvalidCount, IReadOnlyList<ContainerManifestImportRow> Rows);
+internal sealed record ImportedContainerManifest(int CreatedCount, IReadOnlyList<Guid> ContainerIds);
 
 internal sealed record PlanCargoOperationWebRequest(string OperationType, DateTime PlannedAtUtc);
 

@@ -77,7 +77,7 @@
             <article class="booking-kpi kpi-containers">
                 <div>
                     <p class="booking-kpi-label">Containers</p>
-                    <p class="booking-kpi-value">@(isLoadingContainers ? "—" : containers.Count.ToString())</p>
+                    <p class="booking-kpi-value">@(isLoadingContainers ? "—" : containerTotalCount.ToString())</p>
                     <p class="booking-kpi-note">@LoadedContainerCount loaded, @operations.Count operations</p>
                 </div>
                 <span class="booking-kpi-icon kpi-icon-load" aria-hidden="true"><span class="bi bi-stack"></span></span>
@@ -163,12 +163,12 @@
         <section class="booking-card booking-manifest-card" aria-labelledby="booking-manifest-title">
             <div class="booking-card-heading">
                 <h2 id="booking-manifest-title">Container manifest</h2>
-                <span class="booking-count manifest-progress">@LoadedContainerCount of @containers.Count loaded</span>
+                <span class="booking-count manifest-progress">@LoadedContainerCount of @containerTotalCount loaded</span>
             </div>
 
             <div class="manifest-bar"
                  role="img"
-                 aria-label="@($"{LoadedContainerCount} of {containers.Count} containers loaded")">
+                          aria-label="@($"{LoadedContainerCount} of {containerTotalCount} containers loaded")">
                 <span style="width:@(LoadedPercent)%"></span>
             </div>
 
@@ -206,6 +206,32 @@
 
                 @if (CanAddContainers)
                 {
+                    <section class="manifest-import" aria-label="Import container manifest">
+                        <div class="booking-card-heading"><h3>Import manifest</h3><span><a href="/cargo/container-manifest-template?format=xlsx">Excel template</a> · <a href="/cargo/container-manifest-template?format=xml">XML template</a></span></div>
+                        <div class="manifest-file-picker">
+                            <InputFile id="manifest-file-input" class="manifest-file-native-input" OnChange="SelectManifestFile" accept=".xlsx,.xml" />
+                            <label class="manifest-file-picker-button" for="manifest-file-input">
+                                <span class="bi bi-upload" aria-hidden="true"></span>
+                                Choose manifest file
+                            </label>
+                            <span class="manifest-file-picker-name">@(manifestFile?.Name ?? "No file selected — .xlsx or .xml")</span>
+                        </div>
+                        @if (manifestFile is not null)
+                        {
+                            <p class="booking-note">@manifestFile.Name (@manifestFile.Size bytes)</p>
+                            <button class="booking-submit" type="button" @onclick="PreviewManifestAsync" disabled="@isPreviewingManifest">@(isPreviewingManifest ? "Previewing..." : "Preview manifest")</button>
+                        }
+                        @if (manifestImportFailure is not null) { <div class="booking-form-error" role="alert">@manifestImportFailure.Message</div> }
+                        @if (manifestPreview is not null)
+                        {
+                            <p class="booking-note">@manifestPreview.ValidCount valid, @manifestPreview.InvalidCount invalid, @manifestPreview.TotalCount total rows.</p>
+                            @if (manifestPreview.InvalidCount > 0)
+                            {
+                                <ul class="booking-form-error" role="alert">@foreach (var row in manifestPreview.Rows.Where(row => row.Errors.Count > 0)) { <li>Row @row.RowNumber: @string.Join(" ", row.Errors.SelectMany(error => error.Value))</li> }</ul>
+                            }
+                            else { <button class="booking-submit" type="button" @onclick="ImportManifestAsync" disabled="@isImportingManifest">@(isImportingManifest ? "Importing..." : "Confirm import")</button> }
+                        }
+                    </section>
                     <EditForm class="manifest-add-form" EditContext="containerEditContext" OnValidSubmit="SubmitContainerAsync">
                         <DataAnnotationsValidator />
 
@@ -222,6 +248,24 @@
                                            @ref="containerNumberInput"
                                            @bind-Value="containerModel.ContainerNumber" />
                                 <ValidationMessage For="() => containerModel.ContainerNumber" />
+                            </div>
+
+                            <div class="booking-field">
+                                <label for="container-pol">POL</label>
+                                <InputText id="container-pol" placeholder="NLRTM" @bind-Value="containerModel.PortOfLoadingCode" />
+                                <ValidationMessage For="() => containerModel.PortOfLoadingCode" />
+                            </div>
+
+                            <div class="booking-field">
+                                <label for="container-pod">POD</label>
+                                <InputText id="container-pod" placeholder="USNYC" @bind-Value="containerModel.PortOfDischargeCode" />
+                                <ValidationMessage For="() => containerModel.PortOfDischargeCode" />
+                            </div>
+
+                            <div class="booking-field">
+                                <label for="container-weight">Weight (kg)</label>
+                                <InputNumber id="container-weight" @bind-Value="containerModel.WeightKg" />
+                                <ValidationMessage For="() => containerModel.WeightKg" />
                             </div>
 
                             <div class="booking-field">
@@ -253,9 +297,13 @@
                             <tr>
                                 <th scope="col">Container</th>
                                 <th scope="col">Type</th>
+                                <th scope="col">POL</th>
+                                <th scope="col">POD</th>
+                                <th scope="col">Weight (kg)</th>
                                 <th scope="col">Status</th>
                                 <th scope="col">Control</th>
                                 <th scope="col">Vessel</th>
+                                <th scope="col"><span class="visually-hidden">Actions</span></th>
                             </tr>
                         </thead>
                         <tbody>
@@ -264,6 +312,9 @@
                                 <tr class="manifest-row" @key="container.ContainerId">
                                     <td><code class="manifest-number">@container.ContainerNumber</code></td>
                                     <td>@container.ContainerType</td>
+                                    <td>@(container.PortOfLoadingCode ?? "—")</td>
+                                    <td>@(container.PortOfDischargeCode ?? "—")</td>
+                                    <td>@(container.WeightKg?.ToString("N3") ?? "—")</td>
                                     <td>
                                         <span class="cargo-status @CargoBookingFormat.StatusModifier(container.Status)">@container.Status</span>
                                     </td>
@@ -282,18 +333,30 @@
                                             ? CargoBookingFormat.ShortVoyage(vesselId)
                                             : "Not assigned")
                                     </td>
+                                    <td>
+                                        @if (CanEdit(container))
+                                        {
+                                            <button type="button" class="manifest-control-open" @onclick="() => BeginContainerEdit(container)">Edit</button>
+                                        }
+                                    </td>
                                 </tr>
                             }
                         </tbody>
                     </table>
                 </div>
 
-                @if (SelectedControlContainer is { } selectedContainer)
+                @if (containerTotalCount > ContainersPerPage)
                 {
-                    <CargoContainerControlPanel ContainerId="selectedContainer.ContainerId"
-                                                ContainerNumber="@selectedContainer.ContainerNumber"
-                                                OnChanged="RefreshAfterControlChangeAsync" />
+                    <nav class="manifest-pagination" aria-label="Container manifest pages">
+                        <span>Showing @(((containerPageNumber - 1) * ContainersPerPage) + 1)–@Math.Min(containerPageNumber * ContainersPerPage, containerTotalCount) of @containerTotalCount containers</span>
+                        <div>
+                            <button type="button" class="booking-pagination-button" disabled="@(containerPageNumber == 1)" @onclick="() => ChangeContainerPageAsync(containerPageNumber - 1)">Previous</button>
+                            <span aria-current="page">Page @containerPageNumber of @ContainerPageCount</span>
+                            <button type="button" class="booking-pagination-button" disabled="@(containerPageNumber == ContainerPageCount)" @onclick="() => ChangeContainerPageAsync(containerPageNumber + 1)">Next</button>
+                        </div>
+                    </nav>
                 }
+
                 }
             }
         </section>
@@ -307,7 +370,7 @@
             <p class="booking-note operations-effect @(containers.Count == 0 ? "booking-note-warning" : null)" role="status">
                 @(containers.Count == 0
                     ? "Add at least one container to the manifest before an operation can be completed."
-                    : $"Completing an operation settles all {containers.Count} containers on this manifest.")
+                    : $"Completing an operation settles all {containerTotalCount} containers on this manifest.")
             </p>
 
             @if (isLoadingOperations)
@@ -597,3 +660,43 @@
         </section>
     }
 </section>
+
+@if (editingContainerId is not null)
+{
+    <div class="operation-modal-backdrop container-edit-backdrop" role="presentation" @onclick="CancelContainerEdit">
+        <section class="operation-modal container-edit-modal" role="dialog" aria-modal="true" aria-labelledby="edit-container-title" @onclick:stopPropagation="true">
+            <div class="operation-modal-header">
+                <div><p class="container-edit-eyebrow">Container manifest</p><h2 id="edit-container-title">Edit container</h2></div>
+                <button type="button" class="operation-modal-close" aria-label="Close edit container dialog" disabled="@isUpdatingContainer" @onclick="CancelContainerEdit">&times;</button>
+            </div>
+            <EditForm EditContext="editContainerEditContext" OnValidSubmit="SubmitContainerUpdateAsync">
+                <DataAnnotationsValidator />
+                @if (editContainerError is not null) { <div class="booking-form-error" role="alert">@editContainerError</div> }
+                <div class="container-edit-grid">
+                    <div class="booking-field"><label for="edit-container-number">Container number</label><InputText id="edit-container-number" @bind-Value="editContainerModel.ContainerNumber" /><ValidationMessage For="() => editContainerModel.ContainerNumber" /></div>
+                    <div class="booking-field"><label for="edit-container-type">Container type</label><InputSelect id="edit-container-type" @bind-Value="editContainerModel.ContainerType"><option value="">Select container type...</option>@foreach (var containerType in StandardContainerTypes) { <option value="@containerType.Code">@containerType.Label</option> }</InputSelect><ValidationMessage For="() => editContainerModel.ContainerType" /></div>
+                    <div class="booking-field"><label for="edit-container-pol">POL</label><InputText id="edit-container-pol" @bind-Value="editContainerModel.PortOfLoadingCode" /><ValidationMessage For="() => editContainerModel.PortOfLoadingCode" /></div>
+                    <div class="booking-field"><label for="edit-container-pod">POD</label><InputText id="edit-container-pod" @bind-Value="editContainerModel.PortOfDischargeCode" /><ValidationMessage For="() => editContainerModel.PortOfDischargeCode" /></div>
+                    <div class="booking-field"><label for="edit-container-weight">Weight (kg)</label><InputNumber id="edit-container-weight" @bind-Value="editContainerModel.WeightKg" /><ValidationMessage For="() => editContainerModel.WeightKg" /></div>
+                </div>
+                <div class="container-edit-actions"><button class="container-edit-save" type="submit" disabled="@isUpdatingContainer">@(isUpdatingContainer ? "Saving..." : "Save changes")</button><button class="container-edit-cancel" type="button" @onclick="CancelContainerEdit" disabled="@isUpdatingContainer">Cancel</button></div>
+            </EditForm>
+        </section>
+    </div>
+}
+
+@if (SelectedControlContainer is { } selectedContainer)
+{
+    <div class="operation-modal-backdrop container-edit-backdrop" role="presentation" @onclick="() => ToggleControl(selectedContainer.ContainerId)">
+        <section class="operation-modal container-control-modal" role="dialog" aria-modal="true" aria-labelledby="container-control-modal-title" @onclick:stopPropagation="true">
+            <div class="operation-modal-header">
+                <div><p class="container-edit-eyebrow">Container manifest</p><h2 id="container-control-modal-title">Control for @selectedContainer.ContainerNumber</h2></div>
+                <button type="button" class="operation-modal-close" aria-label="Close container control dialog" @onclick="() => ToggleControl(selectedContainer.ContainerId)">&times;</button>
+            </div>
+            <CargoContainerControlPanel ContainerId="selectedContainer.ContainerId"
+                                        ContainerNumber="@selectedContainer.ContainerNumber"
+                                        HideHeading="true"
+                                        OnChanged="RefreshAfterControlChangeAsync" />
+        </section>
+    </div>
+}

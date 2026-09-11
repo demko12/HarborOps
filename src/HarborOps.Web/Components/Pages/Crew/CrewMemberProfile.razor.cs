@@ -74,10 +74,31 @@ public partial class CrewMemberProfile : IDisposable
     private string? employmentStatusActionError;
     private EmploymentStatusFormModel employmentStatusForm = new();
 
+    private static readonly string[] AvailabilityTypeOptions = ["AnnualLeave", "SickLeave", "Training", "OtherUnavailable"];
+
+    private IReadOnlyList<CrewMemberAvailabilityItemResponse> availabilityItems = [];
+    private bool isLoadingAvailability = true;
+    private CrewApiFailure? availabilityFailure;
+    private readonly HashSet<Guid> expandedAvailabilityIds = [];
+
+    private bool isRequestingUnavailability;
+    private bool isSubmittingAvailabilityRequest;
+    private AvailabilityRequestFormModel availabilityRequestForm = new();
+    private string? availabilityRequestConflict;
+    private string? availabilityRequestGeneralError;
+    private IReadOnlyList<string> availabilityRequestFieldErrors = [];
+
+    private Guid? availabilityDecisionId;
+    private string availabilityDecisionKind = "reject";
+    private string? availabilityDecisionReason;
+    private bool isSubmittingAvailabilityDecision;
+    private Guid? availabilityActionId;
+    private string? availabilityActionError;
+
     private bool CanManage => CurrentUser.HasPermission(CurrentUserAuthorizationState.CrewManagePermission);
 
     protected override async Task OnInitializedAsync() =>
-        await Task.WhenAll(LoadProfileAsync(), LoadMedicalExaminationsAsync(), LoadEmploymentHistoryAsync());
+        await Task.WhenAll(LoadProfileAsync(), LoadMedicalExaminationsAsync(), LoadEmploymentHistoryAsync(), LoadAvailabilityAsync());
 
     protected override async Task OnParametersSetAsync()
     {
@@ -86,7 +107,7 @@ public partial class CrewMemberProfile : IDisposable
         // component being torn down and recreated - reload whenever it changes.
         if (profile is not null && profile.CrewMemberId != CrewMemberId)
         {
-            await Task.WhenAll(LoadProfileAsync(), LoadMedicalExaminationsAsync(), LoadEmploymentHistoryAsync());
+            await Task.WhenAll(LoadProfileAsync(), LoadMedicalExaminationsAsync(), LoadEmploymentHistoryAsync(), LoadAvailabilityAsync());
         }
     }
 
@@ -212,6 +233,198 @@ public partial class CrewMemberProfile : IDisposable
 
         await Task.WhenAll(LoadProfileAsync(), LoadEmploymentHistoryAsync());
     }
+
+    private async Task LoadAvailabilityAsync()
+    {
+        isLoadingAvailability = true;
+        availabilityFailure = null;
+
+        CrewApiResult<GetCrewMemberAvailabilityResponse> result;
+        try
+        {
+            result = await CrewApi.GetMemberAvailabilityAsync(CrewMemberId, disposeCancellation.Token);
+        }
+        catch (OperationCanceledException) when (disposeCancellation.IsCancellationRequested)
+        {
+            return;
+        }
+
+        if (disposeCancellation.IsCancellationRequested)
+        {
+            return;
+        }
+
+        isLoadingAvailability = false;
+
+        if (result.IsSuccess)
+        {
+            availabilityItems = result.Value!.Items;
+        }
+        else
+        {
+            availabilityFailure = result.Failure;
+        }
+    }
+
+    private void ToggleAvailabilityExpanded(Guid id)
+    {
+        if (!expandedAvailabilityIds.Add(id))
+        {
+            expandedAvailabilityIds.Remove(id);
+        }
+    }
+
+    private void RequestUnavailability()
+    {
+        availabilityRequestForm = new AvailabilityRequestFormModel { Type = AvailabilityTypeOptions[0] };
+        ClearAvailabilityRequestErrors();
+        isRequestingUnavailability = true;
+    }
+
+    private void CancelUnavailabilityRequest()
+    {
+        isRequestingUnavailability = false;
+        ClearAvailabilityRequestErrors();
+    }
+
+    private void ClearAvailabilityRequestErrors()
+    {
+        availabilityRequestConflict = null;
+        availabilityRequestGeneralError = null;
+        availabilityRequestFieldErrors = [];
+    }
+
+    private async Task SubmitUnavailabilityRequestAsync()
+    {
+        if (isSubmittingAvailabilityRequest)
+        {
+            return;
+        }
+
+        isSubmittingAvailabilityRequest = true;
+        ClearAvailabilityRequestErrors();
+
+        var result = await CrewApi.RequestAvailabilityAsync(
+            CrewMemberId,
+            new CreateCrewAvailabilityRequestRequest
+            {
+                Type = availabilityRequestForm.Type,
+                StartDate = availabilityRequestForm.StartDate,
+                EndDate = availabilityRequestForm.EndDate,
+                Reason = availabilityRequestForm.Reason,
+                Notes = availabilityRequestForm.Notes,
+            },
+            disposeCancellation.Token);
+
+        isSubmittingAvailabilityRequest = false;
+
+        if (!result.IsSuccess)
+        {
+            var availabilityRequestFailure = result.Failure!;
+            if (availabilityRequestFailure.IsConflict)
+            {
+                availabilityRequestConflict = availabilityRequestFailure.Message;
+            }
+            else if (availabilityRequestFailure.IsValidation)
+            {
+                availabilityRequestFieldErrors = (availabilityRequestFailure.Errors ?? EmptyErrors)
+                    .Values.SelectMany(messages => messages).ToList();
+            }
+            else
+            {
+                availabilityRequestGeneralError = availabilityRequestFailure.Message;
+            }
+
+            return;
+        }
+
+        isRequestingUnavailability = false;
+        await LoadAvailabilityAsync();
+    }
+
+    private void BeginAvailabilityDecision(Guid id, string kind)
+    {
+        availabilityDecisionId = id;
+        availabilityDecisionKind = kind;
+        availabilityDecisionReason = null;
+        availabilityActionId = null;
+        availabilityActionError = null;
+    }
+
+    private void CancelAvailabilityDecision()
+    {
+        availabilityDecisionId = null;
+        availabilityDecisionReason = null;
+    }
+
+    private async Task ApproveAvailabilityAsync(Guid id)
+    {
+        if (isSubmittingAvailabilityDecision)
+        {
+            return;
+        }
+
+        isSubmittingAvailabilityDecision = true;
+        availabilityActionId = id;
+        availabilityActionError = null;
+
+        var result = await CrewApi.ApproveAvailabilityRequestAsync(id, disposeCancellation.Token);
+
+        isSubmittingAvailabilityDecision = false;
+
+        if (!result.IsSuccess)
+        {
+            availabilityActionError = result.Failure!.Message;
+            return;
+        }
+
+        await LoadAvailabilityAsync();
+    }
+
+    private async Task SubmitAvailabilityDecisionAsync()
+    {
+        if (isSubmittingAvailabilityDecision || availabilityDecisionId is not { } id)
+        {
+            return;
+        }
+
+        isSubmittingAvailabilityDecision = true;
+        availabilityActionId = id;
+        availabilityActionError = null;
+
+        CrewApiWriteResult<CrewAvailabilityDecisionResponse> result;
+        if (availabilityDecisionKind == "reject")
+        {
+            result = await CrewApi.RejectAvailabilityRequestAsync(
+                id, new RejectCrewAvailabilityRequestRequest { Reason = availabilityDecisionReason }, disposeCancellation.Token);
+        }
+        else
+        {
+            result = await CrewApi.CancelAvailabilityRequestAsync(
+                id, new CancelCrewAvailabilityRequestRequest { Reason = availabilityDecisionReason }, disposeCancellation.Token);
+        }
+
+        isSubmittingAvailabilityDecision = false;
+
+        if (!result.IsSuccess)
+        {
+            availabilityActionError = result.Failure!.Message;
+            return;
+        }
+
+        availabilityDecisionId = null;
+        availabilityDecisionReason = null;
+        await LoadAvailabilityAsync();
+    }
+
+    private static string AvailabilityTypeLabel(string type) => type switch
+    {
+        "AnnualLeave" => "Annual leave",
+        "SickLeave" => "Sick leave",
+        "Training" => "Training",
+        "OtherUnavailable" => "Other",
+        _ => type,
+    };
 
     private async Task OnCertificateRegisteredAsync()
     {
@@ -634,6 +847,15 @@ public partial class CrewMemberProfile : IDisposable
     private sealed class EmploymentStatusFormModel
     {
         public string? Status { get; set; }
+        public string? Notes { get; set; }
+    }
+
+    private sealed class AvailabilityRequestFormModel
+    {
+        public string? Type { get; set; }
+        public DateOnly? StartDate { get; set; }
+        public DateOnly? EndDate { get; set; }
+        public string? Reason { get; set; }
         public string? Notes { get; set; }
     }
 }

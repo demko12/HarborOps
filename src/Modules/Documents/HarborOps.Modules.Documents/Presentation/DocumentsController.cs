@@ -25,11 +25,20 @@ public sealed class DocumentsController(
     IGetDocumentFileQuery getDocumentFileQuery,
     DocumentLifecycleService documentLifecycleService,
     IAuthorizationService authorizationService,
-    IOptions<DocumentFileValidationOptions> documentFileValidationOptions)
+    IOptions<DocumentFileValidationOptions> documentFileValidationOptions,
+    IGetRetentionPoliciesQuery getRetentionPoliciesQuery,
+    RetentionPolicyAdminService retentionPolicyAdminService,
+    IGetRetentionQueueQuery getRetentionQueueQuery,
+    DocumentRetentionService documentRetentionService,
+    LegalHoldService legalHoldService,
+    DispositionRequestService dispositionRequestService,
+    IGetDocumentRetentionStateQuery getDocumentRetentionStateQuery)
     : ControllerBase
 {
     private const string FileField = "file";
+    private const string ReadCapability = "documents.read";
     private const string ManageCapability = "documents.manage";
+    private const string DisposeCapability = "documents.dispose";
 
     // GetDocumentByIdQuery relabels an Active document's Status as "Expired" once its
     // ExpiryDate has passed (display-only - the persisted Status column is unchanged),
@@ -724,6 +733,16 @@ public sealed class DocumentsController(
                 return Forbid();
             }
 
+            // A third lookup, same rationale as the visibility check above: a Disposed
+            // document's file must never be streamed by this endpoint, regardless of
+            // capability - Forbid() reuses the same "not available" response the visibility
+            // check already returns rather than inventing a new shape for this case.
+            var retentionState = await getDocumentRetentionStateQuery.GetStateAsync(documentId, cancellationToken);
+            if (string.Equals(retentionState, DocumentRetentionState.DisposedState, StringComparison.Ordinal))
+            {
+                return Forbid();
+            }
+
             var file = await getDocumentFileQuery.GetFileAsync(documentId, cancellationToken);
 
             var contentDisposition = new ContentDispositionHeaderValue("attachment")
@@ -759,6 +778,474 @@ public sealed class DocumentsController(
             {
                 Status = StatusCodes.Status500InternalServerError,
                 Title = "An error occurred while processing the file.",
+            });
+        }
+    }
+
+    [HttpGet("retention-policies")]
+    [Authorize(ReadCapability)]
+    [ProducesResponseType<GetRetentionPoliciesResponse>(StatusCodes.Status200OK)]
+    public async Task<ActionResult<GetRetentionPoliciesResponse>> GetRetentionPolicies(CancellationToken cancellationToken)
+    {
+        return Ok(await getRetentionPoliciesQuery.GetRetentionPoliciesAsync(cancellationToken));
+    }
+
+    [HttpPut("retention-policies/{documentTypeId:int}")]
+    [Authorize(ManageCapability)]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType<HttpValidationProblemDetails>(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> UpdateRetentionPolicy(int documentTypeId, [FromBody] UpdateRetentionPolicyRequest request, CancellationToken cancellationToken)
+    {
+        try
+        {
+            await retentionPolicyAdminService.UpdatePolicyAsync(documentTypeId, request, cancellationToken);
+
+            return NoContent();
+        }
+        catch (DocumentTypeNotFoundException exception)
+        {
+            return NotFound(new ProblemDetails
+            {
+                Status = StatusCodes.Status404NotFound,
+                Title = "Document type not found.",
+                Detail = exception.Message,
+            });
+        }
+        catch (RetentionPolicyValidationException exception)
+        {
+            return BadRequest(new HttpValidationProblemDetails(
+                exception.Errors.ToDictionary(
+                    error => error.Key,
+                    error => error.Value,
+                    StringComparer.Ordinal))
+            {
+                Status = StatusCodes.Status400BadRequest,
+                Title = "One or more validation errors occurred.",
+            });
+        }
+    }
+
+    [HttpGet("retention-queue")]
+    [Authorize(ReadCapability)]
+    [ProducesResponseType<GetRetentionQueueResponse>(StatusCodes.Status200OK)]
+    [ProducesResponseType<HttpValidationProblemDetails>(StatusCodes.Status400BadRequest)]
+    public async Task<ActionResult<GetRetentionQueueResponse>> GetRetentionQueue(
+        [FromQuery] GetRetentionQueueRequest request,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            return Ok(await getRetentionQueueQuery.GetRetentionQueueAsync(request, cancellationToken));
+        }
+        catch (GetRetentionQueueValidationException exception)
+        {
+            return BadRequest(new HttpValidationProblemDetails(
+                exception.Errors.ToDictionary(
+                    error => error.Key,
+                    error => error.Value,
+                    StringComparer.Ordinal))
+            {
+                Status = StatusCodes.Status400BadRequest,
+                Title = "One or more validation errors occurred.",
+            });
+        }
+    }
+
+    [HttpPost("/api/documents/{documentId:guid}/archive")]
+    [Authorize(ManageCapability)]
+    [ProducesResponseType<DocumentRetentionStateResponse>(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]
+    public async Task<ActionResult<DocumentRetentionStateResponse>> Archive(
+        Guid documentId,
+        [FromBody] ArchiveDocumentRequest request,
+        CancellationToken cancellationToken)
+    {
+        if (!Guid.TryParse(User.FindFirstValue(ClaimTypes.NameIdentifier), out var actorId))
+        {
+            return Unauthorized();
+        }
+
+        try
+        {
+            return Ok(await documentRetentionService.ArchiveAsync(documentId, actorId, cancellationToken));
+        }
+        catch (DocumentNotFoundException exception)
+        {
+            return NotFound(new ProblemDetails
+            {
+                Status = StatusCodes.Status404NotFound,
+                Title = "Document not found.",
+                Detail = exception.Message,
+            });
+        }
+        catch (InvalidOperationException exception)
+        {
+            return Conflict(new ProblemDetails
+            {
+                Status = StatusCodes.Status409Conflict,
+                Title = "Document cannot be archived.",
+                Detail = exception.Message,
+            });
+        }
+        catch (DbUpdateConcurrencyException)
+        {
+            return Conflict(new ProblemDetails
+            {
+                Status = StatusCodes.Status409Conflict,
+                Title = "Document retention state was modified concurrently.",
+                Detail = "The document's retention state was changed by another request. Reload and try again.",
+            });
+        }
+    }
+
+    [HttpPost("/api/documents/{documentId:guid}/restore")]
+    [Authorize(ManageCapability)]
+    [ProducesResponseType<DocumentRetentionStateResponse>(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]
+    public async Task<ActionResult<DocumentRetentionStateResponse>> Restore(
+        Guid documentId,
+        [FromBody] RestoreDocumentRequest request,
+        CancellationToken cancellationToken)
+    {
+        if (!Guid.TryParse(User.FindFirstValue(ClaimTypes.NameIdentifier), out var actorId))
+        {
+            return Unauthorized();
+        }
+
+        try
+        {
+            return Ok(await documentRetentionService.RestoreAsync(documentId, actorId, cancellationToken));
+        }
+        catch (DocumentNotFoundException exception)
+        {
+            return NotFound(new ProblemDetails
+            {
+                Status = StatusCodes.Status404NotFound,
+                Title = "Document not found.",
+                Detail = exception.Message,
+            });
+        }
+        catch (InvalidOperationException exception)
+        {
+            return Conflict(new ProblemDetails
+            {
+                Status = StatusCodes.Status409Conflict,
+                Title = "Document cannot be restored.",
+                Detail = exception.Message,
+            });
+        }
+        catch (DbUpdateConcurrencyException)
+        {
+            return Conflict(new ProblemDetails
+            {
+                Status = StatusCodes.Status409Conflict,
+                Title = "Document retention state was modified concurrently.",
+                Detail = "The document's retention state was changed by another request. Reload and try again.",
+            });
+        }
+    }
+
+    [HttpPost("/api/documents/{documentId:guid}/legal-holds")]
+    [Authorize(ManageCapability)]
+    [ProducesResponseType<PlaceLegalHoldResponse>(StatusCodes.Status201Created)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<PlaceLegalHoldResponse>> PlaceLegalHold(
+        Guid documentId,
+        [FromBody] PlaceLegalHoldRequest request,
+        CancellationToken cancellationToken)
+    {
+        if (!Guid.TryParse(User.FindFirstValue(ClaimTypes.NameIdentifier), out var actorId))
+        {
+            return Unauthorized();
+        }
+
+        try
+        {
+            var response = await legalHoldService.PlaceAsync(documentId, request, actorId, cancellationToken);
+
+            return Created($"/api/documents/{documentId}/legal-holds/{response.Id}", response);
+        }
+        catch (DocumentNotFoundException exception)
+        {
+            return NotFound(new ProblemDetails
+            {
+                Status = StatusCodes.Status404NotFound,
+                Title = "Document not found.",
+                Detail = exception.Message,
+            });
+        }
+        catch (ArgumentException exception)
+        {
+            return BadRequest(new ProblemDetails
+            {
+                Status = StatusCodes.Status400BadRequest,
+                Title = "One or more validation errors occurred.",
+                Detail = exception.Message,
+            });
+        }
+    }
+
+    [HttpPost("/api/documents/{documentId:guid}/legal-holds/{holdId:guid}/release")]
+    [Authorize(ManageCapability)]
+    [ProducesResponseType<ReleaseLegalHoldResponse>(StatusCodes.Status200OK)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]
+    public async Task<ActionResult<ReleaseLegalHoldResponse>> ReleaseLegalHold(
+        Guid documentId,
+        Guid holdId,
+        [FromBody] ReleaseLegalHoldRequest request,
+        CancellationToken cancellationToken)
+    {
+        if (!Guid.TryParse(User.FindFirstValue(ClaimTypes.NameIdentifier), out var actorId))
+        {
+            return Unauthorized();
+        }
+
+        try
+        {
+            return Ok(await legalHoldService.ReleaseAsync(documentId, holdId, request, actorId, cancellationToken));
+        }
+        catch (LegalHoldNotFoundException exception)
+        {
+            return NotFound(new ProblemDetails
+            {
+                Status = StatusCodes.Status404NotFound,
+                Title = "Legal hold not found.",
+                Detail = exception.Message,
+            });
+        }
+        catch (ArgumentException exception)
+        {
+            return BadRequest(new ProblemDetails
+            {
+                Status = StatusCodes.Status400BadRequest,
+                Title = "One or more validation errors occurred.",
+                Detail = exception.Message,
+            });
+        }
+        catch (InvalidOperationException exception)
+        {
+            return Conflict(new ProblemDetails
+            {
+                Status = StatusCodes.Status409Conflict,
+                Title = "Legal hold cannot be released.",
+                Detail = exception.Message,
+            });
+        }
+        catch (DbUpdateConcurrencyException)
+        {
+            return Conflict(new ProblemDetails
+            {
+                Status = StatusCodes.Status409Conflict,
+                Title = "Legal hold was modified concurrently.",
+                Detail = "The legal hold was changed by another request. Reload and try again.",
+            });
+        }
+    }
+
+    [HttpPost("/api/documents/{documentId:guid}/disposition-requests")]
+    [Authorize(ManageCapability)]
+    [ProducesResponseType<DispositionRequestResponse>(StatusCodes.Status201Created)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]
+    public async Task<ActionResult<DispositionRequestResponse>> CreateDispositionRequest(
+        Guid documentId,
+        [FromBody] CreateDispositionRequest request,
+        CancellationToken cancellationToken)
+    {
+        if (!Guid.TryParse(User.FindFirstValue(ClaimTypes.NameIdentifier), out var actorId))
+        {
+            return Unauthorized();
+        }
+
+        try
+        {
+            var response = await dispositionRequestService.CreateAsync(documentId, request, actorId, cancellationToken);
+
+            return Created($"/api/documents/{documentId}/disposition-requests/{response.Id}", response);
+        }
+        catch (DocumentNotFoundException exception)
+        {
+            return NotFound(new ProblemDetails
+            {
+                Status = StatusCodes.Status404NotFound,
+                Title = "Document not found.",
+                Detail = exception.Message,
+            });
+        }
+        catch (ArgumentException exception)
+        {
+            return BadRequest(new ProblemDetails
+            {
+                Status = StatusCodes.Status400BadRequest,
+                Title = "One or more validation errors occurred.",
+                Detail = exception.Message,
+            });
+        }
+        catch (RetentionConflictException exception)
+        {
+            return Conflict(new ProblemDetails
+            {
+                Status = StatusCodes.Status409Conflict,
+                Title = "Document is not eligible for disposition.",
+                Detail = exception.Message,
+            });
+        }
+        catch (InvalidOperationException exception)
+        {
+            return Conflict(new ProblemDetails
+            {
+                Status = StatusCodes.Status409Conflict,
+                Title = "Document is not eligible for disposition.",
+                Detail = exception.Message,
+            });
+        }
+        catch (DbUpdateConcurrencyException)
+        {
+            return Conflict(new ProblemDetails
+            {
+                Status = StatusCodes.Status409Conflict,
+                Title = "Document retention state was modified concurrently.",
+                Detail = "The document's retention state was changed by another request. Reload and try again.",
+            });
+        }
+    }
+
+    [HttpPost("/api/documents/{documentId:guid}/disposition-requests/{requestId:guid}/approve")]
+    [Authorize(DisposeCapability)]
+    [ProducesResponseType<DispositionRequestResponse>(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]
+    public async Task<ActionResult<DispositionRequestResponse>> ApproveDispositionRequest(
+        Guid documentId,
+        Guid requestId,
+        [FromBody] ApproveDispositionRequestRequest request,
+        CancellationToken cancellationToken)
+    {
+        if (!Guid.TryParse(User.FindFirstValue(ClaimTypes.NameIdentifier), out var actorId))
+        {
+            return Unauthorized();
+        }
+
+        try
+        {
+            return Ok(await dispositionRequestService.ApproveAsync(requestId, request, actorId, cancellationToken));
+        }
+        catch (DispositionRequestNotFoundException exception)
+        {
+            return NotFound(new ProblemDetails
+            {
+                Status = StatusCodes.Status404NotFound,
+                Title = "Disposition request not found.",
+                Detail = exception.Message,
+            });
+        }
+        catch (DocumentNotFoundException exception)
+        {
+            return NotFound(new ProblemDetails
+            {
+                Status = StatusCodes.Status404NotFound,
+                Title = "Document not found.",
+                Detail = exception.Message,
+            });
+        }
+        catch (InvalidOperationException exception)
+        {
+            return Conflict(new ProblemDetails
+            {
+                Status = StatusCodes.Status409Conflict,
+                Title = "Disposition request cannot be approved.",
+                Detail = exception.Message,
+            });
+        }
+        catch (DbUpdateConcurrencyException)
+        {
+            return Conflict(new ProblemDetails
+            {
+                Status = StatusCodes.Status409Conflict,
+                Title = "Disposition request was modified concurrently.",
+                Detail = "The disposition request was changed by another request. Reload and try again.",
+            });
+        }
+    }
+
+    [HttpPost("/api/documents/{documentId:guid}/disposition-requests/{requestId:guid}/reject")]
+    [Authorize(DisposeCapability)]
+    [ProducesResponseType<DispositionRequestResponse>(StatusCodes.Status200OK)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]
+    public async Task<ActionResult<DispositionRequestResponse>> RejectDispositionRequest(
+        Guid documentId,
+        Guid requestId,
+        [FromBody] RejectDispositionRequestRequest request,
+        CancellationToken cancellationToken)
+    {
+        if (!Guid.TryParse(User.FindFirstValue(ClaimTypes.NameIdentifier), out var actorId))
+        {
+            return Unauthorized();
+        }
+
+        try
+        {
+            return Ok(await dispositionRequestService.RejectAsync(requestId, request, actorId, cancellationToken));
+        }
+        catch (DispositionRequestNotFoundException exception)
+        {
+            return NotFound(new ProblemDetails
+            {
+                Status = StatusCodes.Status404NotFound,
+                Title = "Disposition request not found.",
+                Detail = exception.Message,
+            });
+        }
+        catch (DocumentNotFoundException exception)
+        {
+            return NotFound(new ProblemDetails
+            {
+                Status = StatusCodes.Status404NotFound,
+                Title = "Document not found.",
+                Detail = exception.Message,
+            });
+        }
+        catch (ArgumentException exception)
+        {
+            return BadRequest(new ProblemDetails
+            {
+                Status = StatusCodes.Status400BadRequest,
+                Title = "One or more validation errors occurred.",
+                Detail = exception.Message,
+            });
+        }
+        catch (InvalidOperationException exception)
+        {
+            return Conflict(new ProblemDetails
+            {
+                Status = StatusCodes.Status409Conflict,
+                Title = "Disposition request cannot be rejected.",
+                Detail = exception.Message,
+            });
+        }
+        catch (DbUpdateConcurrencyException)
+        {
+            return Conflict(new ProblemDetails
+            {
+                Status = StatusCodes.Status409Conflict,
+                Title = "Disposition request was modified concurrently.",
+                Detail = "The disposition request was changed by another request. Reload and try again.",
             });
         }
     }

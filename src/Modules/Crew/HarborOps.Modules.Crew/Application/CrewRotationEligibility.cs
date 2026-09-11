@@ -13,6 +13,8 @@ internal static class CrewRotationEligibility
         DbContext dbContext,
         Guid assignedCrewMemberId,
         Guid relievingCrewMemberId,
+        DateOnly reliefStartDate,
+        DateOnly reliefEndDate,
         CancellationToken cancellationToken)
     {
         if (relievingCrewMemberId == assignedCrewMemberId)
@@ -41,6 +43,15 @@ internal static class CrewRotationEligibility
         if (relievingMemberHasOpenAssignment)
         {
             throw new RelievingCrewMemberUnavailableException(relievingCrewMemberId);
+        }
+
+        var unavailability = await CrewAvailabilityOverlap.FindApprovedUnavailabilityAsync(
+            dbContext, relievingCrewMemberId, reliefStartDate, reliefEndDate, cancellationToken);
+
+        if (unavailability is { } hit)
+        {
+            throw new CrewMemberUnavailableException(
+                relievingCrewMemberId, hit.StartDate, hit.EndDate, "ApprovedUnavailability");
         }
     }
 }

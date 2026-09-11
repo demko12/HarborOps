@@ -56,6 +56,11 @@ internal sealed class VoyageStop
 
     public string Status { get; private set; } = null!;
 
+    internal bool IsAwaitingDeparture =>
+        string.Equals(Status, ArrivedStatus, StringComparison.Ordinal)
+        && Ata is not null
+        && Atd is null;
+
     internal DateTime CurrentEta => RevisedEta ?? Eta;
 
     internal DateTime CurrentEtd => RevisedEtd ?? Etd;
@@ -142,9 +147,7 @@ internal sealed class VoyageStop
 
     internal void RecordDeparture(DateTime atdUtc)
     {
-        if (!string.Equals(Status, ArrivedStatus, StringComparison.Ordinal)
-            || Ata is null
-            || Atd is not null)
+        if (!IsAwaitingDeparture)
         {
             throw new VoyageStopNotArrivedException(Id, Status);
         }

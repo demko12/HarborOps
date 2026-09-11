@@ -106,10 +106,16 @@ internal sealed class CargoBookingsApiClient(HttpClient httpClient)
 
     internal Task<CargoApiResult<CargoContainerList>> GetContainersAsync(
         Guid bookingId,
+        CancellationToken cancellationToken) =>
+        GetContainersAsync(bookingId, 1, cancellationToken);
+
+    internal Task<CargoApiResult<CargoContainerList>> GetContainersAsync(
+        Guid bookingId,
+        int pageNumber,
         CancellationToken cancellationToken)
     {
         return GetAsync<CargoContainerList>(
-            $"{BasePath}/{bookingId}/containers",
+            $"{BasePath}/{bookingId}/containers?pageNumber={pageNumber}&pageSize=15",
             "Unable to load the container manifest",
             ReviewAccessDetail,
             cancellationToken);
@@ -126,6 +132,30 @@ internal sealed class CargoBookingsApiClient(HttpClient httpClient)
             "Unable to add the container",
             cancellationToken);
     }
+
+    internal Task<HttpResponseMessage> DownloadManifestTemplateAsync(
+        string format,
+        CancellationToken cancellationToken) =>
+        httpClient.GetAsync($"api/cargo/container-manifest-template?format={Uri.EscapeDataString(format)}", cancellationToken);
+
+    internal Task<CargoApiResult<UpdatedCargoContainer>> UpdateContainerAsync(
+        Guid bookingId,
+        Guid containerId,
+        UpdateCargoContainerWebRequest request,
+        CancellationToken cancellationToken)
+    {
+        return PutAsync<UpdatedCargoContainer>(
+            $"{BasePath}/{bookingId}/containers/{containerId}",
+            request,
+            "Unable to update the container",
+            cancellationToken);
+    }
+
+    internal Task<CargoApiResult<ContainerManifestPreview>> PreviewContainerManifestAsync(Guid bookingId, Stream stream, string fileName, CancellationToken cancellationToken)
+        => SendManifestAsync<ContainerManifestPreview>($"{BasePath}/{bookingId}/containers/import/preview", stream, fileName, "Unable to preview the manifest", cancellationToken);
+
+    internal Task<CargoApiResult<ImportedContainerManifest>> ImportContainerManifestAsync(Guid bookingId, Stream stream, string fileName, CancellationToken cancellationToken)
+        => SendManifestAsync<ImportedContainerManifest>($"{BasePath}/{bookingId}/containers/import", stream, fileName, "Unable to import the manifest", cancellationToken);
 
     internal Task<CargoApiResult<CargoOperationList>> GetOperationsAsync(
         Guid bookingId,
@@ -370,6 +400,14 @@ internal sealed class CargoBookingsApiClient(HttpClient httpClient)
         {
             return new CargoApiResult<T>(default, Unavailable());
         }
+    }
+
+    private async Task<CargoApiResult<T>> SendManifestAsync<T>(string path, Stream stream, string fileName, string failureTitle, CancellationToken cancellationToken)
+    {
+        using var content = new MultipartFormDataContent();
+        using var file = new StreamContent(stream);
+        content.Add(file, "file", fileName);
+        return await SendPostAsync<T>(path, content, failureTitle, cancellationToken);
     }
 
     private async Task<CargoApiResult<T>> PutAsync<T>(

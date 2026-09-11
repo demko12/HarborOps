@@ -177,7 +177,11 @@ internal sealed record VoyageItineraryStopModel(
     DateTime? Atd,
     string Status,
     decimal? Latitude = null,
-    decimal? Longitude = null);
+    decimal? Longitude = null,
+    string? ClearanceStatus = null,
+    int ClearanceRequiredItemCount = 0,
+    int ClearanceRequiredResolvedCount = 0,
+    int ClearanceOverdueRequiredItemCount = 0);
 
 internal sealed record VoyageDelayModel(
     Guid DelayId,
@@ -189,6 +193,7 @@ internal sealed record VoyageDelayModel(
 
 internal sealed record VoyageItinerary(
     Guid VoyageId,
+    Guid VesselId,
     IReadOnlyList<VoyageItineraryStopModel> Stops,
     IReadOnlyList<VoyageDelayModel> Delays);
 
@@ -376,3 +381,98 @@ internal sealed record VoyageEstimateRevisions(
     IReadOnlyList<VoyageEstimateRevisionModel> Revisions);
 
 internal sealed record EstimateRevisionAlert(Guid RevisionBatchId, bool AlertCreated);
+
+internal sealed record PortCallClearanceProgressModel(
+    int TotalItemCount,
+    int RequiredItemCount,
+    int RequiredResolvedCount,
+    int RequiredPendingCount,
+    int OverdueRequiredItemCount,
+    int OptionalItemCount,
+    int OptionalPendingCount,
+    int ClearedCount,
+    int WaivedCount,
+    bool CanComplete);
+
+internal sealed record PortCallClearanceItemModel(
+    Guid ItemId,
+    string Category,
+    string Title,
+    bool IsRequired,
+    DateTime? DueAtUtc,
+    string? AuthorityReference,
+    Guid? EvidenceDocumentId,
+    string Status,
+    bool IsOverdue,
+    string? DecisionReason,
+    Guid? DecidedByUserId,
+    DateTime? DecidedAtUtc,
+    Guid AddedByUserId,
+    DateTime AddedAtUtc);
+
+internal sealed record PortCallClearanceEventModel(
+    Guid EventId,
+    Guid? ItemId,
+    int Sequence,
+    string EventType,
+    string? Reason,
+    Guid ActorUserId,
+    DateTime OccurredAtUtc);
+
+internal sealed record PortCallClearance(
+    Guid VoyageId,
+    Guid StopId,
+    Guid ClearanceId,
+    string Status,
+    Guid? CompletedByUserId,
+    DateTime? CompletedAtUtc,
+    DateTime EvaluatedAtUtc,
+    PortCallClearanceProgressModel Progress,
+    IReadOnlyList<PortCallClearanceItemModel> Items,
+    IReadOnlyList<PortCallClearanceEventModel> History);
+
+internal sealed record AddClearanceItemWebRequest(
+    string? Category,
+    string? Title,
+    bool IsRequired,
+    DateTime? DueAtUtc,
+    string? AuthorityReference,
+    Guid? EvidenceDocumentId);
+
+internal sealed record UpdateClearanceItemWebRequest(
+    string? Category,
+    string? Title,
+    bool IsRequired,
+    DateTime? DueAtUtc,
+    string? AuthorityReference,
+    Guid? EvidenceDocumentId);
+
+internal sealed record ClearClearanceItemWebRequest(
+    string? AuthorityReference,
+    Guid? EvidenceDocumentId);
+
+internal sealed record WaiveClearanceItemWebRequest(string? Reason);
+
+internal sealed record ReopenClearanceWebRequest(string? Reason);
+
+internal sealed record AddedClearanceItem(
+    Guid ItemId,
+    Guid ClearanceId,
+    string Status,
+    Guid AddedByUserId,
+    DateTime AddedAtUtc);
+
+internal sealed record ClearanceItemDecision(
+    Guid ItemId,
+    string Status,
+    Guid DecidedByUserId,
+    DateTime DecidedAtUtc);
+
+internal sealed record ClearanceStatusChange(
+    Guid ClearanceId,
+    Guid StopId,
+    string Status,
+    Guid ActorUserId,
+    DateTime OccurredAtUtc);
+
+internal sealed record ClearanceItemSaved();

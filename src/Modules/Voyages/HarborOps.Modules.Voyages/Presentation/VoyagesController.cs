@@ -27,7 +27,14 @@ public sealed class VoyagesController(
     IGetVoyageScheduleChangesQuery getVoyageScheduleChangesQuery,
     IGetBerthAvailabilityQuery getBerthAvailabilityQuery,
     ReplaceBerthAllocationService replaceBerthAllocationService,
-    IGetBerthAllocationHistoryQuery getBerthAllocationHistoryQuery)
+    IGetBerthAllocationHistoryQuery getBerthAllocationHistoryQuery,
+    IGetPortCallClearanceQuery getPortCallClearanceQuery,
+    AddPortCallClearanceItemService addPortCallClearanceItemService,
+    UpdatePortCallClearanceItemService updatePortCallClearanceItemService,
+    ClearPortCallClearanceItemService clearPortCallClearanceItemService,
+    WaivePortCallClearanceItemService waivePortCallClearanceItemService,
+    CompletePortCallClearanceService completePortCallClearanceService,
+    ReopenPortCallClearanceService reopenPortCallClearanceService)
     : ControllerBase
 {
     private const string ManageVoyagesPolicy = "voyages.manage";
@@ -556,6 +563,379 @@ public sealed class VoyagesController(
                 Detail = exception.Message,
             });
         }
+        catch (VoyageStopClearanceNotCompletedException exception)
+        {
+            return Conflict(new ProblemDetails
+            {
+                Status = StatusCodes.Status409Conflict,
+                Title = "The port-call clearance is not completed.",
+                Detail = exception.Message,
+            });
+        }
+        catch (PortCallClearanceConflictException exception)
+        {
+            return ConflictProblem("The voyage stop was modified concurrently.", exception.Message);
+        }
+    }
+
+    [HttpGet("{voyageId:guid}/stops/{stopId:guid}/clearance")]
+    [Authorize(ReadVoyagesPolicy)]
+    [ProducesResponseType<PortCallClearanceResponse>(StatusCodes.Status200OK)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<PortCallClearanceResponse>> GetPortCallClearance(
+        Guid voyageId,
+        Guid stopId,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            return Ok(await getPortCallClearanceQuery.GetAsync(voyageId, stopId, cancellationToken));
+        }
+        catch (VoyageNotFoundException exception)
+        {
+            return VoyageNotFound(exception);
+        }
+        catch (VoyageStopNotFoundException exception)
+        {
+            return VoyageStopNotFound(exception);
+        }
+        catch (PortCallClearanceNotFoundException exception)
+        {
+            return ClearanceNotFound(exception);
+        }
+    }
+
+    [HttpPost("{voyageId:guid}/stops/{stopId:guid}/clearance/items")]
+    [Authorize(ManageVoyagesPolicy)]
+    [ProducesResponseType<AddPortCallClearanceItemResponse>(StatusCodes.Status201Created)]
+    [ProducesResponseType<HttpValidationProblemDetails>(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]
+    public async Task<ActionResult<AddPortCallClearanceItemResponse>> AddPortCallClearanceItem(
+        Guid voyageId,
+        Guid stopId,
+        [FromBody] AddPortCallClearanceItemRequest request,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            var response = await addPortCallClearanceItemService.AddAsync(
+                voyageId,
+                stopId,
+                request,
+                GetActingUserId(),
+                cancellationToken);
+
+            return Created(
+                $"/api/voyages/{voyageId}/stops/{stopId}/clearance/items/{response.ItemId}",
+                response);
+        }
+        catch (PortCallClearanceValidationException exception)
+        {
+            return BadRequest(ToValidationProblem(exception.Errors));
+        }
+        catch (VoyageNotFoundException exception)
+        {
+            return VoyageNotFound(exception);
+        }
+        catch (VoyageStopNotFoundException exception)
+        {
+            return VoyageStopNotFound(exception);
+        }
+        catch (PortCallClearanceNotFoundException exception)
+        {
+            return ClearanceNotFound(exception);
+        }
+        catch (VoyageStopAlreadyDepartedException exception)
+        {
+            return StopAlreadyDeparted(exception);
+        }
+        catch (PortCallClearanceAlreadyCompletedException exception)
+        {
+            return ClearanceCompleted(exception);
+        }
+        catch (PortCallClearanceConflictException)
+        {
+            return ClearanceConcurrentChange();
+        }
+    }
+
+    [HttpPut("{voyageId:guid}/stops/{stopId:guid}/clearance/items/{itemId:guid}")]
+    [Authorize(ManageVoyagesPolicy)]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType<HttpValidationProblemDetails>(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]
+    public async Task<IActionResult> UpdatePortCallClearanceItem(
+        Guid voyageId,
+        Guid stopId,
+        Guid itemId,
+        [FromBody] UpdatePortCallClearanceItemRequest request,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            await updatePortCallClearanceItemService.UpdateAsync(
+                voyageId,
+                stopId,
+                itemId,
+                request,
+                GetActingUserId(),
+                cancellationToken);
+
+            return NoContent();
+        }
+        catch (PortCallClearanceValidationException exception)
+        {
+            return BadRequest(ToValidationProblem(exception.Errors));
+        }
+        catch (PortCallClearanceAlreadyCompletedException exception)
+        {
+            return ClearanceCompleted(exception);
+        }
+        catch (VoyageNotFoundException exception)
+        {
+            return VoyageNotFound(exception);
+        }
+        catch (VoyageStopNotFoundException exception)
+        {
+            return VoyageStopNotFound(exception);
+        }
+        catch (PortCallClearanceNotFoundException exception)
+        {
+            return ClearanceNotFound(exception);
+        }
+        catch (PortCallClearanceItemNotFoundException exception)
+        {
+            return ClearanceItemNotFound(exception);
+        }
+        catch (VoyageStopAlreadyDepartedException exception)
+        {
+            return StopAlreadyDeparted(exception);
+        }
+        catch (PortCallClearanceItemNotPendingException exception)
+        {
+            return ClearanceItemNotPending(exception);
+        }
+        catch (PortCallClearanceConflictException)
+        {
+            return ClearanceConcurrentChange();
+        }
+    }
+
+    [HttpPost("{voyageId:guid}/stops/{stopId:guid}/clearance/items/{itemId:guid}/clear")]
+    [Authorize(ManageVoyagesPolicy)]
+    [ProducesResponseType<PortCallClearanceItemDecisionResponse>(StatusCodes.Status200OK)]
+    [ProducesResponseType<HttpValidationProblemDetails>(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]
+    public async Task<ActionResult<PortCallClearanceItemDecisionResponse>> ClearPortCallClearanceItem(
+        Guid voyageId,
+        Guid stopId,
+        Guid itemId,
+        [FromBody] ClearPortCallClearanceItemRequest request,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            return Ok(await clearPortCallClearanceItemService.ClearAsync(
+                voyageId,
+                stopId,
+                itemId,
+                request,
+                GetActingUserId(),
+                cancellationToken));
+        }
+        catch (PortCallClearanceValidationException exception)
+        {
+            return BadRequest(ToValidationProblem(exception.Errors));
+        }
+        catch (VoyageNotFoundException exception)
+        {
+            return VoyageNotFound(exception);
+        }
+        catch (VoyageStopNotFoundException exception)
+        {
+            return VoyageStopNotFound(exception);
+        }
+        catch (PortCallClearanceNotFoundException exception)
+        {
+            return ClearanceNotFound(exception);
+        }
+        catch (PortCallClearanceItemNotFoundException exception)
+        {
+            return ClearanceItemNotFound(exception);
+        }
+        catch (VoyageStopAlreadyDepartedException exception)
+        {
+            return StopAlreadyDeparted(exception);
+        }
+        catch (PortCallClearanceItemNotPendingException exception)
+        {
+            return ClearanceItemNotPending(exception);
+        }
+        catch (PortCallClearanceConflictException)
+        {
+            return ClearanceConcurrentChange();
+        }
+    }
+
+    [HttpPost("{voyageId:guid}/stops/{stopId:guid}/clearance/items/{itemId:guid}/waive")]
+    [Authorize(ManageVoyagesPolicy)]
+    [ProducesResponseType<PortCallClearanceItemDecisionResponse>(StatusCodes.Status200OK)]
+    [ProducesResponseType<HttpValidationProblemDetails>(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]
+    public async Task<ActionResult<PortCallClearanceItemDecisionResponse>> WaivePortCallClearanceItem(
+        Guid voyageId,
+        Guid stopId,
+        Guid itemId,
+        [FromBody] WaivePortCallClearanceItemRequest request,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            return Ok(await waivePortCallClearanceItemService.WaiveAsync(
+                voyageId,
+                stopId,
+                itemId,
+                request,
+                GetActingUserId(),
+                cancellationToken));
+        }
+        catch (PortCallClearanceValidationException exception)
+        {
+            return BadRequest(ToValidationProblem(exception.Errors));
+        }
+        catch (VoyageNotFoundException exception)
+        {
+            return VoyageNotFound(exception);
+        }
+        catch (VoyageStopNotFoundException exception)
+        {
+            return VoyageStopNotFound(exception);
+        }
+        catch (PortCallClearanceNotFoundException exception)
+        {
+            return ClearanceNotFound(exception);
+        }
+        catch (PortCallClearanceItemNotFoundException exception)
+        {
+            return ClearanceItemNotFound(exception);
+        }
+        catch (VoyageStopAlreadyDepartedException exception)
+        {
+            return StopAlreadyDeparted(exception);
+        }
+        catch (PortCallClearanceItemNotPendingException exception)
+        {
+            return ClearanceItemNotPending(exception);
+        }
+        catch (PortCallClearanceConflictException)
+        {
+            return ClearanceConcurrentChange();
+        }
+    }
+
+    [HttpPost("{voyageId:guid}/stops/{stopId:guid}/clearance/complete")]
+    [Authorize(ManageVoyagesPolicy)]
+    [ProducesResponseType<PortCallClearanceStatusResponse>(StatusCodes.Status200OK)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]
+    public async Task<ActionResult<PortCallClearanceStatusResponse>> CompletePortCallClearance(
+        Guid voyageId,
+        Guid stopId,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            return Ok(await completePortCallClearanceService.CompleteAsync(
+                voyageId,
+                stopId,
+                GetActingUserId(),
+                cancellationToken));
+        }
+        catch (VoyageNotFoundException exception)
+        {
+            return VoyageNotFound(exception);
+        }
+        catch (VoyageStopNotFoundException exception)
+        {
+            return VoyageStopNotFound(exception);
+        }
+        catch (PortCallClearanceNotFoundException exception)
+        {
+            return ClearanceNotFound(exception);
+        }
+        catch (VoyageStopAlreadyDepartedException exception)
+        {
+            return StopAlreadyDeparted(exception);
+        }
+        catch (PortCallClearanceAlreadyCompletedException exception)
+        {
+            return ConflictProblem("The port-call clearance is already completed.", exception.Message);
+        }
+        catch (PortCallClearanceNotCompletableException exception)
+        {
+            return ConflictProblem("The port-call clearance is not ready to be completed.", exception.Message);
+        }
+        catch (PortCallClearanceConflictException)
+        {
+            return ClearanceConcurrentChange();
+        }
+    }
+
+    [HttpPost("{voyageId:guid}/stops/{stopId:guid}/clearance/reopen")]
+    [Authorize(ManageVoyagesPolicy)]
+    [ProducesResponseType<PortCallClearanceStatusResponse>(StatusCodes.Status200OK)]
+    [ProducesResponseType<HttpValidationProblemDetails>(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]
+    public async Task<ActionResult<PortCallClearanceStatusResponse>> ReopenPortCallClearance(
+        Guid voyageId,
+        Guid stopId,
+        [FromBody] ReopenPortCallClearanceRequest request,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            return Ok(await reopenPortCallClearanceService.ReopenAsync(
+                voyageId,
+                stopId,
+                request,
+                GetActingUserId(),
+                cancellationToken));
+        }
+        catch (PortCallClearanceValidationException exception)
+        {
+            return BadRequest(ToValidationProblem(exception.Errors));
+        }
+        catch (VoyageNotFoundException exception)
+        {
+            return VoyageNotFound(exception);
+        }
+        catch (VoyageStopNotFoundException exception)
+        {
+            return VoyageStopNotFound(exception);
+        }
+        catch (PortCallClearanceNotFoundException exception)
+        {
+            return ClearanceNotFound(exception);
+        }
+        catch (VoyageStopAlreadyDepartedException exception)
+        {
+            return StopAlreadyDeparted(exception);
+        }
+        catch (PortCallClearanceNotCompletedException exception)
+        {
+            return ConflictProblem(
+                "The port-call clearance cannot be reopened from its current status.",
+                exception.Message);
+        }
+        catch (PortCallClearanceConflictException)
+        {
+            return ClearanceConcurrentChange();
+        }
     }
 
     [HttpPost("{voyageId:guid}/delays")]
@@ -818,6 +1198,53 @@ public sealed class VoyagesController(
     }
 
     private Guid GetActingUserId() => Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+
+    private NotFoundObjectResult VoyageNotFound(VoyageNotFoundException exception) =>
+        NotFoundProblem("The requested voyage was not found.", exception.Message);
+
+    private NotFoundObjectResult VoyageStopNotFound(VoyageStopNotFoundException exception) =>
+        NotFoundProblem("The requested voyage stop was not found.", exception.Message);
+
+    private NotFoundObjectResult ClearanceNotFound(PortCallClearanceNotFoundException exception) =>
+        NotFoundProblem("The requested port-call clearance was not found.", exception.Message);
+
+    private NotFoundObjectResult ClearanceItemNotFound(
+        PortCallClearanceItemNotFoundException exception) =>
+        NotFoundProblem("The requested clearance item was not found.", exception.Message);
+
+    private ConflictObjectResult StopAlreadyDeparted(VoyageStopAlreadyDepartedException exception) =>
+        ConflictProblem("The voyage stop has already departed.", exception.Message);
+
+    private ConflictObjectResult ClearanceItemNotPending(
+        PortCallClearanceItemNotPendingException exception) =>
+        ConflictProblem("The clearance item is no longer pending.", exception.Message);
+
+    private ConflictObjectResult ClearanceCompleted(
+        PortCallClearanceAlreadyCompletedException exception) =>
+        ConflictProblem(
+            "The port-call clearance is completed. Reopen it before changing its items.",
+            exception.Message);
+
+    private ConflictObjectResult ClearanceConcurrentChange() =>
+        ConflictProblem(
+            "The port-call clearance was modified concurrently.",
+            "The clearance was changed by another request. Reload and try again.");
+
+    private NotFoundObjectResult NotFoundProblem(string title, string detail) =>
+        NotFound(new ProblemDetails
+        {
+            Status = StatusCodes.Status404NotFound,
+            Title = title,
+            Detail = detail,
+        });
+
+    private ConflictObjectResult ConflictProblem(string title, string detail) =>
+        Conflict(new ProblemDetails
+        {
+            Status = StatusCodes.Status409Conflict,
+            Title = title,
+            Detail = detail,
+        });
 
     private static HttpValidationProblemDetails ToValidationProblem(
         IReadOnlyDictionary<string, string[]> errors)

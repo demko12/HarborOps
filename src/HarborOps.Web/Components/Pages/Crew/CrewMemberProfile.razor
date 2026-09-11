@@ -196,6 +196,152 @@
             }
         </section>
 
+        <section class="crew-profile-card" aria-labelledby="crew-profile-availability-title">
+            <div class="crew-profile-card-heading">
+                <div>
+                    <h2 id="crew-profile-availability-title">Availability</h2>
+                    <p>@availabilityItems.Count planned unavailability period(s)</p>
+                </div>
+                <span class="bi bi-calendar-x" aria-hidden="true"></span>
+            </div>
+
+            @if (CanManage)
+            {
+                @if (isRequestingUnavailability)
+                {
+                    <form class="crew-profile-form-grid" @onsubmit="SubmitUnavailabilityRequestAsync" @onsubmit:preventDefault="true">
+                        <div class="crew-profile-form-field">
+                            <label for="availability-type">Type</label>
+                            <select id="availability-type" @bind="availabilityRequestForm.Type">
+                                @foreach (var option in AvailabilityTypeOptions)
+                                {
+                                    <option value="@option">@AvailabilityTypeLabel(option)</option>
+                                }
+                            </select>
+                        </div>
+                        <div class="crew-profile-form-field">
+                            <label for="availability-start">Start date</label>
+                            <input id="availability-start" type="date" @bind="availabilityRequestForm.StartDate" />
+                        </div>
+                        <div class="crew-profile-form-field">
+                            <label for="availability-end">End date</label>
+                            <input id="availability-end" type="date" @bind="availabilityRequestForm.EndDate" />
+                        </div>
+                        <div class="crew-profile-form-field crew-profile-form-field-wide">
+                            <label for="availability-reason">Reason</label>
+                            <input id="availability-reason" type="text" @bind="availabilityRequestForm.Reason" maxlength="500" />
+                        </div>
+                        <div class="crew-profile-form-field crew-profile-form-field-wide">
+                            <label for="availability-notes">Notes</label>
+                            <input id="availability-notes" type="text" @bind="availabilityRequestForm.Notes" maxlength="1000" placeholder="Optional" />
+                        </div>
+                        <button type="submit" class="crew-profile-form-submit" disabled="@isSubmittingAvailabilityRequest">
+                            @(isSubmittingAvailabilityRequest ? "Submitting..." : "Submit request")
+                        </button>
+                        <button type="button" class="crew-rotation-edit-toggle" @onclick="CancelUnavailabilityRequest">Cancel</button>
+                    </form>
+
+                    @if (availabilityRequestConflict is not null)
+                    {
+                        <div class="crew-profile-form-conflict" role="alert">@availabilityRequestConflict</div>
+                    }
+                    @if (availabilityRequestFieldErrors.Count > 0)
+                    {
+                        <ul class="crew-profile-form-field-errors" role="alert">
+                            @foreach (var error in availabilityRequestFieldErrors) { <li>@error</li> }
+                        </ul>
+                    }
+                    @if (availabilityRequestGeneralError is not null)
+                    {
+                        <div class="crew-profile-form-error" role="alert">@availabilityRequestGeneralError</div>
+                    }
+                }
+                else
+                {
+                    <button type="button" class="crew-profile-edit-toggle crew-availability-request-toggle" @onclick="RequestUnavailability">Request unavailability</button>
+                }
+            }
+
+            @if (isLoadingAvailability)
+            {
+                <LoadingState Message="Loading availability..." />
+            }
+            else if (availabilityFailure is not null)
+            {
+                <ApiErrorState Title="@availabilityFailure.Title" Message="@availabilityFailure.Message" OnRetry="LoadAvailabilityAsync" />
+            }
+            else if (availabilityItems.Count == 0)
+            {
+                <EmptyState Title="No planned unavailability on record" Message="Approved unavailability blocks new assignments and reliefs over the same dates." />
+            }
+            else
+            {
+                <div class="crew-profile-list">
+                    @foreach (var item in availabilityItems)
+                    {
+                        var isExpanded = expandedAvailabilityIds.Contains(item.Id);
+                        <article class="crew-profile-row crew-availability-profile-row" @key="item.Id">
+                            <button type="button" class="crew-availability-profile-row-heading" aria-expanded="@(isExpanded ? "true" : "false")" @onclick="() => ToggleAvailabilityExpanded(item.Id)">
+                                <span><strong>@AvailabilityTypeLabel(item.Type)</strong> &middot; @item.StartDate.ToString("dd MMM yyyy") &ndash; @item.EndDate.ToString("dd MMM yyyy")</span>
+                                <span class="crew-availability-status @($"crew-availability-status-{item.Status.ToLowerInvariant()}")">@item.Status</span>
+                            </button>
+
+                            @if (isExpanded)
+                            {
+                                <div class="crew-availability-profile-detail">
+                                    <p class="crew-availability-profile-reason">@item.Reason</p>
+                                    @if (!string.IsNullOrWhiteSpace(item.Notes)) { <p class="crew-availability-profile-notes">@item.Notes</p> }
+
+                                    @if (item.History.Count > 0)
+                                    {
+                                        <ol class="crew-availability-profile-history">
+                                            @foreach (var entry in item.History)
+                                            {
+                                                <li>
+                                                    <span>@entry.EventType</span>
+                                                    <span>@entry.OccurredAtUtc.ToString("dd MMM yyyy HH:mm") UTC</span>
+                                                    @if (!string.IsNullOrWhiteSpace(entry.Reason)) { <span class="crew-availability-profile-history-reason">@entry.Reason</span> }
+                                                </li>
+                                            }
+                                        </ol>
+                                    }
+
+                                    @if (CanManage && item.Status is "Requested" or "Approved")
+                                    {
+                                        <div class="crew-availability-profile-actions">
+                                            @if (item.Status == "Requested")
+                                            {
+                                                <button type="button" class="crew-availability-approve" disabled="@isSubmittingAvailabilityDecision" @onclick="() => ApproveAvailabilityAsync(item.Id)">Approve</button>
+                                                <button type="button" class="crew-availability-reject" disabled="@isSubmittingAvailabilityDecision" @onclick="@(() => BeginAvailabilityDecision(item.Id, "reject"))">Reject</button>
+                                            }
+                                            <button type="button" class="crew-availability-cancel" disabled="@isSubmittingAvailabilityDecision" @onclick="@(() => BeginAvailabilityDecision(item.Id, "cancel"))">Cancel</button>
+                                        </div>
+
+                                        @if (availabilityDecisionId == item.Id)
+                                        {
+                                            <form class="crew-availability-decision-form" @onsubmit="SubmitAvailabilityDecisionAsync" @onsubmit:preventDefault="true">
+                                                <label for="availability-decision-reason">@(availabilityDecisionKind == "reject" ? "Rejection reason" : "Cancellation reason")</label>
+                                                <input id="availability-decision-reason" type="text" @bind="availabilityDecisionReason" maxlength="500" />
+                                                <div class="crew-availability-decision-form-actions">
+                                                    <button type="submit" class="crew-availability-decision-submit" disabled="@isSubmittingAvailabilityDecision">Confirm</button>
+                                                    <button type="button" @onclick="CancelAvailabilityDecision">Keep</button>
+                                                </div>
+                                            </form>
+                                        }
+
+                                        @if (availabilityActionId == item.Id && availabilityActionError is not null)
+                                        {
+                                            <div class="crew-profile-form-error" role="alert">@availabilityActionError</div>
+                                        }
+                                    }
+                                </div>
+                            }
+                        </article>
+                    }
+                </div>
+            }
+        </section>
+
         <div class="crew-profile-workspace">
             <section class="crew-profile-card" aria-labelledby="crew-profile-certificates-title">
                 <div class="crew-profile-card-heading">

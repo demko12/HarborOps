@@ -28,6 +28,7 @@ public partial class AssignToVesselForm
     private string? successMessage;
     private string? conflictMessage;
     private string? generalError;
+    private string? availabilityHint;
     private IReadOnlyList<string> fieldErrors = [];
 
     private IReadOnlyList<CrewPositionListItemResponse> positionOptions = [];
@@ -65,6 +66,47 @@ public partial class AssignToVesselForm
         model.RankId = Guid.TryParse(e.Value?.ToString(), out var rankId) ? rankId : null;
     }
 
+    private async Task CheckAvailabilityConflictsAsync()
+    {
+        availabilityHint = null;
+
+        if (model.SignOnDate is not { } signOn || model.PlannedSignOffDate is not { } plannedSignOff || plannedSignOff < signOn)
+        {
+            return;
+        }
+
+        var result = await CrewApi.GetAvailabilityConflictsAsync(CrewMemberId, signOn, plannedSignOff, CancellationToken.None);
+        if (!result.IsSuccess || result.Value is null)
+        {
+            return;
+        }
+
+        var unavailability = result.Value.Conflicts
+            .Where(conflict => conflict.RecordType == "ApprovedUnavailability")
+            .ToList();
+
+        if (unavailability.Count == 0)
+        {
+            return;
+        }
+
+        var period = unavailability[0];
+        availabilityHint =
+            $"{CrewMemberName} has approved unavailability "
+            + $"{period.StartDate:dd MMM yyyy} – {period.EndDate:dd MMM yyyy}"
+            + $"{(string.IsNullOrWhiteSpace(period.Detail) ? string.Empty : $" ({AvailabilityTypeLabel(period.Detail!)})")}. "
+            + "Assigning over these dates will be rejected.";
+    }
+
+    private static string AvailabilityTypeLabel(string type) => type switch
+    {
+        "AnnualLeave" => "annual leave",
+        "SickLeave" => "sick leave",
+        "Training" => "training",
+        "OtherUnavailable" => "other",
+        _ => type,
+    };
+
     internal static string FormatIsoDate(DateOnly value)
     {
         return value.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
@@ -81,6 +123,7 @@ public partial class AssignToVesselForm
         generalError = null;
         fieldErrors = [];
         successMessage = null;
+        availabilityHint = null;
         isSubmitting = true;
 
         var request = new RegisterCrewAssignmentRequest
@@ -103,8 +146,11 @@ public partial class AssignToVesselForm
             if (failure.IsConflict)
             {
                 // The server reports the conflict by crew member ID; the page already
-                // knows the member's name, so show that instead of a raw GUID.
-                conflictMessage = $"{CrewMemberName} already has an open assignment.";
+                // knows the member's name, so show that instead of a raw GUID. A 409 can
+                // also mean the member has approved unavailability over the chosen dates.
+                conflictMessage = failure.Title == "Crew member is unavailable."
+                    ? $"{CrewMemberName} has approved unavailability over the selected dates. Choose dates that do not overlap."
+                    : $"{CrewMemberName} already has an open assignment.";
             }
             else if (failure.IsValidation)
             {

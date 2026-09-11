@@ -236,6 +236,41 @@ public sealed class VoyageItineraryEndpointTests : IntegrationTestBase
 
         await Task.Delay(TimeSpan.FromMilliseconds(20), CancellationToken.None);
 
+        using var blockedDepartureResponse = await client.PostAsJsonAsync(
+            StopDepartureUri(voyage, firstStopId),
+            new RecordStopDepartureRequest { ActualDepartureUtc = DateTime.UtcNow },
+            CancellationToken.None);
+
+        Assert.Equal(HttpStatusCode.Conflict, blockedDepartureResponse.StatusCode);
+
+        using var addItemResponse = await client.PostAsJsonAsync(
+            ClearanceItemsUri(voyage, firstStopId),
+            new AddPortCallClearanceItemRequest
+            {
+                Category = PortCallClearanceCategory.Customs,
+                Title = "Customs declaration",
+                IsRequired = true,
+            },
+            CancellationToken.None);
+        var addedItem = await addItemResponse.Content
+            .ReadFromJsonAsync<AddPortCallClearanceItemResponse>(CancellationToken.None);
+
+        Assert.Equal(HttpStatusCode.Created, addItemResponse.StatusCode);
+
+        using var clearItemResponse = await client.PostAsJsonAsync(
+            ClearanceItemDecisionUri(voyage, firstStopId, addedItem!.ItemId, "clear"),
+            new ClearPortCallClearanceItemRequest { AuthorityReference = "CUS-77" },
+            CancellationToken.None);
+
+        Assert.Equal(HttpStatusCode.OK, clearItemResponse.StatusCode);
+
+        using var completeResponse = await client.PostAsJsonAsync(
+            ClearanceCompleteUri(voyage, firstStopId),
+            new { },
+            CancellationToken.None);
+
+        Assert.Equal(HttpStatusCode.OK, completeResponse.StatusCode);
+
         using var departureResponse = await client.PostAsJsonAsync(
             StopDepartureUri(voyage, firstStopId),
             new RecordStopDepartureRequest { ActualDepartureUtc = DateTime.UtcNow },
@@ -414,6 +449,31 @@ public sealed class VoyageItineraryEndpointTests : IntegrationTestBase
     private static Uri StopDepartureUri(Guid voyageId, Guid stopId)
     {
         return new Uri($"/api/voyages/{voyageId}/stops/{stopId}/departure", UriKind.Relative);
+    }
+
+    private static Uri ClearanceItemsUri(Guid voyageId, Guid stopId)
+    {
+        return new Uri(
+            $"/api/voyages/{voyageId}/stops/{stopId}/clearance/items",
+            UriKind.Relative);
+    }
+
+    private static Uri ClearanceItemDecisionUri(
+        Guid voyageId,
+        Guid stopId,
+        Guid itemId,
+        string decision)
+    {
+        return new Uri(
+            $"/api/voyages/{voyageId}/stops/{stopId}/clearance/items/{itemId}/{decision}",
+            UriKind.Relative);
+    }
+
+    private static Uri ClearanceCompleteUri(Guid voyageId, Guid stopId)
+    {
+        return new Uri(
+            $"/api/voyages/{voyageId}/stops/{stopId}/clearance/complete",
+            UriKind.Relative);
     }
 
     private static Uri DepartureUri(Guid voyageId)

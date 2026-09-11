@@ -3,6 +3,7 @@ using System.Security.Claims;
 using System.Text;
 using Bunit;
 using HarborOps.Web.Api;
+using HarborOps.Web.Api.Documents;
 using HarborOps.Web.Api.Voyages;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Http;
@@ -23,6 +24,8 @@ public sealed class VoyageTimelinePageTests : BunitContext
 
     private readonly List<Uri> requestedUris = [];
     private readonly List<(string Path, string Body)> writes = [];
+
+    private Func<HttpRequestMessage, Task<HttpResponseMessage>>? interceptAll;
 
     private Func<HttpRequestMessage, Task<HttpResponseMessage>> respond =
         _ => Json(HttpStatusCode.OK, Itinerary());
@@ -385,6 +388,148 @@ public sealed class VoyageTimelinePageTests : BunitContext
     }
 
     [Fact]
+    public void Each_port_call_shows_its_clearance_status_and_required_progress()
+    {
+        var page = RenderTimelinePage();
+
+        Assert.Equal(
+            "Pending",
+            page.FindAll("[data-testid=timeline-clearance-status]")[0].TextContent.Trim());
+        Assert.Equal(
+            "1/2 required",
+            page.FindAll("[data-testid=timeline-clearance-progress]")[0].TextContent.Trim());
+    }
+
+    [Fact]
+    public void Departure_is_blocked_with_an_explanation_while_the_clearance_is_not_completed()
+    {
+        respond = _ => Json(HttpStatusCode.OK, Itinerary(firstStopStatus: "Arrived"));
+
+        var page = RenderTimelinePage();
+
+        Assert.True(page.Find("[data-testid=timeline-depart]").HasAttribute("disabled"));
+        Assert.Contains(
+            "1 required clearance item(s) are neither cleared nor waived",
+            page.Find("[data-testid=timeline-departure-blocked]").TextContent,
+            StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Departure_is_available_once_the_clearance_is_completed()
+    {
+        respond = _ => Json(HttpStatusCode.OK, Itinerary(
+            firstStopStatus: "Arrived",
+            firstStopClearanceStatus: "Completed",
+            firstStopClearanceResolved: 2));
+
+        var page = RenderTimelinePage();
+
+        Assert.False(page.Find("[data-testid=timeline-depart]").HasAttribute("disabled"));
+        Assert.Empty(page.FindAll("[data-testid=timeline-departure-blocked]"));
+    }
+
+    [Fact]
+    public void Departure_stays_blocked_when_a_completed_clearance_is_reopened()
+    {
+        respond = _ => Json(HttpStatusCode.OK, Itinerary(
+            firstStopStatus: "Arrived",
+            firstStopClearanceStatus: "Reopened",
+            firstStopClearanceResolved: 2));
+
+        var page = RenderTimelinePage();
+
+        Assert.True(page.Find("[data-testid=timeline-depart]").HasAttribute("disabled"));
+        Assert.Contains(
+            "blocked until the port-call clearance is completed",
+            page.Find("[data-testid=timeline-departure-blocked]").TextContent,
+            StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void The_clearance_panel_is_toggled_from_the_port_call_row()
+    {
+        var page = RenderTimelinePage();
+
+        Assert.Empty(page.FindAll(".clearance-panel"));
+
+        page.FindAll("[data-testid=timeline-clearance-toggle]")[0].Click();
+
+        page.WaitForAssertion(() => Assert.NotEmpty(page.FindAll(".clearance-panel")));
+        Assert.Contains(
+            $"/api/voyages/{VoyageId}/stops/{StopOneId}/clearance",
+            requestedUris.Select(uri => uri.AbsolutePath));
+
+        page.FindAll("[data-testid=timeline-clearance-toggle]")[0].Click();
+
+        page.WaitForAssertion(() => Assert.Empty(page.FindAll(".clearance-panel")));
+    }
+
+    [Fact]
+    public void Read_only_users_still_see_the_clearance_progress_column()
+    {
+        var page = RenderTimelinePage(CurrentUserAuthorizationState.VoyagesReadPermission);
+
+        Assert.NotEmpty(page.FindAll("[data-testid=timeline-clearance-progress]"));
+        Assert.Empty(page.FindAll("[data-testid=timeline-depart]"));
+    }
+
+    [Fact]
+    public void Overdue_required_clearance_items_are_surfaced_on_the_port_call_row()
+    {
+        respond = _ => Json(HttpStatusCode.OK, Itinerary(firstStopClearanceOverdue: 2));
+
+        var page = RenderTimelinePage();
+
+        Assert.Equal(
+            "2 overdue",
+            page.FindAll("[data-testid=timeline-clearance-overdue]")[0].TextContent.Trim());
+    }
+
+    [Fact]
+    public void No_overdue_badge_is_shown_when_nothing_is_past_its_due_time()
+    {
+        var page = RenderTimelinePage();
+
+        Assert.Empty(page.FindAll("[data-testid=timeline-clearance-overdue]"));
+    }
+
+    [Fact]
+    public void The_itinerary_schedule_and_revisions_are_requested_concurrently()
+    {
+        var companionsStarted = new TaskCompletionSource();
+        var companions = 0;
+
+        interceptAll = request =>
+        {
+            var path = request.RequestUri!.AbsolutePath;
+
+            if (path.EndsWith("/itinerary", StringComparison.Ordinal))
+            {
+                return companionsStarted.Task.ContinueWith(
+                    _ => JsonResponse(HttpStatusCode.OK, Itinerary()),
+                    TaskScheduler.Default);
+            }
+
+            var body = path.EndsWith("/schedule-changes", StringComparison.Ordinal)
+                ? Schedule()
+                : EstimateRevisions();
+
+            if (Interlocked.Increment(ref companions) == 2)
+            {
+                companionsStarted.TrySetResult();
+            }
+
+            return Json(HttpStatusCode.OK, body);
+        };
+
+        var page = RenderTimelinePage();
+
+        page.WaitForAssertion(
+            () => Assert.NotEmpty(page.FindAll(".timeline-table")),
+            TimeSpan.FromSeconds(5));
+    }
+
+    [Fact]
     public void A_not_found_response_shows_an_empty_state()
     {
         respond = _ => Json(HttpStatusCode.NotFound, """{"status":404,"title":"The requested voyage was not found."}""");
@@ -421,6 +566,11 @@ public sealed class VoyageTimelinePageTests : BunitContext
         {
             requestedUris.Add(request.RequestUri!);
 
+            if (interceptAll is not null)
+            {
+                return interceptAll(request);
+            }
+
             if (request.RequestUri!.AbsolutePath.EndsWith("/schedule-changes", StringComparison.Ordinal))
             {
                 return Json(HttpStatusCode.OK, Schedule());
@@ -429,6 +579,11 @@ public sealed class VoyageTimelinePageTests : BunitContext
             if (request.RequestUri!.AbsolutePath.EndsWith("/estimate-revisions", StringComparison.Ordinal))
             {
                 return Json(HttpStatusCode.OK, EstimateRevisions());
+            }
+
+            if (request.RequestUri!.AbsolutePath.EndsWith("/clearance", StringComparison.Ordinal))
+            {
+                return Json(HttpStatusCode.OK, StopClearance());
             }
 
             if (request.Method != HttpMethod.Get)
@@ -445,6 +600,11 @@ public sealed class VoyageTimelinePageTests : BunitContext
         };
 
         Services.AddSingleton(new VoyagesApiClient(httpClient));
+        Services.AddSingleton(new DocumentsApiClient(
+            new HttpClient(new StubHttpMessageHandler(_ => Json(HttpStatusCode.NotFound, "{}")))
+            {
+                BaseAddress = new Uri("https://api.harborops.test/"),
+            }));
         Services.RemoveAll<IHttpContextAccessor>();
         Services.RemoveAll<CurrentUserAuthorizationState>();
         Services.AddSingleton<IHttpContextAccessor>(new HttpContextAccessor
@@ -476,7 +636,11 @@ public sealed class VoyageTimelinePageTests : BunitContext
     private static string Itinerary(
         string firstStopStatus = "Planned",
         string? firstStopBerthId = null,
-        string[]? delays = null)
+        string[]? delays = null,
+        string firstStopClearanceStatus = "Pending",
+        int firstStopClearanceRequired = 2,
+        int firstStopClearanceResolved = 1,
+        int firstStopClearanceOverdue = 0)
     {
         var berthField = firstStopBerthId is null
             ? "\"berthId\":null,\"berthName\":null"
@@ -484,12 +648,23 @@ public sealed class VoyageTimelinePageTests : BunitContext
         var firstAta = string.Equals(firstStopStatus, "Planned", StringComparison.Ordinal)
             ? "null"
             : "\"2026-09-01T08:30:00Z\"";
+        var firstClearance =
+            $"\"clearanceStatus\":\"{firstStopClearanceStatus}\",\"clearanceRequiredItemCount\":{firstStopClearanceRequired},\"clearanceRequiredResolvedCount\":{firstStopClearanceResolved},\"clearanceOverdueRequiredItemCount\":{firstStopClearanceOverdue}";
 
         return $$"""
-            {"voyageId":"{{VoyageId}}","stops":[
-                {"stopId":"{{StopOneId}}","stopOrder":1,"portId":"{{PortOneId}}","portName":"Port of Bar","portCountry":"Montenegro","unLocode":"MEBAR",{{berthField}},"eta":"2026-09-01T08:00:00Z","etd":"2026-09-01T12:00:00Z","ata":{{firstAta}},"atd":null,"status":"{{firstStopStatus}}"},
-                {"stopId":"{{StopTwoId}}","stopOrder":2,"portId":"{{PortTwoId}}","portName":"Port of Kotor","portCountry":"Montenegro","unLocode":"MEKOT","berthId":null,"berthName":null,"eta":"2026-09-02T08:00:00Z","etd":"2026-09-02T12:00:00Z","ata":null,"atd":null,"status":"Planned"}
+            {"voyageId":"{{VoyageId}}","vesselId":"a0000000-0000-0000-0000-000000000001","stops":[
+                {"stopId":"{{StopOneId}}","stopOrder":1,"portId":"{{PortOneId}}","portName":"Port of Bar","portCountry":"Montenegro","unLocode":"MEBAR",{{berthField}},"eta":"2026-09-01T08:00:00Z","etd":"2026-09-01T12:00:00Z","ata":{{firstAta}},"atd":null,"status":"{{firstStopStatus}}",{{firstClearance}}},
+                {"stopId":"{{StopTwoId}}","stopOrder":2,"portId":"{{PortTwoId}}","portName":"Port of Kotor","portCountry":"Montenegro","unLocode":"MEKOT","berthId":null,"berthName":null,"eta":"2026-09-02T08:00:00Z","etd":"2026-09-02T12:00:00Z","ata":null,"atd":null,"status":"Planned","clearanceStatus":"Pending","clearanceRequiredItemCount":0,"clearanceRequiredResolvedCount":0}
             ],"delays":[{{string.Join(',', delays ?? [])}}]}
+            """;
+    }
+
+    private static string StopClearance()
+    {
+        return $$"""
+            {"voyageId":"{{VoyageId}}","stopId":"{{StopOneId}}","clearanceId":"70000000-0000-0000-0000-000000000001","status":"Pending","completedByUserId":null,"completedAtUtc":null,"evaluatedAtUtc":"2026-09-01T12:00:00Z",
+             "progress":{"totalItemCount":0,"requiredItemCount":0,"requiredResolvedCount":0,"requiredPendingCount":0,"optionalItemCount":0,"optionalPendingCount":0,"clearedCount":0,"waivedCount":0,"canComplete":false},
+             "items":[],"history":[]}
             """;
     }
 
@@ -556,10 +731,15 @@ public sealed class VoyageTimelinePageTests : BunitContext
 
     private static Task<HttpResponseMessage> Json(HttpStatusCode statusCode, string json)
     {
-        return Task.FromResult(new HttpResponseMessage(statusCode)
+        return Task.FromResult(JsonResponse(statusCode, json));
+    }
+
+    private static HttpResponseMessage JsonResponse(HttpStatusCode statusCode, string json)
+    {
+        return new HttpResponseMessage(statusCode)
         {
             Content = new StringContent(json, Encoding.UTF8, "application/problem+json"),
-        });
+        };
     }
 
     private sealed class StubHttpMessageHandler(Func<HttpRequestMessage, Task<HttpResponseMessage>> responseFactory)

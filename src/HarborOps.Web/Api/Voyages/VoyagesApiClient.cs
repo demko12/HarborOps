@@ -286,6 +286,150 @@ internal sealed class VoyagesApiClient(HttpClient httpClient)
             cancellationToken);
     }
 
+    internal Task<VoyagesApiResult<PortCallClearance>> GetPortCallClearanceAsync(
+        Guid voyageId,
+        Guid stopId,
+        CancellationToken cancellationToken)
+    {
+        return GetAsync<PortCallClearance>(
+            ClearancePath(voyageId, stopId),
+            "Unable to load the port-call clearance",
+            cancellationToken);
+    }
+
+    internal Task<VoyagesApiResult<AddedClearanceItem>> AddClearanceItemAsync(
+        Guid voyageId,
+        Guid stopId,
+        AddClearanceItemWebRequest request,
+        CancellationToken cancellationToken)
+    {
+        return PostAsync<AddedClearanceItem>(
+            $"{ClearancePath(voyageId, stopId)}/items",
+            request,
+            "Unable to add the clearance item",
+            cancellationToken);
+    }
+
+    internal Task<VoyagesApiResult<ClearanceItemSaved>> UpdateClearanceItemAsync(
+        Guid voyageId,
+        Guid stopId,
+        Guid itemId,
+        UpdateClearanceItemWebRequest request,
+        CancellationToken cancellationToken)
+    {
+        return SendNoContentAsync(
+            HttpMethod.Put,
+            $"{ClearancePath(voyageId, stopId)}/items/{itemId}",
+            request,
+            "Unable to update the clearance item",
+            cancellationToken);
+    }
+
+    internal Task<VoyagesApiResult<ClearanceItemDecision>> ClearClearanceItemAsync(
+        Guid voyageId,
+        Guid stopId,
+        Guid itemId,
+        ClearClearanceItemWebRequest request,
+        CancellationToken cancellationToken)
+    {
+        return PostAsync<ClearanceItemDecision>(
+            $"{ClearancePath(voyageId, stopId)}/items/{itemId}/clear",
+            request,
+            "Unable to clear the item",
+            cancellationToken);
+    }
+
+    internal Task<VoyagesApiResult<ClearanceItemDecision>> WaiveClearanceItemAsync(
+        Guid voyageId,
+        Guid stopId,
+        Guid itemId,
+        WaiveClearanceItemWebRequest request,
+        CancellationToken cancellationToken)
+    {
+        return PostAsync<ClearanceItemDecision>(
+            $"{ClearancePath(voyageId, stopId)}/items/{itemId}/waive",
+            request,
+            "Unable to waive the item",
+            cancellationToken);
+    }
+
+    internal Task<VoyagesApiResult<ClearanceStatusChange>> CompleteClearanceAsync(
+        Guid voyageId,
+        Guid stopId,
+        CancellationToken cancellationToken)
+    {
+        return PostAsync<ClearanceStatusChange>(
+            $"{ClearancePath(voyageId, stopId)}/complete",
+            new { },
+            "Unable to complete the clearance",
+            cancellationToken);
+    }
+
+    internal Task<VoyagesApiResult<ClearanceStatusChange>> ReopenClearanceAsync(
+        Guid voyageId,
+        Guid stopId,
+        ReopenClearanceWebRequest request,
+        CancellationToken cancellationToken)
+    {
+        return PostAsync<ClearanceStatusChange>(
+            $"{ClearancePath(voyageId, stopId)}/reopen",
+            request,
+            "Unable to reopen the clearance",
+            cancellationToken);
+    }
+
+    private static string ClearancePath(Guid voyageId, Guid stopId) =>
+        $"{BasePath}/{voyageId}/stops/{stopId}/clearance";
+
+    private async Task<VoyagesApiResult<ClearanceItemSaved>> SendNoContentAsync(
+        HttpMethod method,
+        string path,
+        object request,
+        string failureTitle,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            using var message = new HttpRequestMessage(method, path)
+            {
+                Content = JsonContent.Create(request),
+            };
+            using var response = await httpClient.SendAsync(message, cancellationToken);
+
+            if (response.IsSuccessStatusCode)
+            {
+                return new VoyagesApiResult<ClearanceItemSaved>(new ClearanceItemSaved(), null);
+            }
+
+            ApiProblemDetails? problem = null;
+            try
+            {
+                problem = await response.Content.ReadFromJsonAsync<ApiProblemDetails>(cancellationToken);
+            }
+            catch (JsonException)
+            {
+            }
+
+            return new VoyagesApiResult<ClearanceItemSaved>(default, new VoyagesApiFailure(
+                (int)response.StatusCode,
+                problem?.Title ?? failureTitle,
+                problem?.Detail ?? "Please review the values and try again.",
+                problem?.Errors ?? NoErrors));
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (HttpRequestException)
+        {
+            return new VoyagesApiResult<ClearanceItemSaved>(default, new VoyagesApiFailure(
+                0,
+                "HarborOps API is unavailable",
+                "The voyages board could not reach the API.",
+                NoErrors));
+        }
+    }
+
     internal Task<VoyagesApiResult<RecordedDelay>> RecordDelayAsync(
         Guid voyageId,
         RecordDelayWebRequest request,
