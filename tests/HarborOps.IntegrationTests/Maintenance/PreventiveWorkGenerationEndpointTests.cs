@@ -50,17 +50,24 @@ public sealed class PreventiveWorkGenerationEndpointTests : IntegrationTestBase
     }
 
     [Fact]
-    public async Task Preview_with_only_the_read_permission_returns_403()
+    public async Task Preview_is_allowed_with_only_the_read_permission_and_persists_nothing()
     {
         using var client = await _application.CreateAuthenticatedClientWithPermissionsAsync(
             Permissions.Maintenance.Read);
+        var equipment = await SeedEquipmentAsync(Guid.NewGuid(), "Main engine");
+        await SeedScheduleAsync("Overhaul", MaintenanceFrequency.Monthly, _today.AddDays(5), null, equipment.Id);
 
         using var response = await client.PostAsJsonAsync(
             PreviewUri,
             new GeneratePreventiveWorkRequest { Through = _today.AddDays(10) },
             CancellationToken.None);
+        var preview = await response.Content.ReadFromJsonAsync<PreviewPreventiveWorkResponse>(CancellationToken.None);
 
-        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.NotNull(preview);
+        Assert.Equal(1, preview.EligibleCount);
+        Assert.False(await QueryAsync(db => db.Set<MaintenanceWorkOrder>().AnyAsync()));
+        Assert.False(await QueryAsync(db => db.Set<ScheduleOccurrence>().AnyAsync()));
     }
 
     [Fact]
