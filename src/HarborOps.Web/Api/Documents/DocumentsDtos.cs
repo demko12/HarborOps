@@ -120,6 +120,41 @@ internal sealed record ReviewDocumentRequest(string? Decision, string? Notes);
 internal sealed record RevokeDocumentRequest(string? Reason);
 internal sealed record DocumentReviewEventResponseDto(Guid Id, Guid DocumentId, string Action, Guid ActorUserId, DateTimeOffset OccurredAtUtc, string? Notes);
 
+internal sealed record RetentionPolicyRowDto(int DocumentTypeId, string DocumentTypeName, int RetentionPeriodDays);
+internal sealed record RetentionPoliciesResultDto(IReadOnlyList<RetentionPolicyRowDto> Items);
+internal sealed record UpdateRetentionPolicyRequest(int? RetentionPeriodDays);
+
+internal sealed record GetRetentionQueueQuery(string? State, DateOnly? DueBefore, int? PageNumber, int? PageSize);
+internal sealed record RetentionQueueActiveHoldDto(Guid Id, string Reason, DateTime PlacedAtUtc);
+internal sealed record RetentionQueuePendingDispositionDto(Guid Id, Guid RequestedByUserId, DateTime RequestedAtUtc);
+internal sealed record RetentionQueueRowDto(
+    Guid DocumentId,
+    int DocumentTypeId,
+    DateTime LifecycleTriggerAtUtc,
+    DateTime RetentionDueAtUtc,
+    string RetentionState,
+    IReadOnlyList<RetentionQueueActiveHoldDto> ActiveHolds,
+    RetentionQueuePendingDispositionDto? PendingDisposition);
+internal sealed record RetentionQueuePageDto(
+    IReadOnlyList<RetentionQueueRowDto> Items,
+    int PageNumber,
+    int PageSize,
+    int TotalCount);
+
+internal sealed record ArchiveDocumentRequest(string? Reason);
+internal sealed record RestoreDocumentRequest(string? Reason);
+internal sealed record DocumentRetentionStateResultDto(Guid DocumentId, string State);
+
+internal sealed record PlaceLegalHoldRequest(string? Reason, string? Reference);
+internal sealed record PlaceLegalHoldResultDto(Guid Id);
+internal sealed record ReleaseLegalHoldRequest(string? Reason);
+internal sealed record ReleaseLegalHoldResultDto(Guid Id, bool IsActive);
+
+internal sealed record CreateDispositionRequest(string? Reason);
+internal sealed record ApproveDispositionRequestRequest(string? DecisionReason);
+internal sealed record RejectDispositionRequestRequest(string? DecisionReason);
+internal sealed record DispositionRequestResultDto(Guid Id, string Status);
+
 internal sealed record DocumentsApiResult<T>(T? Value, DocumentsApiFailure? Failure)
 {
     internal bool IsSuccess => Failure is null;

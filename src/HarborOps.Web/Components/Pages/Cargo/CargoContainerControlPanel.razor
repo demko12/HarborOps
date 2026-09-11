@@ -3,13 +3,16 @@
 @inject CargoBookingsApiClient CargoApi
 @inject CurrentUserAuthorizationState AuthorizationState
 
-<section class="container-control-panel" aria-labelledby="container-control-title">
-    <div class="booking-card-heading">
-        <h3 id="container-control-title">Control for @ContainerNumber</h3>
-        <span class="@CargoBookingFormat.ControlStateClass(Control?.State)">
-            @CargoBookingFormat.ControlStateLabel(Control?.State)
-        </span>
-    </div>
+<section class="container-control-panel @(HideHeading ? "container-control-panel-modal" : null)" aria-labelledby="container-control-title">
+    @if (!HideHeading)
+    {
+        <div class="booking-card-heading">
+            <h3 id="container-control-title">Control for @ContainerNumber</h3>
+            <span class="@CargoBookingFormat.ControlStateClass(Control?.State)">
+                @CargoBookingFormat.ControlStateLabel(Control?.State)
+            </span>
+        </div>
+    }
 
     @if (isLoading)
     {

@@ -134,6 +134,24 @@
 				}
 				@if (assignmentFailure is not null) { <p class="vessel-assignment-error" role="alert">@assignmentFailure.Message</p> }
 			</section>
+
+			<section class="vessel-details-card vessel-defect-card" aria-labelledby="vessel-defect-title">
+				<div class="vessel-card-heading">
+					<div><p>Maintenance</p><h2 id="vessel-defect-title">Report a defect</h2></div>
+					<span class="vessel-card-icon" aria-hidden="true"><span class="bi bi-exclamation-triangle"></span></span>
+				</div>
+				@if (CanReportDefects)
+				{
+					<p class="vessel-assignment-note">Log a defect or fault observed on this vessel for the maintenance team to triage.</p>
+					<a class="vessel-card-edit" href="@($"/maintenance/defects/report?vesselId={VesselId}")">
+						<span class="bi bi-plus-circle" aria-hidden="true"></span>Report defect
+					</a>
+				}
+				else
+				{
+					<p class="vessel-details-muted">Your account does not have permission to report maintenance defects.</p>
+				}
+			</section>
 		</div>
 
 			@if (CanManageFleet && isEditingRegistry)

@@ -496,6 +496,235 @@ internal sealed class DocumentsApiClient(HttpClient httpClient)
         }
     }
 
+    internal async Task<DocumentsApiResult<RetentionPoliciesResultDto>> GetRetentionPoliciesAsync(CancellationToken cancellationToken)
+    {
+        try
+        {
+            using var response = await httpClient.GetAsync(
+                $"{BasePath}/retention-policies",
+                HttpCompletionOption.ResponseHeadersRead,
+                cancellationToken);
+
+            if (!response.IsSuccessStatusCode)
+            {
+                return new DocumentsApiResult<RetentionPoliciesResultDto>(
+                    null, await ReadFailureAsync(response, "Unable to load retention policies", cancellationToken));
+            }
+
+            return new DocumentsApiResult<RetentionPoliciesResultDto>(
+                await response.Content.ReadFromJsonAsync<RetentionPoliciesResultDto>(cancellationToken), null);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (HttpRequestException)
+        {
+            return new DocumentsApiResult<RetentionPoliciesResultDto>(null, Unavailable());
+        }
+        catch (TaskCanceledException) when (!cancellationToken.IsCancellationRequested)
+        {
+            return new DocumentsApiResult<RetentionPoliciesResultDto>(null, Unavailable());
+        }
+    }
+
+    internal async Task<DocumentsApiResult<object>> UpdateRetentionPolicyAsync(
+        int documentTypeId,
+        UpdateRetentionPolicyRequest request,
+        CancellationToken cancellationToken)
+    {
+        using var response = await httpClient.PutAsJsonAsync($"{BasePath}/retention-policies/{documentTypeId}", request, cancellationToken);
+
+        return response.IsSuccessStatusCode
+            ? new DocumentsApiResult<object>(new object(), null)
+            : new DocumentsApiResult<object>(null, await ReadFailureAsync(response, "Unable to update the retention policy", cancellationToken));
+    }
+
+    internal async Task<DocumentsApiResult<RetentionQueuePageDto>> GetRetentionQueueAsync(
+        GetRetentionQueueQuery query,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(query);
+
+        try
+        {
+            using var response = await httpClient.GetAsync(
+                BuildRetentionQueuePath(query),
+                HttpCompletionOption.ResponseHeadersRead,
+                cancellationToken);
+
+            if (!response.IsSuccessStatusCode)
+            {
+                return new DocumentsApiResult<RetentionQueuePageDto>(
+                    null, await ReadFailureAsync(response, "Unable to load the retention queue", cancellationToken));
+            }
+
+            return new DocumentsApiResult<RetentionQueuePageDto>(
+                await response.Content.ReadFromJsonAsync<RetentionQueuePageDto>(cancellationToken), null);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (HttpRequestException)
+        {
+            return new DocumentsApiResult<RetentionQueuePageDto>(null, Unavailable());
+        }
+        catch (TaskCanceledException) when (!cancellationToken.IsCancellationRequested)
+        {
+            return new DocumentsApiResult<RetentionQueuePageDto>(null, Unavailable());
+        }
+    }
+
+    internal async Task<DocumentsApiResult<DocumentRetentionStateResultDto>> ArchiveAsync(
+        Guid documentId,
+        ArchiveDocumentRequest request,
+        CancellationToken cancellationToken)
+    {
+        using var response = await httpClient.PostAsJsonAsync($"{BasePath}/{documentId}/archive", request, cancellationToken);
+
+        if (!response.IsSuccessStatusCode)
+        {
+            return new DocumentsApiResult<DocumentRetentionStateResultDto>(
+                null, await ReadFailureAsync(response, "Unable to archive the document", cancellationToken));
+        }
+
+        return new DocumentsApiResult<DocumentRetentionStateResultDto>(
+            await response.Content.ReadFromJsonAsync<DocumentRetentionStateResultDto>(cancellationToken), null);
+    }
+
+    internal async Task<DocumentsApiResult<DocumentRetentionStateResultDto>> RestoreAsync(
+        Guid documentId,
+        RestoreDocumentRequest request,
+        CancellationToken cancellationToken)
+    {
+        using var response = await httpClient.PostAsJsonAsync($"{BasePath}/{documentId}/restore", request, cancellationToken);
+
+        if (!response.IsSuccessStatusCode)
+        {
+            return new DocumentsApiResult<DocumentRetentionStateResultDto>(
+                null, await ReadFailureAsync(response, "Unable to restore the document", cancellationToken));
+        }
+
+        return new DocumentsApiResult<DocumentRetentionStateResultDto>(
+            await response.Content.ReadFromJsonAsync<DocumentRetentionStateResultDto>(cancellationToken), null);
+    }
+
+    internal async Task<DocumentsApiResult<PlaceLegalHoldResultDto>> PlaceLegalHoldAsync(
+        Guid documentId,
+        PlaceLegalHoldRequest request,
+        CancellationToken cancellationToken)
+    {
+        using var response = await httpClient.PostAsJsonAsync($"{BasePath}/{documentId}/legal-holds", request, cancellationToken);
+
+        if (response.StatusCode != HttpStatusCode.Created)
+        {
+            return new DocumentsApiResult<PlaceLegalHoldResultDto>(
+                null, await ReadFailureAsync(response, "Unable to place a legal hold", cancellationToken));
+        }
+
+        return new DocumentsApiResult<PlaceLegalHoldResultDto>(
+            await response.Content.ReadFromJsonAsync<PlaceLegalHoldResultDto>(cancellationToken), null);
+    }
+
+    internal async Task<DocumentsApiResult<ReleaseLegalHoldResultDto>> ReleaseLegalHoldAsync(
+        Guid documentId,
+        Guid holdId,
+        ReleaseLegalHoldRequest request,
+        CancellationToken cancellationToken)
+    {
+        using var response = await httpClient.PostAsJsonAsync($"{BasePath}/{documentId}/legal-holds/{holdId}/release", request, cancellationToken);
+
+        if (!response.IsSuccessStatusCode)
+        {
+            return new DocumentsApiResult<ReleaseLegalHoldResultDto>(
+                null, await ReadFailureAsync(response, "Unable to release the legal hold", cancellationToken));
+        }
+
+        return new DocumentsApiResult<ReleaseLegalHoldResultDto>(
+            await response.Content.ReadFromJsonAsync<ReleaseLegalHoldResultDto>(cancellationToken), null);
+    }
+
+    internal async Task<DocumentsApiResult<DispositionRequestResultDto>> CreateDispositionRequestAsync(
+        Guid documentId,
+        CreateDispositionRequest request,
+        CancellationToken cancellationToken)
+    {
+        using var response = await httpClient.PostAsJsonAsync($"{BasePath}/{documentId}/disposition-requests", request, cancellationToken);
+
+        if (response.StatusCode != HttpStatusCode.Created)
+        {
+            return new DocumentsApiResult<DispositionRequestResultDto>(
+                null, await ReadFailureAsync(response, "Unable to create the disposition request", cancellationToken));
+        }
+
+        return new DocumentsApiResult<DispositionRequestResultDto>(
+            await response.Content.ReadFromJsonAsync<DispositionRequestResultDto>(cancellationToken), null);
+    }
+
+    internal async Task<DocumentsApiResult<DispositionRequestResultDto>> ApproveDispositionRequestAsync(
+        Guid documentId,
+        Guid requestId,
+        ApproveDispositionRequestRequest request,
+        CancellationToken cancellationToken)
+    {
+        using var response = await httpClient.PostAsJsonAsync($"{BasePath}/{documentId}/disposition-requests/{requestId}/approve", request, cancellationToken);
+
+        if (!response.IsSuccessStatusCode)
+        {
+            return new DocumentsApiResult<DispositionRequestResultDto>(
+                null, await ReadFailureAsync(response, "Unable to approve the disposition request", cancellationToken));
+        }
+
+        return new DocumentsApiResult<DispositionRequestResultDto>(
+            await response.Content.ReadFromJsonAsync<DispositionRequestResultDto>(cancellationToken), null);
+    }
+
+    internal async Task<DocumentsApiResult<DispositionRequestResultDto>> RejectDispositionRequestAsync(
+        Guid documentId,
+        Guid requestId,
+        RejectDispositionRequestRequest request,
+        CancellationToken cancellationToken)
+    {
+        using var response = await httpClient.PostAsJsonAsync($"{BasePath}/{documentId}/disposition-requests/{requestId}/reject", request, cancellationToken);
+
+        if (!response.IsSuccessStatusCode)
+        {
+            return new DocumentsApiResult<DispositionRequestResultDto>(
+                null, await ReadFailureAsync(response, "Unable to reject the disposition request", cancellationToken));
+        }
+
+        return new DocumentsApiResult<DispositionRequestResultDto>(
+            await response.Content.ReadFromJsonAsync<DispositionRequestResultDto>(cancellationToken), null);
+    }
+
+    private static string BuildRetentionQueuePath(GetRetentionQueueQuery query)
+    {
+        var extra = new List<string>();
+
+        if (!string.IsNullOrWhiteSpace(query.State))
+        {
+            extra.Add($"state={Uri.EscapeDataString(query.State)}");
+        }
+
+        if (query.DueBefore is { } dueBefore)
+        {
+            extra.Add(string.Create(CultureInfo.InvariantCulture, $"dueBefore={dueBefore:yyyy-MM-dd}"));
+        }
+
+        if (query.PageNumber is { } pageNumber)
+        {
+            extra.Add($"pageNumber={pageNumber}");
+        }
+
+        if (query.PageSize is { } pageSize)
+        {
+            extra.Add($"pageSize={pageSize}");
+        }
+
+        return extra.Count == 0 ? $"{BasePath}/retention-queue" : $"{BasePath}/retention-queue?{string.Join('&', extra)}";
+    }
+
     private static MultipartFormDataContent BuildFileContent(
         IBrowserFile file,
         IProgress<double>? progress,

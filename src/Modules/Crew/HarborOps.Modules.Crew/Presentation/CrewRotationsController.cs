@@ -154,6 +154,15 @@ public sealed class CrewRotationsController(
                 Detail = exception.Message,
             });
         }
+        catch (CrewMemberUnavailableException exception)
+        {
+            return Conflict(new ProblemDetails
+            {
+                Status = StatusCodes.Status409Conflict,
+                Title = "Relieving crew member is unavailable.",
+                Detail = exception.Message,
+            });
+        }
     }
 
     [HttpPut("/api/crew/assignments/{assignmentId:guid}/rotation")]
@@ -235,6 +244,15 @@ public sealed class CrewRotationsController(
                 Detail = exception.Message,
             });
         }
+        catch (CrewMemberUnavailableException exception)
+        {
+            return Conflict(new ProblemDetails
+            {
+                Status = StatusCodes.Status409Conflict,
+                Title = "Relieving crew member is unavailable.",
+                Detail = exception.Message,
+            });
+        }
     }
 
     [HttpPost("/api/crew/assignments/{assignmentId:guid}/rotation/execute")]
@@ -309,6 +327,15 @@ public sealed class CrewRotationsController(
             {
                 Status = StatusCodes.Status409Conflict,
                 Title = "Relieving crew member is not available.",
+                Detail = exception.Message,
+            });
+        }
+        catch (CrewMemberUnavailableException exception)
+        {
+            return Conflict(new ProblemDetails
+            {
+                Status = StatusCodes.Status409Conflict,
+                Title = "Relieving crew member is unavailable.",
                 Detail = exception.Message,
             });
         }

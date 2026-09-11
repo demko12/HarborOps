@@ -105,7 +105,7 @@ public sealed class CargoContainersEndpointTests : IntegrationTestBase
 
         using var response = await client.PostAsJsonAsync(
             ContainersEndpoint(bookingId),
-            new AddCargoContainerRequest { ContainerNumber = " msku1234567 ", ContainerType = "40HC" },
+            ManifestRequest(" msku1234567 ", "42G1"),
             CancellationToken.None);
         var result = await response.Content.ReadFromJsonAsync<AddCargoContainerResponse>(
             CancellationToken.None);
@@ -137,7 +137,7 @@ public sealed class CargoContainersEndpointTests : IntegrationTestBase
 
         using var response = await client.PostAsJsonAsync(
             ContainersEndpoint(bookingId),
-            new AddCargoContainerRequest { ContainerNumber = "  ", ContainerType = "40HC" },
+            ManifestRequest("  ", "42G1"),
             CancellationToken.None);
         var problem = await response.Content.ReadFromJsonAsync<HttpValidationProblemDetails>(
             CancellationToken.None);
@@ -157,7 +157,7 @@ public sealed class CargoContainersEndpointTests : IntegrationTestBase
 
         using var response = await client.PostAsJsonAsync(
             ContainersEndpoint(bookingId),
-            new AddCargoContainerRequest { ContainerNumber = "msku1234567", ContainerType = "40HC" },
+            ManifestRequest("msku1234567", "42G1"),
             CancellationToken.None);
 
         Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
@@ -173,7 +173,7 @@ public sealed class CargoContainersEndpointTests : IntegrationTestBase
 
         using var response = await client.PostAsJsonAsync(
             ContainersEndpoint(bookingId),
-            new AddCargoContainerRequest { ContainerNumber = "MSKU1234567", ContainerType = "40HC" },
+            ManifestRequest("MSKU1234567", "42G1"),
             CancellationToken.None);
 
         Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
@@ -187,7 +187,7 @@ public sealed class CargoContainersEndpointTests : IntegrationTestBase
 
         using var response = await client.PostAsJsonAsync(
             ContainersEndpoint(Guid.NewGuid()),
-            new AddCargoContainerRequest { ContainerNumber = "MSKU1234567", ContainerType = "40HC" },
+            ManifestRequest("MSKU1234567", "42G1"),
             CancellationToken.None);
 
         Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
@@ -201,7 +201,7 @@ public sealed class CargoContainersEndpointTests : IntegrationTestBase
 
         using var response = await client.PostAsJsonAsync(
             ContainersEndpoint(Guid.NewGuid()),
-            new AddCargoContainerRequest { ContainerNumber = "MSKU1234567", ContainerType = "40HC" },
+            ManifestRequest("MSKU1234567", "42G1"),
             CancellationToken.None);
 
         Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
@@ -212,6 +212,15 @@ public sealed class CargoContainersEndpointTests : IntegrationTestBase
         return $"{BookingsEndpoint}/{bookingId}/containers";
     }
 
+    private static AddCargoContainerRequest ManifestRequest(string containerNumber, string containerType) => new()
+    {
+        ContainerNumber = containerNumber,
+        ContainerType = containerType,
+        PortOfLoadingCode = "NLRTM",
+        PortOfDischargeCode = "USNYC",
+        WeightKg = 12500m,
+    };
+
     private static async Task AddContainerAsync(
         HttpClient client,
         Guid bookingId,
@@ -219,11 +228,7 @@ public sealed class CargoContainersEndpointTests : IntegrationTestBase
     {
         using var response = await client.PostAsJsonAsync(
             ContainersEndpoint(bookingId),
-            new AddCargoContainerRequest
-            {
-                ContainerNumber = containerNumber,
-                ContainerType = "20GP",
-            },
+            ManifestRequest(containerNumber, "22G1"),
             CancellationToken.None);
 
         Assert.Equal(HttpStatusCode.Created, response.StatusCode);

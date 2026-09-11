@@ -107,6 +107,7 @@ public partial class Maintenance
             "replenishment" => MaintenanceTab.Replenishment,
             "purchase-orders" => MaintenanceTab.PurchaseOrders,
             "suppliers" => MaintenanceTab.Suppliers,
+            "defects" => MaintenanceTab.Defects,
             _ => MaintenanceTab.WorkOrders,
         };
     }

@@ -82,6 +82,23 @@ public sealed class CrewMemberProfilePageTests : BunitContext
     private Func<HttpRequestMessage, Task<HttpResponseMessage>> respondToEmploymentStatusHistory =
         _ => Json(HttpStatusCode.OK, """{"items":[]}""");
 
+    private Func<HttpRequestMessage, Task<HttpResponseMessage>> respondToMemberAvailability =
+        _ => Json(HttpStatusCode.OK, """{"items":[]}""");
+
+    private Func<HttpRequestMessage, Task<HttpResponseMessage>> respondToAvailabilityConflicts =
+        _ => Json(HttpStatusCode.OK, """{"conflicts":[]}""");
+
+    private Func<HttpRequestMessage, Task<HttpResponseMessage>> respondToAvailabilityRequest =
+        _ => Json(HttpStatusCode.Created, """{"id":"90000000-0000-0000-0000-000000000009"}""");
+
+    private Func<HttpRequestMessage, Task<HttpResponseMessage>> respondToAvailabilityDecision = _ => Json(
+        HttpStatusCode.OK,
+        """
+        {"id":"90000000-0000-0000-0000-000000000009","crewMemberId":"10000000-0000-0000-0000-000000000001",
+        "previousStatus":"Requested","newStatus":"Approved","actorUserId":"20000000-0000-0000-0000-000000000003",
+        "reason":null,"occurredAtUtc":"2026-09-10T10:00:00Z"}
+        """);
+
     private Func<HttpRequestMessage, Task<HttpResponseMessage>> respondToMemberSearch = _ => Json(
         HttpStatusCode.OK,
         """
@@ -1318,6 +1335,29 @@ public sealed class CrewMemberProfilePageTests : BunitContext
             if (path.EndsWith("/employment-status-history", StringComparison.Ordinal))
             {
                 return respondToEmploymentStatusHistory(request);
+            }
+
+            if (path.Contains("/availability-requests/", StringComparison.Ordinal)
+                && (path.EndsWith("/approve", StringComparison.Ordinal)
+                    || path.EndsWith("/reject", StringComparison.Ordinal)
+                    || path.EndsWith("/cancel", StringComparison.Ordinal)))
+            {
+                return respondToAvailabilityDecision(request);
+            }
+
+            if (path.EndsWith("/availability-requests", StringComparison.Ordinal) && request.Method == HttpMethod.Post)
+            {
+                return respondToAvailabilityRequest(request);
+            }
+
+            if (path.EndsWith("/availability/conflicts", StringComparison.Ordinal) && request.Method == HttpMethod.Get)
+            {
+                return respondToAvailabilityConflicts(request);
+            }
+
+            if (path.EndsWith("/availability", StringComparison.Ordinal) && request.Method == HttpMethod.Get)
+            {
+                return respondToMemberAvailability(request);
             }
 
             if (path.EndsWith("/employment-status-changes", StringComparison.Ordinal))

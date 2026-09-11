@@ -6,4 +6,7 @@ public sealed record CargoContainerListItem(
     string ContainerType,
     string Status,
     Guid CargoBookingId,
-    Guid? VesselId);
+    Guid? VesselId,
+    string? PortOfLoadingCode = null,
+    string? PortOfDischargeCode = null,
+    decimal? WeightKg = null);

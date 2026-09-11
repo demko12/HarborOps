@@ -32,6 +32,11 @@
         <div class="crew-profile-form-success" role="status">@successMessage</div>
     }
 
+    @if (availabilityHint is not null)
+    {
+        <div class="crew-profile-form-conflict" role="alert">@availabilityHint</div>
+    }
+
     <form class="crew-profile-form-grid" @onsubmit="SubmitAsync" @onsubmit:preventDefault="true">
         <div class="crew-profile-form-field crew-profile-form-field-wide">
             <label for="assign-vessel">Vessel</label>
@@ -51,12 +56,12 @@
 
         <div class="crew-profile-form-field">
             <label for="assign-sign-on-date">Sign-on date</label>
-            <input id="assign-sign-on-date" type="date" @bind="model.SignOnDate" min="@FormatIsoDate(today)" />
+            <input id="assign-sign-on-date" type="date" @bind="model.SignOnDate" @bind:after="CheckAvailabilityConflictsAsync" min="@FormatIsoDate(today)" />
         </div>
 
         <div class="crew-profile-form-field">
             <label for="assign-planned-sign-off-date">Planned sign-off date</label>
-            <input id="assign-planned-sign-off-date" type="date" @bind="model.PlannedSignOffDate"
+            <input id="assign-planned-sign-off-date" type="date" @bind="model.PlannedSignOffDate" @bind:after="CheckAvailabilityConflictsAsync"
                    min="@(model.SignOnDate is { } signOn ? FormatIsoDate(signOn) : FormatIsoDate(today))" />
         </div>
 

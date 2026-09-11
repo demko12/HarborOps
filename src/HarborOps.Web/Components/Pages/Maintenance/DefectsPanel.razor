@@ -1,0 +1,131 @@
+@using HarborOps.Web.Api.Fleet
+@using HarborOps.Web.Api.Maintenance
+@implements IDisposable
+@inject MaintenanceApiClient MaintenanceApi
+@inject FleetApiClient VesselLookupApi
+@inject CurrentUserAuthorizationState AuthorizationState
+@inject NavigationManager Navigation
+
+<div class="defects-panel">
+    <section class="maintenance-summary" aria-label="Defect summary">
+        <article class="maintenance-summary-card">
+            <div>
+                <span>Total defects</span>
+                <strong>@totalCount</strong>
+                <small>Matching the current filters</small>
+            </div>
+            <span class="summary-icon summary-icon-amber" aria-hidden="true"><span class="bi bi-exclamation-triangle"></span></span>
+        </article>
+    </section>
+
+    <section class="maintenance-filters" aria-label="Defect filters">
+        <div class="filter-field filter-field-vessel">
+            <label for="defects-vessel">Vessel</label>
+            <VesselPicker Value="vesselFilter" ValueChanged="SelectVesselFilterAsync" Disabled="isLoading" />
+        </div>
+        <div class="filter-field">
+            <label for="defects-status">Status</label>
+            <select id="defects-status" @bind="statusFilter" @bind:after="ApplyFiltersAsync">
+                <option value="">All statuses</option>
+                @foreach (var option in Statuses)
+                {
+                    <option value="@option">@option</option>
+                }
+            </select>
+        </div>
+        <div class="filter-field">
+            <label for="defects-severity">Severity</label>
+            <select id="defects-severity" @bind="severityFilter" @bind:after="ApplyFiltersAsync">
+                <option value="">All severities</option>
+                @foreach (var option in Severities)
+                {
+                    <option value="@option">@option</option>
+                }
+            </select>
+            <small class="maintenance-muted">Matches the confirmed severity once triaged, otherwise the reported severity.</small>
+        </div>
+        <div class="filter-field">
+            <label for="defects-page-size">Per page</label>
+            <select id="defects-page-size" @bind="pageSize" @bind:after="ApplyFiltersAsync">
+                <option value="25">25</option>
+                <option value="50">50</option>
+                <option value="100">100</option>
+            </select>
+        </div>
+        <button class="maintenance-reset" type="button" @onclick="ClearFiltersAsync" disabled="@isLoading">Reset</button>
+    </section>
+
+    <section class="maintenance-card" aria-labelledby="defects-list-title">
+        <div class="maintenance-card-heading">
+            <div>
+                <h2 id="defects-list-title">Defect intake</h2>
+                <p>@totalCount defects found</p>
+            </div>
+            <div class="maintenance-card-heading-actions">
+                @if (CanReportDefects)
+                {
+                    <a class="maintenance-button" href="/maintenance/defects/report">Report defect</a>
+                }
+                <span class="maintenance-card-icon" aria-hidden="true"><span class="bi bi-exclamation-triangle"></span></span>
+            </div>
+        </div>
+
+        @if (isLoading)
+        {
+            <LoadingState Message="Loading defects..." />
+        }
+        else if (failure is not null)
+        {
+            <ApiErrorState Title="@failure.Title" Message="@failure.Message" OnRetry="RetryAsync" />
+        }
+        else if (rows.Count == 0)
+        {
+            <EmptyState Title="No defects match these filters"
+                        Message="Widen the filters or clear the vessel, status, and severity selections." />
+        }
+        else
+        {
+            <div class="maintenance-table-scroll">
+                <table class="maintenance-table defects-table">
+                    <caption class="visually-hidden">Vessel defects, most recently reported first</caption>
+                    <thead>
+                        <tr>
+                            <th scope="col">Title</th>
+                            <th scope="col" class="col-vessel">Vessel</th>
+                            <th scope="col">Status</th>
+                            <th scope="col">Severity</th>
+                            <th scope="col">Reported</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var row in rows)
+                        {
+                            <tr @key="row.DefectId"
+                                class="maintenance-work-order-row"
+                                role="link"
+                                tabindex="0"
+                                aria-label="@($"Open {row.Title} defect details")"
+                                @onclick="() => OpenDefectDetails(row.DefectId)"
+                                @onkeydown="(args) => HandleRowKeyDown(args, row.DefectId)">
+                                <td><span class="maintenance-title">@row.Title</span></td>
+                                <td class="col-vessel">@row.VesselDisplayName</td>
+                                <td><span class="maintenance-status @MaintenanceFormat.StatusModifier(row.Status)">@row.Status</span></td>
+                                <td><span class="maintenance-priority priority-@MaintenanceFormat.PriorityModifier(row.EffectiveSeverity)">@row.EffectiveSeverity</span></td>
+                                <td class="maintenance-muted">@MaintenanceFormat.CreatedUtc(row.ReportedAtUtc)</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="maintenance-pagination">
+                <span>Showing @FirstRowNumber&ndash;@LastRowNumber of @totalCount defects</span>
+                <div class="maintenance-pages">
+                    <button type="button" @onclick="PreviousPageAsync" disabled="@(pageNumber <= 1)">Previous</button>
+                    <span class="maintenance-page-indicator">Page @pageNumber of @TotalPages</span>
+                    <button type="button" @onclick="NextPageAsync" disabled="@(pageNumber >= TotalPages)">Next</button>
+                </div>
+            </div>
+        }
+    </section>
+</div>

@@ -443,6 +443,78 @@ public sealed class CargoBookingDetailsPageTests : BunitContext
     }
 
     [Fact]
+    public void The_imdg_class_field_suggests_the_standard_divisions_without_locking_them()
+    {
+        respond = RespondWith(
+            Details(isHazardous: true, safetyInfo: DraftSafetyInfo),
+            DraftSafetyInfo);
+
+        var page = RenderDetailsPage();
+
+        page.Find(".safety-edit").Click();
+
+        page.Find("#safety-imdg-class").Input(string.Empty);
+        page.Find(".imdg-picker").FocusIn();
+
+        var codes = page
+            .FindAll(".imdg-picker-code")
+            .Select(option => option.TextContent)
+            .ToList();
+
+        Assert.Contains("1.4", codes);
+        Assert.Contains("6.2", codes);
+        Assert.Contains("9", codes);
+        Assert.Equal(20, codes.Count);
+
+        Assert.Equal("input", page.Find("#safety-imdg-class").TagName, ignoreCase: true);
+    }
+
+    [Fact]
+    public void Typing_narrows_the_imdg_list_and_free_text_is_kept()
+    {
+        respond = RespondWith(
+            Details(isHazardous: true, safetyInfo: DraftSafetyInfo),
+            DraftSafetyInfo);
+
+        var page = RenderDetailsPage();
+
+        page.Find(".safety-edit").Click();
+        page.Find(".imdg-picker").FocusIn();
+        page.Find("#safety-imdg-class").Input("1.");
+
+        var codes = page
+            .FindAll(".imdg-picker-code")
+            .Select(option => option.TextContent)
+            .ToList();
+
+        Assert.Equal(6, codes.Count);
+        Assert.All(codes, code => Assert.StartsWith("1.", code, StringComparison.Ordinal));
+
+        page.Find("#safety-imdg-class").Input("1.4S");
+
+        Assert.Empty(page.FindAll(".imdg-picker-code"));
+        Assert.Equal("1.4S", page.Find("#safety-imdg-class").GetAttribute("value"));
+    }
+
+    [Fact]
+    public void Picking_an_imdg_class_fills_the_field_and_closes_the_list()
+    {
+        respond = RespondWith(
+            Details(isHazardous: true, safetyInfo: DraftSafetyInfo),
+            DraftSafetyInfo);
+
+        var page = RenderDetailsPage();
+
+        page.Find(".safety-edit").Click();
+        page.Find(".imdg-picker").FocusIn();
+        page.Find("#safety-imdg-class").Input("6");
+        page.FindAll(".imdg-picker-option")[1].MouseDown();
+
+        Assert.Equal("6.2", page.Find("#safety-imdg-class").GetAttribute("value"));
+        Assert.Empty(page.FindAll(".imdg-picker-dropdown"));
+    }
+
+    [Fact]
     public void The_submitted_and_reviewed_rows_stay_read_only_while_editing()
     {
         respond = RespondWith(
@@ -1557,6 +1629,9 @@ public sealed class CargoBookingDetailsPageTests : BunitContext
         var page = RenderDetailsPage();
         page.Find("#container-number").Change("MSKU1234567");
         page.Find("#container-type").Change("45G1");
+        page.Find("#container-pol").Change("NLRTM");
+        page.Find("#container-pod").Change("USNYC");
+        page.Find("#container-weight").Change("12500");
         page.Find(".container-submit").Click();
 
         page.WaitForAssertion(() => Assert.Single(page.FindAll(".manifest-row")));
@@ -1577,6 +1652,9 @@ public sealed class CargoBookingDetailsPageTests : BunitContext
         var page = RenderDetailsPage();
         page.Find("#container-number").Change("MSKU1234567");
         page.Find("#container-type").Change("45G1");
+        page.Find("#container-pol").Change("NLRTM");
+        page.Find("#container-pod").Change("USNYC");
+        page.Find("#container-weight").Change("12500");
         page.Find(".container-submit").Click();
 
         page.WaitForAssertion(() =>

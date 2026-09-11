@@ -48,6 +48,13 @@ public static class CrewModule
         services.AddScoped<UpdateCrewMemberService>();
         services.AddScoped<ChangeCrewMemberEmploymentStatusService>();
         services.AddScoped<IGetCrewEmploymentStatusHistoryQuery, GetCrewEmploymentStatusHistoryQuery>();
+        services.AddScoped<RequestCrewAvailabilityService>();
+        services.AddScoped<ApproveCrewAvailabilityRequestService>();
+        services.AddScoped<RejectCrewAvailabilityRequestService>();
+        services.AddScoped<CancelCrewAvailabilityRequestService>();
+        services.AddScoped<IGetCrewAvailabilityQuery, GetCrewAvailabilityQuery>();
+        services.AddScoped<IGetCrewMemberAvailabilityQuery, GetCrewMemberAvailabilityQuery>();
+        services.AddScoped<IGetCrewAvailabilityConflictsQuery, GetCrewAvailabilityConflictsQuery>();
         return services;
     }
 }

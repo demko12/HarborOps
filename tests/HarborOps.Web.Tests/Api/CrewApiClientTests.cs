@@ -507,6 +507,94 @@ public sealed class CrewApiClientTests
         Assert.True(result.Failure!.IsNotFound);
     }
 
+    [Fact]
+    public async Task GetAvailabilityAsync_sends_filters_and_paging_to_the_availability_endpoint()
+    {
+        HttpRequestMessage? captured = null;
+        using var httpClient = CreateHttpClient((request, _) =>
+        {
+            captured = request;
+            return Json(HttpStatusCode.OK, """{"items":[],"pageNumber":1,"pageSize":25,"totalCount":0}""");
+        });
+        var memberId = Guid.NewGuid();
+
+        var result = await new CrewApiClient(httpClient).GetAvailabilityAsync(
+            memberId, new DateOnly(2026, 8, 1), new DateOnly(2026, 8, 31), "AnnualLeave", "Requested", 1, 25, CancellationToken.None);
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal("/api/crew/availability", captured!.RequestUri!.AbsolutePath);
+        Assert.Contains($"crewMemberId={memberId}", captured.RequestUri.Query, StringComparison.Ordinal);
+        Assert.Contains("from=2026-08-01", captured.RequestUri.Query, StringComparison.Ordinal);
+        Assert.Contains("type=AnnualLeave", captured.RequestUri.Query, StringComparison.Ordinal);
+        Assert.Contains("status=Requested", captured.RequestUri.Query, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task GetMemberAvailabilityAsync_and_conflicts_use_their_endpoints()
+    {
+        var paths = new List<string>();
+        using var httpClient = CreateHttpClient((request, _) =>
+        {
+            paths.Add(request.RequestUri!.AbsolutePath);
+            return Json(HttpStatusCode.OK, request.RequestUri!.AbsolutePath.EndsWith("/conflicts", StringComparison.Ordinal)
+                ? """{"conflicts":[]}"""
+                : """{"items":[]}""");
+        });
+        var memberId = Guid.NewGuid();
+        var client = new CrewApiClient(httpClient);
+
+        await client.GetMemberAvailabilityAsync(memberId, CancellationToken.None);
+        await client.GetAvailabilityConflictsAsync(memberId, new DateOnly(2026, 8, 1), new DateOnly(2026, 8, 10), CancellationToken.None);
+
+        Assert.Contains($"/api/crew/members/{memberId}/availability", paths);
+        Assert.Contains("/api/crew/availability/conflicts", paths);
+    }
+
+    [Fact]
+    public async Task Availability_write_methods_use_the_actual_endpoints()
+    {
+        var calls = new List<(HttpMethod Method, string Path)>();
+        using var httpClient = CreateHttpClient((request, _) =>
+        {
+            calls.Add((request.Method, request.RequestUri!.AbsolutePath));
+            var status = request.RequestUri!.AbsolutePath.EndsWith("/availability-requests", StringComparison.Ordinal)
+                ? HttpStatusCode.Created
+                : HttpStatusCode.OK;
+            return Json(status, $$"""{"id":"{{Guid.NewGuid()}}","crewMemberId":"{{Guid.NewGuid()}}","previousStatus":"Requested","newStatus":"Approved","actorUserId":"{{Guid.NewGuid()}}","reason":null,"occurredAtUtc":"2026-09-10T00:00:00Z"}""");
+        });
+        var client = new CrewApiClient(httpClient);
+        var memberId = Guid.NewGuid();
+        var requestId = Guid.NewGuid();
+
+        await client.RequestAvailabilityAsync(memberId, new CreateCrewAvailabilityRequestRequest { Type = "AnnualLeave" }, CancellationToken.None);
+        await client.ApproveAvailabilityRequestAsync(requestId, CancellationToken.None);
+        await client.RejectAvailabilityRequestAsync(requestId, new RejectCrewAvailabilityRequestRequest { Reason = "x" }, CancellationToken.None);
+        await client.CancelAvailabilityRequestAsync(requestId, new CancelCrewAvailabilityRequestRequest { Reason = "x" }, CancellationToken.None);
+
+        Assert.Contains((HttpMethod.Post, $"/api/crew/members/{memberId}/availability-requests"), calls);
+        Assert.Contains((HttpMethod.Post, $"/api/crew/availability-requests/{requestId}/approve"), calls);
+        Assert.Contains((HttpMethod.Post, $"/api/crew/availability-requests/{requestId}/reject"), calls);
+        Assert.Contains((HttpMethod.Post, $"/api/crew/availability-requests/{requestId}/cancel"), calls);
+    }
+
+    [Fact]
+    public async Task Availability_write_methods_map_conflict_validation_and_not_found()
+    {
+        using var conflict = CreateHttpClient((_, _) => Json(HttpStatusCode.Conflict, """{"title":"Conflict","detail":"Overlaps."}"""));
+        var conflictResult = await new CrewApiClient(conflict).ApproveAvailabilityRequestAsync(Guid.NewGuid(), CancellationToken.None);
+        Assert.True(conflictResult.Failure!.IsConflict);
+
+        using var validation = CreateHttpClient((_, _) => Json(HttpStatusCode.BadRequest, """{"title":"Invalid","errors":{"reason":["Reason is required."]}}"""));
+        var validationResult = await new CrewApiClient(validation).RejectAvailabilityRequestAsync(
+            Guid.NewGuid(), new RejectCrewAvailabilityRequestRequest(), CancellationToken.None);
+        Assert.True(validationResult.Failure!.IsValidation);
+        Assert.Equal("Reason is required.", Assert.Single(validationResult.Failure.Errors!["reason"]));
+
+        using var notFound = CreateHttpClient((_, _) => Json(HttpStatusCode.NotFound, """{"title":"Not found"}"""));
+        var notFoundResult = await new CrewApiClient(notFound).GetMemberAvailabilityAsync(Guid.NewGuid(), CancellationToken.None);
+        Assert.True(notFoundResult.Failure!.IsNotFound);
+    }
+
     private static HttpClient CreateHttpClient(Func<HttpRequestMessage, CancellationToken, Task<HttpResponseMessage>> responseFactory) =>
         new(new StubHttpMessageHandler(responseFactory)) { BaseAddress = new Uri("https://api.harborops.test/") };
 

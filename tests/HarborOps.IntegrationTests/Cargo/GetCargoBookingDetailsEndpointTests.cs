@@ -204,6 +204,9 @@ public sealed class GetCargoBookingDetailsEndpointTests : IntegrationTestBase
             {
                 ContainerNumber = containerNumber,
                 ContainerType = "40HC",
+                PortOfLoadingCode = "NLRTM",
+                PortOfDischargeCode = "USNYC",
+                WeightKg = 12500m,
             },
             CancellationToken.None);
         var result = await response.Content.ReadFromJsonAsync<AddCargoContainerResponse>(

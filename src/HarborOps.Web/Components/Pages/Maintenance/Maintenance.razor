@@ -70,11 +70,23 @@
 				@onclick="() => SelectTab(MaintenanceTab.Replenishment)">
 			Replenishment
 		</button>
+		<button type="button"
+				role="tab"
+				class="workspace-tab @(activeTab == MaintenanceTab.Defects ? "active" : null)"
+				aria-selected="@(activeTab == MaintenanceTab.Defects)"
+				@onclick="() => SelectTab(MaintenanceTab.Defects)">
+			Defects
+		</button>
 	</nav>
 
 	@if (activeTab == MaintenanceTab.Equipment)
 	{
 		<EquipmentPanel />
+	}
+
+	@if (activeTab == MaintenanceTab.Defects)
+	{
+		<DefectsPanel />
 	}
 
 	@if (activeTab == MaintenanceTab.PreventiveSchedules)

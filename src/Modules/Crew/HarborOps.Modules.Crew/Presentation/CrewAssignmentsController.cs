@@ -70,6 +70,11 @@ public sealed class CrewAssignmentsController(
                 Detail = exception.Message,
             });
         }
+        catch (CrewMemberUnavailableException exception)
+        {
+            return Conflict(Problem(
+                StatusCodes.Status409Conflict, "Crew member is unavailable.", exception.Message));
+        }
     }
 
     [HttpPost("{assignmentId:guid}/activate")]
@@ -90,6 +95,10 @@ public sealed class CrewAssignmentsController(
         catch (InvalidCrewAssignmentTransitionException exception)
         {
             return Conflict(Problem(StatusCodes.Status409Conflict, "Crew assignment cannot be activated.", exception.Message));
+        }
+        catch (CrewMemberUnavailableException exception)
+        {
+            return Conflict(Problem(StatusCodes.Status409Conflict, "Crew member is unavailable.", exception.Message));
         }
     }
 
