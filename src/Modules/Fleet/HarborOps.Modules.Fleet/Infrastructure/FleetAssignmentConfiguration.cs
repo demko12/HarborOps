@@ -27,7 +27,13 @@ internal sealed class FleetAssignmentConfiguration : IEntityTypeConfiguration<Fl
         builder.Property(fleetAssignment => fleetAssignment.IsActive)
             .IsRequired();
 
-        builder.HasIndex(fleetAssignment => fleetAssignment.VesselId);
+        builder.HasIndex(fleetAssignment => new
+        {
+            fleetAssignment.VesselId,
+            fleetAssignment.AssignedFromUtc,
+            fleetAssignment.Id,
+        })
+            .HasFilter("[IsActive] = 1");
 
         builder.HasIndex(fleetAssignment => fleetAssignment.FleetId);
     }

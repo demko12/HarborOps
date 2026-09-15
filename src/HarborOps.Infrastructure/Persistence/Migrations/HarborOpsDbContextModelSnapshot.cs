@@ -2034,7 +2034,8 @@ namespace HarborOps.Infrastructure.Persistence.Migrations
 
                     b.HasIndex("FleetId");
 
-                    b.HasIndex("VesselId");
+                    b.HasIndex("VesselId", "AssignedFromUtc", "Id")
+                        .HasFilter("[IsActive] = 1");
 
                     b.ToTable("FleetAssignments", "fleet");
                 });
@@ -2147,6 +2148,10 @@ namespace HarborOps.Infrastructure.Persistence.Migrations
                     b.HasIndex("ImoNumber")
                         .IsUnique();
 
+                    b.HasIndex("Name", "Id");
+
+                    b.HasIndex("CurrentStatus", "Name", "Id");
+
                     b.ToTable("Vessels", "fleet");
 
                     b.ToTable(tb => tb.IsTemporal(ttb =>
@@ -2188,7 +2193,8 @@ namespace HarborOps.Infrastructure.Persistence.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("VesselId");
+                    b.HasIndex("VesselId", "ChangedAtUtc", "Id")
+                        .IsDescending(false, true, true);
 
                     b.ToTable("VesselStatusHistories", "fleet");
                 });

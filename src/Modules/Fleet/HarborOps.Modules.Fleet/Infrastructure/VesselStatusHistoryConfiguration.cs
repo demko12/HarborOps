@@ -32,6 +32,12 @@ internal sealed class VesselStatusHistoryConfiguration : IEntityTypeConfiguratio
         builder.Property(history => history.ChangedAtUtc)
             .IsRequired();
 
-        builder.HasIndex(history => history.VesselId);
+        builder.HasIndex(history => new
+        {
+            history.VesselId,
+            history.ChangedAtUtc,
+            history.Id,
+        })
+            .IsDescending(false, true, true);
     }
 }
