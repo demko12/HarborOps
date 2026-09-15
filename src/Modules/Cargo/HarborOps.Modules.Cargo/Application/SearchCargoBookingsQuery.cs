@@ -42,10 +42,17 @@ public sealed class SearchCargoBookingsQuery(DbContext dbContext)
             bookings = bookings.Where(booking => booking.IsHazardous == isHazardous);
         }
 
-        var totalCount = await bookings.CountAsync(cancellationToken);
-        var hazardousCount = await bookings.CountAsync(
-            booking => booking.IsHazardous,
-            cancellationToken);
+        var counts = await bookings
+            .GroupBy(_ => 1)
+            .Select(group => new
+            {
+                TotalCount = group.Count(),
+                HazardousCount = group.Count(booking => booking.IsHazardous),
+            })
+            .FirstOrDefaultAsync(cancellationToken);
+
+        var totalCount = counts?.TotalCount ?? 0;
+        var hazardousCount = counts?.HazardousCount ?? 0;
 
         var items = await bookings
             .OrderBy(booking => booking.Status == CargoStatus.InTransit
