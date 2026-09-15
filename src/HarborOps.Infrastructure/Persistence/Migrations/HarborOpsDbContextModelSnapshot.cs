@@ -3535,6 +3535,12 @@ namespace HarborOps.Infrastructure.Persistence.Migrations
                     b.HasIndex("VoyageNumber")
                         .IsUnique();
 
+                    b.HasIndex("PlannedDeparture", "Id");
+
+                    SqlServerIndexBuilderExtensions.IncludeProperties(b.HasIndex("PlannedDeparture", "Id"), new[] { "VoyageNumber" });
+
+                    b.HasIndex("Status", "PlannedDeparture", "Id");
+
                     b.ToTable("Voyages", "voyages");
 
                     b.ToTable(tb => tb.IsTemporal(ttb =>

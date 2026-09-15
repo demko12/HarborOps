@@ -58,7 +58,8 @@ public sealed class ScheduleVoyageEndpointTests : IntegrationTestBase
         var entityType = dbContext.Model.FindEntityType(typeof(Voyage));
         var voyageNumberIndex = entityType!
             .GetIndexes()
-            .Single(index => index.Properties.Single().Name == nameof(Voyage.VoyageNumber));
+            .Single(index => index.Properties.Count == 1
+                && index.Properties[0].Name == nameof(Voyage.VoyageNumber));
 
         Assert.Equal(request.VoyageNumber, voyage.VoyageNumber);
         Assert.Equal(request.VesselId, voyage.VesselId);
