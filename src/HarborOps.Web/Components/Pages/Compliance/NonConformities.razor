@@ -79,12 +79,15 @@
                         <div class="nc-record-cell"><span>Vessel</span><strong>@row.VesselName</strong></div>
                         <div class="nc-record-cell"><span>Severity</span><span class="compliance-badge @SeverityBadgeClass(row.Severity)">@row.Severity</span></div>
                         <div class="nc-record-cell"><span>Status</span><span class="compliance-badge @StatusBadgeClass(row.ClosureStatus)">@StatusLabel(row.ClosureStatus)</span></div>
-                        <div class="nc-record-cell"><span>Corrective action due</span><strong>@row.CorrectiveActionDeadline.ToString("dd MMM yyyy")</strong></div>
+                        <div class="nc-record-cell nc-record-due">
+                            <span>Corrective action due</span>
+                            <strong>@row.CorrectiveActionDeadline.ToString("dd MMM yyyy")</strong>
+                            @if (row.IsOverdue)
+                            {
+                                <span class="nc-overdue-flag"><span class="bi bi-exclamation-triangle-fill" aria-hidden="true"></span>Overdue</span>
+                            }
+                        </div>
                         <div class="nc-record-cell nc-record-count"><span>Actions</span><strong>@row.CorrectiveActionCount</strong></div>
-                        @if (row.IsOverdue)
-                        {
-                            <span class="nc-overdue-flag"><span class="bi bi-exclamation-triangle-fill" aria-hidden="true"></span> Overdue</span>
-                        }
                         <span class="bi bi-chevron-right" aria-hidden="true"></span>
                     </button>
                 }
