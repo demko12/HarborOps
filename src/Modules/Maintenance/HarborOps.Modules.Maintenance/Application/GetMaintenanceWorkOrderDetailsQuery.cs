@@ -15,6 +15,8 @@ public sealed class GetMaintenanceWorkOrderDetailsQuery(DbContext dbContext, Tim
     {
         var utcNow = timeProvider.GetUtcNow().UtcDateTime;
 
+        // The work order, its equipment, part usages and latest completion record are loaded in a single
+        // round trip; separate queries cost one database round trip each.
         var workOrder = await dbContext.Set<MaintenanceWorkOrder>()
             .AsNoTracking()
             .Where(item => item.Id == workOrderId)
@@ -31,6 +33,47 @@ public sealed class GetMaintenanceWorkOrderDetailsQuery(DbContext dbContext, Tim
                 item.DueUtc,
                 item.CreatedUtc,
                 item.CompletedUtc,
+                Equipment = (
+                    from link in dbContext.Set<WorkOrderEquipment>()
+                    join equipment in dbContext.Set<Equipment>()
+                        on link.EquipmentId equals equipment.Id
+                    where link.WorkOrderId == item.Id
+                    orderby equipment.Name, equipment.Id
+                    select new WorkOrderEquipmentListItem(
+                        equipment.Id,
+                        equipment.VesselId,
+                        equipment.Name,
+                        equipment.Category,
+                        equipment.Manufacturer,
+                        equipment.SerialNumber))
+                    .ToList(),
+                PartUsages = (
+                    from usage in dbContext.Set<InventoryItemUsage>()
+                    join part in dbContext.Set<InventoryItem>()
+                        on usage.PartId equals part.Id
+                    where usage.WorkOrderId == item.Id
+                    orderby part.Name, part.PartNumber, part.Id
+                    select new WorkOrderPartUsageListItem(
+                        usage.PartId,
+                        part.Name,
+                        part.PartNumber,
+                        usage.QuantityUsed,
+                        part.Quantity))
+                    .ToList(),
+                // Loaded as a collection so SQL Server seeks IX_MaintenanceRecords_WorkOrderId; FirstOrDefault
+                // here would be translated to ROW_NUMBER() over the whole MaintenanceRecords table.
+                Completions = dbContext.Set<MaintenanceRecord>()
+                    .Where(record => record.WorkOrderId == item.Id)
+                    .OrderByDescending(record => record.CompletionDate)
+                    .ThenBy(record => record.Id)
+                    .Select(record => new WorkOrderCompletionRecordItem(
+                        record.Id,
+                        record.TechnicianId,
+                        record.CompletionDate,
+                        record.Notes,
+                        record.Cost,
+                        record.LaborHours))
+                    .ToList(),
             })
             .SingleOrDefaultAsync(cancellationToken);
 
@@ -38,50 +81,6 @@ public sealed class GetMaintenanceWorkOrderDetailsQuery(DbContext dbContext, Tim
         {
             throw new MaintenanceWorkOrderNotFoundException(workOrderId);
         }
-
-        var links = dbContext.Set<WorkOrderEquipment>().AsNoTracking();
-
-        var equipment = await dbContext.Set<Equipment>()
-            .AsNoTracking()
-            .Where(item => links.Any(link => link.WorkOrderId == workOrderId && link.EquipmentId == item.Id))
-            .OrderBy(item => item.Name)
-            .ThenBy(item => item.Id)
-            .Select(item => new WorkOrderEquipmentListItem(
-                item.Id,
-                item.VesselId,
-                item.Name,
-                item.Category,
-                item.Manufacturer,
-                item.SerialNumber))
-            .ToListAsync(cancellationToken);
-
-        var partUsages = await (
-            from usage in dbContext.Set<InventoryItemUsage>().AsNoTracking()
-            join item in dbContext.Set<InventoryItem>().AsNoTracking()
-                on usage.PartId equals item.Id
-            where usage.WorkOrderId == workOrderId
-            orderby item.Name, item.PartNumber, item.Id
-            select new WorkOrderPartUsageListItem(
-                usage.PartId,
-                item.Name,
-                item.PartNumber,
-                usage.QuantityUsed,
-                item.Quantity))
-            .ToListAsync(cancellationToken);
-
-        var completion = await dbContext.Set<MaintenanceRecord>()
-            .AsNoTracking()
-            .Where(record => record.WorkOrderId == workOrderId)
-            .OrderByDescending(record => record.CompletionDate)
-            .ThenBy(record => record.Id)
-            .Select(record => new WorkOrderCompletionRecordItem(
-                record.Id,
-                record.TechnicianId,
-                record.CompletionDate,
-                record.Notes,
-                record.Cost,
-                record.LaborHours))
-            .FirstOrDefaultAsync(cancellationToken);
 
         return new GetMaintenanceWorkOrderDetailsResponse(
             workOrder.Id,
@@ -99,8 +98,8 @@ public sealed class GetMaintenanceWorkOrderDetailsQuery(DbContext dbContext, Tim
             MaintenanceWorkOrder.AllowedActionsFor(workOrder.Status)
                 .Select(action => action.ToString())
                 .ToList(),
-            equipment,
-            partUsages,
-            completion);
+            workOrder.Equipment,
+            workOrder.PartUsages,
+            workOrder.Completions.FirstOrDefault());
     }
 }
