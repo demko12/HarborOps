@@ -44,6 +44,7 @@ internal static class WebAuthenticationEndpoints
             await context.SignInAsync(CookieAuthenticationDefaults.AuthenticationScheme, new ClaimsPrincipal(identity), properties);
             return Results.Redirect($"/login?success=1&returnUrl={Uri.EscapeDataString(returnUrl)}");
         }
+        catch (IdentityLoginThrottledException) { return Results.Redirect($"/login?error=throttled&returnUrl={Uri.EscapeDataString(returnUrl)}"); }
         catch (HttpRequestException) { return Results.Redirect("/login?error=unavailable"); }
     }
 

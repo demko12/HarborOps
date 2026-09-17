@@ -6,6 +6,7 @@ using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.Metadata;
 using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.AspNetCore.Routing.Patterns;
 
@@ -117,6 +118,10 @@ public static class IdentityEndpoints
         if (IsAnonymousEndpoint(routeName, httpMethods))
         {
             endpointBuilder.Metadata.Add(new AllowAnonymousAttribute());
+            if (routeName is "login")
+            {
+                endpointBuilder.Metadata.Add(new EnableRateLimitingAttribute(LoginThrottlingOptions.IpPolicyName));
+            }
             return;
         }
 

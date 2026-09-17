@@ -1,3 +1,4 @@
+using System.Threading.RateLimiting;
 using HarborOps.Api.Composition.Authorization;
 using HarborOps.Api.Composition.Maintenance;
 using HarborOps.Api.Composition.Notifications;
@@ -14,6 +15,7 @@ using HarborOps.Modules.Crew;
 using HarborOps.Modules.Documents;
 using HarborOps.Modules.Fleet;
 using HarborOps.Modules.Identity;
+using HarborOps.Modules.Identity.Application;
 using HarborOps.Modules.Identity.Presentation;
 using HarborOps.Modules.Maintenance;
 using HarborOps.Modules.Maintenance.Contracts;
@@ -21,6 +23,8 @@ using HarborOps.Modules.Notifications;
 using HarborOps.Modules.Voyages;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
+using Microsoft.Extensions.Options;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -46,6 +50,33 @@ builder.Services.AddScoped<MaintenanceBacklogReportService>();
 builder.Services.AddScoped<ExpiryAlertGenerator>();
 builder.Services.Configure<ExpiryAlertOptions>(builder.Configuration.GetSection(ExpiryAlertOptions.SectionName));
 builder.Services.AddHostedService<ExpiryAlertHostedService>();
+builder.Services.Configure<LoginThrottlingOptions>(builder.Configuration.GetSection(LoginThrottlingOptions.SectionName));
+builder.Services.AddRateLimiter(options =>
+{
+    options.OnRejected = async (context, cancellationToken) =>
+    {
+        var loginSettings = context.HttpContext.RequestServices
+            .GetRequiredService<IOptions<LoginThrottlingOptions>>().Value;
+        await LoginThrottlingMiddleware.WriteThrottledResponseAsync(
+            context.HttpContext,
+            loginSettings.ClientAttemptWindow,
+            cancellationToken);
+    };
+    options.AddPolicy(LoginThrottlingOptions.IpPolicyName, context =>
+    {
+        var loginSettings = context.RequestServices.GetRequiredService<IOptions<LoginThrottlingOptions>>().Value;
+        return
+        RateLimitPartition.GetFixedWindowLimiter(
+            context.Connection.RemoteIpAddress?.ToString() ?? "unknown-client",
+            _ => new FixedWindowRateLimiterOptions
+            {
+                PermitLimit = loginSettings.ClientAttemptLimit,
+                Window = loginSettings.ClientAttemptWindow,
+                QueueLimit = 0,
+                AutoReplenishment = true,
+            });
+    });
+});
 
 
 builder.Services.AddHealthChecks();
@@ -79,6 +110,8 @@ if (app.Environment.IsDevelopment())
 
 app.UseHttpsRedirection();
 
+app.UseRateLimiter();
+app.UseMiddleware<LoginThrottlingMiddleware>();
 app.UseAuthentication();
 app.UseAuthorization();
 

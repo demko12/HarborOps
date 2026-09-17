@@ -1,6 +1,7 @@
 using HarborOps.Infrastructure.Persistence;
 using HarborOps.Modules.Documents.Application;
 using HarborOps.Modules.Documents.Infrastructure;
+using HarborOps.Modules.Identity.Application;
 using HarborOps.SharedKernel;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.Hosting;
@@ -32,6 +33,11 @@ public class DocumentFileStorageApiFactory : WebApplicationFactory<Program>
 
         builder.ConfigureServices(services =>
         {
+            services.PostConfigure<LoginThrottlingOptions>(options =>
+            {
+                options.AccountFailedAttemptLimit = 10000;
+                options.ClientAttemptLimit = 10000;
+            });
             services.AddDataProtection().UseEphemeralDataProtectionProvider();
 
             services.RemoveAll<DbContext>();

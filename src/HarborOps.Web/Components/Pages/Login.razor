@@ -44,7 +44,7 @@
     }
     else
     {
-    <form id="login-form" class="login-card" method="post" action="/session/login" data-enhance="false" onsubmit="document.getElementById('login-pending-state').classList.add('is-visible'); this.setAttribute('aria-busy', 'true');">
+    <form id="login-form" class="login-card" method="post" action="/session/login" data-enhance="false" onsubmit="document.getElementById('login-pending-state').classList.add('is-visible'); this.setAttribute('aria-busy', 'true'); this.querySelector('button[type=submit]').disabled = true;">
         <input type="hidden" name="@antiforgeryToken.FormFieldName" value="@antiforgeryToken.RequestToken" />
         <input type="hidden" name="returnUrl" value="@returnUrl" />
         <div class="login-brand" aria-label="HarborOps">
@@ -120,6 +120,7 @@
             "invalid" => "The email or password is incorrect.",
             "required" => "Enter your email and password.",
             "unavailable" => "Sign-in is temporarily unavailable. Please try again.",
+            "throttled" => "Too many sign-in attempts. Please wait a moment and try again.",
             _ => null,
         } : null;
     }
