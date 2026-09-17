@@ -9,6 +9,10 @@ internal sealed class IdentitySessionApiClient(HttpClient httpClient)
     internal async Task<IdentityAccessTokenResponse?> LoginAsync(string email, string password, CancellationToken cancellationToken)
     {
         using var response = await httpClient.PostAsJsonAsync("api/identity/login", new { email, password }, cancellationToken);
+        if (response.StatusCode == HttpStatusCode.TooManyRequests)
+        {
+            throw new IdentityLoginThrottledException();
+        }
         return response.StatusCode == HttpStatusCode.Unauthorized
             ? null
             : response.IsSuccessStatusCode
@@ -43,5 +47,13 @@ internal sealed class IdentitySessionApiClient(HttpClient httpClient)
         request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
         using var response = await httpClient.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
         return response.StatusCode == HttpStatusCode.BadRequest;
+    }
+}
+
+internal sealed class IdentityLoginThrottledException : HttpRequestException
+{
+    internal IdentityLoginThrottledException()
+        : base("Sign-in is temporarily throttled.")
+    {
     }
 }

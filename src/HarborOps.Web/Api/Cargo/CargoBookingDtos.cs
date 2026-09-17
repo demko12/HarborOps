@@ -210,3 +210,135 @@ internal sealed record CargoOperationTransition(
     string OperationState,
     DateTime? StartedAtUtc,
     DateTime? FinishedAtUtc);
+
+internal sealed record BillOfLadingContainerRow(
+    Guid ContainerId,
+    string ContainerNumber,
+    string ContainerType,
+    bool IsSnapshotted);
+
+internal sealed record BillOfLadingEventRow(
+    Guid BillOfLadingEventId,
+    string Action,
+    string FromStatus,
+    string ToStatus,
+    string? Notes,
+    Guid ActorUserId,
+    DateTime OccurredUtc);
+
+internal sealed record BillOfLadingRow(
+    Guid BillOfLadingId,
+    Guid CargoBookingId,
+    string BillNumber,
+    string Status,
+    string ShipperName,
+    string ShipperAddress,
+    string ConsigneeName,
+    string ConsigneeAddress,
+    string? NotifyPartyName,
+    string? NotifyPartyAddress,
+    string PlaceOfReceipt,
+    string PortOfLoading,
+    string PortOfDischarge,
+    string PlaceOfDelivery,
+    string FreightTerms,
+    string CargoMarks,
+    string CargoDescription,
+    int PackageCount,
+    decimal WeightKg,
+    string IssuePlace,
+    DateOnly RequestedIssueDate,
+    Guid? IssuedByUserId,
+    DateTime? IssuedAtUtc,
+    Guid? VoidedByUserId,
+    DateTime? VoidedAtUtc,
+    string? VoidReason,
+    string? SnapshotBookingNumber,
+    Guid? SnapshotVoyageId,
+    string? SnapshotCargoType,
+    string? SnapshotBookingDescription,
+    int? SnapshotBookingPackageCount,
+    decimal? SnapshotBookingWeightKg,
+    string? SnapshotBookingStatus,
+    bool IsEditable,
+    bool CanIssue,
+    string? IssueBlockedReason,
+    DateTime CreatedUtc,
+    IReadOnlyList<BillOfLadingContainerRow> Containers);
+
+internal sealed record BillOfLadingListRow(
+    Guid BillOfLadingId,
+    string BillNumber,
+    string Status,
+    string ShipperName,
+    string ConsigneeName,
+    string PortOfLoading,
+    string PortOfDischarge,
+    int ContainerCount,
+    Guid? IssuedByUserId,
+    DateTime? IssuedAtUtc,
+    DateTime? VoidedAtUtc,
+    DateTime CreatedUtc);
+
+internal sealed record BillOfLadingList(
+    Guid CargoBookingId,
+    string BookingNumber,
+    string BookingStatus,
+    IReadOnlyList<BillOfLadingListRow> BillsOfLading);
+
+internal sealed record BillOfLadingView(
+    BillOfLadingRow BillOfLading,
+    IReadOnlyList<BillOfLadingEventRow> History);
+
+internal sealed record BillOfLadingPrintRow(
+    Guid BillOfLadingId,
+    string BillNumber,
+    string Status,
+    string? Watermark,
+    string ShipperName,
+    string ShipperAddress,
+    string ConsigneeName,
+    string ConsigneeAddress,
+    string? NotifyPartyName,
+    string? NotifyPartyAddress,
+    string PlaceOfReceipt,
+    string PortOfLoading,
+    string PortOfDischarge,
+    string PlaceOfDelivery,
+    string FreightTerms,
+    string CargoMarks,
+    string CargoDescription,
+    int PackageCount,
+    decimal WeightKg,
+    string IssuePlace,
+    DateOnly RequestedIssueDate,
+    string? BookingNumber,
+    Guid? IssuedByUserId,
+    DateTime? IssuedAtUtc,
+    Guid? VoidedByUserId,
+    DateTime? VoidedAtUtc,
+    string? VoidReason,
+    IReadOnlyList<BillOfLadingContainerRow> Containers);
+
+internal sealed record SaveBillOfLadingWebRequest(
+    string BillNumber,
+    string ShipperName,
+    string ShipperAddress,
+    string ConsigneeName,
+    string ConsigneeAddress,
+    string? NotifyPartyName,
+    string? NotifyPartyAddress,
+    string PlaceOfReceipt,
+    string PortOfLoading,
+    string PortOfDischarge,
+    string PlaceOfDelivery,
+    string FreightTerms,
+    string CargoMarks,
+    string CargoDescription,
+    int PackageCount,
+    decimal WeightKg,
+    string IssuePlace,
+    DateOnly RequestedIssueDate,
+    IReadOnlyList<Guid> ContainerIds);
+
+internal sealed record VoidBillOfLadingWebRequest(string Reason);

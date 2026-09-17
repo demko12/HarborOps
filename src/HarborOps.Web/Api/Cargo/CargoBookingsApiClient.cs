@@ -6,6 +6,7 @@ namespace HarborOps.Web.Api.Cargo;
 internal sealed class CargoBookingsApiClient(HttpClient httpClient)
 {
     private const string BasePath = "api/cargo/bookings";
+    private const string BillsPath = "api/cargo/bills-of-lading";
     private const string ContainersPath = "api/cargo/containers";
     private const string OperationsPath = "api/cargo/operations";
 
@@ -269,6 +270,95 @@ internal sealed class CargoBookingsApiClient(HttpClient httpClient)
             request,
             "Unable to hold the container",
             cancellationToken);
+    }
+
+    internal Task<CargoApiResult<BillOfLadingList>> GetBillsOfLadingAsync(
+        Guid bookingId,
+        CancellationToken cancellationToken)
+    {
+        return GetAsync<BillOfLadingList>(
+            BillsForBookingPath(bookingId),
+            "Unable to load the bills of lading",
+            ReviewAccessDetail,
+            cancellationToken);
+    }
+
+    internal Task<CargoApiResult<BillOfLadingView>> GetBillOfLadingAsync(
+        Guid billOfLadingId,
+        CancellationToken cancellationToken)
+    {
+        return GetAsync<BillOfLadingView>(
+            BillPath(billOfLadingId),
+            "Unable to load the bill of lading",
+            ReviewAccessDetail,
+            cancellationToken);
+    }
+
+    internal Task<CargoApiResult<BillOfLadingPrintRow>> GetBillOfLadingPrintAsync(
+        Guid billOfLadingId,
+        CancellationToken cancellationToken)
+    {
+        return GetAsync<BillOfLadingPrintRow>(
+            $"{BillPath(billOfLadingId)}/print",
+            "Unable to load the printable bill of lading",
+            ReviewAccessDetail,
+            cancellationToken);
+    }
+
+    internal Task<CargoApiResult<BillOfLadingRow>> CreateBillOfLadingAsync(
+        Guid bookingId,
+        SaveBillOfLadingWebRequest request,
+        CancellationToken cancellationToken)
+    {
+        return PostAsync<BillOfLadingRow>(
+            BillsForBookingPath(bookingId),
+            request,
+            "Unable to create the bill of lading",
+            cancellationToken);
+    }
+
+    internal Task<CargoApiResult<BillOfLadingRow>> UpdateBillOfLadingAsync(
+        Guid billOfLadingId,
+        SaveBillOfLadingWebRequest request,
+        CancellationToken cancellationToken)
+    {
+        return PutAsync<BillOfLadingRow>(
+            BillPath(billOfLadingId),
+            request,
+            "Unable to save the bill of lading",
+            cancellationToken);
+    }
+
+    internal Task<CargoApiResult<BillOfLadingRow>> IssueBillOfLadingAsync(
+        Guid billOfLadingId,
+        CancellationToken cancellationToken)
+    {
+        return PostAsync<BillOfLadingRow>(
+            $"{BillPath(billOfLadingId)}/issue",
+            "Unable to issue the bill of lading",
+            cancellationToken);
+    }
+
+    internal Task<CargoApiResult<BillOfLadingRow>> VoidBillOfLadingAsync(
+        Guid billOfLadingId,
+        VoidBillOfLadingWebRequest request,
+        CancellationToken cancellationToken)
+    {
+        return PostAsync<BillOfLadingRow>(
+            $"{BillPath(billOfLadingId)}/void",
+            request,
+            "Unable to void the bill of lading",
+            cancellationToken);
+    }
+
+    private static string BillsForBookingPath(Guid bookingId)
+    {
+        return $"{BasePath}/{bookingId}/bills-of-lading";
+    }
+
+    private static string BillPath(Guid billOfLadingId)
+    {
+        return $"{BillsPath}/{billOfLadingId}";
     }
 
     private static string ContainerPath(Guid containerId)

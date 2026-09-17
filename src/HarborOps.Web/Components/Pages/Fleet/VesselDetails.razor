@@ -27,7 +27,6 @@
 				<nav class="page-breadcrumb" aria-label="Breadcrumb"><a href="@FleetHref">Fleet operations</a><span aria-hidden="true">/</span><span>Vessel details</span></nav>
 				<div class="vessel-title-row">
 					<div>
-						<p class="vessel-details-eyebrow">Vessel overview</p>
 						<h1>@details.Name</h1>
 						<p>IMO @details.ImoNumber &middot; @details.VesselTypeName &middot; @details.FlagState</p>
 					</div>
@@ -142,10 +141,12 @@
 				</div>
 				@if (CanReportDefects)
 				{
-					<p class="vessel-assignment-note">Log a defect or fault observed on this vessel for the maintenance team to triage.</p>
-					<a class="vessel-card-edit" href="@($"/maintenance/defects/report?vesselId={VesselId}")">
-						<span class="bi bi-plus-circle" aria-hidden="true"></span>Report defect
-					</a>
+					<div class="vessel-defect-content">
+						<p class="vessel-assignment-note">Log a defect or fault observed on this vessel for the maintenance team to triage.</p>
+						<a class="vessel-defect-action" href="@($"/maintenance/defects/report?vesselId={VesselId}")">
+							<span class="bi bi-plus-circle" aria-hidden="true"></span>Report defect
+						</a>
+					</div>
 				}
 				else
 				{

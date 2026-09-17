@@ -1,5 +1,6 @@
 using HarborOps.Infrastructure.Persistence;
 using HarborOps.IntegrationTests.Documents;
+using HarborOps.Modules.Identity.Application;
 using HarborOps.SharedKernel;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.Hosting;
@@ -21,9 +22,15 @@ public sealed class HarborOpsApiFactory : WebApplicationFactory<Program>
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
         builder.ConfigureLogging(logging => logging.ClearProviders());
-
         builder.ConfigureServices(services =>
         {
+            // Most integration tests authenticate repeatedly through one TestServer client.
+            // Feature-specific throttling tests override these values with short limits.
+            services.PostConfigure<LoginThrottlingOptions>(options =>
+            {
+                options.AccountFailedAttemptLimit = 10000;
+                options.ClientAttemptLimit = 10000;
+            });
             services.AddDataProtection().UseEphemeralDataProtectionProvider();
 
             services.RemoveAll<DbContext>();

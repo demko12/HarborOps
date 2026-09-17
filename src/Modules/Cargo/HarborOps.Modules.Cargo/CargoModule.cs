@@ -18,13 +18,18 @@ public static class CargoModule
         services.AddScoped<ContainerManifestImportService>();
         services.AddScoped<AssignContainerSealService>();
         services.AddScoped<BreakContainerSealService>();
+        services.AddScoped<CreateBillOfLadingDraftService>();
         services.AddScoped<ExecuteCargoOperationService>();
+        services.AddScoped<GetBillOfLadingDetailsQuery>();
+        services.AddScoped<GetBillOfLadingPrintQuery>();
+        services.AddScoped<GetBillsOfLadingQuery>();
         services.AddScoped<GetCargoBookingDetailsQuery>();
         services.AddScoped<GetCargoContainersQuery>();
         services.AddScoped<GetCargoOperationsQuery>();
         services.AddScoped<GetCargoSafetyInformationQuery>();
         services.AddScoped<GetContainerControlQuery>();
         services.AddScoped<HoldContainerService>();
+        services.AddScoped<IssueBillOfLadingService>();
         services.AddScoped<PlanCargoOperationService>();
         services.AddScoped<RecordCargoTrackingEventService>();
         services.AddScoped<RecordContainerInspectionService>();
@@ -33,8 +38,10 @@ public static class CargoModule
         services.AddScoped<ReviewCargoSafetyInfoService>();
         services.AddScoped<SearchCargoBookingsQuery>();
         services.AddScoped<SubmitCargoSafetyInfoService>();
+        services.AddScoped<UpdateBillOfLadingDraftService>();
         services.AddScoped<UpdateCargoContainerService>();
         services.AddScoped<UpdateCargoSafetyInfoService>();
+        services.AddScoped<VoidBillOfLadingService>();
         services.AddScoped<IOperationsDashboardCargoQuery, OperationsDashboardCargoQuery>();
         services.TryAddSingleton(TimeProvider.System);
         services.AddControllers()

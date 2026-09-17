@@ -4,6 +4,7 @@ using System.Security.Claims;
 using System.Text.Json;
 using HarborOps.Modules.Identity.Contracts;
 using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace HarborOps.IntegrationTests.Authentication;
@@ -13,7 +14,7 @@ public static class TestAuthenticationExtensions
     private const string TestUserPassword = "P@ssw0rd!2026";
 
 
-    public static Task<HttpClient> CreateAuthenticatedClientAsync(this HarborOpsApiFactory application)
+    public static Task<HttpClient> CreateAuthenticatedClientAsync(this WebApplicationFactory<Program> application)
     {
         return application.CreateAuthenticatedClientWithPermissionsAsync(
             Permissions.Fleet.Manage,
@@ -28,7 +29,7 @@ public static class TestAuthenticationExtensions
 
 
     public static async Task<HttpClient> CreateAuthenticatedClientAsync(
-        this HarborOpsApiFactory application,
+        this WebApplicationFactory<Program> application,
         params string[] roleNames)
     {
         var email = $"integration-test.{Guid.NewGuid():N}@harborops.test";
@@ -52,7 +53,7 @@ public static class TestAuthenticationExtensions
 
 
     public static async Task<HttpClient> CreateAuthenticatedClientWithPermissionsAsync(
-        this HarborOpsApiFactory application,
+        this WebApplicationFactory<Program> application,
         params string[] permissions)
     {
         var roleName = $"test-role-{Guid.NewGuid():N}";
@@ -61,7 +62,7 @@ public static class TestAuthenticationExtensions
     }
 
     public static async Task CreateTestUserAsync(
-        this HarborOpsApiFactory application,
+        this WebApplicationFactory<Program> application,
         string email,
         string password,
         params string[] roleNames)
@@ -93,7 +94,7 @@ public static class TestAuthenticationExtensions
     }
 
     public static async Task CreateTestRoleAsync(
-        this HarborOpsApiFactory application,
+        this WebApplicationFactory<Program> application,
         string roleName,
         params string[] permissions)
     {

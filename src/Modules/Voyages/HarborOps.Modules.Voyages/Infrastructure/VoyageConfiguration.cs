@@ -64,5 +64,10 @@ internal sealed class VoyageConfiguration : IEntityTypeConfiguration<Voyage>
 
         builder.HasIndex(voyage => voyage.VoyageNumber)
             .IsUnique();
+
+        builder.HasIndex(voyage => new { voyage.Status, voyage.PlannedDeparture, voyage.Id });
+
+        builder.HasIndex(voyage => new { voyage.PlannedDeparture, voyage.Id })
+            .IncludeProperties(voyage => voyage.VoyageNumber);
     }
 }

@@ -26,6 +26,9 @@ public static class IdentityModule
             options.RefreshTokenExpiration = TimeSpan.FromDays(7);
         });
 
+        services.AddSingleton(TimeProvider.System);
+        services.AddSingleton<LoginAttemptThrottle>();
+
         services.AddAuthorization(IdentityAuthorizationPolicies.Configure);
         services.AddScoped<IAuthorizationHandler, PermissionAuthorizationHandler>();
 

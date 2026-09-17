@@ -84,11 +84,36 @@
     transition: border-color .16s ease, box-shadow .16s ease, background-color .16s ease;
 }
 
+.filter-field > textarea {
+    width: 100%;
+    min-height: 5.75rem;
+    padding: .7rem .85rem;
+    color: var(--text-primary);
+    border: 1px solid var(--border-medium);
+    border-radius: var(--radius-control);
+    background-color: var(--control-surface);
+    font: inherit;
+    font-size: .88rem;
+    line-height: 1.45;
+    resize: vertical;
+    transition: border-color .16s ease, box-shadow .16s ease, background-color .16s ease;
+}
+
     .filter-field > :is(input, select):hover {
         border-color: var(--border-strong-hover);
     }
 
     .filter-field > :is(input, select):focus {
+        border-color: var(--accent);
+        outline: 0;
+        box-shadow: var(--focus-ring);
+    }
+
+    .filter-field > textarea:hover {
+        border-color: var(--border-strong-hover);
+    }
+
+    .filter-field > textarea:focus {
         border-color: var(--accent);
         outline: 0;
         box-shadow: var(--focus-ring);
@@ -105,6 +130,10 @@
     }
 
 html[data-theme="light"] .filter-field > :is(input, select) {
+    color-scheme: light;
+}
+
+html[data-theme="light"] .filter-field > textarea {
     color-scheme: light;
 }
 
@@ -611,6 +640,44 @@ html[data-theme="dark"] .documents-review-status-rejected { color: #fca5a5; back
     margin-bottom: 1.35rem;
 }
 
+.documents-modal-eyebrow {
+    margin: 0 0 .35rem;
+    color: var(--accent);
+    font-size: .7rem;
+    font-weight: 700;
+    letter-spacing: .12em;
+    text-transform: uppercase;
+}
+
+.documents-modal-close {
+    display: grid;
+    flex: 0 0 auto;
+    width: 2rem;
+    height: 2rem;
+    place-items: center;
+    color: var(--text-secondary);
+    border: 1px solid var(--border-medium);
+    border-radius: var(--radius-control);
+    background: var(--bg-surface);
+    font: inherit;
+    font-size: 1.25rem;
+    line-height: 1;
+    cursor: pointer;
+    transition: color .16s ease, border-color .16s ease, background .16s ease, transform .16s ease;
+}
+
+.documents-modal-close:hover {
+    color: var(--text-primary);
+    border-color: var(--accent-border);
+    background: var(--accent-bg);
+    transform: translateY(-1px);
+}
+
+.documents-modal-close:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+}
+
 .documents-modal-actions {
     display: flex;
     justify-content: flex-start;
@@ -869,7 +936,8 @@ html[data-theme="light"] .documents-form-grid ::deep select {
 
 .documents-modal.documents-type-form-card,
 .documents-modal.documents-file-form-card,
-.documents-modal.documents-form-card {
+.documents-modal.documents-form-card,
+.documents-modal.documents-retention-card {
     width: min(100%, 36rem);
     border-color: #c7d1df !important;
     background: #f8fafc !important;
@@ -886,23 +954,72 @@ html[data-theme="light"] .documents-form-grid ::deep select {
     width: min(100%, 44rem);
 }
 
+.documents-modal.documents-retention-card {
+    width: min(100%, 62rem);
+    padding: 1.5rem;
+}
+
+.documents-retention-card .workspace-tabs {
+    margin: 0 0 1rem;
+}
+
+.documents-retention-filters {
+    align-items: flex-end;
+    margin: 0 0 1.15rem;
+    padding: 1rem;
+    border-color: var(--border-subtle);
+    border-radius: .8rem;
+    background: var(--control-surface);
+    box-shadow: none;
+}
+
+.documents-retention-filters .filter-field {
+    flex: 1 1 12rem;
+}
+
+.documents-retention-filters .documents-filter-reset {
+    margin-left: auto;
+}
+
 .documents-lifecycle-actions {
     display: flex;
+    align-items: center;
+    flex-wrap: wrap;
     gap: .65rem;
     margin: 0 0 1rem;
 }
 
 .documents-lifecycle-panel {
     margin: 0 0 1rem;
-    padding: 1rem;
-    border: 1px solid var(--border-subtle);
-    border-radius: .8rem;
+    padding: 1.1rem;
+    border: 1px solid var(--border-medium);
+    border-radius: var(--radius-card);
     background: var(--control-surface);
 }
+
+    .documents-lifecycle-panel > p:first-child {
+        margin: 0 0 .85rem;
+        color: var(--text-primary);
+        font-size: .9rem;
+        font-weight: 650;
+    }
+
+    .documents-lifecycle-panel .filter-field {
+        margin-bottom: .9rem;
+    }
 
     .documents-lifecycle-panel .documents-form-grid {
         margin-bottom: .75rem;
     }
+
+.documents-retention-action-row {
+    padding-bottom: .95rem;
+    border-bottom: 1px solid var(--border-subtle);
+}
+
+.retention-actions-panel > .documents-lifecycle-actions:first-of-type {
+    margin-bottom: 1.1rem;
+}
 
 .documents-renewal-history {
     margin: 0 0 1rem;
@@ -930,7 +1047,8 @@ html[data-theme="dark"] .documents-modal-backdrop {
 
 html[data-theme="dark"] .documents-modal.documents-type-form-card,
 html[data-theme="dark"] .documents-modal.documents-file-form-card,
-html[data-theme="dark"] .documents-modal.documents-form-card {
+html[data-theme="dark"] .documents-modal.documents-form-card,
+html[data-theme="dark"] .documents-modal.documents-retention-card {
     border-color: rgba(148, 163, 184, .28) !important;
     background: #172033 !important;
     box-shadow: 0 28px 70px rgba(0, 0, 0, .5), 0 0 0 1px rgba(255, 255, 255, .06) inset !important;

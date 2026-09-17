@@ -92,5 +92,9 @@ internal sealed class VesselConfiguration : IEntityTypeConfiguration<Vessel>
 
         builder.HasIndex(vessel => vessel.ImoNumber)
             .IsUnique();
+
+        builder.HasIndex(vessel => new { vessel.Name, vessel.Id });
+
+        builder.HasIndex(vessel => new { vessel.CurrentStatus, vessel.Name, vessel.Id });
     }
 }

@@ -22,17 +22,36 @@ public sealed class RecordVesselPositionService(DbContext dbContext, TimeProvide
             throw new RecordVesselPositionValidationException(errors);
         }
 
-        var vessel = await dbContext.Set<Vessel>()
-            .FirstOrDefaultAsync(v => v.Id == vesselId, cancellationToken)
-            ?? throw new VesselNotFoundException(vesselId);
-
         var reportedAtUtc = timeProvider.GetUtcNow().UtcDateTime;
         var latitude = request.Latitude!.Value;
         var longitude = request.Longitude!.Value;
 
-        vessel.ReportPosition(latitude, longitude, reportedAtUtc);
+        if (dbContext.Database.IsRelational())
+        {
+            var updatedRows = await dbContext.Set<Vessel>()
+                .Where(vessel => vessel.Id == vesselId)
+                .ExecuteUpdateAsync(
+                    setters => setters
+                        .SetProperty(vessel => vessel.CurrentLatitude, latitude)
+                        .SetProperty(vessel => vessel.CurrentLongitude, longitude)
+                        .SetProperty(vessel => vessel.LastPositionReportedAtUtc, reportedAtUtc)
+                        .SetProperty(vessel => vessel.UpdatedAtUtc, reportedAtUtc),
+                    cancellationToken);
 
-        await dbContext.SaveChangesAsync(cancellationToken);
+            if (updatedRows == 0)
+            {
+                throw new VesselNotFoundException(vesselId);
+            }
+        }
+        else
+        {
+            var vessel = await dbContext.Set<Vessel>()
+                .FirstOrDefaultAsync(vessel => vessel.Id == vesselId, cancellationToken)
+                ?? throw new VesselNotFoundException(vesselId);
+
+            vessel.ReportPosition(latitude, longitude, reportedAtUtc);
+            await dbContext.SaveChangesAsync(cancellationToken);
+        }
 
         return new RecordVesselPositionResponse(vesselId, latitude, longitude, reportedAtUtc);
     }

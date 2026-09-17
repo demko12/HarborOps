@@ -52,7 +52,9 @@ public sealed class RegisterVesselEndpointTests : IntegrationTestBase
         var entityType = dbContext.Model.FindEntityType(typeof(Vessel));
         var imoNumberIndex = entityType!
             .GetIndexes()
-            .Single(index => index.Properties.Single().Name == nameof(Vessel.ImoNumber));
+            .Single(index =>
+                index.Properties.Count == 1
+                && index.Properties[0].Name == nameof(Vessel.ImoNumber));
 
         Assert.Equal(request.Name, vessel.Name);
         Assert.Equal(request.ImoNumber, vessel.ImoNumber);

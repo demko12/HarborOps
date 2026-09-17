@@ -17,7 +17,9 @@ public static class CrewModule
     public static IServiceCollection AddCrewModule(this IServiceCollection services, IConfiguration configuration)
     {
         services.AddScoped<RegisterCrewMemberService>();
-        services.AddScoped<ISearchCrewMembersQuery, SearchCrewMembersQuery>();
+        services.AddMemoryCache();
+        services.AddScoped<SearchCrewMembersQuery>();
+        services.AddScoped<ISearchCrewMembersQuery, CachedSearchCrewMembersQuery>();
         services.AddScoped<IOperationsDashboardCrewQuery, OperationsDashboardCrewQuery>();
         services.AddScoped<RegisterCrewAssignmentService>();
         services.AddScoped<ActivateCrewAssignmentService>();

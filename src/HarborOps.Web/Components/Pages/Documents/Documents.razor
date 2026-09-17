@@ -450,7 +450,11 @@
     <div class="documents-modal-backdrop" role="presentation" @onclick="CloseRetentionTab">
     <section class="documents-retention-card documents-modal documents-modal-wide" role="dialog" aria-modal="true" aria-labelledby="documents-retention-title" @onclick:stopPropagation="true">
         <div class="documents-inline-form-header">
-            <h2 id="documents-retention-title">Retention, legal holds &amp; disposition</h2>
+            <div>
+                <p class="documents-modal-eyebrow">Document lifecycle</p>
+                <h2 id="documents-retention-title">Retention, legal holds &amp; disposition</h2>
+            </div>
+            <button type="button" class="documents-modal-close" aria-label="Close retention and disposition" @onclick="CloseRetentionTab">×</button>
         </div>
 
         <section class="documents-tabs workspace-tabs" aria-label="Retention views">
@@ -463,7 +467,7 @@
 
         @if (isRetentionQueueSubTab)
         {
-            <section class="documents-filters" aria-label="Retention queue filters">
+            <section class="documents-filters documents-retention-filters" aria-label="Retention queue filters">
                 <div class="filter-field">
                     <label for="retention-state-filter">State</label>
                     <select id="retention-state-filter" @bind="retentionStateFilter" @bind:after="ApplyRetentionFiltersAsync">
@@ -548,7 +552,7 @@
                     <div class="documents-inline-form-header">
                         <h3>Document @actionsRow.DocumentId.ToString()[..8]</h3>
                     </div>
-                    <div class="documents-lifecycle-actions">
+                    <div class="documents-lifecycle-actions documents-retention-action-row">
                         <span class="documents-status @GetRetentionStateClass(actionsRow.RetentionState)">@actionsRow.RetentionState</span>
                         <span>Due @FormatRetentionDate(actionsRow.RetentionDueAtUtc)</span>
                     </div>
@@ -675,7 +679,7 @@
                             <p>Disposition requested @FormatRetentionDate(pendingDisposition.RequestedAtUtc)</p>
                             @if (CanDisposeRetention)
                             {
-                                <div class="documents-lifecycle-actions">
+                                <div class="documents-lifecycle-actions documents-retention-action-row">
                                     <button type="button" class="documents-search-button retention-approve-button" @onclick="OpenApproveDispositionConfirmation">Approve</button>
                                     <button type="button" class="documents-modal-cancel retention-reject-button" @onclick="OpenRejectDispositionConfirmation">Reject</button>
                                 </div>

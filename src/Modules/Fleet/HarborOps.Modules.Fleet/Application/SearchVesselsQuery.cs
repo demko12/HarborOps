@@ -21,43 +21,58 @@ internal sealed class SearchVesselsQuery(DbContext dbContext) : ISearchVesselsQu
         var pageNumber = request.PageNumber ?? SearchVesselsValidator.DefaultPageNumber;
         var pageSize = request.PageSize ?? SearchVesselsValidator.DefaultPageSize;
 
-        var fleetAssignments = dbContext.Set<FleetAssignment>().AsNoTracking();
+        var fleetAssignments = dbContext.Set<FleetAssignment>()
+            .AsNoTracking()
+            .Where(assignment => assignment.IsActive);
         var fleets = dbContext.Set<Domain.Fleet>().AsNoTracking();
 
-        var rows =
-            from vessel in dbContext.Set<Vessel>().AsNoTracking()
-            join vesselType in dbContext.Set<VesselType>().AsNoTracking()
-                on vessel.VesselTypeId equals vesselType.Id
-            select new
-            {
-                Vessel = vessel,
-                VesselTypeName = vesselType.Name,
-            };
+        var vessels = dbContext.Set<Vessel>().AsNoTracking();
 
         if (!string.IsNullOrWhiteSpace(request.Search))
         {
             var search = request.Search.Trim();
 
-            rows = rows.Where(row =>
-                row.Vessel.Name.Contains(search)
-                || row.Vessel.ImoNumber == search);
+            vessels = vessels.Where(vessel =>
+                vessel.Name.Contains(search)
+                || vessel.ImoNumber == search);
         }
 
         if (!string.IsNullOrWhiteSpace(request.Status))
         {
             var status = request.Status.Trim();
-            rows = rows.Where(row => row.Vessel.CurrentStatus == status);
+            vessels = vessels.Where(vessel => vessel.CurrentStatus == status);
         }
 
         if (request.FleetId is { } fleetId)
         {
-            rows = rows.Where(row => fleetAssignments.Any(assignment =>
-                assignment.VesselId == row.Vessel.Id
-                && assignment.IsActive
+            vessels = vessels.Where(vessel => fleetAssignments.Any(assignment =>
+                assignment.VesselId == vessel.Id
                 && assignment.FleetId == fleetId));
         }
 
-        var totalCount = await rows.CountAsync(cancellationToken);
+        var totalCount = await vessels.CountAsync(cancellationToken);
+
+        var rows =
+            from vessel in vessels
+            join vesselType in dbContext.Set<VesselType>().AsNoTracking()
+                on vessel.VesselTypeId equals vesselType.Id
+            join fleetAssignment in fleetAssignments
+                on vessel.Id equals fleetAssignment.VesselId into vesselAssignments
+            from fleetAssignment in vesselAssignments
+                .OrderBy(assignment => assignment.AssignedFromUtc)
+                .ThenBy(assignment => assignment.Id)
+                .Take(1)
+                .DefaultIfEmpty()
+            join fleet in fleets
+                on fleetAssignment.FleetId equals fleet.Id into assignedFleets
+            from fleet in assignedFleets.DefaultIfEmpty()
+            select new
+            {
+                Vessel = vessel,
+                VesselTypeName = vesselType.Name,
+                FleetId = (Guid?)fleetAssignment.FleetId,
+                FleetName = fleet.Name,
+            };
 
         var items = await rows
             .OrderBy(row => row.Vessel.Name)
@@ -76,18 +91,8 @@ internal sealed class SearchVesselsQuery(DbContext dbContext) : ISearchVesselsQu
                 row.Vessel.Dwt,
                 row.Vessel.UpdatedAtUtc,
                 row.Vessel.LifecycleStage,
-                fleetAssignments
-                    .Where(assignment =>
-                        assignment.VesselId == row.Vessel.Id && assignment.IsActive)
-                    .OrderBy(assignment => assignment.AssignedFromUtc)
-                    .ThenBy(assignment => assignment.Id)
-                    .Select(assignment => (Guid?)assignment.FleetId)
-                    .FirstOrDefault(),
-                (from assignment in fleetAssignments
-                 where assignment.VesselId == row.Vessel.Id && assignment.IsActive
-                 join fleet in fleets on assignment.FleetId equals fleet.Id
-                 orderby assignment.AssignedFromUtc, assignment.Id
-                 select fleet.Name).FirstOrDefault()))
+                row.FleetId,
+                row.FleetName))
             .ToListAsync(cancellationToken);
 
         return new SearchVesselsResponse(items, pageNumber, pageSize, totalCount);
