@@ -487,6 +487,7 @@ html[data-theme="light"] .filter-field > select {
 
 .voyages-page ::deep .filter-field { display: flex; flex-direction: column; gap: .4rem; }
 .voyages-page ::deep .filter-field label { color: var(--text-muted); font-size: .7rem; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; }
+.voyages-page ::deep .filter-hint { margin: 0; color: var(--text-muted); font-size: .8rem; }
 .voyages-page ::deep .required-marker { color: var(--status-danger); font-weight: 700; }
 
 .voyages-page ::deep .filter-field > input,

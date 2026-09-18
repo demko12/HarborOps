@@ -187,6 +187,47 @@ public sealed class PlanVoyageItineraryServiceTests
     }
 
     [Fact]
+    public async Task Plan_reports_chronology_and_missing_port_errors_together()
+    {
+        await using var dbContext = CreateDbContext();
+        var voyage = await SeedPlannedVoyageAsync(dbContext, "VOY-506");
+        var service = new PlanVoyageItineraryService(dbContext);
+
+        var request = new PlanVoyageItineraryRequest
+        {
+            Stops =
+            [
+                new PlanVoyageItineraryStop
+                {
+                    StopOrder = 1,
+                    DistanceFromPrevious = 0,
+                    EstimatedDurationFromPrevious = 0,
+                    Eta = PlannedDepartureUtc,
+                    Etd = PlannedDepartureUtc,
+                },
+                new PlanVoyageItineraryStop
+                {
+                    StopOrder = 2,
+                    DistanceFromPrevious = 60m,
+                    EstimatedDurationFromPrevious = 300,
+                    Eta = PlannedDepartureUtc,
+                    Etd = PlannedDepartureUtc,
+                },
+            ],
+        };
+
+        var exception = await Assert.ThrowsAsync<PlanVoyageItineraryValidationException>(
+            () => service.PlanAsync(voyage.Id, request, CancellationToken.None));
+
+        var errors = exception.Errors[PlanVoyageItineraryValidator.StopsField];
+        Assert.Contains(
+            "Each stop's estimated departure must be later than its estimated arrival.",
+            errors);
+        Assert.Contains("Stop 1 must reference a port.", errors);
+        Assert.Contains("Stop 2 must reference a port.", errors);
+    }
+
+    [Fact]
     public async Task Plan_rejects_gaps_in_stop_order()
     {
         await using var dbContext = CreateDbContext();

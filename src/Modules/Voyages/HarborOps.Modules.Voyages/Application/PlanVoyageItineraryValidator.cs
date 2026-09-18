@@ -49,14 +49,6 @@ internal static class PlanVoyageItineraryValidator
         {
             errors[StopsField] =
                 ["Stop orders must be unique and numbered consecutively starting at 1."];
-            return errors;
-        }
-
-        ValidateChronology(orderedStops, stopErrors);
-
-        if (stopErrors.Count > 0)
-        {
-            errors[StopsField] = [.. stopErrors];
         }
 
         return errors;
@@ -150,10 +142,10 @@ internal static class PlanVoyageItineraryValidator
         return true;
     }
 
-    private static void ValidateChronology(
-        IReadOnlyList<PlanVoyageItineraryStop> orderedStops,
-        List<string> stopErrors)
+    internal static IReadOnlyList<string> ValidateChronology(
+        IReadOnlyList<PlanVoyageItineraryStop> orderedStops)
     {
+        var stopErrors = new List<string>();
         DateTime? previousEtd = null;
 
         foreach (var stop in orderedStops)
@@ -165,17 +157,19 @@ internal static class PlanVoyageItineraryValidator
             {
                 stopErrors.Add(
                     "Each stop's estimated departure must be later than its estimated arrival.");
-                return;
+                return stopErrors;
             }
 
             if (previousEtd is { } previous && eta <= previous)
             {
                 stopErrors.Add(
                     "Estimated arrival and departure times must increase across stops in order.");
-                return;
+                return stopErrors;
             }
 
             previousEtd = etd;
         }
+
+        return stopErrors;
     }
 }

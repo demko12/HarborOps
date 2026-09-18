@@ -235,7 +235,7 @@ public sealed class VesselDetailsPageTests : BunitContext
     {
         var page = RenderDetailsPage(permissions: "maintenance.manage");
 
-        var link = page.Find(".vessel-defect-card .vessel-card-edit");
+        var link = page.Find(".vessel-defect-card .vessel-defect-action");
 
         Assert.Equal($"/maintenance/defects/report?vesselId={VesselId}", link.GetAttribute("href"));
     }
@@ -245,7 +245,7 @@ public sealed class VesselDetailsPageTests : BunitContext
     {
         var page = RenderDetailsPage(permissions: CurrentUserAuthorizationState.FleetManagePermission);
 
-        Assert.Empty(page.FindAll(".vessel-defect-card .vessel-card-edit"));
+        Assert.Empty(page.FindAll(".vessel-defect-card .vessel-defect-action"));
         Assert.Contains(
             "does not have permission to report maintenance defects",
             page.Find(".vessel-defect-card").TextContent,

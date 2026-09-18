@@ -19,9 +19,9 @@ public partial class ScheduleVoyage
     private string voyageNumber = string.Empty;
     private string departurePortCode = string.Empty;
     private string arrivalPortCode = string.Empty;
-    private DateOnly plannedDepartureDate = DateOnly.FromDateTime(DateTime.UtcNow);
+    private DateOnly plannedDepartureDate = DateOnly.FromDateTime(DateTime.UtcNow).AddDays(1);
     private TimeOnly plannedDepartureTime = new(8, 0);
-    private DateOnly plannedArrivalDate = DateOnly.FromDateTime(DateTime.UtcNow).AddDays(3);
+    private DateOnly plannedArrivalDate = DateOnly.FromDateTime(DateTime.UtcNow).AddDays(4);
     private TimeOnly plannedArrivalTime = new(17, 0);
 
     private string? vesselSearch;

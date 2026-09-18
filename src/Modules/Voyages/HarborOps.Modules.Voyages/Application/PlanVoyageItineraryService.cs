@@ -20,6 +20,7 @@ public sealed class PlanVoyageItineraryService(DbContext dbContext)
         }
 
         var orderedStops = PlanVoyageItineraryValidator.OrderStops(request.Stops!);
+        var chronologyErrors = PlanVoyageItineraryValidator.ValidateChronology(orderedStops);
 
         var voyage = await dbContext.Set<Voyage>()
             .FirstOrDefaultAsync(candidate => candidate.Id == voyageId, cancellationToken)
@@ -64,6 +65,15 @@ public sealed class PlanVoyageItineraryService(DbContext dbContext)
 
         var sourcingErrors = new Dictionary<string, string[]>(StringComparer.Ordinal);
         PlanVoyageItineraryValidator.ValidateStopSourcing(orderedStops, routeStopCount, sourcingErrors);
+        if (chronologyErrors.Count > 0)
+        {
+            sourcingErrors[PlanVoyageItineraryValidator.StopsField] =
+            [
+                .. chronologyErrors,
+                .. sourcingErrors.GetValueOrDefault(PlanVoyageItineraryValidator.StopsField, []),
+            ];
+        }
+
         if (sourcingErrors.Count > 0)
         {
             throw new PlanVoyageItineraryValidationException(sourcingErrors);

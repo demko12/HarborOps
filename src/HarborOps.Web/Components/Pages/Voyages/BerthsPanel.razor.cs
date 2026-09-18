@@ -47,6 +47,8 @@ public partial class BerthsPanel : IDisposable
 
     private bool CanManage => AuthorizationState.HasPermission(ManageVoyagesPermission);
 
+    private bool IsPortListTruncated => portOptions.Count >= PortLookupTake;
+
     private int TotalPages => totalCount == 0 ? 1 : (totalCount + pageSize - 1) / pageSize;
 
     private int FirstRowNumber => rows.Count == 0 ? 0 : ((pageNumber - 1) * pageSize) + 1;
