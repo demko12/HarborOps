@@ -235,7 +235,7 @@
         <ComplianceSection Title="PSC inspections" EmptyTitle="No PSC inspections recorded" IsEmpty="@(overview.PscInspections.Count == 0)">
             @foreach (var item in overview.PscInspections)
             {
-                <article class="compliance-record inspection-card @(item.VesselDetained ? "is-detained" : null)">
+                <a class="compliance-record inspection-card @(item.VesselDetained ? "is-detained" : null)" href="/compliance/psc-inspections/@item.Id">
                     <div class="record-identity">
                         <span class="record-kicker">Inspection</span>
                         <strong>@item.InspectionDate.ToString("dd MMM yyyy")</strong>
@@ -248,8 +248,9 @@
                     <div class="record-status-block">
                         <span class="compliance-badge @(item.VesselDetained ? "danger" : "success")">@(item.VesselDetained ? "Detained" : "Clear")</span>
                     </div>
+                    <span class="inspection-open-action">Open PSC follow-up <i class="bi bi-arrow-right" aria-hidden="true"></i></span>
                     <div class="record-metadata"><span>Port ID</span><code>@item.PortId</code></div>
-                </article>
+                </a>
             }
         </ComplianceSection>
         <ComplianceSection Title="Open non-conformities" EmptyTitle="No open non-conformities" IsEmpty="@(overview.OpenNonConformities.Count == 0)">

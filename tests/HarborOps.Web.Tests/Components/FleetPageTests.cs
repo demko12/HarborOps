@@ -415,19 +415,23 @@ public sealed class FleetPageTests : BunitContext
     }
 
     [Fact]
-    public void The_directory_address_keeps_the_applied_filters_for_a_reload()
+    public void Searching_keeps_the_picker_focused_and_does_not_navigate()
     {
         var page = RenderFleetPage();
 
         var navigation =
             Services.GetRequiredService<Microsoft.AspNetCore.Components.NavigationManager>();
 
+        var addressBeforeSearch = navigation.Uri;
+
         page.Find(".fleet-vessel-search .vessel-picker-input").Input("Northern");
 
-        page.WaitForAssertion(() => Assert.Contains(
-            "search=Northern",
-            navigation.Uri,
-            StringComparison.Ordinal));
+        page.WaitForAssertion(() =>
+        {
+            Assert.Contains(requestedUris, uri => uri.Query.Contains("search=Northern", StringComparison.Ordinal));
+            Assert.Equal(addressBeforeSearch, navigation.Uri);
+            Assert.False(page.Find(".fleet-vessel-search .vessel-picker-input").HasAttribute("disabled"));
+        });
     }
 
     [Fact]

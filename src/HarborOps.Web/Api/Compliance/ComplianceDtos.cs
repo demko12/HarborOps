@@ -35,6 +35,15 @@ internal sealed record RegisterComplianceCertificateResult(Guid Id);
 
 internal sealed record RegisterPscInspectionResult(int Id);
 
+internal sealed record RegisterPscDeficiencyRequest(string? DeficiencyCode, string? Description, string? Severity, DateOnly? CorrectiveActionDeadline, Guid? EvidenceDocumentId);
+internal sealed record RegisterPscDeficiencyResult(int NonConformityId);
+internal sealed record DetainPscInspectionRequest(string? AuthorityReference, string? Reason);
+internal sealed record ReleasePscInspectionRequest(string? AuthorityReference, DateOnly? ReleaseDate, Guid? DocumentId);
+internal sealed record PscDetentionDecisionItem(Guid Id, string Decision, string AuthorityReference, string? Reason, DateOnly? ReleaseDate, Guid? DocumentId, Guid ActorUserId, DateTimeOffset OccurredAtUtc);
+internal sealed record PscDeficiencyItem(int NonConformityId, string DeficiencyCode, string Description, string Severity, DateOnly CorrectiveActionDeadline, string ClosureStatus, Guid EvidenceDocumentId, int CorrectiveActionCount);
+internal sealed record GetPscDeficienciesResponse(IReadOnlyList<PscDeficiencyItem> Items);
+internal sealed record GetPscInspectionDetailResponse(int Id, Guid VesselId, Guid PortId, DateOnly InspectionDate, string InspectingAuthority, int ReportedDeficiencyCount, int RegisteredDeficiencyCount, int OpenDeficiencyCount, int ClosedDeficiencyCount, bool HasDeficiencyCountMismatch, string DetentionState, PscDetentionDecisionItem? LatestDecision, IReadOnlyList<PscDetentionDecisionItem> DetentionHistory);
+
 internal sealed record RegisterNonConformityResult(int Id);
 
 internal sealed record RegisterSurveyAuditRequest(Guid? VesselId, DateOnly? SurveyDate, string? Type, string? InspectorName, string? Result, string? Findings, Guid? DocumentId);
