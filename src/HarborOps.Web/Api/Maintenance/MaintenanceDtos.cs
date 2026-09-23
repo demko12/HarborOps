@@ -729,3 +729,142 @@ internal sealed record ScheduleWorkOrderItem(
 internal sealed record ScheduleWorkOrdersResult(
     Guid ScheduleId,
     IReadOnlyList<ScheduleWorkOrderItem> Items);
+
+internal sealed record StocktakeSummary(
+    Guid StocktakeId,
+    string Status,
+    int LineCount,
+    int CountedLineCount,
+    int VarianceLineCount,
+    Guid CreatedByUserId,
+    DateTime CreatedUtc,
+    DateTime? PostedUtc,
+    DateTime? CancelledUtc,
+    Guid ConcurrencyToken);
+
+internal sealed record StocktakesPage(
+    IReadOnlyList<StocktakeSummary> Items,
+    int PageNumber,
+    int PageSize,
+    int TotalCount);
+
+internal sealed record StocktakeFilter(string? Status, int PageNumber, int PageSize);
+
+internal sealed record StocktakeDetailsModel(
+    Guid StocktakeId,
+    string Status,
+    string? Notes,
+    Guid ConcurrencyToken,
+    Guid CreatedByUserId,
+    DateTime CreatedUtc,
+    Guid? LastModifiedByUserId,
+    DateTime? LastModifiedUtc,
+    Guid? PostedByUserId,
+    DateTime? PostedUtc,
+    Guid? CancelledByUserId,
+    DateTime? CancelledUtc,
+    string? CancellationReason,
+    IReadOnlyList<StocktakeLineRow> Lines,
+    IReadOnlyList<InventoryAdjustmentRow> Adjustments);
+
+internal sealed record StocktakeLineRow(
+    Guid InventoryItemId,
+    string Name,
+    string PartNumber,
+    string UnitAbbreviation,
+    decimal BaselineQuantity,
+    DateTime BaselineCapturedUtc,
+    decimal? CountedQuantity,
+    decimal? Variance,
+    string? VarianceReason,
+    Guid? CountedByUserId,
+    DateTime? CountedUtc);
+
+internal sealed record InventoryAdjustmentRow(
+    Guid AdjustmentId,
+    Guid InventoryItemId,
+    Guid StocktakeId,
+    decimal QuantityBefore,
+    decimal CountedQuantity,
+    decimal QuantityDelta,
+    string Reason,
+    Guid ActorUserId,
+    DateTime AdjustedUtc);
+
+internal sealed record StocktakePostingPreviewModel(
+    Guid StocktakeId,
+    Guid ConcurrencyToken,
+    string PreviewToken,
+    bool CanPost,
+    IReadOnlyList<StocktakePreviewLineRow> Lines,
+    IReadOnlyList<StocktakePostingBlockerRow> Blockers,
+    DateTime GeneratedUtc);
+
+internal sealed record StocktakePreviewLineRow(
+    Guid InventoryItemId,
+    string Name,
+    string PartNumber,
+    decimal BaselineQuantity,
+    decimal CurrentQuantity,
+    decimal? CountedQuantity,
+    decimal? Variance,
+    decimal OutstandingReservedQuantity,
+    bool BaselineIsStale);
+
+internal sealed record StocktakePostingBlockerRow(
+    Guid InventoryItemId,
+    string Code,
+    string Message,
+    IReadOnlyList<Guid> ReservingWorkOrderIds);
+
+internal sealed record PostStocktakeResult(
+    Guid StocktakeId,
+    string Status,
+    Guid ConcurrencyToken,
+    Guid PostedByUserId,
+    DateTime PostedUtc,
+    IReadOnlyList<InventoryAdjustmentRow> Adjustments);
+
+internal sealed record CreateStocktakeRequest
+{
+    public IReadOnlyList<Guid>? InventoryItemIds { get; init; }
+
+    public string? Notes { get; init; }
+}
+
+internal sealed record StocktakeCountEntry
+{
+    public Guid? InventoryItemId { get; init; }
+
+    public decimal? CountedQuantity { get; init; }
+
+    public string? Reason { get; init; }
+}
+
+internal sealed record UpdateStocktakeCountsRequest
+{
+    public Guid? ExpectedConcurrencyToken { get; init; }
+
+    public IReadOnlyList<StocktakeCountEntry>? Lines { get; init; }
+}
+
+internal sealed record RefreshStocktakeLinesRequest
+{
+    public Guid? ExpectedConcurrencyToken { get; init; }
+
+    public IReadOnlyList<Guid>? InventoryItemIds { get; init; }
+}
+
+internal sealed record PostStocktakeRequest
+{
+    public Guid? ExpectedConcurrencyToken { get; init; }
+
+    public string? PreviewToken { get; init; }
+}
+
+internal sealed record CancelStocktakeRequest
+{
+    public Guid? ExpectedConcurrencyToken { get; init; }
+
+    public string? Reason { get; init; }
+}

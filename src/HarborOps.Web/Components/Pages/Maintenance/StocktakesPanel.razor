@@ -1,0 +1,238 @@
+@using HarborOps.Web.Api.Maintenance
+@using HarborOps.Web.Components.Shared
+@implements IDisposable
+@inject MaintenanceApiClient MaintenanceApi
+@inject CurrentUserAuthorizationState AuthorizationState
+
+<div class="stocktake-panel maintenance-tabpanel" role="tabpanel">
+	@if (selectedStocktakeId is { } stocktakeId)
+	{
+		<StocktakeCountEditor StocktakeId="stocktakeId" OnClosed="CloseEditorAsync" />
+	}
+	else
+	{
+		<section class="maintenance-summary" aria-label="Stocktake summary">
+			<article class="maintenance-summary-card">
+				<div>
+					<span>Stocktakes</span>
+					<strong>@totalCount</strong>
+					<small>Matching the current filter</small>
+				</div>
+				<span class="summary-icon summary-icon-blue" aria-hidden="true"><span class="bi bi-clipboard-check"></span></span>
+			</article>
+			<article class="maintenance-summary-card">
+				<div>
+					<span>Open drafts</span>
+					<strong>@DraftCount</strong>
+					<small>Counting still in progress on this page</small>
+				</div>
+				<span class="summary-icon summary-icon-amber" aria-hidden="true"><span class="bi bi-pencil-square"></span></span>
+			</article>
+			<article class="maintenance-summary-card">
+				<div>
+					<span>Lines with a variance</span>
+					<strong>@VarianceLineCount</strong>
+					<small>Counted quantity differs from the baseline</small>
+				</div>
+				<span class="summary-icon summary-icon-red" aria-hidden="true"><span class="bi bi-exclamation-triangle"></span></span>
+			</article>
+		</section>
+
+		@if (!string.IsNullOrWhiteSpace(successMessage))
+		{
+			<div class="maintenance-toast stocktake-success" role="status" aria-live="polite">@successMessage</div>
+		}
+
+		<section class="maintenance-filters" aria-label="Stocktake filters">
+			<div class="filter-field">
+				<label for="stocktake-status">Status</label>
+				<select id="stocktake-status" @bind="statusFilter" @bind:after="ApplyFiltersAsync">
+					<option value="">All</option>
+					<option value="Draft">Draft</option>
+					<option value="Posted">Posted</option>
+					<option value="Cancelled">Cancelled</option>
+				</select>
+			</div>
+			<div class="filter-field">
+				<label for="stocktake-page-size">Per page</label>
+				<select id="stocktake-page-size" @bind="pageSize" @bind:after="ApplyFiltersAsync">
+					<option value="25">25</option>
+					<option value="50">50</option>
+					<option value="100">100</option>
+				</select>
+			</div>
+			<button class="maintenance-reset" type="button" @onclick="RetryAsync" disabled="@isLoading">Refresh</button>
+			@if (CanManage)
+			{
+				<button class="maintenance-button stocktake-new" type="button" @onclick="ToggleCreateFormAsync">
+					@(isCreateFormOpen ? "Close" : "New stocktake")
+				</button>
+			}
+		</section>
+
+		@if (isCreateFormOpen && CanManage)
+		{
+			<section class="maintenance-card stocktake-create" aria-labelledby="stocktake-create-title">
+				<div class="maintenance-card-heading">
+					<div>
+						<h2 id="stocktake-create-title">Start a stocktake</h2>
+						<p>Pick up to @MaxLines parts. Each line stores the current quantity as the count baseline.</p>
+					</div>
+					<span class="maintenance-card-icon" aria-hidden="true"><span class="bi bi-clipboard-plus"></span></span>
+				</div>
+
+				@if (createFailure is not null)
+				{
+					<ApiErrorState Title="@createFailure.Title" Message="@createFailure.Message" />
+				}
+
+				<form class="maintenance-form" @onsubmit="SubmitCreateAsync" @onsubmit:preventDefault="true">
+					<div class="filter-field">
+						<label for="stocktake-notes">Notes</label>
+						<input id="stocktake-notes" type="text" maxlength="1000" @bind="notes" disabled="@isCreating" />
+					</div>
+
+					<div class="filter-field">
+						<label for="stocktake-part-search">Find parts</label>
+						<input id="stocktake-part-search"
+							   type="search"
+							   placeholder="Name or part number"
+							   @bind="partSearchText"
+							   @bind:after="SearchPartsAsync"
+							   disabled="@isCreating" />
+					</div>
+
+					@if (isPartsLoading)
+					{
+						<LoadingState Message="Loading parts..." />
+					}
+					else if (partsFailure is not null)
+					{
+						<ApiErrorState Title="@partsFailure.Title" Message="@partsFailure.Message" OnRetry="SearchPartsAsync" />
+					}
+					else if (partOptions.Count == 0)
+					{
+						<EmptyState Title="No parts match the search"
+									Message="Adjust the search text to find the parts you are about to count." />
+					}
+					else
+					{
+						<ul class="stocktake-part-options">
+							@foreach (var part in partOptions)
+							{
+								<li @key="part.InventoryItemId">
+									<button type="button"
+											class="maintenance-reset"
+											disabled="@(isCreating || IsSelected(part.InventoryItemId) || selectedParts.Count >= MaxLines)"
+											@onclick="() => SelectPart(part)">
+										@part.Name <span class="maintenance-muted">@part.PartNumber</span>
+									</button>
+								</li>
+							}
+						</ul>
+					}
+
+					<div class="stocktake-selected" aria-live="polite">
+						<span>@selectedParts.Count of @MaxLines parts selected</span>
+						@foreach (var part in selectedParts)
+						{
+							<span class="stocktake-chip" @key="part.InventoryItemId">
+								@part.PartNumber
+								<button type="button"
+										aria-label="@($"Remove {part.Name}")"
+										disabled="@isCreating"
+										@onclick="() => RemovePart(part.InventoryItemId)">&times;</button>
+							</span>
+						}
+					</div>
+
+					<div class="maintenance-form-actions">
+						<button type="submit" class="maintenance-button" disabled="@(isCreating || selectedParts.Count == 0)">
+							@(isCreating ? "Creating..." : "Create stocktake")
+						</button>
+						<button type="button" class="maintenance-reset" disabled="@isCreating" @onclick="ToggleCreateFormAsync">Cancel</button>
+					</div>
+				</form>
+			</section>
+		}
+
+		<section class="maintenance-card" aria-labelledby="stocktake-list-title">
+			<div class="maintenance-card-heading">
+				<div>
+					<h2 id="stocktake-list-title">Stocktakes</h2>
+					<p>@totalCount records, newest first</p>
+				</div>
+				<span class="maintenance-card-icon" aria-hidden="true"><span class="bi bi-clipboard-check"></span></span>
+			</div>
+
+			@if (isLoading)
+			{
+				<LoadingState Message="Loading stocktakes..." />
+			}
+			else if (failure is { IsForbidden: true })
+			{
+				<EmptyState Title="You cannot view stocktakes"
+							Message="Your account does not carry a maintenance permission. Ask an administrator for access." />
+			}
+			else if (failure is not null)
+			{
+				<ApiErrorState Title="@failure.Title" Message="@failure.Message" OnRetry="RetryAsync" />
+			}
+			else if (rows.Count == 0)
+			{
+				<EmptyState Title="No stocktakes yet"
+							Message="Start one to reconcile physical counts with the recorded stock." />
+			}
+			else
+			{
+				<div class="maintenance-table-scroll">
+					<table class="maintenance-table stocktake-table">
+						<caption class="visually-hidden">Stocktakes, newest first</caption>
+						<thead>
+							<tr>
+								<th scope="col">Created</th>
+								<th scope="col">Status</th>
+								<th scope="col" class="numeric">Lines</th>
+								<th scope="col" class="numeric">Counted</th>
+								<th scope="col" class="numeric">Variances</th>
+								<th scope="col">Closed</th>
+								<th scope="col"><span class="visually-hidden">Actions</span></th>
+							</tr>
+						</thead>
+						<tbody>
+							@foreach (var row in rows)
+							{
+								<tr @key="row.StocktakeId">
+									<td>@MaintenanceFormat.CreatedUtc(row.CreatedUtc)</td>
+									<td>
+										<span class="stocktake-status @MaintenanceFormat.StocktakeStatusModifier(row.Status)">@row.Status</span>
+									</td>
+									<td class="numeric">@row.LineCount</td>
+									<td class="numeric">@row.CountedLineCount</td>
+									<td class="numeric">@row.VarianceLineCount</td>
+									<td class="maintenance-muted">@ClosedAt(row)</td>
+									<td>
+										<button type="button"
+												class="maintenance-button"
+												@onclick="() => OpenStocktake(row.StocktakeId)">
+											@(string.Equals(row.Status, MaintenanceFormat.DraftStocktake, StringComparison.Ordinal) ? "Count" : "View")
+										</button>
+									</td>
+								</tr>
+							}
+						</tbody>
+					</table>
+				</div>
+
+				<div class="maintenance-pagination">
+					<span>Showing @FirstRowNumber&ndash;@LastRowNumber of @totalCount stocktakes</span>
+					<div class="maintenance-pages">
+						<button type="button" @onclick="PreviousPageAsync" disabled="@(pageNumber <= 1)">Previous</button>
+						<span class="maintenance-page-indicator">Page @pageNumber of @TotalPages</span>
+						<button type="button" @onclick="NextPageAsync" disabled="@(pageNumber >= TotalPages)">Next</button>
+					</div>
+				</div>
+			}
+		</section>
+	}
+</div>

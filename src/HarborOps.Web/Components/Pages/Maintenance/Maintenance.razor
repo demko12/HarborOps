@@ -79,6 +79,13 @@
 		</button>
 		<button type="button"
 				role="tab"
+				class="workspace-tab @(activeTab == MaintenanceTab.Stocktakes ? "active" : null)"
+				aria-selected="@(activeTab == MaintenanceTab.Stocktakes)"
+				@onclick="() => SelectTab(MaintenanceTab.Stocktakes)">
+			Stocktakes
+		</button>
+		<button type="button"
+				role="tab"
 				class="workspace-tab @(activeTab == MaintenanceTab.Defects ? "active" : null)"
 				aria-selected="@(activeTab == MaintenanceTab.Defects)"
 				@onclick="() => SelectTab(MaintenanceTab.Defects)">
@@ -116,6 +123,11 @@
 	@if (activeTab == MaintenanceTab.Suppliers)
 	{
 		<SuppliersPanel />
+	}
+
+	@if (activeTab == MaintenanceTab.Stocktakes)
+	{
+		<StocktakesPanel />
 	}
 
 	@if (activeTab == MaintenanceTab.DryDocks)
