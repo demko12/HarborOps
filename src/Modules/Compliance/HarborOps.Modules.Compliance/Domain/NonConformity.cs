@@ -5,6 +5,8 @@ public sealed class NonConformity
     internal const int SeverityMaxLength = 50;
     internal const int ClosureStatusMaxLength = 50;
     internal const int ClosureNotesMaxLength = 1000;
+    internal const int PscDeficiencyCodeMaxLength = 50;
+    internal const int PscDeficiencyDescriptionMaxLength = 2000;
 
     internal const string SeverityMinor = "Minor";
     internal const string SeverityMajor = "Major";
@@ -35,6 +37,10 @@ public sealed class NonConformity
 
     public string? ClosureNotes { get; private set; }
 
+    public string? PscDeficiencyCode { get; private set; }
+
+    public string? PscDeficiencyDescription { get; private set; }
+
     public DateTimeOffset? ClosedAtUtc { get; private set; }
 
     public Guid? ClosedByUserId { get; private set; }
@@ -53,7 +59,9 @@ public sealed class NonConformity
         DateOnly correctiveActionDeadline,
         string closureStatus,
         int? surveyId = null,
-        int? pscId = null)
+        int? pscId = null,
+        string? pscDeficiencyCode = null,
+        string? pscDeficiencyDescription = null)
     {
         EvidenceDocumentId = evidenceDocumentId;
         Severity = severity;
@@ -61,6 +69,8 @@ public sealed class NonConformity
         ClosureStatus = closureStatus;
         SurveyId = surveyId;
         PscId = pscId;
+        PscDeficiencyCode = pscDeficiencyCode;
+        PscDeficiencyDescription = pscDeficiencyDescription;
     }
 
     internal static NonConformity Register(
@@ -68,7 +78,9 @@ public sealed class NonConformity
         string severity,
         DateOnly correctiveActionDeadline,
         int? surveyId = null,
-        int? pscId = null)
+        int? pscId = null,
+        string? pscDeficiencyCode = null,
+        string? pscDeficiencyDescription = null)
     {
         return new NonConformity(
             evidenceDocumentId,
@@ -76,7 +88,9 @@ public sealed class NonConformity
             correctiveActionDeadline,
             ClosureStatusOpen,
             surveyId,
-            pscId);
+            pscId,
+            pscDeficiencyCode,
+            pscDeficiencyDescription);
     }
 
     internal CorrectiveAction AddCorrectiveAction(

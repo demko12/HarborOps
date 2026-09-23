@@ -28,6 +28,21 @@ internal sealed class ComplianceApiClient(HttpClient httpClient)
             () => httpClient.PostAsJsonAsync($"{BasePath}/psc-inspections", request, cancellationToken),
             HttpStatusCode.Created, "Unable to register PSC inspection", cancellationToken);
 
+    internal Task<ComplianceApiResult<GetPscInspectionDetailResponse>> GetPscInspectionAsync(int inspectionId, CancellationToken cancellationToken) =>
+        SendAsync<GetPscInspectionDetailResponse>(() => httpClient.GetAsync($"{BasePath}/psc-inspections/{inspectionId}", HttpCompletionOption.ResponseHeadersRead, cancellationToken), HttpStatusCode.OK, "Unable to load PSC inspection", cancellationToken);
+
+    internal Task<ComplianceApiResult<GetPscDeficienciesResponse>> GetPscDeficienciesAsync(int inspectionId, CancellationToken cancellationToken) =>
+        SendAsync<GetPscDeficienciesResponse>(() => httpClient.GetAsync($"{BasePath}/psc-inspections/{inspectionId}/deficiencies", HttpCompletionOption.ResponseHeadersRead, cancellationToken), HttpStatusCode.OK, "Unable to load PSC deficiencies", cancellationToken);
+
+    internal Task<ComplianceApiResult<RegisterPscDeficiencyResult>> RegisterPscDeficiencyAsync(int inspectionId, RegisterPscDeficiencyRequest request, CancellationToken cancellationToken) =>
+        SendAsync<RegisterPscDeficiencyResult>(() => httpClient.PostAsJsonAsync($"{BasePath}/psc-inspections/{inspectionId}/deficiencies", request, cancellationToken), HttpStatusCode.Created, "Unable to register PSC deficiency", cancellationToken);
+
+    internal Task<ComplianceApiResult<object>> DetainPscInspectionAsync(int inspectionId, DetainPscInspectionRequest request, CancellationToken cancellationToken) =>
+        SendNoContentAsync(() => httpClient.PostAsJsonAsync($"{BasePath}/psc-inspections/{inspectionId}/detain", request, cancellationToken), "Unable to record detention", cancellationToken);
+
+    internal Task<ComplianceApiResult<object>> ReleasePscInspectionAsync(int inspectionId, ReleasePscInspectionRequest request, CancellationToken cancellationToken) =>
+        SendNoContentAsync(() => httpClient.PostAsJsonAsync($"{BasePath}/psc-inspections/{inspectionId}/release", request, cancellationToken), "Unable to record release", cancellationToken);
+
     internal Task<ComplianceApiResult<RegisterNonConformityResult>> RegisterNonConformityAsync(
         RegisterNonConformityRequest request, CancellationToken cancellationToken) =>
         SendAsync<RegisterNonConformityResult>(
@@ -269,6 +284,20 @@ internal sealed class ComplianceApiClient(HttpClient httpClient)
             }
 
             return new(await response.Content.ReadFromJsonAsync<T>(cancellationToken), null);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested) { throw; }
+        catch (HttpRequestException) { return new(null, Unavailable()); }
+        catch (TaskCanceledException) { return new(null, Unavailable()); }
+    }
+
+    private static async Task<ComplianceApiResult<object>> SendNoContentAsync(Func<Task<HttpResponseMessage>> send, string defaultTitle, CancellationToken cancellationToken)
+    {
+        try
+        {
+            using var response = await send();
+            return response.StatusCode == HttpStatusCode.NoContent
+                ? new(new object(), null)
+                : new(null, await ReadFailureAsync(response, defaultTitle, cancellationToken));
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested) { throw; }
         catch (HttpRequestException) { return new(null, Unavailable()); }

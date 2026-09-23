@@ -6,7 +6,6 @@ namespace HarborOps.Web.Components.Pages.Fleet;
 
 public partial class Fleet : IDisposable
 {
-
     private readonly CancellationTokenSource disposeCancellation = new();
     private int loadVersion;
     private VesselPageResponse? page;
@@ -119,8 +118,13 @@ public partial class Fleet : IDisposable
         {
             result = await FleetApi.GetVesselsAsync(search, status, pageNumber, 25, cancellationToken);
         }
-        catch (OperationCanceledException) when (disposeCancellation.IsCancellationRequested)
+        catch (OperationCanceledException)
         {
+            if (!disposeCancellation.IsCancellationRequested && requestVersion == loadVersion)
+            {
+                isLoading = false;
+            }
+
             return;
         }
 
@@ -133,7 +137,6 @@ public partial class Fleet : IDisposable
         {
             page = result.Value;
             pageNumber = page.PageNumber;
-            Navigation.NavigateTo(BuildCurrentUri(), replace: true);
         }
         else
         {

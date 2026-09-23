@@ -107,13 +107,13 @@ html[data-theme="light"] .audit-plans-card { background: #edf2fa; }
     text-align: left;
     border: 1px solid var(--border-subtle);
     border-radius: var(--radius-row);
-    background: rgba(255,255,255,.012);
+    background: var(--control-surface);
     font: inherit;
     cursor: pointer;
     transition: border-color .15s ease, background .15s ease;
 }
 
-.audit-plans-row:hover { border-color: var(--accent-border); background: color-mix(in srgb, var(--accent) 8%, var(--bg-surface)); }
+.audit-plans-row:hover { border-color: var(--border-medium); background: var(--bg-surface-strong); }
 
 .audit-plans-row-primary strong { overflow: hidden; color: var(--text-primary); font-size: .9rem; text-overflow: ellipsis; white-space: nowrap; }
 .audit-plans-row-cell { overflow: hidden; color: var(--text-secondary); font-size: .84rem; text-overflow: ellipsis; white-space: nowrap; }
@@ -275,7 +275,7 @@ html[data-theme="light"] .audit-plans-form-grid ::deep input:not(.vessel-picker-
 .audit-plans-history h3 { margin: 0 0 .8rem; font-size: .92rem; }
 .audit-plans-history-empty { margin: 0; color: var(--text-muted); font-size: .85rem; }
 .audit-plans-history-list { display: grid; gap: .8rem; margin: 0; padding: 0; list-style: none; }
-.audit-plans-history-list li { padding: .75rem .9rem; border: 1px solid var(--border-subtle); border-radius: var(--radius-row); background: var(--bg-surface); }
+.audit-plans-history-list li { padding: .75rem .9rem; border: 1px solid var(--border-subtle); border-radius: var(--radius-row); background: var(--control-surface); }
 .audit-plans-history-heading { display: flex; align-items: center; justify-content: space-between; gap: .6rem; }
 .audit-plans-history-time { color: var(--text-muted); font-size: .75rem; }
 .audit-plans-history-actor { margin: .4rem 0 0; color: var(--text-secondary); font-size: .78rem; font-family: var(--font-mono, monospace); }

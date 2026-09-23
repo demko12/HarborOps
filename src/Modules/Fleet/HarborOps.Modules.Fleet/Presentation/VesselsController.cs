@@ -52,6 +52,11 @@ public sealed class VesselsController(
                 Title = "One or more validation errors occurred.",
             });
         }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            // The browser superseded a type-ahead request. There is no response to send.
+            return new EmptyResult();
+        }
     }
 
     [HttpPost]

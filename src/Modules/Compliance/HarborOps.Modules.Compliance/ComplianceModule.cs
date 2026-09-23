@@ -17,6 +17,10 @@ public static class ComplianceModule
     {
         services.AddScoped<RegisterComplianceCertificateService>();
         services.AddScoped<RegisterPscInspectionService>();
+        services.AddScoped<PscInspectionWorkflowService>();
+        services.AddScoped<IGetPscInspectionDetailQuery, GetPscInspectionDetailQuery>();
+        services.AddScoped<IGetPscDeficienciesQuery, GetPscDeficienciesQuery>();
+        services.AddScoped<IGetPscDetentionHistoryQuery, GetPscDetentionHistoryQuery>();
         services.AddScoped<RegisterNonConformityService>();
         services.AddScoped<InsurancePolicyService>();
         services.AddScoped<SurveyAuditService>();

@@ -1,0 +1,167 @@
+@page "/compliance/psc-inspections/{InspectionId:int}"
+@attribute [Microsoft.AspNetCore.Authorization.Authorize(Policy = "AccessCompliance")]
+@using HarborOps.Web.Api.Compliance
+@inject ComplianceApiClient ComplianceApi
+@inject CurrentUserAuthorizationState AuthorizationState
+
+<PageTitle>PSC inspection follow-up | HarborOps</PageTitle>
+
+<section class="psc-detail-page">
+    <header class="psc-header">
+        <div>
+            <nav class="page-breadcrumb" aria-label="Breadcrumb"><a href="/compliance">Compliance operations</a><span aria-hidden="true">/</span><span>PSC follow-up</span></nav>
+            <h1>PSC inspection follow-up</h1>
+            <p>Reconcile every reported deficiency and record detention decisions before vessel release.</p>
+        </div>
+    </header>
+
+    @if (isLoading)
+    {
+        <LoadingState Message="Loading PSC inspection..." />
+    }
+    else if (failure is not null)
+    {
+        <ApiErrorState Title="@failure.Title" Message="@failure.Message" OnRetry="LoadAsync" />
+    }
+    else if (inspection is not null)
+    {
+        <section class="psc-card psc-overview-card">
+            <div class="psc-section-heading"><div><span class="psc-kicker">Inspection overview</span><h2>@inspection.InspectingAuthority</h2><p>Inspection on @inspection.InspectionDate.ToString("dd MMM yyyy")</p></div><span class="compliance-badge @(inspection.DetentionState == "Detained" ? "danger" : inspection.DetentionState == "Released" ? "success" : "neutral")">@inspection.DetentionState</span></div>
+            <div class="psc-port-reference"><span class="bi bi-geo-alt" aria-hidden="true"></span><span>Port reference</span><code>@inspection.PortId</code></div>
+            <div class="psc-summary-grid">
+                <div><span>Reported deficiencies</span><strong>@inspection.ReportedDeficiencyCount</strong></div>
+                <div><span>Registered</span><strong>@inspection.RegisteredDeficiencyCount</strong></div>
+                <div><span>Open</span><strong>@inspection.OpenDeficiencyCount</strong></div>
+                <div><span>Closed</span><strong>@inspection.ClosedDeficiencyCount</strong></div>
+            </div>
+            @if (inspection.HasDeficiencyCountMismatch)
+            {
+                <p class="psc-blocking-message">Release is blocked: the reported and registered deficiency counts do not match.</p>
+            }
+            @if (inspection.OpenDeficiencyCount > 0)
+            {
+                <p class="psc-blocking-message">Release is blocked: @inspection.OpenDeficiencyCount linked finding(s) still require closure.</p>
+            }
+        </section>
+
+        <section class="psc-card">
+            <div class="psc-section-heading"><div><span class="psc-kicker">Corrective actions</span><h2>Deficiencies</h2><p>Register each reported finding, then continue its corrective-action workflow.</p></div></div>
+            @if (AuthorizationState.CanManageCompliance)
+            {
+                <form class="psc-form-grid psc-deficiency-form" @onsubmit="RegisterDeficiencyAsync" @onsubmit:preventDefault>
+                    <label><span>Deficiency code</span><input @bind="deficiencyCode" @bind:event="oninput" placeholder="e.g. 10101" aria-label="PSC deficiency code" /></label>
+                    <label><span>Description</span><input @bind="deficiencyDescription" @bind:event="oninput" placeholder="Describe the finding" aria-label="PSC deficiency description" /></label>
+                    <label><span>Severity</span><select @bind="deficiencySeverity" aria-label="Severity"><option>Minor</option><option>Major</option><option>Critical</option></select></label>
+                    <label><span>Corrective action due</span><input type="date" @bind="deficiencyDeadline" aria-label="Corrective action deadline" /></label>
+                    <label><span>Evidence document <em>Optional</em></span><input @bind="deficiencyEvidenceId" placeholder="Document ID" aria-label="Evidence document ID" /></label>
+                    <button class="psc-primary-button" type="submit" disabled="@(isSaving || string.IsNullOrWhiteSpace(deficiencyCode) || string.IsNullOrWhiteSpace(deficiencyDescription) || !deficiencyDeadline.HasValue)"><span class="bi bi-plus-lg" aria-hidden="true"></span>Add deficiency</button>
+                </form>
+            }
+            @if (deficiencies.Count == 0) { <EmptyState Title="No deficiencies registered" Message="Register the reported PSC findings to reconcile this inspection." /> }
+            else
+            {
+                <div class="psc-deficiency-list">
+                    @foreach (var item in deficiencies)
+                    {
+                        <a class="psc-deficiency-row" href="/compliance/non-conformities?selected=@item.NonConformityId">
+                            <span class="psc-deficiency-icon bi bi-exclamation-diamond" aria-hidden="true"></span>
+                            <div><span>Code</span><strong>@item.DeficiencyCode</strong></div>
+                            <div><span>Description</span><strong>@item.Description</strong></div>
+                            <div><span>Severity</span><span class="compliance-badge">@item.Severity</span></div>
+                            <div><span>Corrective action due</span><strong>@item.CorrectiveActionDeadline.ToString("dd MMM yyyy")</strong></div>
+                            <div><span>Status</span><strong>@item.ClosureStatus</strong></div>
+                            <span class="psc-row-action">Open <i class="bi bi-arrow-right" aria-hidden="true"></i></span>
+                        </a>
+                    }
+                </div>
+            }
+        </section>
+
+        @if (AuthorizationState.CanManageCompliance)
+        {
+            <section class="psc-card">
+                <div class="psc-section-heading"><div><span class="psc-kicker">Port state control</span><h2>Detention decision</h2><p>Decisions are permanent and attributed to the signed-in user.</p></div></div>
+                @if (inspection.DetentionState == "NotDetained")
+                {
+                    <form class="psc-form-grid psc-decision-form" @onsubmit="DetainAsync" @onsubmit:preventDefault>
+                        <label><span>Authority reference</span><input @bind="detainAuthorityReference" @bind:event="oninput" placeholder="Reference from authority" aria-label="Detention authority reference" /></label>
+                        <label><span>Reason</span><input @bind="detainReason" @bind:event="oninput" placeholder="Reason for detention" aria-label="Detention reason" /></label>
+                        <button class="psc-danger-button" type="submit" disabled="@(isSaving || string.IsNullOrWhiteSpace(detainAuthorityReference) || string.IsNullOrWhiteSpace(detainReason))">Confirm detention</button>
+                    </form>
+                }
+                else if (inspection.DetentionState == "Detained")
+                {
+                    <form class="psc-form-grid psc-decision-form psc-release-form" @onsubmit="ReleaseAsync" @onsubmit:preventDefault>
+                        <label><span>Authority reference</span><input @bind="releaseAuthorityReference" placeholder="Release authority reference" aria-label="Release authority reference" /></label>
+                        <label><span>Release date</span><input type="date" @bind="releaseDate" aria-label="Release date" /></label>
+                        <label><span>Release document <em>Optional</em></span><input @bind="releaseDocumentId" placeholder="Document ID" aria-label="Release document ID" /></label>
+                        <button class="psc-primary-button" type="submit" disabled="@(isSaving || inspection.HasDeficiencyCountMismatch || inspection.OpenDeficiencyCount > 0)">Confirm release</button>
+                    </form>
+                }
+                else { <p class="psc-blocking-message">This inspection was released. It cannot be detained again.</p> }
+                @if (actionFailure is not null) { <ApiErrorState Title="@actionFailure.Title" Message="@actionFailure.Message" OnRetry="LoadAsync" /> }
+            </section>
+        }
+
+        <section class="psc-card"><div class="psc-section-heading"><div><span class="psc-kicker">Audit trail</span><h2>Detention history</h2><p>Newest decision first.</p></div></div>
+            @if (inspection.DetentionHistory.Count == 0) { <EmptyState Title="No detention decisions" Message="This inspection has not been detained or released." /> }
+            else { <ol class="psc-history">@foreach (var eventItem in inspection.DetentionHistory) { <li><strong>@eventItem.Decision</strong><span>@eventItem.AuthorityReference · @eventItem.OccurredAtUtc.ToLocalTime().ToString("dd MMM yyyy HH:mm")</span>@if (!string.IsNullOrWhiteSpace(eventItem.Reason)) { <span>@eventItem.Reason</span> }</li> }</ol> }
+        </section>
+    }
+</section>
+
+@code {
+    [Parameter] public int InspectionId { get; set; }
+    private GetPscInspectionDetailResponse? inspection;
+    private IReadOnlyList<PscDeficiencyItem> deficiencies = [];
+    private ComplianceApiFailure? failure;
+    private ComplianceApiFailure? actionFailure;
+    private bool isLoading = true;
+    private bool isSaving;
+    private string? deficiencyCode, deficiencyDescription, deficiencyEvidenceId, detainAuthorityReference, detainReason, releaseAuthorityReference, releaseDocumentId;
+    private string deficiencySeverity = "Minor";
+    private DateOnly? deficiencyDeadline, releaseDate;
+
+    protected override Task OnParametersSetAsync() => LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        isLoading = true; failure = null;
+        try
+        {
+            var detail = await ComplianceApi.GetPscInspectionAsync(InspectionId, CancellationToken.None);
+            var items = await ComplianceApi.GetPscDeficienciesAsync(InspectionId, CancellationToken.None);
+            inspection = detail.Value; deficiencies = items.Value?.Items ?? [];
+            failure = detail.Failure ?? items.Failure;
+        }
+        finally { isLoading = false; }
+    }
+
+    private async Task RegisterDeficiencyAsync()
+    {
+        if (isSaving) return; isSaving = true; actionFailure = null;
+        try
+        {
+            Guid.TryParse(deficiencyEvidenceId, out var evidenceId);
+            var result = await ComplianceApi.RegisterPscDeficiencyAsync(InspectionId, new(deficiencyCode, deficiencyDescription, deficiencySeverity, deficiencyDeadline, evidenceId), CancellationToken.None);
+            if (!result.IsSuccess) { actionFailure = result.Failure; return; }
+            deficiencyCode = deficiencyDescription = deficiencyEvidenceId = null; deficiencyDeadline = null;
+            await LoadAsync();
+        }
+        finally { isSaving = false; }
+    }
+
+    private async Task DetainAsync()
+    {
+        if (isSaving) return; isSaving = true; actionFailure = null;
+        try { var result = await ComplianceApi.DetainPscInspectionAsync(InspectionId, new(detainAuthorityReference, detainReason), CancellationToken.None); if (!result.IsSuccess) actionFailure = result.Failure; else await LoadAsync(); }
+        finally { isSaving = false; }
+    }
+
+    private async Task ReleaseAsync()
+    {
+        if (isSaving) return; isSaving = true; actionFailure = null;
+        try { Guid? documentId = Guid.TryParse(releaseDocumentId, out var parsed) ? parsed : null; var result = await ComplianceApi.ReleasePscInspectionAsync(InspectionId, new(releaseAuthorityReference, releaseDate, documentId), CancellationToken.None); if (!result.IsSuccess) actionFailure = result.Failure; else await LoadAsync(); }
+        finally { isSaving = false; }
+    }
+}
