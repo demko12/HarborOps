@@ -25,6 +25,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.Extensions.Options;
+using CrewComposition = HarborOps.Api.Composition.Crew;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -37,6 +38,7 @@ builder.Services.AddDocumentsModule(builder.Configuration);
 builder.Services.AddFleetModule();
 builder.Services.AddComplianceModule();
 builder.Services.AddCrewModule(builder.Configuration);
+builder.Services.AddScoped<HarborOps.Modules.Crew.Contracts.IVesselExistenceLookup, CrewComposition.FleetVesselExistenceLookup>();
 builder.Services.AddVoyagesModule();
 builder.Services.AddScoped<FleetVesselOverviewService>();
 builder.Services.AddScoped<OperationsDashboardService>();

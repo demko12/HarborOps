@@ -1,0 +1,280 @@
+@page "/crew/manning"
+@attribute [Microsoft.AspNetCore.Authorization.Authorize(Policy = "AccessCrew")]
+@using HarborOps.Web.Components.Shared
+@implements IDisposable
+@inject CrewApiClient CrewApi
+@inject CurrentUserAuthorizationState CurrentUser
+
+<PageTitle>Crew manning | HarborOps</PageTitle>
+
+<section class="crew-manning-page">
+    <header class="crew-manning-header">
+        <div>
+            <nav class="page-breadcrumb" aria-label="Breadcrumb"><a href="/crew">Crewing operations</a><span aria-hidden="true">/</span><span>Manning</span></nav>
+            <h1>Crew manning plan &amp; coverage</h1>
+            <p>
+                Define staffing targets by rank for a vessel and compare them against current assignments and approved
+                availability. This board is a projection from current records &mdash; not a historical audit or a
+                statutory safe-manning certification, and it does not authorize departure.
+            </p>
+        </div>
+    </header>
+
+    <div class="crew-manning-filters">
+        <div class="filter-field filter-field-wide">
+            <label for="manning-vessel">Vessel</label>
+            <VesselPicker @key="vesselPickerResetToken" InputId="manning-vessel" Value="vesselId" ValueChanged="OnVesselChangedAsync" Placeholder="Search vessel by name or IMO..." />
+        </div>
+        <div class="filter-field">
+            <label for="manning-from">From</label>
+            <input id="manning-from" type="date" @bind="fromFilter" @bind:after="ApplyDateFilterAsync" />
+        </div>
+        <div class="filter-field">
+            <label for="manning-to">To</label>
+            <input id="manning-to" type="date" @bind="toFilter" @bind:after="ApplyDateFilterAsync" />
+        </div>
+        <div class="crew-manning-filter-actions">
+            <button type="button" class="crew-reset-button" @onclick="ResetFiltersAsync">Reset</button>
+        </div>
+    </div>
+
+    @if (filterValidationMessage is not null)
+    {
+        <div class="crew-availability-validation" role="alert">@filterValidationMessage</div>
+    }
+
+    @if (vesselId is null)
+    {
+        <EmptyState Title="Choose a vessel" Message="Search for a vessel above to view its manning plans and coverage." />
+    }
+    else
+    {
+        <div class="crew-manning-workspace">
+            <section class="crew-card" aria-labelledby="manning-plans-title">
+                <div class="crew-card-heading">
+                    <div>
+                        <h2 id="manning-plans-title">Manning plans</h2>
+                        <p>@plans.Count plan(s) for this vessel</p>
+                    </div>
+                    @if (CanManage)
+                    {
+                        <button type="button" class="crew-manning-new-plan" @onclick="ToggleCreateForm">
+                            @(showCreateForm ? "Cancel" : "New plan")
+                        </button>
+                    }
+                </div>
+
+                @if (showCreateForm)
+                {
+                    <form class="crew-profile-form-grid crew-manning-create-form" @onsubmit="SubmitCreateAsync" @onsubmit:preventDefault="true">
+                        @if (createConflictMessage is not null) { <div class="crew-profile-form-conflict" role="alert">@createConflictMessage</div> }
+                        @if (createGeneralError is not null) { <div class="crew-profile-form-error" role="alert">@createGeneralError</div> }
+                        @if (createFieldErrors.Count > 0)
+                        {
+                            <ul class="crew-profile-form-field-errors" role="alert">
+                                @foreach (var error in createFieldErrors) { <li>@error</li> }
+                            </ul>
+                        }
+
+                        <div class="crew-profile-form-field">
+                            <label for="manning-create-start">Effective start date</label>
+                            <input id="manning-create-start" type="date" @bind="createStartDate" />
+                        </div>
+                        <div class="crew-profile-form-field">
+                            <label for="manning-create-end">Effective end date</label>
+                            <input id="manning-create-end" type="date" @bind="createEndDate" />
+                        </div>
+
+                        <div class="crew-profile-form-field crew-profile-form-field-wide crew-manning-lines-editor">
+                            <label>Rank lines</label>
+                            @foreach (var row in createLines)
+                            {
+                                <div class="crew-manning-line-row" @key="row">
+                                    <select value="@(row.RankId?.ToString() ?? string.Empty)" @onchange="e => OnLineRankChanged(row, e)">
+                                        <option value="">Select rank...</option>
+                                        @foreach (var option in positionOptions)
+                                        {
+                                            <option value="@option.CrewPositionId">@option.RankName (@option.Department)</option>
+                                        }
+                                    </select>
+                                    <input type="number" min="1" placeholder="Headcount" @bind="row.RequiredHeadcount" />
+                                    <button type="button" class="crew-manning-remove-line" @onclick="() => RemoveCreateLine(row)" disabled="@(createLines.Count <= 1)">Remove</button>
+                                </div>
+                            }
+                            <button type="button" class="crew-manning-add-line" @onclick="AddCreateLine">Add rank line</button>
+                        </div>
+
+                        <button type="submit" class="crew-profile-form-submit" disabled="@isSubmittingCreate">
+                            @(isSubmittingCreate ? "Creating..." : "Create plan")
+                        </button>
+                    </form>
+                }
+
+                @if (plansLoading)
+                {
+                    <LoadingState Message="Loading manning plans..." />
+                }
+                else if (plansFailure is not null)
+                {
+                    <ApiErrorState Title="@plansFailure.Title" Message="@plansFailure.Message" OnRetry="() => LoadPlansAsync(vesselId!.Value)" />
+                }
+                else if (plans.Count == 0)
+                {
+                    <EmptyState Title="No manning plans" Message="Create a plan to define required headcount by rank for this vessel." />
+                }
+                else
+                {
+                    <div class="crew-manning-plan-list">
+                        @foreach (var plan in plans)
+                        {
+                            var isExpanded = expandedPlanIds.Contains(plan.Id);
+                            <article class="crew-manning-plan-row" @key="plan.Id">
+                                <button type="button" class="crew-manning-plan-heading" aria-expanded="@(isExpanded ? "true" : "false")" @onclick="() => TogglePlanExpanded(plan.Id)">
+                                    <span class="crew-manning-plan-dates">@plan.EffectiveStartDate.ToString("dd MMM yyyy") &ndash; @plan.EffectiveEndDate.ToString("dd MMM yyyy")</span>
+                                    <span class="crew-manning-plan-lines">@plan.LineCount rank line(s)</span>
+                                    <span class="bi bi-chevron-down crew-manning-plan-chevron" aria-hidden="true"></span>
+                                </button>
+
+                                @if (isExpanded)
+                                {
+                                    <div class="crew-manning-plan-detail">
+                                        @if (CanManage)
+                                        {
+                                            <div class="crew-manning-plan-actions">
+                                                <button type="button" @onclick="() => BeginEditLines(plan)">Edit rank lines</button>
+                                                <button type="button" @onclick="() => BeginEndPlan(plan)">End plan</button>
+                                            </div>
+                                        }
+
+                                        @if (editingPlanId == plan.Id)
+                                        {
+                                            <form class="crew-manning-inline-form" @onsubmit="SubmitEditLinesAsync" @onsubmit:preventDefault="true">
+                                                @foreach (var row in editLines)
+                                                {
+                                                    <div class="crew-manning-line-row" @key="row">
+                                                        <select value="@(row.RankId?.ToString() ?? string.Empty)" @onchange="e => OnLineRankChanged(row, e)">
+                                                            <option value="">Select rank...</option>
+                                                            @foreach (var option in positionOptions)
+                                                            {
+                                                                <option value="@option.CrewPositionId">@option.RankName (@option.Department)</option>
+                                                            }
+                                                        </select>
+                                                        <input type="number" min="1" placeholder="Headcount" @bind="row.RequiredHeadcount" />
+                                                        <button type="button" class="crew-manning-remove-line" @onclick="() => RemoveEditLine(row)" disabled="@(editLines.Count <= 1)">Remove</button>
+                                                    </div>
+                                                }
+                                                <button type="button" class="crew-manning-add-line" @onclick="AddEditLine">Add rank line</button>
+
+                                                <label for="manning-edit-reason">Reason for change</label>
+                                                <input id="manning-edit-reason" @bind="editReason" maxlength="500" />
+
+                                                <div class="crew-manning-inline-form-actions">
+                                                    <button type="submit" disabled="@isSubmittingPlanAction">@(isSubmittingPlanAction ? "Saving..." : "Save lines")</button>
+                                                    <button type="button" @onclick="CancelEditLines">Cancel</button>
+                                                </div>
+                                            </form>
+                                        }
+                                        else if (endingPlanId == plan.Id)
+                                        {
+                                            <form class="crew-manning-inline-form" @onsubmit="SubmitEndPlanAsync" @onsubmit:preventDefault="true">
+                                                <label for="manning-end-date">New end date</label>
+                                                <input id="manning-end-date" type="date" min="@plan.EffectiveStartDate.ToString("yyyy-MM-dd")" max="@plan.EffectiveEndDate.ToString("yyyy-MM-dd")" @bind="endNewEndDate" />
+
+                                                <label for="manning-end-reason">Reason</label>
+                                                <input id="manning-end-reason" @bind="endReason" maxlength="500" />
+
+                                                <div class="crew-manning-inline-form-actions">
+                                                    <button type="submit" disabled="@isSubmittingPlanAction">@(isSubmittingPlanAction ? "Saving..." : "End plan")</button>
+                                                    <button type="button" @onclick="CancelEndPlan">Cancel</button>
+                                                </div>
+                                            </form>
+                                        }
+
+                                        @if (editingPlanId == plan.Id || endingPlanId == plan.Id)
+                                        {
+                                            @if (planActionConflictMessage is not null) { <div class="crew-profile-form-conflict" role="alert">@planActionConflictMessage</div> }
+                                            @if (planActionGeneralError is not null) { <div class="crew-profile-form-error" role="alert">@planActionGeneralError</div> }
+                                            @if (planActionFieldErrors.Count > 0)
+                                            {
+                                                <ul class="crew-profile-form-field-errors" role="alert">
+                                                    @foreach (var error in planActionFieldErrors) { <li>@error</li> }
+                                                </ul>
+                                            }
+                                        }
+                                        @if (planActionSuccessMessage is not null) { <div class="crew-profile-form-success" role="status">@planActionSuccessMessage</div> }
+                                    </div>
+                                }
+                            </article>
+                        }
+                    </div>
+                }
+            </section>
+
+            <section class="crew-card" aria-labelledby="manning-coverage-title">
+                <div class="crew-card-heading">
+                    <div>
+                        <h2 id="manning-coverage-title">Shortage intervals</h2>
+                        <p>@fromFilter.ToString("dd MMM yyyy") &ndash; @toFilter.ToString("dd MMM yyyy")</p>
+                    </div>
+                    <a class="crew-manning-rotations-link" href="@($"/crew/rotations?vesselId={vesselId}")">View rotations</a>
+                </div>
+
+                @if (coverageLoading)
+                {
+                    <LoadingState Message="Loading manning coverage..." />
+                }
+                else if (coverageFailure is not null)
+                {
+                    <ApiErrorState Title="@coverageFailure.Title" Message="@coverageFailure.Message" OnRetry="() => LoadCoverageAsync(vesselId!.Value)" />
+                }
+                else if (coverage is null || coverage.ShortageIntervals.Count == 0)
+                {
+                    <EmptyState Title="No shortages in this window" Message="Every configured rank meets its required headcount for the selected dates, or no plan covers them yet." />
+                }
+                else
+                {
+                    @foreach (var group in GroupedShortageIntervals())
+                    {
+                        var isRankExpanded = expandedShortageRankIds.Contains(group.Key);
+                        <div class="crew-manning-shortage-group">
+                            <button type="button" class="crew-manning-shortage-group-title" aria-expanded="@(isRankExpanded ? "true" : "false")" @onclick="() => ToggleShortageRankExpanded(group.Key)">
+                                <span>@RankNameFor(group.Key)</span>
+                                <span class="crew-manning-shortage-group-summary">
+                                    @GapCountLabel(group.Count())
+                                    <span class="bi bi-chevron-down crew-manning-shortage-group-chevron" aria-hidden="true"></span>
+                                </span>
+                            </button>
+                            @if (isRankExpanded)
+                            {
+                            <ul class="crew-manning-shortage-list">
+                                @foreach (var interval in group)
+                                {
+                                    var ineligible = IneligibleMembersFor(interval.RankId, interval.StartDate, interval.EndDate);
+                                    <li class="crew-manning-shortage-item">
+                                        <div class="crew-manning-shortage-item-head">
+                                            <span>@interval.StartDate.ToString("dd MMM yyyy") &ndash; @interval.EndDate.ToString("dd MMM yyyy")</span>
+                                            <span class="crew-manning-shortage-badge">Short @interval.Shortage of @interval.RequiredHeadcount</span>
+                                        </div>
+                                        @if (ineligible.Count > 0)
+                                        {
+                                            <ul class="crew-manning-ineligible-list">
+                                                @foreach (var member in ineligible)
+                                                {
+                                                    <li>
+                                                        <a href="@($"/crew/{member.CrewMemberId}")">View member</a>
+                                                        <span>&mdash; @(member.Reason == "InactiveEmployment" ? "Inactive employment" : "Approved unavailability")</span>
+                                                    </li>
+                                                }
+                                            </ul>
+                                        }
+                                    </li>
+                                }
+                            </ul>
+                            }
+                        </div>
+                    }
+                }
+            </section>
+        </div>
+    }
+</section>
