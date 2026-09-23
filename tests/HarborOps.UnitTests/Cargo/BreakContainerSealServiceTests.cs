@@ -241,7 +241,7 @@ public sealed class BreakContainerSealServiceTests
             isReefer: false,
             ActorUserId,
             FixedUtcNow.UtcDateTime);
-        var releaseEntry = control.Release(ActorUserId, FixedUtcNow.UtcDateTime, null);
+        var releaseEntry = control.Release(ActorUserId, FixedUtcNow.UtcDateTime, null, false);
 
         await dbContext.Set<ContainerControl>().AddAsync(control, CancellationToken.None);
         await dbContext.Set<ContainerControlEvent>()

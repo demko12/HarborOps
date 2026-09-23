@@ -19,4 +19,6 @@ public sealed record VoyageItineraryStopItem(
     string? ClearanceStatus = null,
     int ClearanceRequiredItemCount = 0,
     int ClearanceRequiredResolvedCount = 0,
-    int ClearanceOverdueRequiredItemCount = 0);
+    int ClearanceOverdueRequiredItemCount = 0,
+    int PortCallActivityCount = 0,
+    string? PortCallStatementStatus = null);

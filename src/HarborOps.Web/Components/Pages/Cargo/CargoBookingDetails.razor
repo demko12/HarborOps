@@ -207,7 +207,17 @@
                 @if (CanAddContainers)
                 {
                     <section class="manifest-import" aria-label="Import container manifest">
-                        <div class="booking-card-heading"><h3>Import manifest</h3><span><a href="/cargo/container-manifest-template?format=xlsx">Excel template</a> · <a href="/cargo/container-manifest-template?format=xml">XML template</a></span></div>
+                        <div class="booking-card-heading">
+                            <h3>Import manifest</h3>
+                            <span class="manifest-template-links">
+                                <a class="manifest-template-link" href="/cargo/container-manifest-template?format=xlsx">
+                                    <span class="bi bi-file-earmark-spreadsheet" aria-hidden="true"></span>Excel template
+                                </a>
+                                <a class="manifest-template-link" href="/cargo/container-manifest-template?format=xml">
+                                    <span class="bi bi-file-earmark-code" aria-hidden="true"></span>XML template
+                                </a>
+                            </span>
+                        </div>
                         <div class="manifest-file-picker">
                             <InputFile id="manifest-file-input" class="manifest-file-native-input" OnChange="SelectManifestFile" accept=".xlsx,.xml" />
                             <label class="manifest-file-picker-button" for="manifest-file-input">
@@ -702,6 +712,13 @@
                                         ContainerNumber="@selectedContainer.ContainerNumber"
                                         HideHeading="true"
                                         OnChanged="RefreshAfterControlChangeAsync" />
+            @if (IsReeferContainer(selectedContainer.ContainerId))
+            {
+                <CargoReeferPanel ContainerId="selectedContainer.ContainerId"
+                                  ContainerNumber="@selectedContainer.ContainerNumber"
+                                  IsReefer="true"
+                                  OnChanged="RefreshAfterControlChangeAsync" />
+            }
         </section>
     </div>
 }

@@ -179,6 +179,21 @@
                                     <td class="timeline-stamps">
                                         <span class="@(stop.Ata is null ? "missing" : null)"><b>ATA</b>@FormatUtc(stop.Ata)</span>
                                         <span class="@(stop.Atd is null ? "missing" : null)"><b>ATD</b>@FormatUtc(stop.Atd)</span>
+                                        @if (ActivitySummaryLabel(stop) is { } activitySummary)
+                                        {
+                                            <span class="timeline-activity-summary @ActivitySummaryModifier(stop)"
+                                                  data-testid="timeline-activity-summary">
+                                                @activitySummary
+                                            </span>
+                                        }
+                                        <button type="button"
+                                                class="timeline-activity-toggle"
+                                                data-testid="timeline-activity-toggle"
+                                                aria-expanded="@(activityStopId == stop.StopId ? "true" : "false")"
+                                                @onclick="() => ToggleActivityLog(stop)">
+                                            <span class="bi bi-list-check" aria-hidden="true"></span>
+                                            @(activityStopId == stop.StopId ? "Hide activity log" : "Activity log")
+                                        </button>
                                     </td>
                                     <td class="timeline-clearance">
                                         <span class="timeline-clearance-status @ClearanceStatusModifier(stop)"
@@ -335,6 +350,18 @@
                                                                     StopDepartedAtUtc="stop.Atd"
                                                                     OnChanged="LoadAsync"
                                                                     OnClose="CloseClearance" />
+                                        </td>
+                                    </tr>
+                                }
+
+                                @if (activityStopId == stop.StopId)
+                                {
+                                    <tr class="timeline-clearance-row" data-testid="timeline-activity-row">
+                                        <td colspan="@(CanManageVoyages ? 8 : 7)">
+                                            <PortCallActivityPanel VoyageId="VoyageId"
+                                                                   StopId="stop.StopId"
+                                                                   OnChanged="RefreshItineraryAsync"
+                                                                   OnClose="CloseActivityLog" />
                                         </td>
                                     </tr>
                                 }

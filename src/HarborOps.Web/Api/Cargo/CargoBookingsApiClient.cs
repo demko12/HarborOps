@@ -272,6 +272,104 @@ internal sealed class CargoBookingsApiClient(HttpClient httpClient)
             cancellationToken);
     }
 
+    internal Task<CargoApiResult<ReeferProfileView>> GetReeferProfileAsync(
+        Guid containerId,
+        CancellationToken cancellationToken)
+    {
+        return GetAsync<ReeferProfileView>(
+            $"{ReeferPath(containerId)}/profile",
+            "Unable to load the reefer monitoring profile",
+            ReviewAccessDetail,
+            cancellationToken);
+    }
+
+    internal Task<CargoApiResult<ReeferProfileRow>> SaveReeferProfileAsync(
+        Guid containerId,
+        SaveReeferProfileWebRequest request,
+        CancellationToken cancellationToken)
+    {
+        return PutAsync<ReeferProfileRow>(
+            $"{ReeferPath(containerId)}/profile",
+            request,
+            "Unable to save the reefer monitoring profile",
+            cancellationToken);
+    }
+
+    internal Task<CargoApiResult<ReeferReadingPage>> GetReeferReadingsAsync(
+        Guid containerId,
+        int pageNumber,
+        int pageSize,
+        CancellationToken cancellationToken)
+    {
+        return GetAsync<ReeferReadingPage>(
+            $"{ReeferPath(containerId)}/readings?pageNumber={pageNumber}&pageSize={pageSize}",
+            "Unable to load the temperature log",
+            ReviewAccessDetail,
+            cancellationToken);
+    }
+
+    internal Task<CargoApiResult<RecordedReeferReading>> RecordReeferReadingAsync(
+        Guid containerId,
+        RecordReeferReadingWebRequest request,
+        CancellationToken cancellationToken)
+    {
+        return PostAsync<RecordedReeferReading>(
+            $"{ReeferPath(containerId)}/readings",
+            request,
+            "Unable to record the temperature reading",
+            cancellationToken);
+    }
+
+    internal Task<CargoApiResult<RecordedReeferReading>> CorrectReeferReadingAsync(
+        Guid containerId,
+        Guid readingId,
+        CorrectReeferReadingWebRequest request,
+        CancellationToken cancellationToken)
+    {
+        return PostAsync<RecordedReeferReading>(
+            $"{ReeferPath(containerId)}/readings/{readingId}/correct",
+            request,
+            "Unable to correct the temperature reading",
+            cancellationToken);
+    }
+
+    internal Task<CargoApiResult<ReeferReadingRow>> VoidReeferReadingAsync(
+        Guid containerId,
+        Guid readingId,
+        VoidReeferReadingWebRequest request,
+        CancellationToken cancellationToken)
+    {
+        return PostAsync<ReeferReadingRow>(
+            $"{ReeferPath(containerId)}/readings/{readingId}/void",
+            request,
+            "Unable to void the temperature reading",
+            cancellationToken);
+    }
+
+    internal Task<CargoApiResult<ReeferExcursionList>> GetReeferExcursionsAsync(
+        Guid containerId,
+        CancellationToken cancellationToken)
+    {
+        return GetAsync<ReeferExcursionList>(
+            $"{ReeferPath(containerId)}/excursions",
+            "Unable to load the temperature excursions",
+            ReviewAccessDetail,
+            cancellationToken);
+    }
+
+    internal Task<CargoApiResult<ReeferExcursionRow>> ResolveReeferExcursionAsync(
+        Guid containerId,
+        Guid excursionId,
+        ResolveReeferExcursionWebRequest request,
+        CancellationToken cancellationToken)
+    {
+        return PostAsync<ReeferExcursionRow>(
+            $"{ReeferPath(containerId)}/excursions/{excursionId}/resolve",
+            request,
+            "Unable to resolve the temperature excursion",
+            cancellationToken);
+    }
+
     internal Task<CargoApiResult<BillOfLadingList>> GetBillsOfLadingAsync(
         Guid bookingId,
         CancellationToken cancellationToken)
@@ -364,6 +462,11 @@ internal sealed class CargoBookingsApiClient(HttpClient httpClient)
     private static string ContainerPath(Guid containerId)
     {
         return $"{ContainersPath}/{containerId}";
+    }
+
+    private static string ReeferPath(Guid containerId)
+    {
+        return $"{ContainerPath(containerId)}/reefer";
     }
 
     private static string SafetyPath(Guid bookingId)

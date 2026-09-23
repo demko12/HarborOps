@@ -126,6 +126,12 @@ internal sealed record RoutePage(
     int PageSize,
     int TotalCount);
 
+internal sealed record MasterDataSummary(
+    int PortCount,
+    int BerthCount,
+    int RouteCount,
+    decimal AverageRouteDistance);
+
 internal sealed record RouteStopModel(
     Guid PortId,
     string PortName,
@@ -181,7 +187,9 @@ internal sealed record VoyageItineraryStopModel(
     string? ClearanceStatus = null,
     int ClearanceRequiredItemCount = 0,
     int ClearanceRequiredResolvedCount = 0,
-    int ClearanceOverdueRequiredItemCount = 0);
+    int ClearanceOverdueRequiredItemCount = 0,
+    int PortCallActivityCount = 0,
+    string? PortCallStatementStatus = null);
 
 internal sealed record VoyageDelayModel(
     Guid DelayId,
@@ -476,3 +484,122 @@ internal sealed record ClearanceStatusChange(
     DateTime OccurredAtUtc);
 
 internal sealed record ClearanceItemSaved();
+
+internal sealed record PortCallActivityModel(
+    Guid ActivityId,
+    int Sequence,
+    string ActivityType,
+    DateTime OccurredAtUtc,
+    DateTime? EndedAtUtc,
+    string? Notes,
+    string Status,
+    int Revision,
+    bool IsLocked,
+    Guid RecordedByUserId,
+    DateTime RecordedAtUtc,
+    Guid LastChangedByUserId,
+    DateTime LastChangedAtUtc,
+    Guid Version);
+
+internal sealed record PortCallActivityRevisionModel(
+    int Revision,
+    string ChangeType,
+    string ActivityType,
+    DateTime OccurredAtUtc,
+    DateTime? EndedAtUtc,
+    string? Notes,
+    string? Reason,
+    Guid ActorUserId,
+    string? ActorName,
+    DateTime ChangedAtUtc);
+
+internal sealed record PortCallActivityDetails(
+    Guid VoyageId,
+    Guid StopId,
+    PortCallActivityModel Activity,
+    IReadOnlyList<PortCallActivityRevisionModel> History);
+
+internal sealed record PortCallLogEntryModel(
+    int Position,
+    string Source,
+    Guid? SourceId,
+    int? SourceRevision,
+    string Label,
+    DateTime OccurredAtUtc,
+    DateTime? EndedAtUtc,
+    string? Notes,
+    int? DurationMinutes,
+    bool IsOutsidePortCall);
+
+internal sealed record PortCallStatementSummaryModel(
+    Guid StatementId,
+    string Status,
+    Guid? FinalizedByUserId,
+    DateTime? FinalizedAtUtc);
+
+internal sealed record PortCallTimeline(
+    Guid VoyageId,
+    Guid StopId,
+    string StopStatus,
+    string PortName,
+    string? PortTimeZone,
+    string? BerthName,
+    DateTime? ActualArrivalUtc,
+    DateTime? ActualDepartureUtc,
+    bool CanRecordActivities,
+    PortCallStatementSummaryModel? Statement,
+    IReadOnlyList<PortCallLogEntryModel> Entries,
+    IReadOnlyList<PortCallActivityModel> Activities);
+
+internal sealed record PortCallStatementBlockerModel(string Code, string Message, Guid? ActivityId);
+
+internal sealed record PortCallStatementModel(
+    Guid StatementId,
+    string DocumentNumber,
+    Guid VoyageId,
+    Guid StopId,
+    string Status,
+    Guid Version,
+    string? SourceVersion,
+    string VoyageNumber,
+    int StopOrder,
+    string PortName,
+    string? PortUnLocode,
+    string? PortTimeZone,
+    string? BerthName,
+    DateTime? ActualArrivalUtc,
+    DateTime? ActualDepartureUtc,
+    Guid CreatedByUserId,
+    DateTime CreatedAtUtc,
+    Guid? FinalizedByUserId,
+    string? FinalizedByName,
+    DateTime? FinalizedAtUtc,
+    bool CanFinalize,
+    IReadOnlyList<PortCallStatementBlockerModel> Blockers,
+    IReadOnlyList<PortCallLogEntryModel> Entries);
+
+internal sealed record RecordPortCallActivityWebRequest(
+    string ActivityType,
+    DateTimeOffset OccurredAt,
+    DateTimeOffset? EndedAt,
+    string? Notes);
+
+internal sealed record CorrectPortCallActivityWebRequest(
+    string ActivityType,
+    DateTimeOffset OccurredAt,
+    DateTimeOffset? EndedAt,
+    string? Notes,
+    string Reason,
+    Guid Version);
+
+internal sealed record VoidPortCallActivityWebRequest(string Reason, Guid Version);
+
+internal sealed record FinalizePortCallStatementWebRequest(Guid Version, string? SourceVersion);
+
+internal sealed record PortCallActivityChange(
+    Guid ActivityId,
+    string Status,
+    int Revision,
+    Guid Version,
+    Guid ActorUserId,
+    DateTime ChangedAtUtc);

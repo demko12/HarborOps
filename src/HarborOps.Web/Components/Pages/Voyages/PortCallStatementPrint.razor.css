@@ -1,0 +1,81 @@
+.print-page { display: flex; flex-direction: column; gap: 1rem; max-width: 60rem; margin: 0 auto; padding: 1.5rem 1rem 3rem; }
+
+.print-toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: .6rem; }
+
+.print-back {
+    display: inline-flex;
+    align-items: center;
+    height: var(--control-height);
+    padding: 0 .95rem;
+    color: var(--text-secondary);
+    border: 1px solid var(--border-medium);
+    border-radius: var(--radius-button);
+    font-size: .84rem;
+    font-weight: 600;
+    text-decoration: none;
+    transition: border-color .16s ease, color .16s ease;
+}
+
+.print-back:hover { border-color: var(--border-strong-hover); color: var(--text-primary); }
+.print-back:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+.print-sheet {
+    display: flex;
+    flex-direction: column;
+    gap: 1.1rem;
+    padding: 2rem;
+    border: 1px solid var(--border-medium);
+    border-radius: var(--radius-control);
+    background: var(--control-surface);
+}
+
+.print-head { display: flex; flex-wrap: wrap; align-items: flex-start; justify-content: space-between; gap: 1.5rem; padding-bottom: 1rem; border-bottom: 2px solid var(--border-medium); }
+.print-kicker { margin: 0; color: var(--text-muted); font-size: .7rem; font-weight: 700; letter-spacing: .18em; text-transform: uppercase; }
+.print-number { margin: .3rem 0 0; font-family: var(--font-mono, ui-monospace, monospace); font-size: 1.4rem; font-weight: 700; color: var(--text-primary); }
+.print-subtitle { margin: .2rem 0 0; color: var(--text-secondary); font-size: .86rem; }
+
+.print-head-meta { display: flex; flex-wrap: wrap; gap: 1.5rem; margin: 0; }
+.print-head-meta div { display: flex; flex-direction: column; gap: .2rem; }
+.print-head-meta dt { color: var(--text-muted); font-size: .66rem; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; }
+.print-head-meta dd { margin: 0; color: var(--text-primary); font-size: .88rem; }
+
+.print-box { padding: .9rem 1rem; border: 1px solid var(--border-medium); border-radius: var(--radius-control); overflow-x: auto; }
+.print-box h2 { margin: 0 0 .5rem; color: var(--text-muted); font-size: .66rem; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; }
+
+.print-empty { margin: 0; color: var(--text-muted); font-size: .84rem; font-style: italic; }
+
+.print-table { width: 100%; border-collapse: collapse; }
+.print-table th { padding: .4rem .6rem; color: var(--text-muted); border-bottom: 1px solid var(--border-medium); font-size: .66rem; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; text-align: left; }
+.print-table td { padding: .45rem .6rem; color: var(--text-primary); border-bottom: 1px solid var(--border-medium); font-size: .84rem; vertical-align: top; }
+.print-table td:first-child { font-family: var(--font-mono, ui-monospace, monospace); font-weight: 600; }
+.print-table tr:last-child td { border-bottom: 0; }
+.print-table tr { break-inside: avoid; }
+.print-running-head { display: none; }
+.print-running-head th { color: var(--text-secondary); letter-spacing: .04em; text-transform: none; }
+
+.print-notes { color: var(--text-secondary); overflow-wrap: anywhere; white-space: pre-line; }
+.print-duration { display: block; color: var(--text-muted); font-size: .76rem; }
+
+.print-foot { display: flex; flex-wrap: wrap; gap: 1.8rem; padding-top: 1rem; border-top: 2px solid var(--border-medium); }
+.print-foot h2 { margin: 0 0 .25rem; color: var(--text-muted); font-size: .66rem; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; }
+.print-foot p { margin: 0; color: var(--text-primary); font-size: .86rem; }
+
+.print-actor { margin-left: .4rem; color: var(--text-muted); font-family: var(--font-mono, ui-monospace, monospace); font-size: .78rem; }
+
+@media (max-width: 760px) {
+    .print-sheet { padding: 1rem; }
+    .print-head-meta { gap: .9rem; }
+}
+
+@media print {
+    .print-page {
+        padding: 0;
+        --text-primary: #0f172a;
+        --text-secondary: #334155;
+        --text-muted: #64748b;
+        --border-medium: #cbd5e1;
+    }
+    .print-sheet { border: 0; border-radius: 0; padding: 0; background: transparent; }
+    .print-box { overflow: visible; }
+    .print-running-head { display: table-row; }
+}

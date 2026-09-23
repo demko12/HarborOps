@@ -327,7 +327,7 @@ public sealed class ContainerControlTests
     {
         var control = Inspected(ContainerInspectionResult.Passed);
 
-        var entry = control.Release(SupervisorUserId, ReleasedAtUtc, "  Cleared for loading  ");
+        var entry = control.Release(SupervisorUserId, ReleasedAtUtc, "  Cleared for loading  ", false);
 
         Assert.Equal(ContainerControlState.Released, control.State);
         Assert.Equal("Cleared for loading", control.StateReason);
@@ -351,7 +351,7 @@ public sealed class ContainerControlTests
             InspectedAtUtc);
 
         var exception = Assert.Throws<ContainerControlTransitionNotAllowedException>(
-            () => control.Release(SupervisorUserId, ReleasedAtUtc, null));
+            () => control.Release(SupervisorUserId, ReleasedAtUtc, null, false));
 
         Assert.Equal(
             ContainerControlTransitionNotAllowedException.SealNotIntactReason,
@@ -366,7 +366,7 @@ public sealed class ContainerControlTests
         control.BreakSeal(InspectorUserId, InspectedAtUtc, null);
 
         var exception = Assert.Throws<ContainerControlTransitionNotAllowedException>(
-            () => control.Release(SupervisorUserId, ReleasedAtUtc, null));
+            () => control.Release(SupervisorUserId, ReleasedAtUtc, null, false));
 
         Assert.Equal(
             ContainerControlTransitionNotAllowedException.SealNotIntactReason,
@@ -379,7 +379,7 @@ public sealed class ContainerControlTests
         var control = Sealed();
 
         var exception = Assert.Throws<ContainerControlTransitionNotAllowedException>(
-            () => control.Release(SupervisorUserId, ReleasedAtUtc, null));
+            () => control.Release(SupervisorUserId, ReleasedAtUtc, null, false));
 
         Assert.Equal(
             ContainerControlTransitionNotAllowedException.InspectionMissingReason,
@@ -391,10 +391,10 @@ public sealed class ContainerControlTests
     {
         var control = Sealed();
 
-        Assert.False(control.CanRelease);
+        Assert.False(control.CanRelease(hasOpenTemperatureExcursion: false));
         Assert.Equal(
             ContainerControlTransitionNotAllowedException.InspectionMissingReason,
-            control.ReleaseBlocker);
+            control.ReleaseBlocker(hasOpenTemperatureExcursion: false));
     }
 
     [Fact]
@@ -403,7 +403,7 @@ public sealed class ContainerControlTests
         var control = Inspected(ContainerInspectionResult.Failed);
 
         var exception = Assert.Throws<ContainerControlTransitionNotAllowedException>(
-            () => control.Release(SupervisorUserId, ReleasedAtUtc, null));
+            () => control.Release(SupervisorUserId, ReleasedAtUtc, null, false));
 
         Assert.Equal(
             ContainerControlTransitionNotAllowedException.InspectionNotPassedReason,
@@ -417,7 +417,7 @@ public sealed class ContainerControlTests
         control.Hold("Awaiting supervisor", SupervisorUserId, InspectedAtUtc);
 
         var exception = Assert.Throws<ContainerControlTransitionNotAllowedException>(
-            () => control.Release(SupervisorUserId, ReleasedAtUtc, null));
+            () => control.Release(SupervisorUserId, ReleasedAtUtc, null, false));
 
         Assert.Equal(
             ContainerControlTransitionNotAllowedException.HeldReason,
@@ -431,7 +431,7 @@ public sealed class ContainerControlTests
         var control = Released();
 
         var exception = Assert.Throws<ContainerControlTransitionNotAllowedException>(
-            () => control.Release(SupervisorUserId, ReleasedAtUtc, null));
+            () => control.Release(SupervisorUserId, ReleasedAtUtc, null, false));
 
         Assert.Equal(
             ContainerControlTransitionNotAllowedException.AlreadyReleasedReason,
@@ -461,7 +461,7 @@ public sealed class ContainerControlTests
         control.Hold("Damaged corner post", SupervisorUserId, ReleasedAtUtc);
 
         Assert.Equal(ContainerControlState.Held, control.State);
-        Assert.False(ContainerControl.AllowsLoading(control.State));
+        Assert.False(ContainerControl.AllowsLoading(control.State, false));
     }
 
     [Theory]
@@ -502,13 +502,13 @@ public sealed class ContainerControlTests
     {
         var state = Enum.Parse<ContainerControlState>(stateName);
 
-        Assert.Equal(expected, ContainerControl.AllowsLoading(state));
+        Assert.Equal(expected, ContainerControl.AllowsLoading(state, false));
     }
 
     [Fact]
     public void AllowsLoading_rejects_a_container_without_a_control_record()
     {
-        Assert.False(ContainerControl.AllowsLoading(null));
+        Assert.False(ContainerControl.AllowsLoading(null, false));
     }
 
     [Fact]
@@ -524,7 +524,7 @@ public sealed class ContainerControlTests
             isReefer: false,
             InspectorUserId,
             InspectedAtUtc);
-        var releaseEntry = control.Release(SupervisorUserId, ReleasedAtUtc, null);
+        var releaseEntry = control.Release(SupervisorUserId, ReleasedAtUtc, null, false);
         var holdEntry = control.Hold("Damaged corner post", SupervisorUserId, ReleasedAtUtc);
 
         ContainerControlEvent[] entries =
@@ -553,7 +553,7 @@ public sealed class ContainerControlTests
             InspectedAtUtc);
         tokens.Add(control.ConcurrencyToken);
 
-        control.Release(SupervisorUserId, ReleasedAtUtc, null);
+        control.Release(SupervisorUserId, ReleasedAtUtc, null, false);
         tokens.Add(control.ConcurrencyToken);
 
         control.Hold("Damaged corner post", SupervisorUserId, ReleasedAtUtc);
@@ -570,9 +570,54 @@ public sealed class ContainerControlTests
         var token = control.ConcurrencyToken;
 
         Assert.Throws<ContainerControlTransitionNotAllowedException>(
-            () => control.Release(SupervisorUserId, ReleasedAtUtc, null));
+            () => control.Release(SupervisorUserId, ReleasedAtUtc, null, false));
 
         Assert.Equal(token, control.ConcurrencyToken);
+    }
+
+    [Fact]
+    public void An_open_temperature_excursion_blocks_a_release_ready_container()
+    {
+        var control = Inspected(ContainerInspectionResult.Passed);
+
+        Assert.False(control.CanRelease(hasOpenTemperatureExcursion: true));
+        Assert.Equal(
+            ContainerControlTransitionNotAllowedException.OpenTemperatureExcursionReason,
+            control.ReleaseBlocker(hasOpenTemperatureExcursion: true));
+    }
+
+    [Fact]
+    public void An_open_temperature_excursion_is_reported_ahead_of_other_blockers()
+    {
+        var control = ContainerControl.Start(ContainerId);
+
+        Assert.Equal(
+            ContainerControlTransitionNotAllowedException.OpenTemperatureExcursionReason,
+            control.ReleaseBlocker(hasOpenTemperatureExcursion: true));
+    }
+
+    [Fact]
+    public void Release_is_rejected_while_a_temperature_excursion_is_open()
+    {
+        var control = Inspected(ContainerInspectionResult.Passed);
+
+        var exception = Assert.Throws<ContainerControlTransitionNotAllowedException>(
+            () => control.Release(SupervisorUserId, ReleasedAtUtc, null, true));
+
+        Assert.Equal(
+            ContainerControlTransitionNotAllowedException.OpenTemperatureExcursionReason,
+            exception.Reason);
+        Assert.Equal(ContainerControlState.Pending, control.State);
+    }
+
+    [Fact]
+    public void An_open_temperature_excursion_blocks_loading_a_released_container()
+    {
+        var control = Released();
+
+        Assert.Equal(ContainerControlState.Released, control.State);
+        Assert.True(ContainerControl.AllowsLoading(control.State, false));
+        Assert.False(ContainerControl.AllowsLoading(control.State, true));
     }
 
     private static ContainerControl Sealed()
@@ -600,7 +645,7 @@ public sealed class ContainerControlTests
     private static ContainerControl Released()
     {
         var control = Inspected(ContainerInspectionResult.Passed);
-        control.Release(SupervisorUserId, ReleasedAtUtc, "Cleared for loading");
+        control.Release(SupervisorUserId, ReleasedAtUtc, "Cleared for loading", false);
 
         return control;
     }

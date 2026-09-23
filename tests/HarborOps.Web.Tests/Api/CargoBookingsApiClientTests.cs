@@ -30,7 +30,22 @@ public sealed class CargoBookingsApiClientTests
         {"control":{"containerId":"a0000000-0000-0000-0000-000000000009","containerNumber":"MSKU1234567","containerType":"40RH","isReefer":true,"sealNumber":"ML458821","sealStatus":"Intact","state":"Released","latestInspectionResult":"Passed","latestInspectionNotes":"Cooling steady","latestInspectionTemperatureCelsius":-18.5,"latestInspectedAtUtc":"2026-09-07T09:15:00Z","latestInspectedByUserId":"70000000-0000-0000-0000-000000000006","stateReason":"Cleared for loading","stateChangedByUserId":"70000000-0000-0000-0000-000000000006","stateChangedAtUtc":"2026-09-07T10:30:00Z","canRelease":false,"releaseBlockedReason":"the container is already released"},"history":[{"containerControlEventId":"b0000000-0000-0000-0000-000000000010","action":"SealAssigned","fromState":"Pending","toState":"Pending","sealNumber":"ML458821","inspectionResult":null,"temperatureCelsius":null,"notes":null,"actorUserId":"70000000-0000-0000-0000-000000000006","occurredUtc":"2026-09-07T08:00:00Z"}]}
         """;
 
+    private const string ReeferProfileViewJson = """
+        {"containerId":"a0000000-0000-0000-0000-000000000009","containerNumber":"MSKU1234567","profile":{"containerId":"a0000000-0000-0000-0000-000000000009","minimumCelsius":-2,"maximumCelsius":4,"targetCelsius":1,"version":2,"createdByUserId":"70000000-0000-0000-0000-000000000006","createdAtUtc":"2026-09-18T06:00:00Z","updatedByUserId":"70000000-0000-0000-0000-000000000006","updatedAtUtc":"2026-09-19T16:00:00Z"},"changes":[{"id":"c0000000-0000-0000-0000-000000000011","version":2,"fromMinimumCelsius":-5,"fromMaximumCelsius":2,"fromTargetCelsius":-1,"toMinimumCelsius":-2,"toMaximumCelsius":4,"toTargetCelsius":1,"reason":"Shipper tightened the cold chain","actorUserId":"70000000-0000-0000-0000-000000000006","occurredUtc":"2026-09-19T16:00:00Z"}],"openExcursionCount":1}
+        """;
+
+    private const string ReeferReadingPageJson = """
+        {"items":[{"id":"d0000000-0000-0000-0000-000000000012","containerId":"a0000000-0000-0000-0000-000000000009","temperatureCelsius":1,"measuredAtUtc":"2026-09-19T07:45:00Z","recordedAtUtc":"2026-09-19T08:00:00Z","notes":null,"recordedByUserId":"70000000-0000-0000-0000-000000000006","thresholdMinimumCelsius":-2,"thresholdMaximumCelsius":4,"thresholdTargetCelsius":1,"thresholdProfileVersion":1,"status":"Effective","isWithinThresholds":true,"correctsReadingId":null,"supersededByReadingId":null,"correctionReason":null,"correctedByUserId":null,"correctedAtUtc":null,"voidReason":null,"voidedByUserId":null,"voidedAtUtc":null}],"pageNumber":2,"pageSize":10,"totalCount":24}
+        """;
+
+    private const string RecordedReeferReadingJson = """
+        {"reading":{"id":"d0000000-0000-0000-0000-000000000012","containerId":"a0000000-0000-0000-0000-000000000009","temperatureCelsius":6.5,"measuredAtUtc":"2026-09-19T07:45:00Z","recordedAtUtc":"2026-09-19T08:00:00Z","notes":null,"recordedByUserId":"70000000-0000-0000-0000-000000000006","thresholdMinimumCelsius":-2,"thresholdMaximumCelsius":4,"thresholdTargetCelsius":1,"thresholdProfileVersion":1,"status":"Effective","isWithinThresholds":false,"correctsReadingId":null,"supersededByReadingId":null,"correctionReason":null,"correctedByUserId":null,"correctedAtUtc":null,"voidReason":null,"voidedByUserId":null,"voidedAtUtc":null},"excursion":{"id":"e0000000-0000-0000-0000-000000000013","containerId":"a0000000-0000-0000-0000-000000000009","readingId":"d0000000-0000-0000-0000-000000000012","direction":"Above","temperatureCelsius":6.5,"thresholdMinimumCelsius":-2,"thresholdMaximumCelsius":4,"measuredAtUtc":"2026-09-19T07:45:00Z","detectedAtUtc":"2026-09-19T08:00:00Z","status":"Open","disposition":null,"explanation":null,"resolvedByUserId":null,"resolvedAtUtc":null,"supersededByExcursionId":null,"supersededAtUtc":null}}
+        """;
+
     private static readonly Guid BookingId = Guid.Parse("20000000-0000-0000-0000-000000000001");
+
+    private static readonly Guid ReeferExcursionId =
+        Guid.Parse("e0000000-0000-0000-0000-000000000013");
 
     private static readonly Guid ControlContainerId =
         Guid.Parse("a0000000-0000-0000-0000-000000000009");
@@ -1038,6 +1053,87 @@ public sealed class CargoBookingsApiClientTests
 
         Assert.False(result.IsSuccess);
         Assert.True(result.Failure!.IsNotFound);
+    }
+
+    [Fact]
+    public async Task GetReeferProfileAsync_reads_the_profile_and_change_log()
+    {
+        using var httpClient = CreateHttpClient((_, _) =>
+            Json(HttpStatusCode.OK, ReeferProfileViewJson));
+
+        var result = await CreateClient(httpClient).GetReeferProfileAsync(
+            ControlContainerId,
+            CancellationToken.None);
+
+        Assert.True(result.IsSuccess);
+        Assert.NotNull(result.Value!.Profile);
+        Assert.Equal(-2m, result.Value.Profile!.MinimumCelsius);
+        Assert.Equal(2, result.Value.Profile.Version);
+        Assert.Single(result.Value.Changes);
+        Assert.Equal(1, result.Value.OpenExcursionCount);
+    }
+
+    [Fact]
+    public async Task GetReeferReadingsAsync_requests_a_bounded_page()
+    {
+        Uri? requested = null;
+
+        using var httpClient = CreateHttpClient((request, _) =>
+        {
+            requested = request.RequestUri;
+
+            return Json(HttpStatusCode.OK, ReeferReadingPageJson);
+        });
+
+        var result = await CreateClient(httpClient).GetReeferReadingsAsync(
+            ControlContainerId,
+            2,
+            10,
+            CancellationToken.None);
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal(
+            $"/api/cargo/containers/{ControlContainerId}/reefer/readings",
+            requested!.AbsolutePath);
+        Assert.Equal("?pageNumber=2&pageSize=10", requested.Query);
+        Assert.Equal(24, result.Value!.TotalCount);
+    }
+
+    [Fact]
+    public async Task RecordReeferReadingAsync_reads_the_opened_excursion()
+    {
+        using var httpClient = CreateHttpClient((_, _) =>
+            Json(HttpStatusCode.Created, RecordedReeferReadingJson));
+
+        var result = await CreateClient(httpClient).RecordReeferReadingAsync(
+            ControlContainerId,
+            new RecordReeferReadingWebRequest(6.5m, OccurredUtc, null),
+            CancellationToken.None);
+
+        Assert.True(result.IsSuccess);
+        Assert.False(result.Value!.Reading.IsWithinThresholds);
+        Assert.NotNull(result.Value.Excursion);
+        Assert.Equal("Above", result.Value.Excursion!.Direction);
+    }
+
+    [Fact]
+    public async Task ResolveReeferExcursionAsync_surfaces_a_conflict()
+    {
+        using var httpClient = CreateHttpClient((_, _) => Json(
+            HttpStatusCode.Conflict,
+            """
+            {"title":"Temperature excursion is no longer open.","detail":"Reload and try again."}
+            """));
+
+        var result = await CreateClient(httpClient).ResolveReeferExcursionAsync(
+            ControlContainerId,
+            ReeferExcursionId,
+            new ResolveReeferExcursionWebRequest("CorrectiveAction", "Unit restarted"),
+            CancellationToken.None);
+
+        Assert.False(result.IsSuccess);
+        Assert.True(result.Failure!.IsConflict);
+        Assert.Equal("Temperature excursion is no longer open.", result.Failure.Title);
     }
 
     private static CargoBookingFilter Filter()

@@ -465,6 +465,53 @@ public sealed class VoyageTimelinePageTests : BunitContext
     }
 
     [Fact]
+    public void The_port_call_row_summarises_its_activity_log_and_statement()
+    {
+        respond = _ => Json(
+            HttpStatusCode.OK,
+            Itinerary(firstStopActivityLog: "\"portCallActivityCount\":3,\"portCallStatementStatus\":\"Draft\""));
+
+        var page = RenderTimelinePage();
+
+        var summary = Assert.Single(page.FindAll("[data-testid=timeline-activity-summary]"));
+        Assert.Equal("3 activities · Statement draft", summary.TextContent.Trim());
+        Assert.Contains("draft", summary.ClassList);
+    }
+
+    [Fact]
+    public void A_port_call_without_activities_or_statement_shows_no_summary()
+    {
+        var page = RenderTimelinePage();
+
+        Assert.Empty(page.FindAll("[data-testid=timeline-activity-summary]"));
+    }
+
+    [Fact]
+    public void The_activity_log_panel_is_toggled_from_the_port_call_row()
+    {
+        respond = request => request.RequestUri!.AbsolutePath.EndsWith("/activity-timeline", StringComparison.Ordinal)
+            ? Json(
+                HttpStatusCode.OK,
+                $$"""{"voyageId":"{{VoyageId}}","stopId":"{{StopOneId}}","stopStatus":"Planned","portName":"Port of Bar","berthName":null,"actualArrivalUtc":null,"actualDepartureUtc":null,"canRecordActivities":false,"statement":null,"entries":[],"activities":[]}""")
+            : Json(HttpStatusCode.OK, Itinerary());
+
+        var page = RenderTimelinePage(CurrentUserAuthorizationState.VoyagesReadPermission);
+
+        Assert.Empty(page.FindAll(".activity-panel"));
+
+        page.FindAll("[data-testid=timeline-activity-toggle]")[0].Click();
+
+        page.WaitForAssertion(() => Assert.NotEmpty(page.FindAll(".activity-panel")));
+        Assert.Contains(
+            $"/api/voyages/{VoyageId}/stops/{StopOneId}/activity-timeline",
+            requestedUris.Select(uri => uri.AbsolutePath));
+
+        page.FindAll("[data-testid=timeline-activity-toggle]")[0].Click();
+
+        page.WaitForAssertion(() => Assert.Empty(page.FindAll(".activity-panel")));
+    }
+
+    [Fact]
     public void Read_only_users_still_see_the_clearance_progress_column()
     {
         var page = RenderTimelinePage(CurrentUserAuthorizationState.VoyagesReadPermission);
@@ -640,7 +687,8 @@ public sealed class VoyageTimelinePageTests : BunitContext
         string firstStopClearanceStatus = "Pending",
         int firstStopClearanceRequired = 2,
         int firstStopClearanceResolved = 1,
-        int firstStopClearanceOverdue = 0)
+        int firstStopClearanceOverdue = 0,
+        string? firstStopActivityLog = null)
     {
         var berthField = firstStopBerthId is null
             ? "\"berthId\":null,\"berthName\":null"
@@ -649,7 +697,8 @@ public sealed class VoyageTimelinePageTests : BunitContext
             ? "null"
             : "\"2026-09-01T08:30:00Z\"";
         var firstClearance =
-            $"\"clearanceStatus\":\"{firstStopClearanceStatus}\",\"clearanceRequiredItemCount\":{firstStopClearanceRequired},\"clearanceRequiredResolvedCount\":{firstStopClearanceResolved},\"clearanceOverdueRequiredItemCount\":{firstStopClearanceOverdue}";
+            $"\"clearanceStatus\":\"{firstStopClearanceStatus}\",\"clearanceRequiredItemCount\":{firstStopClearanceRequired},\"clearanceRequiredResolvedCount\":{firstStopClearanceResolved},\"clearanceOverdueRequiredItemCount\":{firstStopClearanceOverdue}"
+            + (firstStopActivityLog is null ? string.Empty : $",{firstStopActivityLog}");
 
         return $$"""
             {"voyageId":"{{VoyageId}}","vesselId":"a0000000-0000-0000-0000-000000000001","stops":[

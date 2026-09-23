@@ -248,6 +248,13 @@ public partial class CargoBookingDetails : IDisposable
             .State;
     }
 
+    private bool IsReeferContainer(Guid containerId)
+    {
+        return ContainerControls
+            .FirstOrDefault(control => control.ContainerId == containerId)?
+            .IsReefer is true;
+    }
+
     private void ToggleControl(Guid containerId)
     {
         selectedControlContainerId = selectedControlContainerId == containerId

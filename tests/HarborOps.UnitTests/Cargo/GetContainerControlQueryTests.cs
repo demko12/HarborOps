@@ -146,7 +146,7 @@ public sealed class GetContainerControlQueryTests
             isReefer: false,
             ActorUserId,
             InspectedAtUtc);
-        var releaseEntry = control.Release(ActorUserId, ReleasedAtUtc, null);
+        var releaseEntry = control.Release(ActorUserId, ReleasedAtUtc, null, false);
 
         await dbContext.Set<ContainerControl>().AddAsync(control, CancellationToken.None);
         await dbContext.Set<ContainerControlEvent>()

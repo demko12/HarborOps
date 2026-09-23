@@ -188,7 +188,7 @@ public sealed class ReleaseContainerServiceTests
         var holdControl = await holdContext.Set<ContainerControl>()
             .SingleAsync(control => control.ContainerId == containerId);
 
-        var releaseEntry = releaseControl.Release(ActorUserId, FixedUtcNow.UtcDateTime, null);
+        var releaseEntry = releaseControl.Release(ActorUserId, FixedUtcNow.UtcDateTime, null, false);
         await releaseContext.Set<ContainerControlEvent>().AddAsync(releaseEntry);
         await releaseContext.SaveChangesAsync();
 

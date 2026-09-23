@@ -11,6 +11,27 @@ namespace HarborOps.Web.Tests.Components;
 
 public sealed class VoyagesWorkspaceTabsTests : BunitContext
 {
+    private readonly List<string> requestedPaths = [];
+
+    [Fact]
+    public void The_master_data_tabs_load_the_directory_totals_with_a_single_summary_request()
+    {
+        var page = RenderWorkspace();
+
+        page.FindAll(".workspace-tab")[1].Click();
+        page.WaitForAssertion(() => Assert.Equal(
+            "60",
+            page.Find(".voyages-summary-scoped .voyages-kpi-value").TextContent.Trim()));
+
+        page.FindAll(".workspace-tab")[2].Click();
+        page.WaitForAssertion(() => Assert.Equal(
+            "143",
+            page.Find(".voyages-summary-scoped .voyages-kpi-value").TextContent.Trim()));
+
+        Assert.Single(requestedPaths, path => path == "/api/voyages/master-data-summary");
+        Assert.DoesNotContain(requestedPaths, path => path == "/api/voyages/berths");
+    }
+
     [Fact]
     public void The_workspace_offers_the_board_and_the_three_master_data_directories()
     {
@@ -109,9 +130,18 @@ public sealed class VoyagesWorkspaceTabsTests : BunitContext
     private IRenderedComponent<Voyages> RenderWorkspace(string? relativeUrl = null)
     {
         var httpClient = new HttpClient(new StubHttpMessageHandler(request =>
-            request.RequestUri!.AbsolutePath == "/api/voyages/ports/lookup"
-                ? Json(HttpStatusCode.OK, """{"items":[]}""")
-                : Json(HttpStatusCode.OK, EmptyPage())))
+        {
+            requestedPaths.Add(request.RequestUri!.AbsolutePath);
+
+            return request.RequestUri!.AbsolutePath switch
+            {
+                "/api/voyages/ports/lookup" => Json(HttpStatusCode.OK, """{"items":[]}"""),
+                "/api/voyages/master-data-summary" => Json(
+                    HttpStatusCode.OK,
+                    """{"portCount":60,"berthCount":143,"routeCount":12,"averageRouteDistance":75}"""),
+                _ => Json(HttpStatusCode.OK, EmptyPage()),
+            };
+        }))
         {
             BaseAddress = new Uri("https://api.harborops.test/"),
         };

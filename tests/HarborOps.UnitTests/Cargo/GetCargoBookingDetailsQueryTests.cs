@@ -345,7 +345,7 @@ public sealed class GetCargoBookingDetailsQueryTests
             isReefer: false,
             ResponsibleUserId,
             FirstEventUtc);
-        var releaseEntry = control.Release(ResponsibleUserId, FirstEventUtc, null);
+        var releaseEntry = control.Release(ResponsibleUserId, FirstEventUtc, null, false);
 
         await dbContext.Set<ContainerControl>().AddAsync(control, CancellationToken.None);
         await dbContext.Set<ContainerControlEvent>()

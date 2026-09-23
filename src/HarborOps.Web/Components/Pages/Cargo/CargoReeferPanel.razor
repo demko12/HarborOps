@@ -1,0 +1,616 @@
+@using HarborOps.Web.Api.Cargo
+@implements IDisposable
+@inject CargoBookingsApiClient CargoApi
+@inject CurrentUserAuthorizationState AuthorizationState
+
+<section class="reefer-panel" aria-labelledby="reefer-panel-title">
+    <div class="booking-card-heading">
+        <h3 id="reefer-panel-title">Temperature monitoring for @ContainerNumber</h3>
+        @if (IsReefer && OpenExcursionCount > 0)
+        {
+            <span class="reefer-badge reefer-badge-open">
+                @OpenExcursionCount open @(OpenExcursionCount == 1 ? "excursion" : "excursions")
+            </span>
+        }
+        else if (IsReefer && !isLoading && failure is null)
+        {
+            <span class="reefer-badge reefer-badge-clear">No open excursions</span>
+        }
+    </div>
+
+    @if (!IsReefer)
+    {
+        <p class="booking-note reefer-not-applicable" role="status">@NotAReeferMessage</p>
+    }
+    else if (isLoading)
+    {
+        <p class="booking-note reefer-loading" role="status">Loading the temperature log...</p>
+    }
+    else if (failure is not null)
+    {
+        <ApiErrorState Title="@failure.Title" Message="@failure.Message" OnRetry="LoadAsync" />
+    }
+    else
+    {
+        @if (OpenExcursionCount > 0)
+        {
+            <div class="reefer-blocker-banner" role="status">
+                <span class="reefer-blocker-icon bi bi-exclamation-triangle-fill" aria-hidden="true"></span>
+                <div class="reefer-blocker-body">
+                    <p class="reefer-blocker-title">Release and loading are blocked.</p>
+                    <p class="reefer-blocker-hint">@BlockedReleaseMessage</p>
+                </div>
+            </div>
+        }
+
+        <section class="reefer-section" aria-labelledby="reefer-profile-title">
+            <div class="reefer-section-heading">
+                <h4 id="reefer-profile-title"><span class="bi bi-sliders" aria-hidden="true"></span>Monitoring profile</h4>
+                @if (CanManage && !isEditingProfile)
+                {
+                    <button type="button"
+                            class="reefer-secondary"
+                            @onclick="StartProfileEdit">
+                        @(HasProfile ? "Edit thresholds" : "Configure thresholds")
+                    </button>
+                }
+            </div>
+
+            @if (!HasProfile && !isEditingProfile)
+            {
+                <p class="booking-note reefer-empty" role="status">@ProfileMissingMessage</p>
+            }
+            else if (HasProfile && !isEditingProfile)
+            {
+                <dl class="reefer-profile">
+                    <div>
+                        <dt>Minimum</dt>
+                        <dd>@CargoBookingFormat.TemperatureCelsius(Profile!.MinimumCelsius)</dd>
+                    </div>
+                    <div>
+                        <dt>Target</dt>
+                        <dd>@CargoBookingFormat.TemperatureCelsius(Profile!.TargetCelsius)</dd>
+                    </div>
+                    <div>
+                        <dt>Maximum</dt>
+                        <dd>@CargoBookingFormat.TemperatureCelsius(Profile!.MaximumCelsius)</dd>
+                    </div>
+                    <div>
+                        <dt>Version</dt>
+                        <dd>v@(Profile!.Version)</dd>
+                    </div>
+                </dl>
+                <p class="reefer-profile-meta">
+                    Updated @CargoBookingFormat.CreatedUtc(Profile!.UpdatedAtUtc)
+                    by @CargoBookingFormat.ShortUser(Profile!.UpdatedByUserId)
+                </p>
+
+                @if (HasInspectionTemperature)
+                {
+                    <p class="reefer-profile-meta">
+                        Latest inspection temperature
+                        @CargoBookingFormat.TemperatureCelsius(InspectionTemperatureCelsius!.Value)
+                        @if (IsInspectionTemperatureOutOfRange)
+                        {
+                            <span class="reefer-reading-breach">@InspectionOutOfRangeMessage</span>
+                        }
+                    </p>
+                }
+            }
+
+            @if (isEditingProfile)
+            {
+                <EditForm class="reefer-form"
+                          EditContext="profileEditContext"
+                          OnValidSubmit="SubmitProfileAsync">
+                    <DataAnnotationsValidator />
+
+                    <div class="reefer-form-row">
+                        <label class="form-label" for="reefer-minimum">Minimum (°C)</label>
+                        <InputNumber id="reefer-minimum"
+                                     class="form-control"
+                                     step="0.01"
+                                     @bind-Value="profileModel.MinimumCelsius" />
+                        <ValidationMessage For="() => profileModel.MinimumCelsius" />
+                    </div>
+
+                    <div class="reefer-form-row">
+                        <label class="form-label" for="reefer-target">Target (°C)</label>
+                        <InputNumber id="reefer-target"
+                                     class="form-control"
+                                     step="0.01"
+                                     @bind-Value="profileModel.TargetCelsius" />
+                        <ValidationMessage For="() => profileModel.TargetCelsius" />
+                    </div>
+
+                    <div class="reefer-form-row">
+                        <label class="form-label" for="reefer-maximum">Maximum (°C)</label>
+                        <InputNumber id="reefer-maximum"
+                                     class="form-control"
+                                     step="0.01"
+                                     @bind-Value="profileModel.MaximumCelsius" />
+                        <ValidationMessage For="() => profileModel.MaximumCelsius" />
+                    </div>
+
+                    <div class="reefer-form-row">
+                        <label class="form-label" for="reefer-profile-reason">
+                            @(HasProfile ? "Reason for the change" : "Reason (optional)")
+                        </label>
+                        <InputText id="reefer-profile-reason"
+                                   class="form-control"
+                                   @bind-Value="profileModel.Reason" />
+                        <ValidationMessage For="() => profileModel.Reason" />
+                    </div>
+
+                    @if (profileError is not null)
+                    {
+                        <p class="reefer-form-error" role="alert">@profileError</p>
+                    }
+
+                    <div class="reefer-form-actions">
+                        <button type="submit"
+                                class="booking-submit reefer-profile-submit"
+                                disabled="@isSavingProfile">
+                            @(isSavingProfile ? "Saving..." : "Save profile")
+                        </button>
+                        <button type="button"
+                                class="reefer-secondary"
+                                disabled="@isSavingProfile"
+                                @onclick="CancelProfileEdit">
+                            Cancel
+                        </button>
+                    </div>
+                </EditForm>
+            }
+
+            @if (Changes.Count > 0)
+            {
+                <button type="button"
+                        class="reefer-toggle"
+                        @onclick="() => isChangeLogOpen = !isChangeLogOpen">
+                    @(isChangeLogOpen ? "Hide threshold history" : "Show threshold history")
+                </button>
+
+                @if (isChangeLogOpen)
+                {
+                    <ul class="reefer-change-log">
+                        @foreach (var change in Changes)
+                        {
+                            <li>
+                                <span class="reefer-change-version">v@(change.Version)</span>
+                                <span class="reefer-change-values">
+                                    @if (change.FromMinimumCelsius is null)
+                                    {
+                                        <text>
+                                            set to
+                                            @CargoBookingFormat.TemperatureCelsius(change.ToMinimumCelsius)
+                                            to
+                                            @CargoBookingFormat.TemperatureCelsius(change.ToMaximumCelsius)
+                                        </text>
+                                    }
+                                    else
+                                    {
+                                        <text>
+                                            @CargoBookingFormat.TemperatureCelsius(change.FromMinimumCelsius!.Value)
+                                            to
+                                            @CargoBookingFormat.TemperatureCelsius(change.FromMaximumCelsius!.Value)
+                                            became
+                                            @CargoBookingFormat.TemperatureCelsius(change.ToMinimumCelsius)
+                                            to
+                                            @CargoBookingFormat.TemperatureCelsius(change.ToMaximumCelsius)
+                                        </text>
+                                    }
+                                </span>
+                                @if (!string.IsNullOrWhiteSpace(change.Reason))
+                                {
+                                    <span class="reefer-change-reason">@change.Reason</span>
+                                }
+                                <span class="reefer-change-meta">
+                                    @CargoBookingFormat.ShortUser(change.ActorUserId)
+                                    on @CargoBookingFormat.CreatedUtc(change.OccurredUtc)
+                                </span>
+                            </li>
+                        }
+                    </ul>
+                }
+            }
+        </section>
+
+        <section class="reefer-section" aria-labelledby="reefer-excursions-title">
+            <div class="reefer-section-heading">
+                <h4 id="reefer-excursions-title"><span class="bi bi-exclamation-diamond" aria-hidden="true"></span>Excursions</h4>
+            </div>
+
+            @if (Excursions.Count == 0)
+            {
+                <p class="booking-note reefer-empty" role="status">
+                    No temperature excursion has been recorded for this container.
+                </p>
+            }
+            else
+            {
+                <ul class="reefer-excursions">
+                    @foreach (var excursion in Excursions)
+                    {
+                        <li class="@ExcursionStatusClass(excursion.Status)">
+                            <div class="reefer-excursion-head">
+                                <span class="reefer-excursion-status">@excursion.Status</span>
+                                <span class="reefer-excursion-reading">
+                                    @CargoBookingFormat.TemperatureCelsius(excursion.TemperatureCelsius)
+                                    (@excursion.Direction range
+                                    @CargoBookingFormat.TemperatureCelsius(excursion.ThresholdMinimumCelsius)
+                                    to
+                                    @CargoBookingFormat.TemperatureCelsius(excursion.ThresholdMaximumCelsius))
+                                </span>
+                            </div>
+                            <p class="reefer-excursion-meta">
+                                Measured @CargoBookingFormat.CreatedUtc(excursion.MeasuredAtUtc),
+                                detected @CargoBookingFormat.CreatedUtc(excursion.DetectedAtUtc)
+                            </p>
+
+                            @if (excursion.Status == ResolvedExcursionStatus)
+                            {
+                                <p class="reefer-excursion-resolution">
+                                    @DispositionLabel(excursion.Disposition): @excursion.Explanation
+                                </p>
+                                <p class="reefer-excursion-meta">
+                                    Resolved by @CargoBookingFormat.ShortUser(excursion.ResolvedByUserId!.Value)
+                                    on @CargoBookingFormat.CreatedUtc(excursion.ResolvedAtUtc!.Value)
+                                </p>
+                            }
+                            else if (excursion.Status == SupersededExcursionStatus)
+                            {
+                                <p class="reefer-excursion-meta">
+                                    Superseded by a corrected reading
+                                    on @CargoBookingFormat.CreatedUtc(excursion.SupersededAtUtc!.Value)
+                                </p>
+                            }
+                            else if (CanManage && resolvingExcursionId != excursion.Id)
+                            {
+                                <button type="button"
+                                        class="booking-submit"
+                                        @onclick="() => StartResolution(excursion)">
+                                    Record a disposition
+                                </button>
+                            }
+
+                            @if (resolvingExcursionId == excursion.Id)
+                            {
+                                <EditForm class="reefer-form"
+                                          EditContext="resolutionEditContext"
+                                          OnValidSubmit="SubmitResolutionAsync">
+                                    <DataAnnotationsValidator />
+
+                                    <div class="reefer-form-row">
+                                        <label class="form-label" for="reefer-disposition">
+                                            Disposition
+                                        </label>
+                                        <InputSelect id="reefer-disposition"
+                                                     class="form-select"
+                                                     @bind-Value="resolutionModel.Disposition">
+                                            <option value="">Select a disposition</option>
+                                            <option value="@CorrectiveActionDisposition">
+                                                Corrective action
+                                            </option>
+                                            <option value="@AcceptedDeviationDisposition">
+                                                Accepted deviation
+                                            </option>
+                                        </InputSelect>
+                                        <ValidationMessage For="() => resolutionModel.Disposition" />
+                                    </div>
+
+                                    <div class="reefer-form-row">
+                                        <label class="form-label" for="reefer-explanation">
+                                            Explanation
+                                        </label>
+                                        <InputTextArea id="reefer-explanation"
+                                                       class="form-control"
+                                                       rows="2"
+                                                       @bind-Value="resolutionModel.Explanation" />
+                                        <ValidationMessage For="() => resolutionModel.Explanation" />
+                                    </div>
+
+                                    @if (resolutionError is not null)
+                                    {
+                                        <p class="reefer-form-error" role="alert">@resolutionError</p>
+                                    }
+
+                                    <div class="reefer-form-actions">
+                                        <button type="submit"
+                                                class="booking-submit reefer-resolution-submit"
+                                                disabled="@isResolving">
+                                            @(isResolving ? "Saving..." : "Resolve excursion")
+                                        </button>
+                                        <button type="button"
+                                                class="reefer-secondary"
+                                                disabled="@isResolving"
+                                                @onclick="CancelResolution">
+                                            Cancel
+                                        </button>
+                                    </div>
+                                </EditForm>
+                            }
+                        </li>
+                    }
+                </ul>
+            }
+        </section>
+
+        <section class="reefer-section" aria-labelledby="reefer-log-title">
+            <div class="reefer-section-heading">
+                <h4 id="reefer-log-title"><span class="bi bi-thermometer-half" aria-hidden="true"></span>Temperature log</h4>
+            </div>
+
+            @if (CanRecordReading && correctingReadingId is null && !isRecordingReading)
+            {
+                <button type="button" class="booking-submit reefer-record-open" @onclick="StartReading">
+                    Record reading
+                </button>
+            }
+            else if (CanRecordReading && correctingReadingId is null)
+            {
+                <EditForm class="reefer-form reefer-reading-form"
+                          EditContext="readingEditContext"
+                          OnValidSubmit="SubmitReadingAsync">
+                    <DataAnnotationsValidator />
+
+                    <div class="reefer-form-row">
+                        <label class="form-label" for="reefer-temperature">Temperature (°C)</label>
+                        <InputNumber id="reefer-temperature"
+                                     class="form-control"
+                                     step="0.01"
+                                     @bind-Value="readingModel.TemperatureCelsius" />
+                        <ValidationMessage For="() => readingModel.TemperatureCelsius" />
+                    </div>
+
+                    <div class="reefer-form-row">
+                        <label class="form-label" for="reefer-measured-at">Measured at (UTC)</label>
+                        <InputDate id="reefer-measured-at"
+                                   class="form-control"
+                                   Type="InputDateType.DateTimeLocal"
+                                   @bind-Value="readingModel.MeasuredAtUtc" />
+                        <ValidationMessage For="() => readingModel.MeasuredAtUtc" />
+                        @if (LocalTimeHint is { } hint)
+                        {
+                            <p class="reefer-time-hint">@hint</p>
+                        }
+                    </div>
+
+                    <div class="reefer-form-row">
+                        <label class="form-label" for="reefer-notes">Notes (optional)</label>
+                        <InputText id="reefer-notes"
+                                   class="form-control"
+                                   @bind-Value="readingModel.Notes" />
+                        <ValidationMessage For="() => readingModel.Notes" />
+                    </div>
+
+                    @if (readingError is not null)
+                    {
+                        <p class="reefer-form-error" role="alert">@readingError</p>
+                    }
+
+                    <div class="reefer-form-actions">
+                        <button type="submit" class="booking-submit" disabled="@isSavingReading">
+                            @(isSavingReading ? "Recording..." : "Record reading")
+                        </button>
+                        <button type="button"
+                                class="reefer-secondary"
+                                disabled="@isSavingReading"
+                                @onclick="CancelReading">
+                            Cancel
+                        </button>
+                    </div>
+                </EditForm>
+            }
+            else if (!HasProfile)
+            {
+                <p class="booking-note reefer-empty" role="status">@ProfileMissingMessage</p>
+            }
+
+            @if (Readings.Count == 0)
+            {
+                <p class="booking-note reefer-empty" role="status">
+                    No temperature reading has been recorded for this container.
+                </p>
+            }
+            else
+            {
+                <ul class="reefer-readings">
+                    @foreach (var reading in Readings)
+                    {
+                        <li class="@ReadingStatusClass(reading.Status)">
+                            <div class="reefer-reading-head">
+                                <span class="reefer-reading-temperature">
+                                    @CargoBookingFormat.TemperatureCelsius(reading.TemperatureCelsius)
+                                </span>
+                                <span class="reefer-reading-status">@reading.Status</span>
+                                @if (!reading.IsWithinThresholds)
+                                {
+                                    <span class="reefer-reading-breach">Out of range</span>
+                                }
+                            </div>
+
+                            <p class="reefer-reading-meta">
+                                Measured @CargoBookingFormat.CreatedUtc(reading.MeasuredAtUtc),
+                                recorded @CargoBookingFormat.CreatedUtc(reading.RecordedAtUtc)
+                                by @CargoBookingFormat.ShortUser(reading.RecordedByUserId)
+                            </p>
+
+                            <p class="reefer-reading-meta">
+                                Thresholds v@(reading.ThresholdProfileVersion):
+                                @CargoBookingFormat.TemperatureCelsius(reading.ThresholdMinimumCelsius)
+                                to
+                                @CargoBookingFormat.TemperatureCelsius(reading.ThresholdMaximumCelsius)
+                            </p>
+
+                            @if (!string.IsNullOrWhiteSpace(reading.Notes))
+                            {
+                                <p class="reefer-reading-notes">@reading.Notes</p>
+                            }
+
+                            @if (reading.Status == SupersededReadingStatus)
+                            {
+                                <p class="reefer-reading-history">
+                                    Corrected by @CargoBookingFormat.ShortUser(reading.CorrectedByUserId!.Value)
+                                    on @CargoBookingFormat.CreatedUtc(reading.CorrectedAtUtc!.Value):
+                                    @reading.CorrectionReason
+                                </p>
+                            }
+                            else if (reading.Status == VoidedReadingStatus)
+                            {
+                                <p class="reefer-reading-history">
+                                    Voided by @CargoBookingFormat.ShortUser(reading.VoidedByUserId!.Value)
+                                    on @CargoBookingFormat.CreatedUtc(reading.VoidedAtUtc!.Value):
+                                    @reading.VoidReason
+                                </p>
+                            }
+
+                            @if (reading.CorrectsReadingId is not null)
+                            {
+                                <p class="reefer-reading-history">
+                                    Replaces an earlier reading.
+                                </p>
+                            }
+
+                            @if (CanManage
+                                && reading.Status == EffectiveReadingStatus
+                                && correctingReadingId != reading.Id
+                                && voidingReadingId != reading.Id)
+                            {
+                                <div class="reefer-reading-actions">
+                                    <button type="button"
+                                            class="reefer-secondary"
+                                            @onclick="() => StartCorrection(reading)">
+                                        Correct
+                                    </button>
+                                    <button type="button"
+                                            class="reefer-secondary"
+                                            @onclick="() => StartVoid(reading)">
+                                        Void
+                                    </button>
+                                </div>
+                            }
+
+                            @if (correctingReadingId == reading.Id)
+                            {
+                                <EditForm class="reefer-form"
+                                          EditContext="readingEditContext"
+                                          OnValidSubmit="SubmitReadingAsync">
+                                    <DataAnnotationsValidator />
+
+                                    <div class="reefer-form-row">
+                                        <label class="form-label" for="reefer-correct-temperature">
+                                            Corrected temperature (°C)
+                                        </label>
+                                        <InputNumber id="reefer-correct-temperature"
+                                                     class="form-control"
+                                                     step="0.01"
+                                                     @bind-Value="readingModel.TemperatureCelsius" />
+                                        <ValidationMessage For="() => readingModel.TemperatureCelsius" />
+                                    </div>
+
+                                    <div class="reefer-form-row">
+                                        <label class="form-label" for="reefer-correct-measured-at">
+                                            Measured at (UTC)
+                                        </label>
+                                        <InputDate id="reefer-correct-measured-at"
+                                                   class="form-control"
+                                                   Type="InputDateType.DateTimeLocal"
+                                                   @bind-Value="readingModel.MeasuredAtUtc" />
+                                        <ValidationMessage For="() => readingModel.MeasuredAtUtc" />
+                        @if (LocalTimeHint is { } hint)
+                        {
+                            <p class="reefer-time-hint">@hint</p>
+                        }
+                                    </div>
+
+                                    <div class="reefer-form-row">
+                                        <label class="form-label" for="reefer-correct-reason">
+                                            Correction reason
+                                        </label>
+                                        <InputText id="reefer-correct-reason"
+                                                   class="form-control"
+                                                   @bind-Value="readingModel.Reason" />
+                                        <ValidationMessage For="() => readingModel.Reason" />
+                                    </div>
+
+                                    @if (readingError is not null)
+                                    {
+                                        <p class="reefer-form-error" role="alert">@readingError</p>
+                                    }
+
+                                    <div class="reefer-form-actions">
+                                        <button type="submit"
+                                                class="booking-submit"
+                                                disabled="@isSavingReading">
+                                            @(isSavingReading ? "Saving..." : "Save correction")
+                                        </button>
+                                        <button type="button"
+                                                class="reefer-secondary"
+                                                disabled="@isSavingReading"
+                                                @onclick="CancelCorrection">
+                                            Cancel
+                                        </button>
+                                    </div>
+                                </EditForm>
+                            }
+
+                            @if (voidingReadingId == reading.Id)
+                            {
+                                <div class="reefer-void-confirm">
+                                    <p class="reefer-void-question">
+                                        Void this reading? The original stays in the log for traceability.
+                                    </p>
+                                    <label class="form-label" for="reefer-void-reason">Void reason</label>
+                                    <input id="reefer-void-reason"
+                                           class="form-control"
+                                           value="@voidReason"
+                                           @oninput="args => voidReason = args.Value?.ToString()" />
+
+                                    @if (voidError is not null)
+                                    {
+                                        <p class="reefer-form-error" role="alert">@voidError</p>
+                                    }
+
+                                    <div class="reefer-form-actions">
+                                        <button type="button"
+                                                class="booking-submit reefer-void-submit"
+                                                disabled="@isVoiding"
+                                                @onclick="ConfirmVoidAsync">
+                                            @(isVoiding ? "Voiding..." : "Yes, void it")
+                                        </button>
+                                        <button type="button"
+                                                class="reefer-secondary"
+                                                disabled="@isVoiding"
+                                                @onclick="CancelVoid">
+                                            Cancel
+                                        </button>
+                                    </div>
+                                </div>
+                            }
+                        </li>
+                    }
+                </ul>
+
+                @if (TotalPages > 1)
+                {
+                    <nav class="reefer-pager" aria-label="Temperature log pages">
+                        <button type="button"
+                                class="reefer-secondary"
+                                disabled="@(!HasPreviousPage)"
+                                @onclick="() => GoToPageAsync(pageNumber - 1)">
+                            Previous
+                        </button>
+                        <span class="reefer-pager-status">Page @pageNumber of @TotalPages</span>
+                        <button type="button"
+                                class="reefer-secondary"
+                                disabled="@(!HasNextPage)"
+                                @onclick="() => GoToPageAsync(pageNumber + 1)">
+                            Next
+                        </button>
+                    </nav>
+                }
+            }
+        </section>
+    }
+</section>

@@ -53,6 +53,11 @@ public sealed class RecordContainerInspectionService(DbContext dbContext, TimePr
         await dbContext.Set<ContainerControlEvent>().AddRangeAsync(entries, cancellationToken);
         await dbContext.SaveChangesAsync(cancellationToken);
 
-        return ContainerControlMapper.ToDetails(container, control);
+        var hasOpenTemperatureExcursion = await ReeferMonitoringGuard.HasOpenExcursionAsync(
+            dbContext,
+            containerId,
+            cancellationToken);
+
+        return ContainerControlMapper.ToDetails(container, control, hasOpenTemperatureExcursion);
     }
 }

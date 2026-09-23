@@ -342,3 +342,113 @@ internal sealed record SaveBillOfLadingWebRequest(
     IReadOnlyList<Guid> ContainerIds);
 
 internal sealed record VoidBillOfLadingWebRequest(string Reason);
+
+internal sealed record ReeferProfileRow(
+    Guid ContainerId,
+    decimal MinimumCelsius,
+    decimal MaximumCelsius,
+    decimal TargetCelsius,
+    int Version,
+    Guid CreatedByUserId,
+    DateTime CreatedAtUtc,
+    Guid UpdatedByUserId,
+    DateTime UpdatedAtUtc);
+
+internal sealed record ReeferProfileChangeRow(
+    Guid Id,
+    int Version,
+    decimal? FromMinimumCelsius,
+    decimal? FromMaximumCelsius,
+    decimal? FromTargetCelsius,
+    decimal ToMinimumCelsius,
+    decimal ToMaximumCelsius,
+    decimal ToTargetCelsius,
+    string? Reason,
+    Guid ActorUserId,
+    DateTime OccurredUtc);
+
+internal sealed record ReeferProfileView(
+    Guid ContainerId,
+    string ContainerNumber,
+    ReeferProfileRow? Profile,
+    IReadOnlyList<ReeferProfileChangeRow> Changes,
+    int OpenExcursionCount,
+    decimal? LatestInspectionTemperatureCelsius);
+
+internal sealed record SaveReeferProfileWebRequest(
+    decimal MinimumCelsius,
+    decimal MaximumCelsius,
+    decimal TargetCelsius,
+    string? Reason);
+
+internal sealed record ReeferReadingRow(
+    Guid Id,
+    Guid ContainerId,
+    decimal TemperatureCelsius,
+    DateTime MeasuredAtUtc,
+    DateTime RecordedAtUtc,
+    string? Notes,
+    Guid RecordedByUserId,
+    decimal ThresholdMinimumCelsius,
+    decimal ThresholdMaximumCelsius,
+    decimal ThresholdTargetCelsius,
+    int ThresholdProfileVersion,
+    string Status,
+    bool IsWithinThresholds,
+    Guid? CorrectsReadingId,
+    Guid? SupersededByReadingId,
+    string? CorrectionReason,
+    Guid? CorrectedByUserId,
+    DateTime? CorrectedAtUtc,
+    string? VoidReason,
+    Guid? VoidedByUserId,
+    DateTime? VoidedAtUtc);
+
+internal sealed record ReeferReadingPage(
+    IReadOnlyList<ReeferReadingRow> Items,
+    int PageNumber,
+    int PageSize,
+    int TotalCount);
+
+internal sealed record RecordReeferReadingWebRequest(
+    decimal TemperatureCelsius,
+    DateTime MeasuredAtUtc,
+    string? Notes);
+
+internal sealed record CorrectReeferReadingWebRequest(
+    decimal TemperatureCelsius,
+    DateTime MeasuredAtUtc,
+    string? Notes,
+    string Reason);
+
+internal sealed record VoidReeferReadingWebRequest(string Reason);
+
+internal sealed record ReeferExcursionRow(
+    Guid Id,
+    Guid ContainerId,
+    Guid ReadingId,
+    string Direction,
+    decimal TemperatureCelsius,
+    decimal ThresholdMinimumCelsius,
+    decimal ThresholdMaximumCelsius,
+    DateTime MeasuredAtUtc,
+    DateTime DetectedAtUtc,
+    string Status,
+    string? Disposition,
+    string? Explanation,
+    Guid? ResolvedByUserId,
+    DateTime? ResolvedAtUtc,
+    Guid? SupersededByExcursionId,
+    DateTime? SupersededAtUtc);
+
+internal sealed record RecordedReeferReading(
+    ReeferReadingRow Reading,
+    ReeferExcursionRow? Excursion);
+
+internal sealed record ReeferExcursionList(
+    IReadOnlyList<ReeferExcursionRow> Items,
+    int OpenCount);
+
+internal sealed record ResolveReeferExcursionWebRequest(
+    string Disposition,
+    string Explanation);

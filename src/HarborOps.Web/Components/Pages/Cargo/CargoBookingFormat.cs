@@ -140,6 +140,8 @@ internal static class CargoBookingFormat
                 "The latest inspection did not pass, so this container cannot be released.",
             "it has no intact seal" =>
                 "This container has no intact seal, so it cannot be released.",
+            "it has an unresolved temperature excursion" =>
+                "A temperature excursion is still open, so this container cannot be released or loaded.",
             _ => $"This container cannot be released because {blockedReason}.",
         };
     }

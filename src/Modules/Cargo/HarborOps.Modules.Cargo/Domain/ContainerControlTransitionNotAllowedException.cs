@@ -20,6 +20,8 @@ internal sealed class ContainerControlTransitionNotAllowedException(
         "it has not been inspected yet";
     internal const string InspectionNotPassedReason =
         "its latest inspection did not pass";
+    internal const string OpenTemperatureExcursionReason =
+        "it has an unresolved temperature excursion";
     internal const string SealAlreadyAssignedReason =
         "that seal number is already assigned to it";
     internal const string SealAlreadyBrokenReason = "its seal is already broken";
