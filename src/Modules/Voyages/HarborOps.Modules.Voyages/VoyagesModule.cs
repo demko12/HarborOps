@@ -31,6 +31,7 @@ public static class VoyagesModule
         services.AddScoped<ISearchRoutesQuery, SearchRoutesQuery>();
         services.AddScoped<IGetRouteDetailsQuery, GetRouteDetailsQuery>();
         services.AddScoped<IRouteLookupQuery, RouteLookupQuery>();
+        services.AddScoped<IGetMasterDataSummaryQuery, GetMasterDataSummaryQuery>();
         services.AddScoped<PlanVoyageItineraryService>();
         services.AddScoped<IGetVoyageItineraryQuery, GetVoyageItineraryQuery>();
         services.AddScoped<AssignBerthService>();

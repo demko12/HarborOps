@@ -37,9 +37,6 @@ public partial class Voyages
     internal const string ArriveAction = "arrive";
     internal const string CancelVoyageAction = "cancel";
 
-    internal const int MasterDataKpiPortLookupTake = 50;
-    internal const int MasterDataKpiRouteSampleSize = 100;
-
     private readonly List<VoyageListItemModel> voyages = [];
     private IReadOnlyDictionary<Guid, string> vesselNames = new Dictionary<Guid, string>();
     private readonly Dictionary<string, int?> statusCounts = new(StringComparer.Ordinal);
@@ -246,15 +243,11 @@ public partial class Voyages
 
     private async Task LoadMasterDataKpisAsync()
     {
-        var cancellationToken = disposeCancellation.Token;
-
-        var portsTask = VoyagesApi.GetPortsAsync(null, null, 1, 1, cancellationToken);
-        var routesTask = VoyagesApi.GetRoutesAsync(null, 1, MasterDataKpiRouteSampleSize, cancellationToken);
-        var portLookupTask = VoyagesApi.LookupPortsAsync(null, MasterDataKpiPortLookupTake, cancellationToken);
+        VoyagesApiResult<MasterDataSummary> result;
 
         try
         {
-            await Task.WhenAll(portsTask, routesTask, portLookupTask);
+            result = await VoyagesApi.GetMasterDataSummaryAsync(disposeCancellation.Token);
         }
         catch (OperationCanceledException) when (disposeCancellation.IsCancellationRequested)
         {
@@ -266,53 +259,11 @@ public partial class Voyages
             return;
         }
 
-        var portsResult = portsTask.Result;
-        var routesResult = routesTask.Result;
-        var portLookupResult = portLookupTask.Result;
-
-        portsKpiCount = portsResult.IsSuccess ? portsResult.Value!.TotalCount : null;
-
-        if (routesResult.IsSuccess)
-        {
-            routesKpiCount = routesResult.Value!.TotalCount;
-            var sampledRoutes = routesResult.Value!.Items;
-            avgRouteDistanceKpi = sampledRoutes.Count > 0
-                ? sampledRoutes.Average(route => route.EstimatedDistance)
-                : 0m;
-        }
-        else
-        {
-            routesKpiCount = null;
-            avgRouteDistanceKpi = null;
-        }
-
-        if (!portLookupResult.IsSuccess)
-        {
-            berthsKpiCount = null;
-
-            return;
-        }
-
-        VoyagesApiResult<BerthPage>[] berthResults;
-
-        try
-        {
-            berthResults = await Task.WhenAll(portLookupResult.Value!.Items
-                .Select(port => VoyagesApi.GetBerthsAsync(port.PortId, null, null, 1, 1, cancellationToken)));
-        }
-        catch (OperationCanceledException) when (disposeCancellation.IsCancellationRequested)
-        {
-            return;
-        }
-
-        if (disposeCancellation.IsCancellationRequested)
-        {
-            return;
-        }
-
-        berthsKpiCount = berthResults.All(result => result.IsSuccess)
-            ? berthResults.Sum(result => result.Value!.TotalCount)
-            : null;
+        var summary = result.IsSuccess ? result.Value! : null;
+        portsKpiCount = summary?.PortCount;
+        berthsKpiCount = summary?.BerthCount;
+        routesKpiCount = summary?.RouteCount;
+        avgRouteDistanceKpi = summary?.AverageRouteDistance;
     }
 
     internal static string FormatAvgDistance(decimal? value)
@@ -684,42 +635,26 @@ public partial class Voyages
     }
     private async Task LoadStatusCountsAsync(CancellationToken cancellationToken, int requestVersion)
     {
-        foreach (var status in StatusOptions)
-        {
-            VoyagesApiResult<VoyagePage> result;
-            try
-            {
-                result = await VoyagesApi.GetVoyagesAsync(
-                    appliedFrom,
-                    appliedTo,
-                    appliedSearch,
-                    status,
-                    true,
-                    1,
-                    1,
-                    cancellationToken);
-            }
-            catch (OperationCanceledException) when (disposeCancellation.IsCancellationRequested)
-            {
-                return;
-            }
-
-            if (disposeCancellation.IsCancellationRequested || requestVersion != loadVersion)
-            {
-                return;
-            }
-
-            statusCounts[status] = result.IsSuccess ? result.Value!.TotalCount : null;
-        }
-
-        VoyagesApiResult<VoyagePage> delayedResult;
-        try
-        {
-            delayedResult = await VoyagesApi.GetDelayedVoyageCountAsync(
+        var statusTasks = StatusOptions
+            .Select(status => VoyagesApi.GetVoyagesAsync(
                 appliedFrom,
                 appliedTo,
                 appliedSearch,
-                cancellationToken);
+                status,
+                true,
+                1,
+                1,
+                cancellationToken))
+            .ToArray();
+        var delayedTask = VoyagesApi.GetDelayedVoyageCountAsync(
+            appliedFrom,
+            appliedTo,
+            appliedSearch,
+            cancellationToken);
+
+        try
+        {
+            await Task.WhenAll(statusTasks.Append(delayedTask));
         }
         catch (OperationCanceledException) when (disposeCancellation.IsCancellationRequested)
         {
@@ -731,6 +666,13 @@ public partial class Voyages
             return;
         }
 
+        for (var index = 0; index < StatusOptions.Length; index++)
+        {
+            var result = statusTasks[index].Result;
+            statusCounts[StatusOptions[index]] = result.IsSuccess ? result.Value!.TotalCount : null;
+        }
+
+        var delayedResult = delayedTask.Result;
         delayedKpiCount = delayedResult.IsSuccess ? delayedResult.Value!.TotalCount : null;
     }
 

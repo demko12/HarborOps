@@ -50,6 +50,24 @@ public sealed class VoyagesMasterDataQueryEndpointTests : IntegrationTestBase
     }
 
     [Fact]
+    public async Task Get_master_data_summary_returns_the_directory_totals()
+    {
+        await SeedMasterDataAsync();
+        using var client = await _application.CreateAuthenticatedClientWithPermissionsAsync(
+            Permissions.Voyages.Read);
+
+        var response = await client.GetFromJsonAsync<MasterDataSummaryResponse>(
+            new Uri("/api/voyages/master-data-summary", UriKind.Relative),
+            CancellationToken.None);
+
+        Assert.NotNull(response);
+        Assert.Equal(2, response.PortCount);
+        Assert.Equal(1, response.BerthCount);
+        Assert.Equal(1, response.RouteCount);
+        Assert.Equal(60m, response.AverageRouteDistance);
+    }
+
+    [Fact]
     public async Task Get_berths_returns_the_berths_of_the_requested_port()
     {
         var seeded = await SeedMasterDataAsync();
@@ -170,6 +188,7 @@ public sealed class VoyagesMasterDataQueryEndpointTests : IntegrationTestBase
     [InlineData("/api/voyages/berths/lookup")]
     [InlineData("/api/voyages/routes")]
     [InlineData("/api/voyages/routes/lookup")]
+    [InlineData("/api/voyages/master-data-summary")]
     public async Task Queries_without_authentication_return_401(string path)
     {
         using var client = _application.CreateClient();
@@ -185,6 +204,7 @@ public sealed class VoyagesMasterDataQueryEndpointTests : IntegrationTestBase
     [InlineData("/api/voyages/berths/lookup")]
     [InlineData("/api/voyages/routes")]
     [InlineData("/api/voyages/routes/lookup")]
+    [InlineData("/api/voyages/master-data-summary")]
     public async Task Queries_without_the_read_permission_return_403(string path)
     {
         using var client = await _application.CreateAuthenticatedClientAsync(roleNames: []);

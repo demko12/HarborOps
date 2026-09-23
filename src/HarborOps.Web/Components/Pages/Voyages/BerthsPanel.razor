@@ -14,10 +14,6 @@
                     <option value="@option.PortId">@MasterDataFormat.PortLabel(option.Name, option.UnLocode)</option>
                 }
             </select>
-            @if (IsPortListTruncated)
-            {
-                <p class="filter-hint">Showing the first @PortLookupTake ports. Use Find port to narrow the list.</p>
-            }
         </div>
         <div class="filter-field">
             <label for="berths-port-search">Find port</label>

@@ -149,6 +149,14 @@ internal sealed class VoyagesApiClient(HttpClient httpClient)
             cancellationToken);
     }
 
+    internal Task<VoyagesApiResult<MasterDataSummary>> GetMasterDataSummaryAsync(CancellationToken cancellationToken)
+    {
+        return GetAsync<MasterDataSummary>(
+            $"{BasePath}/master-data-summary",
+            "Unable to load the master data summary",
+            cancellationToken);
+    }
+
     internal Task<VoyagesApiResult<BerthPage>> GetBerthsAsync(
         Guid portId,
         string? search,

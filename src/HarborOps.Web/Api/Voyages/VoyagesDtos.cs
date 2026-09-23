@@ -126,6 +126,12 @@ internal sealed record RoutePage(
     int PageSize,
     int TotalCount);
 
+internal sealed record MasterDataSummary(
+    int PortCount,
+    int BerthCount,
+    int RouteCount,
+    decimal AverageRouteDistance);
+
 internal sealed record RouteStopModel(
     Guid PortId,
     string PortName,
