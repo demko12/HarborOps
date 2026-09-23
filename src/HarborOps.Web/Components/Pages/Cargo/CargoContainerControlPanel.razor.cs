@@ -99,6 +99,9 @@ public partial class CargoContainerControlPanel : IDisposable
         _ => ControlStepState.Locked,
     };
 
+    private int CompletedStepCount =>
+        new[] { SealStep, InspectionStep, ReleaseStep }.Count(state => state is ControlStepState.Done);
+
     private bool ShowSealForm =>
         CanManage && (SealStep is not ControlStepState.Done || isReplacingSeal);
 
@@ -301,6 +304,25 @@ public partial class CargoContainerControlPanel : IDisposable
         {
             isInspecting = false;
         }
+    }
+
+    private static string TimelineActionModifier(ContainerControlEventRow entry)
+    {
+        return entry.Action switch
+        {
+            "SealAssigned" => "control-timeline-action-info",
+            "SealBroken" => "control-timeline-action-danger",
+            "InspectionRecorded" => entry.InspectionResult switch
+            {
+                PassedInspectionResult => "control-timeline-action-success",
+                FailedInspectionResult => "control-timeline-action-danger",
+                _ => "control-timeline-action-neutral",
+            },
+            "Released" => "control-timeline-action-success",
+            "Held" => "control-timeline-action-danger",
+            "HoldLifted" => "control-timeline-action-success",
+            _ => "control-timeline-action-neutral",
+        };
     }
 
     private static string StepClass(ControlStepState state)

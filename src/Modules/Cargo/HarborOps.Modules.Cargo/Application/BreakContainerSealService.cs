@@ -51,6 +51,11 @@ public sealed class BreakContainerSealService(DbContext dbContext, TimeProvider 
         await dbContext.Set<ContainerControlEvent>().AddAsync(entry, cancellationToken);
         await dbContext.SaveChangesAsync(cancellationToken);
 
-        return ContainerControlMapper.ToDetails(container, control);
+        var hasOpenTemperatureExcursion = await ReeferMonitoringGuard.HasOpenExcursionAsync(
+            dbContext,
+            containerId,
+            cancellationToken);
+
+        return ContainerControlMapper.ToDetails(container, control, hasOpenTemperatureExcursion);
     }
 }

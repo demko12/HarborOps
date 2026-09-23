@@ -783,7 +783,7 @@ public sealed class ExecuteCargoOperationServiceTests
 
         if (controlState is ContainerControlState.Released)
         {
-            entries.Add(control.Release(ResponsibleUserId, PlannedAtUtc, null));
+            entries.Add(control.Release(ResponsibleUserId, PlannedAtUtc, null, false));
         }
 
         if (controlState is ContainerControlState.Held)

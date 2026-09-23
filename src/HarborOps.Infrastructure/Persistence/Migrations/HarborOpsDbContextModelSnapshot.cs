@@ -765,6 +765,279 @@ namespace HarborOps.Infrastructure.Persistence.Migrations
                             }));
                 });
 
+            modelBuilder.Entity("HarborOps.Modules.Cargo.Domain.ReeferExcursion", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("ConcurrencyToken")
+                        .IsConcurrencyToken()
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier")
+                        .HasDefaultValueSql("NEWID()");
+
+                    b.Property<Guid>("ContainerId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("DetectedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Direction")
+                        .IsRequired()
+                        .HasMaxLength(10)
+                        .HasColumnType("nvarchar(10)");
+
+                    b.Property<string>("Disposition")
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<string>("Explanation")
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
+
+                    b.Property<DateTime>("MeasuredAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid>("ReadingId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime?>("ResolvedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("ResolvedByUserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<DateTime?>("SupersededAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("SupersededByExcursionId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<decimal>("TemperatureCelsius")
+                        .HasPrecision(5, 2)
+                        .HasColumnType("decimal(5,2)");
+
+                    b.Property<decimal>("ThresholdMaximumCelsius")
+                        .HasPrecision(5, 2)
+                        .HasColumnType("decimal(5,2)");
+
+                    b.Property<decimal>("ThresholdMinimumCelsius")
+                        .HasPrecision(5, 2)
+                        .HasColumnType("decimal(5,2)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ContainerId")
+                        .HasDatabaseName("IX_ReeferExcursions_OpenContainerId")
+                        .HasFilter("[Status] = 'Open'");
+
+                    b.HasIndex("ReadingId")
+                        .IsUnique();
+
+                    b.HasIndex("SupersededByExcursionId");
+
+                    b.HasIndex("ContainerId", "DetectedAtUtc", "Id");
+
+                    b.ToTable("ReeferExcursions", "cargo");
+                });
+
+            modelBuilder.Entity("HarborOps.Modules.Cargo.Domain.ReeferMonitoringProfile", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("ConcurrencyToken")
+                        .IsConcurrencyToken()
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier")
+                        .HasDefaultValueSql("NEWID()");
+
+                    b.Property<Guid>("ContainerId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid>("CreatedByUserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<decimal>("MaximumCelsius")
+                        .HasPrecision(5, 2)
+                        .HasColumnType("decimal(5,2)");
+
+                    b.Property<decimal>("MinimumCelsius")
+                        .HasPrecision(5, 2)
+                        .HasColumnType("decimal(5,2)");
+
+                    b.Property<decimal>("TargetCelsius")
+                        .HasPrecision(5, 2)
+                        .HasColumnType("decimal(5,2)");
+
+                    b.Property<DateTime>("UpdatedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid>("UpdatedByUserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<int>("Version")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ContainerId")
+                        .IsUnique();
+
+                    b.ToTable("ReeferMonitoringProfiles", "cargo");
+                });
+
+            modelBuilder.Entity("HarborOps.Modules.Cargo.Domain.ReeferProfileChange", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("ActorUserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<decimal?>("FromMaximumCelsius")
+                        .HasPrecision(5, 2)
+                        .HasColumnType("decimal(5,2)");
+
+                    b.Property<decimal?>("FromMinimumCelsius")
+                        .HasPrecision(5, 2)
+                        .HasColumnType("decimal(5,2)");
+
+                    b.Property<decimal?>("FromTargetCelsius")
+                        .HasPrecision(5, 2)
+                        .HasColumnType("decimal(5,2)");
+
+                    b.Property<DateTime>("OccurredUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Reason")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<Guid>("ReeferMonitoringProfileId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<decimal>("ToMaximumCelsius")
+                        .HasPrecision(5, 2)
+                        .HasColumnType("decimal(5,2)");
+
+                    b.Property<decimal>("ToMinimumCelsius")
+                        .HasPrecision(5, 2)
+                        .HasColumnType("decimal(5,2)");
+
+                    b.Property<decimal>("ToTargetCelsius")
+                        .HasPrecision(5, 2)
+                        .HasColumnType("decimal(5,2)");
+
+                    b.Property<int>("Version")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ReeferMonitoringProfileId", "Version")
+                        .IsUnique();
+
+                    b.ToTable("ReeferProfileChanges", "cargo");
+                });
+
+            modelBuilder.Entity("HarborOps.Modules.Cargo.Domain.ReeferTemperatureReading", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("ConcurrencyToken")
+                        .IsConcurrencyToken()
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier")
+                        .HasDefaultValueSql("NEWID()");
+
+                    b.Property<Guid>("ContainerId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime?>("CorrectedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("CorrectedByUserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("CorrectionReason")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<Guid?>("CorrectsReadingId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("MeasuredAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Notes")
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
+
+                    b.Property<DateTime>("RecordedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid>("RecordedByUserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<Guid?>("SupersededByReadingId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<decimal>("TemperatureCelsius")
+                        .HasPrecision(5, 2)
+                        .HasColumnType("decimal(5,2)");
+
+                    b.Property<decimal>("ThresholdMaximumCelsius")
+                        .HasPrecision(5, 2)
+                        .HasColumnType("decimal(5,2)");
+
+                    b.Property<decimal>("ThresholdMinimumCelsius")
+                        .HasPrecision(5, 2)
+                        .HasColumnType("decimal(5,2)");
+
+                    b.Property<int>("ThresholdProfileVersion")
+                        .HasColumnType("int");
+
+                    b.Property<decimal>("ThresholdTargetCelsius")
+                        .HasPrecision(5, 2)
+                        .HasColumnType("decimal(5,2)");
+
+                    b.Property<string>("VoidReason")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<DateTime?>("VoidedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("VoidedByUserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CorrectsReadingId");
+
+                    b.HasIndex("SupersededByReadingId");
+
+                    b.HasIndex("ContainerId", "Status");
+
+                    b.HasIndex("ContainerId", "MeasuredAtUtc", "Id");
+
+                    b.ToTable("ReeferTemperatureReadings", "cargo");
+                });
+
             modelBuilder.Entity("HarborOps.Modules.Compliance.Domain.AuditPlan", b =>
                 {
                     b.Property<Guid>("Id")
@@ -4497,6 +4770,63 @@ namespace HarborOps.Infrastructure.Persistence.Migrations
                         .HasForeignKey("CargoBookingId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
+                });
+
+            modelBuilder.Entity("HarborOps.Modules.Cargo.Domain.ReeferExcursion", b =>
+                {
+                    b.HasOne("HarborOps.Modules.Cargo.Domain.Container", null)
+                        .WithMany()
+                        .HasForeignKey("ContainerId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("HarborOps.Modules.Cargo.Domain.ReeferTemperatureReading", null)
+                        .WithMany()
+                        .HasForeignKey("ReadingId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("HarborOps.Modules.Cargo.Domain.ReeferExcursion", null)
+                        .WithMany()
+                        .HasForeignKey("SupersededByExcursionId")
+                        .OnDelete(DeleteBehavior.NoAction);
+                });
+
+            modelBuilder.Entity("HarborOps.Modules.Cargo.Domain.ReeferMonitoringProfile", b =>
+                {
+                    b.HasOne("HarborOps.Modules.Cargo.Domain.Container", null)
+                        .WithMany()
+                        .HasForeignKey("ContainerId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("HarborOps.Modules.Cargo.Domain.ReeferProfileChange", b =>
+                {
+                    b.HasOne("HarborOps.Modules.Cargo.Domain.ReeferMonitoringProfile", null)
+                        .WithMany()
+                        .HasForeignKey("ReeferMonitoringProfileId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("HarborOps.Modules.Cargo.Domain.ReeferTemperatureReading", b =>
+                {
+                    b.HasOne("HarborOps.Modules.Cargo.Domain.Container", null)
+                        .WithMany()
+                        .HasForeignKey("ContainerId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("HarborOps.Modules.Cargo.Domain.ReeferTemperatureReading", null)
+                        .WithMany()
+                        .HasForeignKey("CorrectsReadingId")
+                        .OnDelete(DeleteBehavior.NoAction);
+
+                    b.HasOne("HarborOps.Modules.Cargo.Domain.ReeferTemperatureReading", null)
+                        .WithMany()
+                        .HasForeignKey("SupersededByReadingId")
+                        .OnDelete(DeleteBehavior.NoAction);
                 });
 
             modelBuilder.Entity("HarborOps.Modules.Compliance.Domain.AuditPlan", b =>

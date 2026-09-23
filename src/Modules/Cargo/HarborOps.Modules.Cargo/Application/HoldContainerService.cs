@@ -50,6 +50,11 @@ public sealed class HoldContainerService(DbContext dbContext, TimeProvider timeP
         await dbContext.Set<ContainerControlEvent>().AddAsync(entry, cancellationToken);
         await dbContext.SaveChangesAsync(cancellationToken);
 
-        return ContainerControlMapper.ToDetails(container, control);
+        var hasOpenTemperatureExcursion = await ReeferMonitoringGuard.HasOpenExcursionAsync(
+            dbContext,
+            containerId,
+            cancellationToken);
+
+        return ContainerControlMapper.ToDetails(container, control, hasOpenTemperatureExcursion);
     }
 }

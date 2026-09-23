@@ -109,11 +109,15 @@ public sealed class GetCargoBookingDetailsQuery(DbContext dbContext)
             .Where(control => containerIds.Contains(control.ContainerId))
             .ToListAsync(cancellationToken);
 
+        var blockedContainerIds = await ReeferMonitoringGuard
+            .GetContainerIdsWithOpenExcursionsAsync(dbContext, containerIds, cancellationToken);
+
         return
         [
             .. containers.Select(container => ContainerControlMapper.ToDetails(
                 container,
-                controls.Find(control => control.ContainerId == container.Id))),
+                controls.Find(control => control.ContainerId == container.Id),
+                blockedContainerIds.Contains(container.Id))),
         ];
     }
 }

@@ -157,7 +157,7 @@ public sealed class AssignContainerSealServiceTests
             isReefer: false,
             ActorUserId,
             FixedUtcNow.UtcDateTime);
-        control.Release(ActorUserId, FixedUtcNow.UtcDateTime, null);
+        control.Release(ActorUserId, FixedUtcNow.UtcDateTime, null, false);
         await dbContext.SaveChangesAsync();
 
         var details = await service.AssignAsync(

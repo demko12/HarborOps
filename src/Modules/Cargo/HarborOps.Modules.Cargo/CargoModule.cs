@@ -18,6 +18,7 @@ public static class CargoModule
         services.AddScoped<ContainerManifestImportService>();
         services.AddScoped<AssignContainerSealService>();
         services.AddScoped<BreakContainerSealService>();
+        services.AddScoped<CorrectReeferTemperatureReadingService>();
         services.AddScoped<CreateBillOfLadingDraftService>();
         services.AddScoped<ExecuteCargoOperationService>();
         services.AddScoped<GetBillOfLadingDetailsQuery>();
@@ -28,20 +29,27 @@ public static class CargoModule
         services.AddScoped<GetCargoOperationsQuery>();
         services.AddScoped<GetCargoSafetyInformationQuery>();
         services.AddScoped<GetContainerControlQuery>();
+        services.AddScoped<GetReeferExcursionsQuery>();
+        services.AddScoped<GetReeferMonitoringProfileQuery>();
+        services.AddScoped<GetReeferTemperatureReadingsQuery>();
         services.AddScoped<HoldContainerService>();
         services.AddScoped<IssueBillOfLadingService>();
         services.AddScoped<PlanCargoOperationService>();
         services.AddScoped<RecordCargoTrackingEventService>();
         services.AddScoped<RecordContainerInspectionService>();
+        services.AddScoped<RecordReeferTemperatureReadingService>();
         services.AddScoped<RegisterCargoBookingService>();
         services.AddScoped<ReleaseContainerService>();
+        services.AddScoped<ResolveReeferExcursionService>();
         services.AddScoped<ReviewCargoSafetyInfoService>();
+        services.AddScoped<SaveReeferMonitoringProfileService>();
         services.AddScoped<SearchCargoBookingsQuery>();
         services.AddScoped<SubmitCargoSafetyInfoService>();
         services.AddScoped<UpdateBillOfLadingDraftService>();
         services.AddScoped<UpdateCargoContainerService>();
         services.AddScoped<UpdateCargoSafetyInfoService>();
         services.AddScoped<VoidBillOfLadingService>();
+        services.AddScoped<VoidReeferTemperatureReadingService>();
         services.AddScoped<IOperationsDashboardCargoQuery, OperationsDashboardCargoQuery>();
         services.TryAddSingleton(TimeProvider.System);
         services.AddControllers()

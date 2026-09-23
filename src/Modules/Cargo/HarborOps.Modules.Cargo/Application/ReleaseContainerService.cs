@@ -30,6 +30,11 @@ public sealed class ReleaseContainerService(DbContext dbContext, TimeProvider ti
             containerId,
             cancellationToken);
 
+        var hasOpenTemperatureExcursion = await ReeferMonitoringGuard.HasOpenExcursionAsync(
+            dbContext,
+            containerId,
+            cancellationToken);
+
         ContainerControlEvent entry;
 
         try
@@ -37,7 +42,8 @@ public sealed class ReleaseContainerService(DbContext dbContext, TimeProvider ti
             entry = control.Release(
                 actorUserId,
                 timeProvider.GetUtcNow().UtcDateTime,
-                request.Notes);
+                request.Notes,
+                hasOpenTemperatureExcursion);
         }
         catch (ContainerControlTransitionNotAllowedException exception)
         {
@@ -51,6 +57,6 @@ public sealed class ReleaseContainerService(DbContext dbContext, TimeProvider ti
         await dbContext.Set<ContainerControlEvent>().AddAsync(entry, cancellationToken);
         await dbContext.SaveChangesAsync(cancellationToken);
 
-        return ContainerControlMapper.ToDetails(container, control);
+        return ContainerControlMapper.ToDetails(container, control, hasOpenTemperatureExcursion);
     }
 }

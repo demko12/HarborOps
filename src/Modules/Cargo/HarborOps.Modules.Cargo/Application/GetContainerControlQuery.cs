@@ -20,7 +20,15 @@ public sealed class GetContainerControlQuery(DbContext dbContext)
             .AsNoTracking()
             .SingleOrDefaultAsync(candidate => candidate.ContainerId == containerId, cancellationToken);
 
-        var details = ContainerControlMapper.ToDetails(container, control);
+        var hasOpenTemperatureExcursion = await ReeferMonitoringGuard.HasOpenExcursionAsync(
+            dbContext,
+            containerId,
+            cancellationToken);
+
+        var details = ContainerControlMapper.ToDetails(
+            container,
+            control,
+            hasOpenTemperatureExcursion);
 
         if (control is null)
         {

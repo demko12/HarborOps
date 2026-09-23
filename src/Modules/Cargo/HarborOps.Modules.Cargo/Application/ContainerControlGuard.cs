@@ -72,8 +72,13 @@ internal static class ContainerControlGuard
             .Select(control => new { control.ContainerId, control.State })
             .ToListAsync(cancellationToken);
 
+        var blockedContainerIds = await ReeferMonitoringGuard
+            .GetContainerIdsWithOpenExcursionsAsync(dbContext, containerIds, cancellationToken);
+
         var releasedContainerIds = controlStates
-            .Where(control => ContainerControl.AllowsLoading(control.State))
+            .Where(control => ContainerControl.AllowsLoading(
+                control.State,
+                blockedContainerIds.Contains(control.ContainerId)))
             .Select(control => control.ContainerId)
             .ToList();
 

@@ -5,7 +5,10 @@ namespace HarborOps.Modules.Cargo.Application;
 
 internal static class ContainerControlMapper
 {
-    internal static ContainerControlDetails ToDetails(Container container, ContainerControl? control)
+    internal static ContainerControlDetails ToDetails(
+        Container container,
+        ContainerControl? control,
+        bool hasOpenTemperatureExcursion)
     {
         if (control is null)
         {
@@ -26,7 +29,9 @@ internal static class ContainerControlMapper
                 null,
                 null,
                 false,
-                ContainerControlTransitionNotAllowedException.SealNotIntactReason);
+                hasOpenTemperatureExcursion
+                    ? ContainerControlTransitionNotAllowedException.OpenTemperatureExcursionReason
+                    : ContainerControlTransitionNotAllowedException.SealNotIntactReason);
         }
 
         return new ContainerControlDetails(
@@ -45,8 +50,8 @@ internal static class ContainerControlMapper
             control.StateReason,
             control.StateChangedByUserId,
             control.StateChangedAtUtc,
-            control.CanRelease,
-            control.ReleaseBlocker);
+            control.CanRelease(hasOpenTemperatureExcursion),
+            control.ReleaseBlocker(hasOpenTemperatureExcursion));
     }
 
     internal static ContainerControlEventListItem ToListItem(ContainerControlEvent entry)

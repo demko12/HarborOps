@@ -60,26 +60,36 @@ internal sealed class ContainerControl
     internal bool HasPassedInspection =>
         LatestInspectionResult is ContainerInspectionResult.Passed;
 
-    internal string? ReleaseBlocker => State switch
+    internal string? ReleaseBlocker(bool hasOpenTemperatureExcursion)
     {
-        ContainerControlState.Held =>
-            ContainerControlTransitionNotAllowedException.HeldReason,
-        ContainerControlState.Released =>
-            ContainerControlTransitionNotAllowedException.AlreadyReleasedReason,
-        _ when !HasIntactSeal =>
-            ContainerControlTransitionNotAllowedException.SealNotIntactReason,
-        _ when LatestInspectionResult is null =>
-            ContainerControlTransitionNotAllowedException.InspectionMissingReason,
-        _ when !HasPassedInspection =>
-            ContainerControlTransitionNotAllowedException.InspectionNotPassedReason,
-        _ => null,
-    };
+        return State switch
+        {
+            _ when hasOpenTemperatureExcursion =>
+                ContainerControlTransitionNotAllowedException.OpenTemperatureExcursionReason,
+            ContainerControlState.Held =>
+                ContainerControlTransitionNotAllowedException.HeldReason,
+            ContainerControlState.Released =>
+                ContainerControlTransitionNotAllowedException.AlreadyReleasedReason,
+            _ when !HasIntactSeal =>
+                ContainerControlTransitionNotAllowedException.SealNotIntactReason,
+            _ when LatestInspectionResult is null =>
+                ContainerControlTransitionNotAllowedException.InspectionMissingReason,
+            _ when !HasPassedInspection =>
+                ContainerControlTransitionNotAllowedException.InspectionNotPassedReason,
+            _ => null,
+        };
+    }
 
-    internal bool CanRelease => ReleaseBlocker is null;
-
-    internal static bool AllowsLoading(ContainerControlState? state)
+    internal bool CanRelease(bool hasOpenTemperatureExcursion)
     {
-        return state is ContainerControlState.Released;
+        return ReleaseBlocker(hasOpenTemperatureExcursion) is null;
+    }
+
+    internal static bool AllowsLoading(
+        ContainerControlState? state,
+        bool hasOpenTemperatureExcursion)
+    {
+        return state is ContainerControlState.Released && !hasOpenTemperatureExcursion;
     }
 
     internal static ContainerControl Start(Guid containerId)
@@ -217,9 +227,13 @@ internal sealed class ContainerControl
         return entries;
     }
 
-    internal ContainerControlEvent Release(Guid actorUserId, DateTime utcNow, string? notes)
+    internal ContainerControlEvent Release(
+        Guid actorUserId,
+        DateTime utcNow,
+        string? notes,
+        bool hasOpenTemperatureExcursion)
     {
-        if (ReleaseBlocker is { } blocker)
+        if (ReleaseBlocker(hasOpenTemperatureExcursion) is { } blocker)
         {
             throw new ContainerControlTransitionNotAllowedException(
                 Id,

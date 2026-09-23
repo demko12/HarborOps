@@ -9,6 +9,7 @@
         <div class="booking-card-heading">
             <h3 id="container-control-title">Control for @ContainerNumber</h3>
             <span class="@CargoBookingFormat.ControlStateClass(Control?.State)">
+                <span class="control-status-dot" aria-hidden="true"></span>
                 @CargoBookingFormat.ControlStateLabel(Control?.State)
             </span>
         </div>
@@ -24,9 +25,21 @@
     }
     else if (Control is { } control)
     {
+        @if (HideHeading)
+        {
+            <div class="control-status-rail">
+                <span class="@CargoBookingFormat.ControlStateClass(control.State)">
+                    <span class="control-status-dot" aria-hidden="true"></span>
+                    @CargoBookingFormat.ControlStateLabel(control.State)
+                </span>
+                <span class="control-status-progress">@CompletedStepCount of 3 steps complete</span>
+            </div>
+        }
+
         @if (IsHeld)
         {
             <div class="control-hold-banner" role="status">
+                <span class="control-hold-icon bi bi-exclamation-triangle-fill" aria-hidden="true"></span>
                 <p class="control-hold-title">This container is on hold.</p>
                 @if (!string.IsNullOrWhiteSpace(control.StateReason))
                 {
@@ -41,7 +54,7 @@
                 <span class="control-step-index" aria-hidden="true">1</span>
 
                 <div class="control-step-body">
-                    <h4 class="control-step-title">Seal</h4>
+                    <h4 class="control-step-title"><span class="control-step-title-icon bi bi-shield-lock" aria-hidden="true"></span>Seal</h4>
 
                     @if (SealStep is ControlStepState.Done)
                     {
@@ -113,7 +126,7 @@
                 <span class="control-step-index" aria-hidden="true">2</span>
 
                 <div class="control-step-body">
-                    <h4 class="control-step-title">Inspection</h4>
+                    <h4 class="control-step-title"><span class="control-step-title-icon bi bi-clipboard-check" aria-hidden="true"></span>Inspection</h4>
 
                     @if (control.LatestInspectionResult is { } inspectionResult)
                     {
@@ -203,7 +216,7 @@
                 <span class="control-step-index" aria-hidden="true">3</span>
 
                 <div class="control-step-body">
-                    <h4 class="control-step-title">Release</h4>
+                    <h4 class="control-step-title"><span class="control-step-title-icon bi bi-unlock" aria-hidden="true"></span>Release</h4>
 
                     @if (ReleaseStep is ControlStepState.Done)
                     {
@@ -224,7 +237,8 @@
                     else
                     {
                         <p class="booking-note control-blocked" role="status">
-                            @CargoBookingFormat.ControlBlockedExplanation(control.ReleaseBlockedReason)
+                            <span class="control-blocked-icon bi bi-lock-fill" aria-hidden="true"></span>
+                            <span class="control-blocked-text">@CargoBookingFormat.ControlBlockedExplanation(control.ReleaseBlockedReason)</span>
                         </p>
                     }
 
@@ -261,6 +275,7 @@
         {
             <div class="booking-form-actions control-history-actions">
                 <button type="button" class="control-history-open" @onclick="ShowHistory">
+                    <span class="bi bi-clock-history" aria-hidden="true"></span>
                     Control history (@History.Count)
                 </button>
             </div>
@@ -291,7 +306,7 @@
                     {
                         <li class="control-timeline-entry">
                             <div class="control-timeline-head">
-                                <span class="control-timeline-action">
+                                <span class="control-timeline-action @TimelineActionModifier(entry)">
                                     @CargoBookingFormat.ControlActionLabel(entry.Action)
                                 </span>
                                 <span class="control-timeline-time">@CargoBookingFormat.CreatedUtc(entry.OccurredUtc)</span>
