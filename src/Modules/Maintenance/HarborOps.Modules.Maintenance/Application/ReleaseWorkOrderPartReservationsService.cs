@@ -45,6 +45,17 @@ public class ReleaseWorkOrderPartReservationsService(DbContext dbContext, TimePr
             }
         }
 
+        var inventoryItemIds = reservations.Select(reservation => reservation.InventoryItemId).ToList();
+
+        var inventoryItems = await dbContext.Set<InventoryItem>()
+            .Where(item => inventoryItemIds.Contains(item.Id))
+            .ToListAsync(cancellationToken);
+
+        foreach (var inventoryItem in inventoryItems)
+        {
+            inventoryItem.MarkReservationsChanged();
+        }
+
         await dbContext.SaveChangesAsync(cancellationToken);
     }
 }

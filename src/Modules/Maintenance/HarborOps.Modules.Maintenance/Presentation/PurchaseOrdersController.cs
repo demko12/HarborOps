@@ -6,6 +6,7 @@ using HarborOps.Modules.Maintenance.Contracts;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 
 namespace HarborOps.Modules.Maintenance.Presentation;
 
@@ -197,6 +198,16 @@ public sealed class PurchaseOrdersController(
                     Status = StatusCodes.Status409Conflict,
                     Title = "Purchase order state conflict.",
                     Detail = exception.Message,
+                });
+        }
+        catch (DbUpdateConcurrencyException)
+        {
+            return Conflict(
+                new ProblemDetails
+                {
+                    Status = StatusCodes.Status409Conflict,
+                    Title = "Inventory item was modified concurrently.",
+                    Detail = "An inventory item on the purchase order was changed by another request. Reload and try again.",
                 });
         }
     }

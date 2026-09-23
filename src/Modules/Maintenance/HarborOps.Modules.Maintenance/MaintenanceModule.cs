@@ -59,6 +59,14 @@ public static class MaintenanceModule
         services.AddScoped<GeneratePreventiveWorkService>();
         services.AddScoped<GetScheduleOccurrencesQuery>();
         services.AddScoped<GetScheduleWorkOrdersQuery>();
+        services.AddScoped<GetStocktakesQuery>();
+        services.AddScoped<GetStocktakeDetailsQuery>();
+        services.AddScoped<CreateStocktakeService>();
+        services.AddScoped<UpdateStocktakeCountsService>();
+        services.AddScoped<RefreshStocktakeLinesService>();
+        services.AddScoped<GetStocktakePostingPreviewQuery>();
+        services.AddScoped<PostStocktakeService>();
+        services.AddScoped<CancelStocktakeService>();
         services.AddScoped<IVesselMaintenanceOverviewQuery>(serviceProvider =>
             serviceProvider.GetRequiredService<GetVesselMaintenanceOverviewService>());
         services.TryAddSingleton(TimeProvider.System);
