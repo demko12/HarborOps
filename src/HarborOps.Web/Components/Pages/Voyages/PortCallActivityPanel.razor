@@ -1,0 +1,469 @@
+@using HarborOps.Web.Api
+@using HarborOps.Web.Api.Voyages
+@implements IDisposable
+@inject VoyagesApiClient VoyagesApi
+@inject CurrentUserAuthorizationState AuthorizationState
+
+<section class="activity-panel" aria-labelledby="activity-title" @onkeydown="args => CancelAction(args)">
+    <div class="activity-heading">
+        <h3 id="activity-title">Port-call activity log</h3>
+        @if (statement is { } header)
+        {
+            <span class="activity-statement-status @(IsFinalized ? "finalized" : "draft")"
+                  data-testid="activity-statement-status">
+                Statement @header.Status.ToLowerInvariant()
+            </span>
+        }
+        @if (OnClose.HasDelegate)
+        {
+            <button type="button" class="activity-close" @onclick="OnClose">Close</button>
+        }
+    </div>
+
+    @if (isLoading)
+    {
+        <LoadingState Message="Loading the port-call activity log..." />
+    }
+    else if (failure is not null)
+    {
+        <ApiErrorState Title="@failure.Title" Message="@failure.Message" OnRetry="RetryAsync" />
+    }
+    else if (timeline is { } view)
+    {
+        <dl class="activity-summary">
+            <div>
+                <dt>Port</dt>
+                <dd>@view.PortName</dd>
+            </div>
+            <div>
+                <dt>Berth</dt>
+                <dd>@(view.BerthName ?? MissingValue)</dd>
+            </div>
+            <div>
+                <dt>ATA</dt>
+                <dd data-testid="activity-ata">@FormatStamp(view.ActualArrivalUtc)</dd>
+            </div>
+            <div>
+                <dt>ATD</dt>
+                <dd data-testid="activity-atd">@FormatStamp(view.ActualDepartureUtc)</dd>
+            </div>
+            @if (portZone is not null)
+            {
+                <div>
+                    <dt>Port time zone</dt>
+                    <dd data-testid="activity-port-zone">@view.PortTimeZone</dd>
+                </div>
+            }
+        </dl>
+
+        <p class="activity-note">
+            ATA, ATD and delays come from the stop record and are shown for reference only.
+            @(portZone is null
+                ? "All times are shown in UTC."
+                : "Times are shown in UTC with the port local time alongside.")
+        </p>
+
+        @if (actionSuccess is not null)
+        {
+            <p class="activity-success" role="status" data-testid="activity-success">@actionSuccess</p>
+        }
+
+        @if (!CanManageVoyages)
+        {
+            <p class="activity-note activity-readonly" role="status" data-testid="activity-readonly">
+                You can view this activity log but not change it.
+            </p>
+        }
+        else if (IsFinalized)
+        {
+            <p class="activity-note activity-readonly" role="status" data-testid="activity-locked">
+                The statement is finalized. This activity log is read-only.
+            </p>
+        }
+        else if (view.ActualArrivalUtc is null)
+        {
+            <p class="activity-note" role="status" data-testid="activity-not-arrived">
+                Activities can be recorded once the stop arrival (ATA) is recorded.
+            </p>
+        }
+
+        @if (view.Entries.Count == 0)
+        {
+            <EmptyState Title="No activities yet" Message="Recorded activities, stop times and delays will appear here in chronological order." />
+        }
+        else
+        {
+            <ol class="activity-list" aria-label="Chronological activity log">
+                @foreach (var entry in view.Entries)
+                {
+                    var activity = string.Equals(entry.Source, ManualActivitySource, StringComparison.Ordinal)
+                        ? FindActivity(entry.SourceId)
+                        : null;
+
+                    <li class="activity-entry @(entry.IsOutsidePortCall ? "activity-entry-outside" : null)"
+                        data-testid="activity-entry"
+                        @key="(entry.Source, entry.SourceId)">
+                        <div class="activity-entry-head">
+                            <span class="activity-source @SourceModifier(entry.Source)" data-testid="activity-source">@SourceLabel(entry.Source)</span>
+                            <span class="activity-entry-label">@EntryLabel(entry)</span>
+                            <span class="activity-entry-time">@FormatStampRange(entry.OccurredAtUtc, entry.EndedAtUtc)</span>
+                            @if (entry.DurationMinutes is { } minutes)
+                            {
+                                <span class="activity-entry-duration">@minutes min</span>
+                            }
+                            @if (entry.IsOutsidePortCall)
+                            {
+                                <span class="activity-outside" data-testid="activity-outside">Outside ATA–ATD</span>
+                            }
+                            @if (activity is not null && activity.Revision > 1)
+                            {
+                                <span class="activity-revision">Revision @activity.Revision</span>
+                            }
+                        </div>
+
+                        @if (!string.IsNullOrWhiteSpace(entry.Notes))
+                        {
+                            <p class="activity-entry-notes">@entry.Notes</p>
+                        }
+
+                        @if (activity is not null)
+                        {
+                            @if (activeActivityId == activity.ActivityId && activeAction == CorrectAction)
+                            {
+                                <div class="activity-form" data-testid="activity-correct-form">
+                                    <p class="activity-confirm-text">
+                                        A correction replaces the current values. The earlier version stays in the history.
+                                    </p>
+
+                                    @ActivityFields("correct")
+
+                                    <label for="activity-correct-reason">Correction reason</label>
+                                    <input id="activity-correct-reason" maxlength="200" @bind="formReason" />
+
+                                    <ClearanceActionFeedback Message="@ActionErrorMessage" IsConflict="@ActionErrorIsConflict" />
+
+                                    <div class="activity-form-buttons">
+                                        <button type="button" class="activity-submit" @onclick="SubmitCorrectAsync" disabled="@isSubmitting">
+                                            @(isSubmitting ? "Saving..." : "Save correction")
+                                        </button>
+                                        <button type="button" class="activity-cancel" @onclick="() => CancelAction(null)" disabled="@isSubmitting">Cancel</button>
+                                    </div>
+                                </div>
+                            }
+                            else if (activeActivityId == activity.ActivityId && activeAction == VoidAction)
+                            {
+                                <div class="activity-form activity-confirm" data-testid="activity-void-form">
+                                    <p class="activity-confirm-text">
+                                        Voiding removes this activity from the timeline and the statement. It stays in the history.
+                                    </p>
+
+                                    <label for="activity-void-reason">Void reason</label>
+                                    <input id="activity-void-reason" maxlength="200" @bind="formReason" />
+
+                                    <ClearanceActionFeedback Message="@ActionErrorMessage" IsConflict="@ActionErrorIsConflict" />
+
+                                    <div class="activity-form-buttons">
+                                        <button type="button" class="activity-submit" @onclick="SubmitVoidAsync" disabled="@isSubmitting">
+                                            @(isSubmitting ? "Saving..." : "Confirm void")
+                                        </button>
+                                        <button type="button" class="activity-cancel" @onclick="() => CancelAction(null)" disabled="@isSubmitting">Cancel</button>
+                                    </div>
+                                </div>
+                            }
+                            else
+                            {
+                                <div class="activity-entry-actions">
+                                    @if (CanRecord && !activity.IsLocked)
+                                    {
+                                        <button type="button" class="activity-entry-action" @onclick="() => BeginCorrect(activity)">Correct</button>
+                                        <button type="button" class="activity-entry-action" @onclick="() => BeginVoid(activity)">Void</button>
+                                    }
+                                    <button type="button"
+                                            class="activity-entry-action"
+                                            aria-expanded="@(historyActivityId == activity.ActivityId ? "true" : "false")"
+                                            @onclick="() => ToggleHistoryAsync(activity.ActivityId)">
+                                        @(historyActivityId == activity.ActivityId ? "Hide history" : "History")
+                                    </button>
+                                </div>
+                            }
+
+                            @if (historyActivityId == activity.ActivityId)
+                            {
+                                @HistoryList(activity.ActivityId)
+                            }
+                        }
+                    </li>
+                }
+            </ol>
+        }
+
+        @if (VoidedActivities.Count > 0)
+        {
+            <details class="activity-voided">
+                <summary>Voided activities (@VoidedActivities.Count)</summary>
+                <ul class="activity-voided-list">
+                    @foreach (var voided in VoidedActivities)
+                    {
+                        <li @key="voided.ActivityId" data-testid="activity-voided">
+                            <span class="activity-entry-label">@ActivityTypeLabel(voided.ActivityType)</span>
+                            <span class="activity-entry-time">@FormatStampRange(voided.OccurredAtUtc, voided.EndedAtUtc)</span>
+                            <button type="button"
+                                    class="activity-entry-action"
+                                    @onclick="() => ToggleHistoryAsync(voided.ActivityId)">
+                                @(historyActivityId == voided.ActivityId ? "Hide history" : "History")
+                            </button>
+                            @if (historyActivityId == voided.ActivityId)
+                            {
+                                @HistoryList(voided.ActivityId)
+                            }
+                        </li>
+                    }
+                </ul>
+            </details>
+        }
+
+        @if (CanRecord)
+        {
+            @if (activeAction == RecordAction)
+            {
+                <div class="activity-form" data-testid="activity-record-form">
+                    @ActivityFields("record")
+
+                    <ClearanceActionFeedback Message="@ActionErrorMessage" IsConflict="@ActionErrorIsConflict" />
+
+                    <div class="activity-form-buttons">
+                        <button type="button" class="activity-submit" @onclick="SubmitRecordAsync" disabled="@isSubmitting">
+                            @(isSubmitting ? "Saving..." : "Record activity")
+                        </button>
+                        <button type="button" class="activity-cancel" @onclick="() => CancelAction(null)" disabled="@isSubmitting">Cancel</button>
+                    </div>
+                </div>
+            }
+            else if (activeAction is null)
+            {
+                <div class="activity-action-buttons">
+                    <button type="button" class="activity-action" data-testid="activity-record" @onclick="BeginRecord">Record activity</button>
+                </div>
+            }
+        }
+
+        <section class="activity-statement" aria-labelledby="activity-statement-title">
+            <h4 id="activity-statement-title">Operational statement</h4>
+
+            @if (statement is null)
+            {
+                <p class="activity-note" data-testid="activity-statement-empty">
+                    No statement has been started for this stop.
+                </p>
+                @if (CanManageVoyages)
+                {
+                    <div class="activity-action-buttons">
+                        <button type="button"
+                                class="activity-action"
+                                data-testid="activity-statement-start"
+                                disabled="@isSubmitting"
+                                @onclick="StartStatementAsync">
+                            Start statement
+                        </button>
+                    </div>
+                    @if (activeAction is null)
+                    {
+                        <ClearanceActionFeedback Message="@ActionErrorMessage" IsConflict="@ActionErrorIsConflict" />
+                    }
+                }
+            }
+            else if (IsFinalized)
+            {
+                <p class="activity-finalized" role="status" data-testid="activity-statement-finalized">
+                    Finalized @FormatUtc(statement.FinalizedAtUtc)
+                    @if (statement.FinalizedByUserId is { } finalizedBy)
+                    {
+                        <text> by </text><code class="activity-actor" title="@finalizedBy">@FormatActorName(statement.FinalizedByName, finalizedBy)</code>
+                    }
+                    · @statement.Entries.Count entries
+                    · <span data-testid="activity-statement-number">@statement.DocumentNumber</span>
+                </p>
+                <a class="activity-print-link" href="@PrintHref" data-testid="activity-statement-print">Open printable statement</a>
+            }
+            else
+            {
+                @if (statement.Blockers.Count > 0)
+                {
+                    <div class="activity-blockers" role="status" data-testid="activity-blockers">
+                        <p class="activity-blockers-title">Finalization is blocked:</p>
+                        <ul>
+                            @foreach (var blocker in statement.Blockers)
+                            {
+                                <li data-testid="activity-blocker">
+                                    <span>@blocker.Message</span>
+                                    @if (CanRecord && FindActivity(blocker.ActivityId) is { IsLocked: false } blocking
+                                        && string.Equals(blocking.Status, ActiveStatus, StringComparison.Ordinal))
+                                    {
+                                        <button type="button"
+                                                class="activity-blocker-action"
+                                                data-testid="activity-blocker-correct"
+                                                @onclick="() => CorrectFromBlocker(blocking.ActivityId)">
+                                            Correct this activity
+                                        </button>
+                                    }
+                                </li>
+                            }
+                        </ul>
+                    </div>
+                }
+                else
+                {
+                    <p class="activity-ready" role="status" data-testid="activity-statement-ready">
+                        Ready to finalize: @statement.Entries.Count entries between ATA and ATD.
+                    </p>
+                }
+
+                @if (CanManageVoyages)
+                {
+                    @if (activeAction == FinalizeAction)
+                    {
+                        <div class="activity-form activity-confirm" data-testid="activity-finalize-confirm">
+                            <p class="activity-confirm-text">
+                                Finalize the statement for @statement.PortName? It will freeze the stop times,
+                                port and berth labels, @statement.Entries.Count entries and your name.
+                                A finalized statement cannot be reopened and its activities can no longer be corrected.
+                            </p>
+
+                            <ClearanceActionFeedback Message="@ActionErrorMessage" IsConflict="@ActionErrorIsConflict" />
+
+                            <div class="activity-form-buttons">
+                                <button type="button"
+                                        class="activity-submit"
+                                        data-testid="activity-finalize-submit"
+                                        disabled="@(isSubmitting || !statement.CanFinalize)"
+                                        @onclick="SubmitFinalizeAsync">
+                                    @(isSubmitting ? "Finalizing..." : "Confirm finalization")
+                                </button>
+                                <button type="button" class="activity-cancel" @onclick="() => CancelAction(null)" disabled="@isSubmitting">Cancel</button>
+                            </div>
+                        </div>
+                    }
+                    else if (activeAction is null)
+                    {
+                        <div class="activity-action-buttons">
+                            <button type="button"
+                                    class="activity-action"
+                                    data-testid="activity-finalize"
+                                    disabled="@(!statement.CanFinalize)"
+                                    title="@(statement.CanFinalize ? null : "Resolve the blockers first.")"
+                                    @onclick="BeginFinalize">
+                                Finalize statement
+                            </button>
+                        </div>
+                    }
+                }
+            }
+        </section>
+    }
+</section>
+
+@code {
+    private RenderFragment ActivityFields(string prefix) => __builder =>
+    {
+        <label for="@($"activity-{prefix}-type")">Activity</label>
+        <select id="@($"activity-{prefix}-type")" @bind="formActivityType" @ref="activityFormFirstField">
+            @foreach (var activityType in ActivityTypes)
+            {
+                <option value="@activityType">@ActivityTypeLabel(activityType)</option>
+            }
+        </select>
+
+        <label for="@($"activity-{prefix}-occurred-date")">Occurred</label>
+        <div class="activity-stamp">
+            <input id="@($"activity-{prefix}-occurred-date")" type="date" @bind="formOccurredDate" />
+            <input id="@($"activity-{prefix}-occurred-time")" type="time" aria-label="Occurred time" @bind="formOccurredTime" />
+        </div>
+
+        <label for="@($"activity-{prefix}-ended-date")">Ended (optional)</label>
+        <div class="activity-stamp">
+            <input id="@($"activity-{prefix}-ended-date")" type="date" @bind="formEndedDate" />
+            <input id="@($"activity-{prefix}-ended-time")" type="time" aria-label="Ended time" @bind="formEndedTime" />
+        </div>
+
+        <label for="@($"activity-{prefix}-offset")">Time zone of the entered times</label>
+        <select id="@($"activity-{prefix}-offset")" @bind="formOffset">
+            @foreach (var offset in OffsetOptions)
+            {
+                <option value="@offset">@OffsetLabel(offset)</option>
+            }
+        </select>
+
+        @if (ConversionPreview(formOccurredDate, formOccurredTime) is { } occurredPreview)
+        {
+            <p class="activity-conversion" data-testid="@($"activity-{prefix}-conversion")">
+                Occurred: @occurredPreview
+                @if (ConversionPreview(formEndedDate, formEndedTime) is { } endedPreview)
+                {
+                    <br />
+                    <text>Ended: @endedPreview</text>
+                }
+            </p>
+        }
+
+        <label for="@($"activity-{prefix}-notes")">Notes</label>
+        <textarea id="@($"activity-{prefix}-notes")" rows="2" maxlength="1000" @bind="formNotes"></textarea>
+    };
+
+    private RenderFragment HistoryList(Guid activityId) => __builder =>
+    {
+        @if (HistoryFor(activityId) is { } details)
+        {
+            <ol class="activity-history" data-testid="activity-history">
+                @for (var index = 0; index < details.History.Count; index++)
+                {
+                    var revision = details.History[index];
+                    var changes = Changes(index == 0 ? null : details.History[index - 1], revision);
+
+                    <li @key="revision.Revision">
+                        <strong>Revision @revision.Revision · @ChangeTypeLabel(revision.ChangeType)</strong>
+                        @if (changes.Count > 0)
+                        {
+                            <ul class="activity-history-changes" data-testid="activity-history-changes">
+                                @foreach (var change in changes)
+                                {
+                                    <li>
+                                        <span class="activity-change-field">@change.Field</span>
+                                        <del class="activity-change-before">@change.Before</del>
+                                        <span aria-hidden="true">→</span>
+                                        <ins class="activity-change-after">@change.After</ins>
+                                    </li>
+                                }
+                            </ul>
+                        }
+                        else
+                        {
+                            <span>
+                                @ActivityTypeLabel(revision.ActivityType) · @FormatStampRange(revision.OccurredAtUtc, revision.EndedAtUtc)
+                            </span>
+                            @if (!string.IsNullOrWhiteSpace(revision.Notes))
+                            {
+                                <span>@revision.Notes</span>
+                            }
+                        }
+                        <span>
+                            @FormatUtc(revision.ChangedAtUtc) ·
+                            <code class="activity-actor" title="@revision.ActorUserId">@FormatActorName(revision.ActorName, revision.ActorUserId)</code>
+                        </span>
+                        @if (!string.IsNullOrWhiteSpace(revision.Reason))
+                        {
+                            <span class="activity-history-reason">Reason: @revision.Reason</span>
+                        }
+                    </li>
+                }
+            </ol>
+        }
+        else if (historyFailure is not null)
+        {
+            <p class="activity-error" role="alert">@historyFailure.Message</p>
+        }
+        else
+        {
+            <p class="activity-note" role="status">Loading history...</p>
+        }
+    };
+}

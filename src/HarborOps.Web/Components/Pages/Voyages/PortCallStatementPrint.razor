@@ -1,0 +1,133 @@
+@page "/voyages/{VoyageId:guid}/stops/{StopId:guid}/statement/print"
+@attribute [Microsoft.AspNetCore.Authorization.Authorize(Policy = "AccessVoyages")]
+@using HarborOps.Web.Api.Voyages
+@implements IDisposable
+@inject VoyagesApiClient VoyagesApi
+
+<PageTitle>@PageHeading | HarborOps</PageTitle>
+
+<section class="print-page">
+    <nav class="print-toolbar no-print" aria-label="Printable statement actions">
+        <a class="print-back" href="@TimelineHref">Back to voyage timeline</a>
+        @if (model is not null)
+        {
+            <PrintButton Label="Print this statement" />
+        }
+    </nav>
+
+    @if (isLoading)
+    {
+        <LoadingState Message="Loading the printable statement..." />
+    }
+    else if (failure is not null)
+    {
+        <ApiErrorState Title="@failure.Title" Message="@failure.Message" OnRetry="LoadAsync" />
+    }
+    else if (model is { } statement)
+    {
+        <article class="print-sheet" data-testid="statement-sheet">
+            <header class="print-head">
+                <div>
+                    <p class="print-kicker">Port-call operational statement</p>
+                    <h1 class="print-number" data-testid="statement-number">@statement.DocumentNumber</h1>
+                    <p class="print-subtitle">@statement.VoyageNumber · Stop @statement.StopOrder</p>
+                </div>
+                <dl class="print-head-meta">
+                    <div>
+                        <dt>Port</dt>
+                        <dd data-testid="statement-port">
+                            @statement.PortName@(statement.PortUnLocode is null ? null : $" ({statement.PortUnLocode})")
+                        </dd>
+                    </div>
+                    <div>
+                        <dt>Berth</dt>
+                        <dd data-testid="statement-berth">@(statement.BerthName ?? PortCallActivityPanel.MissingValue)</dd>
+                    </div>
+                    <div>
+                        <dt>Time zone</dt>
+                        <dd data-testid="statement-time-zone">@TimeZoneLabel</dd>
+                    </div>
+                    <div>
+                        <dt>ATA</dt>
+                        <dd data-testid="statement-ata">@FormatTime(statement.ActualArrivalUtc)</dd>
+                    </div>
+                    <div>
+                        <dt>ATD</dt>
+                        <dd data-testid="statement-atd">@FormatTime(statement.ActualDepartureUtc)</dd>
+                    </div>
+                </dl>
+            </header>
+
+            <section class="print-box">
+                <h2>Chronology</h2>
+
+                @if (statement.Entries.Count == 0)
+                {
+                    <p class="print-empty">No entries were recorded for this port call.</p>
+                }
+                else
+                {
+                    <table class="print-table">
+                        <thead>
+                            <tr class="print-running-head" data-testid="statement-running-head">
+                                <th colspan="@ColumnCount">
+                                    @statement.DocumentNumber · @statement.VoyageNumber · Stop @statement.StopOrder · @statement.PortName
+                                </th>
+                            </tr>
+                            <tr>
+                                <th scope="col">#</th>
+                                @if (portZone is not null)
+                                {
+                                    <th scope="col">Local time</th>
+                                }
+                                <th scope="col">Time (UTC)</th>
+                                <th scope="col">Source</th>
+                                <th scope="col">Event</th>
+                                <th scope="col">Notes</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var entry in statement.Entries)
+                            {
+                                <tr data-testid="statement-entry" @key="entry.Position">
+                                    <td>@entry.Position</td>
+                                    @if (portZone is { } zone)
+                                    {
+                                        <td data-testid="statement-entry-local">@FormatLocalRange(entry.OccurredAtUtc, entry.EndedAtUtc, zone)</td>
+                                    }
+                                    <td>@PortCallActivityPanel.FormatRange(entry.OccurredAtUtc, entry.EndedAtUtc)</td>
+                                    <td>@PortCallActivityPanel.SourceLabel(entry.Source)</td>
+                                    <td>
+                                        @PortCallActivityPanel.EntryLabel(entry)
+                                        @if (entry.DurationMinutes is { } minutes)
+                                        {
+                                            <span class="print-duration">@minutes min</span>
+                                        }
+                                    </td>
+                                    <td class="print-notes">@(entry.Notes ?? PortCallActivityPanel.MissingValue)</td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                }
+            </section>
+
+            <footer class="print-foot">
+                <div>
+                    <h2>Finalized</h2>
+                    <p data-testid="statement-finalized">
+                        @FormatTime(statement.FinalizedAtUtc)
+                        @if (statement.FinalizedByUserId is { } finalizedBy)
+                        {
+                            <span class="print-actor" title="@finalizedBy">@PortCallActivityPanel.FormatActorName(statement.FinalizedByName, finalizedBy)</span>
+                        }
+                    </p>
+                </div>
+                <div>
+                    <h2>Entries</h2>
+                    <p>@statement.Entries.Count</p>
+                </div>
+            </footer>
+        </article>
+    }
+</section>

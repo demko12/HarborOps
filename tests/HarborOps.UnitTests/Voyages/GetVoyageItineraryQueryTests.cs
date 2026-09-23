@@ -125,6 +125,48 @@ public sealed class GetVoyageItineraryQueryTests
     }
 
     [Fact]
+    public async Task Itinerary_carries_the_active_activity_count_and_statement_status_per_stop()
+    {
+        await using var dbContext = PortCallLogScenario.CreateDbContext();
+        var (voyageId, stopId) = await PortCallLogScenario.SeedStopAsync(dbContext, departed: true);
+        var arrival = PortCallLogScenario.ActualArrivalUtc;
+
+        await PortCallLogScenario.RecordAsync(dbContext, voyageId, stopId, PortCallActivityType.AllFast, PortCallLogScenario.At(arrival.AddMinutes(10)));
+        await PortCallLogScenario.RecordAsync(dbContext, voyageId, stopId, PortCallActivityType.CargoStarted, PortCallLogScenario.At(arrival.AddHours(1)));
+        var duplicate = await PortCallLogScenario.RecordAsync(dbContext, voyageId, stopId, PortCallActivityType.OperationalNote, PortCallLogScenario.At(arrival.AddHours(1)));
+        await new VoidPortCallActivityService(dbContext, PortCallLogScenario.Clock()).VoidAsync(
+            voyageId,
+            stopId,
+            duplicate.ActivityId,
+            new Modules.Voyages.Contracts.VoidPortCallActivityRequest { Reason = "Duplicate", Version = duplicate.Version },
+            PortCallLogScenario.ActorId,
+            PortCallLogScenario.ActorName,
+            CancellationToken.None);
+        await PortCallLogScenario.CreateStatementAsync(dbContext, voyageId, stopId);
+
+        var response = await new GetVoyageItineraryQuery(dbContext, PortCallLogScenario.Clock())
+            .GetItineraryAsync(voyageId, CancellationToken.None);
+
+        var stop = Assert.Single(response.Stops);
+        Assert.Equal(2, stop.PortCallActivityCount);
+        Assert.Equal(PortCallStatement.DraftStatus, stop.PortCallStatementStatus);
+    }
+
+    [Fact]
+    public async Task Itinerary_reports_no_activity_log_for_a_stop_without_one()
+    {
+        await using var dbContext = PortCallLogScenario.CreateDbContext();
+        var (voyageId, _) = await PortCallLogScenario.SeedStopAsync(dbContext, arrived: false);
+
+        var response = await new GetVoyageItineraryQuery(dbContext, PortCallLogScenario.Clock())
+            .GetItineraryAsync(voyageId, CancellationToken.None);
+
+        var stop = Assert.Single(response.Stops);
+        Assert.Equal(0, stop.PortCallActivityCount);
+        Assert.Null(stop.PortCallStatementStatus);
+    }
+
+    [Fact]
     public async Task Itinerary_rejects_unknown_voyage()
     {
         await using var dbContext = CreateDbContext();

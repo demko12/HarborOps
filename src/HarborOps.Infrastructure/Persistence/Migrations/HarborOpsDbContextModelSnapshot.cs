@@ -3217,6 +3217,128 @@ namespace HarborOps.Infrastructure.Persistence.Migrations
                     b.ToTable("Ports", "voyages");
                 });
 
+            modelBuilder.Entity("HarborOps.Modules.Voyages.Domain.PortCallActivity", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("ActivityType")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("nvarchar(30)");
+
+                    b.Property<Guid>("ConcurrencyToken")
+                        .IsConcurrencyToken()
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier")
+                        .HasDefaultValueSql("NEWID()");
+
+                    b.Property<DateTime?>("EndedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<bool>("IsLocked")
+                        .HasColumnType("bit");
+
+                    b.Property<DateTime>("LastChangedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid>("LastChangedByUserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Notes")
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
+
+                    b.Property<DateTime>("OccurredAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime>("RecordedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid>("RecordedByUserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<int>("Revision")
+                        .HasColumnType("int");
+
+                    b.Property<int>("Sequence")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("nvarchar(30)");
+
+                    b.Property<Guid>("VoyageId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("VoyageStopId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("VoyageId");
+
+                    b.HasIndex("VoyageStopId", "Sequence")
+                        .IsUnique();
+
+                    b.ToTable("PortCallActivities", "voyages");
+                });
+
+            modelBuilder.Entity("HarborOps.Modules.Voyages.Domain.PortCallActivityRevision", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("ActivityType")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("nvarchar(30)");
+
+                    b.Property<string>("ActorName")
+                        .IsRequired()
+                        .HasMaxLength(256)
+                        .HasColumnType("nvarchar(256)");
+
+                    b.Property<Guid>("ActorUserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("ChangeType")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("nvarchar(30)");
+
+                    b.Property<DateTime>("ChangedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime?>("EndedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Notes")
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
+
+                    b.Property<DateTime>("OccurredAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid>("PortCallActivityId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Reason")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<int>("Revision")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("PortCallActivityId", "Revision")
+                        .IsUnique();
+
+                    b.ToTable("PortCallActivityRevisions", "voyages");
+                });
+
             modelBuilder.Entity("HarborOps.Modules.Voyages.Domain.PortCallClearance", b =>
                 {
                     b.Property<Guid>("Id")
@@ -3354,6 +3476,134 @@ namespace HarborOps.Infrastructure.Persistence.Migrations
                     b.HasIndex("PortCallClearanceId", "IsRequired", "DueAtUtc", "Category", "Id");
 
                     b.ToTable("PortCallClearanceItems", "voyages");
+                });
+
+            modelBuilder.Entity("HarborOps.Modules.Voyages.Domain.PortCallStatement", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime?>("ActualArrivalUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime?>("ActualDepartureUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("BerthName")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<Guid>("ConcurrencyToken")
+                        .IsConcurrencyToken()
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier")
+                        .HasDefaultValueSql("NEWID()");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid>("CreatedByUserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime?>("FinalizedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("FinalizedByName")
+                        .HasMaxLength(256)
+                        .HasColumnType("nvarchar(256)");
+
+                    b.Property<Guid?>("FinalizedByUserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("PortName")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<string>("PortTimeZone")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<string>("PortUnLocode")
+                        .HasMaxLength(5)
+                        .HasColumnType("nvarchar(5)");
+
+                    b.Property<string>("SourceVersion")
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("nvarchar(30)");
+
+                    b.Property<int?>("StopOrder")
+                        .HasColumnType("int");
+
+                    b.Property<Guid>("VoyageId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("VoyageNumber")
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<Guid>("VoyageStopId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("VoyageId");
+
+                    b.HasIndex("VoyageStopId")
+                        .IsUnique();
+
+                    b.ToTable("PortCallStatements", "voyages");
+                });
+
+            modelBuilder.Entity("HarborOps.Modules.Voyages.Domain.PortCallStatementEntry", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<int?>("DurationMinutes")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("EndedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Label")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<string>("Notes")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime>("OccurredAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid>("PortCallStatementId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<int>("Position")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Source")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("nvarchar(30)");
+
+                    b.Property<Guid?>("SourceId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<int?>("SourceRevision")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("PortCallStatementId", "Position")
+                        .IsUnique();
+
+                    b.ToTable("PortCallStatementEntries", "voyages");
                 });
 
             modelBuilder.Entity("HarborOps.Modules.Voyages.Domain.Route", b =>
@@ -4448,6 +4698,30 @@ namespace HarborOps.Infrastructure.Persistence.Migrations
                         .OnDelete(DeleteBehavior.Restrict);
                 });
 
+            modelBuilder.Entity("HarborOps.Modules.Voyages.Domain.PortCallActivity", b =>
+                {
+                    b.HasOne("HarborOps.Modules.Voyages.Domain.Voyage", null)
+                        .WithMany()
+                        .HasForeignKey("VoyageId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("HarborOps.Modules.Voyages.Domain.VoyageStop", null)
+                        .WithMany()
+                        .HasForeignKey("VoyageStopId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("HarborOps.Modules.Voyages.Domain.PortCallActivityRevision", b =>
+                {
+                    b.HasOne("HarborOps.Modules.Voyages.Domain.PortCallActivity", null)
+                        .WithMany()
+                        .HasForeignKey("PortCallActivityId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("HarborOps.Modules.Voyages.Domain.PortCallClearance", b =>
                 {
                     b.HasOne("HarborOps.Modules.Voyages.Domain.Voyage", null)
@@ -4482,6 +4756,30 @@ namespace HarborOps.Infrastructure.Persistence.Migrations
                     b.HasOne("HarborOps.Modules.Voyages.Domain.PortCallClearance", null)
                         .WithMany()
                         .HasForeignKey("PortCallClearanceId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("HarborOps.Modules.Voyages.Domain.PortCallStatement", b =>
+                {
+                    b.HasOne("HarborOps.Modules.Voyages.Domain.Voyage", null)
+                        .WithMany()
+                        .HasForeignKey("VoyageId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("HarborOps.Modules.Voyages.Domain.VoyageStop", null)
+                        .WithMany()
+                        .HasForeignKey("VoyageStopId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("HarborOps.Modules.Voyages.Domain.PortCallStatementEntry", b =>
+                {
+                    b.HasOne("HarborOps.Modules.Voyages.Domain.PortCallStatement", null)
+                        .WithMany()
+                        .HasForeignKey("PortCallStatementId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
                 });

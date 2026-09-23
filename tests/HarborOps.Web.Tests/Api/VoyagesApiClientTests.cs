@@ -434,6 +434,103 @@ public sealed class VoyagesApiClientTests
         Assert.Equal("It was already cleared.", result.Failure.Message);
     }
 
+    [Fact]
+    public async Task RecordPortCallActivityAsync_posts_the_times_with_their_explicit_offset()
+    {
+        HttpRequestMessage? captured = null;
+        string? body = null;
+        var voyageId = Guid.Parse("20000000-0000-0000-0000-000000000001");
+        var stopId = Guid.Parse("30000000-0000-0000-0000-000000000001");
+        using var httpClient = CreateHttpClient(async (request, cancellationToken) =>
+        {
+            captured = request;
+            body = await request.Content!.ReadAsStringAsync(cancellationToken);
+
+            return await Json(
+                HttpStatusCode.Created,
+                """{"activityId":"40000000-0000-0000-0000-000000000001","status":"Active","revision":1,"version":"70000000-0000-0000-0000-000000000001","actorUserId":"11111111-1111-1111-1111-111111111111","changedAtUtc":"2026-09-01T12:00:00Z"}""");
+        });
+
+        var result = await CreateClient(httpClient).RecordPortCallActivityAsync(
+            voyageId,
+            stopId,
+            new RecordPortCallActivityWebRequest(
+                "AllFast",
+                new DateTimeOffset(2026, 9, 1, 12, 30, 0, TimeSpan.FromHours(2)),
+                null,
+                "Lines ashore"),
+            CancellationToken.None);
+
+        using var json = System.Text.Json.JsonDocument.Parse(body!);
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal(1, result.Value!.Revision);
+        Assert.Equal(HttpMethod.Post, captured!.Method);
+        Assert.Equal($"/api/voyages/{voyageId}/stops/{stopId}/activities", captured.RequestUri!.AbsolutePath);
+        Assert.Equal("2026-09-01T12:30:00+02:00", json.RootElement.GetProperty("occurredAt").GetString());
+    }
+
+    [Theory]
+    [InlineData("timeline", "GET", "/activity-timeline")]
+    [InlineData("details", "GET", "/activities/40000000-0000-0000-0000-000000000001")]
+    [InlineData("correct", "POST", "/activities/40000000-0000-0000-0000-000000000001/correct")]
+    [InlineData("void", "POST", "/activities/40000000-0000-0000-0000-000000000001/void")]
+    [InlineData("statement", "GET", "/statement")]
+    [InlineData("start", "POST", "/statement")]
+    [InlineData("finalize", "POST", "/statement/finalize")]
+    [InlineData("print", "GET", "/statement/print")]
+    public async Task Port_call_log_calls_target_the_stop_routes(string call, string method, string suffix)
+    {
+        HttpRequestMessage? captured = null;
+        var voyageId = Guid.Parse("20000000-0000-0000-0000-000000000001");
+        var stopId = Guid.Parse("30000000-0000-0000-0000-000000000001");
+        var activityId = Guid.Parse("40000000-0000-0000-0000-000000000001");
+        using var httpClient = CreateHttpClient((request, _) =>
+        {
+            captured = request;
+
+            return Json(HttpStatusCode.OK, "{}");
+        });
+        var client = CreateClient(httpClient);
+        var at = new DateTimeOffset(2026, 9, 1, 12, 0, 0, TimeSpan.Zero);
+
+        Task task = call switch
+        {
+            "timeline" => client.GetPortCallTimelineAsync(voyageId, stopId, CancellationToken.None),
+            "details" => client.GetPortCallActivityAsync(voyageId, stopId, activityId, CancellationToken.None),
+            "correct" => client.CorrectPortCallActivityAsync(voyageId, stopId, activityId, new CorrectPortCallActivityWebRequest("AllFast", at, null, null, "Fix", Guid.NewGuid()), CancellationToken.None),
+            "void" => client.VoidPortCallActivityAsync(voyageId, stopId, activityId, new VoidPortCallActivityWebRequest("Duplicate", Guid.NewGuid()), CancellationToken.None),
+            "statement" => client.GetPortCallStatementAsync(voyageId, stopId, CancellationToken.None),
+            "start" => client.CreatePortCallStatementAsync(voyageId, stopId, CancellationToken.None),
+            "finalize" => client.FinalizePortCallStatementAsync(voyageId, stopId, new FinalizePortCallStatementWebRequest(Guid.NewGuid(), "ABC"), CancellationToken.None),
+            _ => client.GetPortCallStatementPrintAsync(voyageId, stopId, CancellationToken.None),
+        };
+
+        await task;
+
+        Assert.Equal(method, captured!.Method.Method);
+        Assert.Equal($"/api/voyages/{voyageId}/stops/{stopId}{suffix}", captured.RequestUri!.AbsolutePath);
+    }
+
+    [Fact]
+    public async Task A_finalization_conflict_is_returned_as_a_conflict_failure_with_the_server_message()
+    {
+        using var httpClient = CreateHttpClient((_, _) => Json(
+            HttpStatusCode.Conflict,
+            """{"status":409,"title":"The statement sources changed after the preview.","detail":"Review the refreshed preview and confirm again."}"""));
+
+        var result = await CreateClient(httpClient).FinalizePortCallStatementAsync(
+            Guid.NewGuid(),
+            Guid.NewGuid(),
+            new FinalizePortCallStatementWebRequest(Guid.NewGuid(), "ABC"),
+            CancellationToken.None);
+
+        Assert.False(result.IsSuccess);
+        Assert.True(result.Failure!.IsConflict);
+        Assert.Equal("The statement sources changed after the preview.", result.Failure.Title);
+        Assert.Equal("Review the refreshed preview and confirm again.", result.Failure.Message);
+    }
+
     private static VoyagesApiClient CreateClient(HttpClient httpClient) => new(httpClient);
 
     private static HttpClient CreateHttpClient(

@@ -1,0 +1,26 @@
+namespace HarborOps.Modules.Voyages.Contracts;
+
+public sealed record PortCallStatementResponse(
+    Guid StatementId,
+    string DocumentNumber,
+    Guid VoyageId,
+    Guid StopId,
+    string Status,
+    Guid Version,
+    string? SourceVersion,
+    string VoyageNumber,
+    int StopOrder,
+    string PortName,
+    string? PortUnLocode,
+    string? PortTimeZone,
+    string? BerthName,
+    DateTime? ActualArrivalUtc,
+    DateTime? ActualDepartureUtc,
+    Guid CreatedByUserId,
+    DateTime CreatedAtUtc,
+    Guid? FinalizedByUserId,
+    string? FinalizedByName,
+    DateTime? FinalizedAtUtc,
+    bool CanFinalize,
+    IReadOnlyList<PortCallStatementBlockerItem> Blockers,
+    IReadOnlyList<PortCallLogEntryItem> Entries);

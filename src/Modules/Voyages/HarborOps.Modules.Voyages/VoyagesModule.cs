@@ -46,6 +46,13 @@ public static class VoyagesModule
         services.AddScoped<WaivePortCallClearanceItemService>();
         services.AddScoped<CompletePortCallClearanceService>();
         services.AddScoped<ReopenPortCallClearanceService>();
+        services.AddScoped<IGetPortCallActivitiesQuery, GetPortCallActivitiesQuery>();
+        services.AddScoped<RecordPortCallActivityService>();
+        services.AddScoped<CorrectPortCallActivityService>();
+        services.AddScoped<VoidPortCallActivityService>();
+        services.AddScoped<IGetPortCallStatementQuery, GetPortCallStatementQuery>();
+        services.AddScoped<CreatePortCallStatementService>();
+        services.AddScoped<FinalizePortCallStatementService>();
         services.AddScoped<RecordDelayService>();
         services.AddScoped<DelayImpactPreviewService>();
         services.AddScoped<ApplyDelayImpactService>();

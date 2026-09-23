@@ -14,6 +14,8 @@ internal sealed class GetVoyageItineraryQuery(DbContext dbContext, TimeProvider 
         var utcNow = timeProvider.GetUtcNow().UtcDateTime;
         var clearances = dbContext.Set<PortCallClearance>().AsNoTracking();
         var clearanceItems = dbContext.Set<PortCallClearanceItem>().AsNoTracking();
+        var activities = dbContext.Set<PortCallActivity>().AsNoTracking();
+        var statements = dbContext.Set<PortCallStatement>().AsNoTracking();
 
         var itinerary = await dbContext.Set<Voyage>()
             .AsNoTracking()
@@ -67,7 +69,14 @@ internal sealed class GetVoyageItineraryQuery(DbContext dbContext, TimeProvider 
                                 && item.IsRequired
                                 && item.Status == PortCallClearanceItem.PendingStatus
                                 && item.DueAtUtc != null
-                                && item.DueAtUtc < utcNow)))
+                                && item.DueAtUtc < utcNow),
+                        activities.Count(activity =>
+                            activity.VoyageStopId == stop.Id
+                            && activity.Status == PortCallActivity.ActiveStatus),
+                        statements
+                            .Where(statement => statement.VoyageStopId == stop.Id)
+                            .Select(statement => statement.Status)
+                            .FirstOrDefault()))
                     .ToList(),
                 Delays = dbContext.Set<Delay>()
                     .AsNoTracking()

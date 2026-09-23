@@ -378,6 +378,120 @@ internal sealed class VoyagesApiClient(HttpClient httpClient)
             cancellationToken);
     }
 
+    internal Task<VoyagesApiResult<PortCallTimeline>> GetPortCallTimelineAsync(
+        Guid voyageId,
+        Guid stopId,
+        CancellationToken cancellationToken)
+    {
+        return GetAsync<PortCallTimeline>(
+            $"{StopPath(voyageId, stopId)}/activity-timeline",
+            "Unable to load the port-call activity log",
+            cancellationToken);
+    }
+
+    internal Task<VoyagesApiResult<PortCallActivityDetails>> GetPortCallActivityAsync(
+        Guid voyageId,
+        Guid stopId,
+        Guid activityId,
+        CancellationToken cancellationToken)
+    {
+        return GetAsync<PortCallActivityDetails>(
+            $"{StopPath(voyageId, stopId)}/activities/{activityId}",
+            "Unable to load the activity history",
+            cancellationToken);
+    }
+
+    internal Task<VoyagesApiResult<PortCallActivityChange>> RecordPortCallActivityAsync(
+        Guid voyageId,
+        Guid stopId,
+        RecordPortCallActivityWebRequest request,
+        CancellationToken cancellationToken)
+    {
+        return PostAsync<PortCallActivityChange>(
+            $"{StopPath(voyageId, stopId)}/activities",
+            request,
+            "Unable to record the activity",
+            cancellationToken);
+    }
+
+    internal Task<VoyagesApiResult<PortCallActivityChange>> CorrectPortCallActivityAsync(
+        Guid voyageId,
+        Guid stopId,
+        Guid activityId,
+        CorrectPortCallActivityWebRequest request,
+        CancellationToken cancellationToken)
+    {
+        return PostAsync<PortCallActivityChange>(
+            $"{StopPath(voyageId, stopId)}/activities/{activityId}/correct",
+            request,
+            "Unable to correct the activity",
+            cancellationToken);
+    }
+
+    internal Task<VoyagesApiResult<PortCallActivityChange>> VoidPortCallActivityAsync(
+        Guid voyageId,
+        Guid stopId,
+        Guid activityId,
+        VoidPortCallActivityWebRequest request,
+        CancellationToken cancellationToken)
+    {
+        return PostAsync<PortCallActivityChange>(
+            $"{StopPath(voyageId, stopId)}/activities/{activityId}/void",
+            request,
+            "Unable to void the activity",
+            cancellationToken);
+    }
+
+    internal Task<VoyagesApiResult<PortCallStatementModel>> GetPortCallStatementAsync(
+        Guid voyageId,
+        Guid stopId,
+        CancellationToken cancellationToken)
+    {
+        return GetAsync<PortCallStatementModel>(
+            $"{StopPath(voyageId, stopId)}/statement",
+            "Unable to load the port-call statement",
+            cancellationToken);
+    }
+
+    internal Task<VoyagesApiResult<PortCallStatementModel>> CreatePortCallStatementAsync(
+        Guid voyageId,
+        Guid stopId,
+        CancellationToken cancellationToken)
+    {
+        return PostAsync<PortCallStatementModel>(
+            $"{StopPath(voyageId, stopId)}/statement",
+            new { },
+            "Unable to start the port-call statement",
+            cancellationToken);
+    }
+
+    internal Task<VoyagesApiResult<PortCallStatementModel>> FinalizePortCallStatementAsync(
+        Guid voyageId,
+        Guid stopId,
+        FinalizePortCallStatementWebRequest request,
+        CancellationToken cancellationToken)
+    {
+        return PostAsync<PortCallStatementModel>(
+            $"{StopPath(voyageId, stopId)}/statement/finalize",
+            request,
+            "Unable to finalize the port-call statement",
+            cancellationToken);
+    }
+
+    internal Task<VoyagesApiResult<PortCallStatementModel>> GetPortCallStatementPrintAsync(
+        Guid voyageId,
+        Guid stopId,
+        CancellationToken cancellationToken)
+    {
+        return GetAsync<PortCallStatementModel>(
+            $"{StopPath(voyageId, stopId)}/statement/print",
+            "Unable to load the printable statement",
+            cancellationToken);
+    }
+
+    private static string StopPath(Guid voyageId, Guid stopId) =>
+        $"{BasePath}/{voyageId}/stops/{stopId}";
+
     private static string ClearancePath(Guid voyageId, Guid stopId) =>
         $"{BasePath}/{voyageId}/stops/{stopId}/clearance";
 

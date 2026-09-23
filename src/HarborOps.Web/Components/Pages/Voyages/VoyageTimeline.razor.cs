@@ -70,6 +70,7 @@ public partial class VoyageTimeline : IDisposable
     private BerthAllocationHistory? berthAllocationHistory;
 
     private Guid? clearanceStopId;
+    private Guid? activityStopId;
 
     private string delayReason = string.Empty;
     private string? delayDescription;
@@ -330,6 +331,33 @@ public partial class VoyageTimeline : IDisposable
         ApplyEstimateRevisions(await revisionsTask);
     }
 
+    private async Task RefreshItineraryAsync()
+    {
+        var requestedVoyageId = VoyageId;
+
+        VoyagesApiResult<VoyageItinerary> result;
+        try
+        {
+            result = await VoyagesApi.GetItineraryAsync(
+                requestedVoyageId,
+                disposeCancellation.Token);
+        }
+        catch (OperationCanceledException) when (disposeCancellation.IsCancellationRequested)
+        {
+            return;
+        }
+
+        if (disposeCancellation.IsCancellationRequested || requestedVoyageId != VoyageId)
+        {
+            return;
+        }
+
+        if (result.IsSuccess && result.Value is { } refreshed)
+        {
+            itinerary = refreshed;
+        }
+    }
+
     private async Task LoadEstimateRevisionsAsync()
     {
         var requestedVoyageId = VoyageId;
@@ -455,6 +483,16 @@ public partial class VoyageTimeline : IDisposable
     private void CloseClearance()
     {
         clearanceStopId = null;
+    }
+
+    private void ToggleActivityLog(VoyageItineraryStopModel stop)
+    {
+        activityStopId = activityStopId == stop.StopId ? null : stop.StopId;
+    }
+
+    private void CloseActivityLog()
+    {
+        activityStopId = null;
     }
 
     private void BeginStopAction(VoyageItineraryStopModel stop, string kind)
@@ -874,6 +912,36 @@ public partial class VoyageTimeline : IDisposable
         return string.Equals(changeType, CancelledChangeType, StringComparison.Ordinal)
             ? "cancelled"
             : "amended";
+    }
+
+    internal static string? ActivitySummaryLabel(VoyageItineraryStopModel stop)
+    {
+        ArgumentNullException.ThrowIfNull(stop);
+
+        if (stop.PortCallActivityCount == 0 && stop.PortCallStatementStatus is null)
+        {
+            return null;
+        }
+
+        var activities = stop.PortCallActivityCount == 1
+            ? "1 activity"
+            : string.Create(CultureInfo.InvariantCulture, $"{stop.PortCallActivityCount} activities");
+
+        return stop.PortCallStatementStatus is { } status
+            ? $"{activities} · Statement {status.ToLowerInvariant()}"
+            : activities;
+    }
+
+    internal static string ActivitySummaryModifier(VoyageItineraryStopModel stop)
+    {
+        ArgumentNullException.ThrowIfNull(stop);
+
+        return stop.PortCallStatementStatus switch
+        {
+            "Finalized" => "finalized",
+            "Draft" => "draft",
+            _ => "none",
+        };
     }
 
     internal static string FormatActor(Guid actorId)
