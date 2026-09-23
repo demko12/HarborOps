@@ -58,8 +58,7 @@
             <VesselPicker @key="vesselPickerResetToken"
                           SearchTextChanged="SearchByTextAsync"
                           SelectedTextChanged="SelectVesselFromSearchAsync"
-                          Placeholder="Search vessels by name or IMO number"
-                          Disabled="isLoading" />
+                          Placeholder="Search vessels by name or IMO number" />
         </div>
         <select @bind="status" @bind:after="SearchAsync" aria-label="Filter by vessel status">
             <option value="">All statuses</option>

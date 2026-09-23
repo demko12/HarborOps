@@ -57,6 +57,12 @@ public static class CrewModule
         services.AddScoped<IGetCrewAvailabilityQuery, GetCrewAvailabilityQuery>();
         services.AddScoped<IGetCrewMemberAvailabilityQuery, GetCrewMemberAvailabilityQuery>();
         services.AddScoped<IGetCrewAvailabilityConflictsQuery, GetCrewAvailabilityConflictsQuery>();
+        services.AddScoped<IGetVesselManningPlansQuery, GetVesselManningPlansQuery>();
+        services.AddScoped<IGetVesselManningPlanDetailQuery, GetVesselManningPlanDetailQuery>();
+        services.AddScoped<IGetCrewManningCoverageQuery, GetCrewManningCoverageQuery>();
+        services.AddScoped<CreateVesselManningPlanService>();
+        services.AddScoped<ReplaceVesselManningPlanLinesService>();
+        services.AddScoped<EndVesselManningPlanService>();
         return services;
     }
 }

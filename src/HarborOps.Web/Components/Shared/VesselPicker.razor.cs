@@ -47,8 +47,6 @@ public partial class VesselPicker : IDisposable
     {
         displayText = e.Value?.ToString() ?? string.Empty;
 
-        await SearchTextChanged.InvokeAsync(displayText);
-
         // Any manual edit invalidates a previously selected vessel so Value never
         // stays bound to a name the user has since typed over.
         if (Value is not null)
@@ -61,7 +59,7 @@ public partial class VesselPicker : IDisposable
         searchCts?.Dispose();
         searchCts = null;
 
-        await StartSearchAsync(displayText, debounce: true);
+        await StartSearchAsync(displayText, debounce: true, notifySearchTextChanged: true);
     }
 
     private async Task SearchAsync(string search, CancellationTokenSource cts)
@@ -135,7 +133,7 @@ public partial class VesselPicker : IDisposable
         await StartSearchAsync(string.Empty, debounce: false);
     }
 
-    private async Task StartSearchAsync(string search, bool debounce)
+    private async Task StartSearchAsync(string search, bool debounce, bool notifySearchTextChanged = false)
     {
         isDropdownOpen = true;
         isSearching = true;
@@ -155,6 +153,11 @@ public partial class VesselPicker : IDisposable
             {
                 return;
             }
+        }
+
+        if (notifySearchTextChanged && !cts.IsCancellationRequested)
+        {
+            await SearchTextChanged.InvokeAsync(search);
         }
 
         await SearchAsync(search, cts);

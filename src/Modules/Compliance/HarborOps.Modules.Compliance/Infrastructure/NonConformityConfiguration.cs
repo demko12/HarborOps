@@ -34,6 +34,12 @@ internal sealed class NonConformityConfiguration : IEntityTypeConfiguration<NonC
         builder.Property(n => n.ClosureNotes)
             .HasMaxLength(NonConformity.ClosureNotesMaxLength);
 
+        builder.Property(n => n.PscDeficiencyCode)
+            .HasMaxLength(NonConformity.PscDeficiencyCodeMaxLength);
+
+        builder.Property(n => n.PscDeficiencyDescription)
+            .HasMaxLength(NonConformity.PscDeficiencyDescriptionMaxLength);
+
         builder.Property(n => n.ClosedAtUtc);
 
         builder.Property(n => n.ClosedByUserId);
@@ -51,5 +57,7 @@ internal sealed class NonConformityConfiguration : IEntityTypeConfiguration<NonC
             .OnDelete(DeleteBehavior.Restrict);
 
         builder.HasIndex(n => n.EvidenceDocumentId);
+
+        builder.HasIndex(n => new { n.PscId, n.ClosureStatus });
     }
 }

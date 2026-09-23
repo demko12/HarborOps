@@ -680,6 +680,59 @@ internal sealed class CrewApiClient(HttpClient httpClient)
         => PostAsync<CancelCrewAvailabilityRequestRequest, CrewAvailabilityDecisionResponse>(
             $"api/crew/availability-requests/{requestId}/cancel", request, cancellationToken);
 
+    internal Task<CrewApiResult<VesselManningPlansPageResponse>> GetManningPlansAsync(
+        Guid? vesselId,
+        int pageNumber,
+        int pageSize,
+        CancellationToken cancellationToken)
+    {
+        var query = new List<string> { $"pageNumber={pageNumber}", $"pageSize={pageSize}" };
+
+        if (vesselId is { } vessel)
+        {
+            query.Add($"vesselId={vessel}");
+        }
+
+        return GetJsonAsync<VesselManningPlansPageResponse>(
+            $"api/crew/manning-plans?{string.Join('&', query)}", "Unable to load manning plans", cancellationToken);
+    }
+
+    internal Task<CrewApiResult<VesselManningPlanDetailResponse>> GetManningPlanDetailAsync(
+        Guid planId,
+        CancellationToken cancellationToken)
+        => GetJsonAsync<VesselManningPlanDetailResponse>(
+            $"api/crew/manning-plans/{planId}", "Unable to load the manning plan", cancellationToken);
+
+    internal Task<CrewApiWriteResult<CreateVesselManningPlanResponse>> CreateManningPlanAsync(
+        CreateVesselManningPlanRequest request,
+        CancellationToken cancellationToken)
+        => PostAsync<CreateVesselManningPlanRequest, CreateVesselManningPlanResponse>(
+            "api/crew/manning-plans", request, cancellationToken);
+
+    internal Task<CrewApiWriteResult<ReplaceVesselManningPlanLinesResponse>> ReplaceManningPlanLinesAsync(
+        Guid planId,
+        ReplaceVesselManningPlanLinesRequest request,
+        CancellationToken cancellationToken)
+        => PutAsync<ReplaceVesselManningPlanLinesRequest, ReplaceVesselManningPlanLinesResponse>(
+            $"api/crew/manning-plans/{planId}/lines", request, cancellationToken);
+
+    internal Task<CrewApiWriteResult<EndVesselManningPlanResponse>> EndManningPlanAsync(
+        Guid planId,
+        EndVesselManningPlanRequest request,
+        CancellationToken cancellationToken)
+        => PostAsync<EndVesselManningPlanRequest, EndVesselManningPlanResponse>(
+            $"api/crew/manning-plans/{planId}/end-date", request, cancellationToken);
+
+    internal Task<CrewApiResult<GetCrewManningCoverageResponse>> GetManningCoverageAsync(
+        Guid vesselId,
+        DateOnly from,
+        DateOnly to,
+        CancellationToken cancellationToken)
+        => GetJsonAsync<GetCrewManningCoverageResponse>(
+            $"api/crew/manning-coverage?vesselId={vesselId}&from={FormatIsoDate(from)}&to={FormatIsoDate(to)}",
+            "Unable to load manning coverage",
+            cancellationToken);
+
     private async Task<CrewApiResult<T>> GetJsonAsync<T>(
         string path,
         string failureTitle,
@@ -1068,3 +1121,100 @@ internal sealed record CrewAvailabilityConflictResponse(
     string? Detail);
 
 internal sealed record GetCrewAvailabilityConflictsResponse(IReadOnlyList<CrewAvailabilityConflictResponse> Conflicts);
+
+internal sealed record ManningPlanLineInputRequest
+{
+    public Guid? RankId { get; init; }
+    public int? RequiredHeadcount { get; init; }
+}
+
+internal sealed record VesselManningPlanLineItemResponse(Guid Id, Guid RankId, string RankName, int RequiredHeadcount);
+
+internal sealed record VesselManningPlanHistoryItemResponse(
+    Guid Id,
+    string EventType,
+    string? Reason,
+    Guid ActorUserId,
+    DateTime OccurredAtUtc,
+    DateOnly? PreviousEffectiveEndDate,
+    DateOnly? NewEffectiveEndDate);
+
+internal sealed record VesselManningPlanListItemResponse(
+    Guid Id,
+    Guid VesselId,
+    DateOnly EffectiveStartDate,
+    DateOnly EffectiveEndDate,
+    int LineCount,
+    Guid CreatedByUserId,
+    DateTime CreatedAtUtc,
+    Guid ConcurrencyToken);
+
+internal sealed record VesselManningPlansPageResponse(
+    IReadOnlyList<VesselManningPlanListItemResponse> Items, int PageNumber, int PageSize, int TotalCount);
+
+internal sealed record VesselManningPlanDetailResponse(
+    Guid Id,
+    Guid VesselId,
+    DateOnly EffectiveStartDate,
+    DateOnly EffectiveEndDate,
+    Guid CreatedByUserId,
+    DateTime CreatedAtUtc,
+    Guid ConcurrencyToken,
+    IReadOnlyList<VesselManningPlanLineItemResponse> Lines,
+    IReadOnlyList<VesselManningPlanHistoryItemResponse> History);
+
+internal sealed record CreateVesselManningPlanRequest
+{
+    public Guid? VesselId { get; init; }
+    public DateOnly? EffectiveStartDate { get; init; }
+    public DateOnly? EffectiveEndDate { get; init; }
+    public IReadOnlyList<ManningPlanLineInputRequest>? Lines { get; init; }
+}
+
+internal sealed record CreateVesselManningPlanResponse(
+    Guid Id,
+    Guid VesselId,
+    DateOnly EffectiveStartDate,
+    DateOnly EffectiveEndDate,
+    Guid ConcurrencyToken,
+    IReadOnlyList<VesselManningPlanLineItemResponse> Lines);
+
+internal sealed record ReplaceVesselManningPlanLinesRequest
+{
+    public IReadOnlyList<ManningPlanLineInputRequest>? Lines { get; init; }
+    public string? Reason { get; init; }
+}
+
+internal sealed record ReplaceVesselManningPlanLinesResponse(
+    Guid Id, Guid ConcurrencyToken, IReadOnlyList<VesselManningPlanLineItemResponse> Lines);
+
+internal sealed record EndVesselManningPlanRequest
+{
+    public DateOnly? NewEndDate { get; init; }
+    public string? Reason { get; init; }
+}
+
+internal sealed record EndVesselManningPlanResponse(Guid Id, DateOnly EffectiveEndDate, Guid ConcurrencyToken);
+
+internal sealed record CoverageIneligibleMemberResponse(Guid CrewMemberId, string Reason);
+
+internal sealed record CoverageDayItemResponse(
+    DateOnly Date,
+    Guid RankId,
+    string RankName,
+    int? RequiredHeadcount,
+    int ProjectedAssignedHeadcount,
+    int EligibleHeadcount,
+    int? Shortage,
+    IReadOnlyList<CoverageIneligibleMemberResponse> IneligibleMembers,
+    IReadOnlyList<Guid> AssignmentIds);
+
+internal sealed record CoverageShortageIntervalResponse(
+    Guid RankId, string RankName, DateOnly StartDate, DateOnly EndDate, int RequiredHeadcount, int Shortage);
+
+internal sealed record GetCrewManningCoverageResponse(
+    Guid VesselId,
+    DateOnly From,
+    DateOnly To,
+    IReadOnlyList<CoverageDayItemResponse> Days,
+    IReadOnlyList<CoverageShortageIntervalResponse> ShortageIntervals);
