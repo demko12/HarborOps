@@ -178,6 +178,78 @@ public sealed class MaintenanceStocktakesPanelTests : BunitContext
     }
 
     [Fact]
+    public void The_part_picker_says_how_many_parts_match()
+    {
+        respond = request => request.RequestUri!.AbsolutePath == "/api/maintenance/inventory-items"
+            ? Json(HttpStatusCode.OK, InventoryItemsPage(pageNumber: 1, totalCount: 60))
+            : DefaultResponse(request);
+
+        var panel = RenderManagerPanel();
+        panel.Find(".stocktake-new").Click();
+
+        panel.WaitForAssertion(() =>
+        {
+            var pagination = panel.Find(".stocktake-part-pagination");
+
+            Assert.Contains("of 60 parts", pagination.TextContent, StringComparison.Ordinal);
+            Assert.Contains("Page 1 of 3", pagination.TextContent, StringComparison.Ordinal);
+        });
+    }
+
+    [Fact]
+    public void The_part_picker_pages_forward_through_the_catalogue()
+    {
+        respond = request => request.RequestUri!.AbsolutePath == "/api/maintenance/inventory-items"
+            ? Json(HttpStatusCode.OK, InventoryItemsPage(pageNumber: 1, totalCount: 60))
+            : DefaultResponse(request);
+
+        var panel = RenderManagerPanel();
+        panel.Find(".stocktake-new").Click();
+        panel.WaitForAssertion(() => Assert.NotEmpty(panel.FindAll(".stocktake-part-pagination")));
+
+        panel.FindAll(".stocktake-part-pagination .maintenance-pages button")[1].Click();
+
+        panel.WaitForAssertion(() => Assert.Contains(
+            "pageNumber=2",
+            requestedUris.Last().Query,
+            StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void The_first_part_page_cannot_go_back()
+    {
+        var panel = RenderManagerPanel();
+        panel.Find(".stocktake-new").Click();
+        panel.WaitForAssertion(() => Assert.NotEmpty(panel.FindAll(".stocktake-part-pagination")));
+
+        Assert.True(panel
+            .FindAll(".stocktake-part-pagination .maintenance-pages button")[0]
+            .HasAttribute("disabled"));
+    }
+
+    [Fact]
+    public void Searching_parts_starts_again_from_the_first_page()
+    {
+        respond = request => request.RequestUri!.AbsolutePath == "/api/maintenance/inventory-items"
+            ? Json(HttpStatusCode.OK, InventoryItemsPage(pageNumber: 2, totalCount: 60))
+            : DefaultResponse(request);
+
+        var panel = RenderManagerPanel();
+        panel.Find(".stocktake-new").Click();
+        panel.WaitForAssertion(() => Assert.NotEmpty(panel.FindAll(".stocktake-part-pagination")));
+
+        panel.Find("#stocktake-part-search").Change("filter");
+
+        panel.WaitForAssertion(() =>
+        {
+            var query = requestedUris.Last().Query;
+
+            Assert.Contains("search=filter", query, StringComparison.Ordinal);
+            Assert.Contains("pageNumber=1", query, StringComparison.Ordinal);
+        });
+    }
+
+    [Fact]
     public void A_selected_part_is_listed_as_a_chip_and_cannot_be_picked_twice()
     {
         var panel = RenderManagerPanel();
@@ -390,13 +462,13 @@ public sealed class MaintenanceStocktakesPanelTests : BunitContext
             """;
     }
 
-    private static string InventoryItemsPage()
+    private static string InventoryItemsPage(int pageNumber = 1, int totalCount = 1)
     {
         return $$"""
             {"items":[{"inventoryItemId":"{{FilterId}}","name":"Main engine filter",
             "partNumber":"FILTER-001","quantity":10,"minimumQuantity":2,"unitCost":150,
             "categoryId":"{{FilterId}}","unitId":"{{FilterId}}","supplierId":"{{FilterId}}"}],
-            "pageNumber":1,"pageSize":25,"totalCount":1}
+            "pageNumber":{{pageNumber}},"pageSize":25,"totalCount":{{totalCount}}}
             """;
     }
 

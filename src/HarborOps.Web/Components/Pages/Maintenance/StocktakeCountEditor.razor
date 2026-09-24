@@ -39,7 +39,22 @@
 			<div class="maintenance-toast stocktake-success" role="status" aria-live="polite">@successMessage</div>
 		}
 
-		@if (actionFailure is not null)
+		@if (actionFailure is { IsValidation: true })
+		{
+			<div class="stocktake-blockers stocktake-validation" role="alert">
+				<h3>Fix before saving</h3>
+				<ul>
+					@foreach (var error in ValidationMessages)
+					{
+						<li @key="error">
+							<span class="stocktake-blocker-code">@error.Label</span>
+							<span>@error.Message</span>
+						</li>
+					}
+				</ul>
+			</div>
+		}
+		else if (actionFailure is not null)
 		{
 			<ApiErrorState Title="@actionFailure.Title" Message="@actionFailure.Message" OnRetry="ReloadAsync" />
 		}
@@ -64,6 +79,15 @@
 									}
 								</span>
 							}
+							@if (CanEdit && blocker.Code == MaintenanceFormat.StaleBaselineBlocker)
+							{
+								<button type="button"
+										class="maintenance-reset stocktake-recount"
+										disabled="@isActing"
+										@onclick="() => RecountAsync(blocker.InventoryItemId)">
+									Recount this line
+								</button>
+							}
 						</li>
 					}
 				</ul>
@@ -75,10 +99,6 @@
 				<caption class="visually-hidden">Stocktake lines</caption>
 				<thead>
 					<tr>
-						@if (CanEdit)
-						{
-							<th scope="col" class="col-select"><span class="visually-hidden">Select for recount</span></th>
-						}
 						<th scope="col">Part</th>
 						<th scope="col">Part number</th>
 						<th scope="col" class="numeric">Baseline</th>
@@ -96,21 +116,7 @@
 						var previewLine = PreviewFor(line.InventoryItemId);
 
 						<tr @key="line.InventoryItemId" class="@(previewLine is { BaselineIsStale: true } ? "stocktake-line-stale" : null)">
-							@if (CanEdit)
-							{
-								<td>
-									<input type="checkbox"
-										   aria-label="@($"Select {line.Name} for recount")"
-										   checked="@editable.IsSelectedForRefresh"
-										   @onchange="args => ToggleRefreshSelection(line.InventoryItemId, args)"
-										   disabled="@isActing" />
-								</td>
-							}
-							<td>
-								<a class="stocktake-link" href="/maintenance?tab=replenishment" title="@($"Open {line.Name} in the replenishment board")">
-									@line.Name
-								</a>
-							</td>
+							<td><span class="maintenance-title">@line.Name</span></td>
 							<td class="maintenance-muted">@line.PartNumber</td>
 							<td class="numeric">@MaintenanceFormat.Quantity(line.BaselineQuantity) @line.UnitAbbreviation</td>
 							<td class="numeric">
@@ -161,14 +167,8 @@
 		@if (CanEdit)
 		{
 			<div class="maintenance-form-actions stocktake-actions">
-				<button type="button" class="maintenance-button" disabled="@isActing" @onclick="SaveCountsAsync">
-					@(isActing ? "Working..." : "Save counts")
-				</button>
-				<button type="button" class="maintenance-reset" disabled="@(isActing || !HasRefreshSelection)" @onclick="RefreshSelectedAsync">
-					Refresh baseline and recount
-				</button>
-				<button type="button" class="maintenance-reset" disabled="@isActing" @onclick="LoadPreviewAsync">
-					Preview posting
+				<button type="button" class="maintenance-button" disabled="@isActing" @onclick="SaveAndCheckAsync">
+					@(isActing ? "Working..." : "Save and check")
 				</button>
 				<button type="button"
 						class="maintenance-button stocktake-post"
@@ -181,7 +181,8 @@
 				</button>
 			</div>
 			<p class="maintenance-muted stocktake-hint">
-				A refresh clears the count on the selected lines, so the operator confirms a fresh physical count.
+				Saving also checks the stocktake against current stock and reservations. A recount clears the count on
+				that line, so the operator confirms a fresh physical count.
 			</p>
 		}
 		else

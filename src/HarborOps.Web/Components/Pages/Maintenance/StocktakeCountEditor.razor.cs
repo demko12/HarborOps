@@ -21,6 +21,9 @@ public partial class StocktakeCountEditor : IDisposable
     private MaintenanceApiFailure? actionFailure;
     private string? successMessage;
 
+    private IReadOnlyDictionary<Guid, string> lineErrors = new Dictionary<Guid, string>();
+    private IReadOnlyList<string> formErrors = [];
+
     private bool isLoading = true;
     private bool isActing;
     private bool isPostConfirmOpen;
@@ -33,7 +36,12 @@ public partial class StocktakeCountEditor : IDisposable
 
     private bool CanEdit => CanManage && IsDraft;
 
-    private bool HasRefreshSelection => editors.Values.Any(editor => editor.IsSelectedForRefresh);
+    private string CheckSummary => preview is not { } checkedPreview
+        ? string.Empty
+        : checkedPreview.Blockers.Count == 0
+            ? $"Checked at {MaintenanceFormat.CountedUtc(checkedPreview.GeneratedUtc)}, nothing blocks posting."
+            : $"Checked at {MaintenanceFormat.CountedUtc(checkedPreview.GeneratedUtc)}, "
+                + $"{checkedPreview.Blockers.Count} blocker(s) to resolve.";
 
     private int VarianceCount => details?.Lines.Count(line => line.Variance is not null and not 0) ?? 0;
 
@@ -61,6 +69,47 @@ public partial class StocktakeCountEditor : IDisposable
         return editor;
     }
 
+    private IReadOnlyList<ValidationMessage> ValidationMessages =>
+    [
+        .. lineErrors.Select(entry => new ValidationMessage(
+            $"'{PartNumberFor(entry.Key)}'",
+            entry.Value)),
+        .. formErrors.Select(message => new ValidationMessage("Stocktake", message)),
+    ];
+
+    /// <summary>
+    /// Turns the server's field keys, such as "lines[0].reason", back into the line they belong to,
+    /// so the operator reads the message next to the count that caused it.
+    /// </summary>
+    private void ApplyValidationErrors(MaintenanceApiFailure failure, IReadOnlyList<Guid> submittedItemIds)
+    {
+        var perLine = new Dictionary<Guid, string>();
+        var remaining = new List<string>();
+
+        foreach (var (key, messages) in failure.Errors)
+        {
+            var message = string.Join(" ", messages);
+            var start = key.IndexOf('[', StringComparison.Ordinal);
+            var end = key.IndexOf(']', StringComparison.Ordinal);
+
+            if (key.StartsWith("lines[", StringComparison.Ordinal)
+                && end > start
+                && int.TryParse(key.AsSpan(start + 1, end - start - 1), out var index)
+                && index >= 0
+                && index < submittedItemIds.Count)
+            {
+                perLine[submittedItemIds[index]] = message;
+
+                continue;
+            }
+
+            remaining.Add(message);
+        }
+
+        lineErrors = perLine;
+        formErrors = remaining;
+    }
+
     private StocktakePreviewLineRow? PreviewFor(Guid inventoryItemId)
     {
         return preview?.Lines.FirstOrDefault(line => line.InventoryItemId == inventoryItemId);
@@ -70,14 +119,6 @@ public partial class StocktakeCountEditor : IDisposable
     {
         return details?.Lines.FirstOrDefault(line => line.InventoryItemId == inventoryItemId)?.PartNumber
             ?? MaintenanceFormat.MissingValue;
-    }
-
-    private void ToggleRefreshSelection(Guid inventoryItemId, ChangeEventArgs args)
-    {
-        if (editors.TryGetValue(inventoryItemId, out var editor))
-        {
-            editor.IsSelectedForRefresh = args.Value is true;
-        }
     }
 
     private void AskToPost()
@@ -156,6 +197,8 @@ public partial class StocktakeCountEditor : IDisposable
     private void ApplyDetails(StocktakeDetailsModel loaded)
     {
         details = loaded;
+        lineErrors = new Dictionary<Guid, string>();
+        formErrors = [];
         editors.Clear();
 
         foreach (var line in loaded.Lines)
@@ -197,7 +240,7 @@ public partial class StocktakeCountEditor : IDisposable
         preview = result.Value;
     }
 
-    private async Task SaveCountsAsync()
+    private async Task SaveAndCheckAsync()
     {
         if (details is null || isActing)
         {
@@ -207,6 +250,8 @@ public partial class StocktakeCountEditor : IDisposable
         isActing = true;
         actionFailure = null;
         successMessage = null;
+        lineErrors = new Dictionary<Guid, string>();
+        formErrors = [];
 
         var lines = details.Lines
             .Select(line => new StocktakeCountEntry
@@ -241,6 +286,11 @@ public partial class StocktakeCountEditor : IDisposable
         {
             actionFailure = result.Failure;
 
+            if (result.Failure is { IsValidation: true })
+            {
+                ApplyValidationErrors(result.Failure, lines.Select(line => line.InventoryItemId!.Value).ToList());
+            }
+
             if (result.Failure is { IsConflict: true })
             {
                 await ReloadAsync();
@@ -250,14 +300,15 @@ public partial class StocktakeCountEditor : IDisposable
         }
 
         ApplyDetails(result.Value!);
-        successMessage = "Counts saved.";
 
         await LoadPreviewAsync();
+
+        successMessage = $"Counts saved. {CheckSummary}".TrimEnd();
     }
 
-    private async Task RefreshSelectedAsync()
+    private async Task RecountAsync(Guid inventoryItemId)
     {
-        if (details is null || isActing || !HasRefreshSelection)
+        if (details is null || isActing)
         {
             return;
         }
@@ -266,10 +317,8 @@ public partial class StocktakeCountEditor : IDisposable
         actionFailure = null;
         successMessage = null;
 
-        var inventoryItemIds = editors
-            .Where(pair => pair.Value.IsSelectedForRefresh)
-            .Select(pair => pair.Key)
-            .ToList();
+        var partNumber = details.Lines
+            .FirstOrDefault(line => line.InventoryItemId == inventoryItemId)?.PartNumber;
 
         MaintenanceApiResult<StocktakeDetailsModel> result;
 
@@ -280,7 +329,7 @@ public partial class StocktakeCountEditor : IDisposable
                 new RefreshStocktakeLinesRequest
                 {
                     ExpectedConcurrencyToken = details.ConcurrencyToken,
-                    InventoryItemIds = inventoryItemIds,
+                    InventoryItemIds = [inventoryItemId],
                 },
                 disposeCancellation.Token);
         }
@@ -304,9 +353,10 @@ public partial class StocktakeCountEditor : IDisposable
         }
 
         ApplyDetails(result.Value!);
-        successMessage = $"{inventoryItemIds.Count} line(s) refreshed. Count them again before posting.";
 
         await LoadPreviewAsync();
+
+        successMessage = $"'{partNumber}' now carries the current baseline. Count it again before posting.";
     }
 
     private async Task PostAsync()
@@ -411,12 +461,12 @@ public partial class StocktakeCountEditor : IDisposable
         disposeCancellation.Dispose();
     }
 
+    private sealed record ValidationMessage(string Label, string Message);
+
     private sealed class StocktakeLineEditor
     {
         public decimal? CountedQuantity { get; set; }
 
         public string? Reason { get; set; }
-
-        public bool IsSelectedForRefresh { get; set; }
     }
 }

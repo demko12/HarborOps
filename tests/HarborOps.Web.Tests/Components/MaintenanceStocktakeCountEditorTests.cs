@@ -34,9 +34,9 @@ public sealed class MaintenanceStocktakeCountEditorTests : BunitContext
 
         var cells = editor.Find(".stocktake-lines-table tbody tr").QuerySelectorAll("td");
 
-        Assert.Contains("Main engine filter", cells[1].TextContent, StringComparison.Ordinal);
-        Assert.Equal("FILTER-001", cells[2].TextContent.Trim());
-        Assert.Contains("10", cells[3].TextContent, StringComparison.Ordinal);
+        Assert.Contains("Main engine filter", cells[0].TextContent, StringComparison.Ordinal);
+        Assert.Equal("FILTER-001", cells[1].TextContent.Trim());
+        Assert.Contains("10", cells[2].TextContent, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -50,6 +50,39 @@ public sealed class MaintenanceStocktakeCountEditorTests : BunitContext
 
         Assert.Contains("shortage", variance.ClassName, StringComparison.Ordinal);
         Assert.Equal("-2", variance.TextContent.Trim());
+    }
+
+    [Fact]
+    public void The_draft_offers_saving_posting_and_cancelling_only()
+    {
+        var editor = RenderEditor();
+
+        var actions = editor.FindAll(".stocktake-actions button");
+
+        Assert.Equal(3, actions.Count);
+        Assert.Equal("Save and check", actions[0].TextContent.Trim());
+        Assert.Equal("Post stocktake", actions[1].TextContent.Trim());
+        Assert.Equal("Cancel stocktake", actions[2].TextContent.Trim());
+        Assert.Empty(editor.FindAll(".stocktake-lines-table input[type=checkbox]"));
+    }
+
+    [Fact]
+    public void Saving_also_checks_the_stocktake_and_reports_the_result()
+    {
+        previewJson = Preview(canPost: "true");
+
+        var editor = RenderEditor();
+        var previewsBefore = Paths().Count(path => path.EndsWith("/preview", StringComparison.Ordinal));
+
+        editor.Find(".stocktake-actions .maintenance-button").Click();
+
+        editor.WaitForAssertion(() =>
+        {
+            Assert.True(
+                Paths().Count(path => path.EndsWith("/preview", StringComparison.Ordinal)) > previewsBefore);
+            Assert.Contains("Counts saved.", editor.Markup, StringComparison.Ordinal);
+            Assert.Contains("nothing blocks posting", editor.Markup, StringComparison.Ordinal);
+        });
     }
 
     [Fact]
@@ -70,6 +103,65 @@ public sealed class MaintenanceStocktakeCountEditorTests : BunitContext
             Assert.Contains(ConcurrencyToken, body, StringComparison.OrdinalIgnoreCase);
             Assert.Contains("\"countedQuantity\":8", body, StringComparison.Ordinal);
             Assert.Contains("Missing", body, StringComparison.Ordinal);
+        });
+    }
+
+    [Fact]
+    public void A_missing_reason_is_reported_on_the_line_that_needs_it()
+    {
+        respond = request => request.Method == HttpMethod.Put
+            ? Json(
+                HttpStatusCode.BadRequest,
+                """
+                {"title":"One or more validation errors occurred.","status":400,
+                "errors":{"lines[0].reason":["A reason is required when the count differs from the baseline."]}}
+                """)
+            : DefaultResponse(request);
+
+        var editor = RenderEditor();
+
+        editor.Find(".stocktake-lines-table tbody tr input[type=number]").Change("8");
+        editor.Find(".stocktake-actions .maintenance-button").Click();
+
+        editor.WaitForAssertion(() =>
+        {
+            var error = editor.Find(".stocktake-validation li");
+
+            Assert.Contains("'FILTER-001'", error.TextContent, StringComparison.Ordinal);
+            Assert.Contains(
+                "A reason is required when the count differs from the baseline.",
+                error.TextContent,
+                StringComparison.Ordinal);
+            Assert.Empty(editor.FindAll(".api-error-state"));
+            Assert.Empty(editor.FindAll(".stocktake-lines-table .maintenance-inline-error"));
+        });
+    }
+
+    [Fact]
+    public void A_validation_error_without_a_line_is_listed_on_the_form()
+    {
+        respond = request => request.Method == HttpMethod.Put
+            ? Json(
+                HttpStatusCode.BadRequest,
+                """
+                {"title":"One or more validation errors occurred.","status":400,
+                "errors":{"expectedConcurrencyToken":["Expected concurrency token is required."]}}
+                """)
+            : DefaultResponse(request);
+
+        var editor = RenderEditor();
+
+        editor.Find(".stocktake-actions .maintenance-button").Click();
+
+        editor.WaitForAssertion(() =>
+        {
+            var error = editor.Find(".stocktake-validation li");
+
+            Assert.Contains("Stocktake", error.TextContent, StringComparison.Ordinal);
+            Assert.Contains(
+                "Expected concurrency token is required.",
+                error.TextContent,
+                StringComparison.Ordinal);
         });
     }
 
@@ -96,27 +188,26 @@ public sealed class MaintenanceStocktakeCountEditorTests : BunitContext
     }
 
     [Fact]
-    public void Refreshing_is_offered_only_for_selected_lines()
+    public void Only_a_stale_baseline_offers_a_recount()
     {
         var editor = RenderEditor();
 
-        var refreshButton = editor.FindAll(".stocktake-actions button")[1];
+        Assert.Empty(editor.FindAll(".stocktake-recount"));
 
-        Assert.True(refreshButton.HasAttribute("disabled"));
+        previewJson = Preview(blockers: StaleBaselineBlocker());
+        editor.Find(".stocktake-actions .maintenance-button").Click();
 
-        editor.Find(".stocktake-lines-table tbody tr input[type=checkbox]").Change(true);
-
-        editor.WaitForAssertion(() => Assert.False(
-            editor.FindAll(".stocktake-actions button")[1].HasAttribute("disabled")));
+        editor.WaitForAssertion(() => Assert.NotEmpty(editor.FindAll(".stocktake-recount")));
     }
 
     [Fact]
-    public void Refreshing_sends_the_selected_item_and_warns_that_the_count_was_cleared()
+    public void Recounting_refreshes_that_line_and_warns_that_the_count_was_cleared()
     {
-        var editor = RenderEditor();
-        editor.Find(".stocktake-lines-table tbody tr input[type=checkbox]").Change(true);
+        previewJson = Preview(blockers: StaleBaselineBlocker());
 
-        editor.FindAll(".stocktake-actions button")[1].Click();
+        var editor = RenderEditor();
+
+        editor.Find(".stocktake-recount").Click();
 
         editor.WaitForAssertion(() =>
         {
@@ -125,7 +216,7 @@ public sealed class MaintenanceStocktakeCountEditorTests : BunitContext
 
             Assert.EndsWith("/refresh", request.RequestUri!.AbsolutePath, StringComparison.Ordinal);
             Assert.Contains(FilterId, body, StringComparison.OrdinalIgnoreCase);
-            Assert.Contains("Count them again before posting.", editor.Markup, StringComparison.Ordinal);
+            Assert.Contains("Count it again before posting.", editor.Markup, StringComparison.Ordinal);
         });
     }
 
@@ -386,6 +477,15 @@ public sealed class MaintenanceStocktakeCountEditorTests : BunitContext
             "stocktakeId":"{{StocktakeId}}","quantityBefore":10,"countedQuantity":8,
             "quantityDelta":-2,"reason":"Missing","actorUserId":"{{FilterId}}",
             "adjustedUtc":"2026-09-23T09:00:00Z"}]}
+            """;
+    }
+
+    private static string StaleBaselineBlocker()
+    {
+        return $$"""
+            {"inventoryItemId":"{{FilterId}}","code":"StaleBaseline",
+            "message":"Stock for 'FILTER-001' changed after the count baseline was captured.",
+            "reservingWorkOrderIds":[]}
             """;
     }
 

@@ -34,6 +34,8 @@ public partial class StocktakesPanel : IDisposable
     private IReadOnlyList<InventoryItemListItem> partOptions = [];
     private bool isPartsLoading;
     private MaintenanceApiFailure? partsFailure;
+    private int partPageNumber = 1;
+    private int partTotalCount;
 
     private bool CanManage => AuthorizationState.HasPermission("maintenance.manage");
 
@@ -49,6 +51,16 @@ public partial class StocktakesPanel : IDisposable
         StringComparison.Ordinal));
 
     private int VarianceLineCount => rows.Sum(row => row.VarianceLineCount);
+
+    private int TotalPartPages => partTotalCount == 0
+        ? 1
+        : (partTotalCount + PartOptionLimit - 1) / PartOptionLimit;
+
+    private int FirstPartNumber => partOptions.Count == 0
+        ? 0
+        : ((partPageNumber - 1) * PartOptionLimit) + 1;
+
+    private int LastPartNumber => FirstPartNumber + partOptions.Count - 1;
 
     protected override Task OnInitializedAsync()
     {
@@ -96,6 +108,8 @@ public partial class StocktakesPanel : IDisposable
             selectedParts.Clear();
             partOptions = [];
             partSearchText = null;
+            partPageNumber = 1;
+            partTotalCount = 0;
             notes = null;
 
             return Task.CompletedTask;
@@ -156,7 +170,38 @@ public partial class StocktakesPanel : IDisposable
         return LoadAsync();
     }
 
-    private async Task SearchPartsAsync()
+    private Task SearchPartsAsync()
+    {
+        partPageNumber = 1;
+
+        return LoadPartsAsync();
+    }
+
+    private Task PreviousPartPageAsync()
+    {
+        if (partPageNumber <= 1)
+        {
+            return Task.CompletedTask;
+        }
+
+        partPageNumber--;
+
+        return LoadPartsAsync();
+    }
+
+    private Task NextPartPageAsync()
+    {
+        if (partPageNumber >= TotalPartPages)
+        {
+            return Task.CompletedTask;
+        }
+
+        partPageNumber++;
+
+        return LoadPartsAsync();
+    }
+
+    private async Task LoadPartsAsync()
     {
         var requestVersion = ++partsVersion;
         isPartsLoading = true;
@@ -167,7 +212,7 @@ public partial class StocktakesPanel : IDisposable
         try
         {
             result = await MaintenanceApi.GetInventoryItemsAsync(
-                new InventoryItemFilter(partSearchText, null, 1, PartOptionLimit),
+                new InventoryItemFilter(partSearchText, null, partPageNumber, PartOptionLimit),
                 disposeCancellation.Token);
         }
         catch (OperationCanceledException) when (disposeCancellation.IsCancellationRequested)
@@ -186,11 +231,15 @@ public partial class StocktakesPanel : IDisposable
         {
             partsFailure = result.Failure;
             partOptions = [];
+            partTotalCount = 0;
 
             return;
         }
 
-        partOptions = result.Value!.Items;
+        var page = result.Value!;
+        partPageNumber = page.PageNumber;
+        partTotalCount = page.TotalCount;
+        partOptions = page.Items;
     }
 
     private async Task SubmitCreateAsync()

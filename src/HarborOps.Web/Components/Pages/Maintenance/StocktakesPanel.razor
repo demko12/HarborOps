@@ -130,6 +130,19 @@
 								</li>
 							}
 						</ul>
+
+						<div class="maintenance-pagination stocktake-part-pagination">
+							<span>Showing @FirstPartNumber&ndash;@LastPartNumber of @partTotalCount parts</span>
+							<div class="maintenance-pages">
+								<button type="button"
+										@onclick="PreviousPartPageAsync"
+										disabled="@(isCreating || partPageNumber <= 1)">Previous</button>
+								<span class="maintenance-page-indicator">Page @partPageNumber of @TotalPartPages</span>
+								<button type="button"
+										@onclick="NextPartPageAsync"
+										disabled="@(isCreating || partPageNumber >= TotalPartPages)">Next</button>
+							</div>
+						</div>
 					}
 
 					<div class="stocktake-selected" aria-live="polite">
