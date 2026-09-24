@@ -106,6 +106,7 @@ public partial class Maintenance
             "schedules" => MaintenanceTab.PreventiveSchedules,
             "preventive-work" => MaintenanceTab.PreventiveWork,
             "replenishment" => MaintenanceTab.Replenishment,
+            "stocktakes" => MaintenanceTab.Stocktakes,
             "purchase-orders" => MaintenanceTab.PurchaseOrders,
             "suppliers" => MaintenanceTab.Suppliers,
             "defects" => MaintenanceTab.Defects,

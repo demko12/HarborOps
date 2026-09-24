@@ -221,6 +221,26 @@ public sealed class ChangePurchaseOrderStatusServiceTests
         Assert.Equal(unknownOrderId, exception.PurchaseOrderId);
     }
 
+    [Fact]
+    public async Task ReceiveAsync_replaces_the_stock_token_of_every_received_item()
+    {
+        var databaseName = NewDatabaseName();
+        await using var dbContext = CreateDbContext(databaseName);
+        var item = await SeedInventoryItemAsync(dbContext, 10m);
+        var stockToken = item.StockConcurrencyToken;
+        var reservationToken = item.ReservationConcurrencyToken;
+        var order = await SeedOrderAsync(dbContext, PurchaseOrderStatus.Ordered, (item.Id, 5m, 25m));
+
+        await new ChangePurchaseOrderStatusService(dbContext).ReceiveAsync(order.Id, CancellationToken.None);
+
+        await using var verification = CreateDbContext(databaseName);
+        var storedItem = await verification.Set<InventoryItem>().SingleAsync(CancellationToken.None);
+
+        Assert.Equal(15m, storedItem.Quantity);
+        Assert.NotEqual(stockToken, storedItem.StockConcurrencyToken);
+        Assert.Equal(reservationToken, storedItem.ReservationConcurrencyToken);
+    }
+
     private static async Task<PurchaseOrder> SeedOrderAsync(
         HarborOpsDbContext dbContext,
         PurchaseOrderStatus status,

@@ -79,6 +79,8 @@ public class RecordInventoryItemUsageService(DbContext dbContext, TimeProvider t
             {
                 throw new RecordInventoryItemUsageConflictException(exception.Message);
             }
+
+            inventoryItem.MarkReservationsChanged();
         }
 
         try

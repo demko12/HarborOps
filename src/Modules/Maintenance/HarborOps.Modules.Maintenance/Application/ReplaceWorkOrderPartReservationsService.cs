@@ -41,11 +41,11 @@ public sealed class ReplaceWorkOrderPartReservationsService(DbContext dbContext,
             ? await dbContext.Database.BeginTransactionAsync(IsolationLevel.Serializable, cancellationToken)
             : null;
 
-        var stockOnHand = await dbContext.Set<InventoryItem>()
-            .AsNoTracking()
+        var inventoryItems = await dbContext.Set<InventoryItem>()
             .Where(item => inventoryItemIds.Contains(item.Id))
-            .Select(item => new { item.Id, item.Quantity })
-            .ToDictionaryAsync(item => item.Id, item => item.Quantity, cancellationToken);
+            .ToListAsync(cancellationToken);
+
+        var stockOnHand = inventoryItems.ToDictionary(item => item.Id, item => item.Quantity);
 
         var missingInventoryItemIds = inventoryItemIds
             .Where(inventoryItemId => !stockOnHand.ContainsKey(inventoryItemId))
@@ -123,6 +123,20 @@ public sealed class ReplaceWorkOrderPartReservationsService(DbContext dbContext,
             {
                 throw new WorkOrderPartReservationConflictException(exception.Message);
             }
+        }
+
+        var removedItemIds = existingReservations
+            .Where(reservation => !requestedQuantities.ContainsKey(reservation.InventoryItemId))
+            .Select(reservation => reservation.InventoryItemId)
+            .ToList();
+
+        inventoryItems.AddRange(await dbContext.Set<InventoryItem>()
+            .Where(item => removedItemIds.Contains(item.Id))
+            .ToListAsync(cancellationToken));
+
+        foreach (var inventoryItem in inventoryItems)
+        {
+            inventoryItem.MarkReservationsChanged();
         }
 
         await dbContext.SaveChangesAsync(cancellationToken);

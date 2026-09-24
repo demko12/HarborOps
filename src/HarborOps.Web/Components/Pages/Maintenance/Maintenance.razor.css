@@ -2815,3 +2815,161 @@ html[data-theme="light"] .maintenance-page ::deep .preventive-state.completed {
     .maintenance-page ::deep .preventive-confirm-inline p {
         margin: 0 0 .5rem;
     }
+
+.maintenance-page ::deep .stocktake-status {
+    display: inline-flex;
+    align-items: center;
+    padding: .18rem .55rem;
+    border-radius: var(--radius-pill);
+    font-size: .78rem;
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+    .maintenance-page ::deep .stocktake-status.pending {
+        color: var(--status-warning);
+        background: rgba(251, 191, 36, .14);
+    }
+
+    .maintenance-page ::deep .stocktake-status.done {
+        color: var(--status-success);
+        background: rgba(52, 211, 153, .14);
+    }
+
+    .maintenance-page ::deep .stocktake-status.cancelled {
+        color: var(--text-muted);
+        background: var(--bg-surface-strong);
+    }
+
+.maintenance-page ::deep .stocktake-variance {
+    font-variant-numeric: tabular-nums;
+    font-weight: 600;
+}
+
+    .maintenance-page ::deep .stocktake-variance.surplus {
+        color: var(--status-success);
+    }
+
+    .maintenance-page ::deep .stocktake-variance.shortage {
+        color: var(--status-danger);
+    }
+
+    .maintenance-page ::deep .stocktake-variance.match,
+    .maintenance-page ::deep .stocktake-variance.missing {
+        color: var(--text-muted);
+    }
+
+.maintenance-page ::deep .stocktake-blockers {
+    margin: .75rem 0;
+    padding: .75rem 1rem;
+    border: 1px solid var(--status-danger);
+    border-radius: var(--radius-control);
+    background: rgba(248, 113, 113, .08);
+}
+
+    .maintenance-page ::deep .stocktake-blockers h3 {
+        margin: 0 0 .5rem;
+        font-size: .95rem;
+    }
+
+    .maintenance-page ::deep .stocktake-blockers ul {
+        display: grid;
+        gap: .45rem;
+        margin: 0;
+        padding-left: 1.1rem;
+    }
+
+.maintenance-page ::deep .stocktake-blocker-code {
+    margin-right: .4rem;
+    font-weight: 600;
+}
+
+.maintenance-page ::deep .stocktake-line-stale {
+    background: rgba(251, 191, 36, .08);
+}
+
+.maintenance-page ::deep .stocktake-lines-table input[type="number"],
+.maintenance-page ::deep .stocktake-lines-table input[type="text"] {
+    width: 100%;
+    min-width: 6rem;
+    height: var(--control-height);
+    padding: 0 .5rem;
+    border: 1px solid var(--border-medium);
+    border-radius: var(--radius-control);
+    background: var(--control-surface);
+    color: var(--text-primary);
+}
+
+.maintenance-page ::deep .stocktake-part-options {
+    display: flex;
+    flex-wrap: wrap;
+    gap: .4rem;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.maintenance-page ::deep .stocktake-selected {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: .4rem;
+    margin: .5rem 0;
+    color: var(--text-secondary);
+}
+
+.maintenance-page ::deep .stocktake-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: .35rem;
+    padding: .18rem .55rem;
+    border: 1px solid var(--accent-border);
+    border-radius: var(--radius-pill);
+    background: var(--accent-bg);
+    font-size: .78rem;
+}
+
+    .maintenance-page ::deep .stocktake-chip button {
+        border: 0;
+        background: none;
+        color: inherit;
+        cursor: pointer;
+        font-size: .9rem;
+        line-height: 1;
+    }
+
+.maintenance-page ::deep .stocktake-actions {
+    flex-wrap: wrap;
+    gap: .5rem;
+}
+
+.maintenance-page ::deep .stocktake-hint {
+    margin: .4rem 0 0;
+    font-size: .82rem;
+}
+
+.maintenance-page ::deep .stocktake-facts {
+    display: grid;
+    grid-template-columns: minmax(8rem, max-content) 1fr;
+    gap: .35rem 1rem;
+    margin: .5rem 0 1rem;
+}
+
+    .maintenance-page ::deep .stocktake-facts dt {
+        color: var(--text-muted);
+        font-size: .82rem;
+    }
+
+    .maintenance-page ::deep .stocktake-facts dd {
+        margin: 0;
+        color: var(--text-primary);
+    }
+
+.maintenance-page ::deep .stocktake-link {
+    color: var(--accent);
+    text-decoration: none;
+}
+
+    .maintenance-page ::deep .stocktake-link:hover {
+        text-decoration: underline;
+    }

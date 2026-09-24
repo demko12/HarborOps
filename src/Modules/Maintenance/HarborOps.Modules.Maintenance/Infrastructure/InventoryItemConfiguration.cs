@@ -50,6 +50,14 @@ internal sealed class InventoryItemConfiguration : IEntityTypeConfiguration<Inve
             .HasColumnType("decimal(18,2)")
             .IsRequired();
 
+        builder.Property(inventoryItem => inventoryItem.StockConcurrencyToken)
+            .IsConcurrencyToken()
+            .HasDefaultValueSql("NEWID()");
+
+        builder.Property(inventoryItem => inventoryItem.ReservationConcurrencyToken)
+            .IsConcurrencyToken()
+            .HasDefaultValueSql("NEWID()");
+
         builder.HasOne<ItemCategory>()
             .WithMany()
             .HasForeignKey(inventoryItem => inventoryItem.CategoryId)

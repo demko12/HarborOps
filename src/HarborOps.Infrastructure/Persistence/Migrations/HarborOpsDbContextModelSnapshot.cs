@@ -2869,6 +2869,47 @@ namespace HarborOps.Infrastructure.Persistence.Migrations
                             }));
                 });
 
+            modelBuilder.Entity("HarborOps.Modules.Maintenance.Domain.InventoryAdjustment", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("ActorUserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("AdjustedUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<decimal>("CountedQuantity")
+                        .HasColumnType("decimal(18,3)");
+
+                    b.Property<Guid>("InventoryItemId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<decimal>("QuantityBefore")
+                        .HasColumnType("decimal(18,3)");
+
+                    b.Property<decimal>("QuantityDelta")
+                        .HasColumnType("decimal(18,3)");
+
+                    b.Property<string>("Reason")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<Guid>("StocktakeId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("InventoryItemId", "AdjustedUtc");
+
+                    b.HasIndex("StocktakeId", "InventoryItemId")
+                        .IsUnique();
+
+                    b.ToTable("InventoryAdjustments", "maintenance");
+                });
+
             modelBuilder.Entity("HarborOps.Modules.Maintenance.Domain.InventoryItem", b =>
                 {
                     b.Property<Guid>("Id")
@@ -2902,6 +2943,18 @@ namespace HarborOps.Infrastructure.Persistence.Migrations
 
                     b.Property<decimal>("Quantity")
                         .HasColumnType("decimal(18,3)");
+
+                    b.Property<Guid>("ReservationConcurrencyToken")
+                        .IsConcurrencyToken()
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier")
+                        .HasDefaultValueSql("NEWID()");
+
+                    b.Property<Guid>("StockConcurrencyToken")
+                        .IsConcurrencyToken()
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier")
+                        .HasDefaultValueSql("NEWID()");
 
                     b.Property<Guid>("SupplierId")
                         .HasColumnType("uniqueidentifier");
@@ -3230,6 +3283,109 @@ namespace HarborOps.Infrastructure.Persistence.Migrations
                         .IsUnique();
 
                     b.ToTable("ScheduleOccurrences", "maintenance");
+                });
+
+            modelBuilder.Entity("HarborOps.Modules.Maintenance.Domain.Stocktake", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("CancellationReason")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<Guid?>("CancelledByUserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime?>("CancelledUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid>("ConcurrencyToken")
+                        .IsConcurrencyToken()
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier")
+                        .HasDefaultValueSql("NEWID()");
+
+                    b.Property<Guid>("CreatedByUserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("CreatedUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("LastModifiedByUserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime?>("LastModifiedUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Notes")
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
+
+                    b.Property<Guid?>("PostedByUserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime?>("PostedUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Status");
+
+                    b.HasIndex("CreatedUtc", "Id");
+
+                    b.ToTable("Stocktakes", "maintenance");
+                });
+
+            modelBuilder.Entity("HarborOps.Modules.Maintenance.Domain.StocktakeLine", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("BaselineCapturedUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<decimal>("BaselineQuantity")
+                        .HasColumnType("decimal(18,3)");
+
+                    b.Property<Guid>("BaselineStockConcurrencyToken")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid?>("CountedByUserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<decimal?>("CountedQuantity")
+                        .HasColumnType("decimal(18,3)");
+
+                    b.Property<DateTime?>("CountedUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid>("InventoryItemId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("StocktakeId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<decimal?>("Variance")
+                        .HasColumnType("decimal(18,3)");
+
+                    b.Property<string>("VarianceReason")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("InventoryItemId");
+
+                    b.HasIndex("StocktakeId", "InventoryItemId")
+                        .IsUnique();
+
+                    b.ToTable("StocktakeLines", "maintenance");
                 });
 
             modelBuilder.Entity("HarborOps.Modules.Maintenance.Domain.Supplier", b =>
@@ -5103,6 +5259,21 @@ namespace HarborOps.Infrastructure.Persistence.Migrations
                         .IsRequired();
                 });
 
+            modelBuilder.Entity("HarborOps.Modules.Maintenance.Domain.InventoryAdjustment", b =>
+                {
+                    b.HasOne("HarborOps.Modules.Maintenance.Domain.InventoryItem", null)
+                        .WithMany()
+                        .HasForeignKey("InventoryItemId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("HarborOps.Modules.Maintenance.Domain.Stocktake", null)
+                        .WithMany()
+                        .HasForeignKey("StocktakeId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("HarborOps.Modules.Maintenance.Domain.InventoryItem", b =>
                 {
                     b.HasOne("HarborOps.Modules.Maintenance.Domain.ItemCategory", null)
@@ -5211,6 +5382,21 @@ namespace HarborOps.Infrastructure.Persistence.Migrations
                     b.HasOne("HarborOps.Modules.Maintenance.Domain.MaintenanceWorkOrder", null)
                         .WithMany()
                         .HasForeignKey("WorkOrderId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("HarborOps.Modules.Maintenance.Domain.StocktakeLine", b =>
+                {
+                    b.HasOne("HarborOps.Modules.Maintenance.Domain.InventoryItem", null)
+                        .WithMany()
+                        .HasForeignKey("InventoryItemId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("HarborOps.Modules.Maintenance.Domain.Stocktake", null)
+                        .WithMany()
+                        .HasForeignKey("StocktakeId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
                 });

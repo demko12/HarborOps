@@ -391,6 +391,69 @@ public sealed class RecordInventoryItemUsageServiceTests
         Assert.Equal(0m, storedReservation.QuantityConsumed);
     }
 
+    [Fact]
+    public async Task RecordUsage_replaces_the_stock_and_reservation_tokens()
+    {
+        await using var dbContext = CreateDbContext();
+
+        var workOrder = CreateWorkOrder();
+        var inventoryItem = CreateInventoryItem(10m);
+        var stockToken = inventoryItem.StockConcurrencyToken;
+        var reservationToken = inventoryItem.ReservationConcurrencyToken;
+        var reservation = WorkOrderPartReservation.Create(
+            workOrder.Id,
+            inventoryItem.Id,
+            quantityRequested: 6m,
+            availableQuantity: 10m,
+            UtcNow);
+
+        await dbContext.Set<MaintenanceWorkOrder>().AddAsync(workOrder);
+        await dbContext.Set<InventoryItem>().AddAsync(inventoryItem);
+        await dbContext.Set<WorkOrderPartReservation>().AddAsync(reservation);
+        await dbContext.SaveChangesAsync();
+
+        await CreateService(dbContext).RecordUsageAsync(
+            workOrder.Id,
+            inventoryItem.Id,
+            CreateValidRequest(4m),
+            CancellationToken.None);
+
+        dbContext.ChangeTracker.Clear();
+
+        var storedItem = await dbContext.Set<InventoryItem>().AsNoTracking().SingleAsync();
+
+        Assert.NotEqual(stockToken, storedItem.StockConcurrencyToken);
+        Assert.NotEqual(reservationToken, storedItem.ReservationConcurrencyToken);
+    }
+
+    [Fact]
+    public async Task Usage_without_a_reservation_replaces_only_the_stock_token()
+    {
+        await using var dbContext = CreateDbContext();
+
+        var workOrder = CreateWorkOrder();
+        var inventoryItem = CreateInventoryItem(10m);
+        var stockToken = inventoryItem.StockConcurrencyToken;
+        var reservationToken = inventoryItem.ReservationConcurrencyToken;
+
+        await dbContext.Set<MaintenanceWorkOrder>().AddAsync(workOrder);
+        await dbContext.Set<InventoryItem>().AddAsync(inventoryItem);
+        await dbContext.SaveChangesAsync();
+
+        await CreateService(dbContext).RecordUsageAsync(
+            workOrder.Id,
+            inventoryItem.Id,
+            CreateValidRequest(4m),
+            CancellationToken.None);
+
+        dbContext.ChangeTracker.Clear();
+
+        var storedItem = await dbContext.Set<InventoryItem>().AsNoTracking().SingleAsync();
+
+        Assert.NotEqual(stockToken, storedItem.StockConcurrencyToken);
+        Assert.Equal(reservationToken, storedItem.ReservationConcurrencyToken);
+    }
+
     private static RecordInventoryItemUsageRequest CreateValidRequest(
         decimal quantityUsed)
     {

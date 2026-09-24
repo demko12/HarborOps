@@ -1798,4 +1798,315 @@ internal sealed class MaintenanceApiClient(HttpClient httpClient)
 
         return $"{PreventiveWorkPath}/forecast?{string.Join('&', query)}";
     }
+
+    private const string StocktakesPath = "api/maintenance/stocktakes";
+
+    internal async Task<MaintenanceApiResult<StocktakesPage>> GetStocktakesAsync(
+        StocktakeFilter filter,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(filter);
+
+        try
+        {
+            using var response = await httpClient.GetAsync(
+                BuildStocktakesPath(filter),
+                HttpCompletionOption.ResponseHeadersRead,
+                cancellationToken);
+
+            if (!response.IsSuccessStatusCode)
+            {
+                return new MaintenanceApiResult<StocktakesPage>(
+                    null, await ReadFailureAsync(response, "Unable to load stocktakes", cancellationToken));
+            }
+
+            var page = await response.Content.ReadFromJsonAsync<StocktakesPage>(cancellationToken);
+
+            return new MaintenanceApiResult<StocktakesPage>(page, null);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (HttpRequestException)
+        {
+            return new MaintenanceApiResult<StocktakesPage>(null, Unavailable());
+        }
+        catch (TaskCanceledException) when (!cancellationToken.IsCancellationRequested)
+        {
+            return new MaintenanceApiResult<StocktakesPage>(null, Unavailable());
+        }
+    }
+
+    internal async Task<MaintenanceApiResult<StocktakeDetailsModel>> GetStocktakeAsync(
+        Guid stocktakeId,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            using var response = await httpClient.GetAsync(
+                $"{StocktakesPath}/{stocktakeId}",
+                HttpCompletionOption.ResponseHeadersRead,
+                cancellationToken);
+
+            if (!response.IsSuccessStatusCode)
+            {
+                return new MaintenanceApiResult<StocktakeDetailsModel>(
+                    null, await ReadFailureAsync(response, "Unable to load the stocktake", cancellationToken));
+            }
+
+            var details = await response.Content.ReadFromJsonAsync<StocktakeDetailsModel>(cancellationToken);
+
+            return new MaintenanceApiResult<StocktakeDetailsModel>(details, null);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (HttpRequestException)
+        {
+            return new MaintenanceApiResult<StocktakeDetailsModel>(null, Unavailable());
+        }
+        catch (TaskCanceledException) when (!cancellationToken.IsCancellationRequested)
+        {
+            return new MaintenanceApiResult<StocktakeDetailsModel>(null, Unavailable());
+        }
+    }
+
+    internal async Task<MaintenanceApiResult<StocktakeDetailsModel>> CreateStocktakeAsync(
+        CreateStocktakeRequest request,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+
+        try
+        {
+            using var response = await httpClient.PostAsJsonAsync(StocktakesPath, request, cancellationToken);
+
+            if (response.StatusCode != HttpStatusCode.Created)
+            {
+                return new MaintenanceApiResult<StocktakeDetailsModel>(
+                    null, await ReadFailureAsync(response, "Unable to create the stocktake", cancellationToken));
+            }
+
+            var details = await response.Content.ReadFromJsonAsync<StocktakeDetailsModel>(cancellationToken);
+
+            return new MaintenanceApiResult<StocktakeDetailsModel>(details, null);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (HttpRequestException)
+        {
+            return new MaintenanceApiResult<StocktakeDetailsModel>(null, Unavailable());
+        }
+        catch (TaskCanceledException) when (!cancellationToken.IsCancellationRequested)
+        {
+            return new MaintenanceApiResult<StocktakeDetailsModel>(null, Unavailable());
+        }
+    }
+
+    internal async Task<MaintenanceApiResult<StocktakeDetailsModel>> UpdateStocktakeCountsAsync(
+        Guid stocktakeId,
+        UpdateStocktakeCountsRequest request,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+
+        try
+        {
+            using var response = await httpClient.PutAsJsonAsync(
+                $"{StocktakesPath}/{stocktakeId}/counts",
+                request,
+                cancellationToken);
+
+            if (!response.IsSuccessStatusCode)
+            {
+                return new MaintenanceApiResult<StocktakeDetailsModel>(
+                    null, await ReadFailureAsync(response, "Unable to save the counts", cancellationToken));
+            }
+
+            var details = await response.Content.ReadFromJsonAsync<StocktakeDetailsModel>(cancellationToken);
+
+            return new MaintenanceApiResult<StocktakeDetailsModel>(details, null);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (HttpRequestException)
+        {
+            return new MaintenanceApiResult<StocktakeDetailsModel>(null, Unavailable());
+        }
+        catch (TaskCanceledException) when (!cancellationToken.IsCancellationRequested)
+        {
+            return new MaintenanceApiResult<StocktakeDetailsModel>(null, Unavailable());
+        }
+    }
+
+    internal async Task<MaintenanceApiResult<StocktakeDetailsModel>> RefreshStocktakeLinesAsync(
+        Guid stocktakeId,
+        RefreshStocktakeLinesRequest request,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+
+        try
+        {
+            using var response = await httpClient.PostAsJsonAsync(
+                $"{StocktakesPath}/{stocktakeId}/refresh",
+                request,
+                cancellationToken);
+
+            if (!response.IsSuccessStatusCode)
+            {
+                return new MaintenanceApiResult<StocktakeDetailsModel>(
+                    null, await ReadFailureAsync(response, "Unable to refresh the baseline", cancellationToken));
+            }
+
+            var details = await response.Content.ReadFromJsonAsync<StocktakeDetailsModel>(cancellationToken);
+
+            return new MaintenanceApiResult<StocktakeDetailsModel>(details, null);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (HttpRequestException)
+        {
+            return new MaintenanceApiResult<StocktakeDetailsModel>(null, Unavailable());
+        }
+        catch (TaskCanceledException) when (!cancellationToken.IsCancellationRequested)
+        {
+            return new MaintenanceApiResult<StocktakeDetailsModel>(null, Unavailable());
+        }
+    }
+
+    internal async Task<MaintenanceApiResult<StocktakePostingPreviewModel>> GetStocktakePreviewAsync(
+        Guid stocktakeId,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            using var response = await httpClient.GetAsync(
+                $"{StocktakesPath}/{stocktakeId}/preview",
+                HttpCompletionOption.ResponseHeadersRead,
+                cancellationToken);
+
+            if (!response.IsSuccessStatusCode)
+            {
+                return new MaintenanceApiResult<StocktakePostingPreviewModel>(
+                    null, await ReadFailureAsync(response, "Unable to load the posting preview", cancellationToken));
+            }
+
+            var preview = await response.Content.ReadFromJsonAsync<StocktakePostingPreviewModel>(cancellationToken);
+
+            return new MaintenanceApiResult<StocktakePostingPreviewModel>(preview, null);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (HttpRequestException)
+        {
+            return new MaintenanceApiResult<StocktakePostingPreviewModel>(null, Unavailable());
+        }
+        catch (TaskCanceledException) when (!cancellationToken.IsCancellationRequested)
+        {
+            return new MaintenanceApiResult<StocktakePostingPreviewModel>(null, Unavailable());
+        }
+    }
+
+    internal async Task<MaintenanceApiResult<PostStocktakeResult>> PostStocktakeAsync(
+        Guid stocktakeId,
+        PostStocktakeRequest request,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+
+        try
+        {
+            using var response = await httpClient.PostAsJsonAsync(
+                $"{StocktakesPath}/{stocktakeId}/post",
+                request,
+                cancellationToken);
+
+            if (!response.IsSuccessStatusCode)
+            {
+                return new MaintenanceApiResult<PostStocktakeResult>(
+                    null, await ReadFailureAsync(response, "Unable to post the stocktake", cancellationToken));
+            }
+
+            var result = await response.Content.ReadFromJsonAsync<PostStocktakeResult>(cancellationToken);
+
+            return new MaintenanceApiResult<PostStocktakeResult>(result, null);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (HttpRequestException)
+        {
+            return new MaintenanceApiResult<PostStocktakeResult>(null, Unavailable());
+        }
+        catch (TaskCanceledException) when (!cancellationToken.IsCancellationRequested)
+        {
+            return new MaintenanceApiResult<PostStocktakeResult>(null, Unavailable());
+        }
+    }
+
+    internal async Task<MaintenanceApiResult<StocktakeDetailsModel>> CancelStocktakeAsync(
+        Guid stocktakeId,
+        CancelStocktakeRequest request,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+
+        try
+        {
+            using var response = await httpClient.PostAsJsonAsync(
+                $"{StocktakesPath}/{stocktakeId}/cancel",
+                request,
+                cancellationToken);
+
+            if (!response.IsSuccessStatusCode)
+            {
+                return new MaintenanceApiResult<StocktakeDetailsModel>(
+                    null, await ReadFailureAsync(response, "Unable to cancel the stocktake", cancellationToken));
+            }
+
+            var details = await response.Content.ReadFromJsonAsync<StocktakeDetailsModel>(cancellationToken);
+
+            return new MaintenanceApiResult<StocktakeDetailsModel>(details, null);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (HttpRequestException)
+        {
+            return new MaintenanceApiResult<StocktakeDetailsModel>(null, Unavailable());
+        }
+        catch (TaskCanceledException) when (!cancellationToken.IsCancellationRequested)
+        {
+            return new MaintenanceApiResult<StocktakeDetailsModel>(null, Unavailable());
+        }
+    }
+
+    private static string BuildStocktakesPath(StocktakeFilter filter)
+    {
+        var query = new List<string>
+        {
+            $"pageNumber={filter.PageNumber.ToString(CultureInfo.InvariantCulture)}",
+            $"pageSize={filter.PageSize.ToString(CultureInfo.InvariantCulture)}",
+        };
+
+        if (!string.IsNullOrWhiteSpace(filter.Status))
+        {
+            query.Add($"status={Uri.EscapeDataString(filter.Status)}");
+        }
+
+        return $"{StocktakesPath}?{string.Join('&', query)}";
+    }
 }
