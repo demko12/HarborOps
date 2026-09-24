@@ -89,7 +89,8 @@ public sealed class StocktakePersistenceRelationalTests : IAsyncLifetime
               AND i.is_primary_key = 0
             """);
 
-        Assert.Single(indexes);
+        // Supplier returns add their own unique index on the same history table.
+        Assert.Contains("IX_InventoryAdjustments_StocktakeId_InventoryItemId", indexes);
 
         var item = await SeedItemAsync(dbContext, quantity: 10m);
         var stocktake = Stocktake.Create(null, ActorUserId, UtcNow);
