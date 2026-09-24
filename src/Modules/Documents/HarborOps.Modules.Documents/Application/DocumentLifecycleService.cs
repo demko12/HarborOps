@@ -4,7 +4,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace HarborOps.Modules.Documents.Application;
 
-public sealed class DocumentLifecycleService(DbContext dbContext, TimeProvider timeProvider)
+public sealed class DocumentLifecycleService(DbContext dbContext, TimeProvider timeProvider, DocumentDistributionInvalidationService? distributionInvalidation = null)
 {
     public async Task CorrectMetadataAsync(Guid documentId, CorrectDocumentMetadataRequest request, CancellationToken cancellationToken)
     {
@@ -14,6 +14,7 @@ public sealed class DocumentLifecycleService(DbContext dbContext, TimeProvider t
         await EnsureTypeExistsAsync(metadata.DocumentTypeId, cancellationToken);
         await EnsureNoActiveDuplicateAsync(document.VesselId, metadata.DocumentTypeId, metadata.Number, documentId, cancellationToken);
         document.CorrectMetadata(metadata.DocumentTypeId, metadata.Number, metadata.IssueDate, metadata.ExpiryDate, metadata.IssuingAuthority);
+        if (distributionInvalidation is not null) await distributionInvalidation.ObsoletePendingAsync(documentId, "Document metadata was corrected.", cancellationToken);
         if (string.Equals(document.ReviewStatus, Document.RejectedReviewStatus, StringComparison.Ordinal))
         {
             document.ReturnToDraftAfterCorrection();
@@ -36,6 +37,7 @@ public sealed class DocumentLifecycleService(DbContext dbContext, TimeProvider t
         var successor = new Document(predecessor.VesselId, metadata.DocumentTypeId, metadata.Number, metadata.IssueDate, metadata.ExpiryDate, metadata.IssuingAuthority, Document.ActiveStatus);
         successor.LinkToPredecessor(predecessor.Id);
         predecessor.Supersede(actorId, timeProvider.GetUtcNow().UtcDateTime);
+        if (distributionInvalidation is not null) await distributionInvalidation.ObsoletePendingAsync(documentId, "Document was renewed and superseded.", cancellationToken);
         await dbContext.Set<Document>().AddAsync(successor, cancellationToken);
         await dbContext.SaveChangesAsync(cancellationToken);
         await transaction.CommitAsync(cancellationToken);
@@ -72,6 +74,7 @@ public sealed class DocumentLifecycleService(DbContext dbContext, TimeProvider t
 
         var utcNow = timeProvider.GetUtcNow();
         document.SubmitForReview(actorId, utcNow);
+        if (distributionInvalidation is not null) await distributionInvalidation.ObsoletePendingAsync(documentId, "Document review status changed.", cancellationToken);
 
         await dbContext.Set<DocumentReviewEvent>().AddAsync(
             new DocumentReviewEvent(documentId, DocumentReviewEvent.SubmittedAction, actorId, utcNow, notes: null),
@@ -114,10 +117,13 @@ public sealed class DocumentLifecycleService(DbContext dbContext, TimeProvider t
                 new DocumentReviewEvent(documentId, DocumentReviewEvent.RejectedAction, reviewerId, utcNow, notes),
                 cancellationToken);
         }
+
         else
         {
             throw new ArgumentException($"'{decision}' is not a recognized review decision.", nameof(decision));
         }
+
+        if (distributionInvalidation is not null) await distributionInvalidation.ObsoletePendingAsync(documentId, "Document review status changed.", cancellationToken);
 
         await dbContext.SaveChangesAsync(cancellationToken);
     }
@@ -129,6 +135,7 @@ public sealed class DocumentLifecycleService(DbContext dbContext, TimeProvider t
 
         var utcNow = timeProvider.GetUtcNow();
         document.Revoke(actorId, reason, utcNow);
+        if (distributionInvalidation is not null) await distributionInvalidation.ObsoletePendingAsync(documentId, "Document was revoked.", cancellationToken);
 
         await dbContext.Set<DocumentReviewEvent>().AddAsync(
             new DocumentReviewEvent(documentId, DocumentReviewEvent.RevokedAction, actorId, utcNow, reason),

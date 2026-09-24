@@ -236,6 +236,31 @@ internal sealed class DocumentsApiClient(HttpClient httpClient)
         }
     }
 
+    internal async Task<DocumentsApiResult<DocumentDistributionInboxPageDto>> GetMyAcknowledgementsAsync(DocumentDistributionInboxQuery query, CancellationToken cancellationToken)
+    {
+        var parameters = new List<string>();
+        if (!string.IsNullOrWhiteSpace(query.State)) parameters.Add($"state={Uri.EscapeDataString(query.State)}");
+        if (query.Overdue is { } overdue) parameters.Add($"overdue={overdue.ToString().ToLowerInvariant()}");
+        if (query.PageNumber is { } page) parameters.Add($"pageNumber={page}");
+        if (query.PageSize is { } size) parameters.Add($"pageSize={size}");
+        return await GetAsync<DocumentDistributionInboxPageDto>($"{BasePath}/acknowledgements{(parameters.Count == 0 ? string.Empty : "?" + string.Join('&', parameters))}", "Unable to load acknowledgements", cancellationToken);
+    }
+
+    internal Task<DocumentsApiResult<DocumentDistributionRecipientDto>> AcknowledgeAsync(Guid issueId, CancellationToken cancellationToken) =>
+        SendAsync<DocumentDistributionRecipientDto>(HttpMethod.Post, $"{BasePath}/distribution-issues/{issueId}/acknowledge", null, "Unable to acknowledge document", cancellationToken);
+
+    internal Task<DocumentsApiResult<DocumentDistributionIssueDto>> IssueDistributionAsync(Guid documentId, IssueDocumentDistributionRequest request, CancellationToken cancellationToken) =>
+        SendAsync<DocumentDistributionIssueDto>(HttpMethod.Post, $"{BasePath}/{documentId}/distribution-issues", request, "Unable to issue document distribution", cancellationToken);
+
+    internal Task<DocumentsApiResult<DocumentDistributionIssueDto>> GetDistributionIssueAsync(Guid documentId, Guid issueId, CancellationToken cancellationToken) =>
+        GetAsync<DocumentDistributionIssueDto>($"{BasePath}/{documentId}/distribution-issues/{issueId}", "Unable to load distribution progress", cancellationToken);
+
+    internal Task<DocumentsApiResult<IReadOnlyList<DocumentDistributionRecipientPickerDto>>> SearchDistributionRecipientsAsync(string? search, CancellationToken cancellationToken) =>
+        GetAsync<IReadOnlyList<DocumentDistributionRecipientPickerDto>>($"{BasePath}/distribution-recipients?take=25&search={Uri.EscapeDataString(search ?? string.Empty)}", "Unable to load eligible recipients", cancellationToken);
+
+    internal Task<DocumentsApiResult<object>> CancelDistributionAsync(Guid documentId, Guid issueId, CancelDocumentDistributionRequest request, CancellationToken cancellationToken) =>
+        SendAsync<object>(HttpMethod.Post, $"{BasePath}/{documentId}/distribution-issues/{issueId}/cancel", request, "Unable to cancel distribution", cancellationToken);
+
     internal async Task<DocumentsApiResult<object>> UpdateMetadataAsync(Guid documentId, DocumentMetadataRequest request, CancellationToken cancellationToken)
     {
         using var response = await httpClient.PutAsJsonAsync($"{BasePath}/{documentId}/metadata", request, cancellationToken);
@@ -782,6 +807,34 @@ internal sealed class DocumentsApiClient(HttpClient httpClient)
         }
 
         return extra.Count == 0 ? $"{BasePath}/expiring" : $"{BasePath}/expiring?{string.Join('&', extra)}";
+    }
+
+    private async Task<DocumentsApiResult<T>> GetAsync<T>(string path, string title, CancellationToken cancellationToken)
+    {
+        try
+        {
+            using var response = await httpClient.GetAsync(path, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
+            if (!response.IsSuccessStatusCode) return new(default, await ReadFailureAsync(response, title, cancellationToken));
+            return new(await response.Content.ReadFromJsonAsync<T>(cancellationToken), null);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested) { throw; }
+        catch (HttpRequestException) { return new(default, Unavailable()); }
+        catch (TaskCanceledException) when (!cancellationToken.IsCancellationRequested) { return new(default, Unavailable()); }
+    }
+
+    private async Task<DocumentsApiResult<T>> SendAsync<T>(HttpMethod method, string path, object? body, string title, CancellationToken cancellationToken)
+    {
+        try
+        {
+            using var request = new HttpRequestMessage(method, path) { Content = body is null ? null : JsonContent.Create(body) };
+            using var response = await httpClient.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
+            if (!response.IsSuccessStatusCode) return new(default, await ReadFailureAsync(response, title, cancellationToken));
+            if (response.StatusCode == HttpStatusCode.NoContent) return new(default, null);
+            return new(await response.Content.ReadFromJsonAsync<T>(cancellationToken), null);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested) { throw; }
+        catch (HttpRequestException) { return new(default, Unavailable()); }
+        catch (TaskCanceledException) when (!cancellationToken.IsCancellationRequested) { return new(default, Unavailable()); }
     }
 
     private static string BuildDocumentTypesPath(GetDocumentTypesQuery query)

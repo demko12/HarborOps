@@ -1,5 +1,6 @@
 using System.Threading.RateLimiting;
 using HarborOps.Api.Composition.Authorization;
+using HarborOps.Api.Composition.Documents;
 using HarborOps.Api.Composition.Maintenance;
 using HarborOps.Api.Composition.Notifications;
 using HarborOps.Api.Composition.Operations.Dashboard;
@@ -35,6 +36,7 @@ var connectionString = builder.Configuration.GetConnectionString("HarborOpsDatab
 builder.Services.AddHarborOpsInfrastructure(connectionString);
 builder.Services.AddCargoModule();
 builder.Services.AddDocumentsModule(builder.Configuration);
+builder.Services.AddScoped<HarborOps.Modules.Documents.Contracts.IDocumentDistributionRecipientLookup, IdentityDocumentDistributionRecipientLookup>();
 builder.Services.AddFleetModule();
 builder.Services.AddComplianceModule();
 builder.Services.AddCrewModule(builder.Configuration);

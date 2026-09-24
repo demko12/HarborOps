@@ -4,13 +4,14 @@ using Microsoft.EntityFrameworkCore;
 
 namespace HarborOps.Modules.Documents.Application;
 
-public sealed class DocumentRetentionService(DbContext dbContext, TimeProvider timeProvider)
+public sealed class DocumentRetentionService(DbContext dbContext, TimeProvider timeProvider, DocumentDistributionInvalidationService? distributionInvalidation = null)
 {
     public async Task<DocumentRetentionStateResponse> ArchiveAsync(Guid documentId, Guid actorId, CancellationToken cancellationToken)
     {
         var state = await LoadOrCreateStateAsync(documentId, cancellationToken);
 
         state.Archive(actorId, timeProvider.GetUtcNow().UtcDateTime);
+        if (distributionInvalidation is not null) await distributionInvalidation.ObsoletePendingAsync(documentId, "Document was archived.", cancellationToken);
 
         await dbContext.SaveChangesAsync(cancellationToken);
 

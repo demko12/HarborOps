@@ -62,6 +62,9 @@ public sealed class Document
 
     public DateTime? UploadedAtUtc { get; private set; }
 
+    /// <summary>Changes whenever the downloadable binary changes.</summary>
+    public Guid? FileRevisionId { get; private set; }
+
     public bool HasFile => StorageKey is not null;
 
     private Document()
@@ -123,6 +126,8 @@ public sealed class Document
         SizeBytes = sizeBytes;
         UploadedBy = uploadedBy;
         UploadedAtUtc = uploadedAtUtc;
+        FileRevisionId = Guid.NewGuid();
+        ConcurrencyToken = Guid.NewGuid();
     }
 
     internal void CorrectMetadata(int documentTypeId, string number, DateOnly issueDate, DateOnly expiryDate, string issuingAuthority)
@@ -132,6 +137,7 @@ public sealed class Document
         IssueDate = issueDate;
         ExpiryDate = expiryDate;
         IssuingAuthority = issuingAuthority;
+        ConcurrencyToken = Guid.NewGuid();
     }
 
     internal void Supersede(Guid actorId, DateTime supersededAtUtc)
@@ -144,6 +150,7 @@ public sealed class Document
         Status = SupersededStatus;
         SupersededByUserId = actorId;
         SupersededAtUtc = supersededAtUtc;
+        ConcurrencyToken = Guid.NewGuid();
     }
 
     internal void LinkToPredecessor(Guid predecessorDocumentId)

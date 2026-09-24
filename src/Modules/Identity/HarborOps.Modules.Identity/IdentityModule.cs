@@ -1,5 +1,6 @@
 using System.Reflection;
 using HarborOps.Modules.Identity.Application;
+using HarborOps.Modules.Identity.Contracts;
 using Microsoft.AspNetCore.Authentication.BearerToken;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
@@ -35,6 +36,7 @@ public static class IdentityModule
         services.AddScoped<UserAdministrationService>();
         services.AddScoped<AccountSecurityService>();
         services.AddScoped<RoleAdministrationService>();
+        services.AddScoped<IDocumentRecipientLookup, DocumentRecipientLookup>();
         services.AddScoped<IdentityAdministratorGuard>();
         services.AddSingleton<IAuthorizationMiddlewareResultHandler, IdentityAccountStateAuthorizationResultHandler>();
         services.AddHostedService<IdentityBootstrapSeeder>();

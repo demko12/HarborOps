@@ -197,6 +197,16 @@ public partial class Documents
     private bool isRevoking;
     private DocumentsApiFailure? revokeFailure;
 
+    private bool isDistributionFormOpen;
+    private bool isIssuingDistribution;
+    private DateOnly? distributionDueDate = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(7));
+    private string? distributionInstruction;
+    private string? distributionRecipientSearch;
+    private IReadOnlyList<DocumentDistributionRecipientPickerDto> distributionRecipients = [];
+    private HashSet<Guid> selectedDistributionRecipients = [];
+    private DocumentsApiFailure? distributionFailure;
+    private string? distributionSuccessMessage;
+
     // Review history: a nested expandable section within the file panel (distinct from
     // the always-visible, eagerly-loaded renewalHistory above), lazy-loaded only on first
     // expand rather than on every panel open.
@@ -831,6 +841,15 @@ public partial class Documents
         isRevoking = false;
         revokeFailure = null;
 
+        isDistributionFormOpen = false;
+        isIssuingDistribution = false;
+        distributionInstruction = null;
+        distributionRecipientSearch = null;
+        distributionRecipients = [];
+        selectedDistributionRecipients = [];
+        distributionFailure = null;
+        distributionSuccessMessage = null;
+
         isReviewHistoryExpanded = false;
         isLoadingReviewHistory = false;
         reviewHistory = [];
@@ -865,6 +884,33 @@ public partial class Documents
             var history = await DocumentsApi.GetRenewalHistoryAsync(documentId, disposeCancellation.Token);
             if (history.IsSuccess && history.Value is not null) renewalHistory = history.Value;
         }
+    }
+
+    private async Task OpenDistributionFormAsync()
+    {
+        isDistributionFormOpen = !isDistributionFormOpen;
+        distributionFailure = null;
+        distributionSuccessMessage = null;
+        if (isDistributionFormOpen) await SearchDistributionRecipientsAsync();
+    }
+
+    private async Task SearchDistributionRecipientsAsync()
+    {
+        var result = await DocumentsApi.SearchDistributionRecipientsAsync(distributionRecipientSearch, disposeCancellation.Token);
+        if (result.IsSuccess && result.Value is not null) distributionRecipients = result.Value;
+        else distributionFailure = result.Failure;
+    }
+
+    private async Task IssueDistributionAsync()
+    {
+        if (expandedDocumentId is not { } documentId) return;
+        isIssuingDistribution = true;
+        distributionFailure = null;
+        var result = await DocumentsApi.IssueDistributionAsync(documentId, new IssueDocumentDistributionRequest(distributionDueDate, distributionInstruction, selectedDistributionRecipients.ToArray()), disposeCancellation.Token);
+        isIssuingDistribution = false;
+        if (!result.IsSuccess) { distributionFailure = result.Failure; return; }
+        distributionSuccessMessage = $"Issued to {selectedDistributionRecipients.Count} recipient(s).";
+        selectedDistributionRecipients = [];
     }
 
     private async Task SaveMetadataAsync()

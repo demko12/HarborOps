@@ -32,7 +32,8 @@ public sealed class DocumentsController(
     DocumentRetentionService documentRetentionService,
     LegalHoldService legalHoldService,
     DispositionRequestService dispositionRequestService,
-    IGetDocumentRetentionStateQuery getDocumentRetentionStateQuery)
+    IGetDocumentRetentionStateQuery getDocumentRetentionStateQuery,
+    DocumentDistributionService documentDistributionService)
     : ControllerBase
 {
     private const string FileField = "file";
@@ -294,6 +295,83 @@ public sealed class DocumentsController(
 
     private static ProblemDetails Problem(string detail) => new() { Status = StatusCodes.Status404NotFound, Title = "Document not found.", Detail = detail };
     private static HttpValidationProblemDetails Validation(IReadOnlyDictionary<string, string[]> errors, int status) => new(errors) { Status = status, Title = status == 409 ? "Document lifecycle conflict." : "One or more validation errors occurred." };
+
+    [HttpPost("{documentId:guid}/distribution-issues")]
+    [Authorize(ManageCapability)]
+    public async Task<ActionResult<DocumentDistributionIssueResponse>> IssueDistribution(Guid documentId, [FromBody] IssueDocumentDistributionRequest request, CancellationToken cancellationToken)
+    {
+        if (!Guid.TryParse(User.FindFirstValue(ClaimTypes.NameIdentifier), out var actorId)) return Unauthorized();
+        try
+        {
+            var result = await documentDistributionService.IssueAsync(documentId, request, actorId, cancellationToken);
+            return Created($"/api/documents/{documentId}/distribution-issues/{result.Id}", result);
+        }
+        catch (DocumentNotFoundException exception) { return NotFound(Problem(exception.Message)); }
+        catch (DocumentDistributionValidationException exception) { return BadRequest(Validation(exception.Errors, StatusCodes.Status400BadRequest)); }
+        catch (DocumentDistributionConflictException exception) { return Conflict(Validation(new Dictionary<string, string[]> { ["document"] = [exception.Message] }, StatusCodes.Status409Conflict)); }
+    }
+
+    [HttpGet("distribution-recipients")]
+    [Authorize(ManageCapability)]
+    public async Task<ActionResult<IReadOnlyList<DocumentDistributionRecipientIdentity>>> SearchDistributionRecipients([FromQuery] string? search, [FromQuery] int? take, [FromServices] IDocumentDistributionRecipientLookup recipientLookup, CancellationToken cancellationToken)
+    {
+        if (take is < 1 or > 100) return BadRequest(Validation(new Dictionary<string, string[]> { ["take"] = ["Take must be between 1 and 100."] }, StatusCodes.Status400BadRequest));
+        return Ok(await recipientLookup.SearchAsync(search?.Trim(), take ?? 25, cancellationToken));
+    }
+
+    [HttpGet("{documentId:guid}/distribution-issues/{issueId:guid}")]
+    [Authorize(ManageCapability)]
+    public async Task<ActionResult<DocumentDistributionIssueResponse>> GetDistributionIssue(Guid documentId, Guid issueId, CancellationToken cancellationToken)
+    {
+        try { return Ok(await documentDistributionService.GetIssueAsync(documentId, issueId, cancellationToken)); }
+        catch (DocumentDistributionIssueNotFoundException exception) { return NotFound(Problem(exception.Message)); }
+    }
+
+    [HttpGet("{documentId:guid}/distribution-issues")]
+    [Authorize(ManageCapability)]
+    public async Task<ActionResult<IReadOnlyList<DocumentDistributionIssueResponse>>> GetDistributionIssues(Guid documentId, CancellationToken cancellationToken)
+    {
+        try
+        {
+            var exists = await getDocumentByIdQuery.GetByIdAsync(documentId, cancellationToken);
+            return Ok(await documentDistributionService.GetIssuesAsync(exists.Id, cancellationToken));
+        }
+        catch (DocumentNotFoundException exception) { return NotFound(Problem(exception.Message)); }
+    }
+
+    [HttpPost("{documentId:guid}/distribution-issues/{issueId:guid}/cancel")]
+    [Authorize(ManageCapability)]
+    public async Task<IActionResult> CancelDistribution(Guid documentId, Guid issueId, [FromBody] CancelDocumentDistributionRequest request, CancellationToken cancellationToken)
+    {
+        if (!Guid.TryParse(User.FindFirstValue(ClaimTypes.NameIdentifier), out var actorId)) return Unauthorized();
+        try { await documentDistributionService.CancelAsync(documentId, issueId, request.Reason, actorId, cancellationToken); return NoContent(); }
+        catch (DocumentDistributionIssueNotFoundException exception) { return NotFound(Problem(exception.Message)); }
+        catch (DocumentDistributionValidationException exception) { return BadRequest(Validation(exception.Errors, StatusCodes.Status400BadRequest)); }
+        catch (DocumentDistributionConflictException exception) { return Conflict(Validation(new Dictionary<string, string[]> { ["issue"] = [exception.Message] }, StatusCodes.Status409Conflict)); }
+    }
+
+    [HttpGet("acknowledgements")]
+    [Authorize(ReadCapability)]
+    public async Task<ActionResult<GetDocumentDistributionInboxResponse>> GetMyAcknowledgements([FromQuery] GetDocumentDistributionInboxRequest request, CancellationToken cancellationToken)
+    {
+        if (!Guid.TryParse(User.FindFirstValue(ClaimTypes.NameIdentifier), out var actorId)) return Unauthorized();
+        try { return Ok(await documentDistributionService.GetInboxAsync(actorId, request, cancellationToken)); }
+        catch (UnauthorizedAccessException) { return Forbid(); }
+        catch (DocumentDistributionValidationException exception) { return BadRequest(Validation(exception.Errors, StatusCodes.Status400BadRequest)); }
+    }
+
+    [HttpPost("distribution-issues/{issueId:guid}/acknowledge")]
+    [Authorize(ReadCapability)]
+    public async Task<ActionResult<DocumentDistributionRecipientResponse>> AcknowledgeDistribution(Guid issueId, CancellationToken cancellationToken)
+    {
+        if (!Guid.TryParse(User.FindFirstValue(ClaimTypes.NameIdentifier), out var actorId)) return Unauthorized();
+        try { return Ok(await documentDistributionService.AcknowledgeAsync(issueId, actorId, cancellationToken)); }
+        catch (UnauthorizedAccessException) { return Forbid(); }
+        catch (DocumentDistributionIssueNotFoundException exception) { return NotFound(Problem(exception.Message)); }
+        catch (DocumentNotFoundException exception) { return NotFound(Problem(exception.Message)); }
+        catch (DocumentDistributionConflictException exception) { return Conflict(Validation(new Dictionary<string, string[]> { ["issue"] = [exception.Message] }, StatusCodes.Status409Conflict)); }
+        catch (DbUpdateConcurrencyException) { return Conflict(Validation(new Dictionary<string, string[]> { ["issue"] = ["The document changed concurrently. Reload and try again."] }, StatusCodes.Status409Conflict)); }
+    }
 
     [HttpGet("expiring")]
     [ProducesResponseType<GetExpiringDocumentsResponse>(StatusCodes.Status200OK)]

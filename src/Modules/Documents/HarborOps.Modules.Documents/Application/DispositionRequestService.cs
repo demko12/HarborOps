@@ -4,7 +4,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace HarborOps.Modules.Documents.Application;
 
-public sealed class DispositionRequestService(DbContext dbContext, TimeProvider timeProvider)
+public sealed class DispositionRequestService(DbContext dbContext, TimeProvider timeProvider, DocumentDistributionInvalidationService? distributionInvalidation = null)
 {
     public async Task<DispositionRequestResponse> CreateAsync(
         Guid documentId,
@@ -69,6 +69,7 @@ public sealed class DispositionRequestService(DbContext dbContext, TimeProvider 
             triggerAtUtc.Value);
 
         state.MoveToPendingDisposition(nowUtc);
+        if (distributionInvalidation is not null) await distributionInvalidation.ObsoletePendingAsync(documentId, "Document entered disposition.", cancellationToken);
 
         await dbContext.Set<DispositionRequest>().AddAsync(dispositionRequest, cancellationToken);
         await dbContext.SaveChangesAsync(cancellationToken);
@@ -94,6 +95,7 @@ public sealed class DispositionRequestService(DbContext dbContext, TimeProvider 
 
         dispositionRequest.Approve(actorId, request.DecisionReason, nowUtc);
         state.MarkDisposed(nowUtc);
+        if (distributionInvalidation is not null) await distributionInvalidation.ObsoletePendingAsync(dispositionRequest.DocumentId, "Document was disposed.", cancellationToken);
 
         await dbContext.SaveChangesAsync(cancellationToken);
 

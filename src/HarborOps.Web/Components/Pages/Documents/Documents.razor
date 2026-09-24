@@ -14,57 +14,28 @@
     <header class="documents-header">
         <div>
             <p class="documents-eyebrow">Documents operations</p>
-            <h1>Expiring documents</h1>
+            <h1>Your documents, in order</h1>
             <p>Review vessel documents due to expire within the selected date range.</p>
         </div>
     </header>
 
 	<section class="documents-tabs workspace-tabs" aria-label="Document registration actions">
 		<button type="button" class="workspace-tab @(isRegisterTypeFormOpen ? "active" : null)" @onclick="ToggleRegisterTypeForm">
-			Register document type
+			<span class="bi bi-folder-plus" aria-hidden="true"></span> Register document type
 		</button>
 		<button type="button" class="workspace-tab @(isRegisterDocumentFormOpen ? "active" : null)" @onclick="ToggleRegisterDocumentForm">
-			Register document
+			<span class="bi bi-file-earmark-plus" aria-hidden="true"></span> Register document
 		</button>
 		@if (AuthorizationState.HasPermission("documents.read") || AuthorizationState.HasPermission("documents.manage"))
 		{
 			<button type="button" class="workspace-tab @(isRetentionTabOpen ? "active" : null)" @onclick="ToggleRetentionTab">
-				Retention &amp; disposition
+				<span class="bi bi-archive" aria-hidden="true"></span> Retention &amp; disposition
 			</button>
 		}
+		<a class="workspace-tab documents-acknowledgements-tab" href="/documents/acknowledgements">
+			<span class="bi bi-check2-square" aria-hidden="true"></span> My acknowledgements
+		</a>
 	</section>
-
-    <section class="documents-filters" aria-label="Document filters">
-        <div class="filter-field filter-field-wide">
-            <label>Vessel</label>
-            <VesselPicker @key="filterVesselPickerResetToken"
-                          Value="vesselIdFilter"
-                          ValueChanged="SelectFilterVesselAsync"
-                          Placeholder="Search vessels by name or IMO..."
-                          Disabled="isLoading" />
-        </div>
-        <div class="filter-field">
-            <label for="documents-from">From</label>
-            <input id="documents-from" type="date" @bind="fromFilter" @bind:after="ScheduleFilterSearchAsync" />
-        </div>
-        <div class="filter-field">
-            <label for="documents-to">To</label>
-            <input id="documents-to" type="date" @bind="toFilter" @bind:after="ScheduleFilterSearchAsync" />
-        </div>
-        <div class="filter-field">
-            <label for="documents-review-status">Review status</label>
-            <select id="documents-review-status" @bind="pendingReviewStatus" @bind:after="ScheduleFilterSearchAsync">
-                <option value="">All</option>
-                <option value="Draft">Draft</option>
-                <option value="PendingReview">Pending review</option>
-                <option value="Approved">Approved</option>
-                <option value="Rejected">Rejected</option>
-            </select>
-        </div>
-        <button class="documents-filter-reset" type="button" @onclick="ClearFiltersAsync" disabled="@isLoading">Reset</button>
-    </section>
-
-
 
     @if (filterValidationMessage is not null)
     {
@@ -92,14 +63,50 @@
         </div>
     }
 
-    <section class="documents-card" aria-labelledby="documents-list-title">
+    <section class="documents-summary" aria-label="Document summary">
+        <article><div><span>Matching documents</span><strong>@totalCount</strong><small>Across the current filters</small></div><span class="bi bi-files" aria-hidden="true"></span></article>
+        <article><div><span>Expired</span><strong>@rows.Count(row => row.DaysUntilExpiry < 0)</strong><small>On this page</small></div><span class="bi bi-calendar-x" aria-hidden="true"></span></article>
+        <article><div><span>Due within 30 days</span><strong>@rows.Count(row => row.DaysUntilExpiry >= 0 && row.DaysUntilExpiry <= 30)</strong><small>On this page</small></div><span class="bi bi-calendar-event" aria-hidden="true"></span></article>
+        <article><div><span>Pending review</span><strong>@rows.Count(row => row.ReviewStatus == "PendingReview")</strong><small>On this page</small></div><span class="bi bi-clipboard-check" aria-hidden="true"></span></article>
+    </section>
+
+    <section class="documents-card documents-register" aria-labelledby="documents-list-title">
         <div class="documents-card-heading">
-            <div>
-                <h2 id="documents-list-title">Expiring document register</h2>
-                <p>@totalCount documents found</p>
+            <div class="documents-register-heading">
+                <span class="documents-card-icon" aria-hidden="true"><span class="bi bi-file-earmark-text"></span></span>
+                <div><span class="documents-section-label">Document overview</span><h2 id="documents-list-title">Expiring document register</h2><p>@totalCount documents found · Within the selected date range</p></div>
             </div>
-            <span class="documents-card-icon" aria-hidden="true"><span class="bi bi-file-earmark-text-fill"></span></span>
         </div>
+
+        <section class="documents-filters documents-register-filters" aria-label="Document filters">
+            <div class="filter-field filter-field-wide">
+                <label>Vessel</label>
+                <VesselPicker @key="filterVesselPickerResetToken"
+                              Value="vesselIdFilter"
+                              ValueChanged="SelectFilterVesselAsync"
+                              Placeholder="Search vessels by name or IMO..."
+                              Disabled="isLoading" />
+            </div>
+            <div class="filter-field">
+                <label for="documents-from">From</label>
+                <input id="documents-from" type="date" @bind="fromFilter" @bind:after="ScheduleFilterSearchAsync" />
+            </div>
+            <div class="filter-field">
+                <label for="documents-to">To</label>
+                <input id="documents-to" type="date" @bind="toFilter" @bind:after="ScheduleFilterSearchAsync" />
+            </div>
+            <div class="filter-field">
+                <label for="documents-review-status">Review status</label>
+                <select id="documents-review-status" @bind="pendingReviewStatus" @bind:after="ScheduleFilterSearchAsync">
+                    <option value="">All</option>
+                    <option value="Draft">Draft</option>
+                    <option value="PendingReview">Pending review</option>
+                    <option value="Approved">Approved</option>
+                    <option value="Rejected">Rejected</option>
+                </select>
+            </div>
+            <button class="documents-filter-reset" type="button" @onclick="ClearFiltersAsync" disabled="@isLoading">Reset</button>
+        </section>
 
         @if (isLoading)
         {
@@ -136,7 +143,7 @@
                         @foreach (var row in rows)
                         {
                             <tr @key="row.DocumentId">
-                                <td class="col-number">@row.Number</td>
+                                <td class="col-number"><div class="documents-identity"><span class="bi bi-file-earmark-text" aria-hidden="true"></span><strong>@row.Number</strong></div></td>
                                 <td class="col-vessel">@row.VesselDisplayName</td>
                                 <td class="documents-muted col-type">@row.DocumentTypeName</td>
                                 <td class="documents-muted col-authority">@row.IssuingAuthority</td>
@@ -169,7 +176,6 @@
             </div>
         }
     </section>
-
 
     @if (expandedDocumentId is { } fileDocumentId)
     {
@@ -227,7 +233,28 @@
                     {
                         <button type="button" class="documents-modal-cancel" @onclick="OpenRevokeConfirmation">Revoke</button>
                     }
+                    <button type="button" class="documents-search-button" @onclick="OpenDistributionFormAsync">Distribute for acknowledgement</button>
                 </div>
+                @if (isDistributionFormOpen)
+                {
+                    <section class="documents-lifecycle-panel" aria-label="Document distribution">
+                        <h3>Distribute approved document</h3>
+                        <div class="documents-form-grid">
+                            <div class="filter-field"><label>Due date</label><InputDate @bind-Value="distributionDueDate" /></div>
+                            <div class="filter-field"><label>Instruction (optional)</label><input @bind="distributionInstruction" /></div>
+                            <div class="filter-field"><label>Find recipients</label><input @bind="distributionRecipientSearch" @bind:event="oninput" @bind:after="SearchDistributionRecipientsAsync" placeholder="Search eligible users..." /></div>
+                        </div>
+                        <div class="distribution-recipient-picker">
+                            @foreach (var recipient in distributionRecipients.Where(x => x.IsActive && x.CanReadDocuments))
+                            {
+                                <label><input type="checkbox" checked="@selectedDistributionRecipients.Contains(recipient.UserId)" @onchange="() => { if (!selectedDistributionRecipients.Add(recipient.UserId)) selectedDistributionRecipients.Remove(recipient.UserId); }" /> @recipient.Email</label>
+                            }
+                        </div>
+                        @if (distributionFailure is not null) { <div class="documents-type-inline-error" role="alert">@distributionFailure.Message</div> }
+                        @if (distributionSuccessMessage is not null) { <div class="documents-type-success" role="status">@distributionSuccessMessage</div> }
+                        <button type="button" class="documents-search-button" disabled="@isIssuingDistribution" @onclick="IssueDistributionAsync">@(isIssuingDistribution ? "Issuing..." : "Issue acknowledgement")</button>
+                    </section>
+                }
                 @if (isEditingMetadata || isRenewingDocument)
                 {
                     <section class="documents-lifecycle-panel" aria-label="Document metadata">

@@ -67,6 +67,8 @@ internal sealed class DocumentConfiguration : IEntityTypeConfiguration<Document>
 
         builder.Property(d => d.SizeBytes);
 
+        builder.Property(d => d.FileRevisionId);
+
         builder.HasOne(d => d.DocumentType)
             .WithMany()
             .HasForeignKey(d => d.DocumentTypeId)

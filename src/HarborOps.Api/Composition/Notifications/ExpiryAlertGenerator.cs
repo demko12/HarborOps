@@ -1,12 +1,12 @@
 using HarborOps.Modules.Notifications.Application;
 using Compliance = HarborOps.Modules.Compliance.Contracts;
 using CrewContracts = HarborOps.Modules.Crew.Contracts;
-using Documents = HarborOps.Modules.Documents.Contracts;
+using DocumentContracts = HarborOps.Modules.Documents.Contracts;
 
 namespace HarborOps.Api.Composition.Notifications;
 
 public sealed class ExpiryAlertGenerator(
-    Documents.IExpiryAlertCandidateQuery documents,
+    DocumentContracts.IExpiryAlertCandidateQuery documents,
     CrewContracts.IExpiryAlertCandidateQuery crew,
     Compliance.IExpiryAlertCandidateQuery compliance,
     NotificationService notifications,

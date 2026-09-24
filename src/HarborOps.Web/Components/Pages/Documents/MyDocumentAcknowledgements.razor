@@ -1,0 +1,68 @@
+@page "/documents/acknowledgements"
+@attribute [Microsoft.AspNetCore.Authorization.Authorize(Policy = "AccessDocuments")]
+@using HarborOps.Web.Api.Documents
+@inject DocumentsApiClient DocumentsApi
+
+<PageTitle>My document acknowledgements | HarborOps</PageTitle>
+
+<section class="documents-page acknowledgement-page">
+    <header class="documents-header">
+        <div>
+            <p class="documents-eyebrow"><a href="/documents">Documents operations</a><span>/</span> acknowledgements</p>
+            <h1>My document acknowledgements</h1>
+            <p>Review the issued document, then explicitly acknowledge the exact version shown.</p>
+        </div>
+    </header>
+
+    <section class="documents-filters" aria-label="Acknowledgement filters">
+        <div class="filter-field"><label for="ack-state">State</label><select id="ack-state" @bind="state" @bind:after="LoadAsync"><option value="">All states</option><option>Pending</option><option>Acknowledged</option><option>Obsolete</option><option>Cancelled</option></select></div>
+        <label class="ack-overdue"><input type="checkbox" @bind="overdueOnly" @bind:after="LoadAsync" /> Overdue only</label>
+    </section>
+
+    @if (failure is not null) { <div class="documents-validation" role="alert"><strong>@failure.Title</strong><p>@failure.Message</p><button class="button-secondary" @onclick="LoadAsync">Retry</button></div> }
+    @if (isLoading) { <section class="documents-card"><p>Loading acknowledgements…</p></section> }
+    else if (items.Count == 0) { <section class="documents-card empty-state"><h2>No document acknowledgements</h2><p>Documents issued to you will appear here.</p></section> }
+    else
+    {
+        <section class="documents-card acknowledgement-list">
+            <div class="documents-card-heading"><div><h2>Issued documents</h2><p>@totalCount issue(s)</p></div></div>
+            @foreach (var item in items)
+            {
+                <article class="acknowledgement-row">
+                    <div><p class="documents-eyebrow">@item.DocumentType</p><h3>@item.DocumentNumber</h3><p>Due @item.DueDate.ToString("dd MMM yyyy") @if (item.IsOverdue) { <span class="status-badge status-danger">Overdue</span> }</p>@if (!string.IsNullOrWhiteSpace(item.Instruction)) { <p>@item.Instruction</p> } @if (!string.IsNullOrWhiteSpace(item.StateReason)) { <p class="ack-reason">@item.StateReason</p> }</div>
+                    <div class="ack-actions"><span class="status-badge">@item.State</span><a class="button-secondary" href="/documents">Open document</a>@if (item.State == "Pending") { <button class="button-primary" @onclick="() => confirmIssueId = item.IssueId">Acknowledge</button> }</div>
+                </article>
+            }
+        </section>
+    }
+
+    @if (confirmIssueId is not null)
+    {
+        <div class="modal-backdrop" role="presentation"><section class="modal-card" role="dialog" aria-modal="true" aria-labelledby="ack-confirm-title"><p class="documents-eyebrow">Acknowledgement</p><h2 id="ack-confirm-title">Confirm acknowledgement</h2><p>You confirm that you reviewed the current issued document. This action is recorded with your account and server time.</p><div class="modal-actions"><button class="button-primary" disabled="@isAcknowledging" @onclick="AcknowledgeAsync">@(isAcknowledging ? "Acknowledging…" : "Confirm acknowledgement")</button><button class="button-secondary" disabled="@isAcknowledging" @onclick="() => confirmIssueId = null">Cancel</button></div></section></div>
+    }
+</section>
+
+@code {
+    private IReadOnlyList<DocumentDistributionInboxItemDto> items = [];
+    private DocumentsApiFailure? failure;
+    private bool isLoading = true, isAcknowledging, overdueOnly;
+    private string? state;
+    private Guid? confirmIssueId;
+    private int totalCount;
+    protected override Task OnInitializedAsync() => LoadAsync();
+    private async Task LoadAsync()
+    {
+        isLoading = true; failure = null;
+        var result = await DocumentsApi.GetMyAcknowledgementsAsync(new DocumentDistributionInboxQuery(state, overdueOnly ? true : null, 1, 100), CancellationToken.None);
+        if (result.IsSuccess && result.Value is not null) { items = result.Value.Items; totalCount = result.Value.TotalCount; } else { items = []; failure = result.Failure; }
+        isLoading = false;
+    }
+    private async Task AcknowledgeAsync()
+    {
+        if (confirmIssueId is not { } issueId) return;
+        isAcknowledging = true; failure = null;
+        var result = await DocumentsApi.AcknowledgeAsync(issueId, CancellationToken.None);
+        isAcknowledging = false;
+        if (result.IsSuccess) { confirmIssueId = null; await LoadAsync(); } else failure = result.Failure;
+    }
+}

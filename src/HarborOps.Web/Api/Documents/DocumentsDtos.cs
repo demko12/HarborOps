@@ -155,6 +155,15 @@ internal sealed record ApproveDispositionRequestRequest(string? DecisionReason);
 internal sealed record RejectDispositionRequestRequest(string? DecisionReason);
 internal sealed record DispositionRequestResultDto(Guid Id, string Status);
 
+internal sealed record DocumentDistributionInboxQuery(string? State, bool? Overdue, int? PageNumber, int? PageSize);
+internal sealed record DocumentDistributionInboxItemDto(Guid IssueId, Guid DocumentId, string DocumentNumber, string DocumentType, DateOnly DocumentExpiryDate, DateOnly DueDate, string? Instruction, string State, bool IsOverdue, DateTime IssuedAtUtc, DateTime? AcknowledgedAtUtc, string? StateReason);
+internal sealed record DocumentDistributionInboxPageDto(IReadOnlyList<DocumentDistributionInboxItemDto> Items, int PageNumber, int PageSize, int TotalCount);
+internal sealed record DocumentDistributionRecipientDto(Guid RecipientUserId, string State, bool IsOverdue, DateTime? AcknowledgedAtUtc, DateTime? StateChangedAtUtc, string? StateReason);
+internal sealed record DocumentDistributionIssueDto(Guid Id, Guid DocumentId, string DocumentNumber, string DocumentType, DateOnly DocumentExpiryDate, Guid FileRevisionId, DateOnly DueDate, string? Instruction, Guid IssuedByUserId, DateTime IssuedAtUtc, bool IsCancelled, string? CancellationReason, IReadOnlyList<DocumentDistributionRecipientDto> Recipients);
+internal sealed record IssueDocumentDistributionRequest(DateOnly? DueDate, string? Instruction, IReadOnlyList<Guid>? RecipientUserIds);
+internal sealed record CancelDocumentDistributionRequest(string? Reason);
+internal sealed record DocumentDistributionRecipientPickerDto(Guid UserId, string Email, bool IsActive, bool CanReadDocuments);
+
 internal sealed record DocumentsApiResult<T>(T? Value, DocumentsApiFailure? Failure)
 {
     internal bool IsSuccess => Failure is null;
