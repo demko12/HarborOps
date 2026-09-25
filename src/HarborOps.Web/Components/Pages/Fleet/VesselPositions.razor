@@ -11,9 +11,7 @@
 <section class="positions-page">
 	<header class="positions-header">
 		<div>
-			<nav class="page-breadcrumb" aria-label="Breadcrumb">
-				<a href="/fleet">Fleet operations</a><span aria-hidden="true">/</span><span>Vessel positions</span>
-			</nav>
+			<nav class="page-breadcrumb" aria-label="Breadcrumb"><a href="/fleet">Fleet operations</a><span aria-hidden="true">/</span><span aria-current="page">Vessel positions</span></nav>
 			<h1>Vessel positions</h1>
 			<p>Review the latest reported position of every vessel and spot missing or stale reports.</p>
 		</div>
@@ -24,6 +22,60 @@
 	</header>
 
 	<FleetNavigation />
+
+
+	@if (positions is not null)
+	{
+		<section class="positions-summary" aria-label="Position summary">
+			<article class="positions-summary-card">
+				<div><span>Vessels</span><strong>@positions.TotalCount</strong><small>Matching the filters</small></div>
+			</article>
+			<article class="positions-summary-card">
+				<div><span>Missing position</span><strong>@MissingCount</strong><small>No coordinates on this page</small></div>
+			</article>
+			<article class="positions-summary-card">
+				<div><span>Stale position</span><strong>@StaleCount</strong><small>Older than @StaleAfterLabel</small></div>
+			</article>
+			<article class="positions-summary-card">
+				<div><span>Current position</span><strong>@CurrentCount</strong><small>Reported recently</small></div>
+			</article>
+		</section>
+	}
+
+    @if (positions is { Items.Count: > 0 })
+    {
+        <section class="positions-coverage" aria-label="Position reporting coverage on this page">
+            <div class="positions-coverage-heading">
+                <h2>Position reporting coverage</h2>
+                <p>@CurrentCount of @positions.Items.Count vessels on this page have a current report</p>
+            </div>
+            <div class="positions-coverage-track" aria-hidden="true">
+                <span class="positions-coverage-current" style="flex-grow: @CurrentCount"></span>
+                <span class="positions-coverage-stale" style="flex-grow: @StaleCount"></span>
+                <span class="positions-coverage-missing" style="flex-grow: @MissingCount"></span>
+            </div>
+            <div class="positions-coverage-legend">
+                <span><i class="positions-coverage-current" aria-hidden="true"></i>@CurrentCount current</span>
+                <span><i class="positions-coverage-stale" aria-hidden="true"></i>@StaleCount stale</span>
+                <span><i class="positions-coverage-missing" aria-hidden="true"></i>@MissingCount missing</span>
+            </div>
+        </section>
+    }
+
+	<section class="positions-card" aria-labelledby="positions-table-title">
+		<div class="positions-card-heading">
+			<div>
+				<span class="positions-section-label">Position overview</span>
+				<h2 id="positions-table-title">Reported positions</h2>
+				<p>
+					@(positions?.TotalCount ?? 0) vessels
+					@if (positions is not null)
+					{
+						<span> &middot; positions older than @StaleAfterLabel are marked stale</span>
+					}
+				</p>
+			</div>
+		</div>
 
 	<div class="positions-filters">
 		<div class="positions-field">
@@ -52,38 +104,6 @@
 		</div>
 		<button class="positions-reset" type="button" @onclick="ResetFiltersAsync" disabled="@isLoading">Reset</button>
 	</div>
-
-	@if (positions is not null)
-	{
-		<section class="positions-summary" aria-label="Position summary">
-			<article class="positions-summary-card">
-				<div><span>Vessels</span><strong>@positions.TotalCount</strong><small>Matching the filters</small></div>
-			</article>
-			<article class="positions-summary-card">
-				<div><span>Missing position</span><strong>@MissingCount</strong><small>No coordinates on this page</small></div>
-			</article>
-			<article class="positions-summary-card">
-				<div><span>Stale position</span><strong>@StaleCount</strong><small>Older than @StaleAfterLabel</small></div>
-			</article>
-			<article class="positions-summary-card">
-				<div><span>Current position</span><strong>@CurrentCount</strong><small>Reported recently</small></div>
-			</article>
-		</section>
-	}
-
-	<section class="positions-card" aria-labelledby="positions-table-title">
-		<div class="positions-card-heading">
-			<div>
-				<h2 id="positions-table-title">Reported positions</h2>
-				<p>
-					@(positions?.TotalCount ?? 0) vessels
-					@if (positions is not null)
-					{
-						<span> &middot; positions older than @StaleAfterLabel are marked stale</span>
-					}
-				</p>
-			</div>
-		</div>
 
 		@if (isLoading)
 		{

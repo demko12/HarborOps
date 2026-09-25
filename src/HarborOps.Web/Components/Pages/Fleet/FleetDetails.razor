@@ -12,13 +12,30 @@
     else
     {
         <header class="fleet-directory-header fleet-details-header">
-            <nav class="page-breadcrumb" aria-label="Breadcrumb"><a href="/fleet">Fleet operations</a><span>/</span><a href="/fleet/fleets">Fleets</a><span>/</span><span>@fleet.Name</span></nav>
-            <div class="fleet-details-title-row"><div><h1>@fleet.Name</h1><p>@fleet.Description</p></div><dl class="fleet-details-summary"><div><dt>Active vessels</dt><dd>@fleet.ActiveVessels.Count</dd></div><div><dt>Created</dt><dd>@fleet.CreatedAtUtc.ToLocalTime().ToString("dd MMM yyyy")</dd></div></dl></div>
+            <nav class="page-breadcrumb" aria-label="Breadcrumb"><a href="/fleet">Fleet operations</a><span>/</span><a href="/fleet/fleets">Manage fleets</a><span>/</span><span>@fleet.Name</span></nav>
+            <div class="fleet-details-title-row"><div class="fleet-details-identity"><span class="fleet-details-icon bi bi-diagram-3" aria-hidden="true"></span><div><h1>@fleet.Name</h1><p>@fleet.Description</p></div></div><dl class="fleet-details-summary"><div><dt>Active vessels</dt><dd>@fleet.ActiveVessels.Count</dd></div><div><dt>Created</dt><dd>@fleet.CreatedAtUtc.ToLocalTime().ToString("dd MMM yyyy")</dd></div></dl></div>
         </header>
+        <FleetNavigation />
+        @if (fleet.ActiveVessels.Count > 0)
+        {
+            <section class="fleet-details-snapshot" aria-label="Assigned vessels by operating status">
+                <p class="fleet-directory-eyebrow">Operating status · Assigned vessels</p>
+                <div class="fleet-details-status-grid">
+                    @foreach (var group in fleet.ActiveVessels.GroupBy(vessel => vessel.CurrentStatus).OrderBy(group => group.Key))
+                    {
+                        <article class="fleet-details-stat">
+                            <span class="vessel-status @GetStatusClass(group.Key)">@group.Key</span>
+                            <strong>@group.Count()</strong>
+                            <small>Assigned vessel@(group.Count() == 1 ? string.Empty : "s")</small>
+                        </article>
+                    }
+                </div>
+            </section>
+        }
         <section class="fleet-details-register" aria-labelledby="fleet-vessels-title">
-            <div class="fleet-directory-results-heading"><div><p class="fleet-directory-eyebrow">Fleet register</p><h2 id="fleet-vessels-title">Active vessels</h2><p>@fleet.ActiveVessels.Count vessel@(fleet.ActiveVessels.Count == 1 ? string.Empty : "s") currently assigned</p></div><span class="fleet-directory-icon bi bi-water" aria-hidden="true"></span></div>
+            <div class="fleet-directory-results-heading"><div><p class="fleet-directory-eyebrow">Fleet register</p><h2 id="fleet-vessels-title">Active vessels</h2><p>@fleet.ActiveVessels.Count vessel@(fleet.ActiveVessels.Count == 1 ? string.Empty : "s") currently assigned</p></div><span class="fleet-directory-icon" aria-hidden="true"><VesselIcon /></span></div>
             @if (fleet.ActiveVessels.Count == 0) { <EmptyState Title="No active vessels" Message="Assign a vessel from its details page to add it to this fleet." /> }
-            else { <div class="fleet-details-vessels">@foreach (var vessel in fleet.ActiveVessels) { <a href="@($"/fleet/{vessel.VesselId}?returnTo=/fleet/fleets/{FleetId}")" aria-label="@($"Open {vessel.Name} details")"><span class="fleet-details-vessel-icon bi bi-water" aria-hidden="true"></span><div class="fleet-details-vessel-primary"><strong>@vessel.Name</strong><span>IMO @vessel.ImoNumber</span></div><span class="vessel-status @GetStatusClass(vessel.CurrentStatus)">@vessel.CurrentStatus</span><div class="fleet-details-assigned"><span>Assigned</span><strong>@vessel.AssignedFromUtc.ToLocalTime().ToString("dd MMM yyyy")</strong></div><span class="bi bi-chevron-right fleet-details-chevron" aria-hidden="true"></span></a> }</div> }
+            else { <div class="fleet-details-vessels">@foreach (var vessel in fleet.ActiveVessels) { <a href="@($"/fleet/{vessel.VesselId}?returnTo=/fleet/fleets/{FleetId}")" aria-label="@($"Open {vessel.Name} details")"><span class="fleet-details-vessel-icon" aria-hidden="true"><VesselIcon /></span><div class="fleet-details-vessel-primary"><strong>@vessel.Name</strong><span>IMO @vessel.ImoNumber</span></div><span class="vessel-status @GetStatusClass(vessel.CurrentStatus)">@vessel.CurrentStatus</span><div class="fleet-details-assigned"><span>Assigned</span><strong>@vessel.AssignedFromUtc.ToLocalTime().ToString("dd MMM yyyy")</strong></div><span class="bi bi-chevron-right fleet-details-chevron" aria-hidden="true"></span></a> }</div> }
         </section>
     }
 </section>

@@ -2,6 +2,7 @@
 @attribute [Microsoft.AspNetCore.Authorization.Authorize(Policy = "AccessFleet")]
 @using HarborOps.Web.Api.Fleet
 @implements IDisposable
+@inject NavigationManager Navigation
 @inject FleetApiClient FleetApi
 @inject CurrentUserAuthorizationState AuthorizationState
 
@@ -26,6 +27,7 @@
 			<div>
 				<nav class="page-breadcrumb" aria-label="Breadcrumb"><a href="@FleetHref">Fleet operations</a><span aria-hidden="true">/</span><span>Vessel details</span></nav>
 				<div class="vessel-title-row">
+                    <span class="vessel-profile-icon" aria-hidden="true"><VesselIcon /></span>
 					<div>
 						<h1>@details.Name</h1>
 						<p>IMO @details.ImoNumber &middot; @details.VesselTypeName &middot; @details.FlagState</p>
@@ -38,6 +40,14 @@
 				<div><dt>Updated</dt><dd>@FormatTimestamp(details.UpdatedAtUtc)</dd></div>
 			</dl>
 		</header>
+
+        <nav class="vessel-section-nav" aria-label="Vessel sections">
+            <a href="@($"{Navigation.Uri.Split('#')[0]}#vessel-operational-title")"><span class="bi bi-activity" aria-hidden="true"></span>Overview</a>
+            <a href="@($"{Navigation.Uri.Split('#')[0]}#vessel-identity-title")"><span class="bi bi-card-heading" aria-hidden="true"></span>Identity</a>
+            <a href="@($"{Navigation.Uri.Split('#')[0]}#vessel-specs-title")"><span class="bi bi-rulers" aria-hidden="true"></span>Specifications</a>
+            <a href="@($"{Navigation.Uri.Split('#')[0]}#vessel-assignment-title")"><span class="bi bi-diagram-3" aria-hidden="true"></span>Fleet assignment</a>
+            <a href="@($"{Navigation.Uri.Split('#')[0]}#vessel-history-title")"><span class="bi bi-clock-history" aria-hidden="true"></span>History</a>
+        </nav>
 
 		@if (registrySuccessMessage is not null || specificationsSuccessMessage is not null)
 		{
@@ -70,7 +80,7 @@
 					}
 					else
 					{
-						<span class="vessel-card-icon" aria-hidden="true"><span class="bi bi-water"></span></span>
+						<span class="vessel-card-icon" aria-hidden="true"><VesselIcon /></span>
 					}
 				</div>
 				<dl>
@@ -119,7 +129,7 @@
 				}
 				else
 				{
-					<p class="vessel-assignment-value"><strong>@details.FleetName</strong></p>
+					<p class="vessel-assignment-value"><a href="@($"/fleet/fleets/{details.FleetId}")">@details.FleetName<span class="bi bi-chevron-right" aria-hidden="true"></span></a></p>
 				}
 				<p class="vessel-assignment-note">@details.FlagState &middot; @details.VesselTypeName</p>
 				@if (CanManageFleet && fleets?.Items?.Count > 0)

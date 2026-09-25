@@ -221,12 +221,16 @@ html, body {
     .documents-type-form-card,
     .error-card,
     .fleet-card,
-    .fleet-directory-card,
+    .fleet-directory-summary > article,
     .fleet-directory-create,
     .fleet-directory-filter,
     .fleet-directory-results,
+    .fleet-details-register,
+    .fleet-details-stat,
     .fleet-filters,
     .fleet-summary-card,
+    .positions-summary-card,
+    .positions-card,
     .insurance-card,
     .insurance-results-card,
     .maintenance-card,
@@ -291,12 +295,16 @@ html[data-theme="dark"] .page:not(.login-layout) :is(
     .documents-type-form-card,
     .error-card,
     .fleet-card,
-    .fleet-directory-card,
+    .fleet-directory-summary > article,
     .fleet-directory-create,
     .fleet-directory-filter,
     .fleet-directory-results,
+    .fleet-details-register,
+    .fleet-details-stat,
     .fleet-filters,
     .fleet-summary-card,
+    .positions-summary-card,
+    .positions-card,
     .insurance-card,
     .insurance-results-card,
     .maintenance-card,
@@ -900,4 +908,12 @@ html[data-theme="dark"] .page .administration-page :is(.user-row, .role-row).sel
 html[data-theme="dark"] .documents-page :is(.requirements-filters, .readiness-filters) {
     position: relative;
     z-index: 2;
+}
+
+html[data-theme="dark"] .fleet-page .fleet-vessel-row:is(:hover, :focus-visible) {
+    background: var(--bg-surface-strong);
+}
+
+html[data-theme="dark"] .fleet-details-page .fleet-details-vessels a:is(:hover, :focus-visible) {
+    background: var(--bg-surface-strong);
 }
