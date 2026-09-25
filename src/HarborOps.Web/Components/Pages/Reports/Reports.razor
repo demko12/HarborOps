@@ -446,29 +446,41 @@
 
                         <div class="reports-kpis" aria-label="Average elapsed time for all matching stops">
                             <div class="reports-kpi" title="@TurnaroundDefinition">
-                                <span class="reports-kpi-label">Avg turnaround</span>
-                                <strong>@MeanLabel(summary.Turnaround)</strong>
-                                <span class="reports-kpi-note">@SampleLabel(summary, summary.Turnaround)</span>
+                                <div>
+                                    <span class="reports-kpi-label">Avg turnaround</span>
+                                    <strong>@MeanLabel(summary.Turnaround)</strong>
+                                    <span class="reports-kpi-note">@SampleLabel(summary, summary.Turnaround)</span>
+                                </div>
+                                <span class="reports-kpi-icon bi bi-arrow-repeat reports-kpi-icon-blue" aria-hidden="true"></span>
                             </div>
                             <div class="reports-kpi" title="@ArrivalToAllFastDefinition">
-                                <span class="reports-kpi-label">Avg arrival → all fast</span>
-                                <strong>@MeanLabel(summary.ArrivalToAllFast)</strong>
-                                <span class="reports-kpi-note">@SampleLabel(summary, summary.ArrivalToAllFast)</span>
+                                <div>
+                                    <span class="reports-kpi-label">Avg arrival → all fast</span>
+                                    <strong>@MeanLabel(summary.ArrivalToAllFast)</strong>
+                                    <span class="reports-kpi-note">@SampleLabel(summary, summary.ArrivalToAllFast)</span>
+                                </div>
+                                <span class="reports-kpi-icon bi bi-box-arrow-in-down-right reports-kpi-icon-amber" aria-hidden="true"></span>
                             </div>
                             <div class="reports-kpi" title="@CargoElapsedDefinition">
-                                <span class="reports-kpi-label">Avg cargo elapsed</span>
-                                <strong>@MeanLabel(summary.CargoElapsed)</strong>
-                                <span class="reports-kpi-note">@SampleLabel(summary, summary.CargoElapsed)</span>
+                                <div>
+                                    <span class="reports-kpi-label">Avg cargo elapsed</span>
+                                    <strong>@MeanLabel(summary.CargoElapsed)</strong>
+                                    <span class="reports-kpi-note">@SampleLabel(summary, summary.CargoElapsed)</span>
+                                </div>
+                                <span class="reports-kpi-icon bi bi-box-seam reports-kpi-icon-teal" aria-hidden="true"></span>
                             </div>
                             <div class="reports-kpi" title="@CargoCompletedToDepartureDefinition">
-                                <span class="reports-kpi-label">Avg cargo completed → departure</span>
-                                <strong>@MeanLabel(summary.CargoCompletedToDeparture)</strong>
-                                <span class="reports-kpi-note">@SampleLabel(summary, summary.CargoCompletedToDeparture)</span>
+                                <div>
+                                    <span class="reports-kpi-label">Avg cargo completed → departure</span>
+                                    <strong>@MeanLabel(summary.CargoCompletedToDeparture)</strong>
+                                    <span class="reports-kpi-note">@SampleLabel(summary, summary.CargoCompletedToDeparture)</span>
+                                </div>
+                                <span class="reports-kpi-icon bi bi-box-arrow-up-right reports-kpi-icon-purple" aria-hidden="true"></span>
                             </div>
                         </div>
 
                         <section class="reports-port-section" aria-labelledby="reports-port-title">
-                            <h3 id="reports-port-title" class="reports-port-title">By port</h3>
+                            <h3 id="reports-port-title" class="reports-port-title"><span class="bi bi-geo-alt-fill" aria-hidden="true"></span>By port</h3>
                             <div class="reports-table-scroll">
                                 <table class="reports-table reports-port-table">
                                     <caption class="visually-hidden">Averages per port for all matching stops</caption>
@@ -505,6 +517,7 @@
                                         {
                                             <tr @key="port.PortId">
                                                 <td>
+                                                    <span class="reports-row-icon bi bi-geo-alt" aria-hidden="true"></span>
                                                     @port.PortName
                                                     <div class="reports-muted">@port.PortUnLocode</div>
                                                 </td>
@@ -577,6 +590,7 @@
                                 {
                                     <tr @key="row.VoyageStopId" class="@(row.StatementId is null ? "reports-row-muted" : null)">
                                         <td>
+                                            <span class="reports-row-icon bi bi-signpost-split" aria-hidden="true"></span>
                                             <button type="button" class="reports-link-button" title="Show only this voyage" @onclick="() => FilterByVoyageAsync(row)">@row.VoyageNumber</button>
                                             <span class="reports-muted"> · #@row.StopOrder</span>
                                             <div class="reports-muted">@VesselDisplayName(row.VesselId)</div>
