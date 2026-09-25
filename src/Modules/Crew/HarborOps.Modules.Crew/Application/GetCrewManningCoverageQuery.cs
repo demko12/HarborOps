@@ -89,6 +89,27 @@ internal sealed class GetCrewManningCoverageQuery(DbContext dbContext) : IGetCre
             .Select(availability => new { availability.CrewMemberId, availability.StartDate, availability.EndDate })
             .ToListAsync(cancellationToken);
 
+        var enabledPolicies = await dbContext.Set<CrewQualificationPolicy>()
+            .AsNoTracking()
+            .Where(policy => rankIds.Contains(policy.CrewPositionId) && policy.Enabled)
+            .ToDictionaryAsync(policy => policy.CrewPositionId, cancellationToken);
+
+        var policyIds = enabledPolicies.Values.Select(policy => policy.Id).ToList();
+
+        var requiredTypesByPolicyId = (await dbContext.Set<CrewQualificationRequirement>()
+            .AsNoTracking()
+            .Where(requirement => policyIds.Contains(requirement.PolicyId))
+            .ToListAsync(cancellationToken))
+            .GroupBy(requirement => requirement.PolicyId)
+            .ToDictionary(group => group.Key, group => group.Select(requirement => requirement.RequiredType).ToList());
+
+        var validCertificatesByMemberId = (await dbContext.Set<CrewCertificate>()
+            .AsNoTracking()
+            .Where(certificate => memberIds.Contains(certificate.CrewMemberId) && certificate.Status == "Valid")
+            .ToListAsync(cancellationToken))
+            .GroupBy(certificate => certificate.CrewMemberId)
+            .ToDictionary(group => group.Key, group => (IReadOnlyList<CrewCertificate>)group.ToList());
+
         var days = new List<CoverageDayItem>();
 
         foreach (var date in dates)
@@ -122,7 +143,7 @@ internal sealed class GetCrewManningCoverageQuery(DbContext dbContext) : IGetCre
                     .ToList();
 
                 var ineligibleMembers = new List<CoverageIneligibleMember>();
-                var eligibleHeadcount = 0;
+                var eligibleMemberIds = new List<Guid>();
 
                 foreach (var memberId in distinctMemberIds)
                 {
@@ -144,7 +165,37 @@ internal sealed class GetCrewManningCoverageQuery(DbContext dbContext) : IGetCre
                         continue;
                     }
 
-                    eligibleHeadcount++;
+                    eligibleMemberIds.Add(memberId);
+                }
+
+                var eligibleHeadcount = eligibleMemberIds.Count;
+
+                int? qualifiedHeadcount = null;
+                var unqualifiedMembers = new List<CoverageUnqualifiedMember>();
+
+                if (enabledPolicies.TryGetValue(rankId, out var policy))
+                {
+                    var requiredTypes = requiredTypesByPolicyId.GetValueOrDefault(policy.Id, []);
+                    var qualifiedCount = 0;
+
+                    foreach (var memberId in eligibleMemberIds)
+                    {
+                        var certificates = validCertificatesByMemberId.GetValueOrDefault(memberId, []);
+                        var missingTypes = requiredTypes
+                            .Where(type => !CrewQualificationCoverage.IsCoveredOnDay(certificates, type, date))
+                            .ToList();
+
+                        if (missingTypes.Count == 0)
+                        {
+                            qualifiedCount++;
+                        }
+                        else
+                        {
+                            unqualifiedMembers.Add(new CoverageUnqualifiedMember(memberId, missingTypes));
+                        }
+                    }
+
+                    qualifiedHeadcount = qualifiedCount;
                 }
 
                 var shortage = requiredHeadcount is null
@@ -160,7 +211,9 @@ internal sealed class GetCrewManningCoverageQuery(DbContext dbContext) : IGetCre
                     eligibleHeadcount,
                     shortage,
                     ineligibleMembers,
-                    assignmentsForRank.Select(entry => entry.Assignment.Id).ToList()));
+                    assignmentsForRank.Select(entry => entry.Assignment.Id).ToList(),
+                    qualifiedHeadcount,
+                    unqualifiedMembers));
             }
         }
 
