@@ -74,9 +74,9 @@ internal static class StocktakeReader
             .Select(adjustment => new InventoryAdjustmentItem(
                 adjustment.Id,
                 adjustment.InventoryItemId,
-                adjustment.StocktakeId,
+                adjustment.StocktakeId!.Value,
                 adjustment.QuantityBefore,
-                adjustment.CountedQuantity,
+                adjustment.QuantityAfter,
                 adjustment.QuantityDelta,
                 adjustment.Reason,
                 adjustment.ActorUserId,

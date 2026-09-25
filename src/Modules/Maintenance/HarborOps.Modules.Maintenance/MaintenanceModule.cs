@@ -67,6 +67,13 @@ public static class MaintenanceModule
         services.AddScoped<GetStocktakePostingPreviewQuery>();
         services.AddScoped<PostStocktakeService>();
         services.AddScoped<CancelStocktakeService>();
+        services.AddScoped<GetSupplierReturnsQuery>();
+        services.AddScoped<GetSupplierReturnDetailsQuery>();
+        services.AddScoped<CreateSupplierReturnService>();
+        services.AddScoped<UpdateSupplierReturnService>();
+        services.AddScoped<GetSupplierReturnPostingPreviewQuery>();
+        services.AddScoped<PostSupplierReturnService>();
+        services.AddScoped<CancelSupplierReturnService>();
         services.AddScoped<IVesselMaintenanceOverviewQuery>(serviceProvider =>
             serviceProvider.GetRequiredService<GetVesselMaintenanceOverviewService>());
         services.TryAddSingleton(TimeProvider.System);

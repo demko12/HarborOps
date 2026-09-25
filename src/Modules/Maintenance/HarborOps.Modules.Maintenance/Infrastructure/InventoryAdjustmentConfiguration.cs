@@ -19,7 +19,9 @@ internal sealed class InventoryAdjustmentConfiguration : IEntityTypeConfiguratio
             .HasColumnType("decimal(18,3)")
             .IsRequired();
 
-        builder.Property(adjustment => adjustment.CountedQuantity)
+        // The column keeps its stocktake-era name so existing history and deployed code stay compatible.
+        builder.Property(adjustment => adjustment.QuantityAfter)
+            .HasColumnName("CountedQuantity")
             .HasColumnType("decimal(18,3)")
             .IsRequired();
 
@@ -43,7 +45,15 @@ internal sealed class InventoryAdjustmentConfiguration : IEntityTypeConfiguratio
             adjustment.StocktakeId,
             adjustment.InventoryItemId,
         })
-            .IsUnique();
+            .IsUnique()
+            .HasFilter("[StocktakeId] IS NOT NULL");
+
+        // A supplier return line moves stock at most once, even when a post is retried.
+        builder.HasIndex(adjustment => adjustment.SupplierReturnLineId)
+            .IsUnique()
+            .HasFilter("[SupplierReturnLineId] IS NOT NULL");
+
+        builder.HasIndex(adjustment => adjustment.SupplierReturnId);
 
         builder.HasIndex(adjustment => new
         {
@@ -59,6 +69,16 @@ internal sealed class InventoryAdjustmentConfiguration : IEntityTypeConfiguratio
         builder.HasOne<Stocktake>()
             .WithMany()
             .HasForeignKey(adjustment => adjustment.StocktakeId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        builder.HasOne<SupplierReturn>()
+            .WithMany()
+            .HasForeignKey(adjustment => adjustment.SupplierReturnId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        builder.HasOne<SupplierReturnLine>()
+            .WithMany()
+            .HasForeignKey(adjustment => adjustment.SupplierReturnLineId)
             .OnDelete(DeleteBehavior.Restrict);
     }
 }

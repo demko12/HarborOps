@@ -12,6 +12,12 @@ public partial class PurchaseOrdersPanel : IDisposable
     [Parameter]
     public ReplenishmentOrderIntent? Seed { get; set; }
 
+    /// <summary>
+    /// Opens the supplier returns of a received purchase order.
+    /// </summary>
+    [Parameter]
+    public EventCallback<Guid> OnReturnsRequested { get; set; }
+
     internal const int SuccessToastMilliseconds = 3000;
 
     private const int SupplierOptionsPageSize = 100;
@@ -64,6 +70,10 @@ public partial class PurchaseOrdersPanel : IDisposable
     private CancellationTokenSource? toastCancellation;
 
     private bool CanManage => AuthorizationState.HasPermission("maintenance.manage");
+
+    // Only received orders can carry supplier returns, and only a host that handles the request shows the entry.
+    private bool CanOpenReturns => OnReturnsRequested.HasDelegate
+        && string.Equals(details?.Status, MaintenanceFormat.ReceivedPurchaseOrder, StringComparison.Ordinal);
 
     private int TotalPages => totalCount == 0 ? 1 : (totalCount + pageSize - 1) / pageSize;
 
@@ -412,6 +422,18 @@ public partial class PurchaseOrdersPanel : IDisposable
         detailsFailure = null;
         statusFailure = null;
         pendingTransition = null;
+    }
+
+    private Task OpenReturnsAsync()
+    {
+        if (details is not { } order)
+        {
+            return Task.CompletedTask;
+        }
+
+        CloseDetails();
+
+        return OnReturnsRequested.InvokeAsync(order.PurchaseOrderId);
     }
 
     private void RequestTransition(string transition)

@@ -481,6 +481,12 @@
 					}
 
 					<div class="maintenance-form-actions">
+						@if (CanOpenReturns)
+						{
+							<button type="button" class="maintenance-button procurement-returns" @onclick="OpenReturnsAsync">
+								Supplier returns
+							</button>
+						}
 						<button type="button" class="maintenance-reset" @onclick="CloseDetails">Close</button>
 					</div>
 				}

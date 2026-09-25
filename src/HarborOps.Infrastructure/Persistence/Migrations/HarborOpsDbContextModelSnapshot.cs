@@ -3100,11 +3100,12 @@ namespace HarborOps.Infrastructure.Persistence.Migrations
                     b.Property<DateTime>("AdjustedUtc")
                         .HasColumnType("datetime2");
 
-                    b.Property<decimal>("CountedQuantity")
-                        .HasColumnType("decimal(18,3)");
-
                     b.Property<Guid>("InventoryItemId")
                         .HasColumnType("uniqueidentifier");
+
+                    b.Property<decimal>("QuantityAfter")
+                        .HasColumnType("decimal(18,3)")
+                        .HasColumnName("CountedQuantity");
 
                     b.Property<decimal>("QuantityBefore")
                         .HasColumnType("decimal(18,3)");
@@ -3117,15 +3118,28 @@ namespace HarborOps.Infrastructure.Persistence.Migrations
                         .HasMaxLength(500)
                         .HasColumnType("nvarchar(500)");
 
-                    b.Property<Guid>("StocktakeId")
+                    b.Property<Guid?>("StocktakeId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid?>("SupplierReturnId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid?>("SupplierReturnLineId")
                         .HasColumnType("uniqueidentifier");
 
                     b.HasKey("Id");
 
+                    b.HasIndex("SupplierReturnId");
+
+                    b.HasIndex("SupplierReturnLineId")
+                        .IsUnique()
+                        .HasFilter("[SupplierReturnLineId] IS NOT NULL");
+
                     b.HasIndex("InventoryItemId", "AdjustedUtc");
 
                     b.HasIndex("StocktakeId", "InventoryItemId")
-                        .IsUnique();
+                        .IsUnique()
+                        .HasFilter("[StocktakeId] IS NOT NULL");
 
                     b.ToTable("InventoryAdjustments", "maintenance");
                 });
@@ -3637,6 +3651,107 @@ namespace HarborOps.Infrastructure.Persistence.Migrations
                     b.HasKey("Id");
 
                     b.ToTable("Suppliers", "maintenance");
+                });
+
+            modelBuilder.Entity("HarborOps.Modules.Maintenance.Domain.SupplierReturn", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("CancellationReason")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<Guid?>("CancelledByUserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime?>("CancelledUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid>("ConcurrencyToken")
+                        .IsConcurrencyToken()
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier")
+                        .HasDefaultValueSql("NEWID()");
+
+                    b.Property<Guid>("CreatedByUserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("CreatedUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("LastModifiedByUserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime?>("LastModifiedUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Notes")
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
+
+                    b.Property<Guid?>("PostedByUserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime?>("PostedUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid>("PurchaseOrderId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<Guid>("SupplierId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Status");
+
+                    b.HasIndex("SupplierId");
+
+                    b.HasIndex("CreatedUtc", "Id");
+
+                    b.HasIndex("PurchaseOrderId", "Status");
+
+                    b.ToTable("SupplierReturns", "maintenance");
+                });
+
+            modelBuilder.Entity("HarborOps.Modules.Maintenance.Domain.SupplierReturnLine", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("InventoryItemId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("PurchaseOrderLineId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<decimal>("Quantity")
+                        .HasColumnType("decimal(18,3)");
+
+                    b.Property<string>("Reason")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<Guid>("SupplierReturnId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("InventoryItemId");
+
+                    b.HasIndex("PurchaseOrderLineId");
+
+                    b.HasIndex("SupplierReturnId", "PurchaseOrderLineId")
+                        .IsUnique();
+
+                    b.ToTable("SupplierReturnLines", "maintenance");
                 });
 
             modelBuilder.Entity("HarborOps.Modules.Maintenance.Domain.UnitOfMeasure", b =>
@@ -5517,8 +5632,17 @@ namespace HarborOps.Infrastructure.Persistence.Migrations
                     b.HasOne("HarborOps.Modules.Maintenance.Domain.Stocktake", null)
                         .WithMany()
                         .HasForeignKey("StocktakeId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("HarborOps.Modules.Maintenance.Domain.SupplierReturn", null)
+                        .WithMany()
+                        .HasForeignKey("SupplierReturnId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("HarborOps.Modules.Maintenance.Domain.SupplierReturnLine", null)
+                        .WithMany()
+                        .HasForeignKey("SupplierReturnLineId")
+                        .OnDelete(DeleteBehavior.Restrict);
                 });
 
             modelBuilder.Entity("HarborOps.Modules.Maintenance.Domain.InventoryItem", b =>
@@ -5644,6 +5768,42 @@ namespace HarborOps.Infrastructure.Persistence.Migrations
                     b.HasOne("HarborOps.Modules.Maintenance.Domain.Stocktake", null)
                         .WithMany()
                         .HasForeignKey("StocktakeId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("HarborOps.Modules.Maintenance.Domain.SupplierReturn", b =>
+                {
+                    b.HasOne("HarborOps.Modules.Maintenance.Domain.PurchaseOrder", null)
+                        .WithMany()
+                        .HasForeignKey("PurchaseOrderId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("HarborOps.Modules.Maintenance.Domain.Supplier", null)
+                        .WithMany()
+                        .HasForeignKey("SupplierId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("HarborOps.Modules.Maintenance.Domain.SupplierReturnLine", b =>
+                {
+                    b.HasOne("HarborOps.Modules.Maintenance.Domain.InventoryItem", null)
+                        .WithMany()
+                        .HasForeignKey("InventoryItemId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("HarborOps.Modules.Maintenance.Domain.PurchaseOrderLine", null)
+                        .WithMany()
+                        .HasForeignKey("PurchaseOrderLineId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("HarborOps.Modules.Maintenance.Domain.SupplierReturn", null)
+                        .WithMany()
+                        .HasForeignKey("SupplierReturnId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
                 });

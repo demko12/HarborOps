@@ -125,6 +125,31 @@ public sealed class MaintenanceWorkspaceTabsTests : BunitContext
         Assert.Empty(page.FindAll(".schedules-panel"));
     }
 
+    [Fact]
+    public void The_supplier_returns_tab_shows_the_returns_board()
+    {
+        var page = RenderWorkspace();
+
+        page.FindAll(".workspace-tab")
+            .Single(tab => tab.TextContent.Trim() == "Supplier returns")
+            .Click();
+
+        page.WaitForAssertion(() =>
+        {
+            Assert.NotNull(page.Find(".supplier-return-panel"));
+            Assert.Equal("Supplier returns", page.Find(".workspace-tab.active").TextContent.Trim());
+        });
+    }
+
+    [Fact]
+    public void The_tab_in_the_address_opens_the_supplier_returns_board()
+    {
+        var page = RenderWorkspace("/maintenance?tab=supplier-returns");
+
+        Assert.NotNull(page.Find(".supplier-return-panel"));
+        Assert.Empty(page.FindAll(".stocktake-panel"));
+    }
+
     private IRenderedComponent<Maintenance> RenderWorkspace(string? workspaceUrl = null)
     {
         var maintenanceHttpClient = new HttpClient(new StubHttpMessageHandler(request =>

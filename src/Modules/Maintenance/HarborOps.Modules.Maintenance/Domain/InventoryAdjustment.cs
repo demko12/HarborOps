@@ -13,10 +13,11 @@ internal sealed class InventoryAdjustment
     private InventoryAdjustment(
         Guid id,
         Guid inventoryItemId,
-        Guid stocktakeId,
+        Guid? stocktakeId,
+        Guid? supplierReturnId,
+        Guid? supplierReturnLineId,
         decimal quantityBefore,
-        decimal countedQuantity,
-        decimal quantityDelta,
+        decimal quantityAfter,
         string reason,
         Guid actorUserId,
         DateTime adjustedUtc)
@@ -24,9 +25,11 @@ internal sealed class InventoryAdjustment
         Id = id;
         InventoryItemId = inventoryItemId;
         StocktakeId = stocktakeId;
+        SupplierReturnId = supplierReturnId;
+        SupplierReturnLineId = supplierReturnLineId;
         QuantityBefore = quantityBefore;
-        CountedQuantity = countedQuantity;
-        QuantityDelta = quantityDelta;
+        QuantityAfter = quantityAfter;
+        QuantityDelta = quantityAfter - quantityBefore;
         Reason = reason;
         ActorUserId = actorUserId;
         AdjustedUtc = adjustedUtc;
@@ -36,11 +39,16 @@ internal sealed class InventoryAdjustment
 
     public Guid InventoryItemId { get; private set; }
 
-    public Guid StocktakeId { get; private set; }
+    // Exactly one source is set: the stocktake or the supplier return (with its line) that moved the stock.
+    public Guid? StocktakeId { get; private set; }
+
+    public Guid? SupplierReturnId { get; private set; }
+
+    public Guid? SupplierReturnLineId { get; private set; }
 
     public decimal QuantityBefore { get; private set; }
 
-    public decimal CountedQuantity { get; private set; }
+    public decimal QuantityAfter { get; private set; }
 
     public decimal QuantityDelta { get; private set; }
 
@@ -63,10 +71,36 @@ internal sealed class InventoryAdjustment
             Guid.NewGuid(),
             inventoryItemId,
             stocktakeId,
+            null,
+            null,
             quantityBefore,
             countedQuantity,
-            countedQuantity - quantityBefore,
             reason,
+            actorUserId,
+            adjustedUtc);
+    }
+
+    internal static InventoryAdjustment CreateFromSupplierReturn(
+        SupplierReturnLine line,
+        decimal quantityBefore,
+        Guid actorUserId,
+        DateTime adjustedUtc)
+    {
+        if (line.Quantity > quantityBefore)
+        {
+            throw new SupplierReturnInvariantException(
+                $"Returning {line.Quantity} of item '{line.InventoryItemId}' would make stock negative.");
+        }
+
+        return new InventoryAdjustment(
+            Guid.NewGuid(),
+            line.InventoryItemId,
+            null,
+            line.SupplierReturnId,
+            line.Id,
+            quantityBefore,
+            quantityBefore - line.Quantity,
+            line.Reason,
             actorUserId,
             adjustedUtc);
     }

@@ -82,7 +82,14 @@
 				class="workspace-tab @(activeTab == MaintenanceTab.Stocktakes ? "active" : null)"
 				aria-selected="@(activeTab == MaintenanceTab.Stocktakes)"
 				@onclick="() => SelectTab(MaintenanceTab.Stocktakes)">
-			Stocktakes
+			<span class="bi bi-clipboard-data" aria-hidden="true"></span> Stocktakes
+		</button>
+		<button type="button"
+				role="tab"
+				class="workspace-tab @(activeTab == MaintenanceTab.SupplierReturns ? "active" : null)"
+				aria-selected="@(activeTab == MaintenanceTab.SupplierReturns)"
+				@onclick="() => SelectTab(MaintenanceTab.SupplierReturns)">
+			<span class="bi bi-box-arrow-left" aria-hidden="true"></span> Supplier returns
 		</button>
 		<button type="button"
 				role="tab"
@@ -117,7 +124,7 @@
 	}
 	@if (activeTab == MaintenanceTab.PurchaseOrders)
 	{
-		<PurchaseOrdersPanel Seed="purchaseOrderSeed" />
+		<PurchaseOrdersPanel Seed="purchaseOrderSeed" OnReturnsRequested="OpenSupplierReturnsAsync" />
 	}
 
 	@if (activeTab == MaintenanceTab.Suppliers)
@@ -128,6 +135,11 @@
 	@if (activeTab == MaintenanceTab.Stocktakes)
 	{
 		<StocktakesPanel />
+	}
+
+	@if (activeTab == MaintenanceTab.SupplierReturns)
+	{
+		<SupplierReturnsPanel PurchaseOrderId="supplierReturnsPurchaseOrderId" />
 	}
 
 	@if (activeTab == MaintenanceTab.DryDocks)
