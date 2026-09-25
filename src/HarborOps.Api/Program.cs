@@ -37,6 +37,8 @@ builder.Services.AddHarborOpsInfrastructure(connectionString);
 builder.Services.AddCargoModule();
 builder.Services.AddDocumentsModule(builder.Configuration);
 builder.Services.AddScoped<HarborOps.Modules.Documents.Contracts.IDocumentDistributionRecipientLookup, IdentityDocumentDistributionRecipientLookup>();
+builder.Services.AddScoped<HarborOps.Modules.Documents.Contracts.IVesselExistenceLookup, FleetDocumentVesselExistenceLookup>();
+builder.Services.AddScoped<HarborOps.Modules.Documents.Contracts.IVesselDirectory, FleetDocumentVesselDirectory>();
 builder.Services.AddFleetModule();
 builder.Services.AddComplianceModule();
 builder.Services.AddCrewModule(builder.Configuration);

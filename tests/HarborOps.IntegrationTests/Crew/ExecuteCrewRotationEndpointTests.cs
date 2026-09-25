@@ -66,6 +66,28 @@ public sealed class ExecuteCrewRotationEndpointTests : IntegrationTestBase
     }
 
     [Fact]
+    public async Task Post_returns_conflict_when_the_relieving_member_lacks_a_required_certificate()
+    {
+        using var client = await _application.CreateAuthenticatedClientWithPermissionsAsync(Permissions.Crew.Manage);
+        var (assignment, _) = await SeedRotationReadyForExecutionAsync();
+
+        await using (var scope = _application.Services.CreateAsyncScope())
+        {
+            var dbContext = scope.ServiceProvider.GetRequiredService<HarborOpsDbContext>();
+            var policy = CrewQualificationPolicy.Create(assignment.RankId, true, Guid.NewGuid(), DateTime.UtcNow);
+            await dbContext.Set<CrewQualificationPolicy>().AddAsync(policy);
+            await dbContext.Set<CrewQualificationRequirement>().AddAsync(
+                CrewQualificationRequirement.Create(policy.Id, "STCW-II/1"));
+            await dbContext.SaveChangesAsync();
+        }
+
+        using var response = await client.PostAsync(
+            $"/api/crew/assignments/{assignment.Id}/rotation/execute", null, CancellationToken.None);
+
+        Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
+    }
+
+    [Fact]
     public async Task Post_without_authentication_returns_401()
     {
         using var client = _application.CreateClient();

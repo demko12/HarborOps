@@ -520,6 +520,21 @@
                         <div class="crew-assignment-modal-error" role="alert">@assignmentActionError</div>
                     }
 
+                    @if (!isLoadingQualification && qualificationEligibility is { Status: "NotQualified" } notQualified)
+                    {
+                        <div class="crew-qualification-warning" role="alert">
+                            <strong>Certificate gap for this rank:</strong> missing @string.Join(", ", notQualified.MissingTypes).
+                            @if (notQualified.UncoveredDates.Count > 0)
+                            {
+                                <span>
+                                    Uncovered:
+                                    @string.Join("; ", notQualified.UncoveredDates.Select(range => $"{range.RequiredType} {range.StartDate:dd MMM yyyy}–{range.EndDate:dd MMM yyyy}"))
+                                </span>
+                            }
+                            <span>A renewal can still be arranged before activation.</span>
+                        </div>
+                    }
+
                     @if (selectedAssignment.ActualSignOffDate is null)
                     {
                         <div class="crew-rotation-section">

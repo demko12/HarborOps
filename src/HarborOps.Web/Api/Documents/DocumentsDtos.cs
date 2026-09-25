@@ -164,6 +164,121 @@ internal sealed record IssueDocumentDistributionRequest(DateOnly? DueDate, strin
 internal sealed record CancelDocumentDistributionRequest(string? Reason);
 internal sealed record DocumentDistributionRecipientPickerDto(Guid UserId, string Email, bool IsActive, bool CanReadDocuments);
 
+internal sealed record GetDocumentRequirementsQuery(Guid? VesselId, bool? IsEnabled, int? PageNumber, int? PageSize);
+internal sealed record DocumentRequirementRowDto(
+    Guid Id,
+    Guid VesselId,
+    int DocumentTypeId,
+    string DocumentTypeName,
+    bool IsEnabled,
+    int MinimumRemainingValidityDays,
+    string? Instruction,
+    int Revision,
+    Guid UpdatedByUserId,
+    DateTime UpdatedAtUtc,
+    Guid Version);
+internal sealed record DocumentRequirementsPageDto(
+    IReadOnlyList<DocumentRequirementRowDto> Items,
+    int PageNumber,
+    int PageSize,
+    int TotalCount);
+internal sealed record DocumentRequirementHistoryItemDto(
+    Guid Id,
+    int Revision,
+    string EventType,
+    string? Reason,
+    bool IsEnabled,
+    int MinimumRemainingValidityDays,
+    string? Instruction,
+    Guid ActorUserId,
+    string? ActorEmail,
+    DateTime OccurredAtUtc);
+internal sealed record DocumentRequirementDetailsDto(
+    Guid Id,
+    Guid VesselId,
+    int DocumentTypeId,
+    string DocumentTypeName,
+    bool IsEnabled,
+    int MinimumRemainingValidityDays,
+    string? Instruction,
+    int Revision,
+    Guid CreatedByUserId,
+    DateTime CreatedAtUtc,
+    Guid UpdatedByUserId,
+    DateTime UpdatedAtUtc,
+    Guid Version,
+    IReadOnlyList<DocumentRequirementHistoryItemDto> History);
+internal sealed record CreateDocumentRequirementRequest(Guid? VesselId, int? DocumentTypeId, int? MinimumRemainingValidityDays, string? Instruction, string? Reason);
+internal sealed record UpdateDocumentRequirementRequest(bool? IsEnabled, int? MinimumRemainingValidityDays, string? Instruction, string? Reason, Guid? Version);
+internal sealed record DisableDocumentRequirementRequest(string? Reason, Guid? Version);
+
+internal sealed record GetDocumentReadinessQuery(Guid? VesselId, DateOnly? RequiredThrough, string? Status, int? PageNumber, int? PageSize);
+internal sealed record DocumentReadinessSummaryDto(int ConfiguredCount, int SatisfiedCount, int UnsatisfiedCount);
+internal sealed record DocumentReadinessCandidateDto(
+    Guid DocumentId,
+    string Number,
+    string Status,
+    string ReviewStatus,
+    bool HasFile,
+    string RetentionState,
+    DateOnly IssueDate,
+    DateOnly ExpiryDate,
+    bool Qualifies,
+    IReadOnlyList<string> Blockers);
+internal sealed record DocumentReadinessRowDto(
+    Guid RequirementId,
+    Guid VesselId,
+    int DocumentTypeId,
+    string DocumentTypeName,
+    int MinimumRemainingValidityDays,
+    string? Instruction,
+    DateOnly RequiredValidUntil,
+    string Status,
+    IReadOnlyList<string> Blockers,
+    Guid? SelectedDocumentId,
+    IReadOnlyList<DocumentReadinessCandidateDto> Candidates,
+    DocumentReadinessDistributionDto? Distribution);
+internal sealed record DocumentReadinessRecipientDto(
+    Guid UserId,
+    string? Email,
+    string State,
+    bool IsOverdue,
+    DateTime? AcknowledgedAtUtc,
+    DateTime? StateChangedAtUtc,
+    string? StateReason);
+internal sealed record DocumentReadinessDistributionDto(
+    string Status,
+    Guid? IssueId,
+    DateTime? IssuedAtUtc,
+    DateOnly? DueDate,
+    int PendingCount,
+    int AcknowledgedCount,
+    int OverdueCount,
+    IReadOnlyList<DocumentReadinessRecipientDto>? Recipients);
+internal sealed record DocumentReadinessPageDto(
+    Guid? VesselId,
+    string? VesselStatus,
+    DateOnly Today,
+    DateOnly RequiredThrough,
+    DocumentReadinessSummaryDto Summary,
+    IReadOnlyList<DocumentReadinessRowDto> Items,
+    int PageNumber,
+    int PageSize,
+    int TotalCount);
+internal sealed record GetVesselReadinessOverviewQuery(DateOnly? RequiredThrough, int? PageNumber, int? PageSize);
+internal sealed record VesselReadinessOverviewRowDto(
+    Guid VesselId,
+    string VesselName,
+    string Status,
+    DocumentReadinessSummaryDto Summary);
+internal sealed record VesselReadinessOverviewPageDto(
+    DateOnly Today,
+    DateOnly RequiredThrough,
+    IReadOnlyList<VesselReadinessOverviewRowDto> Items,
+    int PageNumber,
+    int PageSize,
+    int TotalCount);
+
 internal sealed record DocumentsApiResult<T>(T? Value, DocumentsApiFailure? Failure)
 {
     internal bool IsSuccess => Failure is null;

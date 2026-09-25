@@ -176,6 +176,81 @@ public sealed class ExecuteCrewRotationServiceTests
         Assert.Equal(0, await dbContext.Set<CrewAssignment>().CountAsync(a => a.CrewMemberId == relievingMember.Id));
     }
 
+    [Fact]
+    public async Task ExecuteAsync_activates_the_replacement_when_no_policy_is_configured()
+    {
+        await using var dbContext = CreateDbContext();
+        var (assignment, _) = await SeedRotationReadyForExecutionAsync(dbContext);
+        var service = new ExecuteCrewRotationService(dbContext, new FakeDateTimeProvider(Today));
+
+        var response = await service.ExecuteAsync(assignment.Id, Guid.NewGuid(), CancellationToken.None);
+
+        Assert.Empty(await dbContext.Set<CrewAssignmentQualificationEvidence>()
+            .Where(e => e.AssignmentId == response.ReplacementAssignmentId).ToListAsync());
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_records_qualification_evidence_for_the_replacement_when_fully_qualified()
+    {
+        await using var dbContext = CreateDbContext();
+        var (assignment, relievingMember) = await SeedRotationReadyForExecutionAsync(dbContext);
+        var policy = await QualificationPolicyTestData.SeedPolicyAsync(dbContext, assignment.RankId, true, ["STCW-II/1"]);
+        await QualificationPolicyTestData.SeedCertificateAsync(
+            dbContext, relievingMember.Id, "STCW-II/1", new DateOnly(2020, 1, 1), new DateOnly(2030, 12, 31));
+        var service = new ExecuteCrewRotationService(dbContext, new FakeDateTimeProvider(Today));
+        var actorUserId = Guid.NewGuid();
+
+        var response = await service.ExecuteAsync(assignment.Id, actorUserId, CancellationToken.None);
+
+        var evidence = await dbContext.Set<CrewAssignmentQualificationEvidence>()
+            .SingleAsync(e => e.AssignmentId == response.ReplacementAssignmentId);
+        Assert.Equal(policy.Id, evidence.PolicyId);
+        Assert.Equal(actorUserId, evidence.RecordedByUserId);
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_blocks_when_the_relieving_member_lacks_a_required_certificate()
+    {
+        await using var dbContext = CreateDbContext();
+        var (assignment, relievingMember) = await SeedRotationReadyForExecutionAsync(dbContext);
+        await QualificationPolicyTestData.SeedPolicyAsync(dbContext, assignment.RankId, true, ["STCW-II/1"]);
+        var service = new ExecuteCrewRotationService(dbContext, new FakeDateTimeProvider(Today));
+
+        var exception = await Assert.ThrowsAsync<CrewMemberNotQualifiedException>(
+            () => service.ExecuteAsync(assignment.Id, Guid.NewGuid(), CancellationToken.None));
+
+        Assert.Equal(relievingMember.Id, exception.CrewMemberId);
+
+        var original = await dbContext.Set<CrewAssignment>().SingleAsync(a => a.Id == assignment.Id);
+        Assert.Null(original.ActualSignOffDate);
+        var rotation = await dbContext.Set<CrewRotation>().SingleAsync(r => r.AssignmentId == assignment.Id);
+        Assert.Equal(CrewRotation.PlannedStatus, rotation.Status);
+        Assert.Equal(0, await dbContext.Set<CrewAssignment>().CountAsync(a => a.CrewMemberId == relievingMember.Id));
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_checks_qualification_against_the_actual_replacement_window_not_the_original_assignment_dates()
+    {
+        await using var dbContext = CreateDbContext();
+        var (assignment, relievingMember) = await SeedRotationReadyForExecutionAsync(
+            dbContext, signOnDate: new DateOnly(2026, 1, 1), plannedSignOffDate: new DateOnly(2026, 12, 31));
+        await QualificationPolicyTestData.SeedPolicyAsync(dbContext, assignment.RankId, true, ["STCW-II/1"]);
+
+        // Covers the original assignment's dates but not the actual replacement window
+        // (Today .. Today + tour length), which starts well after the original sign-on date.
+        await QualificationPolicyTestData.SeedCertificateAsync(
+            dbContext, relievingMember.Id, "STCW-II/1", new DateOnly(2026, 1, 1), new DateOnly(2026, 12, 31));
+
+        var service = new ExecuteCrewRotationService(dbContext, new FakeDateTimeProvider(Today));
+
+        var exception = await Assert.ThrowsAsync<CrewMemberNotQualifiedException>(
+            () => service.ExecuteAsync(assignment.Id, Guid.NewGuid(), CancellationToken.None));
+
+        var tourLengthDays = assignment.PlannedSignOffDate.DayNumber - assignment.SignOnDate.DayNumber;
+        var expectedReplacementEnd = DateOnly.FromDateTime(Today).AddDays(tourLengthDays);
+        Assert.Contains(exception.UncoveredRanges, range => range.EndDate == expectedReplacementEnd);
+    }
+
     private static async Task<(CrewAssignment Assignment, CrewMember RelievingMember)> SeedRotationReadyForExecutionAsync(
         HarborOpsDbContext dbContext,
         DateOnly? signOnDate = null,

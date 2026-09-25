@@ -339,6 +339,21 @@ public sealed class CrewRotationsController(
                 Detail = exception.Message,
             });
         }
+        catch (CrewMemberNotQualifiedException exception)
+        {
+            return Conflict(new ProblemDetails
+            {
+                Status = StatusCodes.Status409Conflict,
+                Title = "Relieving crew member is not qualified for this rank.",
+                Detail = exception.Message,
+                Extensions =
+                {
+                    ["missingTypes"] = exception.MissingTypes,
+                    ["uncoveredDates"] = exception.UncoveredRanges
+                        .Select(range => new { range.RequiredType, range.StartDate, range.EndDate }),
+                },
+            });
+        }
         catch (InvalidCrewRotationTransitionException exception)
         {
             return Conflict(new ProblemDetails

@@ -723,6 +723,332 @@ internal sealed class DocumentsApiClient(HttpClient httpClient)
             await response.Content.ReadFromJsonAsync<DispositionRequestResultDto>(cancellationToken), null);
     }
 
+    internal async Task<DocumentsApiResult<DocumentRequirementsPageDto>> GetRequirementsAsync(
+        GetDocumentRequirementsQuery query,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(query);
+
+        try
+        {
+            using var response = await httpClient.GetAsync(
+                BuildRequirementsPath(query),
+                HttpCompletionOption.ResponseHeadersRead,
+                cancellationToken);
+
+            if (!response.IsSuccessStatusCode)
+            {
+                return new DocumentsApiResult<DocumentRequirementsPageDto>(
+                    null, await ReadFailureAsync(response, "Unable to load document requirements", cancellationToken));
+            }
+
+            return new DocumentsApiResult<DocumentRequirementsPageDto>(
+                await response.Content.ReadFromJsonAsync<DocumentRequirementsPageDto>(cancellationToken), null);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (HttpRequestException)
+        {
+            return new DocumentsApiResult<DocumentRequirementsPageDto>(null, Unavailable());
+        }
+        catch (TaskCanceledException) when (!cancellationToken.IsCancellationRequested)
+        {
+            return new DocumentsApiResult<DocumentRequirementsPageDto>(null, Unavailable());
+        }
+    }
+
+    internal async Task<DocumentsApiResult<DocumentRequirementDetailsDto>> GetRequirementAsync(
+        Guid requirementId,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            using var response = await httpClient.GetAsync(
+                $"{BasePath}/requirements/{requirementId}",
+                HttpCompletionOption.ResponseHeadersRead,
+                cancellationToken);
+
+            if (!response.IsSuccessStatusCode)
+            {
+                return new DocumentsApiResult<DocumentRequirementDetailsDto>(
+                    null, await ReadFailureAsync(response, "Unable to load the document requirement", cancellationToken));
+            }
+
+            return new DocumentsApiResult<DocumentRequirementDetailsDto>(
+                await response.Content.ReadFromJsonAsync<DocumentRequirementDetailsDto>(cancellationToken), null);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (HttpRequestException)
+        {
+            return new DocumentsApiResult<DocumentRequirementDetailsDto>(null, Unavailable());
+        }
+        catch (TaskCanceledException) when (!cancellationToken.IsCancellationRequested)
+        {
+            return new DocumentsApiResult<DocumentRequirementDetailsDto>(null, Unavailable());
+        }
+    }
+
+    internal async Task<DocumentsApiResult<DocumentRequirementRowDto>> CreateRequirementAsync(
+        CreateDocumentRequirementRequest request,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+
+        try
+        {
+            using var response = await httpClient.PostAsJsonAsync($"{BasePath}/requirements", request, cancellationToken);
+
+            if (response.StatusCode != HttpStatusCode.Created)
+            {
+                return new DocumentsApiResult<DocumentRequirementRowDto>(
+                    null, await ReadFailureAsync(response, "Unable to add the document requirement", cancellationToken));
+            }
+
+            return new DocumentsApiResult<DocumentRequirementRowDto>(
+                await response.Content.ReadFromJsonAsync<DocumentRequirementRowDto>(cancellationToken), null);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (HttpRequestException)
+        {
+            return new DocumentsApiResult<DocumentRequirementRowDto>(null, Unavailable());
+        }
+        catch (TaskCanceledException) when (!cancellationToken.IsCancellationRequested)
+        {
+            return new DocumentsApiResult<DocumentRequirementRowDto>(null, Unavailable());
+        }
+    }
+
+    internal async Task<DocumentsApiResult<DocumentRequirementRowDto>> UpdateRequirementAsync(
+        Guid requirementId,
+        UpdateDocumentRequirementRequest request,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+
+        try
+        {
+            using var response = await httpClient.PutAsJsonAsync($"{BasePath}/requirements/{requirementId}", request, cancellationToken);
+
+            if (!response.IsSuccessStatusCode)
+            {
+                return new DocumentsApiResult<DocumentRequirementRowDto>(
+                    null, await ReadFailureAsync(response, "Unable to update the document requirement", cancellationToken));
+            }
+
+            return new DocumentsApiResult<DocumentRequirementRowDto>(
+                await response.Content.ReadFromJsonAsync<DocumentRequirementRowDto>(cancellationToken), null);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (HttpRequestException)
+        {
+            return new DocumentsApiResult<DocumentRequirementRowDto>(null, Unavailable());
+        }
+        catch (TaskCanceledException) when (!cancellationToken.IsCancellationRequested)
+        {
+            return new DocumentsApiResult<DocumentRequirementRowDto>(null, Unavailable());
+        }
+    }
+
+    internal async Task<DocumentsApiResult<DocumentRequirementRowDto>> DisableRequirementAsync(
+        Guid requirementId,
+        DisableDocumentRequirementRequest request,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+
+        try
+        {
+            using var response = await httpClient.PostAsJsonAsync($"{BasePath}/requirements/{requirementId}/disable", request, cancellationToken);
+
+            if (!response.IsSuccessStatusCode)
+            {
+                return new DocumentsApiResult<DocumentRequirementRowDto>(
+                    null, await ReadFailureAsync(response, "Unable to disable the document requirement", cancellationToken));
+            }
+
+            return new DocumentsApiResult<DocumentRequirementRowDto>(
+                await response.Content.ReadFromJsonAsync<DocumentRequirementRowDto>(cancellationToken), null);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (HttpRequestException)
+        {
+            return new DocumentsApiResult<DocumentRequirementRowDto>(null, Unavailable());
+        }
+        catch (TaskCanceledException) when (!cancellationToken.IsCancellationRequested)
+        {
+            return new DocumentsApiResult<DocumentRequirementRowDto>(null, Unavailable());
+        }
+    }
+
+    internal async Task<DocumentsApiResult<DocumentReadinessPageDto>> GetReadinessAsync(
+        GetDocumentReadinessQuery query,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(query);
+
+        try
+        {
+            using var response = await httpClient.GetAsync(
+                BuildReadinessPath(query),
+                HttpCompletionOption.ResponseHeadersRead,
+                cancellationToken);
+
+            if (!response.IsSuccessStatusCode)
+            {
+                return new DocumentsApiResult<DocumentReadinessPageDto>(
+                    null, await ReadFailureAsync(response, "Unable to load document readiness", cancellationToken));
+            }
+
+            return new DocumentsApiResult<DocumentReadinessPageDto>(
+                await response.Content.ReadFromJsonAsync<DocumentReadinessPageDto>(cancellationToken), null);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (HttpRequestException)
+        {
+            return new DocumentsApiResult<DocumentReadinessPageDto>(null, Unavailable());
+        }
+        catch (TaskCanceledException) when (!cancellationToken.IsCancellationRequested)
+        {
+            return new DocumentsApiResult<DocumentReadinessPageDto>(null, Unavailable());
+        }
+    }
+
+    internal async Task<DocumentsApiResult<VesselReadinessOverviewPageDto>> GetVesselReadinessOverviewAsync(
+        GetVesselReadinessOverviewQuery query,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(query);
+
+        try
+        {
+            using var response = await httpClient.GetAsync(
+                BuildVesselReadinessOverviewPath(query),
+                HttpCompletionOption.ResponseHeadersRead,
+                cancellationToken);
+
+            if (!response.IsSuccessStatusCode)
+            {
+                return new DocumentsApiResult<VesselReadinessOverviewPageDto>(
+                    null, await ReadFailureAsync(response, "Unable to load vessel readiness", cancellationToken));
+            }
+
+            return new DocumentsApiResult<VesselReadinessOverviewPageDto>(
+                await response.Content.ReadFromJsonAsync<VesselReadinessOverviewPageDto>(cancellationToken), null);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (HttpRequestException)
+        {
+            return new DocumentsApiResult<VesselReadinessOverviewPageDto>(null, Unavailable());
+        }
+        catch (TaskCanceledException) when (!cancellationToken.IsCancellationRequested)
+        {
+            return new DocumentsApiResult<VesselReadinessOverviewPageDto>(null, Unavailable());
+        }
+    }
+
+    private static string BuildRequirementsPath(GetDocumentRequirementsQuery query)
+    {
+        var extra = new List<string>();
+
+        if (query.VesselId is { } vesselId)
+        {
+            extra.Add($"vesselId={vesselId}");
+        }
+
+        if (query.IsEnabled is { } isEnabled)
+        {
+            extra.Add($"isEnabled={(isEnabled ? "true" : "false")}");
+        }
+
+        if (query.PageNumber is { } pageNumber)
+        {
+            extra.Add($"pageNumber={pageNumber}");
+        }
+
+        if (query.PageSize is { } pageSize)
+        {
+            extra.Add($"pageSize={pageSize}");
+        }
+
+        return extra.Count == 0 ? $"{BasePath}/requirements" : $"{BasePath}/requirements?{string.Join('&', extra)}";
+    }
+
+    private static string BuildReadinessPath(GetDocumentReadinessQuery query)
+    {
+        var extra = new List<string>();
+
+        if (query.VesselId is { } vesselId)
+        {
+            extra.Add($"vesselId={vesselId}");
+        }
+
+        if (query.RequiredThrough is { } requiredThrough)
+        {
+            extra.Add(string.Create(CultureInfo.InvariantCulture, $"requiredThrough={requiredThrough:yyyy-MM-dd}"));
+        }
+
+        if (!string.IsNullOrWhiteSpace(query.Status))
+        {
+            extra.Add($"status={Uri.EscapeDataString(query.Status)}");
+        }
+
+        if (query.PageNumber is { } pageNumber)
+        {
+            extra.Add($"pageNumber={pageNumber}");
+        }
+
+        if (query.PageSize is { } pageSize)
+        {
+            extra.Add($"pageSize={pageSize}");
+        }
+
+        return extra.Count == 0 ? $"{BasePath}/readiness" : $"{BasePath}/readiness?{string.Join('&', extra)}";
+    }
+
+    private static string BuildVesselReadinessOverviewPath(GetVesselReadinessOverviewQuery query)
+    {
+        var extra = new List<string>();
+
+        if (query.RequiredThrough is { } requiredThrough)
+        {
+            extra.Add(string.Create(CultureInfo.InvariantCulture, $"requiredThrough={requiredThrough:yyyy-MM-dd}"));
+        }
+
+        if (query.PageNumber is { } pageNumber)
+        {
+            extra.Add($"pageNumber={pageNumber}");
+        }
+
+        if (query.PageSize is { } pageSize)
+        {
+            extra.Add($"pageSize={pageSize}");
+        }
+
+        return extra.Count == 0
+            ? $"{BasePath}/readiness/vessels"
+            : $"{BasePath}/readiness/vessels?{string.Join('&', extra)}";
+    }
+
     private static string BuildRetentionQueuePath(GetRetentionQueueQuery query)
     {
         var extra = new List<string>();

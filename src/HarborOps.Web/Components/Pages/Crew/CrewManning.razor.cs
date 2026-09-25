@@ -183,6 +183,13 @@ public partial class CrewManning : IDisposable
             .DistinctBy(member => member.CrewMemberId)
             .ToList();
 
+    private IReadOnlyList<CoverageUnqualifiedMemberResponse> UnqualifiedMembersFor(Guid rankId, DateOnly start, DateOnly end) =>
+        (coverage?.Days ?? [])
+            .Where(day => day.RankId == rankId && day.Date >= start && day.Date <= end)
+            .SelectMany(day => day.UnqualifiedMembers ?? [])
+            .DistinctBy(member => member.CrewMemberId)
+            .ToList();
+
     private void ToggleCreateForm()
     {
         showCreateForm = !showCreateForm;

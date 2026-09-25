@@ -35,6 +35,9 @@ public partial class CrewMemberProfile : IDisposable
     private DateOnly? completionDate;
     private string? cancellationNotes;
 
+    private bool isLoadingQualification;
+    private GetCrewQualificationEligibilityResponse? qualificationEligibility;
+
     private IReadOnlyList<MedicalExaminationListItemResponse> medicalExaminations = [];
     private string? currentFitnessResult;
     private bool isLoadingMedical = true;
@@ -512,9 +515,26 @@ public partial class CrewMemberProfile : IDisposable
         pendingAssignmentAction = null;
         completionDate = assignment.ActualSignOffDate ?? assignment.PlannedSignOffDate;
         cancellationNotes = null;
+        qualificationEligibility = null;
         ResetRotationFormState();
 
-        await LoadRotationAsync();
+        await Task.WhenAll(LoadRotationAsync(), LoadQualificationEligibilityAsync(assignment));
+    }
+
+    private async Task LoadQualificationEligibilityAsync(CrewAssignmentProfileItemResponse assignment)
+    {
+        if (assignment.ActualSignOffDate is not null)
+        {
+            return;
+        }
+
+        isLoadingQualification = true;
+
+        var result = await CrewApi.GetQualificationEligibilityAsync(
+            CrewMemberId, assignment.RankId, assignment.SignOnDate, assignment.PlannedSignOffDate, disposeCancellation.Token);
+
+        isLoadingQualification = false;
+        qualificationEligibility = result.IsSuccess ? result.Value : null;
     }
 
     private void CloseAssignmentDetails()
@@ -522,6 +542,7 @@ public partial class CrewMemberProfile : IDisposable
         selectedAssignment = null;
         assignmentActionError = null;
         pendingAssignmentAction = null;
+        qualificationEligibility = null;
         ResetRotationFormState();
     }
 

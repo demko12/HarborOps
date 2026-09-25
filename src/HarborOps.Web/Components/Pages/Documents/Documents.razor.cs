@@ -1,6 +1,8 @@
 using System.ComponentModel.DataAnnotations;
+using System.Globalization;
 using HarborOps.Web.Api.Documents;
 using HarborOps.Web.Api.Fleet;
+using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Forms;
 
 namespace HarborOps.Web.Components.Pages.Documents;
@@ -120,6 +122,20 @@ public partial class Documents
     // @key is the only reliable way to blank it from a parent.
     private int vesselPickerResetToken;
 
+    internal const string RequirementsTab = "requirements";
+    internal const string ReadinessTab = "readiness";
+    internal const string RetentionTab = "retention";
+
+    private DocumentsTab activeTab = DocumentsTab.Expiring;
+
+    [SupplyParameterFromQuery(Name = "tab")]
+    private string? RequestedTab { get; set; }
+
+    [SupplyParameterFromQuery(Name = "vesselId")]
+    private Guid? RequestedVesselId { get; set; }
+    private int readinessRefreshToken;
+    private string? registerDocumentVesselLabel;
+
     private string DocumentTypePlaceholder => isLoadingDocumentTypes
         ? "Loading document types..."
         : documentTypeOptions.Count == 0
@@ -221,7 +237,6 @@ public partial class Documents
     private const string RetentionPendingDispositionState = "PendingDisposition";
     private const string RetentionDisposedState = "Disposed";
 
-    private bool isRetentionTabOpen;
     private bool isRetentionQueueSubTab = true;
 
     private bool isLoadingRetentionPolicies;
@@ -308,6 +323,10 @@ public partial class Documents
             .OrderBy(row => row.DocumentTypeName, StringComparer.Ordinal)
             .ToList();
 
+    private string RetentionDocumentTypeName(int documentTypeId) =>
+        documentTypeOptions.FirstOrDefault(type => type.DocumentTypeId == documentTypeId)?.Name
+        ?? documentTypeId.ToString(CultureInfo.InvariantCulture);
+
     private int RetentionTotalPages => retentionTotalCount == 0 ? 1 : ((retentionTotalCount + retentionPageSize - 1) / retentionPageSize);
 
     private int TotalPages => totalCount == 0 ? 1 : (totalCount + pageSize - 1) / pageSize;
@@ -349,8 +368,21 @@ public partial class Documents
 
     protected override Task OnInitializedAsync()
     {
-        return Task.WhenAll(LoadAsync(), LoadDocumentTypeOptionsAsync());
+        activeTab = RequestedTab?.ToLowerInvariant() switch
+        {
+            RequirementsTab => DocumentsTab.Requirements,
+            ReadinessTab => DocumentsTab.Readiness,
+            RetentionTab when CanOpenRetentionTab => DocumentsTab.Retention,
+            _ => DocumentsTab.Expiring,
+        };
+
+        return activeTab == DocumentsTab.Retention
+            ? Task.WhenAll(LoadAsync(), LoadDocumentTypeOptionsAsync(), LoadRetentionTabAsync())
+            : Task.WhenAll(LoadAsync(), LoadDocumentTypeOptionsAsync());
     }
+
+    private bool CanOpenRetentionTab =>
+        AuthorizationState.HasPermission("documents.read") || AuthorizationState.HasPermission("documents.manage");
 
     private Task SelectFilterVesselAsync(Guid? vesselId)
     {
@@ -594,7 +626,6 @@ public partial class Documents
         if (isRegisterTypeFormOpen)
         {
             isRegisterDocumentFormOpen = false;
-            isRetentionTabOpen = false;
         }
     }
 
@@ -605,8 +636,42 @@ public partial class Documents
         if (isRegisterDocumentFormOpen)
         {
             isRegisterTypeFormOpen = false;
-            isRetentionTabOpen = false;
         }
+    }
+
+    private async Task SelectTab(DocumentsTab tab)
+    {
+        activeTab = tab;
+
+        if (tab == DocumentsTab.Retention)
+        {
+            await LoadRetentionTabAsync();
+        }
+    }
+
+    private string AriaSelected(DocumentsTab tab)
+    {
+        return activeTab == tab ? "true" : "false";
+    }
+
+    private void OpenRegisterFormForMissing((Guid VesselId, string VesselName, int DocumentTypeId) missing)
+    {
+        registerDocumentModel = new RegisterDocumentFormModel
+        {
+            VesselId = missing.VesselId,
+            DocumentTypeId = missing.DocumentTypeId,
+        };
+        registerDocumentEditContext = new EditContext(registerDocumentModel);
+        registerDocumentMessageStore = new ValidationMessageStore(registerDocumentEditContext);
+        registerDocumentSuccessMessage = null;
+        registerDocumentConflictMessage = null;
+        registerDocumentGeneralError = null;
+        registerDocumentUnmappedErrors = [];
+        registerDocumentVesselLabel = missing.VesselName;
+        vesselPickerResetToken++;
+
+        isRegisterDocumentFormOpen = true;
+        isRegisterTypeFormOpen = false;
     }
 
     private void CloseRegisterTypeForm() => isRegisterTypeFormOpen = false;
@@ -749,6 +814,8 @@ public partial class Documents
         registerDocumentEditContext = new EditContext(registerDocumentModel);
         registerDocumentMessageStore = new ValidationMessageStore(registerDocumentEditContext);
         vesselPickerResetToken++;
+        readinessRefreshToken++;
+        registerDocumentVesselLabel = null;
 
         // Refresh the grid so a newly registered document appears immediately if it falls
         // within the currently applied date/vessel filters.
@@ -1291,18 +1358,8 @@ public partial class Documents
     private static string FormatOccurredAt(DateTimeOffset occurredAtUtc) =>
         $"{occurredAtUtc:dd MMM yyyy HH:mm} UTC";
 
-    private async Task ToggleRetentionTab()
+    private async Task LoadRetentionTabAsync()
     {
-        isRetentionTabOpen = !isRetentionTabOpen;
-
-        if (!isRetentionTabOpen)
-        {
-            return;
-        }
-
-        isRegisterTypeFormOpen = false;
-        isRegisterDocumentFormOpen = false;
-
         // Awaited, not fire-and-forget: this is a synchronous-looking void handler's async
         // counterpart, and Blazor only re-renders automatically when it can track the Task an
         // event handler returns. A detached `_ = LoadXAsync()` call here would run to
@@ -1319,12 +1376,6 @@ public partial class Documents
         {
             await LoadRetentionPoliciesAsync();
         }
-    }
-
-    private void CloseRetentionTab()
-    {
-        isRetentionTabOpen = false;
-        CloseRetentionActionsPanel();
     }
 
     private async Task SelectRetentionQueueSubTab()
