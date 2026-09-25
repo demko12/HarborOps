@@ -930,10 +930,6 @@ html[data-theme="light"] .voyages-row-action-danger:hover { background: rgba(185
 .voyages-header p:last-child { font-size: .875rem; }
 .voyages-eyebrow { font-size: .65rem; }
 .voyages-utc { border-radius: .5rem; font-size: .65rem; letter-spacing: .08em; }
-.voyages-tabs { display: flex; flex-wrap: nowrap; overflow-x: auto; gap: .35rem; padding: .2rem .2rem .8rem; margin-bottom: 1.5rem; border-bottom: 1px solid var(--border-subtle); }
-.voyages-tabs .workspace-tab { width: auto; height: auto; min-height: 2.65rem; justify-content: flex-start; font-family: inherit; font-weight: 400; line-height: inherit; letter-spacing: normal; display: flex; align-items: center; flex: 0 0 auto; gap: .55rem; padding: .65rem .85rem; border: 1px solid transparent; border-radius: .65rem; background: transparent; color: var(--text-secondary); font-size: .8rem; }
-.voyages-tabs .workspace-tab.active { color: var(--text-primary); border-color: var(--accent-border); background: var(--accent-bg); box-shadow: none; }
-.voyages-tabs .workspace-tab:hover { transform: none; background: var(--bg-surface-strong); }
 .voyages-summary { gap: .75rem; margin-bottom: 1.5rem; }
 .voyages-kpi, .voyages-page ::deep .voyages-card { border-color: var(--border-subtle); background: linear-gradient(135deg, var(--bg-surface-strong), var(--bg-surface)); box-shadow: 0 18px 38px rgba(15,23,42,.06), inset 0 1px var(--bg-surface-strong); }
 .voyages-kpi { min-height: 0; padding: 1rem; }

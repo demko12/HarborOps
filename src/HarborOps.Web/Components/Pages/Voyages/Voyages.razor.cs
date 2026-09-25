@@ -16,9 +16,7 @@ public partial class Voyages
     internal const int DefaultWindowDays = 30;
     internal const int ImminentDepartureHours = 24;
 
-    internal const string RoutesTab = "routes";
-
-    internal const string RoutesTabUrl = $"/voyages?tab={RoutesTab}";
+    internal const string RoutesTabUrl = "/voyages/routes";
 
     internal const string ForbiddenTitle = "You do not have access to voyages";
 
@@ -43,19 +41,8 @@ public partial class Voyages
     private int? delayedKpiCount;
     private readonly CancellationTokenSource actionCancellation = new();
 
-    private bool masterDataKpiRequested;
-    private int? portsKpiCount;
-    private int? berthsKpiCount;
-    private int? routesKpiCount;
-    private decimal? avgRouteDistanceKpi;
-
     private readonly CancellationTokenSource disposeCancellation = new();
     private int loadVersion;
-
-    private VoyagesTab activeTab = VoyagesTab.Board;
-
-    [SupplyParameterFromQuery(Name = "tab")]
-    private string? RequestedTab { get; set; }
 
     [SupplyParameterFromQuery(Name = "from")]
     private DateOnly? FromDateFromQuery { get; set; }
@@ -116,14 +103,6 @@ public partial class Voyages
     protected override Task OnInitializedAsync()
     {
         ApplyQueryFilters();
-
-        if (string.Equals(RequestedTab, RoutesTab, StringComparison.OrdinalIgnoreCase))
-        {
-            activeTab = VoyagesTab.Routes;
-            masterDataKpiRequested = true;
-
-            return Task.WhenAll(LoadAsync(), LoadMasterDataKpisAsync());
-        }
 
         return LoadAsync();
     }
@@ -225,55 +204,6 @@ public partial class Voyages
         {
             OpenTimeline(voyageId);
         }
-    }
-
-    private Task SelectTab(VoyagesTab tab)
-    {
-        activeTab = tab;
-
-        if (masterDataKpiRequested || tab == VoyagesTab.Board)
-        {
-            return Task.CompletedTask;
-        }
-
-        masterDataKpiRequested = true;
-
-        return LoadMasterDataKpisAsync();
-    }
-
-    private async Task LoadMasterDataKpisAsync()
-    {
-        VoyagesApiResult<MasterDataSummary> result;
-
-        try
-        {
-            result = await VoyagesApi.GetMasterDataSummaryAsync(disposeCancellation.Token);
-        }
-        catch (OperationCanceledException) when (disposeCancellation.IsCancellationRequested)
-        {
-            return;
-        }
-
-        if (disposeCancellation.IsCancellationRequested)
-        {
-            return;
-        }
-
-        var summary = result.IsSuccess ? result.Value! : null;
-        portsKpiCount = summary?.PortCount;
-        berthsKpiCount = summary?.BerthCount;
-        routesKpiCount = summary?.RouteCount;
-        avgRouteDistanceKpi = summary?.AverageRouteDistance;
-    }
-
-    internal static string FormatAvgDistance(decimal? value)
-    {
-        return value is { } distance ? MasterDataFormat.DistanceNm(distance) : MissingValue;
-    }
-
-    private string AriaSelected(VoyagesTab tab)
-    {
-        return activeTab == tab ? "true" : "false";
     }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
