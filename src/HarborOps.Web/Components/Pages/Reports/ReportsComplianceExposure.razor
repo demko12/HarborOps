@@ -1,0 +1,150 @@
+@page "/reports/compliance-exposure"
+@attribute [Microsoft.AspNetCore.Authorization.Authorize(Policy = "AccessReports")]
+@using HarborOps.Web.Api.Fleet
+@using HarborOps.Web.Api.Reports
+@implements IDisposable
+@inject ReportsApiClient ReportsApi
+@inject FleetApiClient FleetApi
+@inject CurrentUserAuthorizationState AuthorizationState
+
+<PageTitle>Compliance exposure report | HarborOps</PageTitle>
+
+<section class="reports-page">
+    <header class="reports-header">
+        <div>
+            <nav class="page-breadcrumb" aria-label="Breadcrumb"><a href="/reports">Reporting</a><span aria-hidden="true">/</span><span>Compliance exposure</span></nav>
+            <h1>Compliance exposure</h1>
+            <p>Review certificates, insurance, detentions and open non-conformities across your fleet.</p>
+        </div>
+    </header>
+
+    <ReportsNavigation />
+
+    @if (!AuthorizationState.CanAccessCompliance)
+    {
+        <section class="reports-card">
+            <EmptyState Title="Report not available" Message="Your account does not have permission to view the compliance exposure report." />
+        </section>
+    }
+    else
+    {
+        <section class="reports-summary" aria-label="Report summary">
+            <article><div><span>Matching records</span><strong>@totalCount</strong><small>Across the current filters</small></div><span class="bi bi-bar-chart" aria-hidden="true"></span></article>
+            <article><div><span>Snapshot date</span><strong class="reports-summary-date">@reportAsOf.ToString("dd MMM yyyy")</strong><small>Report reference date</small></div><span class="bi bi-calendar-check" aria-hidden="true"></span></article>
+            <article><div><span>Records on this page</span><strong>@complianceRows.Count</strong><small>Page @pageNumber of @TotalPages</small></div><span class="bi bi-list-ul" aria-hidden="true"></span></article>
+        </section>
+
+        <section class="reports-card" aria-labelledby="reports-list-title">
+            <div class="reports-card-heading">
+                <div class="reports-register-heading">
+                    <span class="reports-register-icon bi bi-bar-chart" aria-hidden="true"></span>
+                    <div><span class="reports-section-label">Report results</span><h2 id="reports-list-title">Compliance exposure register</h2><p>@totalCount records as of @reportAsOf.ToString("dd MMM yyyy")</p></div>
+                </div>
+                <a class="reports-download-button" href="@BuildDownloadUrl()">
+                    <span class="bi bi-download" aria-hidden="true"></span> Download CSV
+                </a>
+            </div>
+
+            <section class="reports-filters" aria-label="Report filters">
+                <div class="filter-field">
+                    <label for="reports-as-of">As of</label>
+                    <input id="reports-as-of" type="date" @bind="asOfFilter" @bind:after="SearchAsync" />
+                </div>
+                <div class="filter-field filter-field-wide">
+                    <label for="reports-vessel">Vessel</label>
+                    <VesselPicker @key="vesselPickerResetToken" Value="vesselIdFilter" ValueChanged="OnVesselFilterChangedAsync" Placeholder="All vessels" />
+                </div>
+                <div class="filter-field">
+                    <label for="reports-category">Category</label>
+                    <select id="reports-category" @bind="complianceCategoryFilter" @bind:after="SearchAsync">
+                        <option value="">All categories</option>
+                        @foreach (var category in ComplianceCategories)
+                        {
+                            <option value="@category">@category</option>
+                        }
+                    </select>
+                </div>
+
+                <div class="reports-filter-actions">
+                    <button type="button" class="workspace-filter-reset" @onclick="ResetFiltersAsync" disabled="@isLoading">Reset</button>
+                </div>
+            </section>
+
+            <div class="reports-results @(IsRefreshing ? "reports-refreshing" : null)" aria-busy="@(isLoading ? "true" : "false")">
+                @if (IsRefreshing)
+                {
+                    <span class="visually-hidden" role="status">Updating report...</span>
+                }
+
+                @if (isLoading && !IsRefreshing)
+                {
+                    <LoadingState Message="Loading report..." />
+                }
+                else if (failure is not null && !failure.IsValidation)
+                {
+                    <ApiErrorState Title="@failure.Title" Message="@failure.Message" OnRetry="RetryAsync" />
+                }
+                else if (complianceRows.Count == 0)
+                {
+                    <EmptyState Title="No records match your filters" Message="Widen the date range or clear a filter." />
+                }
+                else
+                {
+                    <div class="reports-table-scroll">
+                        <table class="reports-table">
+                            <caption class="visually-hidden">Certificates, insurance, detentions and open non-conformities</caption>
+                            <thead>
+                                <tr>
+                                    <th scope="col">Type</th>
+                                    <th scope="col">Vessel</th>
+                                    <th scope="col">Reference</th>
+                                    <th scope="col">Description</th>
+                                    <th scope="col">Relevant date</th>
+                                    <th scope="col">Status</th>
+                                    <th scope="col">Severity</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var row in complianceRows)
+                                {
+                                    <tr @key="@(row.ItemType + row.Reference)">
+                                        <td><div class="reports-identity"><span class="bi bi-shield-check" aria-hidden="true"></span><strong>@row.ItemType</strong></div></td>
+                                        <td>@VesselDisplayName(row.VesselId)</td>
+                                        <td>@row.Reference</td>
+                                        <td class="reports-muted reports-wrap">@row.Description</td>
+                                        <td>@row.RelevantDate.ToString("dd MMM yyyy")</td>
+                                        <td>
+                                            <span class="reports-status @ComplianceStatusClass(row)">@row.Status</span>
+                                        </td>
+                                        <td>
+                                            @if (row.Severity is { } severity)
+                                            {
+                                                <span class="reports-status @SeverityClass(severity)">@severity</span>
+                                            }
+                                            else
+                                            {
+                                                <span class="reports-muted">-</span>
+                                            }
+                                        </td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                }
+
+                @if ((!isLoading || IsRefreshing) && complianceRows.Count > 0)
+                {
+                    <div class="reports-pagination">
+                        <span>Showing @FirstRowNumber&ndash;@LastRowNumber of @totalCount records</span>
+                        <div class="reports-pages">
+                            <button type="button" @onclick="PreviousPageAsync" disabled="@(isLoading || pageNumber <= 1)">Previous</button>
+                            <span class="reports-page-indicator">Page @pageNumber of @TotalPages</span>
+                            <button type="button" @onclick="NextPageAsync" disabled="@(isLoading || pageNumber >= TotalPages)">Next</button>
+                        </div>
+                    </div>
+                }
+            </div>
+        </section>
+    }
+</section>

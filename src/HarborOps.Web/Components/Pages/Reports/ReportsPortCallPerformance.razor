@@ -1,0 +1,407 @@
+@page "/reports/port-call-performance"
+@attribute [Microsoft.AspNetCore.Authorization.Authorize(Policy = "AccessReports")]
+@using HarborOps.Web.Api.Fleet
+@using HarborOps.Web.Api.Reports
+@implements IDisposable
+@inject ReportsApiClient ReportsApi
+@inject FleetApiClient FleetApi
+@inject CurrentUserAuthorizationState AuthorizationState
+
+<PageTitle>Port-call performance report | HarborOps</PageTitle>
+
+<section class="reports-page">
+    <header class="reports-header">
+        <div>
+            <nav class="page-breadcrumb" aria-label="Breadcrumb"><a href="/reports">Reporting</a><span aria-hidden="true">/</span><span>Port-call performance</span></nav>
+            <h1>Port-call performance</h1>
+            <p>Review port turnaround and cargo-operation durations from finalized statements.</p>
+        </div>
+    </header>
+
+    <ReportsNavigation />
+
+    @if (!AuthorizationState.CanAccessVoyages)
+    {
+        <section class="reports-card">
+            <EmptyState Title="Report not available" Message="Your account does not have permission to view the port-call performance report." />
+        </section>
+    }
+    else
+    {
+        @if (filterValidationMessage is not null)
+        {
+            <div class="reports-validation" role="alert">
+                <strong>Check the filters</strong>
+                <ul>
+                    <li>@filterValidationMessage</li>
+                </ul>
+            </div>
+        }
+        else if (portCallServerErrors.Count > 0)
+        {
+            <div class="reports-validation" role="alert">
+                <strong>Check the filters</strong>
+                <ul>
+                    @foreach (var message in portCallServerErrors)
+                    {
+                        <li>@message</li>
+                    }
+                </ul>
+            </div>
+        }
+
+        <section class="reports-summary" aria-label="Report summary">
+            <article><div><span>Matching records</span><strong>@totalCount</strong><small>Across the current filters</small></div><span class="bi bi-bar-chart" aria-hidden="true"></span></article>
+            <article><div><span>Departure range</span><strong class="reports-summary-date">@PortCallRangeLabel</strong><small>Actual departure, UTC days</small></div><span class="bi bi-calendar-range" aria-hidden="true"></span></article>
+            <article><div><span>Records on this page</span><strong>@portCallRows.Count</strong><small>Page @pageNumber of @TotalPages</small></div><span class="bi bi-list-ul" aria-hidden="true"></span></article>
+        </section>
+
+        <section class="reports-card" aria-labelledby="reports-list-title">
+            <div class="reports-card-heading">
+                <div class="reports-register-heading">
+                    <span class="reports-register-icon bi bi-bar-chart" aria-hidden="true"></span>
+                    <div><span class="reports-section-label">Report results</span><h2 id="reports-list-title">Port-call performance</h2><p>@PortCallSubtitle</p></div>
+                </div>
+                @if (PortCallExportExceedsLimit)
+                {
+                    <button type="button" class="reports-download-button" disabled aria-describedby="reports-export-limit">
+                        <span class="bi bi-download" aria-hidden="true"></span> Download CSV
+                    </button>
+                }
+                else
+                {
+                    <a class="reports-download-button" href="@BuildPortCallPerformanceDownloadUrl()">
+                        <span class="bi bi-download" aria-hidden="true"></span> Download CSV
+                    </a>
+                }
+            </div>
+
+            <section class="reports-filters" aria-label="Report filters">
+                <div class="filter-field filter-field-wide">
+                    <label for="reports-vessel">Vessel</label>
+                    <VesselPicker @key="vesselPickerResetToken" Value="vesselIdFilter" ValueChanged="OnVesselFilterChangedAsync" Placeholder="All vessels" />
+                </div>
+                <div class="filter-field">
+                    <label for="reports-departed-from">Departed from (UTC)</label>
+                    <input id="reports-departed-from" type="date" @bind="portCallDepartedFromFilter" @bind:after="SearchAsync" />
+                </div>
+                <div class="filter-field">
+                    <label for="reports-departed-to">Departed to (UTC)</label>
+                    <input id="reports-departed-to" type="date" @bind="portCallDepartedToFilter" @bind:after="SearchAsync" />
+                </div>
+                <div class="filter-field filter-field-wide">
+                    <label for="reports-port">Port</label>
+                    <PortPicker @key="portPickerResetToken" InputId="reports-port" Value="portCallPortIdFilter" ValueChanged="OnPortFilterChangedAsync" Placeholder="All ports" />
+                </div>
+                <div class="filter-field">
+                    <label for="reports-statement">Statement</label>
+                    <select id="reports-statement" @bind="portCallAvailabilityFilter" @bind:after="SearchAsync">
+                        @foreach (var option in StatementAvailabilityOptions)
+                        {
+                            <option value="@option.Value">@option.Label</option>
+                        }
+                    </select>
+                </div>
+                @if (portCallVoyageIdFilter is not null)
+                {
+                    <div class="filter-field">
+                        <span class="filter-field-label">Voyage</span>
+                        <button type="button" class="reports-filter-chip" @onclick="ClearVoyageFilterAsync" aria-label="Remove voyage filter @portCallVoyageLabel">
+                            @portCallVoyageLabel <span class="bi bi-x" aria-hidden="true"></span>
+                        </button>
+                    </div>
+                }
+
+                <div class="reports-filter-actions">
+                    <button type="button" class="workspace-filter-reset" @onclick="ResetFiltersAsync" disabled="@isLoading">Reset</button>
+                </div>
+            </section>
+
+            @if (PortCallExportExceedsLimit)
+            {
+                <p id="reports-export-limit" class="reports-export-limit" role="status">
+                    <span class="bi bi-exclamation-triangle" aria-hidden="true"></span> @PortCallExportLimitMessage
+                </p>
+            }
+
+            <div class="reports-results @(IsRefreshing ? "reports-refreshing" : null)" aria-busy="@(isLoading ? "true" : "false")">
+                @if (IsRefreshing)
+                {
+                    <span class="visually-hidden" role="status">Updating report...</span>
+                }
+
+                @if (isLoading && !IsRefreshing)
+                {
+                    <LoadingState Message="Loading report..." />
+                }
+                else if (failure is not null && !failure.IsValidation)
+                {
+                    <ApiErrorState Title="@failure.Title" Message="@failure.Message" OnRetry="RetryAsync" />
+                }
+                else if (portCallServerErrors.Count > 0)
+                {
+                }
+                else if (portCallRows.Count == 0)
+                {
+                    <EmptyState Title="No records match your filters" Message="Widen the date range or clear a filter." />
+                }
+                else
+                {
+                    RenderFragment<PortCallPerformanceReportMetric?> metricCell = metric =>
+                        @<span class="reports-metric">
+                            @if (metric is null)
+                            {
+                                <span class="reports-muted">-</span>
+                            }
+                            else if (metric.Hours is { } hours)
+                            {
+                                @FormatHours(hours)
+                            }
+                            else
+                            {
+                                <span class="reports-status @QualityClass(metric)" title="@QualityTitle(metric)">@QualityLabel(metric)</span>
+                            }
+                        </span>;
+
+                    RenderFragment<(int Count, decimal Hours)> delayCell = delays =>
+                        @<span class="reports-metric">
+                            @if (delays.Count == 0)
+                            {
+                                <span class="reports-muted">None</span>
+                            }
+                            else
+                            {
+                                @($"{delays.Count} · {FormatHours(delays.Hours)}")
+                            }
+                        </span>;
+
+                    if (portCallSummary is { } summary)
+                    {
+                        <div class="reports-summary-strip" aria-label="Stops in this report">
+                            <span><strong>@summary.StopCount</strong> @(summary.StopCount == 1 ? "stop" : "stops")</span>
+                            <span><strong>@summary.FinalizedCount</strong> finalized</span>
+                            <span><strong>@summary.NotFinalizedCount</strong> not finalized <span class="reports-muted">(excluded from metrics)</span></span>
+                            @if (summary.RecordedDelayCount == 0)
+                            {
+                                <span>No recorded delays <span class="reports-muted">(not deducted from turnaround)</span></span>
+                            }
+                            else
+                            {
+                                <span><strong>@summary.RecordedDelayCount</strong> @RecordedDelaysLabel(summary) <span class="reports-muted">(not deducted from turnaround)</span></span>
+                            }
+                        </div>
+
+                        <div class="reports-kpis" aria-label="Average elapsed time for all matching stops">
+                            <div class="reports-kpi" title="@TurnaroundDefinition">
+                                <div>
+                                    <span class="reports-kpi-label">Avg turnaround</span>
+                                    <strong>@MeanLabel(summary.Turnaround)</strong>
+                                    <span class="reports-kpi-note">@SampleLabel(summary, summary.Turnaround)</span>
+                                </div>
+                                <span class="reports-kpi-icon bi bi-arrow-repeat reports-kpi-icon-blue" aria-hidden="true"></span>
+                            </div>
+                            <div class="reports-kpi" title="@ArrivalToAllFastDefinition">
+                                <div>
+                                    <span class="reports-kpi-label">Avg arrival → all fast</span>
+                                    <strong>@MeanLabel(summary.ArrivalToAllFast)</strong>
+                                    <span class="reports-kpi-note">@SampleLabel(summary, summary.ArrivalToAllFast)</span>
+                                </div>
+                                <span class="reports-kpi-icon bi bi-box-arrow-in-down-right reports-kpi-icon-amber" aria-hidden="true"></span>
+                            </div>
+                            <div class="reports-kpi" title="@CargoElapsedDefinition">
+                                <div>
+                                    <span class="reports-kpi-label">Avg cargo elapsed</span>
+                                    <strong>@MeanLabel(summary.CargoElapsed)</strong>
+                                    <span class="reports-kpi-note">@SampleLabel(summary, summary.CargoElapsed)</span>
+                                </div>
+                                <span class="reports-kpi-icon bi bi-box-seam reports-kpi-icon-teal" aria-hidden="true"></span>
+                            </div>
+                            <div class="reports-kpi" title="@CargoCompletedToDepartureDefinition">
+                                <div>
+                                    <span class="reports-kpi-label">Avg cargo completed → departure</span>
+                                    <strong>@MeanLabel(summary.CargoCompletedToDeparture)</strong>
+                                    <span class="reports-kpi-note">@SampleLabel(summary, summary.CargoCompletedToDeparture)</span>
+                                </div>
+                                <span class="reports-kpi-icon bi bi-box-arrow-up-right reports-kpi-icon-purple" aria-hidden="true"></span>
+                            </div>
+                        </div>
+
+                        <section class="reports-port-section" aria-labelledby="reports-port-title">
+                            <h3 id="reports-port-title" class="reports-port-title"><span class="bi bi-geo-alt-fill" aria-hidden="true"></span>By port</h3>
+                            <div class="reports-table-scroll">
+                                <table class="reports-table reports-port-table">
+                                    <caption class="visually-hidden">Averages per port for all matching stops</caption>
+                                    <thead>
+                                        <tr>
+                                            <th scope="col" rowspan="2" aria-sort="@PortSummaryAriaSort(SortByPort)">
+                                                <button type="button" class="reports-sort" @onclick="() => SortPortSummaries(SortByPort)">Port <span class="bi @PortSummarySortIcon(SortByPort)" aria-hidden="true"></span></button>
+                                            </th>
+                                            <th scope="col" rowspan="2" class="reports-num" aria-sort="@PortSummaryAriaSort(SortByStops)">
+                                                <button type="button" class="reports-sort" @onclick="() => SortPortSummaries(SortByStops)">Stops <span class="bi @PortSummarySortIcon(SortByStops)" aria-hidden="true"></span></button>
+                                            </th>
+                                            <th scope="colgroup" colspan="4" class="reports-group">Average elapsed time</th>
+                                            <th scope="col" rowspan="2" class="reports-num" aria-sort="@PortSummaryAriaSort(SortByRecordedDelay)">
+                                                <button type="button" class="reports-sort" @onclick="() => SortPortSummaries(SortByRecordedDelay)">Recorded delays <span class="bi @PortSummarySortIcon(SortByRecordedDelay)" aria-hidden="true"></span></button>
+                                            </th>
+                                        </tr>
+                                        <tr>
+                                            <th scope="col" class="reports-num" title="@TurnaroundDefinition" aria-sort="@PortSummaryAriaSort(SortByTurnaround)">
+                                                <button type="button" class="reports-sort" @onclick="() => SortPortSummaries(SortByTurnaround)">Turnaround <span class="bi @PortSummarySortIcon(SortByTurnaround)" aria-hidden="true"></span></button>
+                                            </th>
+                                            <th scope="col" class="reports-num" title="@ArrivalToAllFastDefinition" aria-sort="@PortSummaryAriaSort(SortByArrivalToAllFast)">
+                                                <button type="button" class="reports-sort" @onclick="() => SortPortSummaries(SortByArrivalToAllFast)">To all fast <span class="bi @PortSummarySortIcon(SortByArrivalToAllFast)" aria-hidden="true"></span></button>
+                                            </th>
+                                            <th scope="col" class="reports-num" title="@CargoElapsedDefinition" aria-sort="@PortSummaryAriaSort(SortByCargoElapsed)">
+                                                <button type="button" class="reports-sort" @onclick="() => SortPortSummaries(SortByCargoElapsed)">Cargo <span class="bi @PortSummarySortIcon(SortByCargoElapsed)" aria-hidden="true"></span></button>
+                                            </th>
+                                            <th scope="col" class="reports-num" title="@CargoCompletedToDepartureDefinition" aria-sort="@PortSummaryAriaSort(SortByCargoCompletedToDeparture)">
+                                                <button type="button" class="reports-sort" @onclick="() => SortPortSummaries(SortByCargoCompletedToDeparture)">To departure <span class="bi @PortSummarySortIcon(SortByCargoCompletedToDeparture)" aria-hidden="true"></span></button>
+                                            </th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        @foreach (var port in SortedPortCallPorts)
+                                        {
+                                            <tr @key="port.PortId">
+                                                <td>
+                                                    <span class="reports-row-icon bi bi-geo-alt" aria-hidden="true"></span>
+                                                    @port.PortName
+                                                    <div class="reports-muted">@port.PortUnLocode</div>
+                                                </td>
+                                                <td class="reports-num">
+                                                    @port.Summary.StopCount
+                                                    <div class="reports-port-note">@port.Summary.FinalizedCount finalized · @port.Summary.NotFinalizedCount not finalized</div>
+                                                </td>
+                                                <td class="reports-num">
+                                                    @MeanLabel(port.Summary.Turnaround)
+                                                    <div class="reports-port-note">@SampleLabel(port.Summary, port.Summary.Turnaround, includeNotFinalized: false)</div>
+                                                </td>
+                                                <td class="reports-num">
+                                                    @MeanLabel(port.Summary.ArrivalToAllFast)
+                                                    <div class="reports-port-note">@SampleLabel(port.Summary, port.Summary.ArrivalToAllFast, includeNotFinalized: false)</div>
+                                                </td>
+                                                <td class="reports-num">
+                                                    @MeanLabel(port.Summary.CargoElapsed)
+                                                    <div class="reports-port-note">@SampleLabel(port.Summary, port.Summary.CargoElapsed, includeNotFinalized: false)</div>
+                                                </td>
+                                                <td class="reports-num">
+                                                    @MeanLabel(port.Summary.CargoCompletedToDeparture)
+                                                    <div class="reports-port-note">@SampleLabel(port.Summary, port.Summary.CargoCompletedToDeparture, includeNotFinalized: false)</div>
+                                                </td>
+                                                <td class="reports-num">@delayCell((port.Summary.RecordedDelayCount, port.Summary.RecordedDelayHours))</td>
+                                            </tr>
+                                        }
+                                    </tbody>
+                                </table>
+                            </div>
+                        </section>
+                    }
+
+                    <div class="reports-table-scroll">
+                        <table class="reports-table reports-detail-table">
+                            <caption class="visually-hidden">Port calls departed in the selected range with elapsed operational durations</caption>
+                            <thead>
+                                <tr>
+                                    <th scope="col" rowspan="2" aria-sort="@PortCallAriaSort(SortByVoyage)">
+                                        <button type="button" class="reports-sort" @onclick="() => SortPortCallsAsync(SortByVoyage)">Voyage · stop <span class="bi @PortCallSortIcon(SortByVoyage)" aria-hidden="true"></span></button>
+                                    </th>
+                                    <th scope="col" rowspan="2" aria-sort="@PortCallAriaSort(SortByPort)">
+                                        <button type="button" class="reports-sort" @onclick="() => SortPortCallsAsync(SortByPort)">Port · berth <span class="bi @PortCallSortIcon(SortByPort)" aria-hidden="true"></span></button>
+                                    </th>
+                                    <th scope="col" rowspan="2" aria-sort="@PortCallAriaSort(SortByActualDeparture)">
+                                        <button type="button" class="reports-sort" @onclick="() => SortPortCallsAsync(SortByActualDeparture)">ATD (UTC) <span class="bi @PortCallSortIcon(SortByActualDeparture)" aria-hidden="true"></span></button>
+                                    </th>
+                                    <th scope="colgroup" colspan="4" class="reports-group">Elapsed time</th>
+                                    <th scope="col" rowspan="2" class="reports-num" aria-sort="@PortCallAriaSort(SortByRecordedDelay)">
+                                        <button type="button" class="reports-sort" @onclick="() => SortPortCallsAsync(SortByRecordedDelay)">Recorded delays <span class="bi @PortCallSortIcon(SortByRecordedDelay)" aria-hidden="true"></span></button>
+                                    </th>
+                                    <th scope="col" rowspan="2">Source</th>
+                                </tr>
+                                <tr>
+                                    <th scope="col" class="reports-num" title="@TurnaroundDefinition" aria-sort="@PortCallAriaSort(SortByTurnaround)">
+                                        <button type="button" class="reports-sort" @onclick="() => SortPortCallsAsync(SortByTurnaround)">Turnaround <span class="bi @PortCallSortIcon(SortByTurnaround)" aria-hidden="true"></span></button>
+                                    </th>
+                                    <th scope="col" class="reports-num" title="@ArrivalToAllFastDefinition" aria-sort="@PortCallAriaSort(SortByArrivalToAllFast)">
+                                        <button type="button" class="reports-sort" @onclick="() => SortPortCallsAsync(SortByArrivalToAllFast)">To all fast <span class="bi @PortCallSortIcon(SortByArrivalToAllFast)" aria-hidden="true"></span></button>
+                                    </th>
+                                    <th scope="col" class="reports-num" title="@CargoElapsedDefinition" aria-sort="@PortCallAriaSort(SortByCargoElapsed)">
+                                        <button type="button" class="reports-sort" @onclick="() => SortPortCallsAsync(SortByCargoElapsed)">Cargo <span class="bi @PortCallSortIcon(SortByCargoElapsed)" aria-hidden="true"></span></button>
+                                    </th>
+                                    <th scope="col" class="reports-num" title="@CargoCompletedToDepartureDefinition" aria-sort="@PortCallAriaSort(SortByCargoCompletedToDeparture)">
+                                        <button type="button" class="reports-sort" @onclick="() => SortPortCallsAsync(SortByCargoCompletedToDeparture)">To departure <span class="bi @PortCallSortIcon(SortByCargoCompletedToDeparture)" aria-hidden="true"></span></button>
+                                    </th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var row in portCallRows)
+                                {
+                                    <tr @key="row.VoyageStopId" class="@(row.StatementId is null ? "reports-row-muted" : null)">
+                                        <td>
+                                            <span class="reports-row-icon bi bi-signpost-split" aria-hidden="true"></span>
+                                            <button type="button" class="reports-link-button" title="Show only this voyage" @onclick="() => FilterByVoyageAsync(row)">@row.VoyageNumber</button>
+                                            <span class="reports-muted"> · #@row.StopOrder</span>
+                                            <div class="reports-muted">@VesselDisplayName(row.VesselId)</div>
+                                        </td>
+                                        <td class="reports-wrap">
+                                            @row.PortName
+                                            @if (row.UsesLiveValues)
+                                            {
+                                                <span class="reports-muted"> (live)</span>
+                                            }
+                                            <div class="reports-muted">@(row.BerthName ?? "-")</div>
+                                        </td>
+                                        <td>@FormatUtc(row.ActualDepartureUtc)</td>
+                                        <td class="reports-num">@metricCell(row.Turnaround)</td>
+                                        <td class="reports-num">@metricCell(row.ArrivalToAllFast)</td>
+                                        <td class="reports-num">@metricCell(row.CargoElapsed)</td>
+                                        <td class="reports-num">@metricCell(row.CargoCompletedToDeparture)</td>
+                                        <td class="reports-num">
+                                            @if (row.RecordedDelayCount is { } delayCount && row.RecordedDelayHours is { } delayHours)
+                                            {
+                                                @delayCell((delayCount, delayHours))
+                                            }
+                                            else
+                                            {
+                                                <span class="reports-muted">-</span>
+                                            }
+                                        </td>
+                                        <td class="reports-wrap">
+                                            @if (row.StatementId is not null && row.FinalizedAtUtc is { } finalizedAt)
+                                            {
+                                                <a class="reports-source-link" href="@StatementPrintUrl(row)">Statement of facts</a>
+                                                <div class="reports-muted">Finalized @FormatUtc(finalizedAt)</div>
+                                            }
+                                            else
+                                            {
+                                                <span class="reports-status reports-status-neutral">Not finalized</span>
+                                            }
+                                        </td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <p class="reports-legend">
+                        <span class="reports-status reports-status-warning">Missing</span> milestone not recorded
+                        <span class="reports-status reports-status-active">Ambiguous</span> milestone recorded more than once
+                        <span class="reports-status reports-status-expired">Invalid</span> out of order or outside arrival–departure
+                        <span class="reports-status reports-status-neutral">Not finalized</span> no finalized statement, excluded from metrics
+                    </p>
+                }
+
+                @if ((!isLoading || IsRefreshing) && portCallRows.Count > 0)
+                {
+                    <div class="reports-pagination">
+                        <span>Showing @FirstRowNumber&ndash;@LastRowNumber of @totalCount records</span>
+                        <div class="reports-pages">
+                            <button type="button" @onclick="PreviousPageAsync" disabled="@(isLoading || pageNumber <= 1)">Previous</button>
+                            <span class="reports-page-indicator">Page @pageNumber of @TotalPages</span>
+                            <button type="button" @onclick="NextPageAsync" disabled="@(isLoading || pageNumber >= TotalPages)">Next</button>
+                        </div>
+                    </div>
+                }
+            </div>
+        </section>
+    }
+</section>

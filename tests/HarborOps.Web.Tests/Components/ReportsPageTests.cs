@@ -5,7 +5,9 @@ using Bunit;
 using HarborOps.Web.Api;
 using HarborOps.Web.Api.Fleet;
 using HarborOps.Web.Api.Reports;
+using HarborOps.Web.Api.Voyages;
 using HarborOps.Web.Components.Pages.Reports;
+using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
@@ -40,11 +42,45 @@ public sealed class ReportsPageTests : BunitContext
             CurrentUserAuthorizationState.DocumentsReadPermission,
             CurrentUserAuthorizationState.ComplianceReadPermission,
             CurrentUserAuthorizationState.MaintenanceReadPermission);
+
+        var reportsHttpClient = new HttpClient(new StubHttpMessageHandler(request =>
+        {
+            requestedUris.Add(request.RequestUri!);
+
+            return DispatchReports(request);
+        }))
+        {
+            BaseAddress = new Uri("https://api.harborops.test/"),
+        };
+
+        var fleetHttpClient = new HttpClient(new StubHttpMessageHandler(request =>
+        {
+            requestedUris.Add(request.RequestUri!);
+
+            return request.RequestUri!.AbsolutePath.EndsWith("/lookup", StringComparison.Ordinal)
+                ? respondToLookup(request)
+                : respondToVesselSearch(request);
+        }))
+        {
+            BaseAddress = new Uri("https://api.harborops.test/"),
+        };
+
+        Services.AddSingleton(new ReportsApiClient(reportsHttpClient));
+        Services.AddSingleton(new FleetApiClient(fleetHttpClient));
+        Services.AddSingleton(new VoyagesApiClient(new HttpClient(new StubHttpMessageHandler(_ =>
+            Json(HttpStatusCode.OK, """{"items":[]}""")))
+        {
+            BaseAddress = new Uri("https://api.harborops.test/"),
+        }));
     }
 
     [Fact]
     public void Initial_state_defaults_to_the_documents_expiry_tab_and_loads_it()
     {
+        Render<Reports>();
+
+        Assert.EndsWith(Reports.DocumentsExpiryUrl, Navigation.Uri, StringComparison.Ordinal);
+
         var page = RenderReportsPage();
 
         page.WaitForAssertion(() =>
@@ -63,13 +99,10 @@ public sealed class ReportsPageTests : BunitContext
             CurrentUserAuthorizationState.ComplianceReadPermission,
             CurrentUserAuthorizationState.MaintenanceReadPermission);
 
-        var page = RenderReportsPage();
+        Render<Reports>();
 
-        page.WaitForAssertion(() =>
-        {
-            Assert.Contains(requestedUris, IsComplianceExposureRequest);
-            Assert.DoesNotContain(requestedUris, IsDocumentsExpiryRequest);
-        });
+        Assert.EndsWith(Reports.ComplianceExposureUrl, Navigation.Uri, StringComparison.Ordinal);
+        Assert.Empty(requestedUris);
     }
 
     [Fact]
@@ -77,11 +110,12 @@ public sealed class ReportsPageTests : BunitContext
     {
         ConfigureAuthorization(CurrentUserAuthorizationState.ReportsReadPermission);
 
-        var page = RenderReportsPageWithoutWaiting();
+        var page = Render<Reports>();
 
         Assert.Contains("No reports available", page.Markup, StringComparison.Ordinal);
         Assert.Empty(requestedUris);
         Assert.Empty(page.FindAll(".workspace-tab"));
+        Assert.EndsWith("/", Navigation.Uri, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -90,9 +124,13 @@ public sealed class ReportsPageTests : BunitContext
         var page = RenderReportsPage();
         page.WaitForAssertion(() => Assert.Contains(requestedUris, IsDocumentsExpiryRequest));
 
-        page.FindAll(".workspace-tab")[1].Click();
+        Assert.Equal(
+            [Reports.DocumentsExpiryUrl, Reports.ComplianceExposureUrl, Reports.MaintenanceBacklogUrl],
+            page.FindAll(".workspace-tab").Select(tab => tab.GetAttribute("href")));
 
-        page.WaitForAssertion(() => Assert.Contains(requestedUris, IsComplianceExposureRequest));
+        RenderReportsPage<ReportsComplianceExposure>();
+
+        Assert.Contains(requestedUris, IsComplianceExposureRequest);
     }
 
     [Fact]
@@ -283,10 +321,7 @@ public sealed class ReportsPageTests : BunitContext
     [Fact]
     public void Maintenance_backlog_filters_are_sent_including_priority_status_and_overdue()
     {
-        var page = RenderReportsPage();
-        page.WaitForAssertion(() => Assert.Contains(requestedUris, IsDocumentsExpiryRequest));
-
-        page.FindAll(".workspace-tab")[2].Click();
+        var page = RenderReportsPage<ReportsMaintenanceBacklog>();
         page.WaitForAssertion(() => Assert.Contains(requestedUris, IsMaintenanceBacklogRequest));
 
         page.Find("#reports-priority").Change("Critical");
@@ -310,10 +345,7 @@ public sealed class ReportsPageTests : BunitContext
     [Fact]
     public void Compliance_exposure_category_filter_is_sent()
     {
-        var page = RenderReportsPage();
-        page.WaitForAssertion(() => Assert.Contains(requestedUris, IsDocumentsExpiryRequest));
-
-        page.FindAll(".workspace-tab")[1].Click();
+        var page = RenderReportsPage<ReportsComplianceExposure>();
         page.WaitForAssertion(() => Assert.Contains(requestedUris, IsComplianceExposureRequest));
 
         page.Find("#reports-category").Change("Insurance");
@@ -405,13 +437,29 @@ public sealed class ReportsPageTests : BunitContext
             page.Find(".reports-download-button").GetAttribute("href"),
             StringComparison.Ordinal);
 
-        page.FindAll(".workspace-tab")[2].Click();
-        page.WaitForAssertion(() => Assert.Contains(requestedUris, IsMaintenanceBacklogRequest));
+        var maintenancePage = RenderReportsPage<ReportsMaintenanceBacklog>();
+        maintenancePage.WaitForAssertion(() => Assert.Contains(requestedUris, IsMaintenanceBacklogRequest));
 
         Assert.Contains(
             "/reports/download/maintenance-backlog",
-            page.Find(".reports-download-button").GetAttribute("href"),
+            maintenancePage.Find(".reports-download-button").GetAttribute("href"),
             StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Every_report_page_shares_the_reports_styles()
+    {
+        ConfigureAuthorization(
+            CurrentUserAuthorizationState.ReportsReadPermission,
+            CurrentUserAuthorizationState.DocumentsReadPermission,
+            CurrentUserAuthorizationState.ComplianceReadPermission,
+            CurrentUserAuthorizationState.MaintenanceReadPermission,
+            CurrentUserAuthorizationState.VoyagesReadPermission);
+
+        Assert.True(RenderReportsPage<ReportsDocumentsExpiry>().Find(".reports-page").HasAttribute("b-reports"));
+        Assert.True(RenderReportsPage<ReportsComplianceExposure>().Find(".reports-page").HasAttribute("b-reports"));
+        Assert.True(RenderReportsPage<ReportsMaintenanceBacklog>().Find(".reports-page").HasAttribute("b-reports"));
+        Assert.True(RenderReportsPage<ReportsPortCallPerformance>().Find(".reports-page").HasAttribute("b-reports"));
     }
 
     private static bool IsDocumentsExpiryRequest(Uri uri) =>
@@ -443,43 +491,27 @@ public sealed class ReportsPageTests : BunitContext
         Services.AddScoped<CurrentUserAuthorizationState>();
     }
 
-    private IRenderedComponent<Reports> RenderReportsPage()
+    private IRenderedComponent<ReportsDocumentsExpiry> RenderReportsPage() => RenderReportsPage<ReportsDocumentsExpiry>();
+
+    private IRenderedComponent<TPage> RenderReportsPage<TPage>()
+        where TPage : IComponent
     {
-        var page = RenderReportsPageWithoutWaiting();
+        var page = RenderReportsPageWithoutWaiting<TPage>();
         page.WaitForAssertion(() => Assert.NotEmpty(requestedUris));
 
         return page;
     }
 
-    private IRenderedComponent<Reports> RenderReportsPageWithoutWaiting()
+    private IRenderedComponent<TPage> RenderReportsPageWithoutWaiting<TPage>()
+        where TPage : IComponent
     {
-        var reportsHttpClient = new HttpClient(new StubHttpMessageHandler(request =>
-        {
-            requestedUris.Add(request.RequestUri!);
+        var route = typeof(TPage).GetCustomAttributes(typeof(RouteAttribute), inherit: false).Cast<RouteAttribute>().Single();
+        Navigation.NavigateTo(route.Template);
 
-            return DispatchReports(request);
-        }))
-        {
-            BaseAddress = new Uri("https://api.harborops.test/"),
-        };
-
-        var fleetHttpClient = new HttpClient(new StubHttpMessageHandler(request =>
-        {
-            requestedUris.Add(request.RequestUri!);
-
-            return request.RequestUri!.AbsolutePath.EndsWith("/lookup", StringComparison.Ordinal)
-                ? respondToLookup(request)
-                : respondToVesselSearch(request);
-        }))
-        {
-            BaseAddress = new Uri("https://api.harborops.test/"),
-        };
-
-        Services.AddSingleton(new ReportsApiClient(reportsHttpClient));
-        Services.AddSingleton(new FleetApiClient(fleetHttpClient));
-
-        return Render<Reports>();
+        return Render<TPage>();
     }
+
+    private NavigationManager Navigation => Services.GetRequiredService<NavigationManager>();
 
     private Task<HttpResponseMessage> DispatchReports(HttpRequestMessage request)
     {
@@ -493,6 +525,11 @@ public sealed class ReportsPageTests : BunitContext
         if (path.EndsWith("/compliance-exposure", StringComparison.Ordinal))
         {
             return respondToComplianceExposure(request);
+        }
+
+        if (path.EndsWith("/port-call-performance", StringComparison.Ordinal))
+        {
+            return Json(HttpStatusCode.OK, EmptyPortCallPage);
         }
 
         return respondToMaintenanceBacklog(request);
@@ -555,6 +592,17 @@ public sealed class ReportsPageTests : BunitContext
             "pageNumber":1,"pageSize":10,"totalCount":1}
             """;
     }
+
+    private const string EmptyPortCallMetric =
+        """{"meanMinutes":null,"meanHours":null,"sampleCount":0,"missingCount":0,"ambiguousCount":0,"invalidChronologyCount":0}""";
+
+    private static string EmptyPortCallPage =>
+        $$"""
+        {"departedFrom":"2026-09-01","departedTo":"2026-09-30","items":[],"pageNumber":1,"pageSize":25,"totalCount":0,
+        "summary":{"stopCount":0,"finalizedCount":0,"notFinalizedCount":0,"turnaround":{{EmptyPortCallMetric}},
+        "arrivalToAllFast":{{EmptyPortCallMetric}},"cargoElapsed":{{EmptyPortCallMetric}},"cargoCompletedToDeparture":{{EmptyPortCallMetric}},
+        "recordedDelayCount":0,"recordedDelayMinutes":0,"recordedDelayHours":0.00},"ports":[]}
+        """;
 
     private static Task<HttpResponseMessage> Json(HttpStatusCode statusCode, string json)
     {

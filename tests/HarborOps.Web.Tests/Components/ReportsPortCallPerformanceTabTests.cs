@@ -8,6 +8,7 @@ using HarborOps.Web.Api.Fleet;
 using HarborOps.Web.Api.Reports;
 using HarborOps.Web.Api.Voyages;
 using HarborOps.Web.Components.Pages.Reports;
+using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
@@ -58,11 +59,11 @@ public sealed class ReportsPortCallPerformanceTabTests : BunitContext
             CurrentUserAuthorizationState.ReportsReadPermission,
             CurrentUserAuthorizationState.MaintenanceReadPermission);
 
-        var page = RenderPage();
+        var page = RenderPage<ReportsMaintenanceBacklog>();
 
         page.WaitForAssertion(() =>
         {
-            Assert.DoesNotContain("Port-call performance", page.Markup, StringComparison.Ordinal);
+            Assert.DoesNotContain(page.FindAll(".workspace-tab"), tab => tab.TextContent.Contains("Port-call performance", StringComparison.Ordinal));
             Assert.DoesNotContain(requestedUris, IsPortCallRequest);
         });
     }
@@ -200,7 +201,7 @@ public sealed class ReportsPortCallPerformanceTabTests : BunitContext
         Assert.Equal(requestsBeforeSorting, requestedUris.Count(IsPortCallRequest));
     }
 
-    private static string[] PortNames(IRenderedComponent<Reports> page) =>
+    private static string[] PortNames(IRenderedComponent<ReportsPortCallPerformance> page) =>
         page.FindAll("table.reports-port-table tbody tr")
             .Select(row => row.QuerySelector("td")!.ChildNodes
                 .OfType<AngleSharp.Dom.IText>()
@@ -208,15 +209,15 @@ public sealed class ReportsPortCallPerformanceTabTests : BunitContext
                 .First(text => text.Length > 0))
             .ToArray();
 
-    private static AngleSharp.Dom.IElement PortRow(IRenderedComponent<Reports> page, string portName) =>
+    private static AngleSharp.Dom.IElement PortRow(IRenderedComponent<ReportsPortCallPerformance> page, string portName) =>
         page.FindAll("table.reports-port-table tbody tr")
             .Single(row => row.QuerySelector("td")!.TextContent.Contains(portName, StringComparison.Ordinal));
 
-    private static AngleSharp.Dom.IElement PortHeader(IRenderedComponent<Reports> page, string label) =>
+    private static AngleSharp.Dom.IElement PortHeader(IRenderedComponent<ReportsPortCallPerformance> page, string label) =>
         page.FindAll("table.reports-port-table th")
             .Single(header => header.TextContent.Contains(label, StringComparison.Ordinal));
 
-    private static void ClickPortSort(IRenderedComponent<Reports> page, string label) =>
+    private static void ClickPortSort(IRenderedComponent<ReportsPortCallPerformance> page, string label) =>
         PortHeader(page, label).QuerySelector("button")!.Click();
 
     [Fact]
@@ -447,7 +448,7 @@ public sealed class ReportsPortCallPerformanceTabTests : BunitContext
         });
     }
 
-    private static AngleSharp.Dom.IElement TurnaroundHeader(IRenderedComponent<Reports> page) =>
+    private static AngleSharp.Dom.IElement TurnaroundHeader(IRenderedComponent<ReportsPortCallPerformance> page) =>
         page.FindAll("table.reports-detail-table th")
             .Single(header => header.TextContent.Contains("Turnaround", StringComparison.Ordinal));
 
@@ -472,7 +473,10 @@ public sealed class ReportsPortCallPerformanceTabTests : BunitContext
         Services.AddScoped<CurrentUserAuthorizationState>();
     }
 
-    private IRenderedComponent<Reports> RenderPage()
+    private IRenderedComponent<ReportsPortCallPerformance> RenderPage() => RenderPage<ReportsPortCallPerformance>();
+
+    private IRenderedComponent<TPage> RenderPage<TPage>()
+        where TPage : IComponent
     {
         var reportsHttpClient = new HttpClient(new StubHttpMessageHandler(request =>
         {
@@ -502,7 +506,7 @@ public sealed class ReportsPortCallPerformanceTabTests : BunitContext
         Services.AddSingleton(new FleetApiClient(fleetHttpClient));
         Services.AddSingleton(new VoyagesApiClient(voyagesHttpClient));
 
-        return Render<Reports>();
+        return Render<TPage>();
     }
 
     private static string Metric(int? minutes, string quality = "Valid", string? milestone = null)

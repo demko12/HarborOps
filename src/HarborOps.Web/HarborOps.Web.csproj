@@ -15,6 +15,11 @@
     <None Update="Components/Pages/Documents/DocumentsRetention.razor.css" CssScope="b-documents" />
     <None Update="Components/Pages/Documents/DocumentFilePanel.razor.css" CssScope="b-documents" />
     <None Update="Components/Pages/Documents/RegisterDocumentForm.razor.css" CssScope="b-documents" />
+    <None Update="Components/Pages/Reports/Reports.razor.css" CssScope="b-reports" />
+    <None Update="Components/Pages/Reports/ReportsDocumentsExpiry.razor.css" CssScope="b-reports" />
+    <None Update="Components/Pages/Reports/ReportsComplianceExposure.razor.css" CssScope="b-reports" />
+    <None Update="Components/Pages/Reports/ReportsMaintenanceBacklog.razor.css" CssScope="b-reports" />
+    <None Update="Components/Pages/Reports/ReportsPortCallPerformance.razor.css" CssScope="b-reports" />
   </ItemGroup>
 
 </Project>

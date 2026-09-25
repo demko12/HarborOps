@@ -88,3 +88,4 @@ html[data-theme="light"] .psc-blocking-message { color: #b42318; background: #ff
     .psc-deficiency-row { grid-template-columns: auto minmax(0, 1fr) auto; align-items: start; }
     .psc-deficiency-row > div:nth-of-type(n+3) { display: none; }
 }
+.page-breadcrumb, .page-breadcrumb a { color: #059669; }

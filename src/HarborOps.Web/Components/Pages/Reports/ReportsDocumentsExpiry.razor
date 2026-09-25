@@ -1,0 +1,161 @@
+@page "/reports/documents-expiry"
+@attribute [Microsoft.AspNetCore.Authorization.Authorize(Policy = "AccessReports")]
+@using HarborOps.Web.Api.Fleet
+@using HarborOps.Web.Api.Reports
+@implements IDisposable
+@inject ReportsApiClient ReportsApi
+@inject FleetApiClient FleetApi
+@inject CurrentUserAuthorizationState AuthorizationState
+
+<PageTitle>Documents expiry report | HarborOps</PageTitle>
+
+<section class="reports-page">
+    <header class="reports-header">
+        <div>
+            <nav class="page-breadcrumb" aria-label="Breadcrumb"><a href="/reports">Reporting</a><span aria-hidden="true">/</span><span>Documents expiry</span></nav>
+            <h1>Documents expiry</h1>
+            <p>Review vessel documents that are expired or due to expire.</p>
+        </div>
+    </header>
+
+    <ReportsNavigation />
+
+    @if (!AuthorizationState.CanAccessDocuments)
+    {
+        <section class="reports-card">
+            <EmptyState Title="Report not available" Message="Your account does not have permission to view the documents expiry report." />
+        </section>
+    }
+    else
+    {
+        @if (filterValidationMessage is not null)
+        {
+            <div class="reports-validation" role="alert">
+                <strong>Check the filters</strong>
+                <ul>
+                    <li>@filterValidationMessage</li>
+                </ul>
+            </div>
+        }
+
+        <section class="reports-summary" aria-label="Report summary">
+            <article><div><span>Matching records</span><strong>@totalCount</strong><small>Across the current filters</small></div><span class="bi bi-bar-chart" aria-hidden="true"></span></article>
+            <article><div><span>Snapshot date</span><strong class="reports-summary-date">@reportAsOf.ToString("dd MMM yyyy")</strong><small>Report reference date</small></div><span class="bi bi-calendar-check" aria-hidden="true"></span></article>
+            <article><div><span>Records on this page</span><strong>@documentsRows.Count</strong><small>Page @pageNumber of @TotalPages</small></div><span class="bi bi-list-ul" aria-hidden="true"></span></article>
+        </section>
+
+        <section class="reports-card" aria-labelledby="reports-list-title">
+            <div class="reports-card-heading">
+                <div class="reports-register-heading">
+                    <span class="reports-register-icon bi bi-bar-chart" aria-hidden="true"></span>
+                    <div><span class="reports-section-label">Report results</span><h2 id="reports-list-title">Documents expiry register</h2><p>@totalCount records as of @reportAsOf.ToString("dd MMM yyyy")</p></div>
+                </div>
+                <a class="reports-download-button" href="@BuildDownloadUrl()">
+                    <span class="bi bi-download" aria-hidden="true"></span> Download CSV
+                </a>
+            </div>
+
+            <section class="reports-filters" aria-label="Report filters">
+                <div class="filter-field">
+                    <label for="reports-as-of">As of</label>
+                    <input id="reports-as-of" type="date" @bind="asOfFilter" @bind:after="SearchAsync" />
+                </div>
+                <div class="filter-field filter-field-wide">
+                    <label for="reports-vessel">Vessel</label>
+                    <VesselPicker @key="vesselPickerResetToken" Value="vesselIdFilter" ValueChanged="OnVesselFilterChangedAsync" Placeholder="All vessels" />
+                </div>
+                <div class="filter-field">
+                    <label for="reports-doc-from">From</label>
+                    <input id="reports-doc-from" type="date" @bind="documentsFromFilter" @bind:after="SearchAsync" />
+                </div>
+                <div class="filter-field">
+                    <label for="reports-doc-to">To</label>
+                    <input id="reports-doc-to" type="date" @bind="documentsToFilter" @bind:after="SearchAsync" />
+                </div>
+                <div class="filter-field">
+                    <label for="reports-doc-status">Status</label>
+                    <select id="reports-doc-status" @bind="documentsStatusFilter" @bind:after="SearchAsync">
+                        <option value="">All statuses</option>
+                        @foreach (var status in DocumentStatuses)
+                        {
+                            <option value="@status">@status</option>
+                        }
+                    </select>
+                </div>
+
+                <div class="reports-filter-actions">
+                    <button type="button" class="workspace-filter-reset" @onclick="ResetFiltersAsync" disabled="@isLoading">Reset</button>
+                </div>
+            </section>
+
+            <div class="reports-results @(IsRefreshing ? "reports-refreshing" : null)" aria-busy="@(isLoading ? "true" : "false")">
+                @if (IsRefreshing)
+                {
+                    <span class="visually-hidden" role="status">Updating report...</span>
+                }
+
+                @if (isLoading && !IsRefreshing)
+                {
+                    <LoadingState Message="Loading report..." />
+                }
+                else if (failure is not null && !failure.IsValidation)
+                {
+                    <ApiErrorState Title="@failure.Title" Message="@failure.Message" OnRetry="RetryAsync" />
+                }
+                else if (documentsRows.Count == 0)
+                {
+                    <EmptyState Title="No records match your filters" Message="Widen the date range or clear a filter." />
+                }
+                else
+                {
+                    <div class="reports-table-scroll">
+                        <table class="reports-table">
+                            <caption class="visually-hidden">Documents expiring on or before the selected range</caption>
+                            <thead>
+                                <tr>
+                                    <th scope="col">Number</th>
+                                    <th scope="col">Vessel</th>
+                                    <th scope="col">Document type</th>
+                                    <th scope="col">Issuing authority</th>
+                                    <th scope="col">Issue date</th>
+                                    <th scope="col">Expiry date</th>
+                                    <th scope="col">Status</th>
+                                    <th scope="col" class="reports-num">Days left</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var row in documentsRows)
+                                {
+                                    <tr @key="row.DocumentId">
+                                        <td><div class="reports-identity"><span class="bi bi-file-earmark-text" aria-hidden="true"></span><strong>@row.Number</strong></div></td>
+                                        <td>@VesselDisplayName(row.VesselId)</td>
+                                        <td class="reports-muted reports-wrap">@row.DocumentTypeName</td>
+                                        <td class="reports-muted reports-wrap">@row.IssuingAuthority</td>
+                                        <td class="reports-muted">@row.IssueDate.ToString("dd MMM yyyy")</td>
+                                        <td>@row.ExpiryDate.ToString("dd MMM yyyy")</td>
+                                        <td>
+                                            <span class="reports-status @DocumentStatusClass(row)">@DocumentStatusLabel(row)</span>
+                                        </td>
+                                        <td class="reports-num">@DaysUntilExpiryLabel(row)</td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                }
+
+                @if ((!isLoading || IsRefreshing) && documentsRows.Count > 0)
+                {
+                    <div class="reports-pagination">
+                        <span>Showing @FirstRowNumber&ndash;@LastRowNumber of @totalCount records</span>
+                        <div class="reports-pages">
+                            <button type="button" @onclick="PreviousPageAsync" disabled="@(isLoading || pageNumber <= 1)">Previous</button>
+                            <span class="reports-page-indicator">Page @pageNumber of @TotalPages</span>
+                            <button type="button" @onclick="NextPageAsync" disabled="@(isLoading || pageNumber >= TotalPages)">Next</button>
+                        </div>
+                    </div>
+                }
+            </div>
+        </section>
+    }
+</section>

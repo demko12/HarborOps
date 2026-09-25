@@ -627,3 +627,4 @@ html[data-theme="light"] .crew-rotation-execute { color: #047857; border-color: 
 .crew-availability-decision-form input { height: var(--control-height); padding: 0 .85rem; color: var(--text-primary); border: 1px solid var(--border-medium); border-radius: var(--radius-control); background-color: var(--control-surface); font: inherit; font-size: .88rem; }
 .crew-availability-decision-form-actions { display: flex; gap: .5rem; }
 .crew-availability-decision-form-actions button[type="button"] { height: 2rem; padding: 0 .75rem; color: var(--text-secondary); border: 1px solid var(--border-medium); border-radius: var(--radius-button); background: transparent; font: inherit; font-size: .78rem; font-weight: 600; cursor: pointer; }
+.page-breadcrumb, .page-breadcrumb a { color: #9b75ed; }

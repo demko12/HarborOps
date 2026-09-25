@@ -1,0 +1,20 @@
+@inject CurrentUserAuthorizationState AuthorizationState
+
+<nav class="reports-tabs workspace-tabs" aria-label="Report selection">
+    @if (AuthorizationState.CanAccessDocuments)
+    {
+        <NavLink class="workspace-tab" href="@Reports.DocumentsExpiryUrl"><span class="bi bi-file-earmark-text" aria-hidden="true"></span> Documents expiry</NavLink>
+    }
+    @if (AuthorizationState.CanAccessCompliance)
+    {
+        <NavLink class="workspace-tab" href="@Reports.ComplianceExposureUrl"><span class="bi bi-shield-check" aria-hidden="true"></span> Compliance exposure</NavLink>
+    }
+    @if (AuthorizationState.CanAccessMaintenance)
+    {
+        <NavLink class="workspace-tab" href="@Reports.MaintenanceBacklogUrl"><span class="bi bi-tools" aria-hidden="true"></span> Maintenance backlog</NavLink>
+    }
+    @if (AuthorizationState.CanAccessVoyages)
+    {
+        <NavLink class="workspace-tab" href="@Reports.PortCallPerformanceUrl"><span class="bi bi-stopwatch" aria-hidden="true"></span> Port-call performance</NavLink>
+    }
+</nav>

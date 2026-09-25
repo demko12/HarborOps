@@ -3,7 +3,7 @@ using HarborOps.Web.Api.Reports;
 
 namespace HarborOps.Web.Components.Pages.Reports;
 
-public partial class Reports
+public partial class ReportsPortCallPerformance : IDisposable
 {
     private const int PortCallExportLimit = 10_000;
     private const int PortCallMaxRangeDays = 366;
@@ -58,6 +58,130 @@ public partial class Reports
     private PortCallPerformanceReportSummary? portCallSummary;
     private IReadOnlyList<PortCallPerformanceReportPortSummary> portCallPorts = [];
     private IReadOnlyList<string> portCallServerErrors = [];
+
+    private readonly CancellationTokenSource disposeCancellation = new();
+    private int loadVersion;
+
+    private Guid? vesselIdFilter;
+    private int vesselPickerResetToken;
+
+    private int pageNumber = 1;
+    private int totalCount;
+    private bool isLoading = true;
+    private bool isReportDisplayed;
+    private ReportsApiFailure? failure;
+    private string? filterValidationMessage;
+
+    private IReadOnlyDictionary<Guid, string> vesselNames = new Dictionary<Guid, string>();
+
+    private bool IsRefreshing => isLoading && isReportDisplayed;
+
+    private int TotalPages => totalCount == 0 ? 1 : ((totalCount + Reports.PageSize - 1) / Reports.PageSize);
+
+    private int FirstRowNumber => portCallRows.Count == 0 ? 0 : ((pageNumber - 1) * Reports.PageSize) + 1;
+
+    private int LastRowNumber => FirstRowNumber + portCallRows.Count - 1;
+
+    protected override Task OnInitializedAsync()
+    {
+        if (!AuthorizationState.CanAccessVoyages)
+        {
+            isLoading = false;
+
+            return Task.CompletedTask;
+        }
+
+        return LoadAsync();
+    }
+
+    private Task SearchAsync()
+    {
+        pageNumber = 1;
+
+        return LoadAsync();
+    }
+
+    // VesselPicker exposes Value/ValueChanged rather than a plain bindable field (its
+    // selection comes from an async search, not a keystroke), so it can't use @bind:after
+    // the way the native inputs above do - this plays the same role, assigning the field
+    // and then reloading, mirroring Compliance.razor's SelectVesselAsync.
+    private Task OnVesselFilterChangedAsync(Guid? vesselId)
+    {
+        vesselIdFilter = vesselId;
+
+        return SearchAsync();
+    }
+
+    private Task ResetFiltersAsync()
+    {
+        vesselIdFilter = null;
+        vesselPickerResetToken++;
+        ResetPortCallFilters();
+        pageNumber = 1;
+        filterValidationMessage = null;
+
+        return LoadAsync();
+    }
+
+    private Task RetryAsync() => LoadAsync();
+
+    private Task PreviousPageAsync()
+    {
+        if (pageNumber <= 1)
+        {
+            return Task.CompletedTask;
+        }
+
+        pageNumber--;
+
+        return LoadAsync();
+    }
+
+    private Task NextPageAsync()
+    {
+        if (pageNumber >= TotalPages)
+        {
+            return Task.CompletedTask;
+        }
+
+        pageNumber++;
+
+        return LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        filterValidationMessage = ValidatePortCallRange();
+
+        if (filterValidationMessage is not null)
+        {
+            return;
+        }
+
+        await LoadPortCallPerformanceAsync();
+
+        if (!isLoading)
+        {
+            isReportDisplayed = failure is null;
+        }
+    }
+
+    private async Task ResolveVesselNamesAsync(
+        IEnumerable<Guid> ids, CancellationToken cancellationToken, int requestVersion)
+    {
+        var distinctIds = ids.Distinct().ToArray();
+        var names = await FleetApi.LookupVesselNamesAsync(distinctIds, cancellationToken);
+
+        if (disposeCancellation.IsCancellationRequested || requestVersion != loadVersion)
+        {
+            return;
+        }
+
+        vesselNames = names;
+    }
+
+    private string VesselDisplayName(Guid vesselId) =>
+        vesselNames.TryGetValue(vesselId, out var name) ? name : "Unknown vessel";
 
     private bool PortCallExportExceedsLimit => totalCount > PortCallExportLimit;
 
@@ -123,7 +247,7 @@ public partial class Reports
             portCallSortBy,
             portCallSortDirection,
             pageNumber,
-            PageSize);
+            Reports.PageSize);
 
     private async Task LoadPortCallPerformanceAsync()
     {
@@ -372,5 +496,11 @@ public partial class Reports
         }
 
         return string.Join(" · ", parts);
+    }
+
+    public void Dispose()
+    {
+        disposeCancellation.Cancel();
+        disposeCancellation.Dispose();
     }
 }
