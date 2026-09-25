@@ -9,4 +9,6 @@ public sealed record CoverageDayItem(
     int EligibleHeadcount,
     int? Shortage,
     IReadOnlyList<CoverageIneligibleMember> IneligibleMembers,
-    IReadOnlyList<Guid> AssignmentIds);
+    IReadOnlyList<Guid> AssignmentIds,
+    int? QualifiedHeadcount,
+    IReadOnlyList<CoverageUnqualifiedMember> UnqualifiedMembers);

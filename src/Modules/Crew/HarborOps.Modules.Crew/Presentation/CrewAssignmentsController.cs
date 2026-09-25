@@ -85,7 +85,7 @@ public sealed class CrewAssignmentsController(
     {
         try
         {
-            await activateCrewAssignmentService.ActivateAsync(assignmentId, cancellationToken);
+            await activateCrewAssignmentService.ActivateAsync(assignmentId, GetActingUserId(), cancellationToken);
             return Ok();
         }
         catch (CrewAssignmentNotFoundException exception)
@@ -99,6 +99,21 @@ public sealed class CrewAssignmentsController(
         catch (CrewMemberUnavailableException exception)
         {
             return Conflict(Problem(StatusCodes.Status409Conflict, "Crew member is unavailable.", exception.Message));
+        }
+        catch (CrewMemberNotQualifiedException exception)
+        {
+            return Conflict(new ProblemDetails
+            {
+                Status = StatusCodes.Status409Conflict,
+                Title = "Crew member is not qualified for this rank.",
+                Detail = exception.Message,
+                Extensions =
+                {
+                    ["missingTypes"] = exception.MissingTypes,
+                    ["uncoveredDates"] = exception.UncoveredRanges
+                        .Select(range => new { range.RequiredType, range.StartDate, range.EndDate }),
+                },
+            });
         }
     }
 
