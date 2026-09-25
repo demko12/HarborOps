@@ -14,7 +14,7 @@
     <header class="documents-header">
         <div>
             <p class="documents-eyebrow">Documents operations</p>
-            <h1>Expiring documents</h1>
+            <h1>Your documents, in order</h1>
             <p>Review vessel documents due to expire within the selected date range.</p>
         </div>
         <div class="documents-header-actions">
@@ -24,29 +24,29 @@
         </div>
     </header>
 
-    <nav class="workspace-tabs" role="tablist" aria-label="Documents workspace">
+    <nav class="documents-tabs workspace-tabs" role="tablist" aria-label="Documents workspace">
         <button type="button"
                 role="tab"
                 class="workspace-tab @(activeTab == DocumentsTab.Expiring ? "active" : null)"
                 aria-selected="@AriaSelected(DocumentsTab.Expiring)"
-                @onclick="() => SelectTab(DocumentsTab.Expiring)">Expiring documents</button>
+                @onclick="() => SelectTab(DocumentsTab.Expiring)"><span class="bi bi-file-earmark-text" aria-hidden="true"></span><span>Expiring documents</span></button>
         <button type="button"
                 role="tab"
                 class="workspace-tab @(activeTab == DocumentsTab.Requirements ? "active" : null)"
                 aria-selected="@AriaSelected(DocumentsTab.Requirements)"
-                @onclick="() => SelectTab(DocumentsTab.Requirements)">Requirements</button>
+                @onclick="() => SelectTab(DocumentsTab.Requirements)"><span class="bi bi-clipboard-check" aria-hidden="true"></span><span>Requirements</span></button>
         <button type="button"
                 role="tab"
                 class="workspace-tab @(activeTab == DocumentsTab.Readiness ? "active" : null)"
                 aria-selected="@AriaSelected(DocumentsTab.Readiness)"
-                @onclick="() => SelectTab(DocumentsTab.Readiness)">Readiness</button>
+                @onclick="() => SelectTab(DocumentsTab.Readiness)"><span class="bi bi-shield-check" aria-hidden="true"></span><span>Readiness</span></button>
         @if (CanOpenRetentionTab)
         {
             <button type="button"
                     role="tab"
                     class="workspace-tab @(activeTab == DocumentsTab.Retention ? "active" : null)"
                     aria-selected="@AriaSelected(DocumentsTab.Retention)"
-                    @onclick="() => SelectTab(DocumentsTab.Retention)">Retention &amp; disposition</button>
+                    @onclick="() => SelectTab(DocumentsTab.Retention)"><span class="bi bi-archive" aria-hidden="true"></span><span>Retention &amp; disposition</span></button>
         }
     </nav>
 
@@ -102,7 +102,55 @@
         </article>
     </section>
 
-    <section class="documents-filters" aria-label="Document filters">
+
+
+    @if (filterValidationMessage is not null)
+    {
+        <div class="documents-validation" role="alert">
+            <strong>Check the filters</strong>
+            <ul>
+                <li>@filterValidationMessage</li>
+            </ul>
+        </div>
+    }
+
+    @if (failure is { IsValidation: true, Errors.Count: > 0 })
+    {
+        <div class="documents-validation" role="alert">
+            <strong>@failure.Title</strong>
+            <ul>
+                @foreach (var entry in failure.Errors)
+                {
+                    @foreach (var message in entry.Value)
+                    {
+                        <li>@message</li>
+                    }
+                }
+            </ul>
+        </div>
+    }
+
+    <section class="documents-card documents-register" aria-labelledby="documents-list-title">
+        <div class="documents-card-heading">
+            <div class="documents-register-heading">
+                <span class="documents-card-icon" aria-hidden="true"><span class="bi bi-file-earmark-text"></span></span>
+                <div>
+                    <span class="documents-section-label">Document overview</span>
+                    <h2 id="documents-list-title">Expiring document register</h2>
+                    <p>@totalCount documents found · Within the selected date range</p>
+                </div>
+            </div>
+            <div class="documents-card-tools">
+                <button id="documents-register-type-button" type="button" class="documents-register-button" @onclick="ToggleRegisterTypeForm">
+                    <span aria-hidden="true">+</span> Register type
+                </button>
+                <button id="documents-register-document-button" type="button" class="documents-register-button" @onclick="ToggleRegisterDocumentForm">
+                    <span aria-hidden="true">+</span> Register document
+                </button>
+            </div>
+        </div>
+
+    <section class="documents-filters documents-register-filters" aria-label="Document filters">
         <div class="filter-field filter-field-wide">
             <label>Vessel</label>
             <VesselPicker @key="filterVesselPickerResetToken"
@@ -131,49 +179,6 @@
         </div>
         <button class="documents-filter-reset" type="button" @onclick="ClearFiltersAsync" disabled="@isLoading">Reset</button>
     </section>
-
-    @if (filterValidationMessage is not null)
-    {
-        <div class="documents-validation" role="alert">
-            <strong>Check the filters</strong>
-            <ul>
-                <li>@filterValidationMessage</li>
-            </ul>
-        </div>
-    }
-
-    @if (failure is { IsValidation: true, Errors.Count: > 0 })
-    {
-        <div class="documents-validation" role="alert">
-            <strong>@failure.Title</strong>
-            <ul>
-                @foreach (var entry in failure.Errors)
-                {
-                    @foreach (var message in entry.Value)
-                    {
-                        <li>@message</li>
-                    }
-                }
-            </ul>
-        </div>
-    }
-
-    <section class="documents-card" aria-labelledby="documents-list-title">
-        <div class="documents-card-heading">
-            <div>
-                <h2 id="documents-list-title">Expiring document register</h2>
-                <p>@totalCount documents found</p>
-            </div>
-            <div class="documents-card-tools">
-                <button id="documents-register-type-button" type="button" class="documents-register-button" @onclick="ToggleRegisterTypeForm">
-                    <span aria-hidden="true">+</span> Register type
-                </button>
-                <button id="documents-register-document-button" type="button" class="documents-register-button" @onclick="ToggleRegisterDocumentForm">
-                    <span aria-hidden="true">+</span> Register document
-                </button>
-                <span class="documents-card-icon" aria-hidden="true"><span class="bi bi-file-earmark-text-fill"></span></span>
-            </div>
-        </div>
 
         @if (isLoading)
         {
@@ -210,7 +215,7 @@
                         @foreach (var row in rows)
                         {
                             <tr @key="row.DocumentId">
-                                <td class="col-number">@row.Number</td>
+                                <td class="col-number"><div class="documents-identity"><span class="bi bi-file-earmark-text" aria-hidden="true"></span><strong>@row.Number</strong></div></td>
                                 <td class="col-vessel">@row.VesselDisplayName</td>
                                 <td class="documents-muted col-type">@row.DocumentTypeName</td>
                                 <td class="documents-muted col-authority">@row.IssuingAuthority</td>

@@ -260,6 +260,12 @@ html, body {
 
 html[data-theme="dark"] .page:not(.login-layout) :is(
     :where(.documents-summary, .reports-summary, .administration-summary) > article,
+    .requirements-kpi,
+    .requirements-filters,
+    .requirements-card,
+    .readiness-kpi,
+    .readiness-filters,
+    .readiness-card,
     .access-denied-card,
     .administration-card,
     .administration-denied-card,
@@ -872,20 +878,26 @@ html[data-theme="dark"] :is(.documents-summary, .reports-summary, .administratio
 
 /* Use the Fleet card surface for the lower registers as well. Paint table rows
    once, rather than restarting the translucent gradient in every cell. */
-html[data-theme="dark"] .page :is(.documents-table, .reports-table) tbody tr,
+html[data-theme="dark"] .page :is(.documents-table, .requirements-table, .readiness-table, .reports-table) tbody tr,
 html[data-theme="dark"] .page .administration-page :is(.user-row, .role-row, .editor-note, fieldset, .account-lifecycle) {
     background: var(--module-card-background);
 }
 
-html[data-theme="dark"] .page :is(.documents-table, .reports-table) tbody tr td {
+html[data-theme="dark"] .page :is(.documents-table, .requirements-table, .readiness-table, .reports-table) tbody tr td {
     background: transparent;
 }
 
-html[data-theme="dark"] .page :is(.documents-table, .reports-table) tbody tr:is(:hover, :focus-within),
+html[data-theme="dark"] .page :is(.documents-table, .requirements-table, .readiness-table, .reports-table) tbody tr:is(:hover, :focus-within),
 html[data-theme="dark"] .page .administration-page :is(.user-row, .role-row):hover {
     background: var(--bg-surface-strong);
 }
 
 html[data-theme="dark"] .page .administration-page :is(.user-row, .role-row).selected {
     background: var(--accent-bg);
+}
+
+/* Keep vessel picker popups above the following glass card. */
+html[data-theme="dark"] .documents-page :is(.requirements-filters, .readiness-filters) {
+    position: relative;
+    z-index: 2;
 }
