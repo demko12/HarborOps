@@ -19,6 +19,49 @@
         </div>
     </header>
 
+    <nav class="workspace-tabs" role="tablist" aria-label="Documents workspace">
+        <button type="button"
+                role="tab"
+                class="workspace-tab @(activeTab == DocumentsTab.Expiring ? "active" : null)"
+                aria-selected="@AriaSelected(DocumentsTab.Expiring)"
+                @onclick="() => SelectTab(DocumentsTab.Expiring)">Expiring documents</button>
+        <button type="button"
+                role="tab"
+                class="workspace-tab @(activeTab == DocumentsTab.Requirements ? "active" : null)"
+                aria-selected="@AriaSelected(DocumentsTab.Requirements)"
+                @onclick="() => SelectTab(DocumentsTab.Requirements)">Requirements</button>
+        <button type="button"
+                role="tab"
+                class="workspace-tab @(activeTab == DocumentsTab.Readiness ? "active" : null)"
+                aria-selected="@AriaSelected(DocumentsTab.Readiness)"
+                @onclick="() => SelectTab(DocumentsTab.Readiness)">Readiness</button>
+        @if (CanOpenRetentionTab)
+        {
+            <button type="button"
+                    role="tab"
+                    class="workspace-tab @(activeTab == DocumentsTab.Retention ? "active" : null)"
+                    aria-selected="@AriaSelected(DocumentsTab.Retention)"
+                    @onclick="() => SelectTab(DocumentsTab.Retention)">Retention &amp; disposition</button>
+        }
+    </nav>
+
+    @if (activeTab == DocumentsTab.Requirements)
+    {
+        <DocumentRequirementsPanel InitialVesselId="RequestedVesselId" />
+    }
+
+    @if (activeTab == DocumentsTab.Readiness)
+    {
+        <DocumentReadinessPanel InitialVesselId="RequestedVesselId"
+                                RefreshToken="readinessRefreshToken"
+                                OnOpenDocument="OpenFilePanelAsync"
+                                OnRegisterMissing="OpenRegisterFormForMissing" />
+    }
+
+    @if (activeTab == DocumentsTab.Expiring)
+    {
+    <div class="documents-tabpanel" role="tabpanel">
+
 	<section class="documents-tabs workspace-tabs" aria-label="Document registration actions">
 		<button type="button" class="workspace-tab @(isRegisterTypeFormOpen ? "active" : null)" @onclick="ToggleRegisterTypeForm">
 			<span class="bi bi-folder-plus" aria-hidden="true"></span> Register document type
@@ -26,12 +69,6 @@
 		<button type="button" class="workspace-tab @(isRegisterDocumentFormOpen ? "active" : null)" @onclick="ToggleRegisterDocumentForm">
 			<span class="bi bi-file-earmark-plus" aria-hidden="true"></span> Register document
 		</button>
-		@if (AuthorizationState.HasPermission("documents.read") || AuthorizationState.HasPermission("documents.manage"))
-		{
-			<button type="button" class="workspace-tab @(isRetentionTabOpen ? "active" : null)" @onclick="ToggleRetentionTab">
-				<span class="bi bi-archive" aria-hidden="true"></span> Retention &amp; disposition
-			</button>
-		}
 		<a class="workspace-tab documents-acknowledgements-tab" href="/documents/acknowledgements">
 			<span class="bi bi-check2-square" aria-hidden="true"></span> My acknowledgements
 		</a>
@@ -176,6 +213,9 @@
             </div>
         }
     </section>
+
+    </div>
+    }
 
     @if (expandedDocumentId is { } fileDocumentId)
     {
@@ -472,16 +512,15 @@
     </div>
     }
 
-    @if (isRetentionTabOpen)
+    @if (activeTab == DocumentsTab.Retention)
     {
-    <div class="documents-modal-backdrop" role="presentation" @onclick="CloseRetentionTab">
-    <section class="documents-retention-card documents-modal documents-modal-wide" role="dialog" aria-modal="true" aria-labelledby="documents-retention-title" @onclick:stopPropagation="true">
-        <div class="documents-inline-form-header">
+    <section class="documents-retention-card documents-card" role="tabpanel" aria-labelledby="documents-retention-title">
+        <div class="documents-card-heading">
             <div>
-                <p class="documents-modal-eyebrow">Document lifecycle</p>
                 <h2 id="documents-retention-title">Retention, legal holds &amp; disposition</h2>
+                <p>Documents due for a retention decision and the retention period of each document type.</p>
             </div>
-            <button type="button" class="documents-modal-close" aria-label="Close retention and disposition" @onclick="CloseRetentionTab">×</button>
+            <span class="documents-card-icon" aria-hidden="true"><span class="bi bi-archive-fill"></span></span>
         </div>
 
         <section class="documents-tabs workspace-tabs" aria-label="Retention views">
@@ -845,7 +884,6 @@
             }
         }
     </section>
-    </div>
     }
 
     @if (isRegisterTypeFormOpen)
@@ -967,7 +1005,7 @@
                 </div>
                 <div class="filter-field">
                     <label for="doc-vessel">Vessel</label>
-                    <VesselPicker @key="vesselPickerResetToken" @bind-Value="registerDocumentModel.VesselId" Placeholder="Search vessel by name or IMO..." />
+                    <VesselPicker @key="vesselPickerResetToken" @bind-Value="registerDocumentModel.VesselId" InitialLabel="@registerDocumentVesselLabel" Placeholder="Search vessel by name or IMO..." />
                     <ValidationMessage For="() => registerDocumentModel.VesselId" />
                 </div>
                 <div class="filter-field">

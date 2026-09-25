@@ -9,7 +9,6 @@
 /* Header */
 
 .documents-header {
-    order: 1;
     margin-bottom: 1.75rem;
 }
 
@@ -38,7 +37,6 @@
 /* Filters */
 
 .documents-filters {
-    order: 3;
     position: relative;
     z-index: 2;
     display: flex;
@@ -216,7 +214,6 @@ html[data-theme="light"] .filter-field > textarea {
 /* Validation */
 
 .documents-validation {
-    order: 5;
     margin-bottom: 1rem;
     padding: .9rem 1.1rem;
     border: 1px solid rgba(248, 113, 113, .35);
@@ -239,7 +236,6 @@ html[data-theme="light"] .documents-validation {
 /* Card */
 
 .documents-card {
-    order: 5;
     padding: 1.35rem;
     border: 1px solid var(--border-medium);
     border-radius: var(--radius-card);
@@ -551,7 +547,6 @@ html[data-theme="dark"] .documents-review-status-rejected { color: #fca5a5; back
 /* Registration actions and dialogs */
 
 .documents-tabs {
-    order: 2;
     display: flex;
     flex-wrap: wrap;
     gap: .6rem;
@@ -597,7 +592,6 @@ html[data-theme="dark"] .documents-review-status-rejected { color: #fca5a5; back
 }
 
 .documents-inline-form {
-    order: 4;
     width: 100%;
     max-width: none;
     margin: 0 0 1rem;
@@ -938,8 +932,7 @@ html[data-theme="light"] .documents-form-grid ::deep select {
 
 .documents-modal.documents-type-form-card,
 .documents-modal.documents-file-form-card,
-.documents-modal.documents-form-card,
-.documents-modal.documents-retention-card {
+.documents-modal.documents-form-card {
     width: min(100%, 36rem);
     border-color: #c7d1df !important;
     background: #f8fafc !important;
@@ -954,11 +947,6 @@ html[data-theme="light"] .documents-form-grid ::deep select {
 
 .documents-modal.documents-file-form-card {
     width: min(100%, 44rem);
-}
-
-.documents-modal.documents-retention-card {
-    width: min(100%, 62rem);
-    padding: 1.5rem;
 }
 
 .documents-retention-card .workspace-tabs {
@@ -1049,8 +1037,7 @@ html[data-theme="dark"] .documents-modal-backdrop {
 
 html[data-theme="dark"] .documents-modal.documents-type-form-card,
 html[data-theme="dark"] .documents-modal.documents-file-form-card,
-html[data-theme="dark"] .documents-modal.documents-form-card,
-html[data-theme="dark"] .documents-modal.documents-retention-card {
+html[data-theme="dark"] .documents-modal.documents-form-card {
     border-color: rgba(148, 163, 184, .28) !important;
     background: #172033 !important;
     box-shadow: 0 28px 70px rgba(0, 0, 0, .5), 0 0 0 1px rgba(255, 255, 255, .06) inset !important;

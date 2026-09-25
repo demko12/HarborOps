@@ -1,0 +1,364 @@
+@using HarborOps.Web.Api.Documents
+@using HarborOps.Web.Api.Fleet
+@implements IDisposable
+@inject DocumentsApiClient DocumentsApi
+@inject FleetApiClient FleetApi
+@inject CurrentUserAuthorizationState AuthorizationState
+
+<div class="readiness-panel" role="tabpanel" aria-label="Document readiness">
+    <section class="readiness-summary" aria-label="Readiness summary">
+        <article class="readiness-kpi">
+            <div>
+                <p class="readiness-kpi-label">Configured</p>
+                <p class="readiness-kpi-value">@FormatCount(summary?.ConfiguredCount)</p>
+                <p class="readiness-kpi-note">Enabled requirements</p>
+            </div>
+            <span class="readiness-kpi-icon kpi-icon-info" aria-hidden="true"><span class="bi bi-list-check"></span></span>
+        </article>
+        <article class="readiness-kpi">
+            <div>
+                <p class="readiness-kpi-label">Satisfied</p>
+                <p class="readiness-kpi-value">@FormatCount(summary?.SatisfiedCount)</p>
+                <p class="readiness-kpi-note">Through @FormatDate(appliedRequiredThrough)</p>
+            </div>
+            <span class="readiness-kpi-icon kpi-icon-success" aria-hidden="true"><span class="bi bi-check2-circle"></span></span>
+        </article>
+        <article class="readiness-kpi">
+            <div>
+                <p class="readiness-kpi-label">Unsatisfied</p>
+                <p class="readiness-kpi-value">@FormatCount(summary?.UnsatisfiedCount)</p>
+                <p class="readiness-kpi-note">Missing or unusable</p>
+            </div>
+            <span class="readiness-kpi-icon kpi-icon-warning" aria-hidden="true"><span class="bi bi-exclamation-triangle-fill"></span></span>
+        </article>
+    </section>
+
+    @if (failure is { IsValidation: true, Errors.Count: > 0 })
+    {
+        <div class="readiness-validation" role="alert">
+            <strong>@failure.Title</strong>
+            <ul>
+                @foreach (var entry in failure.Errors)
+                {
+                    @foreach (var message in entry.Value)
+                    {
+                        <li>@message</li>
+                    }
+                }
+            </ul>
+        </div>
+    }
+
+    @if (vesselFilter is null)
+    {
+        <section class="readiness-card readiness-vessels" aria-labelledby="readiness-vessels-title">
+            <div class="readiness-card-heading">
+                <div class="readiness-heading-title">
+                    <span class="readiness-card-icon" aria-hidden="true"><span class="bi bi-water"></span></span>
+                    <div>
+                        <span class="readiness-section-label">Vessel overview</span>
+                        <h2 id="readiness-vessels-title">Readiness by vessel</h2>
+                        <p>Every vessel in the fleet, including vessels without configured requirements.</p>
+                    </div>
+                </div>
+            </div>
+
+            @if (isLoadingVessels)
+            {
+                <LoadingState Message="Loading vessel readiness..." />
+            }
+            else if (vesselFailure is { IsValidation: false })
+            {
+                <ApiErrorState Title="@vesselFailure.Title" Message="@vesselFailure.Message" RetryLabel="Retry" OnRetry="LoadVesselsAsync" />
+            }
+            else if (vesselFailure is null && vesselRows.Count == 0)
+            {
+                <EmptyState Title="No vessels found"
+                            Message="Register vessels in Fleet before configuring document requirements." />
+            }
+            else if (vesselFailure is null)
+            {
+                <div class="readiness-table-scroll">
+                    <table class="readiness-table readiness-vessel-table">
+                        <caption class="visually-hidden">Readiness status of each vessel</caption>
+                        <thead>
+                            <tr>
+                                <th scope="col">Vessel</th>
+                                <th scope="col">Status</th>
+                                <th scope="col">Configured</th>
+                                <th scope="col">Satisfied</th>
+                                <th scope="col">Unsatisfied</th>
+                                <th scope="col"><span class="visually-hidden">Actions</span></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var vessel in vesselRows)
+                            {
+                                <tr @key="vessel.VesselId">
+                                    <td><span class="readiness-title">@vessel.VesselName</span></td>
+                                    <td><span class="readiness-vessel-status @VesselStatusClass(vessel.Status)">@VesselStatusLabel(vessel.Status)</span></td>
+                                    <td class="readiness-number">@FormatCount(vessel.Summary.ConfiguredCount)</td>
+                                    <td class="readiness-number">@FormatCount(vessel.Summary.SatisfiedCount)</td>
+                                    <td class="readiness-number">@FormatCount(vessel.Summary.UnsatisfiedCount)</td>
+                                    <td>
+                                        <button type="button" class="readiness-row-action" @onclick="() => ViewVesselAsync(vessel)">
+                                            View requirements
+                                        </button>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+
+                <div class="readiness-pagination">
+                    <span>@FormatCount(vesselTotalCount) vessels</span>
+                    <div>
+                        <button type="button" @onclick="PreviousVesselPageAsync" disabled="@(vesselPageNumber <= 1)">Previous</button>
+                        <span class="readiness-page-indicator">Page @vesselPageNumber of @VesselTotalPages</span>
+                        <button type="button" @onclick="NextVesselPageAsync" disabled="@(vesselPageNumber >= VesselTotalPages)">Next</button>
+                    </div>
+                </div>
+            }
+        </section>
+    }
+
+    <section class="readiness-card" aria-labelledby="readiness-list-title">
+        <div class="readiness-card-heading">
+            <div class="readiness-heading-title">
+                <span class="readiness-card-icon" aria-hidden="true"><span class="bi bi-clipboard-check"></span></span>
+                <div>
+                    <span class="readiness-section-label">Readiness matrix</span>
+                    <h2 id="readiness-list-title">Document readiness</h2>
+                    <p>Current records only. This is a planning view, not a compliance certificate.</p>
+                </div>
+            </div>
+            <div class="readiness-card-tools">
+                @if (vesselStatus is not null)
+                {
+                    <span class="readiness-vessel-status @VesselStatusClass(vesselStatus)">@VesselStatusLabel(vesselStatus)</span>
+                }
+            </div>
+        </div>
+
+        <div class="readiness-filters" role="search">
+            <div class="filter-field filter-field-wide">
+                <label for="readiness-vessel">Vessel</label>
+                <VesselPicker @key="filterVesselPickerResetToken"
+                              InputId="readiness-vessel"
+                              Value="vesselFilter"
+                              InitialLabel="@initialVesselLabel"
+                              ValueChanged="SelectVesselFilterAsync"
+                              Placeholder="All vessels"
+                              Disabled="isLoading" />
+            </div>
+            <div class="filter-field">
+                <label for="readiness-required-through">Required through</label>
+                <input id="readiness-required-through" type="date" min="@FormatInputDate(Today)" max="@FormatInputDate(Today.AddDays(RequiredThroughHorizonDays))"
+                       @bind="requiredThroughFilter" @bind:after="ApplyFiltersAsync" />
+            </div>
+            <div class="filter-field">
+                <label for="readiness-status">Status</label>
+                <select id="readiness-status" @bind="statusFilter" @bind:after="ApplyFiltersAsync">
+                    <option value="">All</option>
+                    <option value="@SatisfiedStatus">Satisfied</option>
+                    <option value="@UnsatisfiedStatus">Unsatisfied</option>
+                </select>
+            </div>
+            <div class="filter-field">
+                <label for="readiness-page-size">Per page</label>
+                <select id="readiness-page-size" @bind="pageSize" @bind:after="ApplyFiltersAsync">
+                    <option value="25">25</option>
+                    <option value="50">50</option>
+                    <option value="100">100</option>
+                </select>
+            </div>
+            <button class="readiness-reset" type="button" @onclick="ClearFiltersAsync" disabled="@isLoading">Reset</button>
+        </div>
+
+        @if (isLoading)
+        {
+            <LoadingState Message="Loading document readiness..." />
+        }
+        else if (failure is not null && !failure.IsValidation)
+        {
+            <ApiErrorState Title="@failure.Title" Message="@failure.Message" RetryLabel="Retry" OnRetry="RetryAsync" />
+        }
+        else if (vesselStatus == NotConfiguredVesselStatus)
+        {
+            <EmptyState Title="No requirements configured for this vessel"
+                        Message="Readiness cannot be assessed until required document types are added on the Requirements tab." />
+        }
+        else if (rows.Count == 0)
+        {
+            <EmptyState Title="No readiness rows match your filters"
+                        Message="Clear the status filter, choose another vessel, or add requirements on the Requirements tab." />
+        }
+        else
+        {
+            <div class="readiness-table-scroll">
+                <table class="readiness-table">
+                    <caption class="visually-hidden">Required document types with their current readiness</caption>
+                    <thead>
+                        <tr>
+                            <th scope="col">Vessel</th>
+                            <th scope="col">Document type</th>
+                            <th scope="col">Valid until at least</th>
+                            <th scope="col">Status</th>
+                            <th scope="col">Blockers</th>
+                            <th scope="col">Document</th>
+                            <th scope="col">Distribution</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var row in rows)
+                        {
+                            <tr @key="row.RequirementId">
+                                <td><span class="readiness-title">@VesselName(row.VesselId)</span></td>
+                                <td>
+                                    <span class="readiness-title">@row.DocumentTypeName</span>
+                                    @if (row.Instruction is not null)
+                                    {
+                                        <span class="readiness-instruction">@row.Instruction</span>
+                                    }
+                                </td>
+                                <td class="readiness-number">
+                                    @FormatDate(row.RequiredValidUntil)
+                                    @if (row.MinimumRemainingValidityDays > 0)
+                                    {
+                                        <span class="readiness-instruction">+@row.MinimumRemainingValidityDays days buffer</span>
+                                    }
+                                </td>
+                                <td>
+                                    <span class="readiness-status @(row.Status == SatisfiedStatus ? "satisfied" : "unsatisfied")">@row.Status</span>
+                                </td>
+                                <td>
+                                    @if (row.Blockers.Count == 0)
+                                    {
+                                        <span class="readiness-muted">-</span>
+                                    }
+                                    else
+                                    {
+                                        <div class="readiness-blockers">
+                                            @foreach (var blocker in row.Blockers)
+                                            {
+                                                <span class="readiness-blocker">@BlockerLabel(blocker)</span>
+                                            }
+                                        </div>
+                                    }
+                                </td>
+                                <td>
+                                    <div class="readiness-documents">
+                                        @if (SelectedCandidate(row) is { } selected)
+                                        {
+                                            <button type="button" class="readiness-document-link" @onclick="() => OnOpenDocument.InvokeAsync(selected.DocumentId)">
+                                                @selected.Number
+                                            </button>
+                                            <span class="readiness-instruction">Expires @FormatDate(selected.ExpiryDate)</span>
+                                        }
+
+                                        @if (AlternativeCandidates(row).Count > 0)
+                                        {
+                                            <button type="button" class="readiness-toggle" @onclick="() => ToggleAlternatives(row.RequirementId)">
+                                                @(expandedRequirementIds.Contains(row.RequirementId) ? "Hide" : "Show") @AlternativeCandidates(row).Count @(row.SelectedDocumentId is null ? "documents" : "alternatives")
+                                            </button>
+
+                                            @if (expandedRequirementIds.Contains(row.RequirementId))
+                                            {
+                                                <ul class="readiness-alternatives">
+                                                    @foreach (var candidate in AlternativeCandidates(row))
+                                                    {
+                                                        <li @key="candidate.DocumentId">
+                                                            <button type="button" class="readiness-document-link" @onclick="() => OnOpenDocument.InvokeAsync(candidate.DocumentId)">
+                                                                @candidate.Number
+                                                            </button>
+                                                            <span class="readiness-instruction">
+                                                                Expires @FormatDate(candidate.ExpiryDate)
+                                                                @if (candidate.Blockers.Count > 0)
+                                                                {
+                                                                    <text> &middot; @string.Join(", ", candidate.Blockers.Select(BlockerLabel))</text>
+                                                                }
+                                                            </span>
+                                                        </li>
+                                                    }
+                                                </ul>
+                                            }
+                                        }
+
+                                        @if (row.Blockers.Contains(MissingBlocker) && CanManage)
+                                        {
+                                            <button type="button" class="readiness-row-action" @onclick="() => OnRegisterMissing.InvokeAsync((row.VesselId, VesselName(row.VesselId), row.DocumentTypeId))">
+                                                Register document
+                                            </button>
+                                        }
+                                    </div>
+                                </td>
+                                <td>
+                                    @if (row.Distribution is not { } distribution)
+                                    {
+                                        <span class="readiness-muted">-</span>
+                                    }
+                                    else if (distribution.Status == NotIssuedDistributionStatus)
+                                    {
+                                        <span class="readiness-distribution-status">Not issued</span>
+                                        <span class="readiness-instruction">Current revision has no issue yet</span>
+                                    }
+                                    else
+                                    {
+                                        <div class="readiness-distribution">
+                                            <span class="readiness-instruction">Issued @FormatDate(distribution.IssuedAtUtc is { } issuedAt ? DateOnly.FromDateTime(issuedAt) : null) &middot; due @FormatDate(distribution.DueDate)</span>
+                                            <div class="readiness-distribution-bar" role="img" aria-label="@DistributionLabel(distribution)">
+                                                <span class="acknowledged" style="width: @DistributionShare(distribution, distribution.AcknowledgedCount)"></span>
+                                                <span class="pending" style="width: @DistributionShare(distribution, distribution.PendingCount)"></span>
+                                                <span class="overdue" style="width: @DistributionShare(distribution, distribution.OverdueCount)"></span>
+                                            </div>
+                                            <div class="readiness-distribution-counts">
+                                                <span><b>@distribution.AcknowledgedCount</b> acknowledged</span>
+                                                <span><b>@distribution.PendingCount</b> pending</span>
+                                                <span><b>@distribution.OverdueCount</b> overdue</span>
+                                            </div>
+                                            @if (distribution.Recipients is { Count: > 0 } recipients)
+                                            {
+                                                <button type="button" class="readiness-toggle" @onclick="() => ToggleRecipients(row.RequirementId)">
+                                                    @(expandedRecipientIds.Contains(row.RequirementId) ? "Hide" : "Show") recipients
+                                                </button>
+
+                                                @if (expandedRecipientIds.Contains(row.RequirementId))
+                                                {
+                                                    <ul class="readiness-recipients">
+                                                        @foreach (var recipient in recipients)
+                                                        {
+                                                            <li @key="recipient.UserId">
+                                                                <div class="readiness-recipient-row">
+                                                                    <span>@(recipient.Email ?? recipient.UserId.ToString())</span>
+                                                                    <span class="readiness-muted">@RecipientStateLabel(recipient)</span>
+                                                                </div>
+                                                                @if (recipient.StateReason is not null)
+                                                                {
+                                                                    <span class="readiness-recipient-reason">@recipient.StateReason</span>
+                                                                }
+                                                            </li>
+                                                        }
+                                                    </ul>
+                                                }
+                                            }
+                                        </div>
+                                    }
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="readiness-pagination">
+                <span>Showing @FirstRowNumber&ndash;@LastRowNumber of @totalCount requirements</span>
+                <div>
+                    <button type="button" @onclick="PreviousPageAsync" disabled="@(pageNumber <= 1)">Previous</button>
+                    <span class="readiness-page-indicator">Page @pageNumber of @TotalPages</span>
+                    <button type="button" @onclick="NextPageAsync" disabled="@(pageNumber >= TotalPages)">Next</button>
+                </div>
+            </div>
+        }
+    </section>
+</div>
