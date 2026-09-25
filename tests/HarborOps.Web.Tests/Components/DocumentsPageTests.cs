@@ -1105,10 +1105,10 @@ public sealed class DocumentsPageTests : BunitContext
         uri.AbsolutePath.EndsWith($"/{DocumentId}", StringComparison.OrdinalIgnoreCase);
 
     private static void OpenTypeForm(IRenderedComponent<Documents> page) =>
-        page.FindAll(".documents-tabs .workspace-tab")[0].Click();
+        page.Find("#documents-register-type-button").Click();
 
     private static void OpenDocumentForm(IRenderedComponent<Documents> page) =>
-        page.FindAll(".documents-tabs .workspace-tab")[1].Click();
+        page.Find("#documents-register-document-button").Click();
 
     private IRenderedComponent<Documents> RenderDocumentsPage(params string[] permissions)
     {

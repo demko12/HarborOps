@@ -8,7 +8,7 @@
 <section class="documents-page acknowledgement-page">
     <header class="documents-header">
         <div>
-            <p class="documents-eyebrow"><a href="/documents">Documents operations</a><span>/</span> acknowledgements</p>
+            <nav class="page-breadcrumb" aria-label="Breadcrumb"><a href="/documents">Documents operations</a><span aria-hidden="true">/</span><span>Acknowledgements</span></nav>
             <h1>My document acknowledgements</h1>
             <p>Review the issued document, then explicitly acknowledge the exact version shown.</p>
         </div>
@@ -19,9 +19,9 @@
         <label class="ack-overdue"><input type="checkbox" @bind="overdueOnly" @bind:after="LoadAsync" /> Overdue only</label>
     </section>
 
-    @if (failure is not null) { <div class="documents-validation" role="alert"><strong>@failure.Title</strong><p>@failure.Message</p><button class="button-secondary" @onclick="LoadAsync">Retry</button></div> }
-    @if (isLoading) { <section class="documents-card"><p>Loading acknowledgements…</p></section> }
-    else if (items.Count == 0) { <section class="documents-card empty-state"><h2>No document acknowledgements</h2><p>Documents issued to you will appear here.</p></section> }
+    @if (failure is not null) { <div class="acknowledgement-feedback"><ApiErrorState Title="@failure.Title" Message="@failure.Message" OnRetry="LoadAsync" /></div> }
+    @if (isLoading) { <section class="documents-card"><LoadingState Message="Loading acknowledgements..." /></section> }
+    else if (items.Count == 0) { <section class="documents-card"><EmptyState Title="No document acknowledgements" Message="Documents issued to you will appear here." /></section> }
     else
     {
         <section class="documents-card acknowledgement-list">
@@ -30,7 +30,7 @@
             {
                 <article class="acknowledgement-row">
                     <div><p class="documents-eyebrow">@item.DocumentType</p><h3>@item.DocumentNumber</h3><p>Due @item.DueDate.ToString("dd MMM yyyy") @if (item.IsOverdue) { <span class="status-badge status-danger">Overdue</span> }</p>@if (!string.IsNullOrWhiteSpace(item.Instruction)) { <p>@item.Instruction</p> } @if (!string.IsNullOrWhiteSpace(item.StateReason)) { <p class="ack-reason">@item.StateReason</p> }</div>
-                    <div class="ack-actions"><span class="status-badge">@item.State</span><a class="button-secondary" href="/documents">Open document</a>@if (item.State == "Pending") { <button class="button-primary" @onclick="() => confirmIssueId = item.IssueId">Acknowledge</button> }</div>
+                    <div class="ack-actions"><span class="status-badge @StateClass(item.State)">@item.State</span><a class="button-secondary" href="/documents">Open document</a>@if (item.State == "Pending") { <button class="button-primary" @onclick="() => confirmIssueId = item.IssueId">Acknowledge</button> }</div>
                 </article>
             }
         </section>
@@ -50,6 +50,12 @@
     private Guid? confirmIssueId;
     private int totalCount;
     protected override Task OnInitializedAsync() => LoadAsync();
+    private static string StateClass(string state) => state switch
+    {
+        "Pending" => "status-warning",
+        "Acknowledged" => "status-success",
+        _ => "status-neutral",
+    };
     private async Task LoadAsync()
     {
         isLoading = true; failure = null;

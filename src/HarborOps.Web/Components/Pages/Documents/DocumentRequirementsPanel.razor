@@ -33,6 +33,36 @@
         </article>
     </section>
 
+    <div class="requirements-filters" role="search">
+        <div class="filter-field filter-field-wide">
+            <label for="requirements-vessel">Vessel</label>
+            <VesselPicker @key="filterVesselPickerResetToken"
+                          InputId="requirements-vessel"
+                          Value="vesselFilter"
+                          InitialLabel="@initialVesselLabel"
+                          ValueChanged="SelectVesselFilterAsync"
+                          Placeholder="All vessels"
+                          Disabled="isLoading" />
+        </div>
+        <div class="filter-field">
+            <label for="requirements-state">State</label>
+            <select id="requirements-state" @bind="stateFilter" @bind:after="ApplyFiltersAsync">
+                <option value="">All</option>
+                <option value="@EnabledState">Enabled</option>
+                <option value="@DisabledState">Disabled</option>
+            </select>
+        </div>
+        <div class="filter-field">
+            <label for="requirements-page-size">Per page</label>
+            <select id="requirements-page-size" @bind="pageSize" @bind:after="ApplyFiltersAsync">
+                <option value="25">25</option>
+                <option value="50">50</option>
+                <option value="100">100</option>
+            </select>
+        </div>
+        <button class="requirements-reset" type="button" @onclick="ClearFiltersAsync" disabled="@isLoading">Reset</button>
+    </div>
+
     @if (actionSuccessMessage is not null)
     {
         <div class="requirements-action-success" role="status">@actionSuccessMessage</div>
@@ -40,13 +70,9 @@
 
     <section class="requirements-card" aria-labelledby="requirements-list-title">
         <div class="requirements-card-heading">
-            <div class="requirements-heading-title">
-                <span class="requirements-card-icon" aria-hidden="true"><span class="bi bi-list-check"></span></span>
-                <div>
-                    <span class="requirements-section-label">Requirement setup</span>
-                    <h2 id="requirements-list-title">Required document types</h2>
-                    <p>@totalCount requirements found</p>
-                </div>
+            <div>
+                <h2 id="requirements-list-title">Required document types</h2>
+                <p>@totalCount requirements found</p>
             </div>
             <div class="requirements-card-tools">
                 @if (CanManage)
@@ -55,37 +81,8 @@
                         <span aria-hidden="true">+</span> Add requirement
                     </button>
                 }
+                <span class="requirements-card-icon" aria-hidden="true"><span class="bi bi-list-check"></span></span>
             </div>
-        </div>
-
-        <div class="requirements-filters" role="search">
-            <div class="filter-field filter-field-wide">
-                <label for="requirements-vessel">Vessel</label>
-                <VesselPicker @key="filterVesselPickerResetToken"
-                              InputId="requirements-vessel"
-                              Value="vesselFilter"
-                              InitialLabel="@initialVesselLabel"
-                              ValueChanged="SelectVesselFilterAsync"
-                              Placeholder="All vessels"
-                              Disabled="isLoading" />
-            </div>
-            <div class="filter-field">
-                <label for="requirements-state">State</label>
-                <select id="requirements-state" @bind="stateFilter" @bind:after="ApplyFiltersAsync">
-                    <option value="">All</option>
-                    <option value="@EnabledState">Enabled</option>
-                    <option value="@DisabledState">Disabled</option>
-                </select>
-            </div>
-            <div class="filter-field">
-                <label for="requirements-page-size">Per page</label>
-                <select id="requirements-page-size" @bind="pageSize" @bind:after="ApplyFiltersAsync">
-                    <option value="25">25</option>
-                    <option value="50">50</option>
-                    <option value="100">100</option>
-                </select>
-            </div>
-            <button class="requirements-reset" type="button" @onclick="ClearFiltersAsync" disabled="@isLoading">Reset</button>
         </div>
 
         @if (isLoading)

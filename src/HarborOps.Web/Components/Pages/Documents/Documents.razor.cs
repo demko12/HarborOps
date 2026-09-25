@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations;
+using System.Globalization;
 using HarborOps.Web.Api.Documents;
 using HarborOps.Web.Api.Fleet;
 using Microsoft.AspNetCore.Components;
@@ -321,6 +322,10 @@ public partial class Documents
                 retentionPolicies.FirstOrDefault(policy => policy.DocumentTypeId == type.DocumentTypeId)?.RetentionPeriodDays))
             .OrderBy(row => row.DocumentTypeName, StringComparer.Ordinal)
             .ToList();
+
+    private string RetentionDocumentTypeName(int documentTypeId) =>
+        documentTypeOptions.FirstOrDefault(type => type.DocumentTypeId == documentTypeId)?.Name
+        ?? documentTypeId.ToString(CultureInfo.InvariantCulture);
 
     private int RetentionTotalPages => retentionTotalCount == 0 ? 1 : ((retentionTotalCount + retentionPageSize - 1) / retentionPageSize);
 
