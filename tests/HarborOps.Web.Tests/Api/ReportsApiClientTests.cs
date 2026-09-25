@@ -26,6 +26,35 @@ public sealed class ReportsApiClientTests
         "createdUtc":"2026-07-01T00:00:00Z","completedUtc":null}],"pageNumber":1,"pageSize":25,"totalCount":1}
         """;
 
+    private const string PortCallPerformancePageJson = """
+        {"departedFrom":"2026-09-01","departedTo":"2026-09-30","items":[{
+        "voyageStopId":"10000000-0000-0000-0000-000000000001","voyageId":"30000000-0000-0000-0000-000000000003",
+        "vesselId":"20000000-0000-0000-0000-000000000002","portId":"50000000-0000-0000-0000-000000000005",
+        "voyageNumber":"V-2026-014","stopOrder":2,"portName":"Rotterdam","portUnLocode":"NLRTM","berthName":"Euromax 3",
+        "usesLiveValues":false,"actualArrivalUtc":"2026-09-02T20:00:00Z","actualDepartureUtc":"2026-09-03T08:00:00Z",
+        "statementAvailability":"Finalized","statementId":"60000000-0000-0000-0000-000000000006",
+        "finalizedAtUtc":"2026-09-04T09:12:00Z",
+        "turnaround":{"minutes":720,"hours":12.00,"quality":"Valid","milestone":null},
+        "arrivalToAllFast":{"minutes":null,"hours":null,"quality":"Missing","milestone":"AllFast"},
+        "cargoElapsed":{"minutes":480,"hours":8.00,"quality":"Valid","milestone":null},
+        "cargoCompletedToDeparture":{"minutes":120,"hours":2.00,"quality":"Valid","milestone":null},
+        "recordedDelayCount":1,"recordedDelayMinutes":45,"recordedDelayHours":0.75}],
+        "pageNumber":1,"pageSize":25,"totalCount":1,
+        "summary":{"stopCount":1,"finalizedCount":1,"notFinalizedCount":0,
+        "turnaround":{"meanMinutes":720,"meanHours":12.00,"sampleCount":1,"missingCount":0,"ambiguousCount":0,"invalidChronologyCount":0},
+        "arrivalToAllFast":{"meanMinutes":null,"meanHours":null,"sampleCount":0,"missingCount":1,"ambiguousCount":0,"invalidChronologyCount":0},
+        "cargoElapsed":{"meanMinutes":480,"meanHours":8.00,"sampleCount":1,"missingCount":0,"ambiguousCount":0,"invalidChronologyCount":0},
+        "cargoCompletedToDeparture":{"meanMinutes":120,"meanHours":2.00,"sampleCount":1,"missingCount":0,"ambiguousCount":0,"invalidChronologyCount":0},
+        "recordedDelayCount":1,"recordedDelayMinutes":45,"recordedDelayHours":0.75},
+        "ports":[{"portId":"50000000-0000-0000-0000-000000000005","portName":"Rotterdam","portUnLocode":"NLRTM",
+        "summary":{"stopCount":1,"finalizedCount":1,"notFinalizedCount":0,
+        "turnaround":{"meanMinutes":720,"meanHours":12.00,"sampleCount":1,"missingCount":0,"ambiguousCount":0,"invalidChronologyCount":0},
+        "arrivalToAllFast":{"meanMinutes":null,"meanHours":null,"sampleCount":0,"missingCount":1,"ambiguousCount":0,"invalidChronologyCount":0},
+        "cargoElapsed":{"meanMinutes":480,"meanHours":8.00,"sampleCount":1,"missingCount":0,"ambiguousCount":0,"invalidChronologyCount":0},
+        "cargoCompletedToDeparture":{"meanMinutes":120,"meanHours":2.00,"sampleCount":1,"missingCount":0,"ambiguousCount":0,"invalidChronologyCount":0},
+        "recordedDelayCount":1,"recordedDelayMinutes":45,"recordedDelayHours":0.75}}]}
+        """;
+
     // ---- GetDocumentsExpiryAsync ----
 
     [Fact]
@@ -314,6 +343,113 @@ public sealed class ReportsApiClientTests
         Assert.Contains("overdue=false", captured.RequestUri.Query, StringComparison.Ordinal);
         Assert.DoesNotContain("pageNumber=", captured.RequestUri.Query, StringComparison.Ordinal);
         Assert.DoesNotContain("pageSize=", captured.RequestUri.Query, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task GetPortCallPerformanceAsync_sends_filters_sort_and_paging_and_reads_metrics_and_summaries()
+    {
+        HttpRequestMessage? captured = null;
+        using var httpClient = CreateHttpClient((request, _) =>
+        {
+            captured = request;
+            return Json(HttpStatusCode.OK, PortCallPerformancePageJson);
+        });
+        var voyageId = Guid.Parse("30000000-0000-0000-0000-000000000003");
+        var vesselId = Guid.Parse("20000000-0000-0000-0000-000000000002");
+        var portId = Guid.Parse("50000000-0000-0000-0000-000000000005");
+        var query = new PortCallPerformanceReportQuery(
+            new DateOnly(2026, 9, 1), new DateOnly(2026, 9, 30), voyageId, vesselId, portId,
+            "Finalized", "Turnaround", "Desc", 2, 25);
+
+        var result = await CreateClient(httpClient).GetPortCallPerformanceAsync(query, CancellationToken.None);
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal("/api/reports/port-call-performance", captured!.RequestUri!.AbsolutePath);
+        var sent = captured.RequestUri.Query;
+        Assert.Contains("departedFrom=2026-09-01", sent, StringComparison.Ordinal);
+        Assert.Contains("departedTo=2026-09-30", sent, StringComparison.Ordinal);
+        Assert.Contains($"voyageId={voyageId}", sent, StringComparison.Ordinal);
+        Assert.Contains($"vesselId={vesselId}", sent, StringComparison.Ordinal);
+        Assert.Contains($"portId={portId}", sent, StringComparison.Ordinal);
+        Assert.Contains("statementAvailability=Finalized", sent, StringComparison.Ordinal);
+        Assert.Contains("sortBy=Turnaround", sent, StringComparison.Ordinal);
+        Assert.Contains("sortDirection=Desc", sent, StringComparison.Ordinal);
+        Assert.Contains("pageNumber=2", sent, StringComparison.Ordinal);
+        Assert.Contains("pageSize=25", sent, StringComparison.Ordinal);
+
+        var page = result.Value!;
+        var row = Assert.Single(page.Items);
+        Assert.Equal(new PortCallPerformanceReportMetric(720, 12.00m, "Valid", null), row.Turnaround);
+        Assert.Equal(new PortCallPerformanceReportMetric(null, null, "Missing", "AllFast"), row.ArrivalToAllFast);
+        Assert.Equal(0.75m, row.RecordedDelayHours);
+        Assert.Equal(1, page.Summary.FinalizedCount);
+        Assert.Equal(12.00m, page.Summary.Turnaround.MeanHours);
+        Assert.Equal("Rotterdam", Assert.Single(page.Ports).PortName);
+    }
+
+    [Fact]
+    public async Task GetPortCallPerformanceAsync_omits_unset_optional_filters()
+    {
+        HttpRequestMessage? captured = null;
+        using var httpClient = CreateHttpClient((request, _) =>
+        {
+            captured = request;
+            return Json(HttpStatusCode.OK, PortCallPerformancePageJson);
+        });
+        var query = new PortCallPerformanceReportQuery(
+            new DateOnly(2026, 9, 1), new DateOnly(2026, 9, 30), null, null, null, null, null, null, 1, 25);
+
+        await CreateClient(httpClient).GetPortCallPerformanceAsync(query, CancellationToken.None);
+
+        var sent = captured!.RequestUri!.Query;
+        Assert.DoesNotContain("voyageId=", sent, StringComparison.Ordinal);
+        Assert.DoesNotContain("vesselId=", sent, StringComparison.Ordinal);
+        Assert.DoesNotContain("portId=", sent, StringComparison.Ordinal);
+        Assert.DoesNotContain("statementAvailability=", sent, StringComparison.Ordinal);
+        Assert.DoesNotContain("sortBy=", sent, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task GetPortCallPerformanceAsync_surfaces_the_row_limit_as_a_validation_failure()
+    {
+        using var httpClient = CreateHttpClient((_, _) => Json(
+            HttpStatusCode.BadRequest,
+            """{"title":"One or more validation errors occurred.","errors":{"limit":["25,000 stops match these filters."]}}"""));
+
+        var result = await CreateClient(httpClient).GetPortCallPerformanceAsync(
+            new PortCallPerformanceReportQuery(
+                new DateOnly(2026, 1, 1), new DateOnly(2026, 12, 31), null, null, null, null, null, null, 1, 25),
+            CancellationToken.None);
+
+        Assert.True(result.Failure!.IsValidation);
+        Assert.Equal("25,000 stops match these filters.", Assert.Single(result.Failure.Errors["limit"]));
+    }
+
+    [Fact]
+    public async Task ExportPortCallPerformanceAsync_sends_the_same_filters_and_sort_without_paging()
+    {
+        HttpRequestMessage? captured = null;
+        using var httpClient = CreateHttpClient((request, _) =>
+        {
+            captured = request;
+            return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new StringContent("csv", Encoding.UTF8, "text/csv"),
+            });
+        });
+        var query = new PortCallPerformanceReportQuery(
+            new DateOnly(2026, 9, 1), new DateOnly(2026, 9, 30), null, null, null,
+            "NotFinalized", "Port", "Asc", 4, 25);
+
+        using var response = await CreateClient(httpClient).ExportPortCallPerformanceAsync(query, CancellationToken.None);
+
+        Assert.Equal("/api/reports/port-call-performance/export", captured!.RequestUri!.AbsolutePath);
+        var sent = captured.RequestUri.Query;
+        Assert.Contains("departedFrom=2026-09-01", sent, StringComparison.Ordinal);
+        Assert.Contains("statementAvailability=NotFinalized", sent, StringComparison.Ordinal);
+        Assert.Contains("sortBy=Port", sent, StringComparison.Ordinal);
+        Assert.DoesNotContain("pageNumber=", sent, StringComparison.Ordinal);
+        Assert.DoesNotContain("pageSize=", sent, StringComparison.Ordinal);
     }
 
     private static ReportsApiClient CreateClient(HttpClient httpClient) => new(httpClient);

@@ -11,6 +11,7 @@ internal static class ReportsDownloadEndpoints
         group.MapGet("/documents-expiry", DownloadDocumentsExpiryAsync);
         group.MapGet("/compliance-exposure", DownloadComplianceExposureAsync);
         group.MapGet("/maintenance-backlog", DownloadMaintenanceBacklogAsync);
+        group.MapGet("/port-call-performance", DownloadPortCallPerformanceAsync);
 
         return app;
     }
@@ -78,6 +79,32 @@ internal static class ReportsDownloadEndpoints
             PageSize: 1);
 
         using var response = await reportsApi.ExportMaintenanceBacklogAsync(query, cancellationToken);
+
+        return await BufferAsFileOrProblemAsync(response, cancellationToken);
+    }
+
+    private static async Task<IResult> DownloadPortCallPerformanceAsync(
+        HttpContext context, ReportsApiClient reportsApi, CancellationToken cancellationToken)
+    {
+        if (ReadDateOnly(context, "departedFrom") is not { } departedFrom
+            || ReadDateOnly(context, "departedTo") is not { } departedTo)
+        {
+            return Results.BadRequest("The departedFrom and departedTo dates are required.");
+        }
+
+        var query = new PortCallPerformanceReportQuery(
+            departedFrom,
+            departedTo,
+            ReadGuid(context, "voyageId"),
+            ReadGuid(context, "vesselId"),
+            ReadGuid(context, "portId"),
+            ReadString(context, "statementAvailability"),
+            ReadString(context, "sortBy"),
+            ReadString(context, "sortDirection"),
+            PageNumber: 1,
+            PageSize: 1);
+
+        using var response = await reportsApi.ExportPortCallPerformanceAsync(query, cancellationToken);
 
         return await BufferAsFileOrProblemAsync(response, cancellationToken);
     }

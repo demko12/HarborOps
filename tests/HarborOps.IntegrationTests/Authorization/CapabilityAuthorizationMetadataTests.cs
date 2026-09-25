@@ -109,7 +109,8 @@ public sealed class CapabilityAuthorizationMetadataTests : IntegrationTestBase
                 Permissions.Reports.Manage,
                 Permissions.Compliance.Read,
                 Permissions.Documents.Read,
-                Permissions.Maintenance.Read),
+                Permissions.Maintenance.Read,
+                Permissions.Voyages.Read),
         };
     }
 

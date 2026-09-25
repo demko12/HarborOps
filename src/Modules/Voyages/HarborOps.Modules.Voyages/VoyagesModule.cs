@@ -54,6 +54,7 @@ public static class VoyagesModule
         services.AddScoped<IGetPortCallStatementQuery, GetPortCallStatementQuery>();
         services.AddScoped<CreatePortCallStatementService>();
         services.AddScoped<FinalizePortCallStatementService>();
+        services.AddScoped<IReportsPortCallPerformanceQuery, ReportsPortCallPerformanceQuery>();
         services.AddScoped<RecordDelayService>();
         services.AddScoped<DelayImpactPreviewService>();
         services.AddScoped<ApplyDelayImpactService>();

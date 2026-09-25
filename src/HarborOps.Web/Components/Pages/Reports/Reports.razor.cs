@@ -44,6 +44,7 @@ public partial class Reports : IDisposable
     private int pageNumber = 1;
     private int totalCount;
     private bool isLoading = true;
+    private ReportKind? displayedReport;
     private ReportsApiFailure? failure;
     private string? filterValidationMessage;
     private DateOnly reportAsOf;
@@ -54,13 +55,19 @@ public partial class Reports : IDisposable
     private IReadOnlyDictionary<Guid, string> vesselNames = new Dictionary<Guid, string>();
 
     private bool HasAnyReportAccess =>
-        AuthorizationState.CanAccessDocuments || AuthorizationState.CanAccessCompliance || AuthorizationState.CanAccessMaintenance;
+        AuthorizationState.CanAccessDocuments
+        || AuthorizationState.CanAccessCompliance
+        || AuthorizationState.CanAccessMaintenance
+        || AuthorizationState.CanAccessVoyages;
+
+    private bool IsRefreshing => isLoading && displayedReport == selectedReport;
 
     private int CurrentRowCount => selectedReport switch
     {
         ReportKind.DocumentsExpiry => documentsRows.Count,
         ReportKind.ComplianceExposure => complianceRows.Count,
         ReportKind.MaintenanceBacklog => maintenanceRows.Count,
+        ReportKind.PortCallPerformance => portCallRows.Count,
         _ => 0,
     };
 
@@ -75,8 +82,13 @@ public partial class Reports : IDisposable
         ReportKind.DocumentsExpiry => "Documents expiry register",
         ReportKind.ComplianceExposure => "Compliance exposure register",
         ReportKind.MaintenanceBacklog => "Maintenance backlog register",
+        ReportKind.PortCallPerformance => "Port-call performance",
         _ => "Report",
     };
+
+    private string ReportSubtitle => selectedReport == ReportKind.PortCallPerformance
+        ? PortCallSubtitle
+        : $"{totalCount} records as of {reportAsOf:dd MMM yyyy}";
 
     protected override Task OnInitializedAsync()
     {
@@ -84,7 +96,9 @@ public partial class Reports : IDisposable
         {
             selectedReport = AuthorizationState.CanAccessCompliance
                 ? ReportKind.ComplianceExposure
-                : ReportKind.MaintenanceBacklog;
+                : AuthorizationState.CanAccessMaintenance
+                    ? ReportKind.MaintenanceBacklog
+                    : ReportKind.PortCallPerformance;
         }
 
         if (!HasAnyReportAccess)
@@ -151,6 +165,9 @@ public partial class Reports : IDisposable
                 maintenanceDueFromFilter = null;
                 maintenanceDueToFilter = null;
                 break;
+            case ReportKind.PortCallPerformance:
+                ResetPortCallFilters();
+                break;
         }
 
         pageNumber = 1;
@@ -185,27 +202,36 @@ public partial class Reports : IDisposable
         return LoadAsync();
     }
 
-    private Task LoadAsync()
+    private async Task LoadAsync()
     {
         filterValidationMessage = selectedReport switch
         {
             ReportKind.DocumentsExpiry => ValidateRange(documentsFromFilter, documentsToFilter),
             ReportKind.MaintenanceBacklog => ValidateRange(maintenanceDueFromFilter, maintenanceDueToFilter),
+            ReportKind.PortCallPerformance => ValidatePortCallRange(),
             _ => null,
         };
 
         if (filterValidationMessage is not null)
         {
-            return Task.CompletedTask;
+            return;
         }
 
-        return selectedReport switch
+        var report = selectedReport;
+
+        await (report switch
         {
             ReportKind.DocumentsExpiry => LoadDocumentsExpiryAsync(),
             ReportKind.ComplianceExposure => LoadComplianceExposureAsync(),
             ReportKind.MaintenanceBacklog => LoadMaintenanceBacklogAsync(),
+            ReportKind.PortCallPerformance => LoadPortCallPerformanceAsync(),
             _ => Task.CompletedTask,
-        };
+        });
+
+        if (!isLoading && report == selectedReport)
+        {
+            displayedReport = failure is null ? report : null;
+        }
     }
 
     private async Task LoadDocumentsExpiryAsync()
@@ -447,6 +473,7 @@ public partial class Reports : IDisposable
         ReportKind.DocumentsExpiry => BuildDocumentsExpiryDownloadUrl(),
         ReportKind.ComplianceExposure => BuildComplianceExposureDownloadUrl(),
         ReportKind.MaintenanceBacklog => BuildMaintenanceBacklogDownloadUrl(),
+        ReportKind.PortCallPerformance => BuildPortCallPerformanceDownloadUrl(),
         _ => "#",
     };
 
@@ -542,5 +569,6 @@ public partial class Reports : IDisposable
         DocumentsExpiry,
         ComplianceExposure,
         MaintenanceBacklog,
+        PortCallPerformance,
     }
 }
