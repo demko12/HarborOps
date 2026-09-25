@@ -18,57 +18,60 @@
         </article>
     </section>
 
-    <section class="maintenance-filters" aria-label="Defect filters">
-        <div class="filter-field filter-field-vessel">
-            <label for="defects-vessel">Vessel</label>
-            <VesselPicker Value="vesselFilter" ValueChanged="SelectVesselFilterAsync" Disabled="isLoading" />
-        </div>
-        <div class="filter-field">
-            <label for="defects-status">Status</label>
-            <select id="defects-status" @bind="statusFilter" @bind:after="ApplyFiltersAsync">
-                <option value="">All statuses</option>
-                @foreach (var option in Statuses)
-                {
-                    <option value="@option">@option</option>
-                }
-            </select>
-        </div>
-        <div class="filter-field">
-            <label for="defects-severity">Severity</label>
-            <select id="defects-severity" @bind="severityFilter" @bind:after="ApplyFiltersAsync">
-                <option value="">All severities</option>
-                @foreach (var option in Severities)
-                {
-                    <option value="@option">@option</option>
-                }
-            </select>
-            <small class="maintenance-muted">Matches the confirmed severity once triaged, otherwise the reported severity.</small>
-        </div>
-        <div class="filter-field">
-            <label for="defects-page-size">Per page</label>
-            <select id="defects-page-size" @bind="pageSize" @bind:after="ApplyFiltersAsync">
-                <option value="25">25</option>
-                <option value="50">50</option>
-                <option value="100">100</option>
-            </select>
-        </div>
-        <button class="maintenance-reset" type="button" @onclick="ClearFiltersAsync" disabled="@isLoading">Reset</button>
-    </section>
-
     <section class="maintenance-card" aria-labelledby="defects-list-title">
         <div class="maintenance-card-heading">
-            <div>
-                <h2 id="defects-list-title">Defect intake</h2>
-                <p>@totalCount defects found</p>
+            <div class="maintenance-register-heading">
+                <span class="maintenance-card-icon" aria-hidden="true"><span class="bi bi-exclamation-triangle"></span></span>
+                <div>
+                    <h2 id="defects-list-title">Defect intake</h2>
+                    <p>@totalCount defects found</p>
+                </div>
             </div>
             <div class="maintenance-card-heading-actions">
                 @if (CanReportDefects)
                 {
                     <a class="maintenance-button" href="/maintenance/defects/report">Report defect</a>
                 }
-                <span class="maintenance-card-icon" aria-hidden="true"><span class="bi bi-exclamation-triangle"></span></span>
+
             </div>
         </div>
+
+        <section class="maintenance-filters" aria-label="Defect filters">
+            <div class="filter-field filter-field-vessel">
+                <label for="defects-vessel">Vessel</label>
+                <VesselPicker Value="vesselFilter" ValueChanged="SelectVesselFilterAsync" Disabled="isLoading" />
+            </div>
+            <div class="filter-field">
+                <label for="defects-status">Status</label>
+                <select id="defects-status" @bind="statusFilter" @bind:after="ApplyFiltersAsync">
+                    <option value="">All statuses</option>
+                    @foreach (var option in Statuses)
+                    {
+                        <option value="@option">@option</option>
+                    }
+                </select>
+            </div>
+            <div class="filter-field">
+                <label for="defects-severity">Severity</label>
+                <select id="defects-severity" @bind="severityFilter" @bind:after="ApplyFiltersAsync">
+                    <option value="">All severities</option>
+                    @foreach (var option in Severities)
+                    {
+                        <option value="@option">@option</option>
+                    }
+                </select>
+                <small class="maintenance-muted">Matches the confirmed severity once triaged, otherwise the reported severity.</small>
+            </div>
+            <div class="filter-field">
+                <label for="defects-page-size">Per page</label>
+                <select id="defects-page-size" @bind="pageSize" @bind:after="ApplyFiltersAsync">
+                    <option value="25">25</option>
+                    <option value="50">50</option>
+                    <option value="100">100</option>
+                </select>
+            </div>
+            <button class="maintenance-reset" type="button" @onclick="ClearFiltersAsync" disabled="@isLoading">Reset</button>
+        </section>
 
         @if (isLoading)
         {

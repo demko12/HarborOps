@@ -5,24 +5,25 @@
 
 <PageTitle>Crew | HarborOps</PageTitle>
 
-<section class="crew-page">
+<section class="crew-page" aria-busy="@isLoading.ToString().ToLowerInvariant()">
     <header class="crew-header">
         <div>
             <p class="crew-eyebrow">Crewing operations</p>
-            <h1>Crew roster</h1>
-            <p>Find crew members and identify passport expiry issues.</p>
+            <h1>Your crew, connected</h1>
+            <p>People, credentials, and readiness across your operations.</p>
         </div>
         <div class="crew-header-actions">
             <PrintButton Label="Print the crew roster" />
         </div>
     </header>
 
-    <nav class="crew-links workspace-tabs" aria-label="Crew workspace links">
-        <a class="workspace-tab" href="/crew/rotations" title="View crew rotations"><span class="bi bi-arrow-left-right" aria-hidden="true"></span> Rotations</a>
-        <a class="workspace-tab" href="/crew/availability" title="Manage crew availability"><span class="bi bi-calendar-x" aria-hidden="true"></span> Availability</a>
-        <a class="workspace-tab" href="/crew/manning" title="Manage crew manning plans and coverage"><span class="bi bi-clipboard-check" aria-hidden="true"></span> Manning</a>
-        <a class="workspace-tab" href="/crew/medical" title="View crew medical exams"><span class="bi bi-heart-pulse" aria-hidden="true"></span> Medical</a>
-        <a class="workspace-tab" href="/crew/positions" title="Manage crew positions"><span class="bi bi-person-badge" aria-hidden="true"></span> Positions</a>
+    <nav class="crew-links" aria-label="Crew workspace links">
+        <a class="selected" href="/crew" aria-current="page"><span class="bi bi-people" aria-hidden="true"></span> Personnel</a>
+        <a  href="/crew/rotations" title="View crew rotations"><span class="bi bi-arrow-left-right" aria-hidden="true"></span> Rotations</a>
+        <a  href="/crew/availability" title="Manage crew availability"><span class="bi bi-calendar-x" aria-hidden="true"></span> Availability</a>
+        <a  href="/crew/manning" title="Manage crew manning plans and coverage"><span class="bi bi-clipboard-check" aria-hidden="true"></span> Manning</a>
+        <a  href="/crew/medical" title="View crew medical exams"><span class="bi bi-heart-pulse" aria-hidden="true"></span> Medical</a>
+        <a  href="/crew/positions" title="Manage crew positions"><span class="bi bi-person-badge" aria-hidden="true"></span> Positions</a>
     </nav>
 
     <section class="print-only print-summary crew-print-summary">
@@ -35,25 +36,31 @@
         </dl>
     </section>
 
-    @if (roster is not null)
+    @if (roster is not null && !isLoading && failure is null)
     {
         <section class="crew-summary" aria-label="Crew summary">
-            <article class="crew-summary-card"><div><span>Total crew</span><strong>@(roster.TotalCount)</strong><small>In the personnel register</small></div><span class="crew-summary-icon crew-summary-blue"><span class="bi bi-people"></span></span></article>
+            <article class="crew-summary-card"><div><span>Matching crew</span><strong>@(roster.TotalCount)</strong><small>Across the current filters</small></div><span class="crew-summary-icon crew-summary-blue"><span class="bi bi-people"></span></span></article>
             <article class="crew-summary-card"><div><span>Active crew</span><strong>@ActiveCrew</strong><small>On this page</small></div><span class="crew-summary-icon crew-summary-green"><span class="bi bi-person-check"></span></span></article>
-            <article class="crew-summary-card"><div><span>Expired passports</span><strong>@ExpiredPassports</strong><small>Require immediate attention</small></div><span class="crew-summary-icon crew-summary-red"><span class="bi bi-passport"></span></span></article>
-            <article class="crew-summary-card"><div><span>Expiring in 90 days</span><strong>@PassportsExpiringSoon</strong><small>Plan renewal activity</small></div><span class="crew-summary-icon crew-summary-amber"><span class="bi bi-calendar-event"></span></span></article>
+            <article class="crew-summary-card"><div><span>Expired passports</span><strong>@ExpiredPassports</strong><small>Expired on this page</small></div><span class="crew-summary-icon crew-summary-red"><span class="bi bi-passport"></span></span></article>
+            <article class="crew-summary-card"><div><span>Expiring in 90 days</span><strong>@PassportsExpiringSoon</strong><small>Renewals on this page</small></div><span class="crew-summary-icon crew-summary-amber"><span class="bi bi-calendar-event"></span></span></article>
         </section>
     }
 
+    <div class="crew-workspace">
+    <section class="crew-card @(cardView ? "crew-card-view" : "crew-list-view")" aria-labelledby="crew-roster-title">
+        <div class="crew-card-heading"><div class="crew-register-title"><span class="crew-register-mark bi bi-people" aria-hidden="true"></span><div><h2 id="crew-roster-title">Personnel register</h2><p>@(isLoading ? "Updating roster…" : failure is not null ? "Unable to load roster" : $"{roster?.TotalCount ?? 0:N0} crew members found")</p></div></div>
+            <div class="crew-view-switch" role="group" aria-label="Crew display">
+                <button type="button" aria-label="Card view" aria-pressed="@cardView.ToString().ToLowerInvariant()" @onclick="() => cardView = true"><span class="bi bi-grid" aria-hidden="true"></span> Cards</button>
+                <button type="button" aria-label="List view" aria-pressed="@((!cardView).ToString().ToLowerInvariant())" @onclick="() => cardView = false"><span class="bi bi-list-ul" aria-hidden="true"></span> List</button>
+            </div>
+        </div>
     <div class="crew-filters">
         <div class="crew-input-shell"><span class="bi bi-search" aria-hidden="true"></span><input @bind="search" @bind:event="oninput" @bind:after="SearchAsync" placeholder="Search name or IMO seafarer ID" aria-label="Search crew members" /></div>
-        <select @bind="employmentStatus" @bind:after="SearchAsync" aria-label="Filter by employment status"><option value="">All statuses</option><option value="Active">Active</option><option value="OnLeave">On leave</option><option value="Suspended">Suspended</option><option value="Terminated">Terminated</option></select>
+        <div class="crew-status-select"><select @bind="employmentStatus" @bind:after="SearchAsync" aria-label="Filter by employment status"><option value="">All statuses</option><option value="Active">Active</option><option value="OnLeave">On leave</option><option value="Suspended">Suspended</option><option value="Terminated">Terminated</option></select><span class="bi bi-chevron-down" aria-hidden="true"></span></div>
         <button type="button" class="crew-reset-button" @onclick="ResetFiltersAsync" disabled="@isLoading">Reset</button>
     </div>
 
-    <div class="crew-workspace">
-    <section class="crew-card" aria-labelledby="crew-roster-title">
-        <div class="crew-card-heading"><div><h2 id="crew-roster-title">Personnel register</h2><p>@(roster?.TotalCount ?? 0) crew members found</p></div><span class="bi bi-people" aria-hidden="true"></span></div>
+
         @if (isLoading)
         {
             <LoadingState Message="Loading crew roster..." />
@@ -73,20 +80,20 @@
                 @foreach (var member in roster.Items)
                 {
                     var passportState = GetPassportState(member.PassportExpiry, currentDate);
-                    <a class="crew-member-row" href="@($"/crew/{member.CrewMemberId}")">
+                    <a class="crew-member-row" data-status="@GetEmploymentStatusClass(member.EmploymentStatus)" href="@($"/crew/{member.CrewMemberId}")">
                         <span class="crew-avatar">@member.Name[0]</span>
-                        <div class="crew-member-primary"><strong>@member.Name</strong><span>@member.Nationality &middot; IMO @member.ImoSeafarerId</span></div>
+                        <div class="crew-member-primary"><strong>@member.Name</strong><span class="crew-identity"><span class="crew-nationality-tag">@member.Nationality</span> IMO @member.ImoSeafarerId</span></div>
                         <div class="crew-rank"><span>Base rank</span><strong>@member.BaseRankName</strong></div>
-                        <div class="crew-passport @passportState.Class"><span>Passport expiry</span><strong>@member.PassportExpiry.ToString("dd MMM yyyy")</strong>@if (passportState.IsExpired) { <small><span class="bi bi-exclamation-triangle"></span> Expired</small> }</div>
+                        <div class="crew-passport @passportState.Class"><span>Passport expiry</span><strong>@member.PassportExpiry.ToString("dd MMM yyyy")</strong>@if (passportState.IsExpired) { <small><span class="bi bi-exclamation-triangle" aria-hidden="true"></span> Expired</small> } else if (member.PassportExpiry <= currentDate.AddDays(90)) { <small class="passport-renewal">Renew within 90 days</small> }</div>
                         <span class="employment-status @GetEmploymentStatusClass(member.EmploymentStatus)">@member.EmploymentStatus</span>
-                        <span class="bi bi-chevron-right crew-chevron" aria-hidden="true"></span>
+                        <span class="crew-profile-link">View profile <span class="bi bi-arrow-up-right" aria-hidden="true"></span></span>
                     </a>
                 }
             </div>
             <div class="crew-pagination"><span>Showing @FirstRowNumber&ndash;@LastRowNumber of @roster.TotalCount crew members</span><div><button type="button" @onclick="PreviousPageAsync" disabled="@(roster.PageNumber <= 1)">Previous</button><span class="crew-page-indicator">Page @roster.PageNumber of @TotalPages</span><button type="button" @onclick="NextPageAsync" disabled="@(roster.PageNumber >= TotalPages)">Next</button></div></div>
         }
     </section>
-    @if (roster is not null)
+    @if (roster is not null && !isLoading && failure is null)
     {
         <aside class="crew-insights" aria-label="Crew roster insights">
             <section class="crew-insight-card">

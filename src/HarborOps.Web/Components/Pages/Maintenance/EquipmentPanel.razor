@@ -25,34 +25,6 @@
         </article>
     </section>
 
-    <section class="maintenance-filters" aria-label="Equipment filters">
-        <div class="filter-field filter-field-vessel">
-            <label for="equipment-vessel">Vessel</label>
-            <VesselPicker Value="vesselFilter" ValueChanged="SelectVesselFilterAsync" Disabled="isLoading" />
-        </div>
-        <div class="filter-field">
-            <label for="equipment-search">Search</label>
-            <input id="equipment-search" @bind="searchFilter" @bind:event="oninput" @bind:after="ApplyFiltersAsync" placeholder="Name or serial number" />
-        </div>
-        <div class="filter-field">
-            <label for="equipment-category">Category</label>
-            <input id="equipment-category" @bind="categoryFilter" @bind:event="oninput" @bind:after="ApplyFiltersAsync" placeholder="e.g. Propulsion" />
-        </div>
-        <div class="filter-field">
-            <label for="equipment-manufacturer">Manufacturer</label>
-            <input id="equipment-manufacturer" @bind="manufacturerFilter" @bind:event="oninput" @bind:after="ApplyFiltersAsync" placeholder="e.g. Wartsila" />
-        </div>
-        <div class="filter-field">
-            <label for="equipment-page-size">Per page</label>
-            <select id="equipment-page-size" @bind="pageSize" @bind:after="ApplyFiltersAsync">
-                <option value="25">25</option>
-                <option value="50">50</option>
-                <option value="100">100</option>
-            </select>
-        </div>
-        <button class="maintenance-reset equipment-clear" type="button" @onclick="ClearFiltersAsync" disabled="@isLoading">Reset</button>
-    </section>
-
     @if (registerSuccessMessage is not null)
     {
         <div class="maintenance-toast equipment-success" role="status" aria-live="polite">
@@ -63,18 +35,49 @@
 
     <section class="maintenance-card" aria-labelledby="equipment-list-title">
         <div class="maintenance-card-heading">
-            <div>
-                <h2 id="equipment-list-title">Equipment registry</h2>
-                <p>@totalCount equipment found</p>
+            <div class="maintenance-register-heading">
+                <span class="maintenance-card-icon" aria-hidden="true"><span class="bi bi-gear-wide-connected"></span></span>
+                <div>
+                    <h2 id="equipment-list-title">Equipment registry</h2>
+                    <p>@totalCount equipment found</p>
+                </div>
             </div>
             <div class="maintenance-card-heading-actions">
                 @if (CanManage)
                 {
                     <button type="button" class="maintenance-button equipment-register-toggle" @onclick="OpenRegisterForm">Register equipment</button>
                 }
-                <span class="maintenance-card-icon" aria-hidden="true"><span class="bi bi-gear-wide-connected"></span></span>
+
             </div>
         </div>
+
+        <section class="maintenance-filters" aria-label="Equipment filters">
+            <div class="filter-field filter-field-vessel">
+                <label for="equipment-vessel">Vessel</label>
+                <VesselPicker Value="vesselFilter" ValueChanged="SelectVesselFilterAsync" Disabled="isLoading" />
+            </div>
+            <div class="filter-field">
+                <label for="equipment-search">Search</label>
+                <input id="equipment-search" @bind="searchFilter" @bind:event="oninput" @bind:after="ApplyFiltersAsync" placeholder="Name or serial number" />
+            </div>
+            <div class="filter-field">
+                <label for="equipment-category">Category</label>
+                <input id="equipment-category" @bind="categoryFilter" @bind:event="oninput" @bind:after="ApplyFiltersAsync" placeholder="e.g. Propulsion" />
+            </div>
+            <div class="filter-field">
+                <label for="equipment-manufacturer">Manufacturer</label>
+                <input id="equipment-manufacturer" @bind="manufacturerFilter" @bind:event="oninput" @bind:after="ApplyFiltersAsync" placeholder="e.g. Wartsila" />
+            </div>
+            <div class="filter-field">
+                <label for="equipment-page-size">Per page</label>
+                <select id="equipment-page-size" @bind="pageSize" @bind:after="ApplyFiltersAsync">
+                    <option value="25">25</option>
+                    <option value="50">50</option>
+                    <option value="100">100</option>
+                </select>
+            </div>
+            <button class="maintenance-reset equipment-clear" type="button" @onclick="ClearFiltersAsync" disabled="@isLoading">Reset</button>
+        </section>
 
         @if (isLoading)
         {

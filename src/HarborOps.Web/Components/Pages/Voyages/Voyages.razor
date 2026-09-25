@@ -14,8 +14,8 @@
     <header class="voyages-header">
         <div>
             <p class="voyages-eyebrow">Voyage operations</p>
-            <h1>Voyages</h1>
-            <p>Scheduled voyages ordered by planned departure.</p>
+            <h1>Every voyage, in view</h1>
+            <p>Follow routes, departures, and arrivals across your operations.</p>
         </div>
         <span class="voyages-utc" aria-label="All times are shown in UTC">UTC</span>
     </header>
@@ -25,22 +25,22 @@
                 role="tab"
                 class="workspace-tab @(activeTab == VoyagesTab.Board ? "active" : null)"
                 aria-selected="@AriaSelected(VoyagesTab.Board)"
-                @onclick="() => SelectTab(VoyagesTab.Board)">Voyage board</button>
+                @onclick="() => SelectTab(VoyagesTab.Board)"><span class="bi bi-signpost-split" aria-hidden="true"></span>Voyage board</button>
         <button type="button"
                 role="tab"
                 class="workspace-tab @(activeTab == VoyagesTab.Ports ? "active" : null)"
                 aria-selected="@AriaSelected(VoyagesTab.Ports)"
-                @onclick="() => SelectTab(VoyagesTab.Ports)">Ports</button>
+                @onclick="() => SelectTab(VoyagesTab.Ports)"><span class="bi bi-geo-alt" aria-hidden="true"></span>Ports</button>
         <button type="button"
                 role="tab"
                 class="workspace-tab @(activeTab == VoyagesTab.Berths ? "active" : null)"
                 aria-selected="@AriaSelected(VoyagesTab.Berths)"
-                @onclick="() => SelectTab(VoyagesTab.Berths)">Berths</button>
+                @onclick="() => SelectTab(VoyagesTab.Berths)"><span class="bi bi-bounding-box" aria-hidden="true"></span>Berths</button>
         <button type="button"
                 role="tab"
                 class="workspace-tab @(activeTab == VoyagesTab.Routes ? "active" : null)"
                 aria-selected="@AriaSelected(VoyagesTab.Routes)"
-                @onclick="() => SelectTab(VoyagesTab.Routes)">Routes</button>
+                @onclick="() => SelectTab(VoyagesTab.Routes)"><span class="bi bi-diagram-3" aria-hidden="true"></span>Routes</button>
     </nav>
 
     @if (activeTab == VoyagesTab.Ports)
@@ -147,6 +147,42 @@
         </article>
     </section>
 
+    @if (failure is { IsValidation: true, Errors.Count: > 0 })
+    {
+        <div class="voyages-validation" role="alert">
+            <strong>@failure.Title</strong>
+            <ul>
+                @foreach (var entry in failure.Errors)
+                {
+                    @foreach (var message in entry.Value)
+                    {
+                        <li>@message</li>
+                    }
+                }
+            </ul>
+        </div>
+    }
+
+    <section class="voyages-card" aria-labelledby="voyages-list-title">
+        <div class="voyages-card-heading">
+            <div class="voyages-register-title">
+                <span class="voyages-register-mark bi bi-signpost-split" aria-hidden="true"></span>
+                <div>
+                <h2 id="voyages-list-title">Voyage schedule</h2>
+                <p>@totalCount voyages found · Departure order · UTC</p>
+                </div>
+            </div>
+            <div class="voyages-card-tools">
+                @if (CanManageVoyages)
+                {
+                    <a class="voyages-schedule-button" href="/voyages/schedule">
+                        <span aria-hidden="true">+</span> Schedule voyage
+                    </a>
+                }
+
+            </div>
+        </div>
+
     <div class="voyages-filters">
         <div class="filter-field filter-field-grow">
             <label for="voyages-search">Search</label>
@@ -185,38 +221,6 @@
         <button class="voyages-reset" type="button" @onclick="ResetFiltersAsync" disabled="@isLoading">Reset</button>
     </div>
 
-    @if (failure is { IsValidation: true, Errors.Count: > 0 })
-    {
-        <div class="voyages-validation" role="alert">
-            <strong>@failure.Title</strong>
-            <ul>
-                @foreach (var entry in failure.Errors)
-                {
-                    @foreach (var message in entry.Value)
-                    {
-                        <li>@message</li>
-                    }
-                }
-            </ul>
-        </div>
-    }
-
-    <section class="voyages-card" aria-labelledby="voyages-list-title">
-        <div class="voyages-card-heading">
-            <div>
-                <h2 id="voyages-list-title">Voyage schedule</h2>
-                <p>@totalCount voyages found</p>
-            </div>
-            <div class="voyages-card-tools">
-                @if (CanManageVoyages)
-                {
-                    <a class="voyages-schedule-button" href="/voyages/schedule">
-                        <span aria-hidden="true">+</span> Schedule voyage
-                    </a>
-                }
-                <span class="voyages-card-icon" aria-hidden="true"><span class="bi bi-signpost-split-fill"></span></span>
-            </div>
-        </div>
 
         @if (actionSuccess is not null)
         {
@@ -306,9 +310,9 @@
                                 aria-label="@($"Open {voyage.VoyageNumber} timeline")"
                                 @onclick="() => OpenTimeline(voyage.VoyageId)"
                                 @onkeydown="(args) => HandleVoyageRowKeyDown(args, voyage.VoyageId)">
-                                <td class="voyage-number"><a href="@TimelineHref(voyage.VoyageId)" @onclick:stopPropagation="true">@voyage.VoyageNumber</a></td>
-                                <td class="voyage-vessel col-vessel" title="@voyage.VesselId">@VesselDisplayName(voyage.VesselId)</td>
-                                <td class="voyage-route">@FormatRoute(voyage)</td>
+                                <td class="voyage-number"><span class="voyage-number-icon bi bi-signpost-split" aria-hidden="true"></span><a href="@TimelineHref(voyage.VoyageId)" @onclick:stopPropagation="true">@voyage.VoyageNumber</a></td>
+                                <td class="voyage-vessel col-vessel">@VesselDisplayName(voyage.VesselId)</td>
+                                <td class="voyage-route"><span class="voyage-route-path"><span title="Departure port">@(voyage.FirstStopPortName ?? voyage.DeparturePortCode)</span><span class="voyage-route-connector"> → </span><span title="Arrival port">@(voyage.LastStopPortName ?? voyage.ArrivalPortCode)</span></span></td>
                                 <td>
                                     <span class="voyage-status @StatusModifier(voyage.Status)">@voyage.Status</span>
                                     <span class="voyage-steps @StatusModifier(voyage.Status)"

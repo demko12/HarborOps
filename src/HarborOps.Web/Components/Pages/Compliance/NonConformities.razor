@@ -21,6 +21,8 @@
         </div>
     </header>
 
+    <ComplianceNavigation />
+
     <div class="nc-filters">
         <div class="nc-input-shell">
             <span class="bi bi-search" aria-hidden="true"></span>
@@ -515,7 +517,7 @@
     {
         ClosureStatusClosed => "success",
         ClosureStatusInProgress => "neutral",
-        _ => "danger",
+        _ => "neutral",
     };
 
     private static string SeverityBadgeClass(string severity) =>

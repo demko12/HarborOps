@@ -368,27 +368,13 @@ html[data-theme="dark"] .app-sidebar:hover {
     box-shadow: 0 22px 48px rgba(0, 0, 0, .32), inset 0 1px rgba(255, 255, 255, .1);
 }
 
-html[data-theme="dark"] .nav-pills ::deep .nav-pill-tooltip {
-    color: var(--text-primary);
-    border-color: rgba(191, 219, 254, .2);
-    background: rgba(15, 23, 42, .8);
-    box-shadow: 0 10px 24px rgba(0, 0, 0, .28), inset 0 1px rgba(255, 255, 255, .1);
-}
 
 html[data-theme="dark"] .icon-btn:hover,
 html[data-theme="dark"] .profile-btn:hover {
     background: rgba(255, 255, 255, .075);
 }
 
-html[data-theme="dark"] .nav-pills ::deep .nav-pill:hover {
-    border-color: rgba(147, 197, 253, .18);
-    background: rgba(96, 165, 250, .12);
-}
 
-html[data-theme="dark"] .nav-pills ::deep .nav-pill.active {
-    background: linear-gradient(135deg, rgba(96, 165, 250, .22), rgba(96, 165, 250, .08));
-    box-shadow: inset 0 1px 0 rgba(255,255,255,.12), 0 5px 12px rgba(0, 0, 0, .14);
-}
 
 .logout-modal-icon {
     color: var(--accent);
@@ -566,3 +552,109 @@ html[data-theme="dark"] .nav-pills ::deep .nav-pill.active {
         background: rgba(0,0,0,.4);
     }
 }
+
+/* Module colours mirror the dashboard and module workspaces. */
+.nav-pills ::deep .nav-pill { --module-color: var(--accent); }
+.nav-pills ::deep .nav-module-crew { --module-color: #9b75ed; }
+.nav-pills ::deep .nav-module-voyages { --module-color: #0891b2; }
+.nav-pills ::deep .nav-module-cargo { --module-color: #d97706; }
+.nav-pills ::deep .nav-module-maintenance { --module-color: #e05260; }
+.nav-pills ::deep .nav-module-compliance { --module-color: #059669; }
+.nav-pills ::deep .nav-module-documents { --module-color: #8270ef; }
+.app-sidebar .nav-pills ::deep .nav-pill {
+    color: color-mix(in srgb, var(--module-color) 85%, var(--text-secondary));
+    border-radius: .8rem;
+    transition: color .16s ease, background-color .16s ease, border-color .16s ease;
+}
+.app-sidebar .nav-pills ::deep .nav-pill:hover,
+.app-sidebar .nav-pills ::deep .nav-pill:focus-visible {
+    color: var(--module-color);
+    border-color: color-mix(in srgb, var(--module-color) 25%, transparent);
+    background: color-mix(in srgb, var(--module-color) 10%, transparent);
+    box-shadow: none;
+}
+.app-sidebar .nav-pills ::deep .nav-pill.active {
+    color: var(--module-color);
+    border-color: color-mix(in srgb, var(--module-color) 38%, transparent);
+    background: linear-gradient(135deg, color-mix(in srgb, var(--module-color) 20%, transparent), color-mix(in srgb, var(--module-color) 9%, transparent));
+    box-shadow: inset 0 1px color-mix(in srgb, var(--module-color) 15%, transparent);
+}
+.app-sidebar .nav-pills ::deep .nav-pill:focus-visible { outline: 2px solid var(--module-color); outline-offset: 3px; }
+.app-sidebar .nav-pills ::deep .nav-pill.active::before { content: ""; position: absolute; left: -.45rem; width: 3px; height: 1.1rem; border-radius: 1rem; background: var(--module-color); }
+.app-sidebar .nav-pills ::deep .nav-pill-tooltip {
+    display: block;
+    left: calc(100% + 1rem);
+    padding: .55rem .8rem;
+    white-space: nowrap;
+    color: var(--text-primary);
+    background: var(--control-popup);
+    border: 1px solid color-mix(in srgb, var(--module-color) 35%, var(--border-subtle));
+    border-left: 3px solid var(--module-color);
+    border-radius: .65rem;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, .16);
+    font-size: .75rem;
+    font-weight: 500;
+}
+.app-sidebar .nav-pills ::deep .nav-pill:focus-visible .nav-pill-tooltip { opacity: 1; transform: translateX(0); }
+@media (min-width: 761px) {
+    .app-sidebar { width: 4.25rem; padding: .6rem .5rem; border-radius: 1.25rem; border-color: var(--border-medium); background: linear-gradient(155deg, var(--bg-surface-strong), var(--bg-navbar)); box-shadow: 0 12px 32px rgba(15, 23, 42, .13), inset 0 1px var(--border-subtle); }
+    .nav-pills { gap: .3rem; }
+    .app-sidebar .nav-pills ::deep .nav-pill { height: 2.75rem; padding: .65rem; }
+    .app-sidebar .nav-pills ::deep .nav-module-dashboard { margin-bottom: .45rem; }
+    .app-sidebar .nav-pills ::deep .nav-module-dashboard::after { content: ""; position: absolute; bottom: -.45rem; width: 1.3rem; height: 1px; background: var(--border-medium); }
+}
+@media (min-width: 761px) and (max-height: 650px) {
+    .app-sidebar { top: calc(50% + 1.5rem); max-height: calc(100dvh - 5rem); }
+    .app-sidebar .nav-pills ::deep .nav-pill { height: 2.1rem; padding: .4rem; }
+    .nav-pills { gap: .15rem; }
+}
+@media (max-width: 760px) {
+    .app-sidebar .nav-pills ::deep .nav-pill-tooltip { display: none; }
+    .app-sidebar .nav-pills ::deep .nav-pill-label { color: var(--text-primary); }
+}
+@media (prefers-reduced-motion: reduce) {
+    .app-sidebar .nav-pills ::deep .nav-pill,
+    .app-sidebar .nav-pills ::deep .nav-pill-tooltip { transition: none; }
+}
+
+/* Theme-aware header controls and readable, solid menus. */
+.app-topbar .app-topbar-right { gap: .35rem; padding: .25rem; border: 1px solid var(--border-subtle); border-radius: .95rem; background: var(--bg-navbar); box-shadow: 0 4px 14px rgba(15, 23, 42, .04); }
+.app-topbar .icon-btn { width: 2.45rem; height: 2.45rem; color: var(--text-secondary); border-radius: .7rem; }
+.app-topbar .icon-btn:hover, .app-topbar .icon-btn[aria-expanded="true"] { color: var(--accent); border-color: var(--accent-border); background: var(--accent-bg); }
+.app-topbar .notification-count { top: .05rem; right: .02rem; min-width: .95rem; font-size: .57rem; line-height: .95rem; border: 2px solid var(--control-popup); background: #c43b4d; }
+.app-topbar .header-actions-divider { height: 1.3rem; margin: 0 .1rem; background: var(--border-subtle); }
+.app-topbar .profile-btn { min-height: 2.45rem; gap: .6rem; padding: .2rem .55rem .2rem .2rem; border-radius: .7rem; }
+.app-topbar .profile-btn:hover, .app-topbar .profile-btn[aria-expanded="true"] { border-color: var(--border-medium); background: var(--bg-surface-strong); }
+.app-topbar .avatar { width: 1.95rem; height: 1.95rem; color: var(--text-primary); border: 1px solid var(--border-medium); border-radius: .6rem; background: var(--bg-surface-strong); font-size: .78rem; font-weight: 600; }
+.account-trigger-label { color: var(--text-secondary); font-size: .75rem; font-weight: 500; }
+.account-trigger-chevron { color: var(--text-muted); font-size: .6rem; transition: transform .16s ease; }
+.profile-btn[aria-expanded="true"] .account-trigger-chevron { transform: rotate(180deg); }
+.app-topbar .account-dropdown, .app-topbar .notifications-dropdown { border: 1px solid var(--border-medium); border-radius: 1rem; color: var(--text-primary); background: var(--control-popup); box-shadow: 0 16px 42px rgba(0, 0, 0, .18); backdrop-filter: none; -webkit-backdrop-filter: none; }
+.app-topbar .account-dropdown { width: min(19rem, calc(100vw - 2rem)); padding: .5rem; top: calc(100% + .65rem); }
+.app-topbar .account-summary { gap: .35rem; margin: 0 .15rem .35rem; padding: .8rem .65rem 1rem; }
+.app-topbar .account-summary > span { font-size: .6rem; letter-spacing: .09em; text-transform: uppercase; }
+.app-topbar .account-summary strong { white-space: normal; overflow-wrap: anywhere; font-size: .82rem; font-weight: 600; }
+.app-topbar .account-dropdown a, .app-topbar .account-dropdown button { min-height: 2.65rem; gap: .7rem; padding: .6rem .7rem; border-radius: .65rem; font-size: .78rem; }
+.app-topbar .account-dropdown a > .bi, .app-topbar .account-dropdown button > .bi { display: grid; place-items: center; width: 1.75rem; height: 1.75rem; flex: 0 0 auto; border-radius: .5rem; background: var(--bg-surface-strong); color: var(--text-secondary); }
+.app-topbar .account-dropdown a:hover { color: var(--text-primary); background: var(--accent-bg); }
+.app-topbar .account-dropdown .account-signout { margin-top: .45rem; color: var(--status-danger); border-top: 1px solid var(--border-subtle); }
+.app-topbar .account-dropdown .account-signout > .bi { color: inherit; }
+.app-topbar .account-signout:hover { background: color-mix(in srgb, var(--status-danger) 10%, transparent); color: var(--status-danger); }
+.app-topbar .notifications-dropdown { width: min(25rem, calc(100vw - 2rem)); top: 4.1rem; }
+.app-topbar .notifications-heading { padding: 1rem; gap: .6rem; }
+.app-topbar .notifications-heading strong { font-size: 1rem; font-weight: 600; }
+.app-topbar .notifications-heading .notifications-heading-actions { display: flex; align-items: center; gap: .55rem; }
+.app-topbar .notifications-heading .header-menu-close { display: grid; place-items: center; width: 1.8rem; height: 1.8rem; padding: 0; border: 1px solid var(--border-subtle); border-radius: .5rem; color: var(--text-muted); background: var(--bg-surface); }
+.app-topbar .notifications-list { max-height: min(26rem, calc(100dvh - 12rem)); scrollbar-width: thin; }
+.app-topbar .notification-group { background: transparent; padding: .8rem 1rem .4rem; font-size: .6rem; font-weight: 600; }
+.app-topbar .notification-item { border-top-color: var(--border-subtle); border-right-color: var(--border-subtle); border-bottom-color: var(--border-subtle); background: var(--bg-surface); }
+.app-topbar .notification-item:hover { transform: none; background: var(--bg-surface-strong); }
+.app-topbar .notification-item strong { font-size: .8rem; font-weight: 600; }
+.app-topbar .notification-item button { flex: 0 0 auto; width: 2rem; height: 2rem; border-radius: .6rem; color: var(--text-secondary); border-color: var(--border-medium); background: transparent; }
+.app-topbar .notification-item button:hover { color: var(--accent); border-color: var(--accent-border); background: var(--accent-bg); }
+.app-topbar .notifications-empty { padding: 1.25rem 1rem 1.5rem; }
+.app-topbar .notifications-pagination { padding: .85rem 1rem; border-top: 1px solid var(--border-subtle); }
+.app-topbar .notifications-pagination button:disabled { opacity: .4; cursor: not-allowed; }
+.app-topbar button:focus-visible, .app-topbar .account-dropdown a:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+@media (max-width: 760px) { .account-trigger-label, .account-trigger-chevron { display: none; } .app-topbar .profile-btn { padding: .2rem; } .app-topbar .app-topbar-right { gap: .1rem; } .app-topbar .account-dropdown { position: fixed; top: 4.1rem; right: .75rem; } }
+@media (prefers-reduced-motion: reduce) { .account-trigger-chevron { transition: none; } }

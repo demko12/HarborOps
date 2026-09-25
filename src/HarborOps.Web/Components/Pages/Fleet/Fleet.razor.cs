@@ -15,6 +15,7 @@ public partial class Fleet : IDisposable
     private string? status;
     private int pageNumber = 1;
     private bool isLoading = true;
+    private bool cardView;
 
     private int TotalPages => page is null || page.TotalCount == 0 ? 1 : (int)Math.Ceiling((double)page.TotalCount / page.PageSize);
     private int FirstRowNumber => page is null || page.TotalCount == 0 ? 0 : ((page.PageNumber - 1) * page.PageSize) + 1;

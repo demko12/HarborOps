@@ -41,49 +41,6 @@
 		</article>
 	</section>
 
-	<section class="maintenance-filters" aria-label="Preventive work filters">
-		<div class="filter-field">
-			<label for="preventive-window">Due window</label>
-			<select id="preventive-window" @bind="windowPreset" @bind:after="ApplyWindowPresetAsync" disabled="@isLoading">
-				<option value="@NextThirtyDaysPreset">Next 30 days</option>
-				<option value="@NextNinetyDaysPreset">Next 90 days</option>
-				<option value="@OverduePreset">Overdue (past year)</option>
-				<option value="@CustomPreset">Custom</option>
-			</select>
-		</div>
-		<div class="filter-field">
-			<label for="preventive-from">From</label>
-			<input id="preventive-from" type="date" @bind="fromFilter" @bind:after="ApplyCustomWindowAsync" />
-		</div>
-		<div class="filter-field">
-			<label for="preventive-to">To</label>
-			<input id="preventive-to" type="date" @bind="toFilter" @bind:after="ApplyCustomWindowAsync" />
-		</div>
-		<div class="filter-field filter-field-vessel">
-			<label for="preventive-vessel">Vessel</label>
-			<VesselPicker InputId="preventive-vessel" Value="vesselFilter" ValueChanged="SelectVesselFilterAsync" Disabled="isLoading" />
-		</div>
-		<div class="filter-field">
-			<label for="preventive-state">State</label>
-			<select id="preventive-state" @bind="stateFilter" @bind:after="ApplyFiltersAsync">
-				<option value="">All</option>
-				@foreach (var state in MaintenanceFormat.OccurrenceStates)
-				{
-					<option value="@state">@MaintenanceFormat.OccurrenceStateLabel(state)</option>
-				}
-			</select>
-		</div>
-		<div class="filter-field">
-			<label for="preventive-page-size">Per page</label>
-			<select id="preventive-page-size" @bind="pageSize" @bind:after="ApplyFiltersAsync">
-				<option value="25">25</option>
-				<option value="50">50</option>
-				<option value="100">100</option>
-			</select>
-		</div>
-		<button class="maintenance-reset" type="button" @onclick="ResetFiltersAsync" disabled="@isLoading">Reset</button>
-	</section>
-
 	@if (successMessage is not null)
 	{
 		<div class="maintenance-toast preventive-toast" role="status" aria-live="polite">
@@ -98,9 +55,12 @@
 
 	<section class="maintenance-card" aria-labelledby="preventive-list-title">
 		<div class="maintenance-card-heading">
-			<div>
-				<h2 id="preventive-list-title">Preventive work forecast</h2>
-				<p>Time-based schedule occurrences, earliest due first. Due times are end of day UTC.</p>
+			<div class="maintenance-register-heading">
+			    <span class="maintenance-card-icon" aria-hidden="true"><span class="bi bi-calendar-range"></span></span>
+			    <div>
+					<h2 id="preventive-list-title">Preventive work forecast</h2>
+					<p>Time-based schedule occurrences, earliest due first. Due times are end of day UTC.</p>
+			    </div>
 			</div>
 			<div class="maintenance-card-heading-actions">
 				@if (CanManage)
@@ -109,9 +69,52 @@
 						Generate work orders
 					</button>
 				}
-				<span class="maintenance-card-icon" aria-hidden="true"><span class="bi bi-calendar-range"></span></span>
+
 			</div>
 		</div>
+
+		<section class="maintenance-filters" aria-label="Preventive work filters">
+			<div class="filter-field">
+				<label for="preventive-window">Due window</label>
+				<select id="preventive-window" @bind="windowPreset" @bind:after="ApplyWindowPresetAsync" disabled="@isLoading">
+					<option value="@NextThirtyDaysPreset">Next 30 days</option>
+					<option value="@NextNinetyDaysPreset">Next 90 days</option>
+					<option value="@OverduePreset">Overdue (past year)</option>
+					<option value="@CustomPreset">Custom</option>
+				</select>
+			</div>
+			<div class="filter-field">
+				<label for="preventive-from">From</label>
+				<input id="preventive-from" type="date" @bind="fromFilter" @bind:after="ApplyCustomWindowAsync" />
+			</div>
+			<div class="filter-field">
+				<label for="preventive-to">To</label>
+				<input id="preventive-to" type="date" @bind="toFilter" @bind:after="ApplyCustomWindowAsync" />
+			</div>
+			<div class="filter-field filter-field-vessel">
+				<label for="preventive-vessel">Vessel</label>
+				<VesselPicker InputId="preventive-vessel" Value="vesselFilter" ValueChanged="SelectVesselFilterAsync" Disabled="isLoading" />
+			</div>
+			<div class="filter-field">
+				<label for="preventive-state">State</label>
+				<select id="preventive-state" @bind="stateFilter" @bind:after="ApplyFiltersAsync">
+					<option value="">All</option>
+					@foreach (var state in MaintenanceFormat.OccurrenceStates)
+					{
+						<option value="@state">@MaintenanceFormat.OccurrenceStateLabel(state)</option>
+					}
+				</select>
+			</div>
+			<div class="filter-field">
+				<label for="preventive-page-size">Per page</label>
+				<select id="preventive-page-size" @bind="pageSize" @bind:after="ApplyFiltersAsync">
+					<option value="25">25</option>
+					<option value="50">50</option>
+					<option value="100">100</option>
+				</select>
+			</div>
+			<button class="maintenance-reset" type="button" @onclick="ResetFiltersAsync" disabled="@isLoading">Reset</button>
+		</section>
 
 		@if (isLoading)
 		{

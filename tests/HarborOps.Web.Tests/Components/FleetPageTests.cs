@@ -353,6 +353,36 @@ public sealed class FleetPageTests : BunitContext
         Assert.Contains("print-only", page.Find(".fleet-print-summary").ClassName, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public void Switching_views_preserves_vessel_details_and_does_not_reload_the_api()
+    {
+        var page = RenderFleetPage();
+        var originalLink = page.Find(".fleet-vessel-row").GetAttribute("href");
+        var requestCount = requestedUris.Count;
+
+        page.Find("button[aria-label='Card view']").Click();
+        Assert.Single(page.FindAll(".fleet-card-view"));
+        Assert.Equal("true", page.Find("button[aria-label='Card view']").GetAttribute("aria-pressed"));
+        Assert.Equal(originalLink, page.Find(".fleet-vessel-row").GetAttribute("href"));
+        Assert.NotEmpty(page.Find(".vessel-status").TextContent);
+        Assert.Equal(requestCount, requestedUris.Count);
+
+        page.Find("button[aria-label='List view']").Click();
+        Assert.Single(page.FindAll(".fleet-list-view"));
+        Assert.Equal("false", page.Find("button[aria-label='Card view']").GetAttribute("aria-pressed"));
+    }
+
+    [Fact]
+    public void Summary_scope_identifies_the_loaded_page_in_a_larger_result()
+    {
+        respond = _ => Json(HttpStatusCode.OK, Page(1, 60, Row()));
+        var page = RenderFleetPage();
+
+        Assert.Contains("1 vessels loaded", page.Find(".fleet-snapshot-heading").TextContent);
+        Assert.Contains("Page 1 of 3", page.Find(".fleet-snapshot-heading").TextContent);
+        Assert.Contains("60 vessels found", page.Find(".fleet-card-heading").TextContent);
+    }
+
     private IRenderedComponent<Fleet> RenderFleetPage()
     {
         var page = Render<Fleet>();

@@ -1,6 +1,7 @@
 :root,
 [data-theme="dark"] {
     --bg-app: #172033;
+    --module-card-background: linear-gradient(135deg, rgba(30, 41, 59, .4), rgba(15, 23, 42, .14));
     --bg-surface: rgba(255, 255, 255, 0.055);
     --bg-surface-strong: rgba(30, 41, 59, 0.43);
     /* opaque surface shared by search and filter controls */
@@ -201,7 +202,6 @@ html, body {
     .booking-card,
     .booking-kpi,
     .cargo-card,
-    .cargo-filters,
     .cargo-summary-card,
     .audit-plans-card,
     .audit-plans-filters,
@@ -216,7 +216,7 @@ html, body {
     .dashboard-priority-queue,
     .dashboard-summary-card,
     .documents-card,
-    .documents-filters,
+    .documents-filters:where(:not(.documents-register-filters)),
     .documents-form-card,
     .documents-type-form-card,
     .error-card,
@@ -230,7 +230,6 @@ html, body {
     .insurance-card,
     .insurance-results-card,
     .maintenance-card,
-    .maintenance-filters,
     .maintenance-form-card,
     .maintenance-summary-card,
     .nc-card,
@@ -240,7 +239,6 @@ html, body {
     .psc-card,
     .register-route-card,
     .reports-card,
-    .reports-filters,
     .schedule-card,
     .settings-card,
     .survey-card,
@@ -258,30 +256,16 @@ html, body {
     -webkit-backdrop-filter: blur(26px) saturate(150%);
 }
 
-.page:not(.login-layout) .account-dropdown {
-    border-color: rgba(148, 163, 184, .3) !important;
-    background: rgba(255, 255, 255, .68) !important;
-    box-shadow: 0 24px 60px rgba(15, 23, 42, .16), inset 0 1px rgba(255, 255, 255, .72) !important;
-    backdrop-filter: blur(30px) saturate(150%);
-    -webkit-backdrop-filter: blur(30px) saturate(150%);
-}
 
-.page:not(.login-layout) .notifications-dropdown {
-    border-color: rgba(148, 163, 184, .3) !important;
-    background: #fff !important;
-    box-shadow: 0 24px 60px rgba(15, 23, 42, .16), inset 0 1px rgba(255, 255, 255, .72) !important;
-    backdrop-filter: none;
-    -webkit-backdrop-filter: none;
-}
 
 html[data-theme="dark"] .page:not(.login-layout) :is(
+    :where(.documents-summary, .reports-summary, .administration-summary) > article,
     .access-denied-card,
     .administration-card,
     .administration-denied-card,
     .booking-card,
     .booking-kpi,
     .cargo-card,
-    .cargo-filters,
     .cargo-summary-card,
     .audit-plans-card,
     .audit-plans-filters,
@@ -296,7 +280,7 @@ html[data-theme="dark"] .page:not(.login-layout) :is(
     .dashboard-priority-queue,
     .dashboard-summary-card,
     .documents-card,
-    .documents-filters,
+    .documents-filters:where(:not(.documents-register-filters)),
     .documents-form-card,
     .documents-type-form-card,
     .error-card,
@@ -310,7 +294,6 @@ html[data-theme="dark"] .page:not(.login-layout) :is(
     .insurance-card,
     .insurance-results-card,
     .maintenance-card,
-    .maintenance-filters,
     .maintenance-form-card,
     .maintenance-summary-card,
     .nc-card,
@@ -320,7 +303,6 @@ html[data-theme="dark"] .page:not(.login-layout) :is(
     .psc-card,
     .register-route-card,
     .reports-card,
-    .reports-filters,
     .schedule-card,
     .settings-card,
     .survey-card,
@@ -332,21 +314,13 @@ html[data-theme="dark"] .page:not(.login-layout) :is(
     .voyages-filters,
     .voyages-kpi) {
     border-color: rgba(191, 219, 254, .15) !important;
-    background: linear-gradient(135deg, rgba(30, 41, 59, .4), rgba(15, 23, 42, .14)) !important;
+    background: var(--module-card-background) !important;
+    backdrop-filter: blur(26px) saturate(150%);
+    -webkit-backdrop-filter: blur(26px) saturate(150%);
     box-shadow: 0 18px 38px rgba(0, 0, 0, .16), inset 0 1px rgba(255, 255, 255, .09) !important;
 }
 
-html[data-theme="dark"] .page:not(.login-layout) .account-dropdown {
-    border-color: rgba(191, 219, 254, .2) !important;
-    background: rgba(15, 23, 42, .72) !important;
-    box-shadow: 0 24px 60px rgba(0, 0, 0, .3), inset 0 1px rgba(255, 255, 255, .1) !important;
-}
 
-html[data-theme="dark"] .page:not(.login-layout) .notifications-dropdown {
-    border-color: rgba(191, 219, 254, .2) !important;
-    background: #131c2b !important;
-    box-shadow: 0 24px 60px rgba(0, 0, 0, .3), inset 0 1px rgba(255, 255, 255, .1) !important;
-}
 
 /* Registration modals use the same solid surface as the Survey registration form.
    Only the page behind them is blurred; the form itself must stay fully legible. */
@@ -890,3 +864,28 @@ html[data-theme="dark"] .timeline-route-map .timeline-eyebrow { color: #8ab9ff; 
 html[data-theme="dark"] .timeline-map-status-key i.planned { background: #70aaff; }
 html[data-theme="dark"] .timeline-map-status-key i.arrived { background: #4ccbb4; }
 html[data-theme="dark"] .timeline-map-status-key i.departed { background: #8a9bb3; }
+
+/* Summary values and supporting labels need explicit contrast in dark mode. */
+html[data-theme="dark"] :is(.documents-summary, .reports-summary, .administration-summary) article { color: var(--text-primary); }
+html[data-theme="dark"] :is(.documents-summary, .reports-summary, .administration-summary) article strong { color: var(--text-primary); }
+html[data-theme="dark"] :is(.documents-summary, .reports-summary, .administration-summary) article small { color: var(--text-secondary); }
+
+/* Use the Fleet card surface for the lower registers as well. Paint table rows
+   once, rather than restarting the translucent gradient in every cell. */
+html[data-theme="dark"] .page :is(.documents-table, .reports-table) tbody tr,
+html[data-theme="dark"] .page .administration-page :is(.user-row, .role-row, .editor-note, fieldset, .account-lifecycle) {
+    background: var(--module-card-background);
+}
+
+html[data-theme="dark"] .page :is(.documents-table, .reports-table) tbody tr td {
+    background: transparent;
+}
+
+html[data-theme="dark"] .page :is(.documents-table, .reports-table) tbody tr:is(:hover, :focus-within),
+html[data-theme="dark"] .page .administration-page :is(.user-row, .role-row):hover {
+    background: var(--bg-surface-strong);
+}
+
+html[data-theme="dark"] .page .administration-page :is(.user-row, .role-row).selected {
+    background: var(--accent-bg);
+}

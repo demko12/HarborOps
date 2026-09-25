@@ -142,7 +142,7 @@ html[data-theme="dark"] .compliance-registration-modal { border-color: rgba(148,
 
 .compliance-actions button {
     color: #172033;
-    border-color: #c7d1df !important;
+    border-color: var(--accent-border);
     background: #ffffff;
 }
 
@@ -181,9 +181,9 @@ html[data-theme="dark"] .compliance-actions button {
     height: var(--control-height);
     padding: 0 1rem;
     color: var(--text-primary);
-    border: 1px solid var(--border-medium) !important;
+    border: 1px solid var(--accent-border);
     border-radius: var(--radius-button);
-    background: var(--bg-surface-strong) !important;
+    background: var(--accent-bg);
     box-shadow: none;
     font: inherit;
     font-size: .88rem;
@@ -278,3 +278,34 @@ html[data-theme="dark"] .compliance-page ::deep .compliance-section {
 @media(prefers-reduced-motion:reduce){.compliance-record{transition:none}.compliance-record:hover{transform:none}}
 @media(max-width:1050px){.compliance-list{grid-template-columns:1fr}}
 @media(max-width:760px){.compliance-page{padding:1.25rem 1rem}.compliance-header{align-items:flex-start;flex-direction:column}.compliance-tabs{display:grid;grid-template-columns:1fr}.compliance-tabs ::deep .compliance-tab{width:100%}.compliance-actions,.compliance-form-grid{grid-template-columns:1fr}.compliance-section{padding:1rem}.certificate-card,.inspection-card,.issue-card{grid-template-columns:1fr}.record-status-block,.deadline-block{align-items:flex-start;text-align:left}.inspection-metric{width:max-content;align-items:flex-start;text-align:left}.record-metadata{align-items:flex-start;flex-direction:column;gap:.25rem}.record-metadata code{width:100%}}
+
+.compliance-page { --accent: #059669; --accent-bg: rgba(5, 150, 105, .12); --accent-border: rgba(5, 150, 105, .3); max-width: 1600px; padding: 1.5rem 1rem 3rem; }
+.compliance-header h1 { font-size: clamp(1.8rem, 3vw, 2.35rem); font-weight: 600; }
+.compliance-eyebrow { font-size: .65rem; }
+.compliance-selector { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 1.25rem; padding: 1.25rem; }
+.compliance-selector-heading { display: flex; align-items: center; gap: .85rem; }
+.compliance-selector-heading > .bi,
+.compliance-page ::deep .compliance-section-icon { display: grid; flex: 0 0 auto; place-items: center; width: 2.8rem; height: 2.8rem; border: 1px solid var(--accent-border); border-radius: .85rem; color: var(--accent); background: var(--accent-bg); font-size: 1.2rem; }
+.compliance-selector-heading h2 { margin: 0; font-size: 1.1rem; font-weight: 600; }
+.compliance-selector-heading p { margin: .3rem 0 0; color: var(--text-muted); font-size: .75rem; }
+.compliance-vessel-field { flex: 1 1 20rem; max-width: 32rem; min-width: 0; }
+.compliance-summary { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: .85rem; margin: 1.25rem 0; }
+.compliance-summary article { display: flex; justify-content: space-between; gap: .75rem; padding: 1.1rem; border: 1px solid var(--border-subtle); border-radius: 1rem; background: linear-gradient(135deg, var(--bg-surface-strong), var(--bg-surface)); box-shadow: 0 12px 28px rgba(15, 23, 42, .06); }
+.compliance-summary article > div { display: grid; gap: .3rem; }
+.compliance-summary article > div > span { color: var(--text-secondary); font-size: .72rem; }
+.compliance-summary strong { font-size: 1.9rem; font-weight: 600; letter-spacing: -.04em; line-height: 1.2; }
+.compliance-summary small { color: var(--text-muted); font-size: .68rem; }
+.compliance-summary article > .bi { display: grid; place-items: center; width: 2rem; height: 2rem; flex: 0 0 auto; border-radius: .6rem; color: var(--accent); background: var(--accent-bg); }
+.compliance-page .compliance-actions { padding: 0; border: 0; background: transparent; box-shadow: none; gap: .6rem; }
+.compliance-page .compliance-actions button { color: var(--text-primary); border: 1px solid var(--accent-border); border-radius: .65rem; background: var(--accent-bg); box-shadow: none; font-size: .78rem; font-weight: 500; }
+.compliance-page .compliance-actions button:hover { color: var(--text-primary); background: color-mix(in srgb, var(--accent) 18%, var(--bg-surface)); border-color: var(--accent); transform: none; }
+.compliance-page .compliance-actions button .bi { color: var(--accent); }
+.compliance-page ::deep .compliance-section { margin-top: 1.25rem; padding: 1.25rem; border: 1px solid var(--border-subtle); border-radius: 1rem; background: linear-gradient(135deg, var(--bg-surface-strong), var(--bg-surface)); }
+.compliance-page ::deep .compliance-section-heading { display: flex; align-items: center; justify-content: flex-start; gap: .85rem; }
+.compliance-page ::deep .compliance-section-heading h2 { margin: 0; font-size: 1.2rem; font-weight: 600; letter-spacing: -.03em; }
+.compliance-page ::deep .compliance-list { display: grid; grid-template-columns: 1fr; gap: .6rem; }
+.compliance-page .compliance-record { padding: 1rem; background: var(--bg-surface); box-shadow: none; }
+.compliance-page .compliance-record:hover { transform: none; background: color-mix(in srgb, var(--accent) 8%, var(--bg-surface-strong)); box-shadow: none; }
+.compliance-page .record-identity strong { font-size: .85rem; overflow-wrap: anywhere; }
+@media (max-width: 1050px) { .compliance-summary { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 760px) { .compliance-page { padding: 1rem .5rem 2rem; } .compliance-summary { grid-template-columns: 1fr; } .compliance-selector { align-items: stretch; } .compliance-vessel-field { flex-basis: auto; width: 100%; max-width: none; } }

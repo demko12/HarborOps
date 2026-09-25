@@ -44,11 +44,43 @@ public sealed class CargoPageTests : BunitContext
 
         var cards = page.FindAll(".cargo-summary-card");
 
-        Assert.Equal(2, cards.Count);
+        Assert.Equal(4, cards.Count);
         Assert.Contains("60", cards[0].TextContent, StringComparison.Ordinal);
         Assert.Contains("Hazardous bookings", cards[1].TextContent, StringComparison.Ordinal);
         Assert.Contains("17", cards[1].TextContent, StringComparison.Ordinal);
         Assert.DoesNotContain("on this page", cards[1].TextContent, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Weight_and_package_summaries_describe_only_the_loaded_page()
+    {
+        respond = _ => Json(HttpStatusCode.OK, Page(
+            pageNumber: 1,
+            totalCount: 60,
+            hazardousCount: 17,
+            Row("BK-0001", weightKg: 12000m),
+            Row("BK-0002", weightKg: 4500m)));
+
+        var cards = RenderCargoPage().FindAll(".cargo-summary-card");
+
+        Assert.Contains("16.5", cards[2].TextContent, StringComparison.Ordinal);
+        Assert.Equal("20", cards[3].QuerySelector("strong")!.TextContent);
+        Assert.Contains("On this page", cards[2].TextContent, StringComparison.Ordinal);
+        Assert.Contains("On this page", cards[3].TextContent, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Changing_page_size_reloads_the_first_page()
+    {
+        var page = RenderCargoPage();
+
+        page.Find("#cargo-page-size").Change("50");
+
+        page.WaitForAssertion(() =>
+        {
+            Assert.Contains("pageSize=50", requestedUris[^1].Query, StringComparison.Ordinal);
+            Assert.Contains("pageNumber=1", requestedUris[^1].Query, StringComparison.Ordinal);
+        });
     }
 
     [Fact]
@@ -204,7 +236,7 @@ public sealed class CargoPageTests : BunitContext
         var previous = page.FindAll(".cargo-pages button")[0];
 
         Assert.True(previous.HasAttribute("disabled"));
-        Assert.Contains("Showing 1–1 of 60 bookings", page.Markup, StringComparison.Ordinal);
+        Assert.Contains("Showing 1\u20131 of 60 bookings", page.Markup, StringComparison.Ordinal);
 
         page.FindAll(".cargo-pages button")[1].Click();
 
