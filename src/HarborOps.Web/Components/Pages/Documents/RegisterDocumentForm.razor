@@ -1,0 +1,85 @@
+@using HarborOps.Web.Api.Documents
+@inject DocumentsApiClient DocumentsApi
+
+<div class="documents-modal-backdrop" role="presentation" @onclick="OnClose">
+<section class="documents-form-card documents-modal documents-modal-wide" role="dialog" aria-modal="true" aria-labelledby="documents-form-title" @onclick:stopPropagation="true">
+    <div class="documents-inline-form-header">
+        <h2 id="documents-form-title">Register document</h2>
+    </div>
+
+    @if (registerDocumentConflictMessage is not null)
+    {
+        <div class="documents-type-conflict" role="alert">@registerDocumentConflictMessage</div>
+    }
+
+    @if (registerDocumentGeneralError is not null)
+    {
+        <div class="documents-type-inline-error" role="alert">@registerDocumentGeneralError</div>
+    }
+
+    @if (registerDocumentUnmappedErrors.Count > 0)
+    {
+        <ul class="documents-type-field-errors" role="alert">
+            @foreach (var message in registerDocumentUnmappedErrors)
+            {
+                <li>@message</li>
+            }
+        </ul>
+    }
+
+    @if (registerDocumentSuccessMessage is not null)
+    {
+        <div class="documents-type-success" role="status">@registerDocumentSuccessMessage</div>
+    }
+
+    <EditForm EditContext="registerDocumentEditContext" OnSubmit="SubmitDocumentAsync" class="documents-form">
+        <DataAnnotationsValidator />
+
+        <div class="documents-form-grid">
+            <div class="filter-field">
+                <label for="doc-number">Document number</label>
+                <InputText id="doc-number" @bind-Value="registerDocumentModel.Number" maxlength="100" />
+                <ValidationMessage For="() => registerDocumentModel.Number" />
+            </div>
+            <div class="filter-field">
+                <label for="doc-vessel">Vessel</label>
+                <VesselPicker @key="vesselPickerResetToken" @bind-Value="registerDocumentModel.VesselId" InitialLabel="@registerDocumentVesselLabel" Placeholder="Search vessel by name or IMO..." />
+                <ValidationMessage For="() => registerDocumentModel.VesselId" />
+            </div>
+            <div class="filter-field">
+                <label for="doc-type">Document type</label>
+                <InputSelect id="doc-type" @bind-Value="registerDocumentModel.DocumentTypeId" disabled="@(IsLoadingDocumentTypes || DocumentTypeOptions.Count == 0)">
+                    <option value="">@DocumentTypePlaceholder</option>
+                    @foreach (var option in DocumentTypeOptions)
+                    {
+                        <option value="@option.DocumentTypeId">@option.Name (@option.MandatoryValidityPeriodDays days)</option>
+                    }
+                </InputSelect>
+                <ValidationMessage For="() => registerDocumentModel.DocumentTypeId" />
+            </div>
+            <div class="filter-field">
+                <label for="doc-issue-date">Issue date</label>
+                <InputDate id="doc-issue-date" @bind-Value="registerDocumentModel.IssueDate" />
+                <ValidationMessage For="() => registerDocumentModel.IssueDate" />
+            </div>
+            <div class="filter-field">
+                <label for="doc-expiry-date">Expiry date</label>
+                <InputDate id="doc-expiry-date" @bind-Value="registerDocumentModel.ExpiryDate" />
+                <ValidationMessage For="() => registerDocumentModel.ExpiryDate" />
+            </div>
+            <div class="filter-field">
+                <label for="doc-issuing-authority">Issuing authority</label>
+                <InputText id="doc-issuing-authority" @bind-Value="registerDocumentModel.IssuingAuthority" maxlength="200" />
+                <ValidationMessage For="() => registerDocumentModel.IssuingAuthority" />
+            </div>
+        </div>
+
+        <div class="documents-modal-actions">
+            <button type="submit" class="documents-search-button" disabled="@isRegisteringDocument">
+                @(isRegisteringDocument ? "Registering..." : "Register document")
+            </button>
+            <button type="button" class="documents-modal-cancel" @onclick="OnClose" disabled="@isRegisteringDocument">Cancel</button>
+        </div>
+    </EditForm>
+</section>
+</div>
