@@ -1,5 +1,6 @@
 <section class="compliance-card compliance-section">
     <div class="compliance-section-heading">
+        <span class="compliance-section-icon bi @Icon" aria-hidden="true"></span>
         <h2>@Title</h2>
     </div>
     @if (IsEmpty) { <EmptyState Title="@EmptyTitle" Message="Records will appear here when they are added for this vessel." /> }
@@ -9,6 +10,7 @@
 @code {
     [Parameter, EditorRequired] public string Title { get; set; } = string.Empty;
     [Parameter, EditorRequired] public string EmptyTitle { get; set; } = string.Empty;
+    [Parameter] public string Icon { get; set; } = "bi-shield-check";
     [Parameter] public bool IsEmpty { get; set; }
     [Parameter] public RenderFragment? ChildContent { get; set; }
 }

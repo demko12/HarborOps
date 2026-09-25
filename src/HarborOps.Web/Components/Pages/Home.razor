@@ -5,12 +5,21 @@
 
 <PageTitle>Dashboard | HarborOps</PageTitle>
 
-<section class="dashboard-page">
+<section class="dashboard-page" aria-busy="@isLoading.ToString().ToLowerInvariant()">
     <header class="dashboard-header">
         <div>
-            <p class="dashboard-eyebrow">Operations overview</p>
-            <h1>What needs attention</h1>
-            <p>Time-sensitive work across the HarborOps capabilities you can access.</p>
+            <p class="dashboard-eyebrow">Your operations, at a glance</p>
+            <h1>Operations dashboard</h1>
+            <p>Track your fleet, stay ahead of deadlines, and focus on what matters next.</p>
+        </div>
+        <div class="dashboard-header-actions">
+            @if (dashboard is not null)
+            {
+                <span class="dashboard-date"><span class="bi bi-calendar3" aria-hidden="true"></span> As of @dashboard.AsOf.ToString("dd MMM yyyy")</span>
+            }
+            <button class="dashboard-refresh" type="button" disabled="@isLoading" @onclick="LoadAsync">
+                <span class="bi bi-arrow-clockwise" aria-hidden="true"></span> @(isLoading ? "Refreshing…" : "Refresh")
+            </button>
         </div>
     </header>
 
@@ -32,139 +41,181 @@
         {
             <div class="dashboard-partial-notice" role="status">
                 <span class="bi bi-exclamation-triangle" aria-hidden="true"></span>
-                <span>Some operational sections are temporarily unavailable. The remaining data is current.</span>
+                <span>Some operational sections are temporarily unavailable. Available sections are shown below.</span>
             </div>
         }
 
         <section class="dashboard-summary-grid" aria-label="Operational summary">
             @foreach (var section in dashboard.Sections)
             {
-                <a class="dashboard-summary-card @(section.IsUnavailable ? "is-unavailable" : string.Empty)" href="@section.Link">
-                    <span class="dashboard-summary-icon @GetIconClass(section.Capability)">
-                        <span class="bi @GetIcon(section.Capability)" aria-hidden="true"></span>
-                    </span>
-                    <span class="dashboard-summary-content">
+                <a class="dashboard-summary-card dashboard-glass @(section.IsUnavailable ? "is-unavailable" : string.Empty)" href="@section.Link">
+                    <div class="dashboard-metric-heading">
+                        <span class="dashboard-icon @GetIconClass(section.Capability)">@RenderIcon(section.Capability)</span>
                         <span>@section.Title</span>
-                        @if (section.IsUnavailable)
-                        {
-                            <strong>—</strong>
-                            <small>Temporarily unavailable</small>
-                        }
-                        else
-                        {
-                            <strong>@section.Count</strong>
-                            <small>@section.SummaryLabel</small>
-                        }
-                    </span>
-                    <span class="bi bi-chevron-right dashboard-summary-arrow" aria-hidden="true"></span>
+                        <span class="bi bi-arrow-up-right" aria-hidden="true"></span>
+                    </div>
+                    <strong class="dashboard-metric-value">@(section.IsUnavailable ? "—" : section.Count.ToString("N0"))</strong>
+                    <span class="dashboard-metric-label">@(section.IsUnavailable ? "Temporarily unavailable" : section.SummaryLabel)</span>
                 </a>
             }
         </section>
 
-        @if (dashboard.PriorityItems.Count > 0)
-        {
-            <section class="dashboard-priority-queue" aria-labelledby="priority-queue-title">
-                <div class="dashboard-priority-heading">
-                    <div>
-                        <p class="dashboard-eyebrow">Immediate attention</p>
-                        <h2 id="priority-queue-title">Priority queue</h2>
-                    </div>
-                    <span>Showing @FilteredPriorityItems.Count of @dashboard.PriorityItems.Count</span>
+        <div class="dashboard-workspace">
+            <section class="dashboard-priority-queue dashboard-glass" aria-labelledby="priority-queue-title">
+                <header class="dashboard-panel-heading">
+                    <div><p class="dashboard-eyebrow">What needs attention</p><h2 id="priority-queue-title">Priority queue <span class="dashboard-count">@dashboard.PriorityItems.Count</span></h2></div>
+                    <span class="dashboard-caption">Top items across your modules</span>
+                </header>
+                <div class="dashboard-queue-filters" role="group" aria-label="Priority queue filters">
+                    <button type="button" class="@(activePriorityFilter is null ? "selected" : string.Empty)" @onclick="() => activePriorityFilter = null" aria-pressed="@((activePriorityFilter is null).ToString().ToLowerInvariant())">All <span>@dashboard.PriorityItems.Count</span></button>
+                    <button type="button" class='@GetRiskFilterClass("critical")' @onclick='() => TogglePriorityFilter("critical")' aria-pressed='@((activePriorityFilter == "critical").ToString().ToLowerInvariant())'><span class="dashboard-dot critical"></span> Critical <span>@PriorityCriticalCount</span></button>
+                    <button type="button" class='@GetRiskFilterClass("warning")' @onclick='() => TogglePriorityFilter("warning")' aria-pressed='@((activePriorityFilter == "warning").ToString().ToLowerInvariant())'><span class="dashboard-dot warning"></span> Attention <span>@PriorityAttentionCount</span></button>
+                    <button type="button" class='@GetRiskFilterClass("due")' @onclick='() => TogglePriorityFilter("due")' aria-pressed='@((activePriorityFilter == "due").ToString().ToLowerInvariant())'>Due / overdue <span>@PriorityDueNowCount</span></button>
                 </div>
-                <div class="dashboard-priority-layout">
-                    <div class="dashboard-priority-list">
-                        @foreach (var item in FilteredPriorityItems)
-                        {
-                            <a href="@item.Link" class="dashboard-priority-item">
-                                <span class="dashboard-attention-icon @GetIconClass(item.Capability)">
-                                    <span class="bi @GetIcon(item.Capability)" aria-hidden="true"></span>
-                                </span>
-                                <div class="dashboard-priority-main">
-                                    <span class="dashboard-priority-capability">@item.CapabilityTitle</span>
-                                    <strong>@item.Title</strong>
-                                    <small>@item.Detail</small>
-                                </div>
-                                <span class="dashboard-priority-risk @item.Severity">@GetRiskLabel(item.Severity)</span>
+                <div class="dashboard-priority-list" aria-live="polite">
+                    @foreach (var item in FilteredPriorityItems)
+                    {
+                        <a href="@item.Link" class="dashboard-priority-item">
+                            <span class="dashboard-icon @GetIconClass(item.Capability)">@RenderIcon(item.Capability)</span>
+                            <div class="dashboard-item-main"><span class="dashboard-item-category">@item.CapabilityTitle</span><strong>@item.Title</strong><small>@item.Detail</small></div>
+                            <div class="dashboard-item-status">
+                                <span class="dashboard-badge @item.Severity">@GetRiskLabel(item.Severity)</span>
                                 @if (item.DueLabel is not null)
                                 {
-                                    <span class="dashboard-priority-due">@GetDueLabel(item)</span>
+                                    <time datetime="@item.DueLabel">@GetDueLabel(item)</time>
                                 }
-                                <span class="bi bi-chevron-right dashboard-priority-arrow" aria-hidden="true"></span>
-                            </a>
-                        }
-                    </div>
-                    <aside class="dashboard-risk-overview" aria-label="Priority queue filters">
-                        <p>Filter queue</p>
-                        <strong>Focus by risk</strong>
-                        <button type="button" class='dashboard-risk-stat critical @GetRiskFilterClass("critical")' @onclick='() => TogglePriorityFilter("critical")' aria-pressed='@(activePriorityFilter == "critical")'><span>Critical</span><strong>@PriorityCriticalCount</strong></button>
-                        <button type="button" class='dashboard-risk-stat warning @GetRiskFilterClass("warning")' @onclick='() => TogglePriorityFilter("warning")' aria-pressed='@(activePriorityFilter == "warning")'><span>Attention</span><strong>@PriorityAttentionCount</strong></button>
-                        <button type="button" class='dashboard-risk-stat upcoming @GetRiskFilterClass("due")' @onclick='() => TogglePriorityFilter("due")' aria-pressed='@(activePriorityFilter == "due")'><span>Due today / overdue</span><strong>@PriorityDueNowCount</strong></button>
-                    </aside>
-                </div>
-            </section>
-        }
-
-        <section class="dashboard-attention" aria-labelledby="attention-title">
-            <div class="dashboard-section-heading">
-                <div>
-                    <p class="dashboard-eyebrow">Priority queue</p>
-                    <h2 id="attention-title">Operational attention</h2>
-                </div>
-                <span>As of @dashboard.AsOf.ToString("dd MMM yyyy")</span>
-            </div>
-
-            <div class="dashboard-section-grid">
-                @foreach (var section in dashboard.Sections)
-                {
-                    <article class="dashboard-attention-card">
-                        <header>
-                            <div>
-                                <span class="dashboard-attention-icon @GetIconClass(section.Capability)">
-                                    <span class="bi @GetIcon(section.Capability)" aria-hidden="true"></span>
-                                </span>
-                                <h3>@section.Title</h3>
                             </div>
-                            @if (!section.IsUnavailable)
-                            {
-                                <span class="dashboard-section-count">@section.Count</span>
-                            }
-                            <a href="@section.Link">View all <span class="bi bi-arrow-up-right" aria-hidden="true"></span></a>
-                        </header>
-                        @if (section.IsUnavailable)
-                        {
-                            <p class="dashboard-unavailable"><span class="bi bi-exclamation-circle" aria-hidden="true"></span>This section could not be loaded. Try refreshing the dashboard.</p>
-                        }
-                        else if (section.Items.Count == 0)
-                        {
-                            <p class="dashboard-empty"><span class="bi bi-check2-circle" aria-hidden="true"></span>Nothing requiring attention right now.</p>
-                        }
-                        else
-                        {
-                            <ul class="dashboard-attention-list">
-                                @foreach (var item in section.Items)
-                                {
-                                    <li>
-                                        <a href="@(item.Link ?? section.Link)" class="dashboard-attention-item">
-                                            <span class="dashboard-severity @item.Severity" aria-hidden="true"></span>
-                                            <div>
-                                                <strong>@item.Title</strong>
-                                                <span>@item.Detail</span>
-                                            </div>
-                                            @if (item.DueLabel is not null)
-                                            {
-                                                <time datetime="@item.DueLabel">@GetDueLabel(section.Capability, item.DueLabel, item.Severity)</time>
-                                            }
-                                        </a>
-                                    </li>
-                                }
-                            </ul>
-                        }
-                    </article>
+                            <span class="bi bi-chevron-right dashboard-arrow" aria-hidden="true"></span>
+                        </a>
+                    }
+                    @if (FilteredPriorityItems.Count == 0)
+                    {
+                        <div class="dashboard-empty"><span class="bi bi-check2-circle" aria-hidden="true"></span><strong>@(activePriorityFilter is null ? "No priority items to show" : "No items match this filter")</strong><p>@(activePriorityFilter is null ? "Explore the module previews below for more detail." : "Choose All to return to the full priority queue.")</p></div>
+                    }
+                </div>
+                <footer class="dashboard-panel-footer"><span class="bi bi-info-circle" aria-hidden="true"></span> Showing @FilteredPriorityItems.Count of @dashboard.PriorityItems.Count priority items. Open a module for its complete list.</footer>
+            </section>
+
+            <aside class="dashboard-agenda dashboard-glass" aria-labelledby="agenda-title">
+                <header class="dashboard-panel-heading"><div><p class="dashboard-eyebrow">Plan ahead</p><h2 id="agenda-title">Next deadlines</h2></div><span class="bi bi-calendar-week dashboard-panel-symbol" aria-hidden="true"></span></header>
+                <p class="dashboard-caption dashboard-agenda-caption">Next 30 days · from available module previews</p>
+                <div class="dashboard-agenda-list">
+                    @foreach (var item in UpcomingItems)
+                    {
+                        var due = DateOnly.Parse(item.DueLabel!, System.Globalization.CultureInfo.InvariantCulture);
+                        <a class="dashboard-agenda-item" href="@item.Link">
+                            <time class="dashboard-date-tile" datetime="@item.DueLabel"><span>@due.ToString("MMM")</span><strong>@due.ToString("dd")</strong></time>
+                            <div class="dashboard-item-main"><span class="dashboard-item-category">@item.CapabilityTitle</span><strong>@item.Title</strong><small>@GetDueLabel(item)</small></div>
+                            <span class="bi bi-chevron-right dashboard-arrow" aria-hidden="true"></span>
+                        </a>
+                    }
+                    @if (UpcomingItems.Count == 0)
+                    {
+                        <div class="dashboard-empty"><span class="bi bi-calendar-check" aria-hidden="true"></span><strong>No upcoming dates in this preview</strong><p>Check each module for its full schedule.</p></div>
+                    }
+                </div>
+                <div class="dashboard-coverage">
+                    <span><span class="bi bi-database-check" aria-hidden="true"></span> Dashboard coverage</span>
+                    <strong>@dashboard.Sections.Count(section => !section.IsUnavailable) / @dashboard.Sections.Count modules loaded</strong>
+                    <div class="dashboard-coverage-track" aria-hidden="true">@foreach (var section in dashboard.Sections) { <span class="@(section.IsUnavailable ? "unavailable" : "")"></span> }</div>
+                </div>
+            </aside>
+        </div>
+
+        <section class="dashboard-modules" aria-labelledby="attention-title">
+            <header class="dashboard-panel-heading dashboard-module-heading">
+                <div><p class="dashboard-eyebrow">Explore your workspace</p><h2 id="attention-title">Operations workspace</h2><p class="dashboard-caption">Choose a module to explore vessels, schedules, and operational work.</p></div>
+                <label class="dashboard-search"><span class="bi bi-search" aria-hidden="true"></span><input type="search" aria-label="Search module previews" placeholder="Find a module or item…" @bind="moduleSearch" @bind:event="oninput" /></label>
+            </header>
+            <div class="workspace-tabs" role="tablist" aria-label="Operational modules">
+                @for (var index = 0; index < VisibleSections.Count; index++)
+                {
+                    var tabIndex = index;
+                    var module = VisibleSections[index];
+                    var selected = ActiveSection?.Capability == module.Capability;
+                    <button @key="module.Capability" @ref="moduleTabElements[tabIndex]" id="@($"module-tab-{module.Capability}")" class="workspace-tab @(selected ? "selected" : "")" type="button" role="tab" aria-selected="@selected.ToString().ToLowerInvariant()" aria-controls="module-preview" tabindex="@(selected ? 0 : -1)" @onclick="() => selectedModule = module.Capability" @onkeydown="e => HandleModuleKeyDown(e, tabIndex)">
+                        <span class="dashboard-icon @GetIconClass(module.Capability)">@RenderIcon(module.Capability)</span>
+                        @module.Title
+                        @if (module.IsUnavailable) { <span class="bi bi-exclamation-circle" aria-label="Unavailable"></span> }
+                    </button>
                 }
             </div>
+            @if (ActiveSection is { } previewSection)
+            {
+                <article id="module-preview" class="workspace-panel dashboard-glass" role="tabpanel" aria-labelledby="@($"module-tab-{previewSection.Capability}")" tabindex="0">
+                    <header class="workspace-heading">
+                        <div><p class="dashboard-eyebrow">@GetWorkspaceLabel(previewSection.Capability)</p><h3>@previewSection.Title</h3><p class="dashboard-caption">@previewSection.SummaryLabel · @(previewSection.IsUnavailable ? "Unavailable" : $"{previewSection.Count:N0} total")</p></div>
+                        <a class="dashboard-refresh" href="@previewSection.Link">Open @previewSection.Title <span class="bi bi-arrow-up-right" aria-hidden="true"></span></a>
+                    </header>
+                    @if (previewSection.IsUnavailable)
+                    {
+                        <p class="dashboard-unavailable"><span class="bi bi-exclamation-circle" aria-hidden="true"></span> This section could not be loaded. Try refreshing the dashboard.</p>
+                    }
+                    else if (previewSection.Items.Count == 0)
+                    {
+                        <div class="dashboard-empty"><span class="bi bi-check2-circle" aria-hidden="true"></span><strong>No items in this preview</strong><p>Open @previewSection.Title for the complete module.</p></div>
+                    }
+                    else
+                    {
+                        <div class="workspace-items workspace-@previewSection.Capability">
+                            @foreach (var item in previewSection.Items)
+                            {
+                                <a href="@(item.Link ?? previewSection.Link)" class="workspace-item">
+                                    @if (IsExpiryModule(previewSection.Capability) && DateOnly.TryParse(item.DueLabel, out var expiry))
+                                    {
+                                        <time class="dashboard-date-tile" datetime="@item.DueLabel"><span>@expiry.ToString("MMM")</span><strong>@expiry.ToString("dd")</strong></time>
+                                    }
+                                    else
+                                    {
+                                        <span class="dashboard-icon @GetIconClass(previewSection.Capability)">@RenderIcon(previewSection.Capability)</span>
+                                    }
+                                    <div class="workspace-item-content">
+                                        <strong>@item.Title</strong>
+                                        @if (previewSection.Capability == "fleet")
+                                        {
+                                            <span class="workspace-vessel-status"><span class="dashboard-dot" aria-hidden="true"></span>@item.Detail</span>
+                                        }
+                                        else if (previewSection.Capability == "voyages")
+                                        {
+                                            <span class="workspace-route">@item.Detail.Replace(" to ", " → ", StringComparison.Ordinal)</span>
+                                        }
+                                        else
+                                        {
+                                            <span class="workspace-detail">@item.Detail</span>
+                                        }
+                                    </div>
+                                    <div class="workspace-item-meta">
+                                        @if (previewSection.Capability == "cargo" && item.Detail.StartsWith("Hazardous", StringComparison.OrdinalIgnoreCase))
+                                        {
+                                            <span class="dashboard-badge warning"><span class="bi bi-exclamation-triangle" aria-hidden="true"></span> Hazardous</span>
+                                        }
+                                        @if (previewSection.Capability == "maintenance" || IsExpiryModule(previewSection.Capability))
+                                        {
+                                            <span class="dashboard-badge @item.Severity">@GetRiskLabel(item.Severity)</span>
+                                        }
+                                        @if (item.DueLabel is not null)
+                                        {
+                                            <time datetime="@item.DueLabel">@GetDueLabel(previewSection.Capability, item.DueLabel, item.Severity)</time>
+                                        }
+                                        @if (previewSection.Capability == "fleet")
+                                        {
+                                            <span class="workspace-item-action">View vessel</span>
+                                        }
+                                    </div>
+                                    <span class="bi bi-arrow-up-right dashboard-arrow" aria-hidden="true"></span>
+                                </a>
+                            }
+                        </div>
+                    }
+                    <footer class="dashboard-panel-footer">@(previewSection.IsUnavailable ? "Data temporarily unavailable" : $"Showing {previewSection.Items.Count} items from the dashboard preview") · As of @dashboard.AsOf.ToString("dd MMM yyyy")</footer>
+                </article>
+            }
+            @if (VisibleSections.Count == 0)
+            {
+                <div class="dashboard-empty dashboard-glass" role="status"><span class="bi bi-search" aria-hidden="true"></span><strong>No matching modules or items</strong><p>Try a vessel name, an item title, or a module such as Fleet.</p><button class="dashboard-refresh" type="button" @onclick='() => moduleSearch = string.Empty'>Clear search</button></div>
+            }
         </section>
     }
-
 </section>
 
 @code {
@@ -174,6 +225,63 @@
     private OperationsDashboardResponse? dashboard;
     private OperationsDashboardApiFailure? failure;
     private string? activePriorityFilter;
+    private string moduleSearch = string.Empty;
+    private string? selectedModule;
+    private ElementReference[] moduleTabElements = [];
+
+    private OperationsDashboardSectionResponse? ActiveSection =>
+        VisibleSections.FirstOrDefault(section => section.Capability == selectedModule) ?? VisibleSections.FirstOrDefault();
+
+    private async Task HandleModuleKeyDown(KeyboardEventArgs args, int index)
+    {
+        var sections = VisibleSections;
+        var next = args.Key switch
+        {
+            "ArrowRight" => (index + 1) % sections.Count,
+            "ArrowLeft" => (index + sections.Count - 1) % sections.Count,
+            "Home" => 0,
+            "End" => sections.Count - 1,
+            _ => -1,
+        };
+        if (next >= 0)
+        {
+            selectedModule = sections[next].Capability;
+            await moduleTabElements[next].FocusAsync();
+        }
+    }
+
+    private static bool IsExpiryModule(string capability) => capability is "crew" or "compliance" or "documents";
+
+    private static string GetWorkspaceLabel(string capability) => capability switch
+    {
+        "fleet" => "Vessels in operation",
+        "voyages" => "Routes & departures",
+        "maintenance" => "Work requiring attention",
+        "cargo" => "Hazardous cargo bookings",
+        "crew" => "Crew credentials",
+        "compliance" => "Certificates & findings",
+        "documents" => "Document expiries",
+        _ => "Operational preview",
+    };
+
+    private IReadOnlyList<OperationsDashboardSectionResponse> VisibleSections => dashboard?.Sections
+        .Where(section => string.IsNullOrWhiteSpace(moduleSearch)
+            || section.Title.Contains(moduleSearch.Trim(), StringComparison.OrdinalIgnoreCase)
+            || section.Items.Any(item => item.Title.Contains(moduleSearch.Trim(), StringComparison.OrdinalIgnoreCase)
+                || item.Detail.Contains(moduleSearch.Trim(), StringComparison.OrdinalIgnoreCase)))
+        .ToArray() ?? [];
+
+    private IReadOnlyList<OperationsDashboardPriorityItemResponse> UpcomingItems => dashboard?.Sections
+        .Where(section => !section.IsUnavailable)
+        .SelectMany(section => section.Items.Select(item => new OperationsDashboardPriorityItemResponse(
+            section.Capability, section.Title, item.Title, item.Detail, item.DueLabel,
+            item.Severity, item.Link ?? section.Link)))
+        .Where(item => DateOnly.TryParse(item.DueLabel, System.Globalization.CultureInfo.InvariantCulture,
+            System.Globalization.DateTimeStyles.None, out var date)
+            && date >= dashboard.AsOf && date <= dashboard.AsOf.AddDays(30))
+        .OrderBy(item => item.DueLabel, StringComparer.Ordinal)
+        .Take(4)
+        .ToArray() ?? [];
 
     private bool HasUnavailableSections => dashboard?.Sections.Any(section => section.IsUnavailable) == true;
 
@@ -217,6 +325,7 @@
 
             var dashboardResult = await dashboardTask;
             dashboard = dashboardResult.Value;
+            moduleTabElements = new ElementReference[dashboard?.Sections.Count ?? 0];
             failure = dashboardResult.Failure;
             activePriorityFilter = null;
         }
@@ -233,9 +342,19 @@
         }
     }
 
+    private RenderFragment RenderIcon(string capability) => @<span class="dashboard-icon-glyph" aria-hidden="true">
+        @if (capability == "fleet")
+        {
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="1em" height="1em" focusable="false"><path d="M12 10.189V14"></path><path d="M12 2v3"></path><path d="M19 13V7a2 2 0 0 0-2-2H7a2 2 0 0 0-2 2v6"></path><path d="M19.38 20A11.6 11.6 0 0 0 21 14l-8.188-3.639a2 2 0 0 0-1.624 0L3 14a11.6 11.6 0 0 0 2.81 7.76"></path><path d="M2 21c.6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1s1.2 1 2.5 1c2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1"></path></svg>
+        }
+        else
+        {
+            <span class="bi @GetIcon(capability)"></span>
+        }
+    </span>;
+
     private static string GetIcon(string capability) => capability switch
     {
-        "fleet" => "bi-water",
         "crew" => "bi-people",
         "voyages" => "bi-signpost-split",
         "cargo" => "bi-box-seam",

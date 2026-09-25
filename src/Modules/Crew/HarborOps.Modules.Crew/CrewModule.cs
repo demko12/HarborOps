@@ -63,6 +63,11 @@ public static class CrewModule
         services.AddScoped<CreateVesselManningPlanService>();
         services.AddScoped<ReplaceVesselManningPlanLinesService>();
         services.AddScoped<EndVesselManningPlanService>();
+        services.AddScoped<IGetQualificationPoliciesQuery, GetQualificationPoliciesQuery>();
+        services.AddScoped<IGetQualificationPolicyDetailQuery, GetQualificationPolicyDetailQuery>();
+        services.AddScoped<IGetCrewQualificationEligibilityQuery, GetCrewQualificationEligibilityQuery>();
+        services.AddScoped<CreateQualificationPolicyService>();
+        services.AddScoped<UpdateQualificationPolicyService>();
         return services;
     }
 }

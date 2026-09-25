@@ -21,6 +21,8 @@
         @if (AuthorizationState.CanManageCompliance) { <button class="survey-register-action" type="button" @onclick="OpenRegistrationForm"><span class="bi bi-plus-lg"></span> Register survey</button> }
     </header>
 
+    <ComplianceNavigation />
+
     @if (AuthorizationState.CanManageCompliance && isRegistrationOpen)
     {
         <div class="survey-modal-backdrop" role="presentation" @onclick="CloseRegistrationForm">

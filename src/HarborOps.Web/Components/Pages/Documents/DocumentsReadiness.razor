@@ -1,0 +1,50 @@
+@page "/documents/readiness"
+@attribute [Microsoft.AspNetCore.Authorization.Authorize(Policy = "AccessDocuments")]
+@using HarborOps.Web.Api.Documents
+@implements IDisposable
+@inject DocumentsApiClient DocumentsApi
+
+<PageTitle>Document readiness | HarborOps</PageTitle>
+
+<section class="documents-page">
+    <header class="documents-header">
+        <div>
+            <nav class="page-breadcrumb" aria-label="Breadcrumb"><a href="/documents">Documents operations</a><span aria-hidden="true">/</span><span>Readiness</span></nav>
+            <h1>Document readiness</h1>
+            <p>Check whether each vessel carries the documents it is required to have.</p>
+        </div>
+        <div class="documents-header-actions">
+            <a class="workspace-tab" href="/documents/acknowledgements">
+                <span class="bi bi-check2-square" aria-hidden="true"></span> My acknowledgements
+            </a>
+        </div>
+    </header>
+
+    <DocumentsNavigation />
+
+    <DocumentReadinessPanel InitialVesselId="RequestedVesselId"
+                            RefreshToken="readinessRefreshToken"
+                            OnOpenDocument="OpenFilePanel"
+                            OnRegisterMissing="OpenRegisterFormForMissing" />
+
+    @if (expandedDocumentId is { } fileDocumentId)
+    {
+        <DocumentFilePanel @key="fileDocumentId"
+                           DocumentId="fileDocumentId"
+                           DocumentTypeOptions="documentTypeOptions"
+                           OnClose="CloseFilePanel"
+                           OnDocumentChanged="RefreshReadiness" />
+    }
+
+    @if (missingDocument is { } missing)
+    {
+        <RegisterDocumentForm @key="missing"
+                              DocumentTypeOptions="documentTypeOptions"
+                              IsLoadingDocumentTypes="isLoadingDocumentTypes"
+                              InitialVesselId="missing.VesselId"
+                              InitialVesselName="@missing.VesselName"
+                              InitialDocumentTypeId="missing.DocumentTypeId"
+                              OnClose="CloseRegisterDocumentForm"
+                              OnRegistered="RefreshReadiness" />
+    }
+</section>

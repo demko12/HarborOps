@@ -138,7 +138,7 @@ html[data-theme="dark"] .nc-select-shell select { color-scheme: dark; }
 }
 
 .nc-record:hover { border-color: var(--accent-border); background: var(--accent-bg); transform: translateX(2px); }
-.nc-record.is-overdue { border-color: rgba(248, 113, 113, .38); }
+
 
 .nc-record-cell { display: grid; min-width: 0; gap: .3rem; }
 .nc-record-cell > span { display: block; color: var(--text-muted); font-size: .67rem; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; }
@@ -415,3 +415,13 @@ html[data-theme="light"] .nc-button-danger:hover:not(:disabled) { background: rg
     .nc-page { padding: 1.25rem 1rem; }
     .nc-pagination { flex-direction: column; align-items: flex-start; }
 }
+
+.nc-page { --accent: #059669; --accent-bg: rgba(5, 150, 105, .12); --accent-border: rgba(5, 150, 105, .3); max-width: 1600px; margin: 0 auto; padding: 1.5rem 1rem 3rem; }
+.nc-header h1 { font-size: clamp(1.8rem, 3vw, 2.35rem); font-weight: 600; letter-spacing: -.04em; }
+.nc-page .nc-record { border-radius: .75rem; border-left: 3px solid var(--accent-border); background: var(--bg-surface); box-shadow: none; }
+.nc-page .nc-record:hover { transform: none; background: color-mix(in srgb, var(--accent) 9%, var(--bg-surface-strong)); border-left-color: var(--accent); box-shadow: none; }
+.nc-page .nc-record:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.nc-page select { background-position: right 1rem center; padding-right: 2.5rem; }
+@media (max-width: 760px) { .nc-page { padding: 1rem .5rem 2rem; } }
+
+.nc-page .nc-record-icon { color: var(--accent); background: var(--accent-bg); }

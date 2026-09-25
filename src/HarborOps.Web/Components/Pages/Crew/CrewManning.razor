@@ -20,6 +20,8 @@
         </div>
     </header>
 
+    <CrewNavigation />
+
     <div class="crew-manning-filters">
         <div class="filter-field filter-field-wide">
             <label for="manning-vessel">Vessel</label>
@@ -250,6 +252,7 @@
                                 @foreach (var interval in group)
                                 {
                                     var ineligible = IneligibleMembersFor(interval.RankId, interval.StartDate, interval.EndDate);
+                                    var unqualified = UnqualifiedMembersFor(interval.RankId, interval.StartDate, interval.EndDate);
                                     <li class="crew-manning-shortage-item">
                                         <div class="crew-manning-shortage-item-head">
                                             <span>@interval.StartDate.ToString("dd MMM yyyy") &ndash; @interval.EndDate.ToString("dd MMM yyyy")</span>
@@ -263,6 +266,18 @@
                                                     <li>
                                                         <a href="@($"/crew/{member.CrewMemberId}")">View member</a>
                                                         <span>&mdash; @(member.Reason == "InactiveEmployment" ? "Inactive employment" : "Approved unavailability")</span>
+                                                    </li>
+                                                }
+                                            </ul>
+                                        }
+                                        @if (unqualified.Count > 0)
+                                        {
+                                            <ul class="crew-manning-ineligible-list crew-manning-unqualified-list">
+                                                @foreach (var member in unqualified)
+                                                {
+                                                    <li>
+                                                        <a href="@($"/crew/{member.CrewMemberId}")">View member</a>
+                                                        <span>&mdash; Missing @string.Join(", ", member.MissingTypes)</span>
                                                     </li>
                                                 }
                                             </ul>

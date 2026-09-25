@@ -83,6 +83,84 @@ internal sealed record MaintenanceBacklogReportPage(
     int PageSize,
     int TotalCount);
 
+internal sealed record PortCallPerformanceReportQuery(
+    DateOnly DepartedFrom,
+    DateOnly DepartedTo,
+    Guid? VoyageId,
+    Guid? VesselId,
+    Guid? PortId,
+    string? StatementAvailability,
+    string? SortBy,
+    string? SortDirection,
+    int PageNumber,
+    int PageSize);
+
+internal sealed record PortCallPerformanceReportMetric(
+    int? Minutes,
+    decimal? Hours,
+    string Quality,
+    string? Milestone);
+
+internal sealed record PortCallPerformanceReportRow(
+    Guid VoyageStopId,
+    Guid VoyageId,
+    Guid VesselId,
+    Guid PortId,
+    string VoyageNumber,
+    int StopOrder,
+    string PortName,
+    string? PortUnLocode,
+    string? BerthName,
+    bool UsesLiveValues,
+    DateTime? ActualArrivalUtc,
+    DateTime ActualDepartureUtc,
+    string StatementAvailability,
+    Guid? StatementId,
+    DateTime? FinalizedAtUtc,
+    PortCallPerformanceReportMetric? Turnaround,
+    PortCallPerformanceReportMetric? ArrivalToAllFast,
+    PortCallPerformanceReportMetric? CargoElapsed,
+    PortCallPerformanceReportMetric? CargoCompletedToDeparture,
+    int? RecordedDelayCount,
+    int? RecordedDelayMinutes,
+    decimal? RecordedDelayHours);
+
+internal sealed record PortCallPerformanceReportMetricSummary(
+    decimal? MeanMinutes,
+    decimal? MeanHours,
+    int SampleCount,
+    int MissingCount,
+    int AmbiguousCount,
+    int InvalidChronologyCount);
+
+internal sealed record PortCallPerformanceReportSummary(
+    int StopCount,
+    int FinalizedCount,
+    int NotFinalizedCount,
+    PortCallPerformanceReportMetricSummary Turnaround,
+    PortCallPerformanceReportMetricSummary ArrivalToAllFast,
+    PortCallPerformanceReportMetricSummary CargoElapsed,
+    PortCallPerformanceReportMetricSummary CargoCompletedToDeparture,
+    int RecordedDelayCount,
+    int RecordedDelayMinutes,
+    decimal RecordedDelayHours);
+
+internal sealed record PortCallPerformanceReportPortSummary(
+    Guid PortId,
+    string PortName,
+    string? PortUnLocode,
+    PortCallPerformanceReportSummary Summary);
+
+internal sealed record PortCallPerformanceReportPage(
+    DateOnly DepartedFrom,
+    DateOnly DepartedTo,
+    IReadOnlyList<PortCallPerformanceReportRow> Items,
+    int PageNumber,
+    int PageSize,
+    int TotalCount,
+    PortCallPerformanceReportSummary Summary,
+    IReadOnlyList<PortCallPerformanceReportPortSummary> Ports);
+
 internal sealed record ReportsApiResult<T>(T? Value, ReportsApiFailure? Failure)
 {
     internal bool IsSuccess => Failure is null;

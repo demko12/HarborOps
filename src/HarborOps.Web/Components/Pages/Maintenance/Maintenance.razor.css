@@ -1,7 +1,16 @@
 .maintenance-page {
+    --accent: #e05260;
+    --accent-bg: rgba(224, 82, 96, .12);
+    --accent-border: rgba(224, 82, 96, .3);
     max-width: var(--page-max-width);
     margin: 0 auto;
     padding: var(--page-padding);
+}
+
+html:not([data-theme="light"]) .maintenance-page {
+    --accent: #d98a93;
+    --accent-bg: rgba(217, 138, 147, .1);
+    --accent-border: rgba(217, 138, 147, .24);
 }
 
 /* Header */
@@ -1611,26 +1620,14 @@ html[data-theme="light"] .maintenance-modal-backdrop .maintenance-form-card {
 
 .maintenance-row-actions .maintenance-row-chevron { margin-left: 0; }
 
-.maintenance-in-progress-row td { background: color-mix(in srgb, var(--status-warning) 6%, transparent); }
-.maintenance-in-progress-row td:first-child { box-shadow: inset 3px 0 0 var(--status-warning); }
 .maintenance-work-order-row:hover {
     background: color-mix(in srgb, var(--accent) 8%, var(--bg-surface));
     transform: none;
 }
 
-.maintenance-work-order-row:hover td {
-    box-shadow: inset 0 1px 0 var(--accent-border), inset 0 -1px 0 var(--accent-border);
-}
 
-.maintenance-work-order-row:hover td:first-child {
-    box-shadow: var(--row-hover-inset), inset 0 1px 0 var(--accent-border), inset 0 -1px 0 var(--accent-border);
-}
 
-.maintenance-work-order-row.maintenance-in-progress-row:hover td:first-child {
-    box-shadow: inset 3px 0 0 var(--status-warning), inset 0 1px 0 var(--accent-border), inset 0 -1px 0 var(--accent-border);
-}
 
-html[data-theme="light"] .maintenance-in-progress-row td { background: rgba(180, 83, 9, .06); }
 
 .maintenance-usage-modal {
     width: min(100%, 50rem);
@@ -1710,9 +1707,6 @@ html[data-theme="light"] .maintenance-in-progress-row td { background: rgba(180,
     .maintenance-usage-entry .maintenance-form-grid { grid-template-columns: minmax(0, 1fr); }
 }
 
-    .maintenance-work-order-row:hover td {
-        box-shadow: inset 0 1px 0 var(--accent-border), inset 0 -1px 0 var(--accent-border);
-    }
 
     .maintenance-work-order-row:focus-visible {
         outline: 2px solid var(--accent);
@@ -2456,6 +2450,64 @@ html[data-theme="light"] .maintenance-page ::deep .dry-dock-timing.overdue {
     padding: .5rem .45rem;
 }
 
+.maintenance-page ::deep .procurement-form .procurement-line-editor {
+    border-color: var(--border-subtle);
+    background: transparent;
+}
+
+.maintenance-page ::deep .maintenance-form-card .procurement-line-table {
+    min-width: 0;
+    border-collapse: collapse;
+    border-spacing: 0;
+}
+
+.maintenance-page ::deep .procurement-form .procurement-line-table .col-line-item {
+    width: 42%;
+}
+
+.maintenance-page ::deep .procurement-form .procurement-line-table .col-line-quantity,
+.maintenance-page ::deep .procurement-form .procurement-line-table .col-line-cost {
+    width: 15%;
+}
+
+.maintenance-page ::deep .procurement-form .procurement-line-table .col-line-total {
+    width: 15%;
+}
+
+.maintenance-page ::deep .procurement-form .procurement-line-table .col-actions {
+    width: 13%;
+}
+
+.maintenance-page ::deep .procurement-details-card .procurement-line-table .col-line-item {
+    width: 34%;
+}
+
+.maintenance-page ::deep .procurement-details-card .procurement-line-table .col-line-part {
+    width: 18%;
+}
+
+.maintenance-page ::deep .procurement-details-card .procurement-line-table .col-line-quantity {
+    width: 14%;
+}
+
+.maintenance-page ::deep .procurement-details-card .procurement-line-table .col-line-cost,
+.maintenance-page ::deep .procurement-details-card .procurement-line-table .col-line-total {
+    width: 17%;
+}
+
+.maintenance-page ::deep .maintenance-form-card .procurement-line-table tr td,
+.maintenance-page ::deep .maintenance-form-card .procurement-line-table tr:hover td,
+.maintenance-page ::deep .maintenance-form-card .procurement-line-table tr:focus-within td {
+    padding: .5rem .45rem;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+}
+
+.maintenance-page ::deep .maintenance-form-card .procurement-line-table tbody tr td {
+    border-bottom: 1px solid var(--border-subtle);
+}
+
 .maintenance-page ::deep .procurement-line-table td .maintenance-inline-error {
     display: block;
     margin-top: .3rem;
@@ -2999,3 +3051,78 @@ html[data-theme="light"] .maintenance-page ::deep .preventive-state.completed {
     padding-left: 1.1rem;
     font-variant-numeric: tabular-nums;
 }
+
+/* Maintenance workspace follows the Fleet, Crew, and Voyages registers. */
+.maintenance-page { max-width: 1600px; padding: 1.5rem 1rem 3rem; }
+.maintenance-header h1 { font-size: clamp(1.8rem, 3vw, 2.35rem); font-weight: 600; }
+.maintenance-eyebrow { font-size: .65rem; }
+.maintenance-tabs { display: flex; flex-wrap: nowrap; overflow-x: auto; gap: .35rem; padding: .2rem .2rem .8rem; margin-bottom: 1.5rem; border-bottom: 1px solid var(--border-subtle); }
+.maintenance-tabs .workspace-tab { display: inline-flex; width: auto; height: auto; min-height: 2.65rem; flex: 0 0 auto; justify-content: flex-start; gap: .55rem; padding: .65rem .85rem; border: 1px solid transparent; border-radius: .65rem; color: var(--text-secondary); background: transparent; font-family: inherit; font-size: .8rem; font-weight: 400; line-height: inherit; letter-spacing: normal; }
+.maintenance-tabs .workspace-tab.active { color: var(--text-primary); border-color: var(--accent-border); background: var(--accent-bg); }
+.maintenance-tabs .workspace-tab:hover { transform: none; background: var(--bg-surface-strong); }
+.maintenance-page ::deep .maintenance-summary { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: .85rem; margin-bottom: 1.5rem; }
+.maintenance-page ::deep .maintenance-summary-card { min-width: 0; padding: 1.1rem; gap: .8rem; }
+.maintenance-page ::deep .maintenance-summary-card > div > span { color: var(--text-secondary); font-size: .72rem; }
+.maintenance-page ::deep .maintenance-summary-card strong { margin: .5rem 0 .35rem; font-size: 1.9rem; font-weight: 600; letter-spacing: -.04em; }
+.maintenance-page ::deep .maintenance-summary-card small { font-size: .68rem; font-weight: 400; letter-spacing: normal; text-transform: none; }
+.maintenance-page ::deep .maintenance-card { padding: 1.25rem; }
+.maintenance-page ::deep .maintenance-card-heading { align-items: center; flex-wrap: wrap; }
+.maintenance-page ::deep .maintenance-card-heading h2 { font-size: 1.3rem; font-weight: 600; letter-spacing: -.035em; }
+.maintenance-page ::deep .maintenance-card-heading p { font-size: .75rem; color: var(--text-muted); }
+.maintenance-section-label { display: block; margin-bottom: .25rem; font-size: .62rem; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; color: var(--accent); }
+.maintenance-page ::deep .maintenance-card-icon { width: 2.8rem; height: 2.8rem; border-radius: .85rem; color: var(--accent); background: var(--accent-bg); border: 1px solid var(--accent-border); }
+.maintenance-page ::deep .maintenance-filters { padding: 1rem 0; gap: .7rem; border: 0; border-top: 1px solid var(--border-subtle); border-bottom: 1px solid var(--border-subtle); border-radius: 0; background: transparent; box-shadow: none; }
+.maintenance-page ::deep .filter-field label { font-size: .62rem; letter-spacing: .07em; }
+.maintenance-page ::deep .filter-field > select { appearance: none; padding-right: 2.7rem; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 8'%3E%3Cpath d='M1 1.6 6 6.4 11 1.6' fill='none' stroke='%238894a6' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-size: .7rem; background-position: right 1rem center; }
+.maintenance-page ::deep .maintenance-card-heading .maintenance-button { color: var(--text-primary); background: var(--accent-bg); border-color: var(--accent-border); box-shadow: none; font-size: .78rem; }
+.maintenance-page ::deep .maintenance-table-scroll { overflow-x: auto; padding: .15rem; scrollbar-width: thin; }
+.maintenance-page ::deep .maintenance-table { min-width: 1050px; table-layout: fixed; border-collapse: separate; border-spacing: 0 .55rem; }
+.maintenance-page ::deep .maintenance-table th { border: 0; padding: .4rem .75rem; font-size: .6rem; }
+.maintenance-page ::deep .maintenance-table tbody tr,
+.maintenance-page ::deep .maintenance-table tbody tr:hover { transform: none; background: transparent; box-shadow: none; }
+.maintenance-page ::deep .maintenance-table tbody tr td { vertical-align: middle; padding: .9rem .75rem; font-size: .78rem; background: var(--bg-surface); border-top: 1px solid var(--border-subtle); border-bottom: 1px solid var(--border-subtle); box-shadow: none; transition: background-color .16s ease; }
+.maintenance-page ::deep .maintenance-table td:first-child { border-left: 3px solid var(--accent-border); border-radius: .75rem 0 0 .75rem; }
+.maintenance-page ::deep .maintenance-table td:last-child { border-right: 1px solid var(--border-subtle); border-radius: 0 .75rem .75rem 0; }
+.maintenance-page ::deep .maintenance-table tbody tr:hover td,
+.maintenance-page ::deep .maintenance-table tbody tr:focus-within td { background: color-mix(in srgb, var(--accent) 10%, var(--bg-surface-strong)); box-shadow: none; }
+.maintenance-page ::deep .maintenance-table tbody tr:hover td:first-child { border-left-color: var(--accent); }
+.maintenance-page ::deep .maintenance-table .maintenance-overdue-row td:first-child,
+.maintenance-page ::deep .maintenance-table .maintenance-critical-row td:first-child { border-left-color: var(--accent); }
+.maintenance-row-icon { display: inline-grid; vertical-align: middle; place-items: center; width: 1.8rem; height: 1.8rem; margin-right: .5rem; border-radius: .5rem; color: var(--accent); background: var(--accent-bg); }
+.maintenance-critical-row .maintenance-row-icon { color: #fff; background: #b42335; }
+.maintenance-page ::deep .maintenance-title { white-space: normal; min-width: 0; overflow-wrap: anywhere; }
+.maintenance-page ::deep .maintenance-overdue-badge { display: table; margin-top: .3rem; }
+@media (max-width: 1050px) {
+    .maintenance-page ::deep .maintenance-table .col-assigned,
+    .maintenance-page ::deep .maintenance-table .col-created,
+    .maintenance-page ::deep .maintenance-table .col-completed,
+    .maintenance-page ::deep .maintenance-table .col-vessel { display: table-cell; }
+}
+@media (max-width: 760px) {
+    .maintenance-page { padding: 1rem .5rem 2rem; }
+    .maintenance-page ::deep .maintenance-card { padding: .85rem; }
+    .maintenance-page ::deep .maintenance-summary { grid-template-columns: 1fr; }
+    .maintenance-page ::deep .maintenance-filters .filter-field { min-width: 0; flex-basis: auto; }
+}
+@media (prefers-reduced-motion: reduce) {
+    .maintenance-page ::deep .maintenance-table tbody tr td { transition: none; }
+}
+
+.maintenance-page ::deep .maintenance-register-heading { display: flex; align-items: center; gap: .85rem; }
+.maintenance-page ::deep .maintenance-register-heading .maintenance-card-icon { flex: 0 0 auto; display: grid; place-items: center; }
+
+/* Bound text columns so long descriptions cannot push actions out of view. */
+.maintenance-page ::deep .maintenance-description { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; white-space: normal; overflow-wrap: anywhere; overflow: hidden; max-width: 100%; }
+.maintenance-page ::deep .maintenance-table th { height: auto; vertical-align: middle; }
+.maintenance-page ::deep .maintenance-board-card .maintenance-table { min-width: 76rem; }
+.maintenance-page ::deep .maintenance-board-card .col-title { width: 22%; }
+.maintenance-page ::deep .maintenance-board-card .col-vessel { width: 10%; }
+.maintenance-page ::deep .maintenance-board-card .col-priority { width: 8%; }
+.maintenance-page ::deep .maintenance-board-card .col-status { width: 9%; }
+.maintenance-page ::deep .maintenance-board-card .col-due { width: 12%; }
+.maintenance-page ::deep .maintenance-board-card .col-assigned { width: 10%; }
+.maintenance-page ::deep .maintenance-board-card .col-created,
+.maintenance-page ::deep .maintenance-board-card .col-completed { width: 8%; }
+.maintenance-page ::deep .maintenance-board-card .col-actions { width: 13%; }
+.maintenance-page ::deep .maintenance-table td.col-actions { overflow: visible; }
+.maintenance-page ::deep .maintenance-table-scroll { margin-top: 0; }

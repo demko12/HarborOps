@@ -31,62 +31,6 @@
 		</article>
 	</section>
 
-	<section class="maintenance-filters" aria-label="Purchase order filters">
-		<div class="filter-field">
-			<label for="po-supplier">Supplier</label>
-			<select id="po-supplier" @bind="supplierFilterText" @bind:after="ApplyFiltersAsync" disabled="@isLoading">
-				<option value="">All suppliers</option>
-				@foreach (var supplier in supplierOptions)
-				{
-					<option value="@supplier.SupplierId">@supplier.Name</option>
-				}
-			</select>
-		</div>
-		<div class="filter-field">
-			<label for="po-status">Status</label>
-			<select id="po-status" @bind="statusFilter" @bind:after="ApplyFiltersAsync">
-				<option value="">All statuses</option>
-				@foreach (var option in ProcurementFormat.Statuses)
-				{
-					<option value="@option">@option</option>
-				}
-			</select>
-		</div>
-		<div class="filter-field">
-			<label for="po-ordered-from">Ordered from</label>
-			<input id="po-ordered-from" type="date" @bind="orderDateFromFilter" @bind:after="ApplyFiltersAsync" />
-		</div>
-		<div class="filter-field">
-			<label for="po-ordered-to">Ordered to</label>
-			<input id="po-ordered-to" type="date" @bind="orderDateToFilter" @bind:after="ApplyFiltersAsync" />
-		</div>
-		<div class="filter-field">
-			<label for="po-delivery-from">Delivery from</label>
-			<input id="po-delivery-from" type="date" @bind="deliveryFromFilter" @bind:after="ApplyFiltersAsync" />
-		</div>
-		<div class="filter-field">
-			<label for="po-delivery-to">Delivery to</label>
-			<input id="po-delivery-to" type="date" @bind="deliveryToFilter" @bind:after="ApplyFiltersAsync" />
-		</div>
-		<div class="filter-field">
-			<label for="po-overdue">Delivery status</label>
-			<select id="po-overdue" @bind="overdueFilter" @bind:after="ApplyFiltersAsync">
-				<option value="">All</option>
-				<option value="true">Overdue only</option>
-				<option value="false">Not overdue</option>
-			</select>
-		</div>
-		<div class="filter-field">
-			<label for="po-page-size">Per page</label>
-			<select id="po-page-size" @bind="pageSize" @bind:after="ApplyFiltersAsync">
-				<option value="25">25</option>
-				<option value="50">50</option>
-				<option value="100">100</option>
-			</select>
-		</div>
-		<button class="maintenance-reset" type="button" @onclick="ClearFiltersAsync" disabled="@isLoading">Reset</button>
-	</section>
-
 	@if (createSuccessMessage is not null)
 	{
 		<div class="maintenance-toast procurement-success" role="status" aria-live="polite">
@@ -108,18 +52,77 @@
 
 	<section class="maintenance-card" aria-labelledby="procurement-list-title">
 		<div class="maintenance-card-heading">
-			<div>
-				<h2 id="procurement-list-title">Purchase order board</h2>
-				<p>@totalCount purchase orders found</p>
+			<div class="maintenance-register-heading">
+			    <span class="maintenance-card-icon" aria-hidden="true"><span class="bi bi-receipt"></span></span>
+			    <div>
+					<h2 id="procurement-list-title">Purchase order board</h2>
+					<p>@totalCount purchase orders found</p>
+			    </div>
 			</div>
 			<div class="maintenance-card-heading-actions">
 				@if (CanManage)
 				{
 					<button type="button" class="maintenance-button procurement-create-toggle" @onclick="OpenCreateFormAsync">Create purchase order</button>
 				}
-				<span class="maintenance-card-icon" aria-hidden="true"><span class="bi bi-receipt"></span></span>
+
 			</div>
 		</div>
+
+		<section class="maintenance-filters" aria-label="Purchase order filters">
+			<div class="filter-field">
+				<label for="po-supplier">Supplier</label>
+				<select id="po-supplier" @bind="supplierFilterText" @bind:after="ApplyFiltersAsync" disabled="@isLoading">
+					<option value="">All suppliers</option>
+					@foreach (var supplier in supplierOptions)
+					{
+						<option value="@supplier.SupplierId">@supplier.Name</option>
+					}
+				</select>
+			</div>
+			<div class="filter-field">
+				<label for="po-status">Status</label>
+				<select id="po-status" @bind="statusFilter" @bind:after="ApplyFiltersAsync">
+					<option value="">All statuses</option>
+					@foreach (var option in ProcurementFormat.Statuses)
+					{
+						<option value="@option">@option</option>
+					}
+				</select>
+			</div>
+			<div class="filter-field">
+				<label for="po-ordered-from">Ordered from</label>
+				<input id="po-ordered-from" type="date" @bind="orderDateFromFilter" @bind:after="ApplyFiltersAsync" />
+			</div>
+			<div class="filter-field">
+				<label for="po-ordered-to">Ordered to</label>
+				<input id="po-ordered-to" type="date" @bind="orderDateToFilter" @bind:after="ApplyFiltersAsync" />
+			</div>
+			<div class="filter-field">
+				<label for="po-delivery-from">Delivery from</label>
+				<input id="po-delivery-from" type="date" @bind="deliveryFromFilter" @bind:after="ApplyFiltersAsync" />
+			</div>
+			<div class="filter-field">
+				<label for="po-delivery-to">Delivery to</label>
+				<input id="po-delivery-to" type="date" @bind="deliveryToFilter" @bind:after="ApplyFiltersAsync" />
+			</div>
+			<div class="filter-field">
+				<label for="po-overdue">Delivery status</label>
+				<select id="po-overdue" @bind="overdueFilter" @bind:after="ApplyFiltersAsync">
+					<option value="">All</option>
+					<option value="true">Overdue only</option>
+					<option value="false">Not overdue</option>
+				</select>
+			</div>
+			<div class="filter-field">
+				<label for="po-page-size">Per page</label>
+				<select id="po-page-size" @bind="pageSize" @bind:after="ApplyFiltersAsync">
+					<option value="25">25</option>
+					<option value="50">50</option>
+					<option value="100">100</option>
+				</select>
+			</div>
+			<button class="maintenance-reset" type="button" @onclick="ClearFiltersAsync" disabled="@isLoading">Reset</button>
+		</section>
 
 		@if (isLoading)
 		{

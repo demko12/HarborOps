@@ -192,7 +192,7 @@ public sealed class RegisterDefectTests : BunitContext
         Assert.Empty(page.FindAll("form.maintenance-form"));
         Assert.Contains(
             "does not have permission to report maintenance defects",
-            page.Find(".maintenance-inline-error").TextContent,
+            page.Find(".register-defect-denied").TextContent,
             StringComparison.Ordinal);
     }
 

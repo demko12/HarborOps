@@ -1,0 +1,296 @@
+@using HarborOps.Web.Api.Documents
+@implements IDisposable
+@inject DocumentsApiClient DocumentsApi
+@inject CurrentUserAuthorizationState AuthorizationState
+
+<div class="documents-modal-backdrop" role="presentation" @onclick="CloseFilePanel">
+<section class="documents-file-form-card documents-modal" role="dialog" aria-modal="true" aria-labelledby="documents-file-title" @onclick:stopPropagation="true">
+    <div class="documents-inline-form-header">
+        <h2 id="documents-file-title">Document file</h2>
+    </div>
+
+    @if (isLoadingFileDetails)
+    {
+        <p class="documents-file-panel-loading">Loading file details...</p>
+    }
+    else if (fileDetailsFailure is not null)
+    {
+        <div class="documents-type-inline-error" role="alert">@fileDetailsFailure.Message</div>
+    }
+    else if (fileDetails is not null)
+    {
+        <div class="documents-lifecycle-actions">
+            <span class="documents-status @Documents.GetDocumentStatusClass(fileDetails.Status)">@fileDetails.Status</span>
+            <span class="documents-review-status @Documents.GetReviewStatusClass(fileDetails.ReviewStatus)">@fileDetails.ReviewStatus</span>
+        </div>
+
+        @if (lifecycleFailure is not null)
+        {
+            <div class="documents-type-inline-error" role="alert">@lifecycleFailure.Message</div>
+        }
+        @if (reviewActionSuccessMessage is not null)
+        {
+            <div class="documents-type-success" role="status">@reviewActionSuccessMessage</div>
+        }
+        @if (AuthorizationState.HasPermission("documents.manage"))
+        {
+            <div class="documents-lifecycle-actions">
+                <button type="button" class="documents-modal-cancel" @onclick="() => isEditingMetadata = !isEditingMetadata">Edit metadata</button>
+                @if (fileDetails.Status == "Active")
+                {
+                    <button type="button" class="documents-search-button" @onclick="() => isRenewingDocument = !isRenewingDocument">Renew document</button>
+                }
+                @if (CanSubmitForReview)
+                {
+                    <button type="button" class="documents-search-button" disabled="@isSubmittingForReview" @onclick="SubmitForReviewAsync">
+                        @(isSubmittingForReview ? "Submitting..." : "Submit for review")
+                    </button>
+                }
+                @if (CanApproveOrReject)
+                {
+                    <button type="button" class="documents-search-button" disabled="@isApproving" @onclick="ApproveAsync">
+                        @(isApproving ? "Approving..." : "Approve")
+                    </button>
+                    <button type="button" class="documents-modal-cancel" @onclick="OpenRejectConfirmation">Reject</button>
+                }
+                @if (CanRevoke)
+                {
+                    <button type="button" class="documents-modal-cancel" @onclick="OpenRevokeConfirmation">Revoke</button>
+                }
+                <button type="button" class="documents-search-button" @onclick="OpenDistributionFormAsync">Distribute for acknowledgement</button>
+            </div>
+            @if (isDistributionFormOpen)
+            {
+                <section class="documents-lifecycle-panel" aria-label="Document distribution">
+                    <h3>Distribute approved document</h3>
+                    <div class="documents-form-grid">
+                        <div class="filter-field"><label>Due date</label><InputDate @bind-Value="distributionDueDate" /></div>
+                        <div class="filter-field"><label>Instruction (optional)</label><input @bind="distributionInstruction" /></div>
+                        <div class="filter-field"><label>Find recipients</label><input @bind="distributionRecipientSearch" @bind:event="oninput" @bind:after="SearchDistributionRecipientsAsync" placeholder="Search eligible users..." /></div>
+                    </div>
+                    <div class="distribution-recipient-picker">
+                        @foreach (var recipient in distributionRecipients.Where(x => x.IsActive && x.CanReadDocuments))
+                        {
+                            <label><input type="checkbox" checked="@selectedDistributionRecipients.Contains(recipient.UserId)" @onchange="() => { if (!selectedDistributionRecipients.Add(recipient.UserId)) selectedDistributionRecipients.Remove(recipient.UserId); }" /> @recipient.Email</label>
+                        }
+                    </div>
+                    @if (distributionFailure is not null) { <div class="documents-type-inline-error" role="alert">@distributionFailure.Message</div> }
+                    @if (distributionSuccessMessage is not null) { <div class="documents-type-success" role="status">@distributionSuccessMessage</div> }
+                    <button type="button" class="documents-search-button" disabled="@isIssuingDistribution" @onclick="IssueDistributionAsync">@(isIssuingDistribution ? "Issuing..." : "Issue acknowledgement")</button>
+                </section>
+            }
+            @if (isEditingMetadata || isRenewingDocument)
+            {
+                <section class="documents-lifecycle-panel" aria-label="Document metadata">
+                <div class="documents-form-grid">
+                    <div class="filter-field"><label>Document type</label><InputSelect @bind-Value="lifecycleTypeId">@foreach (var option in DocumentTypeOptions) { <option value="@option.DocumentTypeId">@option.Name</option> }</InputSelect></div>
+                    <div class="filter-field"><label>Number</label><InputText @bind-Value="lifecycleNumber" /></div>
+                    <div class="filter-field"><label>Issue date</label><InputDate @bind-Value="lifecycleIssueDate" /></div>
+                    <div class="filter-field"><label>Expiry date</label><InputDate @bind-Value="lifecycleExpiryDate" /></div>
+                    <div class="filter-field"><label>Issuing authority</label><InputText @bind-Value="lifecycleAuthority" /></div>
+                </div>
+                <p class="documents-file-empty">@(isRenewingDocument ? "The current document and its file will be retained as a superseded record. The renewed document starts without a file." : "Editing metadata keeps the attached file unchanged.")</p>
+                <button type="button" class="documents-search-button" @onclick="@(isRenewingDocument ? RenewDocumentAsync : SaveMetadataAsync)">@(isRenewingDocument ? "Confirm renewal" : "Save metadata")</button>
+                </section>
+            }
+            @if (isRejectingDocument)
+            {
+                <section class="documents-lifecycle-panel" aria-label="Reject document">
+                    <div class="filter-field">
+                        <label for="reject-notes">Rejection notes</label>
+                        <textarea id="reject-notes" @bind="rejectNotes"></textarea>
+                    </div>
+                    @if (rejectNotesValidationMessage is not null)
+                    {
+                        <div class="documents-type-inline-error" role="alert">@rejectNotesValidationMessage</div>
+                    }
+                    @if (rejectFailure is not null)
+                    {
+                        <div class="documents-type-inline-error" role="alert">@rejectFailure.Message</div>
+                    }
+                    <button type="button" class="documents-search-button" disabled="@isSubmittingRejection" @onclick="ConfirmRejectAsync">
+                        @(isSubmittingRejection ? "Rejecting..." : "Confirm rejection")
+                    </button>
+                    <button type="button" class="documents-modal-cancel" @onclick="CancelRejectConfirmation" disabled="@isSubmittingRejection">Cancel</button>
+                </section>
+            }
+            @if (isConfirmingRevoke)
+            {
+                <section class="documents-lifecycle-panel" aria-label="Revoke document">
+                    <div class="filter-field">
+                        <label for="revoke-reason">Revocation reason</label>
+                        <textarea id="revoke-reason" @bind="revokeReason"></textarea>
+                    </div>
+                    @if (revokeReasonValidationMessage is not null)
+                    {
+                        <div class="documents-type-inline-error" role="alert">@revokeReasonValidationMessage</div>
+                    }
+                    @if (revokeFailure is not null)
+                    {
+                        <div class="documents-type-inline-error" role="alert">@revokeFailure.Message</div>
+                    }
+                    <button type="button" class="documents-search-button" disabled="@isRevoking" @onclick="ConfirmRevokeAsync">
+                        @(isRevoking ? "Revoking..." : "Confirm revoke")
+                    </button>
+                    <button type="button" class="documents-modal-cancel" @onclick="CancelRevokeConfirmation" disabled="@isRevoking">Cancel</button>
+                </section>
+            }
+        }
+        @if (renewalHistory.Count > 1)
+        {
+            <section class="documents-renewal-history"><p>Renewal history</p>@foreach (var item in renewalHistory) { <div><strong>@item.Number</strong><span>@item.Status · expires @item.ExpiryDate.ToString("dd MMM yyyy")</span></div> }</section>
+        }
+
+        <section class="documents-review-history">
+            <button type="button" class="documents-review-history-toggle" @onclick="ToggleReviewHistoryAsync">
+                @(isReviewHistoryExpanded ? "Hide review history" : "Show review history")
+            </button>
+            @if (isReviewHistoryExpanded)
+            {
+                @if (isLoadingReviewHistory)
+                {
+                    <p class="documents-file-panel-loading">Loading review history...</p>
+                }
+                else if (reviewHistoryFailure is not null)
+                {
+                    <div class="documents-type-inline-error" role="alert">@reviewHistoryFailure.Message</div>
+                }
+                else if (reviewHistory.Count == 0)
+                {
+                    <p class="documents-file-empty">No review history yet.</p>
+                }
+                else
+                {
+                    <ul class="documents-review-history-list">
+                        @foreach (var item in reviewHistory)
+                        {
+                            <li>
+                                <strong>@item.Action</strong>
+                                <span>@item.ActorUserId &middot; @FormatOccurredAt(item.OccurredAtUtc)</span>
+                                @if (!string.IsNullOrWhiteSpace(item.Notes))
+                                {
+                                    <p>@item.Notes</p>
+                                }
+                            </li>
+                        }
+                    </ul>
+                }
+            }
+        </section>
+        @if (uploadSuccessMessage is not null)
+        {
+            <div class="documents-type-success" role="status">@uploadSuccessMessage</div>
+        }
+
+        @if (!fileDetails.HasFile)
+        {
+            <p class="documents-file-empty">No file attached.</p>
+        }
+        else
+        {
+            <dl class="documents-file-meta">
+                <div>
+                    <dt>File name</dt>
+                    <dd>@fileDetails.FileName</dd>
+                </div>
+                <div>
+                    <dt>Size</dt>
+                    <dd>@FormatBytes(fileDetails.SizeBytes)</dd>
+                </div>
+                <div>
+                    <dt>Content type</dt>
+                    <dd>@fileDetails.ContentType</dd>
+                </div>
+                <div>
+                    <dt>Uploaded</dt>
+                    <dd>@FormatUploadedAt(fileDetails.UploadedAtUtc)</dd>
+                </div>
+            </dl>
+        }
+
+        @if (isConfirmingReplace)
+        {
+            <p class="documents-file-replace-confirm">Replace the current file? This cannot be undone.</p>
+        }
+
+        @if (ShowUploadForm)
+        {
+            <div class="documents-file-upload-form">
+                <label for="documents-file-input">@(fileDetails.HasFile ? "Replacement file" : "File")</label>
+                <div class="documents-file-picker @(isUploading ? "is-disabled" : string.Empty)">
+                    <InputFile id="documents-file-input" class="documents-file-native-input" OnChange="OnFileSelected" disabled="@isUploading" />
+                    <label class="documents-file-picker-button" for="documents-file-input"><span class="bi bi-paperclip" aria-hidden="true"></span> Choose file</label>
+                    <span class="documents-file-picker-name">@(selectedUploadFile?.Name ?? "No file chosen")</span>
+                </div>
+
+                @if (isUploading)
+                {
+                    <div class="documents-file-progress-row">
+                        <progress class="documents-file-progress" max="100" value="@uploadProgress"></progress>
+                        <span class="documents-file-progress-label">@($"{uploadProgress:0}%")</span>
+                    </div>
+                }
+
+                @if (IsUploadValidationFailure)
+                {
+                    <ul class="documents-type-field-errors" role="alert">
+                        @foreach (var message in UploadValidationMessages)
+                        {
+                            <li>@message</li>
+                        }
+                    </ul>
+                }
+                else if (uploadFailure is not null)
+                {
+                    <div class="documents-type-inline-error" role="alert">
+                        @UploadFailureMessageText(fileDetails.HasFile)
+                    </div>
+                }
+            </div>
+        }
+    }
+
+    <div class="documents-modal-actions">
+        @if (fileDetails is not null && !isConfirmingReplace && !ShowUploadForm)
+        {
+            @if (fileDetails.HasFile && AuthorizationState.HasPermission("documents.read"))
+            {
+                <a class="documents-search-button documents-file-download-link"
+                   href="/documents/@DocumentId/file/download"
+                   target="_blank"
+                   rel="noopener">Download</a>
+            }
+
+            @if (fileDetails.HasFile && AuthorizationState.HasPermission("documents.manage"))
+            {
+                <button type="button" class="documents-modal-cancel documents-file-replace-button" @onclick="OpenReplaceConfirmation">
+                    Replace file
+                </button>
+            }
+        }
+
+        @if (isConfirmingReplace)
+        {
+            <button type="button" class="documents-search-button documents-file-replace-confirm-button" @onclick="ConfirmReplace">
+                Yes, choose new file
+            </button>
+            <button type="button" class="documents-modal-cancel documents-file-replace-cancel-button" @onclick="CancelReplaceConfirmation">
+                Cancel
+            </button>
+        }
+
+        @if (ShowUploadForm)
+        {
+            <button type="button" class="documents-search-button documents-file-upload-button"
+                    disabled="@(isUploading || selectedUploadFile is null)"
+                    @onclick="() => SubmitFileAsync(DocumentId, fileDetails!.HasFile)">
+                @(isUploading ? "Uploading..." : fileDetails!.HasFile ? "Upload replacement" : "Upload")
+            </button>
+        }
+
+        <button type="button" class="documents-modal-cancel documents-file-close-button" @onclick="CloseFilePanel" disabled="@isUploading">
+            Close
+        </button>
+    </div>
+</section>
+</div>

@@ -733,6 +733,53 @@ internal sealed class CrewApiClient(HttpClient httpClient)
             "Unable to load manning coverage",
             cancellationToken);
 
+    internal Task<CrewApiResult<GetQualificationPoliciesResponse>> GetQualificationPoliciesAsync(
+        Guid? crewPositionId,
+        int pageNumber,
+        int pageSize,
+        CancellationToken cancellationToken)
+    {
+        var query = new List<string> { $"pageNumber={pageNumber}", $"pageSize={pageSize}" };
+
+        if (crewPositionId is { } id)
+        {
+            query.Add($"crewPositionId={id}");
+        }
+
+        return GetJsonAsync<GetQualificationPoliciesResponse>(
+            $"api/crew/qualification-policies?{string.Join('&', query)}", "Unable to load qualification policies", cancellationToken);
+    }
+
+    internal Task<CrewApiResult<GetQualificationPolicyDetailResponse>> GetQualificationPolicyDetailAsync(
+        Guid policyId,
+        CancellationToken cancellationToken)
+        => GetJsonAsync<GetQualificationPolicyDetailResponse>(
+            $"api/crew/qualification-policies/{policyId}", "Unable to load the qualification policy", cancellationToken);
+
+    internal Task<CrewApiWriteResult<CreateQualificationPolicyResponse>> CreateQualificationPolicyAsync(
+        CreateQualificationPolicyRequest request,
+        CancellationToken cancellationToken)
+        => PostAsync<CreateQualificationPolicyRequest, CreateQualificationPolicyResponse>(
+            "api/crew/qualification-policies", request, cancellationToken);
+
+    internal Task<CrewApiWriteResult<UpdateQualificationPolicyResponse>> UpdateQualificationPolicyAsync(
+        Guid policyId,
+        UpdateQualificationPolicyRequest request,
+        CancellationToken cancellationToken)
+        => PutAsync<UpdateQualificationPolicyRequest, UpdateQualificationPolicyResponse>(
+            $"api/crew/qualification-policies/{policyId}", request, cancellationToken);
+
+    internal Task<CrewApiResult<GetCrewQualificationEligibilityResponse>> GetQualificationEligibilityAsync(
+        Guid crewMemberId,
+        Guid rankId,
+        DateOnly from,
+        DateOnly to,
+        CancellationToken cancellationToken)
+        => GetJsonAsync<GetCrewQualificationEligibilityResponse>(
+            $"api/crew/qualification-eligibility?crewMemberId={crewMemberId}&rankId={rankId}&from={FormatIsoDate(from)}&to={FormatIsoDate(to)}",
+            "Unable to check crew qualification",
+            cancellationToken);
+
     private async Task<CrewApiResult<T>> GetJsonAsync<T>(
         string path,
         string failureTitle,
@@ -1198,6 +1245,8 @@ internal sealed record EndVesselManningPlanResponse(Guid Id, DateOnly EffectiveE
 
 internal sealed record CoverageIneligibleMemberResponse(Guid CrewMemberId, string Reason);
 
+internal sealed record CoverageUnqualifiedMemberResponse(Guid CrewMemberId, IReadOnlyList<string> MissingTypes);
+
 internal sealed record CoverageDayItemResponse(
     DateOnly Date,
     Guid RankId,
@@ -1207,7 +1256,9 @@ internal sealed record CoverageDayItemResponse(
     int EligibleHeadcount,
     int? Shortage,
     IReadOnlyList<CoverageIneligibleMemberResponse> IneligibleMembers,
-    IReadOnlyList<Guid> AssignmentIds);
+    IReadOnlyList<Guid> AssignmentIds,
+    int? QualifiedHeadcount,
+    IReadOnlyList<CoverageUnqualifiedMemberResponse> UnqualifiedMembers);
 
 internal sealed record CoverageShortageIntervalResponse(
     Guid RankId, string RankName, DateOnly StartDate, DateOnly EndDate, int RequiredHeadcount, int Shortage);
@@ -1218,3 +1269,64 @@ internal sealed record GetCrewManningCoverageResponse(
     DateOnly To,
     IReadOnlyList<CoverageDayItemResponse> Days,
     IReadOnlyList<CoverageShortageIntervalResponse> ShortageIntervals);
+
+internal sealed record QualificationRequirementInputRequest
+{
+    public string? RequiredType { get; init; }
+}
+
+internal sealed record CreateQualificationPolicyRequest
+{
+    public Guid? CrewPositionId { get; init; }
+    public bool? Enabled { get; init; }
+    public IReadOnlyList<QualificationRequirementInputRequest>? Requirements { get; init; }
+}
+
+internal sealed record CreateQualificationPolicyResponse(
+    Guid Id, Guid CrewPositionId, bool Enabled, Guid ConcurrencyToken, IReadOnlyList<string> RequiredTypes);
+
+internal sealed record UpdateQualificationPolicyRequest
+{
+    public bool? Enabled { get; init; }
+    public IReadOnlyList<QualificationRequirementInputRequest>? Requirements { get; init; }
+}
+
+internal sealed record UpdateQualificationPolicyResponse(
+    Guid Id, bool Enabled, Guid ConcurrencyToken, IReadOnlyList<string> RequiredTypes);
+
+internal sealed record QualificationPolicyListItemResponse(
+    Guid Id, Guid CrewPositionId, string RankName, bool Enabled, int RequiredTypeCount, Guid ConcurrencyToken);
+
+internal sealed record GetQualificationPoliciesResponse(
+    IReadOnlyList<QualificationPolicyListItemResponse> Items, int PageNumber, int PageSize, int TotalCount);
+
+internal sealed record QualificationPolicyHistoryItemResponse(
+    Guid Id,
+    string EventType,
+    Guid ActorUserId,
+    DateTime OccurredAtUtc,
+    bool? PreviousEnabled,
+    bool? NewEnabled,
+    IReadOnlyList<string>? PreviousRequiredTypes,
+    IReadOnlyList<string>? NewRequiredTypes);
+
+internal sealed record GetQualificationPolicyDetailResponse(
+    Guid Id,
+    Guid CrewPositionId,
+    string RankName,
+    bool Enabled,
+    Guid ConcurrencyToken,
+    IReadOnlyList<string> RequiredTypes,
+    IReadOnlyList<QualificationPolicyHistoryItemResponse> History);
+
+internal sealed record QualificationUncoveredRangeResponse(string RequiredType, DateOnly StartDate, DateOnly EndDate);
+
+internal sealed record GetCrewQualificationEligibilityResponse(
+    Guid CrewMemberId,
+    Guid RankId,
+    DateOnly From,
+    DateOnly To,
+    string Status,
+    IReadOnlyList<string> MissingTypes,
+    IReadOnlyList<QualificationUncoveredRangeResponse> UncoveredDates,
+    IReadOnlyList<Guid> CertificateLinks);

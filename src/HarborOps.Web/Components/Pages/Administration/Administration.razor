@@ -12,7 +12,7 @@
     <header class="administration-header">
         <div>
             <p class="administration-eyebrow">Access control</p>
-            <h1>Administration</h1>
+            <h1>Your workspace, managed</h1>
             <p>Manage HarborOps accounts, roles, and capability permissions.</p>
         </div>
     </header>
@@ -25,10 +25,17 @@
         </div>
     }
 
+    <section class="administration-summary" aria-label="Access overview">
+        <article><div><span>Matching accounts</span><strong>@totalUsers</strong><small>Across the current search</small></div><span class="bi bi-people" aria-hidden="true"></span></article>
+        <article><div><span>Active accounts</span><strong>@users.Count(user => user.IsActive)</strong><small>On this page</small></div><span class="bi bi-person-check" aria-hidden="true"></span></article>
+        <article><div><span>Disabled accounts</span><strong>@users.Count(user => !user.IsActive)</strong><small>On this page</small></div><span class="bi bi-person-lock" aria-hidden="true"></span></article>
+        <article><div><span>Access roles</span><strong>@roles.Count</strong><small>Configured workspace roles</small></div><span class="bi bi-person-badge" aria-hidden="true"></span></article>
+    </section>
+
     <div class="administration-grid">
         <section class="administration-card administration-users" aria-labelledby="users-title">
             <div class="card-heading">
-                <div><h2 id="users-title">Users</h2><p>Assign roles to existing accounts.</p></div>
+                <div><span class="administration-section-label">Account directory</span><h2 id="users-title">Users</h2><p>Assign roles to existing accounts.</p></div>
                 <span class="bi bi-people" aria-hidden="true"></span>
             </div>
             <div class="administration-search">
@@ -58,8 +65,8 @@
                 <div class="user-list">
                     @foreach (var user in users)
                     {
-                        <button type="button" class="user-row @(selectedUser?.Id == user.Id ? "selected" : string.Empty)" @onclick="() => SelectUser(user)">
-                            <span><strong>@user.Email</strong><small>@(user.Roles.Count == 0 ? "No roles assigned" : string.Join(", ", user.Roles))</small></span>
+                        <button type="button" class="user-row @(selectedUser?.Id == user.Id ? "selected" : string.Empty)" aria-pressed="@((selectedUser?.Id == user.Id).ToString().ToLowerInvariant())" @onclick="() => SelectUser(user)">
+                            <span class="admin-row-identity"><span class="admin-row-icon bi bi-person" aria-hidden="true"></span><span><strong>@user.Email</strong><small>@(user.Roles.Count == 0 ? "No roles assigned" : string.Join(", ", user.Roles))</small></span></span>
                             <span class="user-row-trailing"><span class="account-status @(user.IsActive ? "active" : "disabled")">@(user.IsActive ? "Active" : "Disabled")</span><span class="bi bi-chevron-right" aria-hidden="true"></span></span>
                         </button>
                     }
@@ -72,13 +79,13 @@
         </section>
 
         <section class="administration-card administration-roles" aria-labelledby="roles-title">
-            <div class="card-heading"><div><h2 id="roles-title">Roles</h2><p>Create and configure reusable access roles.</p></div><span class="bi bi-person-badge"></span></div>
+            <div class="card-heading"><div><span class="administration-section-label">Permission groups</span><h2 id="roles-title">Roles</h2><p>Create and configure reusable access roles.</p></div><span class="bi bi-person-badge"></span></div>
             <form class="create-role" @onsubmit="CreateRoleAsync" @onsubmit:preventDefault="true"><div class="input-shell"><span class="bi bi-person-badge" aria-hidden="true"></span><input @bind="newRoleName" placeholder="e.g. Port operations" aria-label="New role name" /></div><button class="admin-button" type="submit" disabled="@isCreatingRole">Create role</button></form>
             @if (roleFormMessage is not null) { <p class="form-message @roleFormMessageClass">@roleFormMessage</p> }
             @if (isLoadingRoles) { <LoadingState Message="Loading roles..." /> }
             else if (rolesFailure is not null) { <ApiErrorState Title="@rolesFailure.Title" Message="@rolesFailure.Message" OnRetry="LoadRolesAsync" /> }
             else if (roles.Count == 0) { <EmptyState Title="No roles yet" Message="Create a role to begin assigning access." /> }
-            else { <div class="role-list">@foreach (var role in roles) { <button type="button" class="role-row @(selectedRole?.Id == role.Id ? "selected" : string.Empty)" @onclick="() => SelectRole(role)"><strong>@role.Name</strong><small>@role.Permissions.Count permissions</small></button> }</div> }
+            else { <div class="role-list">@foreach (var role in roles) { <button type="button" class="role-row @(selectedRole?.Id == role.Id ? "selected" : string.Empty)" aria-pressed="@((selectedRole?.Id == role.Id).ToString().ToLowerInvariant())" @onclick="() => SelectRole(role)"><span class="admin-row-identity"><span class="admin-row-icon bi bi-person-badge" aria-hidden="true"></span><strong>@role.Name</strong></span><small>@role.Permissions.Count permissions</small></button> }</div> }
         </section>
 
 		<section id="administration-editor" class="administration-card administration-editor" aria-labelledby="editor-title">

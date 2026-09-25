@@ -4,4 +4,17 @@
     <BlazorDisableThrowNavigationException>true</BlazorDisableThrowNavigationException>
   </PropertyGroup>
 
+  <ItemGroup>
+    <None Update="Components/Pages/Voyages/Voyages.razor.css" CssScope="b-voyages" />
+    <None Update="Components/Pages/Voyages/VoyagesPorts.razor.css" CssScope="b-voyages" />
+    <None Update="Components/Pages/Voyages/VoyagesBerths.razor.css" CssScope="b-voyages" />
+    <None Update="Components/Pages/Voyages/VoyagesRoutes.razor.css" CssScope="b-voyages" />
+    <None Update="Components/Pages/Documents/Documents.razor.css" CssScope="b-documents" />
+    <None Update="Components/Pages/Documents/DocumentsRequirements.razor.css" CssScope="b-documents" />
+    <None Update="Components/Pages/Documents/DocumentsReadiness.razor.css" CssScope="b-documents" />
+    <None Update="Components/Pages/Documents/DocumentsRetention.razor.css" CssScope="b-documents" />
+    <None Update="Components/Pages/Documents/DocumentFilePanel.razor.css" CssScope="b-documents" />
+    <None Update="Components/Pages/Documents/RegisterDocumentForm.razor.css" CssScope="b-documents" />
+  </ItemGroup>
+
 </Project>

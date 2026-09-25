@@ -29,58 +29,6 @@
         </article>
     </section>
 
-    <section class="maintenance-filters" aria-label="Dry dock filters">
-        <div class="filter-field filter-field-vessel">
-            <label for="dry-dock-vessel">Vessel</label>
-            <VesselPicker InputId="dry-dock-vessel"
-                          Value="vesselFilter"
-                          ValueChanged="SelectVesselFilterAsync"
-                          Placeholder="Search vessels by name or IMO"
-                          Disabled="isLoading" />
-        </div>
-        <div class="filter-field">
-            <label for="dry-dock-port">Port</label>
-            <select id="dry-dock-port" @bind="portFilter" @bind:after="ApplyFiltersAsync" disabled="@isLoading">
-                <option value="">All ports</option>
-                @foreach (var port in portOptions)
-                {
-                    <option value="@port.PortId">@PortOptionLabel(port)</option>
-                }
-            </select>
-        </div>
-        <div class="filter-field">
-            <label for="dry-dock-status">Status</label>
-            <select id="dry-dock-status" @bind="statusFilter" @bind:after="ApplyFiltersAsync">
-                <option value="">All statuses</option>
-                @foreach (var status in MaintenanceFormat.DryDockStatuses)
-                {
-                    <option value="@status">@MaintenanceFormat.DryDockStatusLabel(status)</option>
-                }
-            </select>
-        </div>
-        <div class="filter-field">
-            <label for="dry-dock-search">Search</label>
-            <input id="dry-dock-search"
-                   @bind="searchFilter"
-                   @bind:event="oninput"
-                   @bind:after="ApplyFiltersAsync"
-                   placeholder="Planned tasks" />
-        </div>
-        <div class="filter-field">
-            <label for="dry-dock-page-size">Per page</label>
-            <select id="dry-dock-page-size" @bind="pageSize" @bind:after="ApplyFiltersAsync">
-                <option value="25">25</option>
-                <option value="50">50</option>
-                <option value="100">100</option>
-            </select>
-        </div>
-        <label class="filter-toggle dry-dock-overdue-toggle">
-            <input type="checkbox" @bind="overdueOnlyFilter" @bind:after="ApplyFiltersAsync" />
-            <span>Overdue only</span>
-        </label>
-        <button class="maintenance-reset dry-dock-clear" type="button" @onclick="ClearFiltersAsync" disabled="@isLoading">Reset</button>
-    </section>
-
     @if (scheduleSuccessMessage is not null)
     {
         <div class="maintenance-toast dry-dock-success" role="status" aria-live="polite">
@@ -91,18 +39,73 @@
 
     <section class="maintenance-card" aria-labelledby="dry-dock-list-title">
         <div class="maintenance-card-heading">
-            <div>
-                <h2 id="dry-dock-list-title">Dry docks</h2>
-                <p>@totalCount dry docks found</p>
+            <div class="maintenance-register-heading">
+                <span class="maintenance-card-icon" aria-hidden="true"><span class="bi bi-tools"></span></span>
+                <div>
+                    <h2 id="dry-dock-list-title">Dry docks</h2>
+                    <p>@totalCount dry docks found</p>
+                </div>
             </div>
             <div class="maintenance-card-heading-actions">
                 @if (CanManage)
                 {
                     <button type="button" class="maintenance-button dry-dock-schedule-toggle" @onclick="OpenScheduleForm">Schedule dry dock</button>
                 }
-                <span class="maintenance-card-icon" aria-hidden="true"><span class="bi bi-tools"></span></span>
+
             </div>
         </div>
+
+        <section class="maintenance-filters" aria-label="Dry dock filters">
+            <div class="filter-field filter-field-vessel">
+                <label for="dry-dock-vessel">Vessel</label>
+                <VesselPicker InputId="dry-dock-vessel"
+                              Value="vesselFilter"
+                              ValueChanged="SelectVesselFilterAsync"
+                              Placeholder="Search vessels by name or IMO"
+                              Disabled="isLoading" />
+            </div>
+            <div class="filter-field">
+                <label for="dry-dock-port">Port</label>
+                <select id="dry-dock-port" @bind="portFilter" @bind:after="ApplyFiltersAsync" disabled="@isLoading">
+                    <option value="">All ports</option>
+                    @foreach (var port in portOptions)
+                    {
+                        <option value="@port.PortId">@PortOptionLabel(port)</option>
+                    }
+                </select>
+            </div>
+            <div class="filter-field">
+                <label for="dry-dock-status">Status</label>
+                <select id="dry-dock-status" @bind="statusFilter" @bind:after="ApplyFiltersAsync">
+                    <option value="">All statuses</option>
+                    @foreach (var status in MaintenanceFormat.DryDockStatuses)
+                    {
+                        <option value="@status">@MaintenanceFormat.DryDockStatusLabel(status)</option>
+                    }
+                </select>
+            </div>
+            <div class="filter-field">
+                <label for="dry-dock-search">Search</label>
+                <input id="dry-dock-search"
+                       @bind="searchFilter"
+                       @bind:event="oninput"
+                       @bind:after="ApplyFiltersAsync"
+                       placeholder="Planned tasks" />
+            </div>
+            <div class="filter-field">
+                <label for="dry-dock-page-size">Per page</label>
+                <select id="dry-dock-page-size" @bind="pageSize" @bind:after="ApplyFiltersAsync">
+                    <option value="25">25</option>
+                    <option value="50">50</option>
+                    <option value="100">100</option>
+                </select>
+            </div>
+            <label class="filter-toggle dry-dock-overdue-toggle">
+                <input type="checkbox" @bind="overdueOnlyFilter" @bind:after="ApplyFiltersAsync" />
+                <span>Overdue only</span>
+            </label>
+            <button class="maintenance-reset dry-dock-clear" type="button" @onclick="ClearFiltersAsync" disabled="@isLoading">Reset</button>
+        </section>
 
         @if (isLoading)
         {

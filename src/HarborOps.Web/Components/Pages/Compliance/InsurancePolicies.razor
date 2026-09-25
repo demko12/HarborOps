@@ -10,6 +10,8 @@
     <header class="insurance-header">
         <div><nav class="page-breadcrumb" aria-label="Breadcrumb"><a href="/compliance">Compliance operations</a><span aria-hidden="true">/</span><span>Insurance register</span></nav><h1>Insurance register</h1><p>Review vessel coverage and identify expired or near-expiry policies.</p></div>
     </header>
+
+    <ComplianceNavigation />
     <section class="insurance-card insurance-filter-card">
         <div class="insurance-filter-grid">
             <div class="insurance-field insurance-vessel-field"><label>Vessel</label><VesselPicker Value="vesselId" ValueChanged="SetVesselAsync" Disabled="isLoading" /></div>

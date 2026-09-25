@@ -10,6 +10,7 @@ internal sealed class ReportsApiClient(HttpClient httpClient)
     private const string DocumentsExpiryBasePath = "api/reports/documents-expiry";
     private const string ComplianceExposureBasePath = "api/reports/compliance-exposure";
     private const string MaintenanceBacklogBasePath = "api/reports/maintenance-backlog";
+    private const string PortCallPerformanceBasePath = "api/reports/port-call-performance";
 
     private static readonly IReadOnlyDictionary<string, string[]> NoErrors =
         new Dictionary<string, string[]>(StringComparer.OrdinalIgnoreCase);
@@ -125,6 +126,43 @@ internal sealed class ReportsApiClient(HttpClient httpClient)
         }
     }
 
+    internal async Task<ReportsApiResult<PortCallPerformanceReportPage>> GetPortCallPerformanceAsync(
+        PortCallPerformanceReportQuery query,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(query);
+
+        try
+        {
+            using var response = await httpClient.GetAsync(
+                BuildPortCallPerformancePath(query, forExport: false),
+                HttpCompletionOption.ResponseHeadersRead,
+                cancellationToken);
+
+            if (!response.IsSuccessStatusCode)
+            {
+                return new ReportsApiResult<PortCallPerformanceReportPage>(
+                    null, await ReadFailureAsync(response, "Unable to load the port-call performance report", cancellationToken));
+            }
+
+            var page = await response.Content.ReadFromJsonAsync<PortCallPerformanceReportPage>(cancellationToken);
+
+            return new ReportsApiResult<PortCallPerformanceReportPage>(page, null);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (HttpRequestException)
+        {
+            return new ReportsApiResult<PortCallPerformanceReportPage>(null, Unavailable());
+        }
+        catch (TaskCanceledException) when (!cancellationToken.IsCancellationRequested)
+        {
+            return new ReportsApiResult<PortCallPerformanceReportPage>(null, Unavailable());
+        }
+    }
+
     internal Task<HttpResponseMessage> ExportDocumentsExpiryAsync(
         DocumentsExpiryReportQuery query, CancellationToken cancellationToken) =>
         httpClient.GetAsync(
@@ -145,6 +183,68 @@ internal sealed class ReportsApiClient(HttpClient httpClient)
             BuildMaintenanceBacklogPath(query, forExport: true),
             HttpCompletionOption.ResponseHeadersRead,
             cancellationToken);
+
+    internal Task<HttpResponseMessage> ExportPortCallPerformanceAsync(
+        PortCallPerformanceReportQuery query, CancellationToken cancellationToken) =>
+        httpClient.GetAsync(
+            BuildPortCallPerformancePath(query, forExport: true),
+            HttpCompletionOption.ResponseHeadersRead,
+            cancellationToken);
+
+    internal static string BuildPortCallPerformanceQueryString(PortCallPerformanceReportQuery query)
+    {
+        ArgumentNullException.ThrowIfNull(query);
+
+        var extra = new List<string>
+        {
+            string.Create(CultureInfo.InvariantCulture, $"departedFrom={query.DepartedFrom:yyyy-MM-dd}"),
+            string.Create(CultureInfo.InvariantCulture, $"departedTo={query.DepartedTo:yyyy-MM-dd}"),
+        };
+
+        if (query.VoyageId is { } voyageId)
+        {
+            extra.Add($"voyageId={voyageId}");
+        }
+
+        if (query.VesselId is { } vesselId)
+        {
+            extra.Add($"vesselId={vesselId}");
+        }
+
+        if (query.PortId is { } portId)
+        {
+            extra.Add($"portId={portId}");
+        }
+
+        if (!string.IsNullOrWhiteSpace(query.StatementAvailability))
+        {
+            extra.Add($"statementAvailability={Uri.EscapeDataString(query.StatementAvailability)}");
+        }
+
+        if (!string.IsNullOrWhiteSpace(query.SortBy))
+        {
+            extra.Add($"sortBy={Uri.EscapeDataString(query.SortBy)}");
+        }
+
+        if (!string.IsNullOrWhiteSpace(query.SortDirection))
+        {
+            extra.Add($"sortDirection={Uri.EscapeDataString(query.SortDirection)}");
+        }
+
+        return string.Join('&', extra);
+    }
+
+    private static string BuildPortCallPerformancePath(PortCallPerformanceReportQuery query, bool forExport)
+    {
+        if (forExport)
+        {
+            return $"{PortCallPerformanceBasePath}/export?{BuildPortCallPerformanceQueryString(query)}";
+        }
+
+        return string.Create(
+            CultureInfo.InvariantCulture,
+            $"{PortCallPerformanceBasePath}?{BuildPortCallPerformanceQueryString(query)}&pageNumber={query.PageNumber}&pageSize={query.PageSize}");
+    }
 
     private static string BuildDocumentsExpiryPath(DocumentsExpiryReportQuery query, bool forExport)
     {

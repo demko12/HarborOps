@@ -41,6 +41,12 @@ public sealed class CrewMemberProfilePageTests : BunitContext
     private Func<HttpRequestMessage, Task<HttpResponseMessage>> respondToDeleteAssignment =
         _ => Task.FromResult(new HttpResponseMessage(HttpStatusCode.NoContent));
 
+    private Func<HttpRequestMessage, Task<HttpResponseMessage>> respondToQualificationEligibility =
+        _ => Json(HttpStatusCode.OK, """
+            {"crewMemberId":"10000000-0000-0000-0000-000000000001","rankId":"50000000-0000-0000-0000-000000000001",
+            "from":"2026-01-01","to":"2026-01-01","status":"NotConfigured","missingTypes":[],"uncoveredDates":[],"certificateLinks":[]}
+            """);
+
     private Func<HttpRequestMessage, Task<HttpResponseMessage>> respondToVesselSearch =
         _ => Json(HttpStatusCode.OK, VesselPageJson);
 
@@ -888,6 +894,51 @@ public sealed class CrewMemberProfilePageTests : BunitContext
     }
 
     [Fact]
+    public void A_not_qualified_result_shows_a_non_blocking_warning_with_missing_types()
+    {
+        respondToProfile = _ => Json(
+            HttpStatusCode.OK,
+            Profile(certificates: [], assignments: [Assignment(status: "Planned")]));
+        respondToQualificationEligibility = _ => Json(HttpStatusCode.OK, """
+            {"crewMemberId":"10000000-0000-0000-0000-000000000001","rankId":"50000000-0000-0000-0000-000000000001",
+            "from":"2026-01-01","to":"2026-06-01","status":"NotQualified","missingTypes":["STCW-II/1"],
+            "uncoveredDates":[{"requiredType":"STCW-II/1","startDate":"2026-01-01","endDate":"2026-06-01"}],
+            "certificateLinks":[]}
+            """);
+
+        var page = RenderProfilePage(CurrentUserAuthorizationState.CrewReadPermission);
+
+        page.WaitForAssertion(() => Assert.NotEmpty(page.FindAll(".crew-profile-row-clickable")));
+        page.Find(".crew-profile-row-clickable").Click();
+
+        page.WaitForAssertion(() => Assert.Contains(
+            "STCW-II/1", page.Find(".crew-qualification-warning").TextContent, StringComparison.Ordinal));
+
+        // Non-blocking: the assignment can still be saved/planned despite the warning.
+        Assert.Empty(page.FindAll(".crew-assignment-modal-delete[disabled]"));
+    }
+
+    [Fact]
+    public void A_not_configured_policy_shows_no_warning()
+    {
+        respondToProfile = _ => Json(
+            HttpStatusCode.OK,
+            Profile(certificates: [], assignments: [Assignment(status: "Active")]));
+        respondToQualificationEligibility = _ => Json(HttpStatusCode.OK, """
+            {"crewMemberId":"10000000-0000-0000-0000-000000000001","rankId":"50000000-0000-0000-0000-000000000001",
+            "from":"2026-01-01","to":"2026-06-01","status":"NotConfigured","missingTypes":[],"uncoveredDates":[],"certificateLinks":[]}
+            """);
+
+        var page = RenderProfilePage(CurrentUserAuthorizationState.CrewReadPermission);
+
+        page.WaitForAssertion(() => Assert.NotEmpty(page.FindAll(".crew-profile-row-clickable")));
+        page.Find(".crew-profile-row-clickable").Click();
+        page.WaitForAssertion(() => Assert.NotEmpty(page.FindAll(".crew-assignment-modal")));
+
+        Assert.Empty(page.FindAll(".crew-qualification-warning"));
+    }
+
+    [Fact]
     public void Closing_the_popup_removes_it_from_the_page()
     {
         respondToProfile = _ => Json(
@@ -1429,6 +1480,11 @@ public sealed class CrewMemberProfilePageTests : BunitContext
                 {
                     return respondToRegisterMedicalExamination(request);
                 }
+            }
+
+            if (path == "/api/crew/qualification-eligibility")
+            {
+                return respondToQualificationEligibility(request);
             }
 
             throw new InvalidOperationException($"Unexpected request: {request.Method} {path}");

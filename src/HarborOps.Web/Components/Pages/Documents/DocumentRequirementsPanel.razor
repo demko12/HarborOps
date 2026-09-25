@@ -1,0 +1,408 @@
+@using HarborOps.Web.Api.Documents
+@using HarborOps.Web.Api.Fleet
+@implements IDisposable
+@inject DocumentsApiClient DocumentsApi
+@inject FleetApiClient FleetApi
+@inject CurrentUserAuthorizationState AuthorizationState
+
+<div class="requirements-panel" role="tabpanel" aria-label="Document requirements">
+    <section class="requirements-summary" aria-label="Requirement summary">
+        <article class="requirements-kpi">
+            <div>
+                <p class="requirements-kpi-label">Requirements</p>
+                <p class="requirements-kpi-value">@FormatCount(totalKpi)</p>
+                <p class="requirements-kpi-note">Configured vessel and type pairs</p>
+            </div>
+            <span class="requirements-kpi-icon kpi-icon-info" aria-hidden="true"><span class="bi bi-list-check"></span></span>
+        </article>
+        <article class="requirements-kpi">
+            <div>
+                <p class="requirements-kpi-label">Enabled</p>
+                <p class="requirements-kpi-value">@FormatCount(enabledKpi)</p>
+                <p class="requirements-kpi-note">Counted in readiness</p>
+            </div>
+            <span class="requirements-kpi-icon kpi-icon-success" aria-hidden="true"><span class="bi bi-check2-circle"></span></span>
+        </article>
+        <article class="requirements-kpi">
+            <div>
+                <p class="requirements-kpi-label">Disabled</p>
+                <p class="requirements-kpi-value">@FormatCount(disabledKpi)</p>
+                <p class="requirements-kpi-note">Kept for history only</p>
+            </div>
+            <span class="requirements-kpi-icon" aria-hidden="true"><span class="bi bi-slash-circle"></span></span>
+        </article>
+    </section>
+
+    <div class="requirements-filters" role="search">
+        <div class="filter-field filter-field-wide">
+            <label for="requirements-vessel">Vessel</label>
+            <VesselPicker @key="filterVesselPickerResetToken"
+                          InputId="requirements-vessel"
+                          Value="vesselFilter"
+                          InitialLabel="@initialVesselLabel"
+                          ValueChanged="SelectVesselFilterAsync"
+                          Placeholder="All vessels"
+                          Disabled="isLoading" />
+        </div>
+        <div class="filter-field">
+            <label for="requirements-state">State</label>
+            <select id="requirements-state" @bind="stateFilter" @bind:after="ApplyFiltersAsync">
+                <option value="">All</option>
+                <option value="@EnabledState">Enabled</option>
+                <option value="@DisabledState">Disabled</option>
+            </select>
+        </div>
+        <div class="filter-field">
+            <label for="requirements-page-size">Per page</label>
+            <select id="requirements-page-size" @bind="pageSize" @bind:after="ApplyFiltersAsync">
+                <option value="25">25</option>
+                <option value="50">50</option>
+                <option value="100">100</option>
+            </select>
+        </div>
+        <button class="requirements-reset" type="button" @onclick="ClearFiltersAsync" disabled="@isLoading">Reset</button>
+    </div>
+
+    @if (actionSuccessMessage is not null)
+    {
+        <div class="requirements-action-success" role="status">@actionSuccessMessage</div>
+    }
+
+    <section class="requirements-card" aria-labelledby="requirements-list-title">
+        <div class="requirements-card-heading">
+            <div>
+                <h2 id="requirements-list-title">Required document types</h2>
+                <p>@totalCount requirements found</p>
+            </div>
+            <div class="requirements-card-tools">
+                @if (CanManage)
+                {
+                    <button class="requirements-add-button" type="button" @onclick="OpenCreateForm">
+                        <span aria-hidden="true">+</span> Add requirement
+                    </button>
+                }
+                <span class="requirements-card-icon" aria-hidden="true"><span class="bi bi-list-check"></span></span>
+            </div>
+        </div>
+
+        @if (isLoading)
+        {
+            <LoadingState Message="Loading document requirements..." />
+        }
+        else if (failure is not null)
+        {
+            <ApiErrorState Title="@failure.Title" Message="@failure.Message" RetryLabel="Retry" OnRetry="RetryAsync" />
+        }
+        else if (rows.Count == 0)
+        {
+            <EmptyState Title="No document requirements"
+                        Message="Clear the filters, or add the first required document type for a vessel." />
+        }
+        else
+        {
+            <div class="requirements-table-scroll">
+                <table class="requirements-table">
+                    <caption class="visually-hidden">Required document types, ordered by vessel and type</caption>
+                    <thead>
+                        <tr>
+                            <th scope="col">Vessel</th>
+                            <th scope="col">Document type</th>
+                            <th scope="col">Minimum validity</th>
+                            <th scope="col">Instruction</th>
+                            <th scope="col">State</th>
+                            <th scope="col">Last change</th>
+                            <th scope="col"><span class="visually-hidden">Actions</span></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var row in rows)
+                        {
+                            <tr @key="row.Id">
+                                <td><span class="requirements-title">@VesselName(row.VesselId)</span></td>
+                                <td>@row.DocumentTypeName</td>
+                                <td class="requirements-number">@FormatDays(row.MinimumRemainingValidityDays)</td>
+                                <td class="requirements-muted">@(row.Instruction ?? "-")</td>
+                                <td>
+                                    <span class="requirements-state @(row.IsEnabled ? "enabled" : "disabled")">
+                                        @(row.IsEnabled ? "Enabled" : "Disabled")
+                                    </span>
+                                </td>
+                                <td class="requirements-muted">Rev. @row.Revision &middot; @FormatUtc(row.UpdatedAtUtc)</td>
+                                <td>
+                                    <div class="requirements-row-actions">
+                                        <button type="button" class="requirements-row-action" @onclick="() => OpenHistoryAsync(row)">History</button>
+                                        @if (CanManage)
+                                        {
+                                            <button type="button" class="requirements-row-action" @onclick="() => OpenEditForm(row)">Edit</button>
+                                            @if (row.IsEnabled)
+                                            {
+                                                <button type="button" class="requirements-row-action requirements-row-action-danger" @onclick="() => OpenDisableForm(row)">Disable</button>
+                                            }
+                                        }
+                                    </div>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="requirements-pagination">
+                <span>Showing @FirstRowNumber&ndash;@LastRowNumber of @totalCount requirements</span>
+                <div>
+                    <button type="button" @onclick="PreviousPageAsync" disabled="@(pageNumber <= 1)">Previous</button>
+                    <span class="requirements-page-indicator">Page @pageNumber of @TotalPages</span>
+                    <button type="button" @onclick="NextPageAsync" disabled="@(pageNumber >= TotalPages)">Next</button>
+                </div>
+            </div>
+        }
+    </section>
+
+    @if (isCreateFormOpen)
+    {
+        <div class="requirements-modal-backdrop" role="presentation" @onclick="CloseCreateForm">
+            <section class="requirements-modal" role="dialog" aria-modal="true" aria-labelledby="requirement-create-title" @onclick:stopPropagation="true">
+                <div class="requirements-modal-header">
+                    <h2 id="requirement-create-title">Add requirement</h2>
+                    <button type="button" class="requirements-modal-close" aria-label="Close add requirement dialog" disabled="@isSaving" @onclick="CloseCreateForm">&times;</button>
+                </div>
+
+                <form class="requirements-form" @onsubmit="SubmitCreateAsync" @onsubmit:preventDefault="true">
+                    @if (actionFailure is { IsValidation: true, Errors.Count: > 0 })
+                    {
+                        <div class="requirements-validation" role="alert">
+                            <strong>Please correct the following before saving</strong>
+                            <ul>
+                                @foreach (var entry in actionFailure.Errors)
+                                {
+                                    @foreach (var message in entry.Value)
+                                    {
+                                        <li>@message</li>
+                                    }
+                                }
+                            </ul>
+                        </div>
+                    }
+                    else if (actionFailure is not null)
+                    {
+                        <div class="requirements-action-failure" role="alert">
+                            <strong>@actionFailure.Title</strong>
+                            <p>@actionFailure.Message</p>
+                        </div>
+                    }
+
+                    <div class="requirements-form-grid">
+                        <div class="filter-field filter-field-wide">
+                            <label for="requirement-vessel">Vessel <span class="required-marker" aria-hidden="true">*</span></label>
+                            <VesselPicker @key="createVesselPickerResetToken"
+                                          InputId="requirement-vessel"
+                                          Value="createModel.VesselId"
+                                          ValueChanged="value => createModel.VesselId = value"
+                                          Placeholder="Search vessel by name or IMO..."
+                                          Disabled="isSaving" />
+                        </div>
+                        <div class="filter-field filter-field-wide">
+                            <label for="requirement-type">Document type <span class="required-marker" aria-hidden="true">*</span></label>
+                            <select id="requirement-type" @bind="createModel.DocumentTypeId" disabled="@(isSaving || documentTypes.Count == 0)">
+                                <option value="">@(documentTypes.Count == 0 ? "No document types available" : "Select a document type")</option>
+                                @foreach (var type in documentTypes)
+                                {
+                                    <option value="@type.DocumentTypeId">@type.Name</option>
+                                }
+                            </select>
+                        </div>
+                        <div class="filter-field">
+                            <label for="requirement-days">Minimum validity (days) <span class="required-marker" aria-hidden="true">*</span></label>
+                            <input id="requirement-days" type="number" min="0" max="@MaxValidityDays" @bind="createModel.MinimumRemainingValidityDays" disabled="@isSaving" />
+                        </div>
+                        <div class="filter-field filter-field-wide">
+                            <label for="requirement-instruction">Instruction</label>
+                            <textarea id="requirement-instruction" maxlength="@InstructionMaxLength" @bind="createModel.Instruction" disabled="@isSaving"></textarea>
+                        </div>
+                        <div class="filter-field filter-field-wide">
+                            <label for="requirement-reason">Reason <span class="required-marker" aria-hidden="true">*</span></label>
+                            <textarea id="requirement-reason" maxlength="@ReasonMaxLength" @bind="createModel.Reason" disabled="@isSaving"></textarea>
+                        </div>
+                    </div>
+
+                    <div class="requirements-form-actions">
+                        <button type="submit" class="requirements-button" disabled="@isSaving">@(isSaving ? "Saving..." : "Add requirement")</button>
+                        <button type="button" class="requirements-reset" @onclick="CloseCreateForm" disabled="@isSaving">Cancel</button>
+                    </div>
+                </form>
+            </section>
+        </div>
+    }
+
+    @if (editRow is not null)
+    {
+        <div class="requirements-modal-backdrop" role="presentation" @onclick="CloseEditForm">
+            <section class="requirements-modal" role="dialog" aria-modal="true" aria-labelledby="requirement-edit-title" @onclick:stopPropagation="true">
+                <div class="requirements-modal-header">
+                    <div>
+                        <h2 id="requirement-edit-title">Edit requirement</h2>
+                        <p class="requirements-modal-subtitle">@VesselName(editRow.VesselId) &middot; @editRow.DocumentTypeName</p>
+                    </div>
+                    <button type="button" class="requirements-modal-close" aria-label="Close edit requirement dialog" disabled="@isSaving" @onclick="CloseEditForm">&times;</button>
+                </div>
+
+                <form class="requirements-form" @onsubmit="SubmitEditAsync" @onsubmit:preventDefault="true">
+                    @if (actionFailure is { IsValidation: true, Errors.Count: > 0 })
+                    {
+                        <div class="requirements-validation" role="alert">
+                            <strong>Please correct the following before saving</strong>
+                            <ul>
+                                @foreach (var entry in actionFailure.Errors)
+                                {
+                                    @foreach (var message in entry.Value)
+                                    {
+                                        <li>@message</li>
+                                    }
+                                }
+                            </ul>
+                        </div>
+                    }
+                    else if (actionFailure is not null)
+                    {
+                        <div class="requirements-action-failure" role="alert">
+                            <strong>@actionFailure.Title</strong>
+                            <p>@actionFailure.Message</p>
+                        </div>
+                    }
+
+                    @if (actionFailure is { IsConflict: true })
+                    {
+                        <button type="button" class="requirements-row-action" @onclick="ReloadAfterConflictAsync">Reload latest version</button>
+                    }
+
+                    <div class="requirements-form-grid">
+                        <label class="requirements-toggle" for="requirement-enabled">
+                            <input id="requirement-enabled" type="checkbox" @bind="editModel.IsEnabled" disabled="@isSaving" />
+                            Enabled
+                        </label>
+                        <div class="filter-field">
+                            <label for="requirement-edit-days">Minimum validity (days) <span class="required-marker" aria-hidden="true">*</span></label>
+                            <input id="requirement-edit-days" type="number" min="0" max="@MaxValidityDays" @bind="editModel.MinimumRemainingValidityDays" disabled="@isSaving" />
+                        </div>
+                        <div class="filter-field filter-field-wide">
+                            <label for="requirement-edit-instruction">Instruction</label>
+                            <textarea id="requirement-edit-instruction" maxlength="@InstructionMaxLength" @bind="editModel.Instruction" disabled="@isSaving"></textarea>
+                        </div>
+                        <div class="filter-field filter-field-wide">
+                            <label for="requirement-edit-reason">Reason <span class="required-marker" aria-hidden="true">*</span></label>
+                            <textarea id="requirement-edit-reason" maxlength="@ReasonMaxLength" @bind="editModel.Reason" disabled="@isSaving"></textarea>
+                        </div>
+                    </div>
+
+                    <div class="requirements-form-actions">
+                        <button type="submit" class="requirements-button" disabled="@isSaving">@(isSaving ? "Saving..." : "Save changes")</button>
+                        <button type="button" class="requirements-reset" @onclick="CloseEditForm" disabled="@isSaving">Cancel</button>
+                    </div>
+                </form>
+            </section>
+        </div>
+    }
+
+    @if (disableRow is not null)
+    {
+        <div class="requirements-modal-backdrop" role="presentation" @onclick="CloseDisableForm">
+            <section class="requirements-modal" role="dialog" aria-modal="true" aria-labelledby="requirement-disable-title" @onclick:stopPropagation="true">
+                <div class="requirements-modal-header">
+                    <div>
+                        <h2 id="requirement-disable-title">Disable requirement</h2>
+                        <p class="requirements-modal-subtitle">@VesselName(disableRow.VesselId) &middot; @disableRow.DocumentTypeName</p>
+                    </div>
+                    <button type="button" class="requirements-modal-close" aria-label="Close disable requirement dialog" disabled="@isSaving" @onclick="CloseDisableForm">&times;</button>
+                </div>
+
+                <form class="requirements-form" @onsubmit="SubmitDisableAsync" @onsubmit:preventDefault="true">
+                    <p class="requirements-confirm-text">The requirement stops counting toward readiness. Its history is kept.</p>
+
+                    @if (actionFailure is { IsValidation: true, Errors.Count: > 0 })
+                    {
+                        <div class="requirements-validation" role="alert">
+                            <strong>Please correct the following before saving</strong>
+                            <ul>
+                                @foreach (var entry in actionFailure.Errors)
+                                {
+                                    @foreach (var message in entry.Value)
+                                    {
+                                        <li>@message</li>
+                                    }
+                                }
+                            </ul>
+                        </div>
+                    }
+                    else if (actionFailure is not null)
+                    {
+                        <div class="requirements-action-failure" role="alert">
+                            <strong>@actionFailure.Title</strong>
+                            <p>@actionFailure.Message</p>
+                        </div>
+                    }
+
+                    @if (actionFailure is { IsConflict: true })
+                    {
+                        <button type="button" class="requirements-row-action" @onclick="ReloadAfterConflictAsync">Reload latest version</button>
+                    }
+
+                    <div class="filter-field filter-field-wide">
+                        <label for="requirement-disable-reason">Reason <span class="required-marker" aria-hidden="true">*</span></label>
+                        <textarea id="requirement-disable-reason" maxlength="@ReasonMaxLength" @bind="disableReason" disabled="@isSaving"></textarea>
+                    </div>
+
+                    <div class="requirements-form-actions">
+                        <button type="submit" class="requirements-button requirements-button-danger" disabled="@isSaving">@(isSaving ? "Disabling..." : "Disable requirement")</button>
+                        <button type="button" class="requirements-reset" @onclick="CloseDisableForm" disabled="@isSaving">Cancel</button>
+                    </div>
+                </form>
+            </section>
+        </div>
+    }
+
+    @if (historyRow is not null)
+    {
+        <div class="requirements-modal-backdrop" role="presentation" @onclick="CloseHistory">
+            <section class="requirements-modal" role="dialog" aria-modal="true" aria-labelledby="requirement-history-title" @onclick:stopPropagation="true">
+                <div class="requirements-modal-header">
+                    <div>
+                        <h2 id="requirement-history-title">Requirement history</h2>
+                        <p class="requirements-modal-subtitle">@VesselName(historyRow.VesselId) &middot; @historyRow.DocumentTypeName</p>
+                    </div>
+                    <button type="button" class="requirements-modal-close" aria-label="Close requirement history dialog" @onclick="CloseHistory">&times;</button>
+                </div>
+
+                @if (isLoadingHistory)
+                {
+                    <LoadingState Message="Loading requirement history..." />
+                }
+                else if (historyFailure is not null)
+                {
+                    <ApiErrorState Title="@historyFailure.Title" Message="@historyFailure.Message" RetryLabel="Retry" OnRetry="() => OpenHistoryAsync(historyRow)" />
+                }
+                else if (historyDetails is not null)
+                {
+                    <ol class="requirements-history">
+                        @foreach (var entry in historyDetails.History)
+                        {
+                            <li @key="entry.Id">
+                                <div class="requirements-history-head">
+                                    <strong>Rev. @entry.Revision &middot; @entry.EventType</strong>
+                                    <span>@FormatUtc(entry.OccurredAtUtc)</span>
+                                </div>
+                                <span class="requirements-history-values">
+                                    @(entry.IsEnabled ? "Enabled" : "Disabled") &middot; @FormatDays(entry.MinimumRemainingValidityDays)
+                                </span>
+                                @if (entry.Reason is not null)
+                                {
+                                    <span class="requirements-history-reason">@entry.Reason</span>
+                                }
+                                <span class="requirements-history-meta">By @(entry.ActorEmail ?? entry.ActorUserId.ToString())</span>
+                            </li>
+                        }
+                    </ol>
+                }
+            </section>
+        </div>
+    }
+</div>

@@ -17,25 +17,51 @@
             <h1>Your documents, in order</h1>
             <p>Review vessel documents due to expire within the selected date range.</p>
         </div>
+        <div class="documents-header-actions">
+            <a class="workspace-tab" href="/documents/acknowledgements">
+                <span class="bi bi-check2-square" aria-hidden="true"></span> My acknowledgements
+            </a>
+        </div>
     </header>
 
-	<section class="documents-tabs workspace-tabs" aria-label="Document registration actions">
-		<button type="button" class="workspace-tab @(isRegisterTypeFormOpen ? "active" : null)" @onclick="ToggleRegisterTypeForm">
-			<span class="bi bi-folder-plus" aria-hidden="true"></span> Register document type
-		</button>
-		<button type="button" class="workspace-tab @(isRegisterDocumentFormOpen ? "active" : null)" @onclick="ToggleRegisterDocumentForm">
-			<span class="bi bi-file-earmark-plus" aria-hidden="true"></span> Register document
-		</button>
-		@if (AuthorizationState.HasPermission("documents.read") || AuthorizationState.HasPermission("documents.manage"))
-		{
-			<button type="button" class="workspace-tab @(isRetentionTabOpen ? "active" : null)" @onclick="ToggleRetentionTab">
-				<span class="bi bi-archive" aria-hidden="true"></span> Retention &amp; disposition
-			</button>
-		}
-		<a class="workspace-tab documents-acknowledgements-tab" href="/documents/acknowledgements">
-			<span class="bi bi-check2-square" aria-hidden="true"></span> My acknowledgements
-		</a>
-	</section>
+    <DocumentsNavigation />
+
+    <section class="documents-summary" aria-label="Document summary">
+        <article class="documents-kpi">
+            <div>
+                <p class="documents-kpi-label">Matching documents</p>
+                <p class="documents-kpi-value">@totalCount</p>
+                <p class="documents-kpi-note">Across the current filters</p>
+            </div>
+            <span class="documents-kpi-icon kpi-icon-info" aria-hidden="true"><span class="bi bi-files"></span></span>
+        </article>
+        <article class="documents-kpi">
+            <div>
+                <p class="documents-kpi-label">Expired</p>
+                <p class="documents-kpi-value">@rows.Count(row => row.DaysUntilExpiry < 0)</p>
+                <p class="documents-kpi-note">On this page</p>
+            </div>
+            <span class="documents-kpi-icon kpi-icon-danger" aria-hidden="true"><span class="bi bi-calendar-x"></span></span>
+        </article>
+        <article class="documents-kpi">
+            <div>
+                <p class="documents-kpi-label">Due within 30 days</p>
+                <p class="documents-kpi-value">@rows.Count(row => row.DaysUntilExpiry >= 0 && row.DaysUntilExpiry <= 30)</p>
+                <p class="documents-kpi-note">On this page</p>
+            </div>
+            <span class="documents-kpi-icon kpi-icon-warning" aria-hidden="true"><span class="bi bi-calendar-event"></span></span>
+        </article>
+        <article class="documents-kpi">
+            <div>
+                <p class="documents-kpi-label">Pending review</p>
+                <p class="documents-kpi-value">@rows.Count(row => row.ReviewStatus == "PendingReview")</p>
+                <p class="documents-kpi-note">On this page</p>
+            </div>
+            <span class="documents-kpi-icon kpi-icon-warning" aria-hidden="true"><span class="bi bi-hourglass-split"></span></span>
+        </article>
+    </section>
+
+
 
     @if (filterValidationMessage is not null)
     {
@@ -63,50 +89,55 @@
         </div>
     }
 
-    <section class="documents-summary" aria-label="Document summary">
-        <article><div><span>Matching documents</span><strong>@totalCount</strong><small>Across the current filters</small></div><span class="bi bi-files" aria-hidden="true"></span></article>
-        <article><div><span>Expired</span><strong>@rows.Count(row => row.DaysUntilExpiry < 0)</strong><small>On this page</small></div><span class="bi bi-calendar-x" aria-hidden="true"></span></article>
-        <article><div><span>Due within 30 days</span><strong>@rows.Count(row => row.DaysUntilExpiry >= 0 && row.DaysUntilExpiry <= 30)</strong><small>On this page</small></div><span class="bi bi-calendar-event" aria-hidden="true"></span></article>
-        <article><div><span>Pending review</span><strong>@rows.Count(row => row.ReviewStatus == "PendingReview")</strong><small>On this page</small></div><span class="bi bi-clipboard-check" aria-hidden="true"></span></article>
-    </section>
-
     <section class="documents-card documents-register" aria-labelledby="documents-list-title">
         <div class="documents-card-heading">
             <div class="documents-register-heading">
                 <span class="documents-card-icon" aria-hidden="true"><span class="bi bi-file-earmark-text"></span></span>
-                <div><span class="documents-section-label">Document overview</span><h2 id="documents-list-title">Expiring document register</h2><p>@totalCount documents found · Within the selected date range</p></div>
+                <div>
+                    <span class="documents-section-label">Document overview</span>
+                    <h2 id="documents-list-title">Expiring document register</h2>
+                    <p>@totalCount documents found · Within the selected date range</p>
+                </div>
+            </div>
+            <div class="documents-card-tools">
+                <button id="documents-register-type-button" type="button" class="documents-register-button" @onclick="ToggleRegisterTypeForm">
+                    <span aria-hidden="true">+</span> Register type
+                </button>
+                <button id="documents-register-document-button" type="button" class="documents-register-button" @onclick="ToggleRegisterDocumentForm">
+                    <span aria-hidden="true">+</span> Register document
+                </button>
             </div>
         </div>
 
-        <section class="documents-filters documents-register-filters" aria-label="Document filters">
-            <div class="filter-field filter-field-wide">
-                <label>Vessel</label>
-                <VesselPicker @key="filterVesselPickerResetToken"
-                              Value="vesselIdFilter"
-                              ValueChanged="SelectFilterVesselAsync"
-                              Placeholder="Search vessels by name or IMO..."
-                              Disabled="isLoading" />
-            </div>
-            <div class="filter-field">
-                <label for="documents-from">From</label>
-                <input id="documents-from" type="date" @bind="fromFilter" @bind:after="ScheduleFilterSearchAsync" />
-            </div>
-            <div class="filter-field">
-                <label for="documents-to">To</label>
-                <input id="documents-to" type="date" @bind="toFilter" @bind:after="ScheduleFilterSearchAsync" />
-            </div>
-            <div class="filter-field">
-                <label for="documents-review-status">Review status</label>
-                <select id="documents-review-status" @bind="pendingReviewStatus" @bind:after="ScheduleFilterSearchAsync">
-                    <option value="">All</option>
-                    <option value="Draft">Draft</option>
-                    <option value="PendingReview">Pending review</option>
-                    <option value="Approved">Approved</option>
-                    <option value="Rejected">Rejected</option>
-                </select>
-            </div>
-            <button class="documents-filter-reset" type="button" @onclick="ClearFiltersAsync" disabled="@isLoading">Reset</button>
-        </section>
+    <section class="documents-filters documents-register-filters" aria-label="Document filters">
+        <div class="filter-field filter-field-wide">
+            <label>Vessel</label>
+            <VesselPicker @key="filterVesselPickerResetToken"
+                          Value="vesselIdFilter"
+                          ValueChanged="SelectFilterVesselAsync"
+                          Placeholder="Search vessels by name or IMO..."
+                          Disabled="isLoading" />
+        </div>
+        <div class="filter-field">
+            <label for="documents-from">From</label>
+            <input id="documents-from" type="date" @bind="fromFilter" @bind:after="ScheduleFilterSearchAsync" />
+        </div>
+        <div class="filter-field">
+            <label for="documents-to">To</label>
+            <input id="documents-to" type="date" @bind="toFilter" @bind:after="ScheduleFilterSearchAsync" />
+        </div>
+        <div class="filter-field">
+            <label for="documents-review-status">Review status</label>
+            <select id="documents-review-status" @bind="pendingReviewStatus" @bind:after="ScheduleFilterSearchAsync">
+                <option value="">All</option>
+                <option value="Draft">Draft</option>
+                <option value="PendingReview">Pending review</option>
+                <option value="Approved">Approved</option>
+                <option value="Rejected">Rejected</option>
+            </select>
+        </div>
+        <button class="documents-filter-reset" type="button" @onclick="ClearFiltersAsync" disabled="@isLoading">Reset</button>
+    </section>
 
         @if (isLoading)
         {
@@ -156,7 +187,7 @@
                                 <td class="documents-num col-days">@row.DaysUntilExpiry</td>
                                 <td class="col-file">
                                     <button type="button" class="documents-file-toggle"
-                                            @onclick="() => OpenFilePanelAsync(row.DocumentId)">
+                                            @onclick="() => OpenFilePanel(row.DocumentId)">
                                         File
                                     </button>
                                 </td>
@@ -179,673 +210,11 @@
 
     @if (expandedDocumentId is { } fileDocumentId)
     {
-    <div class="documents-modal-backdrop" role="presentation" @onclick="CloseFilePanel">
-    <section class="documents-file-form-card documents-modal" role="dialog" aria-modal="true" aria-labelledby="documents-file-title" @onclick:stopPropagation="true">
-        <div class="documents-inline-form-header">
-            <h2 id="documents-file-title">Document file</h2>
-        </div>
-
-        @if (isLoadingFileDetails)
-        {
-            <p class="documents-file-panel-loading">Loading file details...</p>
-        }
-        else if (fileDetailsFailure is not null)
-        {
-            <div class="documents-type-inline-error" role="alert">@fileDetailsFailure.Message</div>
-        }
-        else if (fileDetails is not null)
-        {
-            <div class="documents-lifecycle-actions">
-                <span class="documents-status @GetDocumentStatusClass(fileDetails.Status)">@fileDetails.Status</span>
-                <span class="documents-review-status @GetReviewStatusClass(fileDetails.ReviewStatus)">@fileDetails.ReviewStatus</span>
-            </div>
-
-            @if (lifecycleFailure is not null)
-            {
-                <div class="documents-type-inline-error" role="alert">@lifecycleFailure.Message</div>
-            }
-            @if (reviewActionSuccessMessage is not null)
-            {
-                <div class="documents-type-success" role="status">@reviewActionSuccessMessage</div>
-            }
-            @if (AuthorizationState.HasPermission("documents.manage"))
-            {
-                <div class="documents-lifecycle-actions">
-                    <button type="button" class="documents-modal-cancel" @onclick="() => isEditingMetadata = !isEditingMetadata">Edit metadata</button>
-                    @if (fileDetails.Status == "Active")
-                    {
-                        <button type="button" class="documents-search-button" @onclick="() => isRenewingDocument = !isRenewingDocument">Renew document</button>
-                    }
-                    @if (CanSubmitForReview)
-                    {
-                        <button type="button" class="documents-search-button" disabled="@isSubmittingForReview" @onclick="SubmitForReviewAsync">
-                            @(isSubmittingForReview ? "Submitting..." : "Submit for review")
-                        </button>
-                    }
-                    @if (CanApproveOrReject)
-                    {
-                        <button type="button" class="documents-search-button" disabled="@isApproving" @onclick="ApproveAsync">
-                            @(isApproving ? "Approving..." : "Approve")
-                        </button>
-                        <button type="button" class="documents-modal-cancel" @onclick="OpenRejectConfirmation">Reject</button>
-                    }
-                    @if (CanRevoke)
-                    {
-                        <button type="button" class="documents-modal-cancel" @onclick="OpenRevokeConfirmation">Revoke</button>
-                    }
-                    <button type="button" class="documents-search-button" @onclick="OpenDistributionFormAsync">Distribute for acknowledgement</button>
-                </div>
-                @if (isDistributionFormOpen)
-                {
-                    <section class="documents-lifecycle-panel" aria-label="Document distribution">
-                        <h3>Distribute approved document</h3>
-                        <div class="documents-form-grid">
-                            <div class="filter-field"><label>Due date</label><InputDate @bind-Value="distributionDueDate" /></div>
-                            <div class="filter-field"><label>Instruction (optional)</label><input @bind="distributionInstruction" /></div>
-                            <div class="filter-field"><label>Find recipients</label><input @bind="distributionRecipientSearch" @bind:event="oninput" @bind:after="SearchDistributionRecipientsAsync" placeholder="Search eligible users..." /></div>
-                        </div>
-                        <div class="distribution-recipient-picker">
-                            @foreach (var recipient in distributionRecipients.Where(x => x.IsActive && x.CanReadDocuments))
-                            {
-                                <label><input type="checkbox" checked="@selectedDistributionRecipients.Contains(recipient.UserId)" @onchange="() => { if (!selectedDistributionRecipients.Add(recipient.UserId)) selectedDistributionRecipients.Remove(recipient.UserId); }" /> @recipient.Email</label>
-                            }
-                        </div>
-                        @if (distributionFailure is not null) { <div class="documents-type-inline-error" role="alert">@distributionFailure.Message</div> }
-                        @if (distributionSuccessMessage is not null) { <div class="documents-type-success" role="status">@distributionSuccessMessage</div> }
-                        <button type="button" class="documents-search-button" disabled="@isIssuingDistribution" @onclick="IssueDistributionAsync">@(isIssuingDistribution ? "Issuing..." : "Issue acknowledgement")</button>
-                    </section>
-                }
-                @if (isEditingMetadata || isRenewingDocument)
-                {
-                    <section class="documents-lifecycle-panel" aria-label="Document metadata">
-                    <div class="documents-form-grid">
-                        <div class="filter-field"><label>Document type</label><InputSelect @bind-Value="lifecycleTypeId">@foreach (var option in documentTypeOptions) { <option value="@option.DocumentTypeId">@option.Name</option> }</InputSelect></div>
-                        <div class="filter-field"><label>Number</label><InputText @bind-Value="lifecycleNumber" /></div>
-                        <div class="filter-field"><label>Issue date</label><InputDate @bind-Value="lifecycleIssueDate" /></div>
-                        <div class="filter-field"><label>Expiry date</label><InputDate @bind-Value="lifecycleExpiryDate" /></div>
-                        <div class="filter-field"><label>Issuing authority</label><InputText @bind-Value="lifecycleAuthority" /></div>
-                    </div>
-                    <p class="documents-file-empty">@(isRenewingDocument ? "The current document and its file will be retained as a superseded record. The renewed document starts without a file." : "Editing metadata keeps the attached file unchanged.")</p>
-                    <button type="button" class="documents-search-button" @onclick="@(isRenewingDocument ? RenewDocumentAsync : SaveMetadataAsync)">@(isRenewingDocument ? "Confirm renewal" : "Save metadata")</button>
-                    </section>
-                }
-                @if (isRejectingDocument)
-                {
-                    <section class="documents-lifecycle-panel" aria-label="Reject document">
-                        <div class="filter-field">
-                            <label for="reject-notes">Rejection notes</label>
-                            <textarea id="reject-notes" @bind="rejectNotes"></textarea>
-                        </div>
-                        @if (rejectNotesValidationMessage is not null)
-                        {
-                            <div class="documents-type-inline-error" role="alert">@rejectNotesValidationMessage</div>
-                        }
-                        @if (rejectFailure is not null)
-                        {
-                            <div class="documents-type-inline-error" role="alert">@rejectFailure.Message</div>
-                        }
-                        <button type="button" class="documents-search-button" disabled="@isSubmittingRejection" @onclick="ConfirmRejectAsync">
-                            @(isSubmittingRejection ? "Rejecting..." : "Confirm rejection")
-                        </button>
-                        <button type="button" class="documents-modal-cancel" @onclick="CancelRejectConfirmation" disabled="@isSubmittingRejection">Cancel</button>
-                    </section>
-                }
-                @if (isConfirmingRevoke)
-                {
-                    <section class="documents-lifecycle-panel" aria-label="Revoke document">
-                        <div class="filter-field">
-                            <label for="revoke-reason">Revocation reason</label>
-                            <textarea id="revoke-reason" @bind="revokeReason"></textarea>
-                        </div>
-                        @if (revokeReasonValidationMessage is not null)
-                        {
-                            <div class="documents-type-inline-error" role="alert">@revokeReasonValidationMessage</div>
-                        }
-                        @if (revokeFailure is not null)
-                        {
-                            <div class="documents-type-inline-error" role="alert">@revokeFailure.Message</div>
-                        }
-                        <button type="button" class="documents-search-button" disabled="@isRevoking" @onclick="ConfirmRevokeAsync">
-                            @(isRevoking ? "Revoking..." : "Confirm revoke")
-                        </button>
-                        <button type="button" class="documents-modal-cancel" @onclick="CancelRevokeConfirmation" disabled="@isRevoking">Cancel</button>
-                    </section>
-                }
-            }
-            @if (renewalHistory.Count > 1)
-            {
-                <section class="documents-renewal-history"><p>Renewal history</p>@foreach (var item in renewalHistory) { <div><strong>@item.Number</strong><span>@item.Status · expires @item.ExpiryDate.ToString("dd MMM yyyy")</span></div> }</section>
-            }
-
-            <section class="documents-review-history">
-                <button type="button" class="documents-review-history-toggle" @onclick="ToggleReviewHistoryAsync">
-                    @(isReviewHistoryExpanded ? "Hide review history" : "Show review history")
-                </button>
-                @if (isReviewHistoryExpanded)
-                {
-                    @if (isLoadingReviewHistory)
-                    {
-                        <p class="documents-file-panel-loading">Loading review history...</p>
-                    }
-                    else if (reviewHistoryFailure is not null)
-                    {
-                        <div class="documents-type-inline-error" role="alert">@reviewHistoryFailure.Message</div>
-                    }
-                    else if (reviewHistory.Count == 0)
-                    {
-                        <p class="documents-file-empty">No review history yet.</p>
-                    }
-                    else
-                    {
-                        <ul class="documents-review-history-list">
-                            @foreach (var item in reviewHistory)
-                            {
-                                <li>
-                                    <strong>@item.Action</strong>
-                                    <span>@item.ActorUserId &middot; @FormatOccurredAt(item.OccurredAtUtc)</span>
-                                    @if (!string.IsNullOrWhiteSpace(item.Notes))
-                                    {
-                                        <p>@item.Notes</p>
-                                    }
-                                </li>
-                            }
-                        </ul>
-                    }
-                }
-            </section>
-            @if (uploadSuccessMessage is not null)
-            {
-                <div class="documents-type-success" role="status">@uploadSuccessMessage</div>
-            }
-
-            @if (!fileDetails.HasFile)
-            {
-                <p class="documents-file-empty">No file attached.</p>
-            }
-            else
-            {
-                <dl class="documents-file-meta">
-                    <div>
-                        <dt>File name</dt>
-                        <dd>@fileDetails.FileName</dd>
-                    </div>
-                    <div>
-                        <dt>Size</dt>
-                        <dd>@FormatBytes(fileDetails.SizeBytes)</dd>
-                    </div>
-                    <div>
-                        <dt>Content type</dt>
-                        <dd>@fileDetails.ContentType</dd>
-                    </div>
-                    <div>
-                        <dt>Uploaded</dt>
-                        <dd>@FormatUploadedAt(fileDetails.UploadedAtUtc)</dd>
-                    </div>
-                </dl>
-            }
-
-            @if (isConfirmingReplace)
-            {
-                <p class="documents-file-replace-confirm">Replace the current file? This cannot be undone.</p>
-            }
-
-            @if (ShowUploadForm)
-            {
-                <div class="documents-file-upload-form">
-                    <label for="documents-file-input">@(fileDetails.HasFile ? "Replacement file" : "File")</label>
-                    <div class="documents-file-picker @(isUploading ? "is-disabled" : string.Empty)">
-                        <InputFile id="documents-file-input" class="documents-file-native-input" OnChange="OnFileSelected" disabled="@isUploading" />
-                        <label class="documents-file-picker-button" for="documents-file-input"><span class="bi bi-paperclip" aria-hidden="true"></span> Choose file</label>
-                        <span class="documents-file-picker-name">@(selectedUploadFile?.Name ?? "No file chosen")</span>
-                    </div>
-
-                    @if (isUploading)
-                    {
-                        <div class="documents-file-progress-row">
-                            <progress class="documents-file-progress" max="100" value="@uploadProgress"></progress>
-                            <span class="documents-file-progress-label">@($"{uploadProgress:0}%")</span>
-                        </div>
-                    }
-
-                    @if (IsUploadValidationFailure)
-                    {
-                        <ul class="documents-type-field-errors" role="alert">
-                            @foreach (var message in UploadValidationMessages)
-                            {
-                                <li>@message</li>
-                            }
-                        </ul>
-                    }
-                    else if (uploadFailure is not null)
-                    {
-                        <div class="documents-type-inline-error" role="alert">
-                            @UploadFailureMessageText(fileDetails.HasFile)
-                        </div>
-                    }
-                </div>
-            }
-        }
-
-        <div class="documents-modal-actions">
-            @if (fileDetails is not null && !isConfirmingReplace && !ShowUploadForm)
-            {
-                @if (fileDetails.HasFile && AuthorizationState.HasPermission("documents.read"))
-                {
-                    <a class="documents-search-button documents-file-download-link"
-                       href="/documents/@fileDocumentId/file/download"
-                       target="_blank"
-                       rel="noopener">Download</a>
-                }
-
-                @if (fileDetails.HasFile && AuthorizationState.HasPermission("documents.manage"))
-                {
-                    <button type="button" class="documents-modal-cancel documents-file-replace-button" @onclick="OpenReplaceConfirmation">
-                        Replace file
-                    </button>
-                }
-            }
-
-            @if (isConfirmingReplace)
-            {
-                <button type="button" class="documents-search-button documents-file-replace-confirm-button" @onclick="ConfirmReplace">
-                    Yes, choose new file
-                </button>
-                <button type="button" class="documents-modal-cancel documents-file-replace-cancel-button" @onclick="CancelReplaceConfirmation">
-                    Cancel
-                </button>
-            }
-
-            @if (ShowUploadForm)
-            {
-                <button type="button" class="documents-search-button documents-file-upload-button"
-                        disabled="@(isUploading || selectedUploadFile is null)"
-                        @onclick="() => SubmitFileAsync(fileDocumentId, fileDetails!.HasFile)">
-                    @(isUploading ? "Uploading..." : fileDetails!.HasFile ? "Upload replacement" : "Upload")
-                </button>
-            }
-
-            <button type="button" class="documents-modal-cancel documents-file-close-button" @onclick="CloseFilePanel" disabled="@isUploading">
-                Close
-            </button>
-        </div>
-    </section>
-    </div>
-    }
-
-    @if (isRetentionTabOpen)
-    {
-    <div class="documents-modal-backdrop" role="presentation" @onclick="CloseRetentionTab">
-    <section class="documents-retention-card documents-modal documents-modal-wide" role="dialog" aria-modal="true" aria-labelledby="documents-retention-title" @onclick:stopPropagation="true">
-        <div class="documents-inline-form-header">
-            <div>
-                <p class="documents-modal-eyebrow">Document lifecycle</p>
-                <h2 id="documents-retention-title">Retention, legal holds &amp; disposition</h2>
-            </div>
-            <button type="button" class="documents-modal-close" aria-label="Close retention and disposition" @onclick="CloseRetentionTab">×</button>
-        </div>
-
-        <section class="documents-tabs workspace-tabs" aria-label="Retention views">
-            <button type="button" class="workspace-tab @(isRetentionQueueSubTab ? "active" : null)" @onclick="SelectRetentionQueueSubTab">Retention queue</button>
-            @if (CanManageRetention)
-            {
-                <button type="button" class="workspace-tab @(!isRetentionQueueSubTab ? "active" : null)" @onclick="SelectRetentionPoliciesSubTab">Retention policies</button>
-            }
-        </section>
-
-        @if (isRetentionQueueSubTab)
-        {
-            <section class="documents-filters documents-retention-filters" aria-label="Retention queue filters">
-                <div class="filter-field">
-                    <label for="retention-state-filter">State</label>
-                    <select id="retention-state-filter" @bind="retentionStateFilter" @bind:after="ApplyRetentionFiltersAsync">
-                        <option value="">All</option>
-                        <option value="@RetentionActiveState">Active</option>
-                        <option value="@RetentionArchivedState">Archived</option>
-                        <option value="@RetentionPendingDispositionState">Pending disposition</option>
-                        <option value="@RetentionDisposedState">Disposed</option>
-                    </select>
-                </div>
-                <div class="filter-field">
-                    <label for="retention-due-before-filter">Due before</label>
-                    <input id="retention-due-before-filter" type="date" @bind="retentionDueBeforeFilter" @bind:after="ApplyRetentionFiltersAsync" />
-                </div>
-                <button class="documents-filter-reset" type="button" @onclick="ClearRetentionFiltersAsync" disabled="@isLoadingRetentionQueue">Reset</button>
-            </section>
-
-            @if (isLoadingRetentionQueue)
-            {
-                <LoadingState Message="Loading retention queue..." />
-            }
-            else if (retentionQueueFailure is not null)
-            {
-                <ApiErrorState Title="@retentionQueueFailure.Title" Message="@retentionQueueFailure.Message" OnRetry="RetryRetentionQueueAsync" />
-            }
-            else if (retentionQueueRows.Count == 0)
-            {
-                <EmptyState Title="No documents are due for a retention decision" Message="Widen the filters or check back later." />
-            }
-            else
-            {
-                <div class="documents-table-scroll">
-                    <table class="documents-table retention-queue-table">
-                        <caption class="visually-hidden">Documents due for a retention decision</caption>
-                        <thead>
-                            <tr>
-                                <th scope="col">Document</th>
-                                <th scope="col">Document type</th>
-                                <th scope="col">Trigger date</th>
-                                <th scope="col">Due date</th>
-                                <th scope="col">State</th>
-                                <th scope="col">Holds</th>
-                                <th scope="col">Pending disposition</th>
-                                <th scope="col"></th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            @foreach (var row in retentionQueueRows)
-                            {
-                                <tr @key="row.DocumentId">
-                                    <td>@row.DocumentId.ToString()[..8]</td>
-                                    <td>@row.DocumentTypeId</td>
-                                    <td>@FormatRetentionDate(row.LifecycleTriggerAtUtc)</td>
-                                    <td>@FormatRetentionDate(row.RetentionDueAtUtc)</td>
-                                    <td><span class="documents-status @GetRetentionStateClass(row.RetentionState)">@row.RetentionState</span></td>
-                                    <td>@(row.ActiveHolds.Count > 0 ? $"{row.ActiveHolds.Count} active" : "None")</td>
-                                    <td>@(row.PendingDisposition is not null ? "Pending" : "None")</td>
-                                    <td>
-                                        <button type="button" class="documents-file-toggle retention-manage-button" @onclick="() => OpenRetentionActionsPanel(row)">
-                                            Manage
-                                        </button>
-                                    </td>
-                                </tr>
-                            }
-                        </tbody>
-                    </table>
-                </div>
-
-                <div class="documents-pagination">
-                    <span>Showing page @retentionPageNumber of @RetentionTotalPages (@retentionTotalCount total)</span>
-                    <div class="documents-pages">
-                        <button type="button" @onclick="PreviousRetentionPageAsync" disabled="@(retentionPageNumber <= 1)">Previous</button>
-                        <span class="documents-page-indicator">Page @retentionPageNumber of @RetentionTotalPages</span>
-                        <button type="button" @onclick="NextRetentionPageAsync" disabled="@(retentionPageNumber >= RetentionTotalPages)">Next</button>
-                    </div>
-                </div>
-            }
-
-            @if (retentionActionsRow is { } actionsRow)
-            {
-                <section class="documents-lifecycle-panel retention-actions-panel" aria-label="Document retention actions">
-                    <div class="documents-inline-form-header">
-                        <h3>Document @actionsRow.DocumentId.ToString()[..8]</h3>
-                    </div>
-                    <div class="documents-lifecycle-actions documents-retention-action-row">
-                        <span class="documents-status @GetRetentionStateClass(actionsRow.RetentionState)">@actionsRow.RetentionState</span>
-                        <span>Due @FormatRetentionDate(actionsRow.RetentionDueAtUtc)</span>
-                    </div>
-
-                    @if (retentionActionsSuccessMessage is not null)
-                    {
-                        <div class="documents-type-success" role="status">@retentionActionsSuccessMessage</div>
-                    }
-
-                    <div class="documents-lifecycle-actions">
-                        @if (CanArchiveRetention)
-                        {
-                            <button type="button" class="documents-modal-cancel retention-archive-button" @onclick="OpenArchiveConfirmation">Archive</button>
-                        }
-                        @if (CanRestoreRetention)
-                        {
-                            <button type="button" class="documents-search-button retention-restore-button" @onclick="OpenRestoreConfirmation">Restore</button>
-                        }
-                        <button type="button" class="documents-modal-cancel" @onclick="CloseRetentionActionsPanel">Close</button>
-                    </div>
-
-                    @if (isConfirmingArchive)
-                    {
-                        <section class="documents-lifecycle-panel" aria-label="Archive document">
-                            <p>Archive this document? It will be removed from default operational lists.</p>
-                            @if (archiveFailure is not null)
-                            {
-                                <div class="documents-type-inline-error" role="alert">@archiveFailure.Message</div>
-                            }
-                            <button type="button" class="documents-search-button retention-confirm-archive-button" disabled="@isArchiving" @onclick="ConfirmArchiveAsync">
-                                @(isArchiving ? "Archiving..." : "Confirm archive")
-                            </button>
-                            <button type="button" class="documents-modal-cancel" @onclick="CancelArchiveConfirmation" disabled="@isArchiving">Cancel</button>
-                        </section>
-                    }
-                    @if (isConfirmingRestore)
-                    {
-                        <section class="documents-lifecycle-panel" aria-label="Restore document">
-                            <p>Restore this document to active status?</p>
-                            @if (restoreFailure is not null)
-                            {
-                                <div class="documents-type-inline-error" role="alert">@restoreFailure.Message</div>
-                            }
-                            <button type="button" class="documents-search-button retention-confirm-restore-button" disabled="@isRestoring" @onclick="ConfirmRestoreAsync">
-                                @(isRestoring ? "Restoring..." : "Confirm restore")
-                            </button>
-                            <button type="button" class="documents-modal-cancel" @onclick="CancelRestoreConfirmation" disabled="@isRestoring">Cancel</button>
-                        </section>
-                    }
-
-                    @if (actionsRow.ActiveHolds.Count > 0)
-                    {
-                        <section class="documents-review-history" aria-label="Active legal holds">
-                            <p>Active legal holds</p>
-                            <ul class="documents-review-history-list">
-                                @foreach (var hold in actionsRow.ActiveHolds)
-                                {
-                                    <li @key="hold.Id">
-                                        <strong>@hold.Reason</strong>
-                                        <span>Placed @FormatRetentionDate(hold.PlacedAtUtc)</span>
-                                        @if (CanManageRetention)
-                                        {
-                                            @if (confirmingReleaseHoldId == hold.Id)
-                                            {
-                                                <div class="filter-field">
-                                                    <label for="@($"release-reason-{hold.Id}")">Release reason</label>
-                                                    <textarea id="@($"release-reason-{hold.Id}")" @bind="releaseReason"></textarea>
-                                                </div>
-                                                @if (releaseReasonValidationMessage is not null)
-                                                {
-                                                    <div class="documents-type-inline-error" role="alert">@releaseReasonValidationMessage</div>
-                                                }
-                                                @if (releaseHoldFailure is not null)
-                                                {
-                                                    <div class="documents-type-inline-error" role="alert">@releaseHoldFailure.Message</div>
-                                                }
-                                                <button type="button" class="documents-search-button retention-confirm-release-button" disabled="@isReleasingHold" @onclick="ConfirmReleaseHoldAsync">
-                                                    @(isReleasingHold ? "Releasing..." : "Confirm release")
-                                                </button>
-                                                <button type="button" class="documents-modal-cancel" @onclick="CancelReleaseHoldConfirmation" disabled="@isReleasingHold">Cancel</button>
-                                            }
-                                            else
-                                            {
-                                                <button type="button" class="documents-modal-cancel retention-release-button" @onclick="() => OpenReleaseHoldConfirmation(hold.Id)">Release</button>
-                                            }
-                                        }
-                                    </li>
-                                }
-                            </ul>
-                        </section>
-                    }
-
-                    @if (CanManageRetention)
-                    {
-                        <section class="documents-lifecycle-panel" aria-label="Place legal hold">
-                            <p>Place a legal hold</p>
-                            <div class="documents-form-grid">
-                                <div class="filter-field">
-                                    <label for="hold-reason">Reason</label>
-                                    <textarea id="hold-reason" @bind="holdReason"></textarea>
-                                </div>
-                                <div class="filter-field">
-                                    <label for="hold-reference">Reference (optional)</label>
-                                    <input id="hold-reference" @bind="holdReference" />
-                                </div>
-                            </div>
-                            @if (holdReasonValidationMessage is not null)
-                            {
-                                <div class="documents-type-inline-error" role="alert">@holdReasonValidationMessage</div>
-                            }
-                            @if (placeHoldFailure is not null)
-                            {
-                                <div class="documents-type-inline-error" role="alert">@placeHoldFailure.Message</div>
-                            }
-                            <button type="button" class="documents-search-button retention-place-hold-button" disabled="@isPlacingHold" @onclick="PlaceHoldAsync">
-                                @(isPlacingHold ? "Placing hold..." : "Place legal hold")
-                            </button>
-                        </section>
-                    }
-
-                    @if (actionsRow.PendingDisposition is { } pendingDisposition)
-                    {
-                        <section class="documents-lifecycle-panel" aria-label="Pending disposition request">
-                            <p>Disposition requested @FormatRetentionDate(pendingDisposition.RequestedAtUtc)</p>
-                            @if (CanDisposeRetention)
-                            {
-                                <div class="documents-lifecycle-actions documents-retention-action-row">
-                                    <button type="button" class="documents-search-button retention-approve-button" @onclick="OpenApproveDispositionConfirmation">Approve</button>
-                                    <button type="button" class="documents-modal-cancel retention-reject-button" @onclick="OpenRejectDispositionConfirmation">Reject</button>
-                                </div>
-                                @if (isConfirmingApproveDisposition)
-                                {
-                                    <section class="documents-lifecycle-panel" aria-label="Approve disposition">
-                                        <div class="filter-field">
-                                            <label for="approve-decision-reason">Decision notes (optional)</label>
-                                            <textarea id="approve-decision-reason" @bind="approveDecisionReason"></textarea>
-                                        </div>
-                                        @if (approveDispositionFailure is not null)
-                                        {
-                                            <div class="documents-type-inline-error" role="alert">@approveDispositionFailure.Message</div>
-                                        }
-                                        <button type="button" class="documents-search-button retention-confirm-approve-button" disabled="@isApprovingDisposition" @onclick="ConfirmApproveDispositionAsync">
-                                            @(isApprovingDisposition ? "Approving..." : "Confirm approval")
-                                        </button>
-                                        <button type="button" class="documents-modal-cancel" @onclick="CancelApproveDispositionConfirmation" disabled="@isApprovingDisposition">Cancel</button>
-                                    </section>
-                                }
-                                @if (isConfirmingRejectDisposition)
-                                {
-                                    <section class="documents-lifecycle-panel" aria-label="Reject disposition">
-                                        <div class="filter-field">
-                                            <label for="reject-decision-reason">Decision reason</label>
-                                            <textarea id="reject-decision-reason" @bind="rejectDecisionReason"></textarea>
-                                        </div>
-                                        @if (rejectDecisionReasonValidationMessage is not null)
-                                        {
-                                            <div class="documents-type-inline-error" role="alert">@rejectDecisionReasonValidationMessage</div>
-                                        }
-                                        @if (rejectDispositionFailure is not null)
-                                        {
-                                            <div class="documents-type-inline-error" role="alert">@rejectDispositionFailure.Message</div>
-                                        }
-                                        <button type="button" class="documents-search-button retention-confirm-reject-button" disabled="@isRejectingDisposition" @onclick="ConfirmRejectDispositionAsync">
-                                            @(isRejectingDisposition ? "Rejecting..." : "Confirm rejection")
-                                        </button>
-                                        <button type="button" class="documents-modal-cancel" @onclick="CancelRejectDispositionConfirmation" disabled="@isRejectingDisposition">Cancel</button>
-                                    </section>
-                                }
-                            }
-                            else
-                            {
-                                <p class="documents-file-empty">Awaiting approval from a user with disposition authority.</p>
-                            }
-                        </section>
-                    }
-                    else if (CanRequestDisposition)
-                    {
-                        <section class="documents-lifecycle-panel" aria-label="Request disposition">
-                            <p>Request disposition</p>
-                            <div class="filter-field">
-                                <label for="disposition-reason">Reason</label>
-                                <textarea id="disposition-reason" @bind="dispositionReason"></textarea>
-                            </div>
-                            @if (dispositionReasonValidationMessage is not null)
-                            {
-                                <div class="documents-type-inline-error" role="alert">@dispositionReasonValidationMessage</div>
-                            }
-                            @if (createDispositionFailure is not null)
-                            {
-                                <div class="documents-type-inline-error" role="alert">@createDispositionFailure.Message</div>
-                            }
-                            <button type="button" class="documents-search-button retention-request-disposition-button" disabled="@isCreatingDisposition" @onclick="CreateDispositionRequestAsync">
-                                @(isCreatingDisposition ? "Requesting..." : "Request disposition")
-                            </button>
-                        </section>
-                    }
-                </section>
-            }
-        }
-        else
-        {
-            @if (retentionPolicySuccessMessage is not null)
-            {
-                <div class="documents-type-success" role="status">@retentionPolicySuccessMessage</div>
-            }
-
-            @if (isLoadingRetentionPolicies)
-            {
-                <LoadingState Message="Loading retention policies..." />
-            }
-            else if (retentionPoliciesFailure is not null)
-            {
-                <ApiErrorState Title="@retentionPoliciesFailure.Title" Message="@retentionPoliciesFailure.Message" OnRetry="LoadRetentionPoliciesAsync" />
-            }
-            else if (RetentionPolicyRows.Count == 0)
-            {
-                <EmptyState Title="No document types registered" Message="Register a document type first." />
-            }
-            else
-            {
-                <div class="documents-table-scroll">
-                    <table class="documents-table retention-policies-table">
-                        <caption class="visually-hidden">Retention period per document type</caption>
-                        <thead>
-                            <tr>
-                                <th scope="col">Document type</th>
-                                <th scope="col">Retention period (days)</th>
-                                <th scope="col"></th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            @foreach (var row in RetentionPolicyRows)
-                            {
-                                <tr @key="row.DocumentTypeId">
-                                    <td>@row.DocumentTypeName</td>
-                                    <td>
-                                        @if (CanManageRetention)
-                                        {
-                                            <input id="@($"retention-period-{row.DocumentTypeId}")" type="number" min="1" class="documents-num retention-period-input" @bind="retentionPolicyEdits[row.DocumentTypeId]" />
-                                        }
-                                        else
-                                        {
-                                            @(row.RetentionPeriodDays?.ToString() ?? "Not set")
-                                        }
-                                    </td>
-                                    <td>
-                                        @if (CanManageRetention)
-                                        {
-                                            <button type="button" class="documents-search-button retention-save-policy-button" disabled="@isSavingRetentionPolicy.GetValueOrDefault(row.DocumentTypeId)" @onclick="() => SaveRetentionPolicyAsync(row.DocumentTypeId)">
-                                                @(isSavingRetentionPolicy.GetValueOrDefault(row.DocumentTypeId) ? "Saving..." : "Save")
-                                            </button>
-                                            @if (retentionPolicySaveError.TryGetValue(row.DocumentTypeId, out var saveError) && saveError is not null)
-                                            {
-                                                <div class="documents-type-inline-error" role="alert">@saveError</div>
-                                            }
-                                        }
-                                    </td>
-                                </tr>
-                            }
-                        </tbody>
-                    </table>
-                </div>
-            }
-        }
-    </section>
-    </div>
+        <DocumentFilePanel @key="fileDocumentId"
+                           DocumentId="fileDocumentId"
+                           DocumentTypeOptions="documentTypeOptions"
+                           OnClose="CloseFilePanel"
+                           OnDocumentChanged="LoadAsync" />
     }
 
     @if (isRegisterTypeFormOpen)
@@ -925,87 +294,9 @@
 
     @if (isRegisterDocumentFormOpen)
     {
-    <div class="documents-modal-backdrop" role="presentation" @onclick="CloseRegisterDocumentForm">
-    <section class="documents-form-card documents-modal documents-modal-wide" role="dialog" aria-modal="true" aria-labelledby="documents-form-title" @onclick:stopPropagation="true">
-        <div class="documents-inline-form-header">
-            <h2 id="documents-form-title">Register document</h2>
-        </div>
-
-        @if (registerDocumentConflictMessage is not null)
-        {
-            <div class="documents-type-conflict" role="alert">@registerDocumentConflictMessage</div>
-        }
-
-        @if (registerDocumentGeneralError is not null)
-        {
-            <div class="documents-type-inline-error" role="alert">@registerDocumentGeneralError</div>
-        }
-
-        @if (registerDocumentUnmappedErrors.Count > 0)
-        {
-            <ul class="documents-type-field-errors" role="alert">
-                @foreach (var message in registerDocumentUnmappedErrors)
-                {
-                    <li>@message</li>
-                }
-            </ul>
-        }
-
-        @if (registerDocumentSuccessMessage is not null)
-        {
-            <div class="documents-type-success" role="status">@registerDocumentSuccessMessage</div>
-        }
-
-        <EditForm EditContext="registerDocumentEditContext" OnSubmit="SubmitDocumentAsync" class="documents-form">
-            <DataAnnotationsValidator />
-
-            <div class="documents-form-grid">
-                <div class="filter-field">
-                    <label for="doc-number">Document number</label>
-                    <InputText id="doc-number" @bind-Value="registerDocumentModel.Number" maxlength="100" />
-                    <ValidationMessage For="() => registerDocumentModel.Number" />
-                </div>
-                <div class="filter-field">
-                    <label for="doc-vessel">Vessel</label>
-                    <VesselPicker @key="vesselPickerResetToken" @bind-Value="registerDocumentModel.VesselId" Placeholder="Search vessel by name or IMO..." />
-                    <ValidationMessage For="() => registerDocumentModel.VesselId" />
-                </div>
-                <div class="filter-field">
-                    <label for="doc-type">Document type</label>
-                    <InputSelect id="doc-type" @bind-Value="registerDocumentModel.DocumentTypeId" disabled="@(isLoadingDocumentTypes || documentTypeOptions.Count == 0)">
-                        <option value="">@DocumentTypePlaceholder</option>
-                        @foreach (var option in documentTypeOptions)
-                        {
-                            <option value="@option.DocumentTypeId">@option.Name (@option.MandatoryValidityPeriodDays days)</option>
-                        }
-                    </InputSelect>
-                    <ValidationMessage For="() => registerDocumentModel.DocumentTypeId" />
-                </div>
-                <div class="filter-field">
-                    <label for="doc-issue-date">Issue date</label>
-                    <InputDate id="doc-issue-date" @bind-Value="registerDocumentModel.IssueDate" />
-                    <ValidationMessage For="() => registerDocumentModel.IssueDate" />
-                </div>
-                <div class="filter-field">
-                    <label for="doc-expiry-date">Expiry date</label>
-                    <InputDate id="doc-expiry-date" @bind-Value="registerDocumentModel.ExpiryDate" />
-                    <ValidationMessage For="() => registerDocumentModel.ExpiryDate" />
-                </div>
-                <div class="filter-field">
-                    <label for="doc-issuing-authority">Issuing authority</label>
-                    <InputText id="doc-issuing-authority" @bind-Value="registerDocumentModel.IssuingAuthority" maxlength="200" />
-                    <ValidationMessage For="() => registerDocumentModel.IssuingAuthority" />
-                </div>
-            </div>
-
-            <div class="documents-modal-actions">
-                <button type="submit" class="documents-search-button" disabled="@isRegisteringDocument">
-                    @(isRegisteringDocument ? "Registering..." : "Register document")
-                </button>
-                <button type="button" class="documents-modal-cancel" @onclick="CloseRegisterDocumentForm" disabled="@isRegisteringDocument">Cancel</button>
-            </div>
-        </EditForm>
-    </section>
-    </div>
+        <RegisterDocumentForm DocumentTypeOptions="documentTypeOptions"
+                              IsLoadingDocumentTypes="isLoadingDocumentTypes"
+                              OnClose="CloseRegisterDocumentForm"
+                              OnRegistered="OnDocumentRegisteredAsync" />
     }
 </section>

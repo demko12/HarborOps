@@ -1,0 +1,25 @@
+namespace HarborOps.Api.Composition.Reports.PortCallPerformance;
+
+public sealed record PortCallPerformanceReportRow(
+    Guid VoyageStopId,
+    Guid VoyageId,
+    Guid VesselId,
+    Guid PortId,
+    string VoyageNumber,
+    int StopOrder,
+    string PortName,
+    string? PortUnLocode,
+    string? BerthName,
+    bool UsesLiveValues,
+    DateTime? ActualArrivalUtc,
+    DateTime ActualDepartureUtc,
+    string StatementAvailability,
+    Guid? StatementId,
+    DateTime? FinalizedAtUtc,
+    PortCallPerformanceReportMetric? Turnaround,
+    PortCallPerformanceReportMetric? ArrivalToAllFast,
+    PortCallPerformanceReportMetric? CargoElapsed,
+    PortCallPerformanceReportMetric? CargoCompletedToDeparture,
+    int? RecordedDelayCount,
+    int? RecordedDelayMinutes,
+    decimal? RecordedDelayHours);

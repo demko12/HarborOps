@@ -1,0 +1,8 @@
+.fleet-navigation { display: flex; gap: .35rem; overflow-x: auto; margin-bottom: 1.6rem; padding: .2rem .2rem .8rem; border-bottom: 1px solid var(--border-subtle); }
+.fleet-navigation ::deep a { display: flex; flex: 0 0 auto; align-items: center; gap: .55rem; padding: .65rem .85rem; border: 1px solid transparent; border-radius: .65rem; color: var(--text-secondary); text-decoration: none; font-size: .8rem; }
+.fleet-navigation ::deep a.selected { color: var(--text-primary); border-color: color-mix(in srgb, var(--accent) 30%, transparent); background: color-mix(in srgb, var(--accent) 12%, transparent); }
+.fleet-navigation ::deep a:hover { background: var(--bg-surface-strong); }
+
+@media print {
+    .fleet-navigation { display: none !important; }
+}

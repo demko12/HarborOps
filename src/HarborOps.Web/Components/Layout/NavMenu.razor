@@ -42,7 +42,7 @@
 
 	<div class="app-topbar-right">
 		<div class="notifications-menu">
-			<button class="icon-btn" type="button" title="Notifications" aria-label="Notifications (@unreadCount unread)" aria-expanded="@showNotifications" @onclick="ToggleNotifications">
+			<button class="icon-btn" type="button" title="Notifications" aria-label="Notifications (@unreadCount unread)" aria-expanded="@showNotifications" aria-controls="header-notifications" aria-haspopup="dialog" @onclick="ToggleNotifications">
 				<span class="bi bi-bell"></span>
 				@if (unreadCount > 0)
 				{
@@ -51,10 +51,13 @@
 			</button>
 			@if (showNotifications)
 			{
-				<div class="notifications-dropdown" role="dialog" aria-label="Expiry notifications">
+				<div id="header-notifications" class="notifications-dropdown" role="dialog" aria-label="Expiry notifications">
 					<div class="notifications-heading">
 						<div><strong>Notifications</strong><small>@(unreadCount > 0 ? $"{unreadCount} unread" : "All caught up")</small></div>
-						@if (unreadCount > 0) { <button type="button" @onclick="AcknowledgeAllAsync"><span class="bi bi-check2-all" aria-hidden="true"></span> Clear all</button> }
+						<div class="notifications-heading-actions">
+                            @if (unreadCount > 0) { <button type="button" @onclick="AcknowledgeAllAsync"><span class="bi bi-check2-all" aria-hidden="true"></span> Clear all</button> }
+                            <button type="button" class="header-menu-close" aria-label="Close notifications" @onclick="CloseTopbarMenus"><span class="bi bi-x-lg" aria-hidden="true"></span></button>
+                        </div>
 					</div>
 					@if (notificationsLoading)
 					{
@@ -102,24 +105,26 @@
 				</div>
 			}
 		</div>
-		<div class="divider hide-on-mobile"></div>
+		<div class="divider header-actions-divider"></div>
 
 		<AuthorizeView>
 			<Authorized Context="authenticationState">
 				<div class="profile-menu">
-					<button class="profile-btn" type="button" title="Account menu" aria-expanded="@showAccountMenu" @onclick="ToggleAccountMenu">
-						<div class="avatar">@authenticationState.User.Identity?.Name?[0]</div>
+					<button class="profile-btn" type="button" title="Account menu" aria-label="Account menu" aria-haspopup="menu" aria-controls="header-account" aria-expanded="@showAccountMenu" @onclick="ToggleAccountMenu">
+						<span class="avatar" aria-hidden="true">@(authenticationState.User.Identity?.Name is { Length: > 0 } accountName ? accountName[..1].ToUpperInvariant() : "?")</span>
+                        <span class="account-trigger-label">@GetAccountLabel(authenticationState.User)</span>
+                        <span class="bi bi-chevron-down account-trigger-chevron" aria-hidden="true"></span>
 					</button>
 					@if (showAccountMenu)
 					{
-						<div class="account-dropdown" role="menu">
-							<div class="account-summary">
+						<div id="header-account" class="account-dropdown" role="menu" aria-label="Account">
+							<div class="account-summary" role="presentation">
 								<span>Signed in as</span>
 								<strong>@authenticationState.User.Identity?.Name</strong>
 							</div>
 							<a href="/profile" role="menuitem" @onclick="CloseTopbarMenus"><span class="bi bi-person"></span> My Profile</a>
 							<a href="/settings" role="menuitem" @onclick="CloseTopbarMenus"><span class="bi bi-gear"></span> Settings</a>
-							<button type="button" role="menuitem" @onclick="OpenLogoutConfirmation"><span class="bi bi-box-arrow-right"></span> Sign out</button>
+							<button type="button" class="account-signout" role="menuitem" @onclick="OpenLogoutConfirmation"><span class="bi bi-box-arrow-right"></span> Sign out</button>
 						</div>
 					}
 				</div>
@@ -141,52 +146,52 @@
 }
 
 <aside class="app-sidebar @(mobileMenuOpen ? "open" : string.Empty)">
-	<nav class="sidebar-nav">
+	<nav class="sidebar-nav" aria-label="Main navigation">
 		<div class="nav-pills">
-			<NavLink class="nav-pill" href="" Match="NavLinkMatch.All" ActiveClass="active" @onclick="CloseMobileMenu">
-				<span class="bi bi-grid-1x2-fill"></span> <span class="nav-pill-label">Dashboard</span><span class="nav-pill-tooltip">Dashboard</span>
+			<NavLink class="nav-pill nav-module-dashboard" aria-label="Dashboard" href="" Match="NavLinkMatch.All" ActiveClass="active" @onclick="CloseMobileMenu">
+				<span class="bi bi-grid-1x2-fill"></span> <span class="nav-pill-label">Dashboard</span><span class="nav-pill-tooltip" aria-hidden="true">Dashboard</span>
 			</NavLink>
 			@if (AuthorizationState.CanAccessFleet)
 			{
-				<NavLink class="nav-pill" href="fleet" ActiveClass="active" @onclick="CloseMobileMenu">
+				<NavLink class="nav-pill nav-module-fleet" aria-label="Fleet" href="fleet" ActiveClass="active" @onclick="CloseMobileMenu">
 					<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="nav-icon"><path d="M12 10.189V14"></path><path d="M12 2v3"></path><path d="M19 13V7a2 2 0 0 0-2-2H7a2 2 0 0 0-2 2v6"></path><path d="M19.38 20A11.6 11.6 0 0 0 21 14l-8.188-3.639a2 2 0 0 0-1.624 0L3 14a11.6 11.6 0 0 0 2.81 7.76"></path><path d="M2 21c.6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1s1.2 1 2.5 1c2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1"></path></svg>
-					<span class="nav-pill-label">Fleet</span><span class="nav-pill-tooltip">Fleet</span>
+					<span class="nav-pill-label">Fleet</span><span class="nav-pill-tooltip" aria-hidden="true">Fleet</span>
 				</NavLink>
 			}
 			@if (AuthorizationState.CanAccessCrew)
 			{
-				<NavLink class="nav-pill" href="crew" ActiveClass="active" @onclick="CloseMobileMenu"><span class="bi bi-people-fill"></span> <span class="nav-pill-label">Crew</span><span class="nav-pill-tooltip">Crew</span></NavLink>
+				<NavLink class="nav-pill nav-module-crew" aria-label="Crew" href="crew" ActiveClass="active" @onclick="CloseMobileMenu"><span class="bi bi-people-fill"></span> <span class="nav-pill-label">Crew</span><span class="nav-pill-tooltip" aria-hidden="true">Crew</span></NavLink>
 			}
 			@if (AuthorizationState.CanAccessVoyages)
 			{
-				<NavLink class="nav-pill" href="voyages" ActiveClass="active" @onclick="CloseMobileMenu"><span class="bi bi-signpost-split-fill"></span> <span class="nav-pill-label">Voyages</span><span class="nav-pill-tooltip">Voyages</span></NavLink>
+				<NavLink class="nav-pill nav-module-voyages" aria-label="Voyages" href="voyages" ActiveClass="active" @onclick="CloseMobileMenu"><span class="bi bi-signpost-split-fill"></span> <span class="nav-pill-label">Voyages</span><span class="nav-pill-tooltip" aria-hidden="true">Voyages</span></NavLink>
 			}
 			@if (AuthorizationState.CanAccessCargo)
 			{
-				<NavLink class="nav-pill" href="cargo" ActiveClass="active" @onclick="CloseMobileMenu"><span class="bi bi-box-seam-fill"></span> <span class="nav-pill-label">Cargo</span><span class="nav-pill-tooltip">Cargo</span></NavLink>
+				<NavLink class="nav-pill nav-module-cargo" aria-label="Cargo" href="cargo" ActiveClass="active" @onclick="CloseMobileMenu"><span class="bi bi-box-seam-fill"></span> <span class="nav-pill-label">Cargo</span><span class="nav-pill-tooltip" aria-hidden="true">Cargo</span></NavLink>
 			}
 			@if (AuthorizationState.CanAccessMaintenance)
 			{
-				<NavLink class="nav-pill" href="maintenance" ActiveClass="active" @onclick="CloseMobileMenu"><span class="bi bi-tools"></span> <span class="nav-pill-label">Maintenance</span><span class="nav-pill-tooltip">Maintenance</span></NavLink>
+				<NavLink class="nav-pill nav-module-maintenance" aria-label="Maintenance" href="maintenance" ActiveClass="active" @onclick="CloseMobileMenu"><span class="bi bi-tools"></span> <span class="nav-pill-label">Maintenance</span><span class="nav-pill-tooltip" aria-hidden="true">Maintenance</span></NavLink>
 			}
 			@if (AuthorizationState.CanAccessCompliance)
 			{
-				<NavLink class="nav-pill" href="compliance" ActiveClass="active" @onclick="CloseMobileMenu"><span class="bi bi-shield-check"></span> <span class="nav-pill-label">Compliance</span><span class="nav-pill-tooltip">Compliance</span></NavLink>
+				<NavLink class="nav-pill nav-module-compliance" aria-label="Compliance" href="compliance" ActiveClass="active" @onclick="CloseMobileMenu"><span class="bi bi-shield-check"></span> <span class="nav-pill-label">Compliance</span><span class="nav-pill-tooltip" aria-hidden="true">Compliance</span></NavLink>
 			}
 			@if (AuthorizationState.CanAccessDocuments)
 			{
-				<NavLink class="nav-pill" href="documents" ActiveClass="active" @onclick="CloseMobileMenu"><span class="bi bi-file-earmark-text-fill"></span> <span class="nav-pill-label">Documents</span><span class="nav-pill-tooltip">Documents</span></NavLink>
+				<NavLink class="nav-pill nav-module-documents" aria-label="Documents" href="documents" ActiveClass="active" @onclick="CloseMobileMenu"><span class="bi bi-file-earmark-text-fill"></span> <span class="nav-pill-label">Documents</span><span class="nav-pill-tooltip" aria-hidden="true">Documents</span></NavLink>
 			}
 			@if (AuthorizationState.CanAccessReports)
 			{
-				<NavLink class="nav-pill" href="reports" ActiveClass="active" @onclick="CloseMobileMenu">
-					<span class="bi bi-bar-chart-fill"></span> <span class="nav-pill-label">Reports</span><span class="nav-pill-tooltip">Reports</span>
+				<NavLink class="nav-pill nav-module-reports" aria-label="Reports" href="reports" ActiveClass="active" @onclick="CloseMobileMenu">
+					<span class="bi bi-bar-chart-fill"></span> <span class="nav-pill-label">Reports</span><span class="nav-pill-tooltip" aria-hidden="true">Reports</span>
 				</NavLink>
 			}
 			@if (AuthorizationState.CanManageAdministration)
 			{
-				<NavLink class="nav-pill" href="administration" ActiveClass="active" @onclick="CloseMobileMenu">
-					<span class="bi bi-person-gear"></span> <span class="nav-pill-label">Administration</span><span class="nav-pill-tooltip">Administration</span>
+				<NavLink class="nav-pill nav-module-administration" aria-label="Administration" href="administration" ActiveClass="active" @onclick="CloseMobileMenu">
+					<span class="bi bi-person-gear"></span> <span class="nav-pill-label">Administration</span><span class="nav-pill-tooltip" aria-hidden="true">Administration</span>
 				</NavLink>
 			}
 		</div>
@@ -292,6 +297,13 @@
 	private static bool IsEstimateRevision(NotificationItem item) => string.Equals(item.SourceType, EstimateRevisionSourceType, StringComparison.Ordinal);
 	private static string SourceLabel(NotificationItem item) => item.Capability switch { "documents" => "Vessel document", "crew" => "Crew certificate", "compliance" => "Compliance certificate", "voyages" when IsEstimateRevision(item) => "Voyage estimate revision", _ => item.SourceType };
 	private static string SourceUrl(NotificationItem item) => item.Capability switch { "crew" when item.CrewMemberId is Guid id => $"/crew/{id}", "documents" => "/documents", "compliance" => "/compliance", "voyages" => "/voyages", _ => "/" };
+
+	private static string GetAccountLabel(System.Security.Claims.ClaimsPrincipal user)
+	{
+		var email = user.FindFirst(System.Security.Claims.ClaimTypes.Email)?.Value ?? user.Identity?.Name;
+		var name = email?.Split('@', 2)[0].Trim();
+		return string.IsNullOrEmpty(name) ? "Account" : char.ToUpperInvariant(name[0]) + name[1..];
+	}
 
 	private void ToggleAccountMenu()
 	{

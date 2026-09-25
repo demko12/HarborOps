@@ -1,9 +1,12 @@
 .cargo-page {
+    --accent: #d97706;
+    --accent-bg: rgba(217, 119, 6, .12);
+    --accent-border: rgba(217, 119, 6, .3);
     --hazard: var(--status-warning);
     --hazard-bg: rgba(245, 158, 11, .14);
-    max-width: var(--page-max-width);
+    max-width: 1600px;
     margin: 0 auto;
-    padding: var(--page-padding);
+    padding: 1.5rem 1rem 3rem;
 }
 
 html[data-theme="light"] .cargo-page {
@@ -37,18 +40,17 @@ html[data-theme="light"] .cargo-page {
 
 .cargo-summary {
     display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-columns: repeat(4, minmax(0, 1fr));
     gap: 1rem;
     margin-bottom: 1rem;
 }
 
 .cargo-summary-card,
-.cargo-filters,
 .cargo-card {
-    border: 1px solid var(--border-medium);
+    border: 1px solid var(--border-subtle);
     border-radius: var(--radius-card);
-    background: linear-gradient(145deg, var(--bg-surface-strong), var(--bg-surface));
-    box-shadow: var(--card-shadow);
+    background: linear-gradient(135deg, var(--bg-surface-strong), var(--bg-surface));
+    box-shadow: 0 18px 38px rgba(15, 23, 42, .06), inset 0 1px var(--bg-surface-strong);
 }
 
 .cargo-summary-card {
@@ -60,7 +62,7 @@ html[data-theme="light"] .cargo-page {
 }
 
 .cargo-summary-card > div { display: grid; gap: .3rem; }
-.cargo-summary-card span:first-child { color: var(--text-muted); font-size: .7rem; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; }
+.cargo-summary-card > div > span { color: var(--text-muted); font-size: .7rem; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; }
 .cargo-summary-card strong { color: var(--text-primary); font-size: 1.9rem; line-height: 1.05; letter-spacing: -.04em; font-variant-numeric: tabular-nums; }
 .cargo-summary-card small { color: var(--text-secondary); font-size: .74rem; }
 
@@ -75,7 +77,7 @@ html[data-theme="light"] .cargo-page {
     font-size: .9rem;
 }
 
-.summary-icon-blue { color: var(--status-info); border: 1px solid rgba(96, 165, 250, .28); background: rgba(96, 165, 250, .14); }
+.summary-icon-orange { color: var(--accent); border: 1px solid var(--accent-border); background: var(--accent-bg); }
 .summary-icon-amber { color: var(--hazard); border: 1px solid rgba(251, 191, 36, .28); background: var(--hazard-bg); }
 .cargo-card-icon { color: var(--accent); border: 1px solid var(--accent-border); background: var(--accent-bg); }
 html[data-theme="light"] .summary-icon-blue { color: var(--status-info-strong); border-color: rgba(37, 99, 235, .3); background: rgba(37, 99, 235, .12); }
@@ -87,7 +89,11 @@ html[data-theme="light"] .summary-icon-amber { color: var(--status-warning-stron
     flex-wrap: wrap;
     gap: .75rem;
     margin-bottom: 1rem;
-    padding: 1.1rem 1.25rem;
+    padding: 1rem 0;
+    background: transparent;
+    box-shadow: none;
+    border-top: 1px solid var(--border-subtle);
+    border-bottom: 1px solid var(--border-subtle);
 }
 
 .filter-field { display: flex; flex-direction: column; gap: .4rem; }
@@ -101,6 +107,7 @@ html[data-theme="light"] .summary-icon-amber { color: var(--status-warning-stron
     border: 1px solid var(--border-medium);
     border-radius: var(--radius-control);
     background-color: var(--control-surface);
+    overflow: hidden;
     transition: border-color .16s ease, box-shadow .16s ease;
 }
 
@@ -131,7 +138,7 @@ html[data-theme="light"] .summary-icon-amber { color: var(--status-warning-stron
     background-color: var(--control-surface);
     background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 8'%3E%3Cpath d='M1 1.6 6 6.4 11 1.6' fill='none' stroke='%2393a4bd' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
     background-repeat: no-repeat;
-    background-position: right .85rem center;
+    background-position: right 1rem center;
     background-size: .7rem;
     font: inherit;
     font-size: .88rem;
@@ -233,7 +240,7 @@ html[data-theme="light"] .cargo-validation { border-color: rgba(185, 28, 28, .3)
 .cargo-card-heading p { margin: .4rem 0 0; color: var(--text-secondary); font-size: .85rem; }
 
 .cargo-table-scroll { overflow-x: auto; scrollbar-width: thin; scrollbar-color: var(--border-medium) transparent; }
-.cargo-table { width: 100%; border-collapse: collapse; }
+.cargo-table { width: 100%; min-width: 1080px; border-collapse: separate; border-spacing: 0 .55rem; }
 
 .cargo-table th {
     padding: .55rem .8rem;
@@ -249,22 +256,33 @@ html[data-theme="light"] .cargo-validation { border-color: rgba(185, 28, 28, .3)
 
 .cargo-table td {
     padding: .85rem .8rem;
-    vertical-align: top;
+    vertical-align: middle;
+    background: var(--bg-surface);
+    transition: background-color .16s ease, border-color .16s ease;
+    border-top: 1px solid var(--border-subtle);
     border-bottom: 1px solid var(--border-subtle);
     font-size: .88rem;
 }
 
-.cargo-table tbody tr:last-child td { border-bottom: 0; }
-.cargo-table tbody tr { transition: background .15s ease, box-shadow .15s ease; }
 .cargo-booking-row { cursor: pointer; }
-.cargo-booking-row:hover { background: color-mix(in srgb, var(--accent) 8%, var(--bg-surface)); }
-.cargo-booking-row:hover td { box-shadow: inset 0 1px 0 var(--accent-border), inset 0 -1px 0 var(--accent-border); }
-.cargo-booking-row:hover td:first-child { box-shadow: var(--row-hover-inset), inset 0 1px 0 var(--accent-border), inset 0 -1px 0 var(--accent-border); }
-.cargo-booking-row:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
-
-.cargo-table tbody tr.cargo-hazard-row { background: color-mix(in srgb, var(--hazard) 5%, transparent); }
-.cargo-table tbody tr.cargo-hazard-row td:first-child { box-shadow: inset 3px 0 0 var(--hazard); }
-.cargo-booking-row.cargo-hazard-row:hover td:first-child { box-shadow: inset 3px 0 0 var(--hazard), inset 0 1px 0 var(--accent-border), inset 0 -1px 0 var(--accent-border); }
+.cargo-table td:first-child { border-left: 3px solid var(--accent-border); border-radius: .75rem 0 0 .75rem; }
+.cargo-table td:last-child { border-right: 1px solid var(--border-subtle); border-radius: 0 .75rem .75rem 0; }
+.cargo-booking-row:hover td,
+.cargo-booking-row:focus-within td {
+    background: color-mix(in srgb, var(--accent) 13%, var(--bg-surface-strong));
+    border-top-color: var(--accent-border);
+    border-bottom-color: var(--accent-border);
+}
+.cargo-booking-row:hover td:first-child,
+.cargo-booking-row:focus-within td:first-child { border-left-color: var(--accent); }
+.cargo-booking-row:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.cargo-hazard-row td { background: color-mix(in srgb, #f59e0b 7%, var(--bg-surface)); }
+.cargo-hazard-row td:first-child,
+.cargo-hazard-row:hover td:first-child,
+.cargo-hazard-row:focus-within td:first-child { border-left-color: #d97706; }
+.cargo-hazard-row .cargo-row-icon { color: #fff; background: #92400e; }
+.cargo-hazard-flag { display: inline-flex; align-items: center; gap: .3rem; margin-top: .4rem; padding: .2rem .45rem; border-radius: .35rem; color: #fff; background: #92400e; font-size: .65rem; font-weight: 700; letter-spacing: .025em; }
+.cargo-hazard-chip { color: #fff; background: #92400e; border-color: #92400e; font-weight: 700; }
 
 .cargo-num { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
 
@@ -335,14 +353,14 @@ html[data-theme="light"] .cargo-validation { border-color: rgba(185, 28, 28, .3)
     .cargo-button,
     .cargo-reset,
     .cargo-table tbody tr,
+    .cargo-table td,
     .cargo-input-shell,
     .filter-field select,
     .cargo-pages button { transition: none; }
 }
 
 @media (max-width: 1050px) {
-    .cargo-table .col-type,
-    .cargo-table .col-packages { display: none; }
+    .cargo-summary { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 
 @media (max-width: 760px) {
@@ -351,7 +369,8 @@ html[data-theme="light"] .cargo-validation { border-color: rgba(185, 28, 28, .3)
     .cargo-summary { grid-template-columns: 1fr; }
     .cargo-filters { flex-direction: column; align-items: stretch; }
     .cargo-filters > * { width: 100%; }
-    .cargo-table .col-created { display: none; }
+    .cargo-card-heading { flex-wrap: wrap; }
+    .filter-field-grow { flex-basis: auto; }
     .cargo-pagination { align-items: flex-start; flex-direction: column; }
 }
 
@@ -438,7 +457,7 @@ html[data-theme="light"] .cargo-validation { border-color: rgba(185, 28, 28, .3)
     padding: 1.4rem;
     border: 1px solid rgba(148, 163, 184, .34);
     border-radius: var(--radius-card);
-    background: #111c2e;
+    background: var(--control-popup);
     box-shadow: 0 24px 70px rgba(0, 0, 0, .42);
 }
 
@@ -486,3 +505,16 @@ html[data-theme="light"] .cargo-modal { border-color: #cbd5e1; background: #fff;
     .cargo-modal-actions { flex-direction: column-reverse; }
     .cargo-modal-actions .cargo-register-submit, .cargo-modal-actions .cargo-modal-cancel { width: 100%; }
 }
+
+.cargo-header h1 { font-weight: 600; font-size: clamp(1.8rem, 3vw, 2.35rem); }
+.cargo-eyebrow { font-size: .65rem; }
+.cargo-summary-card strong em { font-style: normal; font-size: 1rem; color: var(--text-muted); }
+.summary-icon-neutral { color: var(--text-secondary); background: var(--bg-surface-strong); border: 1px solid var(--border-subtle); }
+.cargo-register-heading { display: flex; align-items: center; gap: .85rem; }
+.cargo-register-heading .cargo-card-icon { width: 2.8rem; height: 2.8rem; border-radius: .85rem; font-size: 1.2rem; }
+.cargo-section-label { display: block; margin-bottom: .25rem; color: var(--accent); font-size: .62rem; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; }
+.cargo-register-button { border-color: var(--accent-border); background: var(--accent-bg); }
+.cargo-identity { display: flex; align-items: center; gap: .65rem; }
+.cargo-row-icon { display: grid; place-items: center; width: 2rem; height: 2rem; flex-shrink: 0; color: var(--accent); background: var(--accent-bg); border-radius: .55rem; }
+.cargo-type { display: inline-flex; padding: .3rem .55rem; border: 1px solid var(--border-subtle); border-radius: .4rem; font-size: .76rem; white-space: nowrap; }
+.cargo-table th.cargo-num { text-align: right; }
