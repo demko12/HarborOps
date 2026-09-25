@@ -6,6 +6,7 @@ using HarborOps.Web.Api;
 using HarborOps.Web.Api.Documents;
 using HarborOps.Web.Api.Fleet;
 using HarborOps.Web.Components.Pages.Documents;
+using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -59,7 +60,7 @@ public sealed class DocumentsRetentionPageTests : BunitContext
     [Fact]
     public void Retention_tab_is_hidden_without_documents_read_or_manage_permission()
     {
-        var page = RenderDocumentsPage([]);
+        var page = RenderPage<Documents>([]);
 
         Assert.DoesNotContain(page.FindAll(".workspace-tab"), el => el.TextContent.Contains("Retention", StringComparison.Ordinal));
     }
@@ -67,7 +68,7 @@ public sealed class DocumentsRetentionPageTests : BunitContext
     [Fact]
     public void Retention_tab_is_visible_with_documents_read_permission()
     {
-        var page = RenderDocumentsPage(["documents.read"]);
+        var page = RenderPage<Documents>(["documents.read"]);
 
         Assert.Contains(page.FindAll(".workspace-tab"), el => el.TextContent.Contains("Retention", StringComparison.Ordinal));
     }
@@ -79,8 +80,7 @@ public sealed class DocumentsRetentionPageTests : BunitContext
     {
         respondToRetentionQueue = _ => Json(HttpStatusCode.OK, QueuePage(QueueRow()));
 
-        var page = RenderDocumentsPage();
-        OpenRetentionTab(page);
+        var page = RenderPage<DocumentsRetention>();
 
         page.WaitForAssertion(() =>
         {
@@ -106,8 +106,7 @@ public sealed class DocumentsRetentionPageTests : BunitContext
         var pending = new TaskCompletionSource<HttpResponseMessage>();
         respondToRetentionQueue = _ => pending.Task;
 
-        var page = RenderDocumentsPage();
-        OpenRetentionTab(page);
+        var page = RenderPage<DocumentsRetention>();
 
         page.WaitForAssertion(() =>
             Assert.Contains("Loading retention queue...", page.Markup, StringComparison.Ordinal));
@@ -141,8 +140,7 @@ public sealed class DocumentsRetentionPageTests : BunitContext
             HttpStatusCode.InternalServerError,
             """{"title":"Unable to load the retention queue","errors":{}}""");
 
-        var page = RenderDocumentsPage();
-        OpenRetentionTab(page);
+        var page = RenderPage<DocumentsRetention>();
 
         page.WaitForAssertion(() =>
         {
@@ -156,8 +154,7 @@ public sealed class DocumentsRetentionPageTests : BunitContext
     {
         respondToRetentionQueue = _ => Json(HttpStatusCode.OK, QueuePage());
 
-        var page = RenderDocumentsPage();
-        OpenRetentionTab(page);
+        var page = RenderPage<DocumentsRetention>();
 
         page.WaitForAssertion(() =>
             Assert.Contains("No documents are due for a retention decision", page.Markup, StringComparison.Ordinal));
@@ -168,8 +165,7 @@ public sealed class DocumentsRetentionPageTests : BunitContext
     {
         respondToRetentionQueue = _ => throw new HttpRequestException("Connection failed.");
 
-        var page = RenderDocumentsPage();
-        OpenRetentionTab(page);
+        var page = RenderPage<DocumentsRetention>();
 
         page.WaitForAssertion(() =>
             Assert.Contains("HarborOps API is unavailable", page.Markup, StringComparison.Ordinal));
@@ -178,8 +174,7 @@ public sealed class DocumentsRetentionPageTests : BunitContext
     [Fact]
     public void Changing_the_state_filter_reloads_the_queue_with_the_selected_state()
     {
-        var page = RenderDocumentsPage();
-        OpenRetentionTab(page);
+        var page = RenderPage<DocumentsRetention>();
         page.WaitForAssertion(() => Assert.Contains(requestedUris, IsRetentionQueueRequest));
 
         page.Find("#retention-state-filter").Change("Archived");
@@ -191,8 +186,7 @@ public sealed class DocumentsRetentionPageTests : BunitContext
     [Fact]
     public void Reset_clears_the_retention_filters_and_reloads()
     {
-        var page = RenderDocumentsPage();
-        OpenRetentionTab(page);
+        var page = RenderPage<DocumentsRetention>();
         page.WaitForAssertion(() => Assert.Contains(requestedUris, IsRetentionQueueRequest));
 
         page.Find("#retention-state-filter").Change("Archived");
@@ -212,8 +206,7 @@ public sealed class DocumentsRetentionPageTests : BunitContext
     {
         respondToRetentionQueue = _ => Json(HttpStatusCode.OK, QueuePage(QueueRow()));
 
-        var page = RenderDocumentsPage();
-        OpenRetentionTab(page);
+        var page = RenderPage<DocumentsRetention>();
         page.WaitForAssertion(() => Assert.NotEmpty(page.FindAll(".retention-manage-button")));
 
         page.Find(".retention-manage-button").Click();
@@ -226,8 +219,7 @@ public sealed class DocumentsRetentionPageTests : BunitContext
     {
         respondToRetentionQueue = _ => Json(HttpStatusCode.OK, QueuePage(QueueRow(state: "Active")));
 
-        var page = RenderDocumentsPage(["documents.read"]);
-        OpenRetentionTab(page);
+        var page = RenderPage<DocumentsRetention>(["documents.read"]);
         page.WaitForAssertion(() => Assert.NotEmpty(page.FindAll(".retention-manage-button")));
         page.Find(".retention-manage-button").Click();
 
@@ -240,8 +232,7 @@ public sealed class DocumentsRetentionPageTests : BunitContext
     {
         respondToRetentionQueue = _ => Json(HttpStatusCode.OK, QueuePage(QueueRow(state: "Active")));
 
-        var page = RenderDocumentsPage(["documents.manage", "documents.read"]);
-        OpenRetentionTab(page);
+        var page = RenderPage<DocumentsRetention>(["documents.manage", "documents.read"]);
         page.WaitForAssertion(() => Assert.NotEmpty(page.FindAll(".retention-manage-button")));
         page.Find(".retention-manage-button").Click();
         page.WaitForAssertion(() => Assert.NotEmpty(page.FindAll(".retention-archive-button")));
@@ -264,8 +255,7 @@ public sealed class DocumentsRetentionPageTests : BunitContext
             return Json(HttpStatusCode.OK, QueuePage(QueueRow(state: callCount > 1 ? "Archived" : "Active")));
         };
 
-        var page = RenderDocumentsPage(["documents.manage", "documents.read"]);
-        OpenRetentionTab(page);
+        var page = RenderPage<DocumentsRetention>(["documents.manage", "documents.read"]);
         page.WaitForAssertion(() => Assert.NotEmpty(page.FindAll(".retention-manage-button")));
         page.Find(".retention-manage-button").Click();
         page.WaitForAssertion(() => Assert.NotEmpty(page.FindAll(".retention-archive-button")));
@@ -289,8 +279,7 @@ public sealed class DocumentsRetentionPageTests : BunitContext
             HttpStatusCode.Conflict,
             """{"title":"Document cannot be archived.","detail":"Only an active document can be archived.","errors":{}}""");
 
-        var page = RenderDocumentsPage(["documents.manage", "documents.read"]);
-        OpenRetentionTab(page);
+        var page = RenderPage<DocumentsRetention>(["documents.manage", "documents.read"]);
         page.WaitForAssertion(() => Assert.NotEmpty(page.FindAll(".retention-manage-button")));
         page.Find(".retention-manage-button").Click();
         page.WaitForAssertion(() => Assert.NotEmpty(page.FindAll(".retention-archive-button")));
@@ -309,8 +298,7 @@ public sealed class DocumentsRetentionPageTests : BunitContext
     {
         respondToRetentionQueue = _ => Json(HttpStatusCode.OK, QueuePage(QueueRow()));
 
-        var page = RenderDocumentsPage(["documents.manage", "documents.read"]);
-        OpenRetentionTab(page);
+        var page = RenderPage<DocumentsRetention>(["documents.manage", "documents.read"]);
         page.WaitForAssertion(() => Assert.NotEmpty(page.FindAll(".retention-manage-button")));
         page.Find(".retention-manage-button").Click();
         page.WaitForAssertion(() => Assert.NotEmpty(page.FindAll(".retention-place-hold-button")));
@@ -333,8 +321,7 @@ public sealed class DocumentsRetentionPageTests : BunitContext
             return Json(HttpStatusCode.OK, QueuePage(QueueRow(activeHoldsCount: callCount > 1 ? 1 : 0)));
         };
 
-        var page = RenderDocumentsPage(["documents.manage", "documents.read"]);
-        OpenRetentionTab(page);
+        var page = RenderPage<DocumentsRetention>(["documents.manage", "documents.read"]);
         page.WaitForAssertion(() => Assert.NotEmpty(page.FindAll(".retention-manage-button")));
         page.Find(".retention-manage-button").Click();
         page.WaitForAssertion(() => Assert.NotEmpty(page.FindAll(".retention-place-hold-button")));
@@ -354,8 +341,7 @@ public sealed class DocumentsRetentionPageTests : BunitContext
     {
         respondToRetentionQueue = _ => Json(HttpStatusCode.OK, QueuePage(QueueRow(activeHoldsCount: 1)));
 
-        var page = RenderDocumentsPage(["documents.manage", "documents.read"]);
-        OpenRetentionTab(page);
+        var page = RenderPage<DocumentsRetention>(["documents.manage", "documents.read"]);
         page.WaitForAssertion(() => Assert.NotEmpty(page.FindAll(".retention-manage-button")));
         page.Find(".retention-manage-button").Click();
         page.WaitForAssertion(() => Assert.NotEmpty(page.FindAll(".retention-release-button")));
@@ -374,8 +360,7 @@ public sealed class DocumentsRetentionPageTests : BunitContext
     {
         respondToRetentionQueue = _ => Json(HttpStatusCode.OK, QueuePage(QueueRow(state: "Active")));
 
-        var page = RenderDocumentsPage(["documents.manage", "documents.read"]);
-        OpenRetentionTab(page);
+        var page = RenderPage<DocumentsRetention>(["documents.manage", "documents.read"]);
         page.WaitForAssertion(() => Assert.NotEmpty(page.FindAll(".retention-manage-button")));
         page.Find(".retention-manage-button").Click();
         page.WaitForAssertion(() => Assert.NotEmpty(page.FindAll(".retention-request-disposition-button")));
@@ -395,8 +380,7 @@ public sealed class DocumentsRetentionPageTests : BunitContext
     {
         respondToRetentionQueue = _ => Json(HttpStatusCode.OK, QueuePage(QueueRow(hasPendingDisposition: true)));
 
-        var page = RenderDocumentsPage(["documents.manage", "documents.read"]);
-        OpenRetentionTab(page);
+        var page = RenderPage<DocumentsRetention>(["documents.manage", "documents.read"]);
         page.WaitForAssertion(() => Assert.NotEmpty(page.FindAll(".retention-manage-button")));
         page.Find(".retention-manage-button").Click();
 
@@ -413,8 +397,7 @@ public sealed class DocumentsRetentionPageTests : BunitContext
     {
         respondToRetentionQueue = _ => Json(HttpStatusCode.OK, QueuePage(QueueRow(hasPendingDisposition: true)));
 
-        var page = RenderDocumentsPage(["documents.dispose", "documents.read"]);
-        OpenRetentionTab(page);
+        var page = RenderPage<DocumentsRetention>(["documents.dispose", "documents.read"]);
         page.WaitForAssertion(() => Assert.NotEmpty(page.FindAll(".retention-manage-button")));
         page.Find(".retention-manage-button").Click();
 
@@ -430,8 +413,7 @@ public sealed class DocumentsRetentionPageTests : BunitContext
     {
         respondToRetentionQueue = _ => Json(HttpStatusCode.OK, QueuePage(QueueRow(hasPendingDisposition: true)));
 
-        var page = RenderDocumentsPage(["documents.dispose", "documents.read"]);
-        OpenRetentionTab(page);
+        var page = RenderPage<DocumentsRetention>(["documents.dispose", "documents.read"]);
         page.WaitForAssertion(() => Assert.NotEmpty(page.FindAll(".retention-manage-button")));
         page.Find(".retention-manage-button").Click();
         page.WaitForAssertion(() => Assert.NotEmpty(page.FindAll(".retention-approve-button")));
@@ -452,8 +434,7 @@ public sealed class DocumentsRetentionPageTests : BunitContext
     {
         respondToRetentionQueue = _ => Json(HttpStatusCode.OK, QueuePage(QueueRow(hasPendingDisposition: true)));
 
-        var page = RenderDocumentsPage(["documents.dispose", "documents.read"]);
-        OpenRetentionTab(page);
+        var page = RenderPage<DocumentsRetention>(["documents.dispose", "documents.read"]);
         page.WaitForAssertion(() => Assert.NotEmpty(page.FindAll(".retention-manage-button")));
         page.Find(".retention-manage-button").Click();
         page.WaitForAssertion(() => Assert.NotEmpty(page.FindAll(".retention-reject-button")));
@@ -472,8 +453,7 @@ public sealed class DocumentsRetentionPageTests : BunitContext
     [Fact]
     public void Retention_policies_sub_tab_is_hidden_without_documents_manage_permission()
     {
-        var page = RenderDocumentsPage(["documents.read"]);
-        OpenRetentionTab(page);
+        var page = RenderPage<DocumentsRetention>(["documents.read"]);
 
         page.WaitForAssertion(() =>
             Assert.DoesNotContain(
@@ -488,8 +468,7 @@ public sealed class DocumentsRetentionPageTests : BunitContext
             HttpStatusCode.OK,
             """{"items":[{"documentTypeId":1,"documentTypeName":"Safety Certificate","retentionPeriodDays":365}]}""");
 
-        var page = RenderDocumentsPage(["documents.manage", "documents.read"]);
-        OpenRetentionTab(page);
+        var page = RenderPage<DocumentsRetention>(["documents.manage", "documents.read"]);
         page.WaitForAssertion(() => Assert.NotEmpty(page.FindAll(".documents-retention-card .workspace-tab")));
 
         page.FindAll(".documents-retention-card .workspace-tab")[1].Click();
@@ -517,8 +496,7 @@ public sealed class DocumentsRetentionPageTests : BunitContext
             return new HttpResponseMessage(HttpStatusCode.NoContent);
         };
 
-        var page = RenderDocumentsPage(["documents.manage", "documents.read"]);
-        OpenRetentionTab(page);
+        var page = RenderPage<DocumentsRetention>(["documents.manage", "documents.read"]);
         page.WaitForAssertion(() => Assert.NotEmpty(page.FindAll(".documents-retention-card .workspace-tab")));
         page.FindAll(".documents-retention-card .workspace-tab")[1].Click();
         page.WaitForAssertion(() => Assert.NotEmpty(page.FindAll(".retention-period-input")));
@@ -554,10 +532,8 @@ public sealed class DocumentsRetentionPageTests : BunitContext
     private static bool IsRejectDispositionRequest(HttpRequestMessage request) =>
         request.RequestUri!.AbsolutePath.EndsWith("/reject", StringComparison.Ordinal);
 
-    private static void OpenRetentionTab(IRenderedComponent<Documents> page) =>
-        page.FindAll(".workspace-tab").First(el => el.TextContent.Contains("Retention", StringComparison.Ordinal)).Click();
-
-    private IRenderedComponent<Documents> RenderDocumentsPage(string[]? permissions = null)
+    private IRenderedComponent<TPage> RenderPage<TPage>(string[]? permissions = null)
+        where TPage : IComponent
     {
         var documentsHttpClient = new HttpClient(new StubHttpMessageHandler(request =>
         {
@@ -585,7 +561,7 @@ public sealed class DocumentsRetentionPageTests : BunitContext
         Services.AddSingleton(CreateAuthorizationState(
             permissions is null ? ["documents.read", "documents.manage", "documents.dispose"] : permissions));
 
-        var page = Render<Documents>();
+        var page = Render<TPage>();
         page.WaitForAssertion(() => Assert.NotEmpty(requestedUris));
 
         return page;

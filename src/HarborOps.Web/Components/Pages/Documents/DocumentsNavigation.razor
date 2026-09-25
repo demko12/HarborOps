@@ -1,0 +1,16 @@
+@inject CurrentUserAuthorizationState AuthorizationState
+
+<nav class="documents-tabs workspace-tabs" aria-label="Documents workspace">
+    <NavLink class="workspace-tab" href="/documents" Match="NavLinkMatch.All"><span class="bi bi-file-earmark-text" aria-hidden="true"></span><span>Expiring documents</span></NavLink>
+    <NavLink class="workspace-tab" href="/documents/requirements"><span class="bi bi-clipboard-check" aria-hidden="true"></span><span>Requirements</span></NavLink>
+    <NavLink class="workspace-tab" href="/documents/readiness"><span class="bi bi-shield-check" aria-hidden="true"></span><span>Readiness</span></NavLink>
+    @if (CanOpenRetention)
+    {
+        <NavLink class="workspace-tab" href="/documents/retention"><span class="bi bi-archive" aria-hidden="true"></span><span>Retention &amp; disposition</span></NavLink>
+    }
+</nav>
+
+@code {
+    private bool CanOpenRetention =>
+        AuthorizationState.HasPermission("documents.read") || AuthorizationState.HasPermission("documents.manage");
+}

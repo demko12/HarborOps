@@ -407,10 +407,16 @@ html[data-theme="light"] .requirements-state.enabled { color: var(--status-succe
 .requirements-history-reason { color: var(--text-secondary); font-size: .82rem; }
 .requirements-history-meta { color: var(--text-muted); font-size: .74rem; }
 
-.requirements-table th:nth-child(1) { width: 16%; }
+.requirements-table th:nth-child(1) { width: 15%; }
 .requirements-table th:nth-child(2) { width: 16%; }
-.requirements-table th:nth-child(3) { width: 13%; }
-.requirements-table th:nth-child(4) { width: 20%; }
-.requirements-table th:nth-child(5) { width: 10%; }
-.requirements-table th:nth-child(6) { width: 13%; }
-.requirements-table th:nth-child(7) { width: 12%; }
+.requirements-table th:nth-child(3) { width: 10%; }
+.requirements-table th:nth-child(4) { width: 15%; }
+.requirements-table th:nth-child(5) { width: 11%; }
+.requirements-table th:nth-child(6) { width: 14%; }
+.requirements-table th:nth-child(7) { width: 19%; }
+
+.requirements-table-scroll { overflow-y: hidden; }
+.requirements-table { min-width: 900px; }
+.requirements-row-actions { flex-wrap: nowrap; justify-content: flex-end; }
+.requirements-row-action { padding: 0 .7rem; border-radius: .5rem; font-size: .72rem; }
+.requirements-table .requirements-state { white-space: nowrap; overflow-wrap: normal; }

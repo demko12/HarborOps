@@ -15,124 +15,12 @@ namespace HarborOps.Web.Tests.Components;
 public sealed class DocumentsWorkspaceTabsTests : BunitContext
 {
     private const string VesselId = "40000000-0000-0000-0000-000000000004";
+    private const string DocumentId = "10000000-0000-0000-0000-000000000001";
 
     private readonly List<string> requestedPaths = [];
     private readonly List<Uri> requestedUris = [];
 
-    [Fact]
-    public void The_workspace_offers_expiring_documents_requirements_readiness_and_retention()
-    {
-        var page = RenderWorkspace();
-
-        Assert.Equal(
-            ["Expiring documents", "Requirements", "Readiness", "Retention & disposition"],
-            page.FindAll("[role=tablist] .workspace-tab").Select(tab => tab.TextContent));
-    }
-
-    [Fact]
-    public void Expiring_documents_is_the_default_tab()
-    {
-        var page = RenderWorkspace();
-
-        Assert.NotNull(page.Find(".documents-tabpanel"));
-        Assert.Empty(page.FindAll(".requirements-panel"));
-        Assert.Empty(page.FindAll(".readiness-panel"));
-        Assert.Equal("true", page.FindAll("[role=tablist] .workspace-tab")[0].GetAttribute("aria-selected"));
-    }
-
-    [Fact]
-    public void Retention_and_disposition_is_a_tab_rather_than_a_dialog()
-    {
-        var page = RenderWorkspace();
-
-        page.FindAll("[role=tablist] .workspace-tab")[3].Click();
-
-        page.WaitForAssertion(() => Assert.Contains(requestedPaths, path => path == "/api/documents/retention-queue"));
-        Assert.Equal("tabpanel", page.Find(".documents-retention-card").GetAttribute("role"));
-        Assert.Empty(page.FindAll(".documents-modal-backdrop"));
-        Assert.Empty(page.FindAll(".documents-tabpanel"));
-    }
-
-    [Fact]
-    public void A_readiness_deep_link_opens_the_matrix_for_the_linked_vessel()
-    {
-        var page = RenderWorkspace($"/documents?tab=readiness&vesselId={VesselId}");
-
-        page.WaitForAssertion(() =>
-        {
-            Assert.Equal("true", page.FindAll("[role=tablist] .workspace-tab")[2].GetAttribute("aria-selected"));
-            Assert.Contains(requestedUris, uri => uri.AbsolutePath == "/api/documents/readiness"
-                && uri.Query.Contains($"vesselId={VesselId}", StringComparison.OrdinalIgnoreCase));
-            Assert.Equal("Aurora Borealis", page.Find("#readiness-vessel").GetAttribute("value"));
-        });
-        Assert.Empty(page.FindAll(".documents-tabpanel"));
-    }
-
-    [Fact]
-    public void A_requirements_deep_link_opens_the_configuration_tab()
-    {
-        var page = RenderWorkspace("/documents?tab=requirements");
-
-        page.WaitForAssertion(() => Assert.NotEmpty(page.FindAll(".requirements-panel")));
-        Assert.Equal("true", page.FindAll("[role=tablist] .workspace-tab")[1].GetAttribute("aria-selected"));
-    }
-
-    [Fact]
-    public void A_retention_deep_link_opens_the_retention_tab_and_loads_the_queue()
-    {
-        var page = RenderWorkspace("/documents?tab=retention");
-
-        page.WaitForAssertion(() => Assert.Contains(requestedPaths, path => path == "/api/documents/retention-queue"));
-        Assert.NotNull(page.Find(".documents-retention-card"));
-    }
-
-    [Fact]
-    public void An_unknown_tab_in_the_link_falls_back_to_expiring_documents()
-    {
-        var page = RenderWorkspace("/documents?tab=unknown");
-
-        Assert.NotNull(page.Find(".documents-tabpanel"));
-        Assert.Equal("true", page.FindAll("[role=tablist] .workspace-tab")[0].GetAttribute("aria-selected"));
-    }
-
-    [Fact]
-    public void The_requirements_tab_shows_the_requirement_configuration()
-    {
-        var page = RenderWorkspace();
-
-        page.FindAll("[role=tablist] .workspace-tab")[1].Click();
-
-        page.WaitForAssertion(() => Assert.Contains("Safety Management Certificate", page.Find(".requirements-panel").TextContent, StringComparison.Ordinal));
-        Assert.Empty(page.FindAll(".documents-tabpanel"));
-        Assert.Contains(requestedPaths, path => path == "/api/documents/requirements");
-    }
-
-    [Fact]
-    public void The_readiness_tab_shows_the_readiness_matrix()
-    {
-        var page = RenderWorkspace();
-
-        page.FindAll("[role=tablist] .workspace-tab")[2].Click();
-
-        page.WaitForAssertion(() => Assert.Contains("Missing", page.Find(".readiness-panel").TextContent, StringComparison.Ordinal));
-        Assert.Contains(requestedPaths, path => path == "/api/documents/readiness");
-    }
-
-    [Fact]
-    public void Registering_a_missing_type_opens_the_register_form_with_the_vessel_and_type_prefilled()
-    {
-        var page = RenderWorkspace();
-        page.FindAll("[role=tablist] .workspace-tab")[2].Click();
-        page.WaitForAssertion(() => Assert.NotEmpty(page.FindAll(".readiness-documents .readiness-row-action")));
-
-        page.Find(".readiness-documents .readiness-row-action").Click();
-
-        page.WaitForAssertion(() => Assert.Equal("7", page.Find("#doc-type").GetAttribute("value")));
-        Assert.Equal("Aurora Borealis", page.Find("#documents-form-title").ParentElement!.ParentElement!.QuerySelector(".vessel-picker-input")!.GetAttribute("value"));
-        Assert.Contains("Register document", page.Find("#documents-form-title").TextContent, StringComparison.Ordinal);
-    }
-
-    private IRenderedComponent<Documents> RenderWorkspace(string? address = null)
+    public DocumentsWorkspaceTabsTests()
     {
         var documentsHttpClient = new HttpClient(new StubHttpMessageHandler(request =>
         {
@@ -147,6 +35,7 @@ public sealed class DocumentsWorkspaceTabsTests : BunitContext
                 "/api/documents/requirements" => Json(RequirementsPage),
                 "/api/documents/readiness" => Json(ReadinessPage),
                 "/api/documents/types" => Json(TypesPage),
+                $"/api/documents/{DocumentId}" => Json(DocumentDetails),
                 _ => Json("""{"items":[],"pageNumber":1,"pageSize":25,"totalCount":0}"""),
             };
         }))
@@ -163,13 +52,131 @@ public sealed class DocumentsWorkspaceTabsTests : BunitContext
         Services.AddSingleton(new DocumentsApiClient(documentsHttpClient));
         Services.AddSingleton(new FleetApiClient(fleetHttpClient));
         Services.AddSingleton(CreateAuthorizationState("documents.read", "documents.manage"));
+    }
 
-        if (address is not null)
+    [Fact]
+    public void The_workspace_offers_expiring_documents_requirements_readiness_and_retention()
+    {
+        var page = RenderWorkspace<Documents>("/documents");
+
+        Assert.Equal(
+            ["Expiring documents", "Requirements", "Readiness", "Retention & disposition"],
+            page.FindAll(".documents-tabs .workspace-tab").Select(tab => tab.TextContent));
+        Assert.Equal(
+            ["/documents", "/documents/requirements", "/documents/readiness", "/documents/retention"],
+            page.FindAll(".documents-tabs .workspace-tab").Select(tab => tab.GetAttribute("href")));
+    }
+
+    [Fact]
+    public void The_documents_page_shows_only_the_expiring_documents()
+    {
+        var page = RenderWorkspace<Documents>("/documents");
+
+        Assert.NotNull(page.Find(".documents-register"));
+        Assert.Empty(page.FindAll(".requirements-panel"));
+        Assert.Empty(page.FindAll(".readiness-panel"));
+        Assert.Empty(page.FindAll(".documents-retention-card"));
+        Assert.Equal("Expiring documents", page.Find(".documents-tabs .workspace-tab.active").TextContent);
+    }
+
+    [Fact]
+    public void The_retention_page_loads_the_queue_in_a_card_rather_than_a_dialog()
+    {
+        var page = RenderWorkspace<DocumentsRetention>("/documents/retention");
+
+        page.WaitForAssertion(() => Assert.Contains(requestedPaths, path => path == "/api/documents/retention-queue"));
+        Assert.NotNull(page.Find(".documents-retention-card"));
+        Assert.Empty(page.FindAll(".documents-modal-backdrop"));
+        Assert.Empty(page.FindAll(".documents-register"));
+        Assert.Equal("Retention & disposition", page.Find(".documents-tabs .workspace-tab.active").TextContent);
+    }
+
+    [Fact]
+    public void A_readiness_link_opens_the_matrix_for_the_linked_vessel()
+    {
+        var page = RenderWorkspace<DocumentsReadiness>($"/documents/readiness?vesselId={VesselId}");
+
+        page.WaitForAssertion(() =>
         {
-            Services.GetRequiredService<NavigationManager>().NavigateTo(address);
-        }
+            Assert.Contains(requestedUris, uri => uri.AbsolutePath == "/api/documents/readiness"
+                && uri.Query.Contains($"vesselId={VesselId}", StringComparison.OrdinalIgnoreCase));
+            Assert.Equal("Aurora Borealis", page.Find("#readiness-vessel").GetAttribute("value"));
+        });
+        Assert.Equal("Readiness", page.Find(".documents-tabs .workspace-tab.active").TextContent);
+        Assert.Empty(page.FindAll(".documents-register"));
+    }
 
-        var page = Render<Documents>();
+    [Fact]
+    public void The_requirements_page_shows_the_requirement_configuration()
+    {
+        var page = RenderWorkspace<DocumentsRequirements>("/documents/requirements");
+
+        page.WaitForAssertion(() => Assert.Contains("Safety Management Certificate", page.Find(".requirements-panel").TextContent, StringComparison.Ordinal));
+        Assert.Equal("Requirements", page.Find(".documents-tabs .workspace-tab.active").TextContent);
+        Assert.Empty(page.FindAll(".documents-register"));
+        Assert.Contains(requestedPaths, path => path == "/api/documents/requirements");
+    }
+
+    [Fact]
+    public void The_readiness_page_shows_the_readiness_matrix()
+    {
+        var page = RenderWorkspace<DocumentsReadiness>("/documents/readiness");
+
+        page.WaitForAssertion(() => Assert.Contains("Missing", page.Find(".readiness-panel").TextContent, StringComparison.Ordinal));
+        Assert.Contains(requestedPaths, path => path == "/api/documents/readiness");
+    }
+
+    [Fact]
+    public void Registering_a_missing_type_opens_the_register_form_with_the_vessel_and_type_prefilled()
+    {
+        var page = RenderWorkspace<DocumentsReadiness>("/documents/readiness");
+        page.WaitForAssertion(() => Assert.NotEmpty(page.FindAll(".readiness-documents .readiness-row-action")));
+
+        page.Find(".readiness-documents .readiness-row-action").Click();
+
+        page.WaitForAssertion(() => Assert.Equal("7", page.Find("#doc-type").GetAttribute("value")));
+        Assert.Equal("Aurora Borealis", page.Find("#documents-form-title").ParentElement!.ParentElement!.QuerySelector(".vessel-picker-input")!.GetAttribute("value"));
+        Assert.Contains("Register document", page.Find("#documents-form-title").TextContent, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Opening_a_document_from_readiness_shows_the_document_dialog_on_the_readiness_page()
+    {
+        var page = RenderWorkspace<DocumentsReadiness>("/documents/readiness");
+        page.WaitForAssertion(() => Assert.NotEmpty(page.FindAll(".readiness-document-link")));
+
+        page.Find(".readiness-document-link").Click();
+
+        page.WaitForAssertion(() => Assert.NotNull(page.Find(".documents-file-form-card .documents-review-status")));
+        Assert.NotNull(page.Find(".readiness-panel"));
+        Assert.Contains(requestedPaths, path => path == $"/api/documents/{DocumentId}");
+    }
+
+    [Fact]
+    public void Every_documents_page_and_dialog_shares_the_documents_styles()
+    {
+        Assert.True(RenderWorkspace<Documents>("/documents").Find(".documents-page").HasAttribute("b-documents"));
+        Assert.True(RenderWorkspace<DocumentsRequirements>("/documents/requirements").Find(".documents-page").HasAttribute("b-documents"));
+        Assert.True(RenderWorkspace<DocumentsRetention>("/documents/retention").Find(".documents-page").HasAttribute("b-documents"));
+
+        var readiness = RenderWorkspace<DocumentsReadiness>("/documents/readiness");
+        Assert.True(readiness.Find(".documents-page").HasAttribute("b-documents"));
+
+        readiness.WaitForAssertion(() => Assert.NotEmpty(readiness.FindAll(".readiness-document-link")));
+        readiness.Find(".readiness-document-link").Click();
+        readiness.WaitForAssertion(() => Assert.True(readiness.Find(".documents-file-form-card").HasAttribute("b-documents")));
+        readiness.Find(".documents-file-close-button").Click();
+
+        readiness.Find(".readiness-documents .readiness-row-action").Click();
+        readiness.WaitForAssertion(() => Assert.True(readiness.Find(".documents-form-card").HasAttribute("b-documents")));
+    }
+
+    private IRenderedComponent<TPage> RenderWorkspace<TPage>(string address)
+        where TPage : IComponent
+    {
+        Services.GetRequiredService<NavigationManager>().NavigateTo(address);
+
+        var page = Render<TPage>();
         page.WaitForAssertion(() => Assert.NotEmpty(requestedPaths));
 
         return page;
@@ -193,11 +200,23 @@ public sealed class DocumentsWorkspaceTabsTests : BunitContext
     private static string ReadinessPage =>
         $$"""
         {"vesselId":null,"vesselStatus":null,"today":"2026-09-24","requiredThrough":"2026-09-24",
-        "summary":{"configuredCount":1,"satisfiedCount":0,"unsatisfiedCount":1},
+        "summary":{"configuredCount":2,"satisfiedCount":1,"unsatisfiedCount":1},
         "items":[{"requirementId":"11111111-1111-1111-1111-111111111111","vesselId":"{{VesselId}}","documentTypeId":7,
         "documentTypeName":"Safety Management Certificate","minimumRemainingValidityDays":0,"instruction":null,
-        "requiredValidUntil":"2026-09-24","status":"Unsatisfied","blockers":["Missing"],"selectedDocumentId":null,"candidates":[]}],
-        "pageNumber":1,"pageSize":25,"totalCount":1}
+        "requiredValidUntil":"2026-09-24","status":"Unsatisfied","blockers":["Missing"],"selectedDocumentId":null,"candidates":[]},
+        {"requirementId":"22222222-2222-2222-2222-222222222222","vesselId":"{{VesselId}}","documentTypeId":8,
+        "documentTypeName":"Load Line Certificate","minimumRemainingValidityDays":0,"instruction":null,
+        "requiredValidUntil":"2026-09-24","status":"Satisfied","blockers":[],"selectedDocumentId":"{{DocumentId}}",
+        "candidates":[{"documentId":"{{DocumentId}}","number":"CERT-001","status":"Active","reviewStatus":"Approved","hasFile":true,"retentionState":"Active","issueDate":"2026-01-01","expiryDate":"2028-01-01","qualifies":true,"blockers":[]}]}],
+        "pageNumber":1,"pageSize":25,"totalCount":2}
+        """;
+
+    private static string DocumentDetails =>
+        $$"""
+        {"id":"{{DocumentId}}","vesselId":"{{VesselId}}","documentTypeId":8,"documentTypeName":"Load Line Certificate",
+        "number":"CERT-001","issueDate":"2026-01-01","expiryDate":"2028-01-01","issuingAuthority":"Flag State",
+        "status":"Active","reviewStatus":"Approved","hasFile":false,"fileName":null,"contentType":null,
+        "sizeBytes":null,"uploadedBy":null,"uploadedAtUtc":null}
         """;
 
     private static CurrentUserAuthorizationState CreateAuthorizationState(params string[] permissions)

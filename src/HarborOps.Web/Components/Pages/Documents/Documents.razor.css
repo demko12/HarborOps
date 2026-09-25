@@ -662,44 +662,6 @@ html[data-theme="dark"] .documents-review-status-rejected { color: #fca5a5; back
     margin-bottom: 1rem;
 }
 
-.documents-tab {
-    display: inline-flex;
-    width: 12rem;
-    min-height: 2.65rem;
-    align-items: center;
-    justify-content: center;
-    padding: .6rem .9rem;
-    color: var(--apply-text);
-    border: 1px solid var(--apply-border);
-    border-radius: var(--radius-button);
-    background: var(--apply-surface);
-    box-shadow: none;
-    font: inherit;
-    font-size: .86rem;
-    font-weight: 600;
-    letter-spacing: .01em;
-    cursor: pointer;
-    transition: border-color .16s ease, background .16s ease, color .16s ease;
-}
-
-    .documents-tab:hover {
-        border-color: var(--apply-border-hover);
-        background: var(--apply-surface-hover);
-        transform: translateY(-1px);
-    }
-
-    .documents-tab:focus-visible {
-        outline: 2px solid var(--accent);
-        outline-offset: 2px;
-    }
-
-.documents-tab.active {
-    color: var(--accent);
-    border-color: var(--accent);
-    background: var(--accent-bg);
-    box-shadow: 0 0 0 .18rem var(--accent-bg);
-}
-
 .documents-inline-form {
     width: 100%;
     max-width: none;
@@ -1421,7 +1383,6 @@ html[data-theme="light"] .documents-file-replace-confirm {
 
 @media (prefers-reduced-motion: reduce) {
     .documents-search-button,
-    .documents-tab,
     .documents-table tbody tr,
     .filter-field > input,
     .documents-type-form-grid ::deep input:not([type="radio"]),
@@ -1460,10 +1421,6 @@ html[data-theme="light"] .documents-file-replace-confirm {
     .documents-tabs {
         display: grid;
         grid-template-columns: 1fr;
-    }
-
-    .documents-tab {
-        width: 100%;
     }
 
     .filter-field > input,
@@ -1614,3 +1571,9 @@ html[data-theme="light"] .documents-file-replace-confirm {
 .documents-card-heading { flex-wrap: wrap; gap: 1rem; }
 .documents-register-button, .documents-header-actions .workspace-tab { color: var(--text-primary); background: var(--accent-bg); border-color: var(--accent-border); font: inherit; font-size: .78rem; box-shadow: none; }
 .documents-register-button:hover, .documents-header-actions .workspace-tab:hover { background: var(--bg-surface-strong); transform: none; }
+.documents-table-scroll { overflow-y: hidden; }
+.documents-table { min-width: 900px; }
+.documents-table td.col-status > span { display: flex; width: fit-content; margin: .15rem 0; }
+.documents-table .col-number { width: 17%; }
+.documents-table .col-issue, .documents-table .col-expiry { width: 10%; }
+.documents-table td.col-number { white-space: nowrap; }

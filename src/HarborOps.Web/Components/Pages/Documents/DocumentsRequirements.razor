@@ -1,0 +1,28 @@
+@page "/documents/requirements"
+@attribute [Microsoft.AspNetCore.Authorization.Authorize(Policy = "AccessDocuments")]
+
+<PageTitle>Document requirements | HarborOps</PageTitle>
+
+<section class="documents-page">
+    <header class="documents-header">
+        <div>
+            <nav class="page-breadcrumb" aria-label="Breadcrumb"><a href="/documents">Documents operations</a><span aria-hidden="true">/</span><span>Requirements</span></nav>
+            <h1>Document requirements</h1>
+            <p>Configure which document types each vessel must carry.</p>
+        </div>
+        <div class="documents-header-actions">
+            <a class="workspace-tab" href="/documents/acknowledgements">
+                <span class="bi bi-check2-square" aria-hidden="true"></span> My acknowledgements
+            </a>
+        </div>
+    </header>
+
+    <DocumentsNavigation />
+
+    <DocumentRequirementsPanel InitialVesselId="RequestedVesselId" />
+</section>
+
+@code {
+    [SupplyParameterFromQuery(Name = "vesselId")]
+    private Guid? RequestedVesselId { get; set; }
+}

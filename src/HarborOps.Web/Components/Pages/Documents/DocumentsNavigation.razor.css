@@ -1,0 +1,4 @@
+.documents-tabs { display: flex; flex-wrap: nowrap; overflow-x: auto; gap: .35rem; padding: .2rem .2rem .8rem; margin-bottom: 1.5rem; border-bottom: 1px solid var(--border-subtle); }
+.documents-tabs ::deep .workspace-tab { display: inline-flex; flex: 0 0 auto; width: auto; height: auto; align-items: center; justify-content: flex-start; gap: .55rem; padding: .65rem .85rem; border: 1px solid transparent; border-radius: .65rem; color: var(--text-secondary); background: transparent; font: inherit; font-size: .8rem; font-weight: 400; letter-spacing: normal; white-space: nowrap; }
+.documents-tabs ::deep .workspace-tab.active { color: var(--text-primary); background: var(--accent-bg); border-color: var(--accent-border); }
+.documents-tabs ::deep .workspace-tab:hover { transform: none; background: var(--bg-surface-strong); }
