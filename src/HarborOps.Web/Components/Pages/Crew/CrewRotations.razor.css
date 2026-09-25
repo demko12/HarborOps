@@ -286,3 +286,4 @@ html[data-theme="light"] .crew-rotations-status-executed { color: #047857; borde
 .crew-rotations-header h1 { margin: 0; font-size: clamp(1.8rem, 2.6vw, 2.35rem); font-weight: 600; letter-spacing: -.045em; }
 .crew-rotations-header p { margin-top: .5rem; font-size: .875rem; }
 @media (max-width: 760px) { .crew-rotations-page { padding: 1rem 0 2rem; } }
+.page-breadcrumb, .page-breadcrumb a { color: #9b75ed; }

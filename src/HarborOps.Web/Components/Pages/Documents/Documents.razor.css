@@ -1507,7 +1507,6 @@ html[data-theme="light"] .documents-file-replace-confirm {
 /* Documents workspace: preserve all actions while aligning the register with other modules. */
 .documents-page { --accent: #8270ef; --accent-bg: rgba(130, 112, 239, .12); --accent-border: rgba(130, 112, 239, .3); max-width: 1600px; padding: 1.5rem 1rem 3rem; }
 .documents-header h1 { font-size: clamp(1.8rem, 3vw, 2.35rem); font-weight: 600; }
-.documents-eyebrow { font-size: .65rem; }
 .documents-tabs { display: flex; flex-wrap: nowrap; overflow-x: auto; gap: .35rem; padding: .2rem .2rem .8rem; margin-bottom: 1.5rem; border-bottom: 1px solid var(--border-subtle); }
 .documents-tabs .workspace-tab { display: inline-flex; flex: 0 0 auto; width: auto; height: auto; align-items: center; justify-content: flex-start; gap: .55rem; padding: .65rem .85rem; border: 1px solid transparent; border-radius: .65rem; color: var(--text-secondary); background: transparent; font: inherit; font-size: .8rem; font-weight: 400; letter-spacing: normal; white-space: nowrap; }
 .documents-tabs .workspace-tab.active { color: var(--text-primary); background: var(--accent-bg); border-color: var(--accent-border); }

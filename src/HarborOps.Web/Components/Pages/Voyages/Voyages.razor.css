@@ -928,7 +928,6 @@ html[data-theme="light"] .voyages-row-action-danger:hover { background: rgba(185
 .voyages-header { align-items: center; flex-wrap: wrap; }
 .voyages-header h1 { font-weight: 600; font-size: clamp(1.8rem, 2.6vw, 2.35rem); letter-spacing: -.045em; }
 .voyages-header p:last-child { font-size: .875rem; }
-.voyages-eyebrow { font-size: .65rem; }
 .voyages-utc { border-radius: .5rem; font-size: .65rem; letter-spacing: .08em; }
 .voyages-summary { gap: .75rem; margin-bottom: 1.5rem; }
 .voyages-kpi, .voyages-page ::deep .voyages-card { border-color: var(--border-subtle); background: linear-gradient(135deg, var(--bg-surface-strong), var(--bg-surface)); box-shadow: 0 18px 38px rgba(15,23,42,.06), inset 0 1px var(--bg-surface-strong); }

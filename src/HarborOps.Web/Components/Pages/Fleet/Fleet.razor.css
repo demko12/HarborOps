@@ -1,7 +1,7 @@
 .fleet-page { --fleet-accent-bg: color-mix(in srgb, var(--accent) 12%, transparent); --fleet-accent-border: color-mix(in srgb, var(--accent) 30%, transparent); max-width: 1600px; margin: 0 auto; padding: 1.5rem 1rem 3rem; }
 .fleet-header { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 1.25rem; margin-bottom: 1.5rem; }
 .fleet-header h1 { margin: 0; font-size: clamp(1.8rem, 2.6vw, 2.35rem); font-weight: 600; letter-spacing: -.045em; }
-.fleet-eyebrow { margin: 0 0 .45rem; color: var(--accent); font-size: .65rem; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; }
+.fleet-eyebrow { margin: 0 0 .4rem; color: var(--accent); font-size: .72rem; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; }
 .fleet-intro { margin: .5rem 0 0; color: var(--text-secondary); font-size: .875rem; }
 .fleet-header-actions { display: flex; align-items: center; gap: .6rem; }
 .fleet-action, .fleet-reset-button, .fleet-pagination button { display: inline-flex; align-items: center; justify-content: center; gap: .45rem; padding: .6rem .85rem; border: 1px solid var(--border-medium); border-radius: var(--radius-button); background: var(--bg-surface-strong); color: var(--text-primary); font-size: .75rem; font-weight: 500; cursor: pointer; }

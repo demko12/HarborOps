@@ -281,7 +281,6 @@ html[data-theme="dark"] .compliance-page ::deep .compliance-section {
 
 .compliance-page { --accent: #059669; --accent-bg: rgba(5, 150, 105, .12); --accent-border: rgba(5, 150, 105, .3); max-width: 1600px; padding: 1.5rem 1rem 3rem; }
 .compliance-header h1 { font-size: clamp(1.8rem, 3vw, 2.35rem); font-weight: 600; }
-.compliance-eyebrow { font-size: .65rem; }
 .compliance-selector { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 1.25rem; padding: 1.25rem; }
 .compliance-selector-heading { display: flex; align-items: center; gap: .85rem; }
 .compliance-selector-heading > .bi,
