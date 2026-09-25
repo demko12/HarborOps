@@ -498,3 +498,8 @@ html[data-theme="dark"] .positions-overview-card {
         flex-direction: column;
     }
 }
+
+.positions-page { max-width: 1600px; margin: 0 auto; padding: 1.5rem 1rem 3rem; }
+.positions-header h1 { margin: 0; font-size: clamp(1.8rem, 2.6vw, 2.35rem); font-weight: 600; letter-spacing: -.045em; }
+.positions-header > div > p { margin-top: .5rem; font-size: .875rem; }
+@media (max-width: 760px) { .positions-page { padding: 1rem 0 2rem; } }

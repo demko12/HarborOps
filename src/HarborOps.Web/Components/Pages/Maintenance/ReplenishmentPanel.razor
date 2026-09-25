@@ -38,26 +38,29 @@
 		</article>
 	</section>
 
-	<section class="maintenance-filters" aria-label="Replenishment paging">
-		<div class="filter-field">
-			<label for="replenishment-page-size">Per page</label>
-			<select id="replenishment-page-size" @bind="pageSize" @bind:after="ApplyPageSizeAsync">
-				<option value="25">25</option>
-				<option value="50">50</option>
-				<option value="100">100</option>
-			</select>
-		</div>
-		<button class="maintenance-reset" type="button" @onclick="RetryAsync" disabled="@isLoading">Refresh</button>
-	</section>
-
 	<section class="maintenance-card" aria-labelledby="replenishment-list-title">
 		<div class="maintenance-card-heading">
-			<div>
-				<h2 id="replenishment-list-title">Replenishment needs</h2>
-				<p>@totalCount parts need attention, worst shortage first</p>
+			<div class="maintenance-register-heading">
+			    <span class="maintenance-card-icon" aria-hidden="true"><span class="bi bi-clipboard-data"></span></span>
+			    <div>
+					<h2 id="replenishment-list-title">Replenishment needs</h2>
+					<p>@totalCount parts need attention, worst shortage first</p>
+			    </div>
 			</div>
-			<span class="maintenance-card-icon" aria-hidden="true"><span class="bi bi-clipboard-data"></span></span>
+
 		</div>
+
+		<section class="maintenance-filters" aria-label="Replenishment paging">
+			<div class="filter-field">
+				<label for="replenishment-page-size">Per page</label>
+				<select id="replenishment-page-size" @bind="pageSize" @bind:after="ApplyPageSizeAsync">
+					<option value="25">25</option>
+					<option value="50">50</option>
+					<option value="100">100</option>
+				</select>
+			</div>
+			<button class="maintenance-reset" type="button" @onclick="RetryAsync" disabled="@isLoading">Refresh</button>
+		</section>
 
 		@if (isLoading)
 		{

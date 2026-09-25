@@ -1,0 +1,33 @@
+@page "/voyages/ports"
+@attribute [Microsoft.AspNetCore.Authorization.Authorize(Policy = "AccessVoyages")]
+@using HarborOps.Web.Api.Voyages
+@implements IDisposable
+@inject VoyagesApiClient VoyagesApi
+
+<PageTitle>Ports | HarborOps</PageTitle>
+
+<section class="voyages-page">
+    <header class="voyages-header">
+        <div>
+            <nav class="page-breadcrumb" aria-label="Breadcrumb"><a href="/voyages">Voyage operations</a><span aria-hidden="true">/</span><span>Ports</span></nav>
+            <h1>Ports</h1>
+            <p>Register and review the ports your voyages call at.</p>
+        </div>
+        <span class="voyages-utc" aria-label="All times are shown in UTC">UTC</span>
+    </header>
+
+    <VoyagesNavigation />
+
+    <section class="voyages-summary-scoped" aria-label="Port summary">
+        <article class="voyages-kpi">
+            <div>
+                <p class="voyages-kpi-label">Ports</p>
+                <p class="voyages-kpi-value">@Voyages.FormatCount(portsKpiCount)</p>
+                <p class="voyages-kpi-note">Registered in directory</p>
+            </div>
+            <span class="voyages-kpi-icon kpi-icon-planned" aria-hidden="true"><span class="bi bi-geo-alt-fill"></span></span>
+        </article>
+    </section>
+
+    <PortsPanel />
+</section>

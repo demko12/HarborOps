@@ -1,0 +1,320 @@
+@using HarborOps.Web.Api.Maintenance
+@using HarborOps.Web.Components.Shared
+@implements IDisposable
+@inject MaintenanceApiClient MaintenanceApi
+@inject CurrentUserAuthorizationState AuthorizationState
+
+<section class="maintenance-card stocktake-editor" aria-labelledby="stocktake-editor-title">
+	<div class="maintenance-card-heading">
+		<div>
+			<h2 id="stocktake-editor-title">Stocktake</h2>
+			<p>
+				@if (details is { } loaded)
+				{
+					<span class="stocktake-status @MaintenanceFormat.StocktakeStatusModifier(loaded.Status)">@loaded.Status</span>
+					<span class="maintenance-muted">started @MaintenanceFormat.CreatedUtc(loaded.CreatedUtc)</span>
+				}
+			</p>
+		</div>
+		<button type="button" class="maintenance-reset" @onclick="CloseAsync">Back to stocktakes</button>
+	</div>
+
+	@if (isLoading)
+	{
+		<LoadingState Message="Loading the stocktake..." />
+	}
+	else if (failure is { IsForbidden: true })
+	{
+		<EmptyState Title="You cannot view this stocktake"
+					Message="Your account does not carry a maintenance permission. Ask an administrator for access." />
+	}
+	else if (failure is not null)
+	{
+		<ApiErrorState Title="@failure.Title" Message="@failure.Message" OnRetry="ReloadAsync" />
+	}
+	else if (details is { } stocktake)
+	{
+		@if (!string.IsNullOrWhiteSpace(successMessage))
+		{
+			<div class="maintenance-toast stocktake-success" role="status" aria-live="polite">@successMessage</div>
+		}
+
+		@if (actionFailure is { IsValidation: true })
+		{
+			<div class="stocktake-blockers stocktake-validation" role="alert">
+				<h3>Fix before saving</h3>
+				<ul>
+					@foreach (var error in ValidationMessages)
+					{
+						<li @key="error">
+							<span class="stocktake-blocker-code">@error.Label</span>
+							<span>@error.Message</span>
+						</li>
+					}
+				</ul>
+			</div>
+		}
+		else if (actionFailure is not null)
+		{
+			<ApiErrorState Title="@actionFailure.Title" Message="@actionFailure.Message" OnRetry="ReloadAsync" />
+		}
+
+		@if (IsDraft && preview is { Blockers.Count: > 0 })
+		{
+			<div class="stocktake-blockers" role="status" aria-live="polite">
+				<h3>Resolve before posting</h3>
+				<ul>
+					@foreach (var blocker in preview.Blockers)
+					{
+						<li @key="blocker">
+							<span class="stocktake-blocker-code">@MaintenanceFormat.BlockerLabel(blocker.Code)</span>
+							<span>@blocker.Message</span>
+							@if (blocker.ReservingWorkOrderIds.Count > 0)
+							{
+								<span class="maintenance-muted">
+									Work orders:
+									@foreach (var workOrderId in blocker.ReservingWorkOrderIds)
+									{
+										<a class="stocktake-link" href="@($"/maintenance/work-orders/{workOrderId}")">@workOrderId</a>
+									}
+								</span>
+							}
+							@if (CanEdit && blocker.Code == MaintenanceFormat.StaleBaselineBlocker)
+							{
+								<button type="button"
+										class="maintenance-reset stocktake-recount"
+										disabled="@isActing"
+										@onclick="() => RecountAsync(blocker.InventoryItemId)">
+									Recount this line
+								</button>
+							}
+						</li>
+					}
+				</ul>
+			</div>
+		}
+
+		<div class="maintenance-table-scroll">
+			<table class="maintenance-table stocktake-lines-table">
+				<caption class="visually-hidden">Stocktake lines</caption>
+				<thead>
+					<tr>
+						<th scope="col">Part</th>
+						<th scope="col">Part number</th>
+						<th scope="col" class="numeric">Baseline</th>
+						<th scope="col" class="numeric">Counted</th>
+						<th scope="col" class="numeric">Variance</th>
+						<th scope="col">Reason</th>
+						<th scope="col" class="numeric">Reserved</th>
+						<th scope="col">Counted at</th>
+					</tr>
+				</thead>
+				<tbody>
+					@foreach (var line in stocktake.Lines)
+					{
+						var editable = EditorFor(line.InventoryItemId);
+						var previewLine = PreviewFor(line.InventoryItemId);
+
+						<tr @key="line.InventoryItemId" class="@(previewLine is { BaselineIsStale: true } ? "stocktake-line-stale" : null)">
+							<td><span class="maintenance-title">@line.Name</span></td>
+							<td class="maintenance-muted">@line.PartNumber</td>
+							<td class="numeric">@MaintenanceFormat.Quantity(line.BaselineQuantity) @line.UnitAbbreviation</td>
+							<td class="numeric">
+								@if (CanEdit)
+								{
+									<input type="number"
+										   step="0.001"
+										   min="0"
+										   inputmode="decimal"
+										   aria-label="@($"Counted quantity for {line.Name}")"
+										   @bind="editable.CountedQuantity"
+										   disabled="@isActing" />
+								}
+								else
+								{
+									@(line.CountedQuantity is { } counted ? MaintenanceFormat.Quantity(counted) : MaintenanceFormat.MissingValue)
+								}
+							</td>
+							<td class="numeric">
+								<span class="stocktake-variance @MaintenanceFormat.VarianceModifier(line.Variance)">
+									@MaintenanceFormat.Variance(line.Variance)
+								</span>
+							</td>
+							<td>
+								@if (CanEdit)
+								{
+									<input type="text"
+										   maxlength="500"
+										   aria-label="@($"Variance reason for {line.Name}")"
+										   @bind="editable.Reason"
+										   disabled="@isActing" />
+								}
+								else
+								{
+									@MaintenanceFormat.OptionalText(line.VarianceReason)
+								}
+							</td>
+							<td class="numeric">
+								@(previewLine is { } row ? MaintenanceFormat.Quantity(row.OutstandingReservedQuantity) : MaintenanceFormat.MissingValue)
+							</td>
+							<td class="maintenance-muted">@MaintenanceFormat.CountedUtc(line.CountedUtc)</td>
+						</tr>
+					}
+				</tbody>
+			</table>
+		</div>
+
+		@if (CanEdit)
+		{
+			<div class="maintenance-form-actions stocktake-actions">
+				<button type="button" class="maintenance-button" disabled="@isActing" @onclick="SaveAndCheckAsync">
+					@(isActing ? "Working..." : "Save and check")
+				</button>
+				<button type="button"
+						class="maintenance-button stocktake-post"
+						disabled="@(isActing || preview is not { CanPost: true })"
+						@onclick="AskToPost">
+					Post stocktake
+				</button>
+				<button type="button" class="maintenance-reset" disabled="@isActing" @onclick="OpenCancelForm">
+					Cancel stocktake
+				</button>
+			</div>
+			<p class="maintenance-muted stocktake-hint">
+				Saving also checks the stocktake against current stock and reservations. A recount clears the count on
+				that line, so the operator confirms a fresh physical count.
+			</p>
+		}
+		else
+		{
+			<div class="stocktake-history">
+				<h3>History</h3>
+				<dl class="stocktake-facts">
+					<dt>Status</dt>
+					<dd>@stocktake.Status</dd>
+					@if (stocktake.PostedUtc is { } postedUtc)
+					{
+						<dt>Posted</dt>
+						<dd>@MaintenanceFormat.CreatedUtc(postedUtc)</dd>
+					}
+					@if (stocktake.CancelledUtc is { } cancelledUtc)
+					{
+						<dt>Cancelled</dt>
+						<dd>@MaintenanceFormat.CreatedUtc(cancelledUtc)</dd>
+						<dt>Reason</dt>
+						<dd>@MaintenanceFormat.OptionalText(stocktake.CancellationReason)</dd>
+					}
+				</dl>
+
+				@if (stocktake.Adjustments.Count > 0)
+				{
+					<div class="maintenance-table-scroll">
+						<table class="maintenance-table stocktake-adjustments-table">
+							<caption class="visually-hidden">Posted inventory adjustments</caption>
+							<thead>
+								<tr>
+									<th scope="col">Part</th>
+									<th scope="col" class="numeric">Before</th>
+									<th scope="col" class="numeric">Counted</th>
+									<th scope="col" class="numeric">Delta</th>
+									<th scope="col">Reason</th>
+									<th scope="col">Posted at</th>
+								</tr>
+							</thead>
+							<tbody>
+								@foreach (var adjustment in stocktake.Adjustments)
+								{
+									<tr @key="adjustment.AdjustmentId">
+										<td>@PartNumberFor(adjustment.InventoryItemId)</td>
+										<td class="numeric">@MaintenanceFormat.Quantity(adjustment.QuantityBefore)</td>
+										<td class="numeric">@MaintenanceFormat.Quantity(adjustment.CountedQuantity)</td>
+										<td class="numeric">
+											<span class="stocktake-variance @MaintenanceFormat.VarianceModifier(adjustment.QuantityDelta)">
+												@MaintenanceFormat.Variance(adjustment.QuantityDelta)
+											</span>
+										</td>
+										<td>@adjustment.Reason</td>
+										<td class="maintenance-muted">@MaintenanceFormat.CreatedUtc(adjustment.AdjustedUtc)</td>
+									</tr>
+								}
+							</tbody>
+						</table>
+					</div>
+				}
+				else
+				{
+					<EmptyState Title="No stock was changed"
+								Message="This stocktake did not adjust any quantity." />
+				}
+			</div>
+		}
+
+		@if (isPostConfirmOpen)
+		{
+			<div class="maintenance-modal-backdrop" @onclick="DismissPostConfirmation">
+				<section class="maintenance-modal maintenance-modal-narrow"
+						 role="alertdialog"
+						 aria-modal="true"
+						 aria-labelledby="stocktake-post-confirm-title"
+						 @onclick:stopPropagation="true">
+					<div class="maintenance-modal-header">
+						<h2 id="stocktake-post-confirm-title">Confirm posting</h2>
+						<button type="button"
+								class="maintenance-modal-close"
+								aria-label="Close confirmation dialog"
+								disabled="@isActing"
+								@onclick="DismissPostConfirmation">
+							&times;
+						</button>
+					</div>
+					<p>
+						Posting applies @VarianceCount variance@(VarianceCount == 1 ? null : "s") to stock on hand.
+						Posted stocktakes cannot be changed.
+					</p>
+					<div class="maintenance-form-actions">
+						<button type="button" class="maintenance-button" disabled="@isActing" @onclick="PostAsync">
+							@(isActing ? "Posting..." : "Yes, post")
+						</button>
+						<button type="button" class="maintenance-reset" disabled="@isActing" @onclick="DismissPostConfirmation">
+							Keep as draft
+						</button>
+					</div>
+				</section>
+			</div>
+		}
+
+		@if (isCancelFormOpen)
+		{
+			<div class="maintenance-modal-backdrop" @onclick="DismissCancelForm">
+				<section class="maintenance-modal maintenance-modal-narrow"
+						 role="dialog"
+						 aria-modal="true"
+						 aria-labelledby="stocktake-cancel-title"
+						 @onclick:stopPropagation="true">
+					<div class="maintenance-modal-header">
+						<h2 id="stocktake-cancel-title">Cancel stocktake</h2>
+						<button type="button"
+								class="maintenance-modal-close"
+								aria-label="Close cancel dialog"
+								disabled="@isActing"
+								@onclick="DismissCancelForm">
+							&times;
+						</button>
+					</div>
+					<form class="maintenance-form" @onsubmit="CancelStocktakeAsync" @onsubmit:preventDefault="true">
+						<div class="filter-field">
+							<label for="stocktake-cancel-reason">Reason <span class="required-marker" aria-hidden="true">*</span></label>
+							<input id="stocktake-cancel-reason" type="text" maxlength="500" @bind="cancelReason" disabled="@isActing" />
+						</div>
+						<div class="maintenance-form-actions">
+							<button type="submit" class="maintenance-button" disabled="@(isActing || string.IsNullOrWhiteSpace(cancelReason))">
+								@(isActing ? "Cancelling..." : "Cancel stocktake")
+							</button>
+							<button type="button" class="maintenance-reset" disabled="@isActing" @onclick="DismissCancelForm">Keep draft</button>
+						</div>
+					</form>
+				</section>
+			</div>
+		}
+	}
+</section>

@@ -12,7 +12,8 @@ internal sealed class ReplaceDocumentFileService(
     IDocumentFileStorage storage,
     IOptions<DocumentFileValidationOptions> validationOptions,
     IDateTimeProvider dateTimeProvider,
-    ILogger<ReplaceDocumentFileService> logger)
+    ILogger<ReplaceDocumentFileService> logger,
+    DocumentDistributionInvalidationService? distributionInvalidation = null)
     : IReplaceDocumentFileService
 {
     public async Task<DocumentFileResponse> ReplaceAsync(
@@ -69,6 +70,8 @@ internal sealed class ReplaceDocumentFileService(
             request.SizeBytes,
             request.UploadedBy,
             dateTimeProvider.UtcNow);
+
+        if (distributionInvalidation is not null) await distributionInvalidation.ObsoletePendingAsync(request.DocumentId, "The document file was replaced.", cancellationToken);
 
         if (string.Equals(document.ReviewStatus, Document.RejectedReviewStatus, StringComparison.Ordinal))
         {

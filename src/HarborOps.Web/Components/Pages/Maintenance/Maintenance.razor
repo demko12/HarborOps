@@ -14,8 +14,8 @@
 	<header class="maintenance-header">
 		<div>
 			<p class="maintenance-eyebrow">Maintenance operations</p>
-			<h1>Work orders</h1>
-			<p>Review due work, create work orders, and record completion.</p>
+			<h1>Keep your fleet ready</h1>
+			<p>Work orders, equipment, and preventive care across your fleet.</p>
 		</div>
 		<span class="maintenance-utc" aria-label="All times are shown in UTC">UTC</span>
 	</header>
@@ -26,63 +26,70 @@
 				class="workspace-tab @(activeTab == MaintenanceTab.WorkOrders ? "active" : null)"
 				aria-selected="@(activeTab == MaintenanceTab.WorkOrders)"
 				@onclick="() => SelectTab(MaintenanceTab.WorkOrders)">
-			Work orders
+			<span class="bi bi-tools" aria-hidden="true"></span> Work orders
 		</button>
 		<button type="button"
 				role="tab"
 				class="workspace-tab @(activeTab == MaintenanceTab.Equipment ? "active" : null)"
 				aria-selected="@(activeTab == MaintenanceTab.Equipment)"
 				@onclick="() => SelectTab(MaintenanceTab.Equipment)">
-			Equipment
+			<span class="bi bi-gear-wide-connected" aria-hidden="true"></span> Equipment
 		</button>
 		<button type="button"
 				role="tab"
 				class="workspace-tab @(activeTab == MaintenanceTab.PreventiveSchedules ? "active" : null)"
 				aria-selected="@(activeTab == MaintenanceTab.PreventiveSchedules)"
 				@onclick="() => SelectTab(MaintenanceTab.PreventiveSchedules)">
-			Preventive schedules
+			<span class="bi bi-calendar-check" aria-hidden="true"></span> Preventive schedules
 		</button>
 		<button type="button"
 				role="tab"
 				class="workspace-tab @(activeTab == MaintenanceTab.PreventiveWork ? "active" : null)"
 				aria-selected="@(activeTab == MaintenanceTab.PreventiveWork)"
 				@onclick="() => SelectTab(MaintenanceTab.PreventiveWork)">
-			Preventive work
+			<span class="bi bi-clipboard-check" aria-hidden="true"></span> Preventive work
 		</button>
 		<button type="button"
 				role="tab"
 				class="workspace-tab @(activeTab == MaintenanceTab.DryDocks ? "active" : null)"
 				aria-selected="@(activeTab == MaintenanceTab.DryDocks)"
 				@onclick="() => SelectTab(MaintenanceTab.DryDocks)">
-			Dry docks
+			<span class="bi bi-water" aria-hidden="true"></span> Dry docks
 		</button>
 		<button type="button"
 				role="tab"
 				class="workspace-tab @(activeTab == MaintenanceTab.PurchaseOrders ? "active" : null)"
 				aria-selected="@(activeTab == MaintenanceTab.PurchaseOrders)"
 				@onclick="() => SelectTab(MaintenanceTab.PurchaseOrders)">
-			Purchase orders
+			<span class="bi bi-cart3" aria-hidden="true"></span> Purchase orders
 		</button>
 		<button type="button"
 				role="tab"
 				class="workspace-tab @(activeTab == MaintenanceTab.Suppliers ? "active" : null)"
 				aria-selected="@(activeTab == MaintenanceTab.Suppliers)"
 				@onclick="() => SelectTab(MaintenanceTab.Suppliers)">
-			Suppliers
+			<span class="bi bi-building" aria-hidden="true"></span> Suppliers
 		</button>
 		<button type="button"
 				role="tab"
 				class="workspace-tab @(activeTab == MaintenanceTab.Replenishment ? "active" : null)"
 				aria-selected="@(activeTab == MaintenanceTab.Replenishment)"
 				@onclick="() => SelectTab(MaintenanceTab.Replenishment)">
-			Replenishment
+			<span class="bi bi-boxes" aria-hidden="true"></span> Replenishment
+		</button>
+		<button type="button"
+				role="tab"
+				class="workspace-tab @(activeTab == MaintenanceTab.Stocktakes ? "active" : null)"
+				aria-selected="@(activeTab == MaintenanceTab.Stocktakes)"
+				@onclick="() => SelectTab(MaintenanceTab.Stocktakes)">
+			Stocktakes
 		</button>
 		<button type="button"
 				role="tab"
 				class="workspace-tab @(activeTab == MaintenanceTab.Defects ? "active" : null)"
 				aria-selected="@(activeTab == MaintenanceTab.Defects)"
 				@onclick="() => SelectTab(MaintenanceTab.Defects)">
-			Defects
+			<span class="bi bi-exclamation-triangle" aria-hidden="true"></span> Defects
 		</button>
 	</nav>
 
@@ -118,6 +125,11 @@
 		<SuppliersPanel />
 	}
 
+	@if (activeTab == MaintenanceTab.Stocktakes)
+	{
+		<StocktakesPanel />
+	}
+
 	@if (activeTab == MaintenanceTab.DryDocks)
 	{
 		<DryDocksPanel />
@@ -144,54 +156,14 @@
 					</div>
 					<span class="summary-icon summary-icon-amber" aria-hidden="true"><span class="bi bi-exclamation-triangle-fill"></span></span>
 				</article>
-			</section>
-
-			<section class="maintenance-filters" aria-label="Work order filters">
-				<div class="filter-field maintenance-filter-vessel">
-					<label>Vessel</label>
-					<VesselPicker @key="filterVesselPickerResetToken"
-								  Value="vesselIdFilter"
-								  ValueChanged="SelectVesselFilterAsync"
-								  Placeholder="Search vessels by name or IMO..."
-								  Disabled="isLoading" />
-				</div>
-				<div class="filter-field">
-					<label for="maintenance-status">Status</label>
-					<select id="maintenance-status" @bind="statusFilter" @bind:after="ApplyFiltersAsync">
-						<option value="">All statuses</option>
-						@foreach (var option in MaintenanceFormat.Statuses)
-						{
-							<option value="@option">@option</option>
-						}
-					</select>
-				</div>
-				<div class="filter-field">
-					<label for="maintenance-priority">Priority</label>
-					<select id="maintenance-priority" @bind="priorityFilter" @bind:after="ApplyFiltersAsync">
-						<option value="">All priorities</option>
-						@foreach (var option in MaintenanceFormat.Priorities)
-						{
-							<option value="@option">@option</option>
-						}
-					</select>
-				</div>
-				<div class="filter-field">
-					<label for="maintenance-overdue">Due status</label>
-					<select id="maintenance-overdue" @bind="overdueFilter" @bind:after="ApplyFiltersAsync">
-						<option value="">All</option>
-						<option value="true">Overdue only</option>
-						<option value="false">Not overdue</option>
-					</select>
-				</div>
-				<div class="filter-field">
-					<label for="maintenance-page-size">Per page</label>
-					<select id="maintenance-page-size" @bind="pageSize" @bind:after="ApplyFiltersAsync">
-						<option value="25">25</option>
-						<option value="50">50</option>
-						<option value="100">100</option>
-					</select>
-				</div>
-				<button class="maintenance-reset" type="button" @onclick="ClearFiltersAsync" disabled="@isLoading">Reset</button>
+                <article class="maintenance-summary-card">
+                    <div><span>Critical on this page</span><strong>@rows.Count(row => MaintenanceFormat.IsCritical(row.Priority) && MaintenanceFormat.CanComplete(row.Status))</strong><small>Open work needing priority</small></div>
+                    <span class="summary-icon" aria-hidden="true"><span class="bi bi-exclamation-octagon"></span></span>
+                </article>
+                <article class="maintenance-summary-card">
+                    <div><span>In progress on this page</span><strong>@rows.Count(row => string.Equals(row.Status, "InProgress", StringComparison.OrdinalIgnoreCase))</strong><small>Work already underway</small></div>
+                    <span class="summary-icon" aria-hidden="true"><span class="bi bi-arrow-repeat"></span></span>
+                </article>
 			</section>
 
 			@if (failure is { IsValidation: true, Errors.Count: > 0 })
@@ -225,15 +197,67 @@
 
 			<section class="maintenance-card maintenance-board-card" aria-labelledby="maintenance-list-title">
 				<div class="maintenance-card-heading">
-					<div>
-						<h2 id="maintenance-list-title">Work order board</h2>
-						<p>@totalCount work orders found</p>
+					<div class="maintenance-register-heading">
+					    <span class="maintenance-card-icon" aria-hidden="true"><span class="bi bi-tools"></span></span>
+					    <div>
+							<span class="maintenance-section-label">Maintenance overview</span>
+							<h2 id="maintenance-list-title">Work order board</h2>
+							<p>@totalCount work orders found</p>
+					    </div>
 					</div>
 					<div class="maintenance-card-heading-actions">
 						<button type="button" class="maintenance-button" @onclick="OpenCreateForm">Create work order</button>
-						<span class="maintenance-card-icon" aria-hidden="true"><span class="bi bi-tools"></span></span>
+
 					</div>
 				</div>
+
+				<section class="maintenance-filters" aria-label="Work order filters">
+					<div class="filter-field maintenance-filter-vessel">
+						<label>Vessel</label>
+						<VesselPicker @key="filterVesselPickerResetToken"
+									  Value="vesselIdFilter"
+									  ValueChanged="SelectVesselFilterAsync"
+									  Placeholder="Search vessels by name or IMO..."
+									  Disabled="isLoading" />
+					</div>
+					<div class="filter-field">
+						<label for="maintenance-status">Status</label>
+						<select id="maintenance-status" @bind="statusFilter" @bind:after="ApplyFiltersAsync">
+							<option value="">All statuses</option>
+							@foreach (var option in MaintenanceFormat.Statuses)
+							{
+								<option value="@option">@option</option>
+							}
+						</select>
+					</div>
+					<div class="filter-field">
+						<label for="maintenance-priority">Priority</label>
+						<select id="maintenance-priority" @bind="priorityFilter" @bind:after="ApplyFiltersAsync">
+							<option value="">All priorities</option>
+							@foreach (var option in MaintenanceFormat.Priorities)
+							{
+								<option value="@option">@option</option>
+							}
+						</select>
+					</div>
+					<div class="filter-field">
+						<label for="maintenance-overdue">Due status</label>
+						<select id="maintenance-overdue" @bind="overdueFilter" @bind:after="ApplyFiltersAsync">
+							<option value="">All</option>
+							<option value="true">Overdue only</option>
+							<option value="false">Not overdue</option>
+						</select>
+					</div>
+					<div class="filter-field">
+						<label for="maintenance-page-size">Per page</label>
+						<select id="maintenance-page-size" @bind="pageSize" @bind:after="ApplyFiltersAsync">
+							<option value="25">25</option>
+							<option value="50">50</option>
+							<option value="100">100</option>
+						</select>
+					</div>
+					<button class="maintenance-reset" type="button" @onclick="ClearFiltersAsync" disabled="@isLoading">Reset</button>
+				</section>
 
 				@if (isLoading)
 				{
@@ -277,14 +301,14 @@
 					var isInProgress = string.Equals(row.Status, "InProgress", StringComparison.OrdinalIgnoreCase);
 
 					<tr @key="row.WorkOrderId"
-						class="maintenance-work-order-row @(isOverdue ? "maintenance-overdue-row" : null) @(isInProgress ? "maintenance-in-progress-row" : null)"
+						class="maintenance-work-order-row @(isOverdue ? "maintenance-overdue-row" : null) @(isInProgress ? "maintenance-in-progress-row" : null) @(isCritical ? "maintenance-critical-row" : null)"
 										role="link"
 										tabindex="0"
 										aria-label="@($"Open {row.Title} work order details")"
 										@onclick="() => OpenWorkOrderDetails(row.WorkOrderId)"
 										@onkeydown="(args) => HandleWorkOrderRowKeyDown(args, row.WorkOrderId)">
 										<td class="col-title">
-											<span class="maintenance-title">@row.Title</span>
+											<span class="maintenance-title"><span class="maintenance-row-icon bi @(isCritical ? "bi-exclamation-triangle" : "bi-tools")" aria-hidden="true"></span>@row.Title</span>
 											@if (!string.IsNullOrWhiteSpace(row.Description))
 											{
 												<span class="maintenance-description" title="@row.Description">@row.Description</span>

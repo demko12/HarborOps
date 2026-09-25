@@ -291,6 +291,51 @@ public sealed class GetCrewManningCoverageQueryTests
             new GetCrewManningCoverageRequest { VesselId = Guid.NewGuid() }, CancellationToken.None));
     }
 
+    [Fact]
+    public async Task GetAsync_leaves_qualified_headcount_null_when_no_qualification_policy_is_configured()
+    {
+        await using var dbContext = VesselManningPlanTestData.CreateDbContext();
+        var bosun = await VesselManningPlanTestData.SeedPositionAsync(dbContext, "Bosun");
+        var vesselId = Guid.NewGuid();
+        var member = await VesselManningPlanTestData.SeedMemberAsync(dbContext, bosun.Id);
+        await VesselManningPlanTestData.SeedAssignmentAsync(
+            dbContext, member.Id, vesselId, bosun.Id, new DateOnly(2026, 1, 1), new DateOnly(2026, 1, 5));
+
+        var response = await Query(dbContext).GetAsync(
+            Request(vesselId, new DateOnly(2026, 1, 1), new DateOnly(2026, 1, 1)), CancellationToken.None);
+
+        var day = response.Days.Single(d => d.RankId == bosun.Id);
+        Assert.Null(day.QualifiedHeadcount);
+        Assert.Empty(day.UnqualifiedMembers);
+    }
+
+    [Fact]
+    public async Task GetAsync_counts_only_eligible_and_certificate_qualified_members_when_a_policy_is_enabled()
+    {
+        await using var dbContext = VesselManningPlanTestData.CreateDbContext();
+        var bosun = await VesselManningPlanTestData.SeedPositionAsync(dbContext, "Bosun");
+        var vesselId = Guid.NewGuid();
+        var qualifiedMember = await VesselManningPlanTestData.SeedMemberAsync(dbContext, bosun.Id);
+        var unqualifiedMember = await VesselManningPlanTestData.SeedMemberAsync(dbContext, bosun.Id);
+        await VesselManningPlanTestData.SeedAssignmentAsync(
+            dbContext, qualifiedMember.Id, vesselId, bosun.Id, new DateOnly(2026, 1, 1), new DateOnly(2026, 1, 5));
+        await VesselManningPlanTestData.SeedAssignmentAsync(
+            dbContext, unqualifiedMember.Id, vesselId, bosun.Id, new DateOnly(2026, 1, 1), new DateOnly(2026, 1, 5));
+        await QualificationPolicyTestData.SeedPolicyAsync(dbContext, bosun.Id, true, ["STCW-II/1"]);
+        await QualificationPolicyTestData.SeedCertificateAsync(
+            dbContext, qualifiedMember.Id, "STCW-II/1", new DateOnly(2026, 1, 1), new DateOnly(2026, 12, 31));
+
+        var response = await Query(dbContext).GetAsync(
+            Request(vesselId, new DateOnly(2026, 1, 1), new DateOnly(2026, 1, 1)), CancellationToken.None);
+
+        var day = response.Days.Single(d => d.RankId == bosun.Id);
+        Assert.Equal(2, day.EligibleHeadcount);
+        Assert.Equal(1, day.QualifiedHeadcount);
+        var unqualified = Assert.Single(day.UnqualifiedMembers);
+        Assert.Equal(unqualifiedMember.Id, unqualified.CrewMemberId);
+        Assert.Equal(["STCW-II/1"], unqualified.MissingTypes);
+    }
+
     private static GetCrewManningCoverageQuery Query(HarborOps.Infrastructure.Persistence.HarborOpsDbContext dbContext) => new(dbContext);
 
     private static GetCrewManningCoverageRequest Request(Guid vesselId, DateOnly from, DateOnly to) => new()

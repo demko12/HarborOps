@@ -43,6 +43,22 @@ public partial class VesselPicker : IDisposable
     [Parameter]
     public bool Disabled { get; set; }
 
+    [Parameter]
+    public string? InitialLabel { get; set; }
+
+    private bool hasSeededInitialLabel;
+
+    protected override void OnParametersSet()
+    {
+        if (hasSeededInitialLabel || string.IsNullOrWhiteSpace(InitialLabel))
+        {
+            return;
+        }
+
+        hasSeededInitialLabel = true;
+        displayText = InitialLabel;
+    }
+
     private async Task OnInputAsync(ChangeEventArgs e)
     {
         displayText = e.Value?.ToString() ?? string.Empty;

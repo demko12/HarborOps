@@ -1,0 +1,161 @@
+@page "/crew/qualification-policies"
+@attribute [Microsoft.AspNetCore.Authorization.Authorize(Policy = "AccessCrew")]
+@implements IDisposable
+@inject CrewApiClient CrewApi
+@inject CurrentUserAuthorizationState CurrentUser
+
+<PageTitle>Crew qualification policies | HarborOps</PageTitle>
+
+<section class="crew-positions-page">
+    <header class="crew-positions-header">
+        <div>
+            <nav class="page-breadcrumb" aria-label="Breadcrumb"><a href="/crew">Crewing operations</a><span aria-hidden="true">/</span><span>Qualification policies</span></nav>
+            <h1>Crew qualification policies</h1>
+            <p>
+                Define which certificate types a rank requires. This is company policy based on current records &mdash;
+                not a statutory certification decision.
+            </p>
+        </div>
+        @if (CanManage)
+        {
+            <button type="button" class="crew-positions-add-button" @onclick="OpenCreateDialog">Add policy</button>
+        }
+    </header>
+
+    <CrewNavigation />
+
+    <div class="crew-positions-filters">
+        <div class="filter-field filter-field-wide">
+            <label for="policy-rank-filter">Rank</label>
+            <select id="policy-rank-filter" value="@(crewPositionFilter?.ToString() ?? string.Empty)" @onchange="e => { crewPositionFilter = Guid.TryParse(e.Value?.ToString(), out var id) ? id : null; }" @onchange:after="FilterChangedAsync">
+                <option value="">All ranks</option>
+                @foreach (var option in positionOptions)
+                {
+                    <option value="@option.CrewPositionId">@option.RankName (@option.Department)</option>
+                }
+            </select>
+        </div>
+        <div class="crew-positions-filter-actions">
+            <button type="button" class="crew-reset-button" @onclick="ResetFiltersAsync" disabled="@isLoading">Reset</button>
+        </div>
+    </div>
+
+    <section class="crew-card" aria-labelledby="qualification-policies-list-title">
+        <div class="crew-card-heading">
+            <div><h2 id="qualification-policies-list-title">Policies</h2><p>@totalCount polic(ies) found</p></div>
+            <span class="bi bi-patch-check" aria-hidden="true"></span>
+        </div>
+
+        @if (isLoading)
+        {
+            <LoadingState Message="Loading qualification policies..." />
+        }
+        else if (failure is not null)
+        {
+            <ApiErrorState Title="@failure.Title" Message="@failure.Message" OnRetry="LoadAsync" />
+        }
+        else if (policies.Count == 0)
+        {
+            <EmptyState Title="No qualification policies found" Message="Add a policy to require certificate types for a rank." />
+        }
+        else
+        {
+            <div class="crew-positions-list-labels" aria-hidden="true">
+                <span>Rank</span><span>Enabled</span><span>Required types</span><span></span>
+            </div>
+            <div class="crew-positions-list">
+                @foreach (var policy in policies)
+                {
+                    <div class="crew-positions-row" @key="policy.Id">
+                        <div class="crew-positions-row-primary"><strong>@policy.RankName</strong></div>
+                        <div class="crew-positions-row-cell">@(policy.Enabled ? "Enabled" : "Disabled")</div>
+                        <div class="crew-positions-row-cell">@policy.RequiredTypeCount</div>
+                        <div class="crew-positions-row-actions">
+                            @if (CanManage)
+                            {
+                                <button type="button" class="crew-positions-edit-button" @onclick="() => OpenEditDialogAsync(policy)">Edit</button>
+                            }
+                        </div>
+                    </div>
+                }
+            </div>
+            <div class="crew-pagination">
+                <span>Showing @FirstRowNumber&ndash;@LastRowNumber of @totalCount polic(ies)</span>
+                <div>
+                    <button type="button" @onclick="PreviousPageAsync" disabled="@(pageNumber <= 1)">Previous</button>
+                    <span class="crew-page-indicator">Page @pageNumber of @TotalPages</span>
+                    <button type="button" @onclick="NextPageAsync" disabled="@(pageNumber >= TotalPages)">Next</button>
+                </div>
+            </div>
+        }
+    </section>
+
+    @if (isDialogOpen)
+    {
+        <div class="crew-positions-modal-backdrop" role="presentation" @onclick="CloseDialog">
+            <section class="crew-positions-modal" role="dialog" aria-modal="true" aria-labelledby="qualification-policy-dialog-title" @onclick:stopPropagation="true">
+                <div class="crew-positions-modal-heading">
+                    <h2 id="qualification-policy-dialog-title">@(editingPolicyId is null ? "Add policy" : "Edit policy")</h2>
+                    <button type="button" class="crew-positions-modal-close" @onclick="CloseDialog" aria-label="Close">
+                        <span class="bi bi-x-lg" aria-hidden="true"></span>
+                    </button>
+                </div>
+
+                @if (conflictMessage is not null)
+                {
+                    <div class="crew-positions-form-conflict" role="alert">@conflictMessage</div>
+                }
+
+                @if (generalError is not null)
+                {
+                    <div class="crew-positions-form-error" role="alert">@generalError</div>
+                }
+
+                @if (fieldErrors.Count > 0)
+                {
+                    <ul class="crew-positions-form-field-errors" role="alert">
+                        @foreach (var message in fieldErrors)
+                        {
+                            <li>@message</li>
+                        }
+                    </ul>
+                }
+
+                <form class="crew-positions-form-grid" @onsubmit="SubmitAsync" @onsubmit:preventDefault="true">
+                    <div class="crew-positions-form-field">
+                        <label for="policy-rank">Rank</label>
+                        <select id="policy-rank" value="@(dialogModel.CrewPositionId?.ToString() ?? string.Empty)" @onchange="OnRankChanged" disabled="@(editingPolicyId is not null)">
+                            <option value="">Select rank...</option>
+                            @foreach (var option in positionOptions)
+                            {
+                                <option value="@option.CrewPositionId">@option.RankName (@option.Department)</option>
+                            }
+                        </select>
+                    </div>
+                    <div class="crew-positions-form-field">
+                        <label class="crew-manning-checkbox-label">
+                            <input type="checkbox" checked="@dialogModel.Enabled" @onchange="e => dialogModel.Enabled = (bool?)e.Value" />
+                            Enabled
+                        </label>
+                    </div>
+
+                    <div class="crew-positions-form-field crew-positions-form-field-wide crew-manning-lines-editor">
+                        <label>Required certificate types</label>
+                        @foreach (var row in requirementRows)
+                        {
+                            <div class="crew-manning-line-row" @key="row">
+                                <input type="text" maxlength="100" placeholder="e.g. STCW-II/1" @bind="row.RequiredType" />
+                                <button type="button" class="crew-manning-remove-line" @onclick="() => RemoveRequirementRow(row)" disabled="@(requirementRows.Count <= 1)">Remove</button>
+                            </div>
+                        }
+                        <button type="button" class="crew-manning-add-line" @onclick="AddRequirementRow">Add required type</button>
+                    </div>
+
+                    <button type="submit" class="crew-positions-form-submit" disabled="@isSubmitting">
+                        @(isSubmitting ? "Saving..." : "Save policy")
+                    </button>
+                </form>
+            </section>
+        </div>
+    }
+</section>

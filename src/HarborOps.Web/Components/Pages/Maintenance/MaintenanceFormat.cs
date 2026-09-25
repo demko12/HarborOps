@@ -18,6 +18,13 @@ internal static class MaintenanceFormat
     internal const string CompletedOccurrence = "Completed";
     internal const string CancelledOccurrence = "Cancelled";
     internal const string CreatedOutcome = "Created";
+    internal const string DraftStocktake = "Draft";
+    internal const string PostedStocktake = "Posted";
+    internal const string CancelledStocktake = "Cancelled";
+    internal const string NotCountedBlocker = "NotCounted";
+    internal const string MissingReasonBlocker = "MissingReason";
+    internal const string StaleBaselineBlocker = "StaleBaseline";
+    internal const string BelowReservedBlocker = "BelowReserved";
 
     internal static readonly IReadOnlyList<string> Statuses =
         [OpenStatus, InProgressStatus, CompletedStatus, CanceledStatus];
@@ -364,5 +371,57 @@ internal static class MaintenanceFormat
         return string.Equals(state, PendingOccurrence, StringComparison.Ordinal)
             ? "Will be created"
             : $"Skipped: {OccurrenceStateLabel(state).ToLowerInvariant()}";
+    }
+
+    internal static string StocktakeStatusModifier(string status)
+    {
+        return status switch
+        {
+            PostedStocktake => "done",
+            CancelledStocktake => "cancelled",
+            _ => "pending",
+        };
+    }
+
+    internal static string Variance(decimal? value)
+    {
+        if (value is not { } variance)
+        {
+            return MissingValue;
+        }
+
+        return variance > 0
+            ? $"+{Quantity(variance)}"
+            : Quantity(variance);
+    }
+
+    internal static string VarianceModifier(decimal? value)
+    {
+        return value switch
+        {
+            null => "missing",
+            > 0 => "surplus",
+            < 0 => "shortage",
+            _ => "match",
+        };
+    }
+
+    internal static string BlockerLabel(string code)
+    {
+        return code switch
+        {
+            NotCountedBlocker => "Not counted",
+            MissingReasonBlocker => "Reason required",
+            StaleBaselineBlocker => "Baseline out of date",
+            BelowReservedBlocker => "Below reservations",
+            _ => code,
+        };
+    }
+
+    internal static string CountedUtc(DateTime? value)
+    {
+        return value is { } counted
+            ? counted.ToString("yyyy-MM-dd HH:mm", CultureInfo.InvariantCulture)
+            : MissingValue;
     }
 }

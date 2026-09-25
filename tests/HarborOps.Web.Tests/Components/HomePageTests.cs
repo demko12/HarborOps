@@ -42,7 +42,7 @@ public sealed class HomePageTests : BunitContext
 
         page.WaitForAssertion(() =>
         {
-            Assert.Equal(2, page.FindAll($"a[href='/crew/{crewMemberId}']").Count);
+            Assert.Equal(3, page.FindAll($"a[href='/crew/{crewMemberId}']").Count);
             Assert.Contains("Jamie Carter", page.Markup, StringComparison.Ordinal);
         });
     }
@@ -84,8 +84,90 @@ public sealed class HomePageTests : BunitContext
         {
             Assert.Contains("Some operational sections are temporarily unavailable", page.Markup, StringComparison.Ordinal);
             Assert.Contains("Fleet", page.Markup, StringComparison.Ordinal);
-            Assert.Contains("This section could not be loaded", page.Markup, StringComparison.Ordinal);
+            Assert.Contains("Unavailable", page.Find("#module-tab-crew").InnerHtml, StringComparison.Ordinal);
         });
+        page.Find("#module-tab-crew").Click();
+        page.WaitForAssertion(() =>
+        {
+            Assert.Contains("This section could not be loaded", page.Find("#module-preview").TextContent, StringComparison.Ordinal);
+        });
+    }
+
+    [Fact]
+    public void Home_filters_module_previews_and_can_clear_an_empty_search()
+    {
+        ConfigureClients("""
+            {"asOf":"2026-08-17","sections":[{"capability":"fleet","title":"Fleet","summaryLabel":"Active vessels","count":4,"link":"/fleet","items":[{"title":"MV Aurora","detail":"En Route","dueLabel":null,"severity":"normal"}],"isUnavailable":false},{"capability":"crew","title":"Crew","summaryLabel":"Expiring credentials","count":0,"link":"/crew","items":[],"isUnavailable":false}],"priorityItems":[]}
+            """);
+        var page = Render<Home>();
+        page.WaitForAssertion(() => Assert.Equal(2, page.FindAll(".workspace-tab").Count));
+
+        page.Find("input[type=search]").Input("  aurora  ");
+        Assert.Single(page.FindAll(".workspace-tab"));
+        Assert.Contains("Fleet", page.Find("#module-preview").TextContent);
+        Assert.Equal(2, page.FindAll(".dashboard-summary-card").Count);
+
+        page.Find("input[type=search]").Input("missing vessel");
+        Assert.Empty(page.FindAll(".workspace-tab"));
+        page.Find(".dashboard-modules .dashboard-empty button").Click();
+        Assert.Equal(2, page.FindAll(".workspace-tab").Count);
+    }
+
+    [Fact]
+    public void Home_workspace_switches_modules_with_mouse_and_keyboard()
+    {
+        JSInterop.Mode = JSRuntimeMode.Loose;
+        ConfigureClients("""
+            {"asOf":"2026-08-17","sections":[{"capability":"fleet","title":"Fleet","summaryLabel":"Active vessels","count":1,"link":"/fleet","items":[{"title":"MV Aurora","detail":"En Route","dueLabel":null,"severity":"normal","link":"/fleet/aurora"}],"isUnavailable":false},{"capability":"voyages","title":"Voyages","summaryLabel":"Upcoming voyages","count":1,"link":"/voyages","items":[{"title":"VOY-01","detail":"LON to AMS · Planned","dueLabel":"2026-08-20","severity":"normal"}],"isUnavailable":false}],"priorityItems":[]}
+            """);
+        var page = Render<Home>();
+        page.WaitForAssertion(() => Assert.Single(page.FindAll("[role=tabpanel]")));
+        Assert.Contains("En Route", page.Find(".workspace-fleet").TextContent);
+        Assert.Equal("/fleet/aurora", page.Find(".workspace-fleet a").GetAttribute("href"));
+
+        page.Find("#module-tab-voyages").Click();
+        Assert.Empty(page.FindAll(".workspace-fleet"));
+        Assert.Contains("LON → AMS", page.Find(".workspace-voyages").TextContent);
+        Assert.Equal("true", page.Find("#module-tab-voyages").GetAttribute("aria-selected"));
+
+        page.Find("#module-tab-voyages").KeyDown("ArrowRight");
+        Assert.Equal("true", page.Find("#module-tab-fleet").GetAttribute("aria-selected"));
+        page.Find("#module-tab-fleet").KeyDown("End");
+        Assert.Equal("0", page.Find("#module-tab-voyages").GetAttribute("tabindex"));
+    }
+
+    [Fact]
+    public void Home_priority_filter_shows_empty_feedback_and_returns_to_all_items()
+    {
+        ConfigureClients("""
+            {"asOf":"2026-08-17","sections":[{"capability":"fleet","title":"Fleet","summaryLabel":"Active vessels","count":1,"link":"/fleet","items":[],"isUnavailable":false}],"priorityItems":[{"capability":"fleet","capabilityTitle":"Fleet","title":"MV Aurora","detail":"En Route","dueLabel":null,"severity":"normal","link":"/fleet"}]}
+            """);
+        var page = Render<Home>();
+        page.WaitForAssertion(() => Assert.Single(page.FindAll(".dashboard-priority-item")));
+
+        page.FindAll(".dashboard-queue-filters button")[1].Click();
+        Assert.Empty(page.FindAll(".dashboard-priority-item"));
+        Assert.Contains("No items match this filter", page.Find(".dashboard-priority-list").TextContent);
+        Assert.Equal("true", page.FindAll(".dashboard-queue-filters button")[1].GetAttribute("aria-pressed"));
+
+        page.FindAll(".dashboard-queue-filters button")[0].Click();
+        Assert.Single(page.FindAll(".dashboard-priority-item"));
+    }
+
+    [Fact]
+    public void Home_agenda_orders_dates_and_excludes_overdue_and_out_of_window_items()
+    {
+        ConfigureClients("""
+            {"asOf":"2026-08-17","sections":[{"capability":"documents","title":"Documents","summaryLabel":"Expiring documents","count":5,"link":"/documents","items":[{"title":"Later","detail":"Certificate","dueLabel":"2026-09-16","severity":"warning","link":"/documents/later"},{"title":"Past","detail":"Certificate","dueLabel":"2026-08-16","severity":"critical"},{"title":"Outside","detail":"Certificate","dueLabel":"2026-09-17","severity":"warning"},{"title":"Today","detail":"Certificate","dueLabel":"2026-08-17","severity":"warning","link":"/documents/today"},{"title":"Undated","detail":"Certificate","dueLabel":null,"severity":"normal"}],"isUnavailable":false}],"priorityItems":[]}
+            """);
+        var page = Render<Home>();
+        page.WaitForAssertion(() => Assert.Equal(2, page.FindAll(".dashboard-agenda-item").Count));
+
+        var items = page.FindAll(".dashboard-agenda-item");
+        Assert.Equal("/documents/today", items[0].GetAttribute("href"));
+        Assert.Equal("/documents/later", items[1].GetAttribute("href"));
+        Assert.Contains("Expires today", items[0].TextContent);
+        Assert.Contains("1 / 1 modules loaded", page.Find(".dashboard-coverage").TextContent);
     }
 
     private void ConfigureClients(string dashboardJson)

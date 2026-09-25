@@ -172,6 +172,27 @@ public sealed class ReleaseWorkOrderPartReservationsServiceTests
         Assert.Equal(3m, stored.QuantityReserved);
     }
 
+    [Fact]
+    public async Task ReleaseAsync_replaces_only_the_reservation_token()
+    {
+        await using var dbContext = CreateDbContext();
+        var workOrder = await SeedWorkOrderAsync(dbContext, WorkOrderStatus.Open);
+        var filter = await SeedItemAsync(dbContext, quantity: 10m);
+        var stockToken = filter.StockConcurrencyToken;
+        var reservationToken = filter.ReservationConcurrencyToken;
+        await SeedReservationAsync(dbContext, workOrder.Id, filter.Id, requested: 4m, available: 10m);
+        dbContext.ChangeTracker.Clear();
+
+        await CreateService(dbContext).ReleaseAsync(workOrder.Id, CancellationToken.None);
+
+        dbContext.ChangeTracker.Clear();
+        var stored = await dbContext.Set<InventoryItem>().AsNoTracking().SingleAsync();
+
+        Assert.Equal(10m, stored.Quantity);
+        Assert.Equal(stockToken, stored.StockConcurrencyToken);
+        Assert.NotEqual(reservationToken, stored.ReservationConcurrencyToken);
+    }
+
     private static async Task<MaintenanceWorkOrder> SeedWorkOrderAsync(
         HarborOpsDbContext dbContext,
         WorkOrderStatus status)

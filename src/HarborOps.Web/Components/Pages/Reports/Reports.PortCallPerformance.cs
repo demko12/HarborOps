@@ -71,6 +71,10 @@ public partial class Reports
             $"{StopsLabel(totalCount)} departed {from:dd MMM yyyy} – {to:dd MMM yyyy} (UTC) · elapsed operational time, not laytime")
         : "Choose a departure date range";
 
+    private string PortCallRangeLabel => portCallDepartedFromFilter is { } from && portCallDepartedToFilter is { } to
+        ? string.Create(CultureInfo.InvariantCulture, $"{from:dd MMM yyyy} – {to:dd MMM yyyy}")
+        : "—";
+
     private static DateOnly DefaultPortCallDepartedTo() => DateOnly.FromDateTime(DateTime.UtcNow);
 
     private static string StopsLabel(int count) =>

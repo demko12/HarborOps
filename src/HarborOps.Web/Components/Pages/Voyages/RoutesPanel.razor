@@ -4,28 +4,15 @@
 @inject CurrentUserAuthorizationState AuthorizationState
 
 <div class="routes-panel" role="tabpanel" aria-label="Route directory">
-    <div class="voyages-filters" role="search">
-        <div class="filter-field filter-field-wide">
-            <label for="routes-search">Search</label>
-            <input id="routes-search" @bind="searchFilter" @bind:event="oninput" @bind:after="ApplyFiltersAsync"
-                   placeholder="Route name" />
-        </div>
-        <div class="filter-field">
-            <label for="routes-page-size">Per page</label>
-            <select id="routes-page-size" @bind="pageSize" @bind:after="ApplyFiltersAsync">
-                <option value="25">25</option>
-                <option value="50">50</option>
-                <option value="100">100</option>
-            </select>
-        </div>
-        <button class="voyages-reset" type="button" @onclick="ClearFiltersAsync" disabled="@isLoading">Reset</button>
-    </div>
 
     <section class="voyages-card" aria-labelledby="routes-list-title">
         <div class="voyages-card-heading">
-            <div>
-                <h2 id="routes-list-title">Route directory</h2>
-                <p>@totalCount routes found</p>
+            <div class="voyages-register-title">
+                <span class="voyages-register-mark bi bi-diagram-3" aria-hidden="true"></span>
+                <div>
+                    <h2 id="routes-list-title">Route directory</h2>
+                    <p>@totalCount routes found</p>
+                </div>
             </div>
             <div class="voyages-card-tools">
                 @if (CanManage)
@@ -34,8 +21,24 @@
                         <span aria-hidden="true">+</span> Register route
                     </a>
                 }
-                <span class="voyages-card-icon" aria-hidden="true"><span class="bi bi-diagram-3-fill"></span></span>
             </div>
+        </div>
+
+        <div class="voyages-filters" role="search">
+            <div class="filter-field filter-field-wide">
+                <label for="routes-search">Search</label>
+                <input id="routes-search" @bind="searchFilter" @bind:event="oninput" @bind:after="ApplyFiltersAsync"
+                       placeholder="Route name" />
+            </div>
+            <div class="filter-field">
+                <label for="routes-page-size">Per page</label>
+                <select id="routes-page-size" @bind="pageSize" @bind:after="ApplyFiltersAsync">
+                    <option value="25">25</option>
+                    <option value="50">50</option>
+                    <option value="100">100</option>
+                </select>
+            </div>
+            <button class="voyages-reset" type="button" @onclick="ClearFiltersAsync" disabled="@isLoading">Reset</button>
         </div>
 
         @if (isLoading)
@@ -70,7 +73,7 @@
                         @foreach (var row in rows)
                         {
                             <tr @key="row.RouteId" class="@(selectedRouteId == row.RouteId ? "route-row-selected" : null)">
-                                <td><span class="master-data-title">@row.Name</span></td>
+                                <td><span class="master-data-identity"><span class="master-data-icon bi bi-diagram-3" aria-hidden="true"></span><span class="master-data-title">@row.Name</span></span></td>
                                 <td class="master-data-muted">@MasterDataFormat.OptionalText(row.Description)</td>
                                 <td class="master-data-number">@MasterDataFormat.Number(row.StopCount)</td>
                                 <td class="master-data-number">@MasterDataFormat.DistanceNm(row.EstimatedDistance)</td>

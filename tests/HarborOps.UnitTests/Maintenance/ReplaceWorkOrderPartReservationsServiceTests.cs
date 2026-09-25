@@ -430,6 +430,40 @@ public sealed class ReplaceWorkOrderPartReservationsServiceTests
         Assert.Equal(4m, item.QuantityRemaining);
     }
 
+    [Fact]
+    public async Task ReplaceReservations_replaces_the_reservation_token_of_added_and_removed_items()
+    {
+        await using var dbContext = CreateDbContext();
+        var workOrder = await SeedWorkOrderAsync(dbContext, WorkOrderStatus.Open);
+        var dropped = await SeedItemAsync(dbContext, "Filter", "PN-1", quantity: 10m);
+        var added = await SeedItemAsync(dbContext, "Gasket", "PN-2", quantity: 10m);
+        var droppedStockToken = dropped.StockConcurrencyToken;
+        var addedStockToken = added.StockConcurrencyToken;
+        var service = CreateService(dbContext);
+
+        await service.ReplaceReservationsAsync(
+            workOrder.Id,
+            RequestFor((dropped.Id, 2m)),
+            CancellationToken.None);
+
+        var droppedReservationToken = dropped.ReservationConcurrencyToken;
+        var addedReservationToken = added.ReservationConcurrencyToken;
+
+        await service.ReplaceReservationsAsync(
+            workOrder.Id,
+            RequestFor((added.Id, 1m)),
+            CancellationToken.None);
+
+        dbContext.ChangeTracker.Clear();
+        var storedDropped = await dbContext.Set<InventoryItem>().AsNoTracking().SingleAsync(item => item.Id == dropped.Id);
+        var storedAdded = await dbContext.Set<InventoryItem>().AsNoTracking().SingleAsync(item => item.Id == added.Id);
+
+        Assert.NotEqual(droppedReservationToken, storedDropped.ReservationConcurrencyToken);
+        Assert.NotEqual(addedReservationToken, storedAdded.ReservationConcurrencyToken);
+        Assert.Equal(droppedStockToken, storedDropped.StockConcurrencyToken);
+        Assert.Equal(addedStockToken, storedAdded.StockConcurrencyToken);
+    }
+
     private static ReplaceWorkOrderPartReservationsRequest RequestFor(
         params (Guid InventoryItemId, decimal Quantity)[] entries)
     {

@@ -15,6 +15,24 @@ public sealed class CrewPageTests : BunitContext
         _ => Json(HttpStatusCode.OK, Page(Row()));
 
     [Fact]
+    public void Crew_defaults_to_cards_and_switches_to_list_without_refetching()
+    {
+        var page = RenderCrewPage();
+        var originalLink = page.Find(".crew-member-row").GetAttribute("href");
+        var requestCount = requestedUris.Count;
+        Assert.Single(page.FindAll(".crew-card-view"));
+
+        page.Find("button[aria-label='List view']").Click();
+        Assert.Single(page.FindAll(".crew-list-view"));
+        Assert.Equal("true", page.Find("button[aria-label='List view']").GetAttribute("aria-pressed"));
+        Assert.Equal(originalLink, page.Find(".crew-member-row").GetAttribute("href"));
+        Assert.Equal(requestCount, requestedUris.Count);
+
+        page.Find("button[aria-label='Card view']").Click();
+        Assert.Single(page.FindAll(".crew-card-view"));
+    }
+
+    [Fact]
     public void Crew_members_render_with_their_identity_and_rank()
     {
         respond = _ => Json(HttpStatusCode.OK, Page(Row(

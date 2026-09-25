@@ -1,6 +1,8 @@
 using System.ComponentModel.DataAnnotations;
+using System.Globalization;
 using HarborOps.Web.Api.Documents;
 using HarborOps.Web.Api.Fleet;
+using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Forms;
 
 namespace HarborOps.Web.Components.Pages.Documents;
@@ -120,6 +122,20 @@ public partial class Documents
     // @key is the only reliable way to blank it from a parent.
     private int vesselPickerResetToken;
 
+    internal const string RequirementsTab = "requirements";
+    internal const string ReadinessTab = "readiness";
+    internal const string RetentionTab = "retention";
+
+    private DocumentsTab activeTab = DocumentsTab.Expiring;
+
+    [SupplyParameterFromQuery(Name = "tab")]
+    private string? RequestedTab { get; set; }
+
+    [SupplyParameterFromQuery(Name = "vesselId")]
+    private Guid? RequestedVesselId { get; set; }
+    private int readinessRefreshToken;
+    private string? registerDocumentVesselLabel;
+
     private string DocumentTypePlaceholder => isLoadingDocumentTypes
         ? "Loading document types..."
         : documentTypeOptions.Count == 0
@@ -197,6 +213,16 @@ public partial class Documents
     private bool isRevoking;
     private DocumentsApiFailure? revokeFailure;
 
+    private bool isDistributionFormOpen;
+    private bool isIssuingDistribution;
+    private DateOnly? distributionDueDate = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(7));
+    private string? distributionInstruction;
+    private string? distributionRecipientSearch;
+    private IReadOnlyList<DocumentDistributionRecipientPickerDto> distributionRecipients = [];
+    private HashSet<Guid> selectedDistributionRecipients = [];
+    private DocumentsApiFailure? distributionFailure;
+    private string? distributionSuccessMessage;
+
     // Review history: a nested expandable section within the file panel (distinct from
     // the always-visible, eagerly-loaded renewalHistory above), lazy-loaded only on first
     // expand rather than on every panel open.
@@ -211,7 +237,6 @@ public partial class Documents
     private const string RetentionPendingDispositionState = "PendingDisposition";
     private const string RetentionDisposedState = "Disposed";
 
-    private bool isRetentionTabOpen;
     private bool isRetentionQueueSubTab = true;
 
     private bool isLoadingRetentionPolicies;
@@ -298,6 +323,10 @@ public partial class Documents
             .OrderBy(row => row.DocumentTypeName, StringComparer.Ordinal)
             .ToList();
 
+    private string RetentionDocumentTypeName(int documentTypeId) =>
+        documentTypeOptions.FirstOrDefault(type => type.DocumentTypeId == documentTypeId)?.Name
+        ?? documentTypeId.ToString(CultureInfo.InvariantCulture);
+
     private int RetentionTotalPages => retentionTotalCount == 0 ? 1 : ((retentionTotalCount + retentionPageSize - 1) / retentionPageSize);
 
     private int TotalPages => totalCount == 0 ? 1 : (totalCount + pageSize - 1) / pageSize;
@@ -339,8 +368,21 @@ public partial class Documents
 
     protected override Task OnInitializedAsync()
     {
-        return Task.WhenAll(LoadAsync(), LoadDocumentTypeOptionsAsync());
+        activeTab = RequestedTab?.ToLowerInvariant() switch
+        {
+            RequirementsTab => DocumentsTab.Requirements,
+            ReadinessTab => DocumentsTab.Readiness,
+            RetentionTab when CanOpenRetentionTab => DocumentsTab.Retention,
+            _ => DocumentsTab.Expiring,
+        };
+
+        return activeTab == DocumentsTab.Retention
+            ? Task.WhenAll(LoadAsync(), LoadDocumentTypeOptionsAsync(), LoadRetentionTabAsync())
+            : Task.WhenAll(LoadAsync(), LoadDocumentTypeOptionsAsync());
     }
+
+    private bool CanOpenRetentionTab =>
+        AuthorizationState.HasPermission("documents.read") || AuthorizationState.HasPermission("documents.manage");
 
     private Task SelectFilterVesselAsync(Guid? vesselId)
     {
@@ -584,7 +626,6 @@ public partial class Documents
         if (isRegisterTypeFormOpen)
         {
             isRegisterDocumentFormOpen = false;
-            isRetentionTabOpen = false;
         }
     }
 
@@ -595,8 +636,42 @@ public partial class Documents
         if (isRegisterDocumentFormOpen)
         {
             isRegisterTypeFormOpen = false;
-            isRetentionTabOpen = false;
         }
+    }
+
+    private async Task SelectTab(DocumentsTab tab)
+    {
+        activeTab = tab;
+
+        if (tab == DocumentsTab.Retention)
+        {
+            await LoadRetentionTabAsync();
+        }
+    }
+
+    private string AriaSelected(DocumentsTab tab)
+    {
+        return activeTab == tab ? "true" : "false";
+    }
+
+    private void OpenRegisterFormForMissing((Guid VesselId, string VesselName, int DocumentTypeId) missing)
+    {
+        registerDocumentModel = new RegisterDocumentFormModel
+        {
+            VesselId = missing.VesselId,
+            DocumentTypeId = missing.DocumentTypeId,
+        };
+        registerDocumentEditContext = new EditContext(registerDocumentModel);
+        registerDocumentMessageStore = new ValidationMessageStore(registerDocumentEditContext);
+        registerDocumentSuccessMessage = null;
+        registerDocumentConflictMessage = null;
+        registerDocumentGeneralError = null;
+        registerDocumentUnmappedErrors = [];
+        registerDocumentVesselLabel = missing.VesselName;
+        vesselPickerResetToken++;
+
+        isRegisterDocumentFormOpen = true;
+        isRegisterTypeFormOpen = false;
     }
 
     private void CloseRegisterTypeForm() => isRegisterTypeFormOpen = false;
@@ -739,6 +814,8 @@ public partial class Documents
         registerDocumentEditContext = new EditContext(registerDocumentModel);
         registerDocumentMessageStore = new ValidationMessageStore(registerDocumentEditContext);
         vesselPickerResetToken++;
+        readinessRefreshToken++;
+        registerDocumentVesselLabel = null;
 
         // Refresh the grid so a newly registered document appears immediately if it falls
         // within the currently applied date/vessel filters.
@@ -831,6 +908,15 @@ public partial class Documents
         isRevoking = false;
         revokeFailure = null;
 
+        isDistributionFormOpen = false;
+        isIssuingDistribution = false;
+        distributionInstruction = null;
+        distributionRecipientSearch = null;
+        distributionRecipients = [];
+        selectedDistributionRecipients = [];
+        distributionFailure = null;
+        distributionSuccessMessage = null;
+
         isReviewHistoryExpanded = false;
         isLoadingReviewHistory = false;
         reviewHistory = [];
@@ -865,6 +951,33 @@ public partial class Documents
             var history = await DocumentsApi.GetRenewalHistoryAsync(documentId, disposeCancellation.Token);
             if (history.IsSuccess && history.Value is not null) renewalHistory = history.Value;
         }
+    }
+
+    private async Task OpenDistributionFormAsync()
+    {
+        isDistributionFormOpen = !isDistributionFormOpen;
+        distributionFailure = null;
+        distributionSuccessMessage = null;
+        if (isDistributionFormOpen) await SearchDistributionRecipientsAsync();
+    }
+
+    private async Task SearchDistributionRecipientsAsync()
+    {
+        var result = await DocumentsApi.SearchDistributionRecipientsAsync(distributionRecipientSearch, disposeCancellation.Token);
+        if (result.IsSuccess && result.Value is not null) distributionRecipients = result.Value;
+        else distributionFailure = result.Failure;
+    }
+
+    private async Task IssueDistributionAsync()
+    {
+        if (expandedDocumentId is not { } documentId) return;
+        isIssuingDistribution = true;
+        distributionFailure = null;
+        var result = await DocumentsApi.IssueDistributionAsync(documentId, new IssueDocumentDistributionRequest(distributionDueDate, distributionInstruction, selectedDistributionRecipients.ToArray()), disposeCancellation.Token);
+        isIssuingDistribution = false;
+        if (!result.IsSuccess) { distributionFailure = result.Failure; return; }
+        distributionSuccessMessage = $"Issued to {selectedDistributionRecipients.Count} recipient(s).";
+        selectedDistributionRecipients = [];
     }
 
     private async Task SaveMetadataAsync()
@@ -1245,18 +1358,8 @@ public partial class Documents
     private static string FormatOccurredAt(DateTimeOffset occurredAtUtc) =>
         $"{occurredAtUtc:dd MMM yyyy HH:mm} UTC";
 
-    private async Task ToggleRetentionTab()
+    private async Task LoadRetentionTabAsync()
     {
-        isRetentionTabOpen = !isRetentionTabOpen;
-
-        if (!isRetentionTabOpen)
-        {
-            return;
-        }
-
-        isRegisterTypeFormOpen = false;
-        isRegisterDocumentFormOpen = false;
-
         // Awaited, not fire-and-forget: this is a synchronous-looking void handler's async
         // counterpart, and Blazor only re-renders automatically when it can track the Task an
         // event handler returns. A detached `_ = LoadXAsync()` call here would run to
@@ -1273,12 +1376,6 @@ public partial class Documents
         {
             await LoadRetentionPoliciesAsync();
         }
-    }
-
-    private void CloseRetentionTab()
-    {
-        isRetentionTabOpen = false;
-        CloseRetentionActionsPanel();
     }
 
     private async Task SelectRetentionQueueSubTab()

@@ -11,19 +11,15 @@
     <header class="compliance-header">
         <div>
             <p class="compliance-eyebrow">Compliance operations</p>
-            <h1>Vessel compliance</h1>
+            <h1>Compliance, under control</h1>
             <p>Review certificates, inspections, and open non-conformities for a vessel.</p>
         </div>
     </header>
 
-    <nav class="compliance-tabs workspace-tabs" aria-label="Compliance workspace">
-        <NavLink class="workspace-tab" href="/compliance/surveys">Surveys and audits</NavLink>
-        <NavLink class="workspace-tab" href="/compliance/insurance-policies">Insurance register</NavLink>
-        <NavLink class="workspace-tab" href="/compliance/non-conformities">Non-conformities</NavLink>
-        <NavLink class="workspace-tab" href="/compliance/audit-plans">Audit plans</NavLink>
-    </nav>
+    <ComplianceNavigation />
 
     <section class="compliance-selector" aria-label="Vessel selection">
+        <div class="compliance-selector-heading"><span class="bi bi-shield-check" aria-hidden="true"></span><div><h2>Vessel workspace</h2><p>Select a vessel to review its certificates, coverage, and findings.</p></div></div>
         <div class="compliance-field compliance-vessel-field">
             <label>Vessel</label>
             <VesselPicker Value="selectedVesselId" ValueChanged="SelectVesselAsync" Disabled="isOverviewLoading" />
@@ -49,6 +45,12 @@
     }
     else if (overview is not null)
     {
+        <section class="compliance-summary" aria-label="Selected vessel compliance summary">
+            <article><div><span>Certificates</span><strong>@overview.Certificates.Count</strong><small>@overview.Certificates.Count(IsExpired) expired</small></div><span class="bi bi-patch-check" aria-hidden="true"></span></article>
+            <article><div><span>Insurance policies</span><strong>@overview.InsurancePolicies.Count</strong><small>Recorded for this vessel</small></div><span class="bi bi-shield-plus" aria-hidden="true"></span></article>
+            <article><div><span>PSC inspections</span><strong>@overview.PscInspections.Count</strong><small>Recorded for this vessel</small></div><span class="bi bi-clipboard-check" aria-hidden="true"></span></article>
+            <article><div><span>Open findings</span><strong>@overview.OpenNonConformities.Count</strong><small>Non-conformities to resolve</small></div><span class="bi bi-exclamation-diamond" aria-hidden="true"></span></article>
+        </section>
         <div class="compliance-actions">
             <button type="button" @onclick="OpenCertificateForm"><span class="bi bi-patch-check"></span> Register certificate</button>
             <button type="button" @onclick="OpenPscForm"><span class="bi bi-clipboard2-check"></span> Register PSC inspection</button>
@@ -200,7 +202,7 @@
             </div>
         }
 
-        <ComplianceSection Title="Certificates" EmptyTitle="No certificates recorded" IsEmpty="@(overview.Certificates.Count == 0)">
+        <ComplianceSection Icon="bi-patch-check" Title="Certificates" EmptyTitle="No certificates recorded" IsEmpty="@(overview.Certificates.Count == 0)">
             @foreach (var item in overview.Certificates)
             {
                 <article class="compliance-record certificate-card @(IsExpired(item) ? "is-expired" : null)">
@@ -222,7 +224,7 @@
                 </article>
             }
         </ComplianceSection>
-        <ComplianceSection Title="Insurance policies" EmptyTitle="No insurance policies recorded" IsEmpty="@(overview.InsurancePolicies.Count == 0)">
+        <ComplianceSection Icon="bi-shield-plus" Title="Insurance policies" EmptyTitle="No insurance policies recorded" IsEmpty="@(overview.InsurancePolicies.Count == 0)">
             @foreach (var item in overview.InsurancePolicies)
             {
                 <article class="compliance-record certificate-card @(item.ExpiryClassification == "Expired" ? "is-expired" : null)">
@@ -232,7 +234,7 @@
                 </article>
             }
         </ComplianceSection>
-        <ComplianceSection Title="PSC inspections" EmptyTitle="No PSC inspections recorded" IsEmpty="@(overview.PscInspections.Count == 0)">
+        <ComplianceSection Icon="bi-clipboard-check" Title="PSC inspections" EmptyTitle="No PSC inspections recorded" IsEmpty="@(overview.PscInspections.Count == 0)">
             @foreach (var item in overview.PscInspections)
             {
                 <a class="compliance-record inspection-card @(item.VesselDetained ? "is-detained" : null)" href="/compliance/psc-inspections/@item.Id">
@@ -253,7 +255,7 @@
                 </a>
             }
         </ComplianceSection>
-        <ComplianceSection Title="Open non-conformities" EmptyTitle="No open non-conformities" IsEmpty="@(overview.OpenNonConformities.Count == 0)">
+        <ComplianceSection Icon="bi-exclamation-diamond" Title="Open non-conformities" EmptyTitle="No open non-conformities" IsEmpty="@(overview.OpenNonConformities.Count == 0)">
             @foreach (var item in overview.OpenNonConformities)
             {
                 <article class="compliance-record issue-card @(IsCritical(item) ? "is-critical" : null)">

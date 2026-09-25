@@ -25,38 +25,6 @@
         </article>
     </section>
 
-    <section class="maintenance-filters" aria-label="Preventive schedule filters">
-        <div class="filter-field filter-field-vessel">
-            <label for="schedules-vessel">Vessel</label>
-            <VesselPicker Value="vesselFilter" ValueChanged="SelectVesselFilterAsync" Disabled="isLoading" />
-        </div>
-        <div class="filter-field">
-            <label for="schedules-due-from">Due from</label>
-            <input id="schedules-due-from" type="date" @bind="dueFromFilter" @bind:after="ApplyFiltersAsync" />
-        </div>
-        <div class="filter-field">
-            <label for="schedules-due-to">Due to</label>
-            <input id="schedules-due-to" type="date" @bind="dueToFilter" @bind:after="ApplyFiltersAsync" />
-        </div>
-        <div class="filter-field">
-            <label for="schedules-overdue">Due status</label>
-            <select id="schedules-overdue" @bind="overdueFilter" @bind:after="ApplyFiltersAsync">
-                <option value="">All</option>
-                <option value="true">Overdue only</option>
-                <option value="false">Not overdue</option>
-            </select>
-        </div>
-        <div class="filter-field">
-            <label for="schedules-page-size">Per page</label>
-            <select id="schedules-page-size" @bind="pageSize" @bind:after="ApplyFiltersAsync">
-                <option value="25">25</option>
-                <option value="50">50</option>
-                <option value="100">100</option>
-            </select>
-        </div>
-        <button class="maintenance-reset schedules-clear" type="button" @onclick="ClearFiltersAsync" disabled="@isLoading">Reset</button>
-    </section>
-
     @if (registerSuccessMessage is not null)
     {
         <div class="maintenance-toast schedules-success" role="status" aria-live="polite">
@@ -67,18 +35,53 @@
 
     <section class="maintenance-card" aria-labelledby="schedules-list-title">
         <div class="maintenance-card-heading">
-            <div>
-                <h2 id="schedules-list-title">Preventive schedule board</h2>
-                <p>@totalCount schedules found</p>
+            <div class="maintenance-register-heading">
+                <span class="maintenance-card-icon" aria-hidden="true"><span class="bi bi-calendar-check"></span></span>
+                <div>
+                    <h2 id="schedules-list-title">Preventive schedule board</h2>
+                    <p>@totalCount schedules found</p>
+                </div>
             </div>
             <div class="maintenance-card-heading-actions">
                 @if (CanManage)
                 {
                     <button type="button" class="maintenance-button schedules-register-toggle" @onclick="OpenRegisterForm">Register schedule</button>
                 }
-                <span class="maintenance-card-icon" aria-hidden="true"><span class="bi bi-calendar-check"></span></span>
+
             </div>
         </div>
+
+        <section class="maintenance-filters" aria-label="Preventive schedule filters">
+            <div class="filter-field filter-field-vessel">
+                <label for="schedules-vessel">Vessel</label>
+                <VesselPicker Value="vesselFilter" ValueChanged="SelectVesselFilterAsync" Disabled="isLoading" />
+            </div>
+            <div class="filter-field">
+                <label for="schedules-due-from">Due from</label>
+                <input id="schedules-due-from" type="date" @bind="dueFromFilter" @bind:after="ApplyFiltersAsync" />
+            </div>
+            <div class="filter-field">
+                <label for="schedules-due-to">Due to</label>
+                <input id="schedules-due-to" type="date" @bind="dueToFilter" @bind:after="ApplyFiltersAsync" />
+            </div>
+            <div class="filter-field">
+                <label for="schedules-overdue">Due status</label>
+                <select id="schedules-overdue" @bind="overdueFilter" @bind:after="ApplyFiltersAsync">
+                    <option value="">All</option>
+                    <option value="true">Overdue only</option>
+                    <option value="false">Not overdue</option>
+                </select>
+            </div>
+            <div class="filter-field">
+                <label for="schedules-page-size">Per page</label>
+                <select id="schedules-page-size" @bind="pageSize" @bind:after="ApplyFiltersAsync">
+                    <option value="25">25</option>
+                    <option value="50">50</option>
+                    <option value="100">100</option>
+                </select>
+            </div>
+            <button class="maintenance-reset schedules-clear" type="button" @onclick="ClearFiltersAsync" disabled="@isLoading">Reset</button>
+        </section>
 
         @if (isLoading)
         {

@@ -7,6 +7,7 @@ using HarborOps.Modules.Maintenance.Domain;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 using static System.Runtime.InteropServices.JavaScript.JSType;
 
 
@@ -189,6 +190,15 @@ public class MaintenanceWorkOrdersController(
                 Status = StatusCodes.Status409Conflict,
                 Title = "Inventory item usage could not be recorded.",
                 Detail = exception.Message,
+            });
+        }
+        catch (DbUpdateConcurrencyException)
+        {
+            return Conflict(new ProblemDetails
+            {
+                Status = StatusCodes.Status409Conflict,
+                Title = "Inventory item was modified concurrently.",
+                Detail = "The inventory item was changed by another request. Reload and try again.",
             });
         }
     }
@@ -531,6 +541,15 @@ public class MaintenanceWorkOrdersController(
                 Detail = exception.Message,
             });
         }
+        catch (DbUpdateConcurrencyException)
+        {
+            return Conflict(new ProblemDetails
+            {
+                Status = StatusCodes.Status409Conflict,
+                Title = "Inventory item was modified concurrently.",
+                Detail = "The inventory item was changed by another request. Reload and try again.",
+            });
+        }
     }
 
     [HttpPost("{workOrderId:guid}/part-reservations/release")]
@@ -564,6 +583,15 @@ public class MaintenanceWorkOrdersController(
                 Status = StatusCodes.Status409Conflict,
                 Title = "Work order part reservations cannot be released from its current status.",
                 Detail = exception.Message,
+            });
+        }
+        catch (DbUpdateConcurrencyException)
+        {
+            return Conflict(new ProblemDetails
+            {
+                Status = StatusCodes.Status409Conflict,
+                Title = "Inventory item was modified concurrently.",
+                Detail = "The inventory item was changed by another request. Reload and try again.",
             });
         }
     }

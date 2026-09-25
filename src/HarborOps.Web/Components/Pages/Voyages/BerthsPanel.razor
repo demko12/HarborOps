@@ -4,47 +4,6 @@
 @inject CurrentUserAuthorizationState AuthorizationState
 
 <div class="berths-panel" role="tabpanel" aria-label="Berth directory">
-    <div class="voyages-filters" role="search">
-        <div class="filter-field filter-field-wide">
-            <label for="berths-port">Port</label>
-            <select id="berths-port" value="@selectedPortId" @onchange="SelectPortAsync" disabled="@isPortLookupLoading">
-                <option value="">Select a port</option>
-                @foreach (var option in portOptions)
-                {
-                    <option value="@option.PortId">@MasterDataFormat.PortLabel(option.Name, option.UnLocode)</option>
-                }
-            </select>
-        </div>
-        <div class="filter-field">
-            <label for="berths-port-search">Find port</label>
-            <input id="berths-port-search" @bind="portSearch" @bind:event="oninput" @bind:after="SearchPortsAsync"
-                   placeholder="Port name or UN/LOCODE" />
-        </div>
-        <div class="filter-field">
-            <label for="berths-search">Berth name</label>
-            <input id="berths-search" @bind="searchFilter" @bind:event="oninput" @bind:after="ApplyFiltersAsync"
-                   placeholder="e.g. Berth 1" />
-        </div>
-        <div class="filter-field">
-            <label for="berths-status">Status</label>
-            <select id="berths-status" @bind="statusFilter" @bind:after="ApplyFiltersAsync">
-                <option value="">All statuses</option>
-                @foreach (var option in StatusOptions)
-                {
-                    <option value="@option">@option</option>
-                }
-            </select>
-        </div>
-        <div class="filter-field">
-            <label for="berths-page-size">Per page</label>
-            <select id="berths-page-size" @bind="pageSize" @bind:after="ApplyFiltersAsync">
-                <option value="25">25</option>
-                <option value="50">50</option>
-                <option value="100">100</option>
-            </select>
-        </div>
-        <button class="voyages-reset" type="button" @onclick="ClearFiltersAsync" disabled="@(isLoading || selectedPortId is null)">Reset</button>
-    </div>
 
     @if (registerSuccessMessage is not null)
     {
@@ -53,9 +12,12 @@
 
     <section class="voyages-card" aria-labelledby="berths-list-title">
         <div class="voyages-card-heading">
-            <div>
-                <h2 id="berths-list-title">Berth directory</h2>
-                <p>@totalCount berths found</p>
+            <div class="voyages-register-title">
+                <span class="voyages-register-mark bi bi-bounding-box" aria-hidden="true"></span>
+                <div>
+                    <h2 id="berths-list-title">Berth directory</h2>
+                    <p>@totalCount berths found</p>
+                </div>
             </div>
             <div class="voyages-card-tools">
                 @if (CanManage && selectedPortId is not null)
@@ -64,8 +26,49 @@
                         <span aria-hidden="true">+</span> Register berth
                     </button>
                 }
-                <span class="voyages-card-icon" aria-hidden="true"><span class="bi bi-bounding-box"></span></span>
             </div>
+        </div>
+
+        <div class="voyages-filters" role="search">
+            <div class="filter-field filter-field-wide">
+                <label for="berths-port">Port</label>
+                <select id="berths-port" value="@selectedPortId" @onchange="SelectPortAsync" disabled="@isPortLookupLoading">
+                    <option value="">Select a port</option>
+                    @foreach (var option in portOptions)
+                    {
+                        <option value="@option.PortId">@MasterDataFormat.PortLabel(option.Name, option.UnLocode)</option>
+                    }
+                </select>
+            </div>
+            <div class="filter-field">
+                <label for="berths-port-search">Find port</label>
+                <input id="berths-port-search" @bind="portSearch" @bind:event="oninput" @bind:after="SearchPortsAsync"
+                       placeholder="Port name or UN/LOCODE" />
+            </div>
+            <div class="filter-field">
+                <label for="berths-search">Berth name</label>
+                <input id="berths-search" @bind="searchFilter" @bind:event="oninput" @bind:after="ApplyFiltersAsync"
+                       placeholder="e.g. Berth 1" />
+            </div>
+            <div class="filter-field">
+                <label for="berths-status">Status</label>
+                <select id="berths-status" @bind="statusFilter" @bind:after="ApplyFiltersAsync">
+                    <option value="">All statuses</option>
+                    @foreach (var option in StatusOptions)
+                    {
+                        <option value="@option">@option</option>
+                    }
+                </select>
+            </div>
+            <div class="filter-field">
+                <label for="berths-page-size">Per page</label>
+                <select id="berths-page-size" @bind="pageSize" @bind:after="ApplyFiltersAsync">
+                    <option value="25">25</option>
+                    <option value="50">50</option>
+                    <option value="100">100</option>
+                </select>
+            </div>
+            <button class="voyages-reset" type="button" @onclick="ClearFiltersAsync" disabled="@(isLoading || selectedPortId is null)">Reset</button>
         </div>
 
         @if (portLookupFailure is not null)
@@ -111,7 +114,7 @@
                         @foreach (var row in rows)
                         {
                             <tr @key="row.BerthId">
-                                <td><span class="master-data-title">@row.Name</span></td>
+                                <td><span class="master-data-identity"><span class="master-data-icon bi bi-bounding-box" aria-hidden="true"></span><span class="master-data-title">@row.Name</span></span></td>
                                 <td class="master-data-number"><span class="stat-pair"><b>@MasterDataFormat.LengthMeters(row.Length)</b><span class="stat-pair-sep" aria-hidden="true"> &middot; </span><span class="stat-pair-note">@MasterDataFormat.LengthMeters(row.MaxDraft) draft</span></span></td>
                                 <td><span class="berth-status @StatusModifier(row.Status)">@row.Status</span></td>
                             </tr>

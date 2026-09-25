@@ -13,121 +13,7 @@ public sealed class VoyagesWorkspaceTabsTests : BunitContext
 {
     private readonly List<string> requestedPaths = [];
 
-    [Fact]
-    public void The_master_data_tabs_load_the_directory_totals_with_a_single_summary_request()
-    {
-        var page = RenderWorkspace();
-
-        page.FindAll(".workspace-tab")[1].Click();
-        page.WaitForAssertion(() => Assert.Equal(
-            "60",
-            page.Find(".voyages-summary-scoped .voyages-kpi-value").TextContent.Trim()));
-
-        page.FindAll(".workspace-tab")[2].Click();
-        page.WaitForAssertion(() => Assert.Equal(
-            "143",
-            page.Find(".voyages-summary-scoped .voyages-kpi-value").TextContent.Trim()));
-
-        Assert.Single(requestedPaths, path => path == "/api/voyages/master-data-summary");
-        Assert.DoesNotContain(requestedPaths, path => path == "/api/voyages/berths");
-    }
-
-    [Fact]
-    public void The_workspace_offers_the_board_and_the_three_master_data_directories()
-    {
-        var page = RenderWorkspace();
-
-        Assert.Equal(
-            ["Voyage board", "Ports", "Berths", "Routes"],
-            page.FindAll(".voyages-tabs .workspace-tab").Select(tab => tab.TextContent));
-    }
-
-    [Fact]
-    public void The_voyage_board_is_the_default_tab()
-    {
-        var page = RenderWorkspace();
-
-        Assert.NotNull(page.Find(".voyages-tabpanel"));
-        Assert.Empty(page.FindAll(".ports-panel"));
-        Assert.Empty(page.FindAll(".berths-panel"));
-        Assert.Empty(page.FindAll(".routes-panel"));
-        Assert.Equal("true", page.FindAll(".workspace-tab")[0].GetAttribute("aria-selected"));
-    }
-
-    [Fact]
-    public void The_ports_tab_shows_the_port_directory()
-    {
-        var page = RenderWorkspace();
-
-        page.FindAll(".workspace-tab")[1].Click();
-
-        page.WaitForAssertion(() =>
-        {
-            Assert.NotNull(page.Find(".ports-panel"));
-            Assert.Empty(page.FindAll(".voyages-tabpanel"));
-            Assert.Equal("true", page.FindAll(".workspace-tab")[1].GetAttribute("aria-selected"));
-        });
-    }
-
-    [Fact]
-    public void The_berths_tab_shows_the_berth_directory()
-    {
-        var page = RenderWorkspace();
-
-        page.FindAll(".workspace-tab")[2].Click();
-
-        page.WaitForAssertion(() =>
-        {
-            Assert.NotNull(page.Find(".berths-panel"));
-            Assert.Empty(page.FindAll(".voyages-tabpanel"));
-        });
-    }
-
-    [Fact]
-    public void The_routes_tab_shows_the_route_directory()
-    {
-        var page = RenderWorkspace();
-
-        page.FindAll(".workspace-tab")[3].Click();
-
-        page.WaitForAssertion(() =>
-        {
-            Assert.NotNull(page.Find(".routes-panel"));
-            Assert.Empty(page.FindAll(".voyages-tabpanel"));
-        });
-    }
-
-    [Fact]
-    public void Returning_from_the_register_route_page_lands_on_the_route_directory()
-    {
-        var page = RenderWorkspace(Voyages.RoutesTabUrl);
-
-        page.WaitForAssertion(() =>
-        {
-            Assert.NotNull(page.Find(".routes-panel"));
-            Assert.Empty(page.FindAll(".voyages-tabpanel"));
-            Assert.Equal("true", page.FindAll(".workspace-tab")[3].GetAttribute("aria-selected"));
-        });
-    }
-
-    [Fact]
-    public void Returning_to_the_board_hides_the_master_data_directories()
-    {
-        var page = RenderWorkspace();
-
-        page.FindAll(".workspace-tab")[1].Click();
-        page.WaitForAssertion(() => Assert.NotNull(page.Find(".ports-panel")));
-
-        page.FindAll(".workspace-tab")[0].Click();
-
-        page.WaitForAssertion(() =>
-        {
-            Assert.NotNull(page.Find(".voyages-tabpanel"));
-            Assert.Empty(page.FindAll(".ports-panel"));
-        });
-    }
-
-    private IRenderedComponent<Voyages> RenderWorkspace(string? relativeUrl = null)
+    public VoyagesWorkspaceTabsTests()
     {
         var httpClient = new HttpClient(new StubHttpMessageHandler(request =>
         {
@@ -153,13 +39,95 @@ public sealed class VoyagesWorkspaceTabsTests : BunitContext
             BaseAddress = new Uri("https://api.harborops.test/"),
         }));
         Services.AddSingleton(VoyagesTestAuthorization.Create(["voyages.read", "voyages.manage"]));
+    }
 
-        if (relativeUrl is not null)
-        {
-            Services.GetRequiredService<NavigationManager>().NavigateTo(relativeUrl);
-        }
+    [Fact]
+    public void The_workspace_offers_the_board_and_the_three_master_data_directories()
+    {
+        var page = RenderWorkspace<Voyages>("/voyages");
 
-        return Render<Voyages>();
+        Assert.Equal(
+            ["Voyage board", "Ports", "Berths", "Routes"],
+            page.FindAll(".voyages-tabs .workspace-tab").Select(tab => tab.TextContent));
+        Assert.Equal(
+            ["/voyages", "/voyages/ports", "/voyages/berths", "/voyages/routes"],
+            page.FindAll(".voyages-tabs .workspace-tab").Select(tab => tab.GetAttribute("href")));
+    }
+
+    [Fact]
+    public void The_voyage_board_shows_no_master_data_directories()
+    {
+        var page = RenderWorkspace<Voyages>("/voyages");
+
+        Assert.Empty(page.FindAll(".ports-panel"));
+        Assert.Empty(page.FindAll(".berths-panel"));
+        Assert.Empty(page.FindAll(".routes-panel"));
+        Assert.Empty(page.FindAll(".voyages-summary-scoped"));
+        Assert.Equal("Voyage board", page.Find(".workspace-tab.active").TextContent);
+        Assert.DoesNotContain(requestedPaths, path => path == "/api/voyages/master-data-summary");
+    }
+
+    [Fact]
+    public void The_ports_page_shows_the_port_directory_and_its_total()
+    {
+        var page = RenderWorkspace<VoyagesPorts>("/voyages/ports");
+
+        page.WaitForAssertion(() => Assert.Equal(
+            "60",
+            page.Find(".voyages-summary-scoped .voyages-kpi-value").TextContent.Trim()));
+        Assert.NotNull(page.Find(".ports-panel"));
+        Assert.Equal("Ports", page.Find(".workspace-tab.active").TextContent);
+        Assert.Single(requestedPaths, path => path == "/api/voyages/master-data-summary");
+    }
+
+    [Fact]
+    public void The_berths_page_shows_the_berth_directory_and_its_total()
+    {
+        var page = RenderWorkspace<VoyagesBerths>("/voyages/berths");
+
+        page.WaitForAssertion(() => Assert.Equal(
+            "143",
+            page.Find(".voyages-summary-scoped .voyages-kpi-value").TextContent.Trim()));
+        Assert.NotNull(page.Find(".berths-panel"));
+        Assert.Equal("Berths", page.Find(".workspace-tab.active").TextContent);
+    }
+
+    [Fact]
+    public void The_routes_page_shows_the_route_directory_and_its_totals()
+    {
+        var page = RenderWorkspace<VoyagesRoutes>("/voyages/routes");
+
+        page.WaitForAssertion(() => Assert.Equal(
+            ["12", MasterDataFormat.DistanceNm(75m)],
+            page.FindAll(".voyages-summary-scoped .voyages-kpi-value").Select(value => value.TextContent.Trim())));
+        Assert.NotNull(page.Find(".routes-panel"));
+        Assert.Equal("Routes", page.Find(".workspace-tab.active").TextContent);
+    }
+
+    [Fact]
+    public void Returning_from_the_register_route_page_lands_on_the_route_directory()
+    {
+        var route = Assert.Single(
+            typeof(VoyagesRoutes).GetCustomAttributes(typeof(RouteAttribute), inherit: false).Cast<RouteAttribute>());
+
+        Assert.Equal(Voyages.RoutesTabUrl, route.Template);
+    }
+
+    [Fact]
+    public void Every_workspace_page_shares_the_voyages_styles()
+    {
+        Assert.True(RenderWorkspace<Voyages>("/voyages").Find(".voyages-page").HasAttribute("b-voyages"));
+        Assert.True(RenderWorkspace<VoyagesPorts>("/voyages/ports").Find(".voyages-page").HasAttribute("b-voyages"));
+        Assert.True(RenderWorkspace<VoyagesBerths>("/voyages/berths").Find(".voyages-page").HasAttribute("b-voyages"));
+        Assert.True(RenderWorkspace<VoyagesRoutes>("/voyages/routes").Find(".voyages-page").HasAttribute("b-voyages"));
+    }
+
+    private IRenderedComponent<TPage> RenderWorkspace<TPage>(string relativeUrl)
+        where TPage : IComponent
+    {
+        Services.GetRequiredService<NavigationManager>().NavigateTo(relativeUrl);
+
+        return Render<TPage>();
     }
 
     private static string EmptyPage()

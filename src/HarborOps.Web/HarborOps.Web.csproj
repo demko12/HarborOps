@@ -4,4 +4,11 @@
     <BlazorDisableThrowNavigationException>true</BlazorDisableThrowNavigationException>
   </PropertyGroup>
 
+  <ItemGroup>
+    <None Update="Components/Pages/Voyages/Voyages.razor.css" CssScope="b-voyages" />
+    <None Update="Components/Pages/Voyages/VoyagesPorts.razor.css" CssScope="b-voyages" />
+    <None Update="Components/Pages/Voyages/VoyagesBerths.razor.css" CssScope="b-voyages" />
+    <None Update="Components/Pages/Voyages/VoyagesRoutes.razor.css" CssScope="b-voyages" />
+  </ItemGroup>
+
 </Project>

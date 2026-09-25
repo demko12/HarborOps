@@ -349,12 +349,9 @@ html[data-theme="light"] .voyage-action-stamp input { color-scheme: light; }
 .voyages-table tbody tr:hover { background: var(--bg-surface); }
 
 .voyages-table tbody tr.imminent { background: color-mix(in srgb, var(--accent) 5%, transparent); }
-.voyages-table tbody tr.imminent td:first-child { box-shadow: var(--row-hover-inset); }
 
 .voyage-row-link { cursor: pointer; }
 .voyage-row-link:hover { background: color-mix(in srgb, var(--accent) 8%, var(--bg-surface)); }
-.voyage-row-link:hover td { box-shadow: inset 0 1px 0 var(--accent-border), inset 0 -1px 0 var(--accent-border); }
-.voyage-row-link:hover td:first-child { box-shadow: var(--row-hover-inset), inset 0 1px 0 var(--accent-border), inset 0 -1px 0 var(--accent-border); }
 .voyage-row-link:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
 
 .voyage-number { font-weight: 600; white-space: nowrap; }
@@ -687,7 +684,6 @@ html[data-theme="light"] .voyages-page ::deep .filter-field > select {
 .voyages-page ::deep .voyages-table tbody tr { transition: background .15s ease; }
 .voyages-page ::deep .voyages-table tbody tr:hover { background: var(--bg-surface); }
 .voyages-page ::deep .voyages-table tbody tr.route-row-selected { background: color-mix(in srgb, var(--accent) 5%, transparent); }
-.voyages-page ::deep .voyages-table tbody tr.route-row-selected td:first-child { box-shadow: var(--row-hover-inset); }
 
 .voyages-page ::deep .master-data-title { font-weight: 600; }
 .voyages-page ::deep .master-data-muted { color: var(--text-secondary); }
@@ -919,3 +915,81 @@ html[data-theme="light"] .voyages-row-action-danger:hover { background: rgba(185
 }
 
 .voyage-action-form > input:not([type]):focus { border-color: var(--accent); box-shadow: var(--focus-ring); outline: none; }
+
+/* Voyage workspace: cyan identity, glass surfaces, and route-focused rows. */
+.voyages-page {
+    --accent: #0891b2;
+    --accent-bg: rgba(8,145,178,.12);
+    --accent-border: rgba(8,145,178,.3);
+    --accent-text: var(--text-primary);
+    max-width: 1600px;
+    padding: 1.5rem 1rem 3rem;
+}
+.voyages-header { align-items: center; flex-wrap: wrap; }
+.voyages-header h1 { font-weight: 600; font-size: clamp(1.8rem, 2.6vw, 2.35rem); letter-spacing: -.045em; }
+.voyages-header p:last-child { font-size: .875rem; }
+.voyages-eyebrow { font-size: .65rem; }
+.voyages-utc { border-radius: .5rem; font-size: .65rem; letter-spacing: .08em; }
+.voyages-summary { gap: .75rem; margin-bottom: 1.5rem; }
+.voyages-kpi, .voyages-page ::deep .voyages-card { border-color: var(--border-subtle); background: linear-gradient(135deg, var(--bg-surface-strong), var(--bg-surface)); box-shadow: 0 18px 38px rgba(15,23,42,.06), inset 0 1px var(--bg-surface-strong); }
+.voyages-kpi { min-height: 0; padding: 1rem; }
+.voyages-kpi-label { color: var(--text-secondary); font-size: .7rem; letter-spacing: 0; text-transform: none; }
+.voyages-kpi-value { margin: .6rem 0 .3rem; font-weight: 600; }
+.voyages-kpi-note { color: var(--text-muted); font-size: .68rem; line-height: 1.5; }
+.voyages-kpi-icon { width: 1.9rem; height: 1.9rem; border-radius: .6rem; }
+.voyages-kpi-icon.kpi-icon-planned { color: var(--accent); background: var(--accent-bg); border-color: var(--accent-border); }
+.voyages-page ::deep .voyages-card { padding: 1.25rem; }
+.voyages-page ::deep .voyages-card-heading { align-items: center; flex-wrap: wrap; padding-bottom: 1rem; border-bottom: 1px solid var(--border-subtle); }
+.voyages-page ::deep .voyages-register-title { display: flex; align-items: center; gap: .8rem; }
+.voyages-page ::deep .voyages-register-mark { display: grid; flex: 0 0 auto; place-items: center; width: 2.8rem; height: 2.8rem; border: 1px solid var(--accent-border); border-radius: .85rem; color: var(--accent); background: linear-gradient(135deg, var(--accent-bg), var(--bg-surface)); font-size: 1.4rem; }
+.voyages-page ::deep .voyages-card-heading h2 { font-size: 1.3rem; font-weight: 600; letter-spacing: -.035em; }
+.voyages-page ::deep .voyages-card-heading p { color: var(--text-muted); font-size: .72rem; }
+.voyages-page ::deep .voyages-filters { padding: .85rem; gap: .65rem; border-color: var(--border-subtle); border-radius: .75rem; background: var(--bg-surface); box-shadow: none; }
+.voyages-page ::deep .filter-field label { font-size: .62rem; letter-spacing: .05em; }
+.voyages-page ::deep .filter-field > select { background-position: right 1rem center; padding-right: 2.7rem; }
+.voyages-page ::deep .filter-field > input, .voyages-page ::deep .filter-field > select, .voyages-input-shell input { font-size: .78rem; }
+.voyages-page ::deep .voyages-schedule-button { color: var(--text-primary); background: var(--accent-bg); border-color: var(--accent-border); font-size: .75rem; }
+.voyages-page ::deep .voyages-table { border-collapse: separate; border-spacing: 0 .55rem; }
+.voyages-page ::deep .voyages-table th { padding-top: .35rem; padding-bottom: .35rem; border: 0; color: var(--text-muted); font-size: .6rem; }
+.voyages-page ::deep .voyages-table td { padding: 1rem .75rem; border-top: 1px solid var(--border-subtle); border-bottom: 1px solid var(--border-subtle); background: var(--bg-surface); }
+.voyages-page ::deep .voyages-table tbody tr:last-child td { border-bottom: 1px solid var(--border-subtle); }
+.voyages-page ::deep .voyages-table td:first-child { border-left: 3px solid var(--accent-border); border-radius: .75rem 0 0 .75rem; }
+.voyages-page ::deep .voyages-table td:last-child { border-right: 1px solid var(--border-subtle); border-radius: 0 .75rem .75rem 0; }
+.voyages-page ::deep .voyages-table tbody tr.imminent td:first-child { border-left-color: var(--accent); box-shadow: none; }
+.voyages-page ::deep .voyages-table tbody tr:hover td { background: var(--bg-surface-strong); }
+.voyage-number { font-size: .8rem; }
+.voyage-number-icon { display: inline-grid; place-items: center; width: 1.8rem; height: 1.8rem; margin-right: .5rem; border-radius: .55rem; color: var(--accent); background: var(--accent-bg); }
+.voyage-vessel { font-family: inherit; font-size: .75rem; }
+.voyage-route-path { display: grid; grid-template-columns: minmax(4rem, 1fr) auto minmax(4rem, 1fr); align-items: center; gap: .65rem; min-width: 12rem; padding: .7rem .8rem; border: 1px solid var(--accent-border); border-radius: .6rem; background: linear-gradient(135deg, var(--accent-bg), var(--bg-surface)); }
+.voyage-route-path > span:not(.voyage-route-connector) { white-space: normal; font-size: .75rem; font-weight: 600; line-height: 1.4; }
+.voyage-route-connector { color: var(--accent); }
+.voyage-status { font-size: .65rem; border-radius: .4rem; }
+.voyage-stamps { font-size: .7rem; }
+.voyage-stamps b { font-size: .58rem; }
+.voyages-page ::deep .voyages-pagination { font-size: .72rem; }
+@media (max-width: 1050px) {
+    .voyages-page ::deep .voyages-table .col-vessel { display: table-cell; }
+    .voyages-page ::deep .voyages-table { min-width: 850px; }
+}
+@media (max-width: 760px) {
+    .voyages-page { padding: 1rem 0 2rem; }
+    .voyages-page ::deep .voyages-card { padding: .85rem; }
+    .voyages-page ::deep .voyages-table .col-actual { display: table-cell; }
+    .voyages-header { align-items: flex-start; }
+}
+
+/* One row treatment for the board and all three directories. */
+.voyages-page ::deep .voyages-table tbody tr,
+.voyages-page ::deep .voyages-table tbody tr:hover { background: transparent; box-shadow: none; }
+.voyages-page ::deep .voyages-table tbody tr td { vertical-align: middle; box-shadow: none; font-size: .78rem; }
+.voyages-page ::deep .voyages-table tbody tr:hover td { box-shadow: none; background: var(--bg-surface-strong); }
+.voyages-page ::deep .voyages-table tbody tr:hover td:first-child { box-shadow: none; border-left-color: var(--accent); }
+.voyages-page ::deep .voyages-table tbody tr.route-row-selected td { background: var(--accent-bg); }
+.voyages-page ::deep .voyages-table tbody tr.route-row-selected td:first-child { box-shadow: none; border-left-color: var(--accent); }
+.voyages-page ::deep .master-data-identity { display: flex; align-items: center; gap: .65rem; }
+.voyages-page ::deep .master-data-icon { display: inline-grid; flex: 0 0 auto; place-items: center; width: 2rem; height: 2rem; border: 1px solid var(--accent-border); border-radius: .6rem; background: linear-gradient(135deg, var(--accent-bg), var(--bg-surface)); color: var(--accent); font-size: .95rem; }
+.voyages-page ::deep .master-data-title { font-size: .8rem; font-weight: 600; }
+.voyages-page ::deep .master-data-code { font-size: .72rem; }
+.voyages-page ::deep .voyages-table-scroll { padding: .15rem; }
+.voyages-page ::deep .voyages-row-action { border-radius: .5rem; font-size: .72rem; }
+.voyages-page ::deep .voyages-filters .filter-field:first-child { flex: 1 1 14rem; }

@@ -19,6 +19,8 @@ public static class DocumentsModule
     {
         services.AddScoped<RegisterDocumentService>();
         services.AddScoped<DocumentLifecycleService>();
+        services.AddScoped<DocumentDistributionService>();
+        services.AddScoped<DocumentDistributionInvalidationService>();
         services.AddScoped<RegisterDocumentTypeService>();
         services.AddScoped<IGetExpiringDocumentsQuery, GetExpiringDocumentsQuery>();
         services.AddScoped<IExpiryAlertCandidateQuery, ExpiryAlertCandidateQuery>();
@@ -47,6 +49,10 @@ public static class DocumentsModule
         services.AddScoped<IReplaceDocumentFileService, ReplaceDocumentFileService>();
         services.AddScoped<IGetDocumentFileQuery, GetDocumentFileQuery>();
         services.AddScoped<IGetDocumentByIdQuery, GetDocumentByIdQuery>();
+        services.AddScoped<IGetDocumentRequirementsQuery, GetDocumentRequirementsQuery>();
+        services.AddScoped<IGetDocumentReadinessQuery, GetDocumentReadinessQuery>();
+        services.AddScoped<IGetVesselReadinessOverviewQuery, GetVesselReadinessOverviewQuery>();
+        services.AddScoped<DocumentRequirementService>();
 
         services.AddControllers()
             .AddApplicationPart(Assembly);

@@ -22,7 +22,9 @@ internal sealed class InventoryItem
         string partNumber,
         decimal quantity,
         decimal minimumQuantity,
-        decimal unitCost)
+        decimal unitCost,
+        Guid stockConcurrencyToken,
+        Guid reservationConcurrencyToken)
     {
         Id = id;
         CategoryId = categoryId;
@@ -33,6 +35,8 @@ internal sealed class InventoryItem
         Quantity = quantity;
         MinimumQuantity = minimumQuantity;
         UnitCost = unitCost;
+        StockConcurrencyToken = stockConcurrencyToken;
+        ReservationConcurrencyToken = reservationConcurrencyToken;
     }
 
     public Guid Id { get; private set; }
@@ -53,6 +57,10 @@ internal sealed class InventoryItem
 
     public decimal UnitCost { get; private set; }
 
+    public Guid StockConcurrencyToken { get; private set; }
+
+    public Guid ReservationConcurrencyToken { get; private set; }
+
     internal static InventoryItem Create(
         Guid categoryId,
         Guid unitId,
@@ -72,7 +80,9 @@ internal sealed class InventoryItem
             partNumber,
             quantity,
             minimumQuantity,
-            unitCost);
+            unitCost,
+            Guid.NewGuid(),
+            Guid.NewGuid());
     }
 
     internal void ReduceStock(decimal quantityUsed)
@@ -86,6 +96,7 @@ internal sealed class InventoryItem
             throw new InvalidOperationException("Insufficient stock to reduce by the specified quantity.");
         }
         Quantity -= quantityUsed;
+        StockConcurrencyToken = Guid.NewGuid();
     }
 
     internal void IncreaseStock(decimal quantityReceived)
@@ -98,5 +109,24 @@ internal sealed class InventoryItem
         }
 
         Quantity += quantityReceived;
+        StockConcurrencyToken = Guid.NewGuid();
+    }
+
+    internal void ApplyStocktakeCount(decimal countedQuantity)
+    {
+        if (countedQuantity < 0)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(countedQuantity),
+                "Counted quantity must not be negative.");
+        }
+
+        Quantity = countedQuantity;
+        StockConcurrencyToken = Guid.NewGuid();
+    }
+
+    internal void MarkReservationsChanged()
+    {
+        ReservationConcurrencyToken = Guid.NewGuid();
     }
 }

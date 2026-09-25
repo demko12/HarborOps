@@ -13,7 +13,7 @@
     <header class="reports-header">
         <div>
             <p class="reports-eyebrow">Reporting</p>
-            <h1>Reports</h1>
+            <h1>Your operations, in focus</h1>
             <p>Review documents expiry, compliance exposure, maintenance backlog, and port-call performance.</p>
         </div>
     </header>
@@ -26,14 +26,14 @@
     }
     else
     {
-        <nav class="workspace-tabs" aria-label="Report selection">
+        <nav class="reports-tabs workspace-tabs" aria-label="Report selection">
             @if (AuthorizationState.CanAccessDocuments)
             {
                 <button type="button"
                         class="workspace-tab @(selectedReport == ReportKind.DocumentsExpiry ? "active" : null)"
                         aria-pressed="@(selectedReport == ReportKind.DocumentsExpiry ? "true" : "false")"
                         @onclick='() => SelectReportAsync(ReportKind.DocumentsExpiry)'>
-                    Documents expiry
+                    <span class="bi bi-file-earmark-text" aria-hidden="true"></span> Documents expiry
                 </button>
             }
             @if (AuthorizationState.CanAccessCompliance)
@@ -42,7 +42,7 @@
                         class="workspace-tab @(selectedReport == ReportKind.ComplianceExposure ? "active" : null)"
                         aria-pressed="@(selectedReport == ReportKind.ComplianceExposure ? "true" : "false")"
                         @onclick='() => SelectReportAsync(ReportKind.ComplianceExposure)'>
-                    Compliance exposure
+                    <span class="bi bi-shield-check" aria-hidden="true"></span> Compliance exposure
                 </button>
             }
             @if (AuthorizationState.CanAccessMaintenance)
@@ -51,7 +51,7 @@
                         class="workspace-tab @(selectedReport == ReportKind.MaintenanceBacklog ? "active" : null)"
                         aria-pressed="@(selectedReport == ReportKind.MaintenanceBacklog ? "true" : "false")"
                         @onclick='() => SelectReportAsync(ReportKind.MaintenanceBacklog)'>
-                    Maintenance backlog
+                    <span class="bi bi-tools" aria-hidden="true"></span> Maintenance backlog
                 </button>
             }
             @if (AuthorizationState.CanAccessVoyages)
@@ -60,135 +60,10 @@
                         class="workspace-tab @(selectedReport == ReportKind.PortCallPerformance ? "active" : null)"
                         aria-pressed="@(selectedReport == ReportKind.PortCallPerformance ? "true" : "false")"
                         @onclick='() => SelectReportAsync(ReportKind.PortCallPerformance)'>
-                    Port-call performance
+                    <span class="bi bi-stopwatch" aria-hidden="true"></span> Port-call performance
                 </button>
             }
         </nav>
-
-        <section class="reports-filters" aria-label="Report filters">
-            @if (selectedReport != ReportKind.PortCallPerformance)
-            {
-                <div class="filter-field">
-                    <label for="reports-as-of">As of</label>
-                    <input id="reports-as-of" type="date" @bind="asOfFilter" @bind:after="SearchAsync" />
-                </div>
-            }
-            <div class="filter-field filter-field-wide">
-                <label for="reports-vessel">Vessel</label>
-                <VesselPicker @key="vesselPickerResetToken" Value="vesselIdFilter" ValueChanged="OnVesselFilterChangedAsync" Placeholder="All vessels" />
-            </div>
-
-            @if (selectedReport == ReportKind.DocumentsExpiry)
-            {
-                <div class="filter-field">
-                    <label for="reports-doc-from">From</label>
-                    <input id="reports-doc-from" type="date" @bind="documentsFromFilter" @bind:after="SearchAsync" />
-                </div>
-                <div class="filter-field">
-                    <label for="reports-doc-to">To</label>
-                    <input id="reports-doc-to" type="date" @bind="documentsToFilter" @bind:after="SearchAsync" />
-                </div>
-                <div class="filter-field">
-                    <label for="reports-doc-status">Status</label>
-                    <select id="reports-doc-status" @bind="documentsStatusFilter" @bind:after="SearchAsync">
-                        <option value="">All statuses</option>
-                        @foreach (var status in DocumentStatuses)
-                        {
-                            <option value="@status">@status</option>
-                        }
-                    </select>
-                </div>
-            }
-            else if (selectedReport == ReportKind.ComplianceExposure)
-            {
-                <div class="filter-field">
-                    <label for="reports-category">Category</label>
-                    <select id="reports-category" @bind="complianceCategoryFilter" @bind:after="SearchAsync">
-                        <option value="">All categories</option>
-                        @foreach (var category in ComplianceCategories)
-                        {
-                            <option value="@category">@category</option>
-                        }
-                    </select>
-                </div>
-            }
-            else if (selectedReport == ReportKind.MaintenanceBacklog)
-            {
-                <div class="filter-field">
-                    <label for="reports-priority">Priority</label>
-                    <select id="reports-priority" @bind="maintenancePriorityFilter" @bind:after="SearchAsync">
-                        <option value="">All priorities</option>
-                        @foreach (var priority in MaintenancePriorities)
-                        {
-                            <option value="@priority">@priority</option>
-                        }
-                    </select>
-                </div>
-                <div class="filter-field">
-                    <label for="reports-status">Status</label>
-                    <select id="reports-status" @bind="maintenanceStatusFilter" @bind:after="SearchAsync">
-                        <option value="">All statuses</option>
-                        @foreach (var status in MaintenanceStatuses)
-                        {
-                            <option value="@status">@status</option>
-                        }
-                    </select>
-                </div>
-                <div class="filter-field">
-                    <label for="reports-overdue">Overdue</label>
-                    <select id="reports-overdue" @bind="maintenanceOverdueSelection" @bind:after="SearchAsync">
-                        <option value="">All</option>
-                        <option value="true">Overdue only</option>
-                        <option value="false">Not overdue</option>
-                    </select>
-                </div>
-                <div class="filter-field">
-                    <label for="reports-due-from">Due from</label>
-                    <input id="reports-due-from" type="date" @bind="maintenanceDueFromFilter" @bind:after="SearchAsync" />
-                </div>
-                <div class="filter-field">
-                    <label for="reports-due-to">Due to</label>
-                    <input id="reports-due-to" type="date" @bind="maintenanceDueToFilter" @bind:after="SearchAsync" />
-                </div>
-            }
-            else if (selectedReport == ReportKind.PortCallPerformance)
-            {
-                <div class="filter-field">
-                    <label for="reports-departed-from">Departed from (UTC)</label>
-                    <input id="reports-departed-from" type="date" @bind="portCallDepartedFromFilter" @bind:after="SearchAsync" />
-                </div>
-                <div class="filter-field">
-                    <label for="reports-departed-to">Departed to (UTC)</label>
-                    <input id="reports-departed-to" type="date" @bind="portCallDepartedToFilter" @bind:after="SearchAsync" />
-                </div>
-                <div class="filter-field filter-field-wide">
-                    <label for="reports-port">Port</label>
-                    <PortPicker @key="portPickerResetToken" InputId="reports-port" Value="portCallPortIdFilter" ValueChanged="OnPortFilterChangedAsync" Placeholder="All ports" />
-                </div>
-                <div class="filter-field">
-                    <label for="reports-statement">Statement</label>
-                    <select id="reports-statement" @bind="portCallAvailabilityFilter" @bind:after="SearchAsync">
-                        @foreach (var option in StatementAvailabilityOptions)
-                        {
-                            <option value="@option.Value">@option.Label</option>
-                        }
-                    </select>
-                </div>
-                @if (portCallVoyageIdFilter is not null)
-                {
-                    <div class="filter-field">
-                        <span class="filter-field-label">Voyage</span>
-                        <button type="button" class="reports-filter-chip" @onclick="ClearVoyageFilterAsync" aria-label="Remove voyage filter @portCallVoyageLabel">
-                            @portCallVoyageLabel <span class="bi bi-x" aria-hidden="true"></span>
-                        </button>
-                    </div>
-                }
-            }
-
-            <div class="reports-filter-actions">
-                <button type="button" class="workspace-filter-reset" @onclick="ResetFiltersAsync" disabled="@isLoading">Reset</button>
-            </div>
-        </section>
 
         @if (filterValidationMessage is not null)
         {
@@ -212,11 +87,24 @@
             </div>
         }
 
+        <section class="reports-summary" aria-label="Report summary">
+            <article><div><span>Matching records</span><strong>@totalCount</strong><small>Across the current filters</small></div><span class="bi bi-bar-chart" aria-hidden="true"></span></article>
+            @if (selectedReport == ReportKind.PortCallPerformance)
+            {
+                <article><div><span>Departure range</span><strong class="reports-summary-date">@PortCallRangeLabel</strong><small>Actual departure, UTC days</small></div><span class="bi bi-calendar-range" aria-hidden="true"></span></article>
+            }
+            else
+            {
+                <article><div><span>Snapshot date</span><strong class="reports-summary-date">@reportAsOf.ToString("dd MMM yyyy")</strong><small>Report reference date</small></div><span class="bi bi-calendar-check" aria-hidden="true"></span></article>
+            }
+            <article><div><span>Records on this page</span><strong>@CurrentRowCount</strong><small>Page @pageNumber of @TotalPages</small></div><span class="bi bi-list-ul" aria-hidden="true"></span></article>
+        </section>
+
         <section class="reports-card" aria-labelledby="reports-list-title">
             <div class="reports-card-heading">
-                <div>
-                    <h2 id="reports-list-title">@ReportTitle</h2>
-                    <p>@ReportSubtitle</p>
+                <div class="reports-register-heading">
+                    <span class="reports-register-icon bi bi-bar-chart" aria-hidden="true"></span>
+                    <div><span class="reports-section-label">Report results</span><h2 id="reports-list-title">@ReportTitle</h2><p>@ReportSubtitle</p></div>
                 </div>
                 @if (selectedReport == ReportKind.PortCallPerformance && PortCallExportExceedsLimit)
                 {
@@ -231,6 +119,131 @@
                     </a>
                 }
             </div>
+
+            <section class="reports-filters" aria-label="Report filters">
+                @if (selectedReport != ReportKind.PortCallPerformance)
+                {
+                    <div class="filter-field">
+                        <label for="reports-as-of">As of</label>
+                        <input id="reports-as-of" type="date" @bind="asOfFilter" @bind:after="SearchAsync" />
+                    </div>
+                }
+                <div class="filter-field filter-field-wide">
+                    <label for="reports-vessel">Vessel</label>
+                    <VesselPicker @key="vesselPickerResetToken" Value="vesselIdFilter" ValueChanged="OnVesselFilterChangedAsync" Placeholder="All vessels" />
+                </div>
+
+                @if (selectedReport == ReportKind.DocumentsExpiry)
+                {
+                    <div class="filter-field">
+                        <label for="reports-doc-from">From</label>
+                        <input id="reports-doc-from" type="date" @bind="documentsFromFilter" @bind:after="SearchAsync" />
+                    </div>
+                    <div class="filter-field">
+                        <label for="reports-doc-to">To</label>
+                        <input id="reports-doc-to" type="date" @bind="documentsToFilter" @bind:after="SearchAsync" />
+                    </div>
+                    <div class="filter-field">
+                        <label for="reports-doc-status">Status</label>
+                        <select id="reports-doc-status" @bind="documentsStatusFilter" @bind:after="SearchAsync">
+                            <option value="">All statuses</option>
+                            @foreach (var status in DocumentStatuses)
+                            {
+                                <option value="@status">@status</option>
+                            }
+                        </select>
+                    </div>
+                }
+                else if (selectedReport == ReportKind.ComplianceExposure)
+                {
+                    <div class="filter-field">
+                        <label for="reports-category">Category</label>
+                        <select id="reports-category" @bind="complianceCategoryFilter" @bind:after="SearchAsync">
+                            <option value="">All categories</option>
+                            @foreach (var category in ComplianceCategories)
+                            {
+                                <option value="@category">@category</option>
+                            }
+                        </select>
+                    </div>
+                }
+                else if (selectedReport == ReportKind.MaintenanceBacklog)
+                {
+                    <div class="filter-field">
+                        <label for="reports-priority">Priority</label>
+                        <select id="reports-priority" @bind="maintenancePriorityFilter" @bind:after="SearchAsync">
+                            <option value="">All priorities</option>
+                            @foreach (var priority in MaintenancePriorities)
+                            {
+                                <option value="@priority">@priority</option>
+                            }
+                        </select>
+                    </div>
+                    <div class="filter-field">
+                        <label for="reports-status">Status</label>
+                        <select id="reports-status" @bind="maintenanceStatusFilter" @bind:after="SearchAsync">
+                            <option value="">All statuses</option>
+                            @foreach (var status in MaintenanceStatuses)
+                            {
+                                <option value="@status">@status</option>
+                            }
+                        </select>
+                    </div>
+                    <div class="filter-field">
+                        <label for="reports-overdue">Overdue</label>
+                        <select id="reports-overdue" @bind="maintenanceOverdueSelection" @bind:after="SearchAsync">
+                            <option value="">All</option>
+                            <option value="true">Overdue only</option>
+                            <option value="false">Not overdue</option>
+                        </select>
+                    </div>
+                    <div class="filter-field">
+                        <label for="reports-due-from">Due from</label>
+                        <input id="reports-due-from" type="date" @bind="maintenanceDueFromFilter" @bind:after="SearchAsync" />
+                    </div>
+                    <div class="filter-field">
+                        <label for="reports-due-to">Due to</label>
+                        <input id="reports-due-to" type="date" @bind="maintenanceDueToFilter" @bind:after="SearchAsync" />
+                    </div>
+                }
+                else if (selectedReport == ReportKind.PortCallPerformance)
+                {
+                    <div class="filter-field">
+                        <label for="reports-departed-from">Departed from (UTC)</label>
+                        <input id="reports-departed-from" type="date" @bind="portCallDepartedFromFilter" @bind:after="SearchAsync" />
+                    </div>
+                    <div class="filter-field">
+                        <label for="reports-departed-to">Departed to (UTC)</label>
+                        <input id="reports-departed-to" type="date" @bind="portCallDepartedToFilter" @bind:after="SearchAsync" />
+                    </div>
+                    <div class="filter-field filter-field-wide">
+                        <label for="reports-port">Port</label>
+                        <PortPicker @key="portPickerResetToken" InputId="reports-port" Value="portCallPortIdFilter" ValueChanged="OnPortFilterChangedAsync" Placeholder="All ports" />
+                    </div>
+                    <div class="filter-field">
+                        <label for="reports-statement">Statement</label>
+                        <select id="reports-statement" @bind="portCallAvailabilityFilter" @bind:after="SearchAsync">
+                            @foreach (var option in StatementAvailabilityOptions)
+                            {
+                                <option value="@option.Value">@option.Label</option>
+                            }
+                        </select>
+                    </div>
+                    @if (portCallVoyageIdFilter is not null)
+                    {
+                        <div class="filter-field">
+                            <span class="filter-field-label">Voyage</span>
+                            <button type="button" class="reports-filter-chip" @onclick="ClearVoyageFilterAsync" aria-label="Remove voyage filter @portCallVoyageLabel">
+                                @portCallVoyageLabel <span class="bi bi-x" aria-hidden="true"></span>
+                            </button>
+                        </div>
+                    }
+                }
+
+                <div class="reports-filter-actions">
+                    <button type="button" class="workspace-filter-reset" @onclick="ResetFiltersAsync" disabled="@isLoading">Reset</button>
+                </div>
+            </section>
 
             @if (selectedReport == ReportKind.PortCallPerformance && PortCallExportExceedsLimit)
             {
@@ -281,7 +294,7 @@
                                 @foreach (var row in documentsRows)
                                 {
                                     <tr @key="row.DocumentId">
-                                        <td>@row.Number</td>
+                                        <td><div class="reports-identity"><span class="bi bi-file-earmark-text" aria-hidden="true"></span><strong>@row.Number</strong></div></td>
                                         <td>@VesselDisplayName(row.VesselId)</td>
                                         <td class="reports-muted reports-wrap">@row.DocumentTypeName</td>
                                         <td class="reports-muted reports-wrap">@row.IssuingAuthority</td>
@@ -317,7 +330,7 @@
                                 @foreach (var row in complianceRows)
                                 {
                                     <tr @key="@(row.ItemType + row.Reference)">
-                                        <td>@row.ItemType</td>
+                                        <td><div class="reports-identity"><span class="bi bi-shield-check" aria-hidden="true"></span><strong>@row.ItemType</strong></div></td>
                                         <td>@VesselDisplayName(row.VesselId)</td>
                                         <td>@row.Reference</td>
                                         <td class="reports-muted reports-wrap">@row.Description</td>
@@ -362,7 +375,7 @@
                                 @foreach (var row in maintenanceRows)
                                 {
                                     <tr @key="row.WorkOrderId">
-                                        <td class="reports-wrap">@row.Title</td>
+                                        <td class="reports-wrap"><div class="reports-identity"><span class="bi bi-tools" aria-hidden="true"></span><strong>@row.Title</strong></div></td>
                                         <td>@VesselDisplayName(row.VesselId)</td>
                                         <td><span class="reports-status @MaintenancePriorityClass(row.Priority)">@row.Priority</span></td>
                                         <td><span class="reports-status @MaintenanceStatusClass(row.Status)">@row.Status</span></td>

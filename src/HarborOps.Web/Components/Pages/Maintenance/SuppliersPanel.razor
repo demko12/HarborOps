@@ -15,26 +15,6 @@
 		</article>
 	</section>
 
-	<section class="maintenance-filters" aria-label="Supplier filters">
-		<div class="filter-field">
-			<label for="suppliers-search">Search</label>
-			<input id="suppliers-search"
-				   @bind="searchText"
-				   @bind:event="oninput"
-				   @bind:after="ApplyFiltersAsync"
-				   placeholder="Name or contact person" />
-		</div>
-		<div class="filter-field">
-			<label for="suppliers-page-size">Per page</label>
-			<select id="suppliers-page-size" @bind="pageSize" @bind:after="ApplyFiltersAsync">
-				<option value="25">25</option>
-				<option value="50">50</option>
-				<option value="100">100</option>
-			</select>
-		</div>
-		<button class="maintenance-reset" type="button" @onclick="ClearFiltersAsync" disabled="@isLoading">Reset</button>
-	</section>
-
 	@if (registerSuccessMessage is not null)
 	{
 		<div class="maintenance-toast suppliers-success" role="status" aria-live="polite">
@@ -45,18 +25,41 @@
 
 	<section class="maintenance-card" aria-labelledby="suppliers-list-title">
 		<div class="maintenance-card-heading">
-			<div>
-				<h2 id="suppliers-list-title">Supplier directory</h2>
-				<p>@totalCount suppliers found</p>
+			<div class="maintenance-register-heading">
+			    <span class="maintenance-card-icon" aria-hidden="true"><span class="bi bi-truck"></span></span>
+			    <div>
+					<h2 id="suppliers-list-title">Supplier directory</h2>
+					<p>@totalCount suppliers found</p>
+			    </div>
 			</div>
 			<div class="maintenance-card-heading-actions">
 				@if (CanManage)
 				{
 					<button type="button" class="maintenance-button suppliers-register-toggle" @onclick="OpenRegisterForm">Register supplier</button>
 				}
-				<span class="maintenance-card-icon" aria-hidden="true"><span class="bi bi-truck"></span></span>
+
 			</div>
 		</div>
+
+		<section class="maintenance-filters" aria-label="Supplier filters">
+			<div class="filter-field">
+				<label for="suppliers-search">Search</label>
+				<input id="suppliers-search"
+					   @bind="searchText"
+					   @bind:event="oninput"
+					   @bind:after="ApplyFiltersAsync"
+					   placeholder="Name or contact person" />
+			</div>
+			<div class="filter-field">
+				<label for="suppliers-page-size">Per page</label>
+				<select id="suppliers-page-size" @bind="pageSize" @bind:after="ApplyFiltersAsync">
+					<option value="25">25</option>
+					<option value="50">50</option>
+					<option value="100">100</option>
+				</select>
+			</div>
+			<button class="maintenance-reset" type="button" @onclick="ClearFiltersAsync" disabled="@isLoading">Reset</button>
+		</section>
 
 		@if (isLoading)
 		{

@@ -44,6 +44,56 @@ public sealed class MaintenanceApiClientTests
         "notes":"Done","cost":1250.50,"laborHours":6.5}}
         """;
 
+    private const string StocktakeId = "c0000000-0000-0000-0000-00000000000c";
+    private const string StocktakeItemId = "d0000000-0000-0000-0000-00000000000d";
+    private const string StocktakeWorkOrderId = "e0000000-0000-0000-0000-00000000000e";
+    private const string StocktakeConcurrencyToken = "f0000000-0000-0000-0000-00000000000f";
+
+    private const string StocktakesPageJson = $$"""
+        {"items":[{"stocktakeId":"{{StocktakeId}}","status":"Draft","lineCount":4,
+        "countedLineCount":3,"varianceLineCount":1,"createdByUserId":"{{StocktakeItemId}}",
+        "createdUtc":"2026-09-23T08:00:00Z","postedUtc":null,"cancelledUtc":null,
+        "concurrencyToken":"{{StocktakeConcurrencyToken}}"}],
+        "pageNumber":2,"pageSize":50,"totalCount":1}
+        """;
+
+    private const string StocktakeDetailsJson = $$"""
+        {"stocktakeId":"{{StocktakeId}}","status":"Draft","notes":"Engine room locker",
+        "concurrencyToken":"{{StocktakeConcurrencyToken}}","createdByUserId":"{{StocktakeItemId}}",
+        "createdUtc":"2026-09-23T08:00:00Z","lastModifiedByUserId":null,"lastModifiedUtc":null,
+        "postedByUserId":null,"postedUtc":null,"cancelledByUserId":null,"cancelledUtc":null,
+        "cancellationReason":null,
+        "lines":[{"inventoryItemId":"{{StocktakeItemId}}","name":"Main engine filter",
+        "partNumber":"FILTER-001","unitAbbreviation":"pcs","baselineQuantity":10,
+        "baselineCapturedUtc":"2026-09-23T08:00:00Z","countedQuantity":8,"variance":-2,
+        "varianceReason":"Missing","countedByUserId":"{{StocktakeItemId}}",
+        "countedUtc":"2026-09-23T08:30:00Z"}],
+        "adjustments":[]}
+        """;
+
+    private const string StocktakePreviewJson = $$"""
+        {"stocktakeId":"{{StocktakeId}}","concurrencyToken":"{{StocktakeConcurrencyToken}}",
+        "previewToken":"TOKEN","canPost":false,
+        "lines":[{"inventoryItemId":"{{StocktakeItemId}}","name":"Main engine filter",
+        "partNumber":"FILTER-001","baselineQuantity":10,"currentQuantity":12,
+        "countedQuantity":5,"variance":-5,"outstandingReservedQuantity":6,
+        "baselineIsStale":true}],
+        "blockers":[{"inventoryItemId":"{{StocktakeItemId}}","code":"BelowReserved",
+        "message":"Counted 5.000 is below the outstanding reserved quantity 6.000.",
+        "reservingWorkOrderIds":["{{StocktakeWorkOrderId}}"]}],
+        "generatedUtc":"2026-09-23T08:00:00Z"}
+        """;
+
+    private const string PostStocktakeResultJson = $$"""
+        {"stocktakeId":"{{StocktakeId}}","status":"Posted",
+        "concurrencyToken":"{{StocktakeConcurrencyToken}}","postedByUserId":"{{StocktakeItemId}}",
+        "postedUtc":"2026-09-23T09:00:00Z",
+        "adjustments":[{"adjustmentId":"{{StocktakeWorkOrderId}}",
+        "inventoryItemId":"{{StocktakeItemId}}","stocktakeId":"{{StocktakeId}}",
+        "quantityBefore":10,"countedQuantity":8,"quantityDelta":-2,"reason":"Missing",
+        "actorUserId":"{{StocktakeItemId}}","adjustedUtc":"2026-09-23T09:00:00Z"}]}
+        """;
+
     private static string WorkOrderTransitionJson(string status, string allowedActions) => $$"""
         {"workOrderId":"10000000-0000-0000-0000-000000000001","status":"{{status}}",
         "allowedActions":{{allowedActions}},"completedUtc":null,"transitionedUtc":"2026-08-02T09:00:00Z"}
@@ -716,6 +766,387 @@ public sealed class MaintenanceApiClientTests
         Assert.False(result.IsSuccess);
         Assert.True(result.Failure!.IsValidation);
         Assert.Contains("nextDueHours", result.Failure.Errors.Keys);
+    }
+
+    [Fact]
+    public async Task GetStocktakesAsync_sends_the_status_filter_and_paging()
+    {
+        HttpRequestMessage? captured = null;
+        using var httpClient = CreateHttpClient((request, _) =>
+        {
+            captured = request;
+            return Json(HttpStatusCode.OK, StocktakesPageJson);
+        });
+
+        var result = await CreateClient(httpClient).GetStocktakesAsync(
+            new StocktakeFilter("Draft", 2, 50),
+            CancellationToken.None);
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal(HttpMethod.Get, captured!.Method);
+        Assert.Equal("/api/maintenance/stocktakes", captured.RequestUri!.AbsolutePath);
+        Assert.Contains("status=Draft", captured.RequestUri.Query, StringComparison.Ordinal);
+        Assert.Contains("pageNumber=2", captured.RequestUri.Query, StringComparison.Ordinal);
+        Assert.Contains("pageSize=50", captured.RequestUri.Query, StringComparison.Ordinal);
+
+        var row = Assert.Single(result.Value!.Items);
+
+        Assert.Equal("Draft", row.Status);
+        Assert.Equal(4, row.LineCount);
+        Assert.Equal(3, row.CountedLineCount);
+        Assert.Equal(1, row.VarianceLineCount);
+        Assert.Equal(Guid.Parse(StocktakeConcurrencyToken), row.ConcurrencyToken);
+    }
+
+    [Fact]
+    public async Task GetStocktakesAsync_omits_an_unset_status()
+    {
+        HttpRequestMessage? captured = null;
+        using var httpClient = CreateHttpClient((request, _) =>
+        {
+            captured = request;
+            return Json(HttpStatusCode.OK, StocktakesPageJson);
+        });
+
+        await CreateClient(httpClient).GetStocktakesAsync(
+            new StocktakeFilter(null, 1, 25),
+            CancellationToken.None);
+
+        Assert.DoesNotContain("status=", captured!.RequestUri!.Query, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task GetStocktakeAsync_reads_the_lines_with_their_baseline()
+    {
+        HttpRequestMessage? captured = null;
+        using var httpClient = CreateHttpClient((request, _) =>
+        {
+            captured = request;
+            return Json(HttpStatusCode.OK, StocktakeDetailsJson);
+        });
+
+        var result = await CreateClient(httpClient).GetStocktakeAsync(
+            Guid.Parse(StocktakeId),
+            CancellationToken.None);
+
+        Assert.Equal($"/api/maintenance/stocktakes/{StocktakeId}", captured!.RequestUri!.AbsolutePath);
+
+        var line = Assert.Single(result.Value!.Lines);
+
+        Assert.Equal("Main engine filter", line.Name);
+        Assert.Equal("pcs", line.UnitAbbreviation);
+        Assert.Equal(10m, line.BaselineQuantity);
+        Assert.Equal(8m, line.CountedQuantity);
+        Assert.Equal(-2m, line.Variance);
+        Assert.Equal("Missing", line.VarianceReason);
+    }
+
+    [Fact]
+    public async Task GetStocktakeAsync_reports_an_unknown_stocktake()
+    {
+        using var httpClient = CreateHttpClient((_, _) => Json(
+            HttpStatusCode.NotFound,
+            """{"title":"Stocktake not found.","detail":"No such stocktake."}"""));
+
+        var result = await CreateClient(httpClient).GetStocktakeAsync(Guid.NewGuid(), CancellationToken.None);
+
+        Assert.False(result.IsSuccess);
+        Assert.Equal((int)HttpStatusCode.NotFound, result.Failure!.StatusCode);
+        Assert.Equal("Stocktake not found.", result.Failure.Title);
+    }
+
+    [Fact]
+    public async Task CreateStocktakeAsync_posts_the_items_and_reads_the_created_draft()
+    {
+        HttpRequestMessage? captured = null;
+        string? body = null;
+        using var httpClient = CreateHttpClient(async (request, token) =>
+        {
+            captured = request;
+            body = await request.Content!.ReadAsStringAsync(token);
+
+            return await Json(HttpStatusCode.Created, StocktakeDetailsJson);
+        });
+
+        var result = await CreateClient(httpClient).CreateStocktakeAsync(
+            new CreateStocktakeRequest
+            {
+                InventoryItemIds = [Guid.Parse(StocktakeItemId)],
+                Notes = "Engine room locker",
+            },
+            CancellationToken.None);
+
+        Assert.Equal(HttpMethod.Post, captured!.Method);
+        Assert.Equal("/api/maintenance/stocktakes", captured.RequestUri!.AbsolutePath);
+        Assert.Contains(StocktakeItemId, body!, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("Engine room locker", body, StringComparison.Ordinal);
+        Assert.Equal("Draft", result.Value!.Status);
+    }
+
+    [Fact]
+    public async Task CreateStocktakeAsync_surfaces_validation_errors()
+    {
+        using var httpClient = CreateHttpClient((_, _) => Json(
+            HttpStatusCode.BadRequest,
+            """
+            {"title":"One or more validation errors occurred.","status":400,
+            "errors":{"inventoryItemIds":["Inventory item ids must be distinct."]}}
+            """));
+
+        var result = await CreateClient(httpClient).CreateStocktakeAsync(
+            new CreateStocktakeRequest { InventoryItemIds = [Guid.NewGuid()] },
+            CancellationToken.None);
+
+        Assert.True(result.Failure!.IsValidation);
+        Assert.Contains("inventoryItemIds", result.Failure.Errors.Keys);
+    }
+
+    [Fact]
+    public async Task UpdateStocktakeCountsAsync_puts_the_counts_with_the_expected_token()
+    {
+        HttpRequestMessage? captured = null;
+        string? body = null;
+        using var httpClient = CreateHttpClient(async (request, token) =>
+        {
+            captured = request;
+            body = await request.Content!.ReadAsStringAsync(token);
+
+            return await Json(HttpStatusCode.OK, StocktakeDetailsJson);
+        });
+
+        var result = await CreateClient(httpClient).UpdateStocktakeCountsAsync(
+            Guid.Parse(StocktakeId),
+            new UpdateStocktakeCountsRequest
+            {
+                ExpectedConcurrencyToken = Guid.Parse(StocktakeConcurrencyToken),
+                Lines =
+                [
+                    new StocktakeCountEntry
+                    {
+                        InventoryItemId = Guid.Parse(StocktakeItemId),
+                        CountedQuantity = 8m,
+                        Reason = "Missing",
+                    },
+                ],
+            },
+            CancellationToken.None);
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal(HttpMethod.Put, captured!.Method);
+        Assert.Equal($"/api/maintenance/stocktakes/{StocktakeId}/counts", captured.RequestUri!.AbsolutePath);
+        Assert.Contains(StocktakeConcurrencyToken, body!, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("\"countedQuantity\":8", body, StringComparison.Ordinal);
+        Assert.Contains("Missing", body, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task UpdateStocktakeCountsAsync_reports_a_concurrent_change_as_a_conflict()
+    {
+        using var httpClient = CreateHttpClient((_, _) => Json(
+            HttpStatusCode.Conflict,
+            """
+            {"title":"Stocktake was modified concurrently.",
+            "detail":"The stocktake was changed by another request. Reload and try again."}
+            """));
+
+        var result = await CreateClient(httpClient).UpdateStocktakeCountsAsync(
+            Guid.NewGuid(),
+            new UpdateStocktakeCountsRequest { ExpectedConcurrencyToken = Guid.NewGuid(), Lines = [] },
+            CancellationToken.None);
+
+        Assert.True(result.Failure!.IsConflict);
+        Assert.Equal("Stocktake was modified concurrently.", result.Failure.Title);
+    }
+
+    [Fact]
+    public async Task RefreshStocktakeLinesAsync_posts_the_items_to_recount()
+    {
+        HttpRequestMessage? captured = null;
+        string? body = null;
+        using var httpClient = CreateHttpClient(async (request, token) =>
+        {
+            captured = request;
+            body = await request.Content!.ReadAsStringAsync(token);
+
+            return await Json(HttpStatusCode.OK, StocktakeDetailsJson);
+        });
+
+        await CreateClient(httpClient).RefreshStocktakeLinesAsync(
+            Guid.Parse(StocktakeId),
+            new RefreshStocktakeLinesRequest
+            {
+                ExpectedConcurrencyToken = Guid.Parse(StocktakeConcurrencyToken),
+                InventoryItemIds = [Guid.Parse(StocktakeItemId)],
+            },
+            CancellationToken.None);
+
+        Assert.Equal(HttpMethod.Post, captured!.Method);
+        Assert.Equal($"/api/maintenance/stocktakes/{StocktakeId}/refresh", captured.RequestUri!.AbsolutePath);
+        Assert.Contains(StocktakeItemId, body!, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task GetStocktakePreviewAsync_reads_the_token_lines_and_blockers()
+    {
+        HttpRequestMessage? captured = null;
+        using var httpClient = CreateHttpClient((request, _) =>
+        {
+            captured = request;
+            return Json(HttpStatusCode.OK, StocktakePreviewJson);
+        });
+
+        var result = await CreateClient(httpClient).GetStocktakePreviewAsync(
+            Guid.Parse(StocktakeId),
+            CancellationToken.None);
+
+        Assert.Equal($"/api/maintenance/stocktakes/{StocktakeId}/preview", captured!.RequestUri!.AbsolutePath);
+
+        var preview = result.Value!;
+
+        Assert.False(preview.CanPost);
+        Assert.Equal("TOKEN", preview.PreviewToken);
+        Assert.Equal(Guid.Parse(StocktakeConcurrencyToken), preview.ConcurrencyToken);
+
+        var line = Assert.Single(preview.Lines);
+
+        Assert.Equal(6m, line.OutstandingReservedQuantity);
+        Assert.True(line.BaselineIsStale);
+
+        var blocker = Assert.Single(preview.Blockers);
+
+        Assert.Equal("BelowReserved", blocker.Code);
+        Assert.Equal(Guid.Parse(StocktakeWorkOrderId), Assert.Single(blocker.ReservingWorkOrderIds));
+    }
+
+    [Fact]
+    public async Task PostStocktakeAsync_sends_the_preview_token_and_reads_the_adjustments()
+    {
+        HttpRequestMessage? captured = null;
+        string? body = null;
+        using var httpClient = CreateHttpClient(async (request, token) =>
+        {
+            captured = request;
+            body = await request.Content!.ReadAsStringAsync(token);
+
+            return await Json(HttpStatusCode.OK, PostStocktakeResultJson);
+        });
+
+        var result = await CreateClient(httpClient).PostStocktakeAsync(
+            Guid.Parse(StocktakeId),
+            new PostStocktakeRequest
+            {
+                ExpectedConcurrencyToken = Guid.Parse(StocktakeConcurrencyToken),
+                PreviewToken = "TOKEN",
+            },
+            CancellationToken.None);
+
+        Assert.Equal(HttpMethod.Post, captured!.Method);
+        Assert.Equal($"/api/maintenance/stocktakes/{StocktakeId}/post", captured.RequestUri!.AbsolutePath);
+        Assert.Contains("TOKEN", body!, StringComparison.Ordinal);
+
+        var adjustment = Assert.Single(result.Value!.Adjustments);
+
+        Assert.Equal("Posted", result.Value.Status);
+        Assert.Equal(10m, adjustment.QuantityBefore);
+        Assert.Equal(8m, adjustment.CountedQuantity);
+        Assert.Equal(-2m, adjustment.QuantityDelta);
+        Assert.Equal("Missing", adjustment.Reason);
+    }
+
+    [Fact]
+    public async Task PostStocktakeAsync_reports_a_stale_preview_as_a_conflict()
+    {
+        using var httpClient = CreateHttpClient((_, _) => Json(
+            HttpStatusCode.Conflict,
+            """
+            {"title":"Stocktake posting preview is out of date.",
+            "detail":"Inventory changed after the posting preview."}
+            """));
+
+        var result = await CreateClient(httpClient).PostStocktakeAsync(
+            Guid.NewGuid(),
+            new PostStocktakeRequest { ExpectedConcurrencyToken = Guid.NewGuid(), PreviewToken = "TOKEN" },
+            CancellationToken.None);
+
+        Assert.True(result.Failure!.IsConflict);
+        Assert.Equal("Stocktake posting preview is out of date.", result.Failure.Title);
+    }
+
+    [Fact]
+    public async Task CancelStocktakeAsync_posts_the_reason()
+    {
+        HttpRequestMessage? captured = null;
+        string? body = null;
+        using var httpClient = CreateHttpClient(async (request, token) =>
+        {
+            captured = request;
+            body = await request.Content!.ReadAsStringAsync(token);
+
+            return await Json(HttpStatusCode.OK, StocktakeDetailsJson);
+        });
+
+        await CreateClient(httpClient).CancelStocktakeAsync(
+            Guid.Parse(StocktakeId),
+            new CancelStocktakeRequest
+            {
+                ExpectedConcurrencyToken = Guid.Parse(StocktakeConcurrencyToken),
+                Reason = "Counted the wrong locker",
+            },
+            CancellationToken.None);
+
+        Assert.Equal(HttpMethod.Post, captured!.Method);
+        Assert.Equal($"/api/maintenance/stocktakes/{StocktakeId}/cancel", captured.RequestUri!.AbsolutePath);
+        Assert.Contains("Counted the wrong locker", body!, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task A_stocktake_call_surfaces_a_forbidden_response()
+    {
+        using var httpClient = CreateHttpClient((_, _) => Json(HttpStatusCode.Forbidden, "{}"));
+
+        var result = await CreateClient(httpClient).GetStocktakesAsync(
+            new StocktakeFilter(null, 1, 25),
+            CancellationToken.None);
+
+        Assert.True(result.Failure!.IsForbidden);
+    }
+
+    [Fact]
+    public async Task The_stocktake_calls_report_an_unavailable_api()
+    {
+        using var httpClient = CreateHttpClient((_, _) => throw new HttpRequestException("Connection failed."));
+        var client = CreateClient(httpClient);
+        var stocktakeId = Guid.Parse(StocktakeId);
+
+        var list = await client.GetStocktakesAsync(new StocktakeFilter(null, 1, 25), CancellationToken.None);
+        var details = await client.GetStocktakeAsync(stocktakeId, CancellationToken.None);
+        var create = await client.CreateStocktakeAsync(new CreateStocktakeRequest(), CancellationToken.None);
+        var counts = await client.UpdateStocktakeCountsAsync(
+            stocktakeId,
+            new UpdateStocktakeCountsRequest(),
+            CancellationToken.None);
+        var refresh = await client.RefreshStocktakeLinesAsync(
+            stocktakeId,
+            new RefreshStocktakeLinesRequest(),
+            CancellationToken.None);
+        var preview = await client.GetStocktakePreviewAsync(stocktakeId, CancellationToken.None);
+        var post = await client.PostStocktakeAsync(
+            stocktakeId,
+            new PostStocktakeRequest(),
+            CancellationToken.None);
+        var cancel = await client.CancelStocktakeAsync(
+            stocktakeId,
+            new CancelStocktakeRequest(),
+            CancellationToken.None);
+
+        Assert.Equal(0, list.Failure!.StatusCode);
+        Assert.Equal(0, details.Failure!.StatusCode);
+        Assert.Equal(0, create.Failure!.StatusCode);
+        Assert.Equal(0, counts.Failure!.StatusCode);
+        Assert.Equal(0, refresh.Failure!.StatusCode);
+        Assert.Equal(0, preview.Failure!.StatusCode);
+        Assert.Equal(0, post.Failure!.StatusCode);
+        Assert.Equal(0, cancel.Failure!.StatusCode);
     }
 
     private static MaintenanceApiClient CreateClient(HttpClient httpClient) => new(httpClient);

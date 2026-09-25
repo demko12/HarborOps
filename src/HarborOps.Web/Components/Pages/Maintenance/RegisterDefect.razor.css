@@ -5,10 +5,25 @@
    same tokens so navigating here from the workspace stays in the same
    visual language. */
 
-.maintenance-card {
+.register-defect-page {
     max-width: var(--page-max-width);
     margin: 0 auto;
     padding: var(--page-padding);
+}
+
+.register-defect-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 1rem;
+    margin-bottom: 1.75rem;
+}
+
+.register-defect-header h1 { margin: 0; font-size: clamp(1.75rem, 3vw, 2.25rem); letter-spacing: -.04em; }
+.register-defect-header p:last-child { margin: .4rem 0 0; color: var(--text-secondary); }
+
+.maintenance-card {
+    padding: 1.35rem;
     border: 1px solid var(--border-medium);
     border-radius: var(--radius-card);
     background: linear-gradient(145deg, var(--bg-surface-strong), var(--bg-surface));
@@ -33,6 +48,24 @@
     color: var(--text-secondary);
     font-size: .85rem;
 }
+
+.maintenance-card-icon {
+    display: grid;
+    flex: 0 0 auto;
+    width: 2rem;
+    height: 2rem;
+    place-items: center;
+    color: var(--accent);
+    border: 1px solid var(--accent-border);
+    border-radius: var(--radius-control);
+    background: var(--accent-bg);
+    font-size: .9rem;
+}
+
+.register-defect-denied { display: flex; align-items: flex-start; gap: .9rem; }
+.register-defect-denied > span { color: var(--accent); font-size: 1.2rem; }
+.register-defect-denied strong { display: block; }
+.register-defect-denied p { margin: .3rem 0 0; color: var(--text-secondary); font-size: .88rem; }
 
 /* Form */
 
@@ -301,8 +334,12 @@ html[data-theme="light"] .maintenance-toast {
 }
 
 @media (max-width: 760px) {
-    .maintenance-card {
+    .register-defect-page {
         padding: var(--page-padding-compact);
+    }
+
+    .register-defect-header {
+        flex-direction: column;
     }
 
     .maintenance-form-grid {
