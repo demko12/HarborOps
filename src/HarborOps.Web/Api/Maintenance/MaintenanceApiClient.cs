@@ -2109,4 +2109,282 @@ internal sealed class MaintenanceApiClient(HttpClient httpClient)
 
         return $"{StocktakesPath}?{string.Join('&', query)}";
     }
+
+    private const string SupplierReturnsPath = "api/maintenance/supplier-returns";
+
+    internal async Task<MaintenanceApiResult<SupplierReturnsPage>> GetSupplierReturnsAsync(
+        SupplierReturnFilter filter,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(filter);
+
+        try
+        {
+            using var response = await httpClient.GetAsync(
+                BuildSupplierReturnsPath(filter),
+                HttpCompletionOption.ResponseHeadersRead,
+                cancellationToken);
+
+            if (!response.IsSuccessStatusCode)
+            {
+                return new MaintenanceApiResult<SupplierReturnsPage>(
+                    null, await ReadFailureAsync(response, "Unable to load supplier returns", cancellationToken));
+            }
+
+            var page = await response.Content.ReadFromJsonAsync<SupplierReturnsPage>(cancellationToken);
+
+            return new MaintenanceApiResult<SupplierReturnsPage>(page, null);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (HttpRequestException)
+        {
+            return new MaintenanceApiResult<SupplierReturnsPage>(null, Unavailable());
+        }
+        catch (TaskCanceledException) when (!cancellationToken.IsCancellationRequested)
+        {
+            return new MaintenanceApiResult<SupplierReturnsPage>(null, Unavailable());
+        }
+    }
+
+    internal async Task<MaintenanceApiResult<SupplierReturnDetailsModel>> GetSupplierReturnAsync(
+        Guid supplierReturnId,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            using var response = await httpClient.GetAsync(
+                $"{SupplierReturnsPath}/{supplierReturnId}",
+                HttpCompletionOption.ResponseHeadersRead,
+                cancellationToken);
+
+            if (!response.IsSuccessStatusCode)
+            {
+                return new MaintenanceApiResult<SupplierReturnDetailsModel>(
+                    null, await ReadFailureAsync(response, "Unable to load the supplier return", cancellationToken));
+            }
+
+            var details = await response.Content.ReadFromJsonAsync<SupplierReturnDetailsModel>(cancellationToken);
+
+            return new MaintenanceApiResult<SupplierReturnDetailsModel>(details, null);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (HttpRequestException)
+        {
+            return new MaintenanceApiResult<SupplierReturnDetailsModel>(null, Unavailable());
+        }
+        catch (TaskCanceledException) when (!cancellationToken.IsCancellationRequested)
+        {
+            return new MaintenanceApiResult<SupplierReturnDetailsModel>(null, Unavailable());
+        }
+    }
+
+    internal async Task<MaintenanceApiResult<SupplierReturnDetailsModel>> CreateSupplierReturnAsync(
+        CreateSupplierReturnRequest request,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+
+        try
+        {
+            using var response = await httpClient.PostAsJsonAsync(SupplierReturnsPath, request, cancellationToken);
+
+            if (response.StatusCode != HttpStatusCode.Created)
+            {
+                return new MaintenanceApiResult<SupplierReturnDetailsModel>(
+                    null, await ReadFailureAsync(response, "Unable to create the supplier return", cancellationToken));
+            }
+
+            var details = await response.Content.ReadFromJsonAsync<SupplierReturnDetailsModel>(cancellationToken);
+
+            return new MaintenanceApiResult<SupplierReturnDetailsModel>(details, null);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (HttpRequestException)
+        {
+            return new MaintenanceApiResult<SupplierReturnDetailsModel>(null, Unavailable());
+        }
+        catch (TaskCanceledException) when (!cancellationToken.IsCancellationRequested)
+        {
+            return new MaintenanceApiResult<SupplierReturnDetailsModel>(null, Unavailable());
+        }
+    }
+
+    internal async Task<MaintenanceApiResult<SupplierReturnDetailsModel>> UpdateSupplierReturnAsync(
+        Guid supplierReturnId,
+        UpdateSupplierReturnRequest request,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+
+        try
+        {
+            using var response = await httpClient.PutAsJsonAsync(
+                $"{SupplierReturnsPath}/{supplierReturnId}",
+                request,
+                cancellationToken);
+
+            if (!response.IsSuccessStatusCode)
+            {
+                return new MaintenanceApiResult<SupplierReturnDetailsModel>(
+                    null, await ReadFailureAsync(response, "Unable to save the supplier return", cancellationToken));
+            }
+
+            var details = await response.Content.ReadFromJsonAsync<SupplierReturnDetailsModel>(cancellationToken);
+
+            return new MaintenanceApiResult<SupplierReturnDetailsModel>(details, null);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (HttpRequestException)
+        {
+            return new MaintenanceApiResult<SupplierReturnDetailsModel>(null, Unavailable());
+        }
+        catch (TaskCanceledException) when (!cancellationToken.IsCancellationRequested)
+        {
+            return new MaintenanceApiResult<SupplierReturnDetailsModel>(null, Unavailable());
+        }
+    }
+
+    internal async Task<MaintenanceApiResult<SupplierReturnPostingPreviewModel>> GetSupplierReturnPreviewAsync(
+        Guid supplierReturnId,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            using var response = await httpClient.GetAsync(
+                $"{SupplierReturnsPath}/{supplierReturnId}/preview",
+                HttpCompletionOption.ResponseHeadersRead,
+                cancellationToken);
+
+            if (!response.IsSuccessStatusCode)
+            {
+                return new MaintenanceApiResult<SupplierReturnPostingPreviewModel>(
+                    null, await ReadFailureAsync(response, "Unable to load the posting preview", cancellationToken));
+            }
+
+            var preview = await response.Content.ReadFromJsonAsync<SupplierReturnPostingPreviewModel>(cancellationToken);
+
+            return new MaintenanceApiResult<SupplierReturnPostingPreviewModel>(preview, null);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (HttpRequestException)
+        {
+            return new MaintenanceApiResult<SupplierReturnPostingPreviewModel>(null, Unavailable());
+        }
+        catch (TaskCanceledException) when (!cancellationToken.IsCancellationRequested)
+        {
+            return new MaintenanceApiResult<SupplierReturnPostingPreviewModel>(null, Unavailable());
+        }
+    }
+
+    internal async Task<MaintenanceApiResult<PostSupplierReturnResult>> PostSupplierReturnAsync(
+        Guid supplierReturnId,
+        PostSupplierReturnRequest request,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+
+        try
+        {
+            using var response = await httpClient.PostAsJsonAsync(
+                $"{SupplierReturnsPath}/{supplierReturnId}/post",
+                request,
+                cancellationToken);
+
+            if (!response.IsSuccessStatusCode)
+            {
+                return new MaintenanceApiResult<PostSupplierReturnResult>(
+                    null, await ReadFailureAsync(response, "Unable to post the supplier return", cancellationToken));
+            }
+
+            var result = await response.Content.ReadFromJsonAsync<PostSupplierReturnResult>(cancellationToken);
+
+            return new MaintenanceApiResult<PostSupplierReturnResult>(result, null);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (HttpRequestException)
+        {
+            return new MaintenanceApiResult<PostSupplierReturnResult>(null, Unavailable());
+        }
+        catch (TaskCanceledException) when (!cancellationToken.IsCancellationRequested)
+        {
+            return new MaintenanceApiResult<PostSupplierReturnResult>(null, Unavailable());
+        }
+    }
+
+    internal async Task<MaintenanceApiResult<SupplierReturnDetailsModel>> CancelSupplierReturnAsync(
+        Guid supplierReturnId,
+        CancelSupplierReturnRequest request,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+
+        try
+        {
+            using var response = await httpClient.PostAsJsonAsync(
+                $"{SupplierReturnsPath}/{supplierReturnId}/cancel",
+                request,
+                cancellationToken);
+
+            if (!response.IsSuccessStatusCode)
+            {
+                return new MaintenanceApiResult<SupplierReturnDetailsModel>(
+                    null, await ReadFailureAsync(response, "Unable to cancel the supplier return", cancellationToken));
+            }
+
+            var details = await response.Content.ReadFromJsonAsync<SupplierReturnDetailsModel>(cancellationToken);
+
+            return new MaintenanceApiResult<SupplierReturnDetailsModel>(details, null);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (HttpRequestException)
+        {
+            return new MaintenanceApiResult<SupplierReturnDetailsModel>(null, Unavailable());
+        }
+        catch (TaskCanceledException) when (!cancellationToken.IsCancellationRequested)
+        {
+            return new MaintenanceApiResult<SupplierReturnDetailsModel>(null, Unavailable());
+        }
+    }
+
+    private static string BuildSupplierReturnsPath(SupplierReturnFilter filter)
+    {
+        var query = new List<string>
+        {
+            $"pageNumber={filter.PageNumber.ToString(CultureInfo.InvariantCulture)}",
+            $"pageSize={filter.PageSize.ToString(CultureInfo.InvariantCulture)}",
+        };
+
+        if (!string.IsNullOrWhiteSpace(filter.Status))
+        {
+            query.Add($"status={Uri.EscapeDataString(filter.Status)}");
+        }
+
+        if (filter.PurchaseOrderId is { } purchaseOrderId)
+        {
+            query.Add($"purchaseOrderId={purchaseOrderId}");
+        }
+
+        return $"{SupplierReturnsPath}?{string.Join('&', query)}";
+    }
 }

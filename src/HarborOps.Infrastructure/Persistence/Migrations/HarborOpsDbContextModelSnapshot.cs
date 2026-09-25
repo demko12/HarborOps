@@ -2884,7 +2884,8 @@ namespace HarborOps.Infrastructure.Persistence.Migrations
                         .HasColumnType("uniqueidentifier");
 
                     b.Property<decimal>("QuantityAfter")
-                        .HasColumnType("decimal(18,3)");
+                        .HasColumnType("decimal(18,3)")
+                        .HasColumnName("CountedQuantity");
 
                     b.Property<decimal>("QuantityBefore")
                         .HasColumnType("decimal(18,3)");

@@ -1,0 +1,226 @@
+@using HarborOps.Web.Api.Maintenance
+@using HarborOps.Web.Components.Shared
+@implements IDisposable
+@inject MaintenanceApiClient MaintenanceApi
+@inject CurrentUserAuthorizationState AuthorizationState
+
+<div class="supplier-return-panel maintenance-tabpanel" role="tabpanel">
+	@if (editorTarget is { } target)
+	{
+		<SupplierReturnEditor SupplierReturnId="target.SupplierReturnId"
+							  PurchaseOrderId="target.PurchaseOrderId"
+							  OnClosed="CloseEditorAsync" />
+	}
+	else
+	{
+		<section class="maintenance-summary" aria-label="Supplier return summary">
+			<article class="maintenance-summary-card">
+				<div>
+					<span>Supplier returns</span>
+					<strong>@totalCount</strong>
+					<small>Matching the current filter</small>
+				</div>
+				<span class="summary-icon summary-icon-blue" aria-hidden="true"><span class="bi bi-box-arrow-left"></span></span>
+			</article>
+			<article class="maintenance-summary-card">
+				<div>
+					<span>Open drafts</span>
+					<strong>@DraftCount</strong>
+					<small>Not posted yet on this page</small>
+				</div>
+				<span class="summary-icon summary-icon-amber" aria-hidden="true"><span class="bi bi-pencil-square"></span></span>
+			</article>
+			<article class="maintenance-summary-card">
+				<div>
+					<span>Returned quantity</span>
+					<strong>@MaintenanceFormat.Quantity(PostedQuantity)</strong>
+					<small>Posted returns on this page</small>
+				</div>
+				<span class="summary-icon summary-icon-red" aria-hidden="true"><span class="bi bi-truck"></span></span>
+			</article>
+		</section>
+
+		<section class="maintenance-filters" aria-label="Supplier return filters">
+			<div class="filter-field">
+				<label for="supplier-return-status">Status</label>
+				<select id="supplier-return-status" @bind="statusFilter" @bind:after="ApplyFiltersAsync">
+					<option value="">All</option>
+					<option value="Draft">Draft</option>
+					<option value="Posted">Posted</option>
+					<option value="Cancelled">Cancelled</option>
+				</select>
+			</div>
+			<div class="filter-field">
+				<label for="supplier-return-page-size">Per page</label>
+				<select id="supplier-return-page-size" @bind="pageSize" @bind:after="ApplyFiltersAsync">
+					<option value="25">25</option>
+					<option value="50">50</option>
+					<option value="100">100</option>
+				</select>
+			</div>
+			@if (purchaseOrderFilter is { } filteredOrderId)
+			{
+				<span class="stocktake-chip supplier-return-order-filter">
+					@MaintenanceFormat.PurchaseOrderReference(filteredOrderId)
+					<button type="button" aria-label="Show returns for every purchase order" @onclick="ShowAllOrdersAsync">&times;</button>
+				</span>
+			}
+			<button class="maintenance-reset" type="button" @onclick="RetryAsync" disabled="@isLoading">Refresh</button>
+			@if (CanManage)
+			{
+				<button class="maintenance-button supplier-return-new" type="button" @onclick="NewReturnAsync">
+					@(purchaseOrderFilter is not null
+						? "New return for this order"
+						: isOrderPickerOpen ? "Close" : "New return")
+				</button>
+			}
+		</section>
+
+		@if (isOrderPickerOpen && CanManage && purchaseOrderFilter is null)
+		{
+			<section class="maintenance-card supplier-return-order-picker" aria-labelledby="supplier-return-picker-title">
+				<div class="maintenance-card-heading">
+					<div>
+						<h2 id="supplier-return-picker-title">Pick a received purchase order</h2>
+						<p>A return always goes back to the supplier of the order it came from.</p>
+					</div>
+					<span class="maintenance-card-icon" aria-hidden="true"><span class="bi bi-receipt"></span></span>
+				</div>
+
+				@if (isOrdersLoading)
+				{
+					<LoadingState Message="Loading received purchase orders..." />
+				}
+				else if (ordersFailure is not null)
+				{
+					<ApiErrorState Title="@ordersFailure.Title" Message="@ordersFailure.Message" OnRetry="LoadOrdersAsync" />
+				}
+				else if (orderOptions.Count == 0)
+				{
+					<EmptyState Title="No received purchase orders"
+								Message="Only parts from a received purchase order can be returned to the supplier." />
+				}
+				else
+				{
+					<div class="maintenance-table-scroll">
+						<table class="maintenance-table">
+							<caption class="visually-hidden">Received purchase orders</caption>
+							<thead>
+								<tr>
+									<th scope="col">Order</th>
+									<th scope="col">Supplier</th>
+									<th scope="col">Ordered</th>
+									<th scope="col" class="numeric">Lines</th>
+									<th scope="col"><span class="visually-hidden">Actions</span></th>
+								</tr>
+							</thead>
+							<tbody>
+								@foreach (var order in orderOptions)
+								{
+									<tr @key="order.PurchaseOrderId">
+										<td>@MaintenanceFormat.PurchaseOrderReference(order.PurchaseOrderId)</td>
+										<td>@order.SupplierName</td>
+										<td class="maintenance-muted">@ProcurementFormat.OrderDate(order.OrderDate)</td>
+										<td class="numeric">@order.LineCount</td>
+										<td>
+											<button type="button" class="maintenance-button" @onclick="() => StartReturn(order.PurchaseOrderId)">
+												Start return
+											</button>
+										</td>
+									</tr>
+								}
+							</tbody>
+						</table>
+					</div>
+
+					<div class="maintenance-pagination">
+						<span>Page @orderPageNumber of @TotalOrderPages</span>
+						<div class="maintenance-pages">
+							<button type="button" @onclick="PreviousOrderPageAsync" disabled="@(orderPageNumber <= 1)">Previous</button>
+							<button type="button" @onclick="NextOrderPageAsync" disabled="@(orderPageNumber >= TotalOrderPages)">Next</button>
+						</div>
+					</div>
+				}
+			</section>
+		}
+
+		<section class="maintenance-card" aria-labelledby="supplier-return-list-title">
+			<div class="maintenance-card-heading">
+				<div>
+					<h2 id="supplier-return-list-title">Supplier returns</h2>
+					<p>@totalCount records, newest first</p>
+				</div>
+				<span class="maintenance-card-icon" aria-hidden="true"><span class="bi bi-box-arrow-left"></span></span>
+			</div>
+
+			@if (isLoading)
+			{
+				<LoadingState Message="Loading supplier returns..." />
+			}
+			else if (failure is { IsForbidden: true })
+			{
+				<EmptyState Title="You cannot view supplier returns"
+							Message="Your account does not carry a maintenance permission. Ask an administrator for access." />
+			}
+			else if (failure is not null)
+			{
+				<ApiErrorState Title="@failure.Title" Message="@failure.Message" OnRetry="RetryAsync" />
+			}
+			else if (rows.Count == 0)
+			{
+				<EmptyState Title="No supplier returns yet"
+							Message="Start a return from a received purchase order to send parts back to the supplier." />
+			}
+			else
+			{
+				<div class="maintenance-table-scroll">
+					<table class="maintenance-table supplier-return-table">
+						<caption class="visually-hidden">Supplier returns, newest first</caption>
+						<thead>
+							<tr>
+								<th scope="col">Created</th>
+								<th scope="col">Order</th>
+								<th scope="col">Supplier</th>
+								<th scope="col">Status</th>
+								<th scope="col" class="numeric">Lines</th>
+								<th scope="col" class="numeric">Quantity</th>
+								<th scope="col">Closed</th>
+								<th scope="col"><span class="visually-hidden">Actions</span></th>
+							</tr>
+						</thead>
+						<tbody>
+							@foreach (var row in rows)
+							{
+								<tr @key="row.SupplierReturnId">
+									<td>@MaintenanceFormat.CreatedUtc(row.CreatedUtc)</td>
+									<td>@MaintenanceFormat.PurchaseOrderReference(row.PurchaseOrderId)</td>
+									<td>@row.SupplierName</td>
+									<td>
+										<span class="stocktake-status @MaintenanceFormat.StocktakeStatusModifier(row.Status)">@row.Status</span>
+									</td>
+									<td class="numeric">@row.LineCount</td>
+									<td class="numeric">@MaintenanceFormat.Quantity(row.TotalQuantity)</td>
+									<td class="maintenance-muted">@ClosedAt(row)</td>
+									<td>
+										<button type="button" class="maintenance-button" @onclick="() => OpenReturn(row)">
+											@(CanManage && string.Equals(row.Status, MaintenanceFormat.DraftSupplierReturn, StringComparison.Ordinal) ? "Edit" : "View")
+										</button>
+									</td>
+								</tr>
+							}
+						</tbody>
+					</table>
+				</div>
+
+				<div class="maintenance-pagination">
+					<span>Showing @FirstRowNumber&ndash;@LastRowNumber of @totalCount returns</span>
+					<div class="maintenance-pages">
+						<button type="button" @onclick="PreviousPageAsync" disabled="@(pageNumber <= 1)">Previous</button>
+						<span class="maintenance-page-indicator">Page @pageNumber of @TotalPages</span>
+						<button type="button" @onclick="NextPageAsync" disabled="@(pageNumber >= TotalPages)">Next</button>
+					</div>
+				</div>
+			}
+		</section>
+	}
+</div>

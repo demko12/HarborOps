@@ -96,6 +96,26 @@ public sealed class MaintenanceFormatTests
     }
 
     [Theory]
+    [InlineData("PurchaseOrderNotReceived", "Order not received")]
+    [InlineData("NoLines", "No lines")]
+    [InlineData("ExceedsReturnable", "Above returnable")]
+    [InlineData("InsufficientStock", "Not enough stock")]
+    [InlineData("ReservedStock", "Reserved for maintenance")]
+    [InlineData("SomethingNew", "SomethingNew")]
+    public void Supplier_return_blockers_have_readable_labels(string code, string expected)
+    {
+        Assert.Equal(expected, MaintenanceFormat.SupplierReturnBlockerLabel(code));
+    }
+
+    [Fact]
+    public void A_purchase_order_is_referenced_by_its_short_id()
+    {
+        Assert.Equal(
+            "PO 94c1276c",
+            MaintenanceFormat.PurchaseOrderReference(Guid.Parse("94c1276c-5459-4d14-adc4-e74a6ee251f4")));
+    }
+
+    [Theory]
     [InlineData("through", "Through date")]
     [InlineData("from", "From")]
     [InlineData("to", "To")]

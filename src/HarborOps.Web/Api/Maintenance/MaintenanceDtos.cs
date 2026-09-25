@@ -868,3 +868,151 @@ internal sealed record CancelStocktakeRequest
 
     public string? Reason { get; init; }
 }
+
+internal sealed record SupplierReturnSummary(
+    Guid SupplierReturnId,
+    Guid PurchaseOrderId,
+    Guid SupplierId,
+    string SupplierName,
+    string Status,
+    int LineCount,
+    decimal TotalQuantity,
+    Guid CreatedByUserId,
+    DateTime CreatedUtc,
+    DateTime? PostedUtc,
+    DateTime? CancelledUtc,
+    Guid ConcurrencyToken);
+
+internal sealed record SupplierReturnsPage(
+    IReadOnlyList<SupplierReturnSummary> Items,
+    int PageNumber,
+    int PageSize,
+    int TotalCount);
+
+internal sealed record SupplierReturnFilter(string? Status, Guid? PurchaseOrderId, int PageNumber, int PageSize);
+
+internal sealed record SupplierReturnDetailsModel(
+    Guid SupplierReturnId,
+    Guid PurchaseOrderId,
+    string PurchaseOrderStatus,
+    Guid SupplierId,
+    string SupplierName,
+    string Status,
+    string? Notes,
+    Guid ConcurrencyToken,
+    Guid CreatedByUserId,
+    DateTime CreatedUtc,
+    Guid? LastModifiedByUserId,
+    DateTime? LastModifiedUtc,
+    Guid? PostedByUserId,
+    DateTime? PostedUtc,
+    Guid? CancelledByUserId,
+    DateTime? CancelledUtc,
+    string? CancellationReason,
+    IReadOnlyList<SupplierReturnLineRow> Lines,
+    IReadOnlyList<SupplierReturnPostingBlockerRow> Blockers,
+    IReadOnlyList<SupplierReturnMovementRow> Movements);
+
+internal sealed record SupplierReturnLineRow(
+    Guid SupplierReturnLineId,
+    Guid PurchaseOrderLineId,
+    Guid InventoryItemId,
+    string Name,
+    string PartNumber,
+    string UnitAbbreviation,
+    decimal ReceivedQuantity,
+    decimal PreviouslyReturnedQuantity,
+    decimal RemainingReturnableQuantity,
+    decimal OnHandQuantity,
+    decimal ReservedQuantity,
+    decimal Quantity,
+    string Reason);
+
+internal sealed record SupplierReturnMovementRow(
+    Guid MovementId,
+    Guid InventoryItemId,
+    Guid SupplierReturnId,
+    Guid SupplierReturnLineId,
+    decimal QuantityBefore,
+    decimal QuantityAfter,
+    decimal QuantityDelta,
+    string Reason,
+    Guid ActorUserId,
+    DateTime MovedUtc);
+
+internal sealed record SupplierReturnPostingBlockerRow(
+    Guid? PurchaseOrderLineId,
+    Guid? InventoryItemId,
+    string Code,
+    string Message,
+    IReadOnlyList<Guid> ReservingWorkOrderIds);
+
+internal sealed record SupplierReturnPreviewItemRow(
+    Guid InventoryItemId,
+    string Name,
+    string PartNumber,
+    decimal OnHandQuantity,
+    decimal ReservedQuantity,
+    decimal AvailableQuantity,
+    decimal ReturnQuantity,
+    decimal QuantityAfter);
+
+internal sealed record SupplierReturnPostingPreviewModel(
+    Guid SupplierReturnId,
+    Guid ConcurrencyToken,
+    string PreviewToken,
+    bool CanPost,
+    IReadOnlyList<SupplierReturnLineRow> Lines,
+    IReadOnlyList<SupplierReturnPreviewItemRow> Items,
+    IReadOnlyList<SupplierReturnPostingBlockerRow> Blockers,
+    DateTime GeneratedUtc);
+
+internal sealed record PostSupplierReturnResult(
+    Guid SupplierReturnId,
+    string Status,
+    Guid ConcurrencyToken,
+    Guid PostedByUserId,
+    DateTime PostedUtc,
+    bool AlreadyPosted,
+    IReadOnlyList<SupplierReturnMovementRow> Movements);
+
+internal sealed record SupplierReturnLineEntry
+{
+    public Guid? PurchaseOrderLineId { get; init; }
+
+    public decimal? Quantity { get; init; }
+
+    public string? Reason { get; init; }
+}
+
+internal sealed record CreateSupplierReturnRequest
+{
+    public Guid? PurchaseOrderId { get; init; }
+
+    public string? Notes { get; init; }
+
+    public IReadOnlyList<SupplierReturnLineEntry>? Lines { get; init; }
+}
+
+internal sealed record UpdateSupplierReturnRequest
+{
+    public Guid? ExpectedConcurrencyToken { get; init; }
+
+    public string? Notes { get; init; }
+
+    public IReadOnlyList<SupplierReturnLineEntry>? Lines { get; init; }
+}
+
+internal sealed record PostSupplierReturnRequest
+{
+    public Guid? ExpectedConcurrencyToken { get; init; }
+
+    public string? PreviewToken { get; init; }
+}
+
+internal sealed record CancelSupplierReturnRequest
+{
+    public Guid? ExpectedConcurrencyToken { get; init; }
+
+    public string? Reason { get; init; }
+}

@@ -19,7 +19,9 @@ internal sealed class InventoryAdjustmentConfiguration : IEntityTypeConfiguratio
             .HasColumnType("decimal(18,3)")
             .IsRequired();
 
+        // The column keeps its stocktake-era name so existing history and deployed code stay compatible.
         builder.Property(adjustment => adjustment.QuantityAfter)
+            .HasColumnName("CountedQuantity")
             .HasColumnType("decimal(18,3)")
             .IsRequired();
 

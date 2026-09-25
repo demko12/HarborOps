@@ -25,6 +25,14 @@ internal static class MaintenanceFormat
     internal const string MissingReasonBlocker = "MissingReason";
     internal const string StaleBaselineBlocker = "StaleBaseline";
     internal const string BelowReservedBlocker = "BelowReserved";
+    internal const string DraftSupplierReturn = "Draft";
+    internal const string PostedSupplierReturn = "Posted";
+    internal const string ReceivedPurchaseOrder = "Received";
+    internal const string PurchaseOrderNotReceivedBlocker = "PurchaseOrderNotReceived";
+    internal const string NoLinesBlocker = "NoLines";
+    internal const string ExceedsReturnableBlocker = "ExceedsReturnable";
+    internal const string InsufficientStockBlocker = "InsufficientStock";
+    internal const string ReservedStockBlocker = "ReservedStock";
 
     internal static readonly IReadOnlyList<string> Statuses =
         [OpenStatus, InProgressStatus, CompletedStatus, CanceledStatus];
@@ -423,5 +431,23 @@ internal static class MaintenanceFormat
         return value is { } counted
             ? counted.ToString("yyyy-MM-dd HH:mm", CultureInfo.InvariantCulture)
             : MissingValue;
+    }
+
+    internal static string SupplierReturnBlockerLabel(string code)
+    {
+        return code switch
+        {
+            PurchaseOrderNotReceivedBlocker => "Order not received",
+            NoLinesBlocker => "No lines",
+            ExceedsReturnableBlocker => "Above returnable",
+            InsufficientStockBlocker => "Not enough stock",
+            ReservedStockBlocker => "Reserved for maintenance",
+            _ => code,
+        };
+    }
+
+    internal static string PurchaseOrderReference(Guid purchaseOrderId)
+    {
+        return $"PO {ShortId(purchaseOrderId)}";
     }
 }

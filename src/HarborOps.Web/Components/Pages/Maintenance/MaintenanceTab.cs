@@ -11,5 +11,6 @@ internal enum MaintenanceTab
     Suppliers,
     Replenishment,
     Stocktakes,
+    SupplierReturns,
     Defects,
 }

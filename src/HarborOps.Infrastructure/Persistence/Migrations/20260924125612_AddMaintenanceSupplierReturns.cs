@@ -16,12 +16,6 @@ namespace HarborOps.Infrastructure.Persistence.Migrations
                 schema: "maintenance",
                 table: "InventoryAdjustments");
 
-            migrationBuilder.RenameColumn(
-                name: "CountedQuantity",
-                schema: "maintenance",
-                table: "InventoryAdjustments",
-                newName: "QuantityAfter");
-
             migrationBuilder.AlterColumn<Guid>(
                 name: "StocktakeId",
                 schema: "maintenance",
@@ -258,12 +252,6 @@ namespace HarborOps.Infrastructure.Persistence.Migrations
                 name: "SupplierReturnLineId",
                 schema: "maintenance",
                 table: "InventoryAdjustments");
-
-            migrationBuilder.RenameColumn(
-                name: "QuantityAfter",
-                schema: "maintenance",
-                table: "InventoryAdjustments",
-                newName: "CountedQuantity");
 
             migrationBuilder.AlterColumn<Guid>(
                 name: "StocktakeId",

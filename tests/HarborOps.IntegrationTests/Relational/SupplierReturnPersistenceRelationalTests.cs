@@ -69,8 +69,10 @@ public sealed class SupplierReturnPersistenceRelationalTests : IAsyncLifetime
         Assert.Contains("SupplierReturnId:YES", columns);
         Assert.Contains("SupplierReturnLineId:YES", columns);
         Assert.Contains("QuantityBefore:NO", columns);
-        Assert.Contains("QuantityAfter:NO", columns);
-        Assert.DoesNotContain(columns, column => column.StartsWith("CountedQuantity:", StringComparison.Ordinal));
+
+        // The after quantity keeps the stocktake-era column name so deployed code stays compatible.
+        Assert.Contains("CountedQuantity:NO", columns);
+        Assert.DoesNotContain(columns, column => column.StartsWith("QuantityAfter:", StringComparison.Ordinal));
     }
 
     [RelationalFact]

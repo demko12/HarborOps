@@ -542,6 +542,71 @@ public sealed class MaintenancePurchaseOrdersPanelTests : BunitContext
             .QuerySelector(".col-line-cost input")!.Change(unitCost);
     }
 
+    [Fact]
+    public void A_received_order_opens_its_supplier_returns()
+    {
+        Guid? requestedOrderId = null;
+        respond = request => request.RequestUri!.AbsolutePath == $"{OrdersPath}/{OrderId}"
+            ? Json(HttpStatusCode.OK, OrderDetails(status: "Received", transitions: ""))
+            : Default(request);
+
+        var panel = RenderPanel(parameters => parameters.Add(
+            component => component.OnReturnsRequested,
+            (Guid orderId) => requestedOrderId = orderId));
+
+        panel.Find(".procurement-details").Click();
+        panel.WaitForAssertion(() => Assert.NotEmpty(panel.FindAll(".procurement-returns")));
+
+        panel.Find(".procurement-returns").Click();
+
+        Assert.Equal(Guid.Parse(OrderId), requestedOrderId);
+        Assert.Empty(panel.FindAll(".procurement-details-card"));
+    }
+
+    [Fact]
+    public void An_order_that_was_not_received_offers_no_supplier_returns()
+    {
+        var panel = RenderPanel(parameters => parameters.Add(
+            component => component.OnReturnsRequested,
+            (Guid _) => { }));
+
+        panel.Find(".procurement-details").Click();
+
+        panel.WaitForAssertion(() =>
+        {
+            Assert.NotNull(panel.Find(".procurement-details-card .procurement-line-table"));
+            Assert.Empty(panel.FindAll(".procurement-returns"));
+        });
+    }
+
+    [Fact]
+    public void Supplier_returns_are_offered_to_readers_too()
+    {
+        respond = request => request.RequestUri!.AbsolutePath == $"{OrdersPath}/{OrderId}"
+            ? Json(HttpStatusCode.OK, OrderDetails(status: "Received", transitions: ""))
+            : Default(request);
+
+        var panel = RenderPanel(
+            parameters => parameters.Add(component => component.OnReturnsRequested, (Guid _) => { }),
+            "maintenance.read");
+
+        panel.Find(".procurement-details").Click();
+
+        panel.WaitForAssertion(() => Assert.NotEmpty(panel.FindAll(".procurement-returns")));
+    }
+
+    private IRenderedComponent<PurchaseOrdersPanel> RenderPanel(
+        Action<ComponentParameterCollectionBuilder<PurchaseOrdersPanel>> parameterBuilder,
+        params string[] permissions)
+    {
+        var panel = RenderPanelWithoutWaiting(parameterBuilder, permissions);
+
+        panel.WaitForAssertion(() => Assert.Contains(requestedUris, uri => uri.AbsolutePath == OrdersPath));
+        panel.WaitForAssertion(() => Assert.NotEmpty(panel.FindAll(".procurement-panel")));
+
+        return panel;
+    }
+
     private IRenderedComponent<PurchaseOrdersPanel> RenderPanel(params string[] permissions)
     {
         var panel = RenderPanelWithoutWaiting(permissions);
@@ -553,6 +618,13 @@ public sealed class MaintenancePurchaseOrdersPanelTests : BunitContext
     }
 
     private IRenderedComponent<PurchaseOrdersPanel> RenderPanelWithoutWaiting(params string[] permissions)
+    {
+        return RenderPanelWithoutWaiting(_ => { }, permissions);
+    }
+
+    private IRenderedComponent<PurchaseOrdersPanel> RenderPanelWithoutWaiting(
+        Action<ComponentParameterCollectionBuilder<PurchaseOrdersPanel>> parameterBuilder,
+        params string[] permissions)
     {
         var httpClient = new HttpClient(new StubHttpMessageHandler(async (request, token) =>
         {
@@ -575,7 +647,7 @@ public sealed class MaintenancePurchaseOrdersPanelTests : BunitContext
         Services.AddSingleton(CreateAuthorizationState(
             permissions.Length == 0 ? ["maintenance.manage"] : permissions));
 
-        return Render<PurchaseOrdersPanel>();
+        return Render<PurchaseOrdersPanel>(parameterBuilder);
     }
 
     private static Task<HttpResponseMessage> Default(HttpRequestMessage request)

@@ -69,9 +69,12 @@ public partial class Maintenance
 
     private ReplenishmentOrderIntent? purchaseOrderSeed;
 
+    private Guid? supplierReturnsPurchaseOrderId;
+
     private void SelectTab(MaintenanceTab tab)
     {
         purchaseOrderSeed = null;
+        supplierReturnsPurchaseOrderId = null;
         activeTab = tab;
     }
 
@@ -79,6 +82,14 @@ public partial class Maintenance
     {
         purchaseOrderSeed = intent;
         activeTab = MaintenanceTab.PurchaseOrders;
+
+        return Task.CompletedTask;
+    }
+
+    private Task OpenSupplierReturnsAsync(Guid purchaseOrderId)
+    {
+        supplierReturnsPurchaseOrderId = purchaseOrderId;
+        activeTab = MaintenanceTab.SupplierReturns;
 
         return Task.CompletedTask;
     }
@@ -107,6 +118,7 @@ public partial class Maintenance
             "preventive-work" => MaintenanceTab.PreventiveWork,
             "replenishment" => MaintenanceTab.Replenishment,
             "stocktakes" => MaintenanceTab.Stocktakes,
+            "supplier-returns" => MaintenanceTab.SupplierReturns,
             "purchase-orders" => MaintenanceTab.PurchaseOrders,
             "suppliers" => MaintenanceTab.Suppliers,
             "defects" => MaintenanceTab.Defects,
