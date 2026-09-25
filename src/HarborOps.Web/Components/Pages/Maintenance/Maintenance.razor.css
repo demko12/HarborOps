@@ -7,6 +7,12 @@
     padding: var(--page-padding);
 }
 
+html:not([data-theme="light"]) .maintenance-page {
+    --accent: #d98a93;
+    --accent-bg: rgba(217, 138, 147, .1);
+    --accent-border: rgba(217, 138, 147, .24);
+}
+
 /* Header */
 
 .maintenance-header {
@@ -2444,6 +2450,64 @@ html[data-theme="light"] .maintenance-page ::deep .dry-dock-timing.overdue {
     padding: .5rem .45rem;
 }
 
+.maintenance-page ::deep .procurement-form .procurement-line-editor {
+    border-color: var(--border-subtle);
+    background: transparent;
+}
+
+.maintenance-page ::deep .maintenance-form-card .procurement-line-table {
+    min-width: 0;
+    border-collapse: collapse;
+    border-spacing: 0;
+}
+
+.maintenance-page ::deep .procurement-form .procurement-line-table .col-line-item {
+    width: 42%;
+}
+
+.maintenance-page ::deep .procurement-form .procurement-line-table .col-line-quantity,
+.maintenance-page ::deep .procurement-form .procurement-line-table .col-line-cost {
+    width: 15%;
+}
+
+.maintenance-page ::deep .procurement-form .procurement-line-table .col-line-total {
+    width: 15%;
+}
+
+.maintenance-page ::deep .procurement-form .procurement-line-table .col-actions {
+    width: 13%;
+}
+
+.maintenance-page ::deep .procurement-details-card .procurement-line-table .col-line-item {
+    width: 34%;
+}
+
+.maintenance-page ::deep .procurement-details-card .procurement-line-table .col-line-part {
+    width: 18%;
+}
+
+.maintenance-page ::deep .procurement-details-card .procurement-line-table .col-line-quantity {
+    width: 14%;
+}
+
+.maintenance-page ::deep .procurement-details-card .procurement-line-table .col-line-cost,
+.maintenance-page ::deep .procurement-details-card .procurement-line-table .col-line-total {
+    width: 17%;
+}
+
+.maintenance-page ::deep .maintenance-form-card .procurement-line-table tr td,
+.maintenance-page ::deep .maintenance-form-card .procurement-line-table tr:hover td,
+.maintenance-page ::deep .maintenance-form-card .procurement-line-table tr:focus-within td {
+    padding: .5rem .45rem;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+}
+
+.maintenance-page ::deep .maintenance-form-card .procurement-line-table tbody tr td {
+    border-bottom: 1px solid var(--border-subtle);
+}
+
 .maintenance-page ::deep .procurement-line-table td .maintenance-inline-error {
     display: block;
     margin-top: .3rem;
@@ -2997,7 +3061,7 @@ html[data-theme="light"] .maintenance-page ::deep .preventive-state.completed {
 .maintenance-page ::deep .maintenance-table tbody tr:focus-within td { background: color-mix(in srgb, var(--accent) 10%, var(--bg-surface-strong)); box-shadow: none; }
 .maintenance-page ::deep .maintenance-table tbody tr:hover td:first-child { border-left-color: var(--accent); }
 .maintenance-page ::deep .maintenance-table .maintenance-overdue-row td:first-child,
-.maintenance-page ::deep .maintenance-table .maintenance-critical-row td:first-child { border-left-color: #e05260; }
+.maintenance-page ::deep .maintenance-table .maintenance-critical-row td:first-child { border-left-color: var(--accent); }
 .maintenance-row-icon { display: inline-grid; vertical-align: middle; place-items: center; width: 1.8rem; height: 1.8rem; margin-right: .5rem; border-radius: .5rem; color: var(--accent); background: var(--accent-bg); }
 .maintenance-critical-row .maintenance-row-icon { color: #fff; background: #b42335; }
 .maintenance-page ::deep .maintenance-title { white-space: normal; min-width: 0; overflow-wrap: anywhere; }

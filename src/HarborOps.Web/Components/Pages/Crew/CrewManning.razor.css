@@ -272,3 +272,8 @@ html[data-theme="light"] .filter-field input { color-scheme: light; }
     .crew-profile-form-grid { grid-template-columns: 1fr; }
     .crew-profile-form-field-wide, .crew-profile-form-submit { grid-column: auto; }
 }
+
+.crew-manning-page { max-width: 1600px; margin: 0 auto; padding: 1.5rem 1rem 3rem; }
+.crew-manning-header h1 { margin: 0; font-size: clamp(1.8rem, 2.6vw, 2.35rem); font-weight: 600; letter-spacing: -.045em; }
+.crew-manning-header p { margin-top: .5rem; font-size: .875rem; }
+@media (max-width: 760px) { .crew-manning-page { padding: 1rem 0 2rem; } }

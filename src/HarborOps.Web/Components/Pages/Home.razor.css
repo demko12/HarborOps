@@ -34,6 +34,7 @@
 .dashboard-icon-voyages { --module-color: #0891b2; }
 .dashboard-icon-cargo { --module-color: #d97706; }
 .dashboard-icon-maintenance { --module-color: #e05260; }
+html:not([data-theme="light"]) .dashboard-icon-maintenance { --module-color: #d98a93; }
 .dashboard-icon-compliance { --module-color: #059669; }
 .dashboard-icon-documents { --module-color: #8270ef; }
 .dashboard-metric-value { margin: .7rem 0 .25rem; font-size: 2rem; font-weight: 600; line-height: 1.15; letter-spacing: -.05em; font-variant-numeric: tabular-nums; }

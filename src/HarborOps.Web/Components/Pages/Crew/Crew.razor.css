@@ -3,10 +3,6 @@
 .crew-header h1 { margin: 0; font-size: clamp(1.8rem, 2.6vw, 2.35rem); font-weight: 600; letter-spacing: -.045em; }
 .crew-header p:last-child { margin: .5rem 0 0; color: var(--text-secondary); font-size: .875rem; }
 .crew-eyebrow { margin: 0 0 .45rem; color: var(--crew-accent); font-size: .65rem; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; }
-.crew-links { display: flex; overflow-x: auto; gap: .35rem; margin-bottom: 1.5rem; padding: .2rem .2rem .8rem; border-bottom: 1px solid var(--border-subtle); }
-.crew-links a { display: inline-flex; align-items: center; flex: 0 0 auto; gap: .55rem; padding: .65rem .85rem; color: var(--text-secondary); border: 1px solid transparent; border-radius: .65rem; font-size: .8rem; text-decoration: none; }
-.crew-links a.selected { border-color: rgba(155,117,237,.3); color: var(--text-primary); background: rgba(155,117,237,.12); }
-.crew-links a:hover { background: var(--bg-surface-strong); }
 .crew-summary { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: .8rem; margin-bottom: 1.5rem; }
 .crew-summary-card, .crew-card, .crew-insight-card { border: 1px solid var(--border-subtle); border-radius: var(--radius-card); background: linear-gradient(135deg, var(--bg-surface-strong), var(--bg-surface)); box-shadow: 0 18px 38px rgba(15,23,42,.06), inset 0 1px var(--bg-surface-strong); }
 .crew-summary-card { display: flex; align-items: flex-start; justify-content: space-between; gap: .5rem; padding: 1rem; }
@@ -104,7 +100,7 @@
 }
 @media print {
     .crew-page { max-width: none; padding: 0; }
-    .crew-links, .crew-filters, .crew-view-switch, .crew-header-actions, .crew-summary-icon, .crew-register-mark, .crew-avatar, .crew-profile-link, .crew-pagination > div { display: none !important; }
+    .crew-filters, .crew-view-switch, .crew-header-actions, .crew-summary-icon, .crew-register-mark, .crew-avatar, .crew-profile-link, .crew-pagination > div { display: none !important; }
     .crew-workspace { display: block; }
     .crew-card { padding: 0; border: 0; background: none; box-shadow: none; }
     .crew-card .crew-roster-list { grid-template-columns: 1fr; }
