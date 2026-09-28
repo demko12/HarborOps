@@ -48,6 +48,12 @@ internal sealed class VesselPositionsQuery(
                     || vessel.LastPositionReportedAtUtc < staleBeforeUtc,
             });
 
+        if (!string.IsNullOrWhiteSpace(request.Search))
+        {
+            var search = request.Search.Trim();
+            rows = rows.Where(row => row.Vessel.Name.Contains(search) || row.Vessel.ImoNumber.Contains(search));
+        }
+
         if (!string.IsNullOrWhiteSpace(request.Status))
         {
             var status = request.Status.Trim();
@@ -70,7 +76,9 @@ internal sealed class VesselPositionsQuery(
         var totalCount = await rows.CountAsync(cancellationToken);
 
         var items = await rows
-            .OrderByDescending(row => row.IsPositionStale)
+            // Operators need to see the report they have just accepted without paging past
+            // older exceptions. The attention panel separately keeps stale/missing vessels visible.
+            .OrderByDescending(row => row.Vessel.LastPositionReportedAtUtc)
             .ThenBy(row => row.Vessel.Name)
             .ThenBy(row => row.Vessel.ImoNumber)
             .ThenBy(row => row.Vessel.Id)

@@ -78,6 +78,10 @@
 		</div>
 
 	<div class="positions-filters">
+		<div class="positions-field positions-search-field">
+			<label for="positions-search">Search</label>
+			<input id="positions-search" type="search" placeholder="Vessel name or IMO" @bind="search" @bind:event="oninput" @bind:after="ScheduleSearchAsync" />
+		</div>
 		<div class="positions-field">
 			<label for="positions-fleet">Fleet</label>
 			<select id="positions-fleet" @bind="selectedFleetId" @bind:after="ApplyFiltersAsync" disabled="@isLoading">
@@ -104,6 +108,10 @@
 		</div>
 		<button class="positions-reset" type="button" @onclick="ResetFiltersAsync" disabled="@isLoading">Reset</button>
 	</div>
+	@if (submitSuccessMessage is not null)
+	{
+		<div class="positions-success" role="status">@submitSuccessMessage</div>
+	}
 
 		@if (isLoading)
 		{
@@ -160,10 +168,10 @@
 					<ul class="positions-overview-grid">
 						@foreach (var vessel in AttentionVessels)
 						{
-							<li class="positions-overview-card" @key="vessel.VesselId">
+							<li class="@($"positions-overview-card {(CanManageFleet ? "positions-overview-card-actionable" : string.Empty)}")" @key="vessel.VesselId" @onclick="() => BeginPositionReport(vessel)" role="button" tabindex="0">
 								<div class="positions-overview-card-heading">
 									<div>
-										<a href="@DetailsUrl(vessel.VesselId)">@vessel.Name</a>
+									<strong>@vessel.Name</strong>
 										<span class="positions-imo">IMO @vessel.ImoNumber</span>
 									</div>
 									<span class="@($"positions-badge {FreshnessClass(vessel)}")">@FreshnessLabel(vessel)</span>
@@ -176,8 +184,9 @@
 								</p>
 								@if (CanReportDefects)
 								{
-									<a href="@($"/maintenance/defects/report?vesselId={vessel.VesselId}")">Report defect</a>
+									<a class="positions-defect-action" href="@($"/maintenance/defects/report?vesselId={vessel.VesselId}")" @onclick:stopPropagation="true"><span class="bi bi-exclamation-triangle" aria-hidden="true"></span>Report defect</a>
 								}
+								@if (CanManageFleet) { <span class="positions-card-report-hint"><span class="bi bi-geo-alt" aria-hidden="true"></span>Click to report position</span> }
 							</li>
 						}
 					</ul>
@@ -193,7 +202,7 @@
 
 			<div class="positions-table-scroll">
 				<table class="positions-table">
-					<caption>Latest reported position per vessel, stale and missing reports first.</caption>
+					<caption>Latest reported position per vessel, most recently reported first.</caption>
 					<thead>
 						<tr>
 							<th scope="col">Vessel</th>
@@ -208,9 +217,9 @@
 					<tbody>
 						@foreach (var vessel in positions.Items)
 						{
-							<tr @key="vessel.VesselId">
+							<tr class="@(CanManageFleet ? "positions-table-row-actionable" : string.Empty)" @key="vessel.VesselId" @onclick="() => BeginPositionReport(vessel)" role="button" tabindex="0">
 								<th scope="row">
-									<a href="@DetailsUrl(vessel.VesselId)">@vessel.Name</a>
+									<strong>@vessel.Name</strong>
 									<span class="positions-imo">IMO @vessel.ImoNumber</span>
 								</th>
 								<td>@vessel.CurrentStatus</td>
@@ -238,84 +247,15 @@
 		}
 	</section>
 
-	@if (CanManageFleet)
+	@if (CanManageFleet && reportVesselId is not null)
 	{
-		<section class="positions-card positions-form-card" aria-labelledby="positions-form-title">
-			<div class="positions-card-heading">
-				<div>
-					<p>Operational update</p>
-					<h2 id="positions-form-title">Report a current position</h2>
-				</div>
-			</div>
-
-			@if (submitSuccessMessage is not null)
-			{
-				<div class="positions-success" role="status">@submitSuccessMessage</div>
-			}
-
-			@if (submitFailure is { IsValidation: true, Errors.Count: > 0 })
-			{
-				<div class="positions-alert" role="alert">
-					<strong>@submitFailure.Title</strong>
-					<ul>
-						@foreach (var entry in submitFailure.Errors)
-						{
-							@foreach (var message in entry.Value)
-							{
-								<li>@message</li>
-							}
-						}
-					</ul>
-				</div>
-			}
-			else if (submitFailure is { IsForbidden: true } or { IsNotFound: true })
-			{
-				<div class="positions-alert" role="alert">
-					<strong>@submitFailure.Title</strong>
-					<p>@submitFailure.Message</p>
-				</div>
-			}
-			else if (submitFailure is not null)
-			{
-				<ApiErrorState Title="@submitFailure.Title" Message="@submitFailure.Message" OnRetry="SubmitPositionAsync" />
-			}
-
-			@if (positions is null || positions.Items.Count == 0)
-			{
-				<EmptyState Title="No vessel to report for"
-							Message="Clear the filters to load vessels before recording a position." />
-			}
-			else
-			{
-				<form class="positions-form" @onsubmit="SubmitPositionAsync" @onsubmit:preventDefault="true">
-					<div class="positions-field">
-						<label for="positions-vessel">Vessel</label>
-						<VesselPicker InputId="positions-vessel"
-								  @bind-Value="reportVesselId"
-								  Disabled="isSubmitting"
-								  Placeholder="Select a vessel" />
-						<small id="positions-vessel-hint">The observation time is assigned by the server.</small>
-					</div>
-					<div class="positions-field">
-						<label for="positions-latitude">Latitude</label>
-						<input id="positions-latitude" type="number" step="0.000001" min="-90" max="90"
-							   @bind="reportLatitude" aria-describedby="positions-latitude-hint" />
-						<small id="positions-latitude-hint">Between -90 and 90 degrees.</small>
-					</div>
-					<div class="positions-field">
-						<label for="positions-longitude">Longitude</label>
-						<input id="positions-longitude" type="number" step="0.000001" min="-180" max="180"
-							   @bind="reportLongitude" aria-describedby="positions-longitude-hint" />
-						<small id="positions-longitude-hint">Between -180 and 180 degrees.</small>
-					</div>
-					<div class="positions-field positions-field-action">
-						<span class="positions-field-spacer" aria-hidden="true">&nbsp;</span>
-						<button class="positions-submit" type="submit" disabled="@(isSubmitting || reportVesselId is null)">
-							@(isSubmitting ? "Saving..." : "Record position")
-						</button>
-					</div>
-				</form>
-			}
-		</section>
+		<div class="positions-report-backdrop" @onclick="CancelPositionReport">
+			<section class="positions-report-modal" role="dialog" aria-modal="true" aria-labelledby="positions-report-title" @onclick:stopPropagation="true">
+				<header><div><p>Manual position report</p><h2 id="positions-report-title">Report position</h2><span>@(positions?.Items.FirstOrDefault(v => v.VesselId == reportVesselId)?.Name ?? "Selected vessel")</span></div><button type="button" aria-label="Close" @onclick="CancelPositionReport" disabled="@isSubmitting">&times;</button></header>
+				@if (submitFailure is { IsValidation: true, Errors.Count: > 0 }) { <div class="positions-alert" role="alert"><strong>@submitFailure.Title</strong><ul>@foreach (var entry in submitFailure.Errors) { @foreach (var message in entry.Value) { <li>@message</li> } }</ul></div> } else if (submitFailure is { IsForbidden: true } or { IsNotFound: true }) { <div class="positions-alert" role="alert"><strong>@submitFailure.Title</strong><p>@submitFailure.Message</p></div> } else if (submitFailure is not null) { <ApiErrorState Title="@submitFailure.Title" Message="@submitFailure.Message" OnRetry="SubmitPositionAsync" /> }
+				<p class="positions-report-note"><span class="bi bi-clock" aria-hidden="true"></span>The report time is assigned by the server in UTC.</p>
+				<form class="positions-form" @onsubmit="SubmitPositionAsync" @onsubmit:preventDefault="true"><div class="positions-field"><label for="positions-latitude">Latitude</label><input id="positions-latitude" type="number" step="0.000001" min="-90" max="90" @bind="reportLatitude" /><small>Between -90 and 90 degrees.</small></div><div class="positions-field"><label for="positions-longitude">Longitude</label><input id="positions-longitude" type="number" step="0.000001" min="-180" max="180" @bind="reportLongitude" /><small>Between -180 and 180 degrees.</small></div><div class="positions-modal-actions"><button type="button" @onclick="CancelPositionReport" disabled="@isSubmitting">Cancel</button><button class="positions-submit" type="submit" disabled="@isSubmitting"><span class="bi bi-geo-alt" aria-hidden="true"></span>@(isSubmitting ? "Saving..." : "Record position")</button></div></form>
+			</section>
+		</div>
 	}
 </section>

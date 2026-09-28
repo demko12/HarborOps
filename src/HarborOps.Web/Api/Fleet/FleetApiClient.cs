@@ -234,6 +234,16 @@ internal sealed class FleetApiClient(HttpClient httpClient)
     int pageNumber,
     int pageSize,
     CancellationToken cancellationToken)
+        => GetVesselPositionsAsync(fleetId, status, staleOnly, pageNumber, pageSize, null, cancellationToken);
+
+    internal Task<FleetApiResult<VesselPositionsWebModel>> GetVesselPositionsAsync(
+    Guid? fleetId,
+    string? status,
+    bool staleOnly,
+    int pageNumber,
+    int pageSize,
+    string? search,
+    CancellationToken cancellationToken)
     {
         var parameters = new List<string>
         {
@@ -256,6 +266,11 @@ internal sealed class FleetApiClient(HttpClient httpClient)
             parameters.Add("staleOnly=true");
         }
 
+        if (!string.IsNullOrWhiteSpace(search))
+        {
+            parameters.Add($"search={Uri.EscapeDataString(search.Trim())}");
+        }
+
         return GetAsync<VesselPositionsWebModel>(
             $"api/fleet/vessel-positions?{string.Join('&', parameters)}",
             "Unable to load vessel positions",
@@ -272,6 +287,14 @@ internal sealed class FleetApiClient(HttpClient httpClient)
             request,
             "Unable to record the position report",
             cancellationToken);
+    }
+
+    internal Task<FleetApiResult<VesselPositionHistoryWebModel>> GetVesselPositionHistoryAsync(Guid vesselId, DateTime? fromUtc, DateTime? toUtc, int pageNumber, CancellationToken cancellationToken)
+    {
+        var parameters = new List<string> { $"pageNumber={pageNumber}", "pageSize=50" };
+        if (fromUtc is { } from) parameters.Add($"fromUtc={Uri.EscapeDataString(DateTime.SpecifyKind(from, DateTimeKind.Utc).ToString("O"))}");
+        if (toUtc is { } to) parameters.Add($"toUtc={Uri.EscapeDataString(DateTime.SpecifyKind(to, DateTimeKind.Utc).ToString("O"))}");
+        return GetAsync<VesselPositionHistoryWebModel>($"api/fleet/vessels/{vesselId}/position-reports?{string.Join('&', parameters)}", "Unable to load position history", cancellationToken);
     }
 
     private static async Task<ApiProblemDetails?> TryReadProblemAsync(HttpResponseMessage response, CancellationToken cancellationToken)

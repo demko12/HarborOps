@@ -40,15 +40,13 @@ public sealed class VesselPositionsPageTests : BunitContext
     }
 
     [Fact]
-    public void A_vessel_row_links_to_the_vessel_details_page()
+    public void A_vessel_row_opens_the_position_report_for_a_fleet_manager()
     {
         var page = RenderPositionsPage();
 
-        var link = page.Find($".positions-table tbody a[href*='{FreshVesselId}']");
+        page.Find($".positions-table tbody tr").Click();
 
-        Assert.Equal(
-            $"/fleet/{FreshVesselId}?returnTo={Uri.EscapeDataString("/fleet/positions")}",
-            link.GetAttribute("href"));
+        Assert.NotEmpty(page.FindAll(".positions-report-modal"));
     }
 
     [Fact]
@@ -401,20 +399,21 @@ public sealed class VesselPositionsPageTests : BunitContext
     }
 
     [Fact]
-    public void The_report_form_is_offered_to_a_fleet_manager()
+    public void A_fleet_manager_can_open_a_report_modal_from_a_vessel_row()
     {
         var page = RenderPositionsPage(permissions: CurrentUserAuthorizationState.FleetManagePermission);
 
+        page.Find(".positions-table tbody tr").Click();
         Assert.NotNull(page.Find("form.positions-form"));
-        Assert.NotNull(page.Find("#positions-vessel"));
+        Assert.NotNull(page.Find(".positions-report-modal"));
     }
 
     [Fact]
-    public void The_form_cannot_be_submitted_before_a_vessel_is_chosen()
+    public void The_report_form_is_not_visible_until_a_vessel_is_chosen()
     {
         var page = RenderPositionsPage();
 
-        Assert.True(page.Find(".positions-submit").HasAttribute("disabled"));
+        Assert.Empty(page.FindAll(".positions-report-modal"));
     }
 
     [Fact]
@@ -505,6 +504,37 @@ public sealed class VesselPositionsPageTests : BunitContext
     }
 
     [Fact]
+    public void A_recorded_position_clears_the_stale_only_filter_so_the_vessel_remains_visible()
+    {
+        respond = request => request.Method == HttpMethod.Get
+            ? Json(HttpStatusCode.OK, Positions(items: Item(
+                MissingVesselId,
+                "Western Gale",
+                "5100003",
+                latitude: "10.5",
+                longitude: "20.25",
+                reportedAtUtc: "\"2026-08-26T12:00:00Z\"",
+                isPositionStale: "false")))
+            : Json(HttpStatusCode.OK, PositionAccepted());
+
+        var page = RenderPositionsPage();
+        page.Find("#positions-stale-only").Change(true);
+        page.WaitForAssertion(() => Assert.Contains("staleOnly=true", LastPositionsQuery(), StringComparison.Ordinal));
+
+        SelectReportVessel(page);
+        page.Find("#positions-latitude").Change("10.5");
+        page.Find("#positions-longitude").Change("20.25");
+        page.Find("form.positions-form").Submit();
+
+        page.WaitForAssertion(() =>
+        {
+            Assert.DoesNotContain("staleOnly=true", LastPositionsQuery(), StringComparison.Ordinal);
+            Assert.Contains("Western Gale", page.Find(".positions-table").TextContent, StringComparison.Ordinal);
+            Assert.Contains("Current", page.Find(".positions-table").TextContent, StringComparison.Ordinal);
+        });
+    }
+
+    [Fact]
     public void The_coordinate_fields_are_cleared_once_the_report_is_accepted()
     {
         respond = request => request.Method == HttpMethod.Get
@@ -521,8 +551,7 @@ public sealed class VesselPositionsPageTests : BunitContext
         page.WaitForAssertion(() =>
         {
             Assert.NotEmpty(page.FindAll(".positions-success"));
-            Assert.True(string.IsNullOrEmpty(page.Find("#positions-latitude").GetAttribute("value")));
-            Assert.True(string.IsNullOrEmpty(page.Find("#positions-longitude").GetAttribute("value")));
+            Assert.Empty(page.FindAll(".positions-report-modal"));
         });
     }
 
@@ -544,7 +573,7 @@ public sealed class VesselPositionsPageTests : BunitContext
 
         page.WaitForAssertion(() => Assert.Contains(
             "Latitude must be between -90 and 90.",
-            page.Find(".positions-form-card .positions-alert").TextContent,
+            page.Find(".positions-report-modal .positions-alert").TextContent,
             StringComparison.Ordinal));
     }
 
@@ -564,7 +593,7 @@ public sealed class VesselPositionsPageTests : BunitContext
 
         page.WaitForAssertion(() => Assert.Contains(
             "Your account does not have permission for this action.",
-            page.Find(".positions-form-card .positions-alert").TextContent,
+            page.Find(".positions-report-modal .positions-alert").TextContent,
             StringComparison.Ordinal));
     }
 
@@ -584,7 +613,7 @@ public sealed class VesselPositionsPageTests : BunitContext
 
         page.WaitForAssertion(() => Assert.Contains(
             "Vessel not found",
-            page.Find(".positions-form-card .positions-alert").TextContent,
+            page.Find(".positions-report-modal .positions-alert").TextContent,
             StringComparison.Ordinal));
     }
 
@@ -602,13 +631,13 @@ public sealed class VesselPositionsPageTests : BunitContext
         page.Find("#positions-longitude").Change("20");
         page.Find("form.positions-form").Submit();
 
-        page.WaitForAssertion(() => Assert.NotEmpty(page.FindAll(".positions-form-card .api-error-state")));
+        page.WaitForAssertion(() => Assert.NotEmpty(page.FindAll(".positions-report-modal .api-error-state")));
 
         respond = request => request.Method == HttpMethod.Get
             ? Json(HttpStatusCode.OK, Positions())
             : Json(HttpStatusCode.OK, PositionAccepted());
 
-        page.Find(".positions-form-card .api-error-state button").Click();
+        page.Find(".positions-report-modal .api-error-state button").Click();
 
         page.WaitForAssertion(() =>
         {
@@ -702,10 +731,8 @@ public sealed class VesselPositionsPageTests : BunitContext
 
     private static void SelectReportVessel(IRenderedComponent<VesselPositions> page)
     {
-        page.Find("#positions-vessel").Focus();
-        page.WaitForAssertion(() => Assert.NotEmpty(page.FindAll(".vessel-picker-option")));
-        page.FindAll(".vessel-picker-option")
-            .Single(option => option.TextContent.Contains("Western Gale", StringComparison.Ordinal))
+        page.FindAll(".positions-table tbody tr")
+            .Single(row => row.TextContent.Contains("Western Gale", StringComparison.Ordinal))
             .Click();
     }
 

@@ -198,3 +198,6 @@ internal sealed record RecordVesselPositionWebResponse(
     decimal Latitude,
     decimal Longitude,
     DateTime ReportedAtUtc);
+
+internal sealed record VesselPositionHistoryWebModel(IReadOnlyList<VesselPositionHistoryItemWebModel> Items, int PageNumber, int PageSize, int TotalCount);
+internal sealed record VesselPositionHistoryItemWebModel(Guid Id, decimal Latitude, decimal Longitude, DateTime ReportedAtUtc, Guid ReportedByUserId, string? ReportedByDisplayName);
