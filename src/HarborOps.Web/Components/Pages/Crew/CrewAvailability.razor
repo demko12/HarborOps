@@ -137,7 +137,7 @@
 
                                     @if (decisionRequestId == item.Id)
                                     {
-                                        <form class="crew-availability-decision-form" @onsubmit="SubmitDecisionAsync" @onsubmit:preventDefault="true">
+                                        <form class="crew-availability-decision-form crew-operation-form" @onsubmit="SubmitDecisionAsync" @onsubmit:preventDefault="true">
                                             <label for="crew-availability-decision-reason">@(decisionKind == DecisionKind.Reject ? "Rejection reason" : "Cancellation reason")</label>
                                             <input id="crew-availability-decision-reason" @bind="decisionReason" maxlength="500" />
                                             <div class="crew-availability-decision-form-actions">
