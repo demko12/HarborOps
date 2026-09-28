@@ -414,6 +414,56 @@
                             </ul>
                         }
                     </div>
+
+                    <div class="manifest-outputs" aria-label="Export or print the matching containers">
+                        <button type="button"
+                                class="manifest-output-button manifest-export"
+                                disabled="@(!CanProduceManifestOutput || isExportingManifest)"
+                                aria-describedby="@(ManifestOutputExceedsLimit ? "manifest-output-limit" : null)"
+                                @onclick="ExportManifestCsvAsync">
+                            <span class="bi bi-download" aria-hidden="true"></span>
+                            @(isExportingManifest ? "Generating CSV..." : "Export CSV")
+                        </button>
+                        @if (CanProduceManifestOutput)
+                        {
+                            <a class="manifest-output-button manifest-print" href="@ManifestPrintHref">
+                                <span class="bi bi-printer" aria-hidden="true"></span>
+                                Print matching containers
+                            </a>
+                        }
+                        else
+                        {
+                            <button type="button"
+                                    class="manifest-output-button manifest-print"
+                                    disabled
+                                    aria-describedby="@(ManifestOutputExceedsLimit ? "manifest-output-limit" : null)">
+                                <span class="bi bi-printer" aria-hidden="true"></span>
+                                Print matching containers
+                            </button>
+                        }
+                        <span class="manifest-output-scope">
+                            @(IsContainerFilterActive ? "Uses the applied filters, every page." : "Includes the whole manifest.")
+                        </span>
+                    </div>
+
+                    @if (ManifestOutputExceedsLimit)
+                    {
+                        <p class="manifest-output-note" id="manifest-output-limit">
+                            @ManifestOutputLimitMessage
+                        </p>
+                    }
+
+                    @if (manifestExportError is not null)
+                    {
+                        <div class="booking-form-error manifest-output-error" role="alert">
+                            <span>@manifestExportError</span>
+                            <button type="button" class="manifest-output-retry" disabled="@isExportingManifest" @onclick="ExportManifestCsvAsync">Retry</button>
+                        </div>
+                    }
+                    else if (manifestExportNotice is not null)
+                    {
+                        <p class="manifest-output-notice" role="status">@manifestExportNotice</p>
+                    }
                 </section>
                 }
 

@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations;
+using System.Globalization;
 using HarborOps.Web.Api.Cargo;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Forms;
@@ -40,7 +41,7 @@ public partial class CargoBookingDetails : IDisposable
     [SupplyParameterFromQuery(Name = ManifestPageQueryKey)]
     public int? ManifestPageFromQuery { get; set; }
 
-    private const string BoardQueryKey = "from";
+    internal const string BoardQueryKey = "from";
     private const string ManifestSearchQueryKey = "manifestSearch";
     private const string ManifestStatusQueryKey = "manifestStatus";
     private const string ManifestTypeQueryKey = "manifestType";
@@ -544,6 +545,8 @@ public partial class CargoBookingDetails : IDisposable
 
         appliedContainerFilter = filter;
         containerPageNumber = 1;
+        manifestExportError = null;
+        manifestExportNotice = null;
 
         return LoadContainersAsync();
     }
@@ -602,27 +605,120 @@ public partial class CargoBookingDetails : IDisposable
         containerPageNumber = ManifestPageFromQuery is > 0 ? ManifestPageFromQuery.Value : 1;
     }
 
-    private string ManifestAddress
-    {
-        get
-        {
-            var parts = new List<string>();
+    private string ManifestAddress =>
+        BuildManifestAddress(BookingId, BoardQuery, appliedContainerFilter, containerPageNumber);
 
+    internal static string BuildManifestAddress(
+        Guid bookingId,
+        string? boardQuery,
+        CargoContainerFilter filter,
+        int pageNumber)
+    {
+        var parts = new List<string>();
+
+        AddAddressPart(parts, BoardQueryKey, boardQuery);
+        AddAddressPart(parts, ManifestSearchQueryKey, filter.Search);
+        AddAddressPart(parts, ManifestStatusQueryKey, filter.Status);
+        AddAddressPart(parts, ManifestTypeQueryKey, filter.ContainerType);
+        AddAddressPart(parts, ManifestPolQueryKey, filter.PortOfLoadingCode);
+        AddAddressPart(parts, ManifestPodQueryKey, filter.PortOfDischargeCode);
+
+        if (pageNumber > 1)
+        {
+            parts.Add($"{ManifestPageQueryKey}={pageNumber}");
+        }
+
+        return parts.Count == 0
+            ? $"cargo/{bookingId}"
+            : $"cargo/{bookingId}?{string.Join('&', parts)}";
+    }
+
+    private string ManifestOutputQuery(bool includeReturnState)
+    {
+        var parts = new List<string>(appliedContainerFilter.QueryParts());
+
+        if (includeReturnState)
+        {
             AddAddressPart(parts, BoardQueryKey, BoardQuery);
-            AddAddressPart(parts, ManifestSearchQueryKey, appliedContainerFilter.Search);
-            AddAddressPart(parts, ManifestStatusQueryKey, appliedContainerFilter.Status);
-            AddAddressPart(parts, ManifestTypeQueryKey, appliedContainerFilter.ContainerType);
-            AddAddressPart(parts, ManifestPolQueryKey, appliedContainerFilter.PortOfLoadingCode);
-            AddAddressPart(parts, ManifestPodQueryKey, appliedContainerFilter.PortOfDischargeCode);
 
             if (containerPageNumber > 1)
             {
-                parts.Add($"{ManifestPageQueryKey}={containerPageNumber}");
+                parts.Add($"returnPage={containerPageNumber}");
             }
+        }
 
-            return parts.Count == 0
-                ? $"cargo/{BookingId}"
-                : $"cargo/{BookingId}?{string.Join('&', parts)}";
+        return parts.Count == 0 ? string.Empty : $"?{string.Join('&', parts)}";
+    }
+
+    private string ManifestExportUrl => $"/cargo/{BookingId}/manifest/export{ManifestOutputQuery(includeReturnState: false)}";
+
+    private string ManifestPrintHref => $"/cargo/{BookingId}/manifest/print{ManifestOutputQuery(includeReturnState: true)}";
+
+    private const int ManifestOutputRowLimit = 10_000;
+
+    private bool ManifestOutputExceedsLimit => containerMatchingCount > ManifestOutputRowLimit;
+
+    private string ManifestOutputLimitMessage => string.Create(
+        CultureInfo.InvariantCulture,
+        $"{containerMatchingCount:N0} containers match, more than the {ManifestOutputRowLimit:N0} that can be exported or printed at once. Narrow the filters first.");
+
+    private bool CanProduceManifestOutput =>
+        hasLoadedContainers
+        && !isLoadingContainers
+        && !ManifestOutputExceedsLimit
+        && containersFailure is null
+        && containerFilterError is null
+        && containerFilterHint is null;
+
+    private bool isExportingManifest;
+    private string? manifestExportError;
+    private string? manifestExportNotice;
+
+    private async Task ExportManifestCsvAsync()
+    {
+        if (isExportingManifest || !CanProduceManifestOutput)
+        {
+            return;
+        }
+
+        isExportingManifest = true;
+        manifestExportError = null;
+        manifestExportNotice = null;
+
+        try
+        {
+            var result = await JS.InvokeAsync<CargoFileDownloadResult>(
+                "harborOpsFiles.download",
+                disposeCancellation.Token,
+                ManifestExportUrl,
+                "text/csv");
+
+            if (result.Ok)
+            {
+                manifestExportNotice = result.Count switch
+                {
+                    null => "Exported the matching containers.",
+                    0 => "No containers match, so the CSV contains only the column headers.",
+                    var count => string.Create(
+                        CultureInfo.InvariantCulture,
+                        $"Exported {count:N0} matching {(count == 1 ? "container" : "containers")}."),
+                };
+            }
+            else
+            {
+                manifestExportError = result.Message ?? "The manifest could not be exported. Please try again.";
+            }
+        }
+        catch (OperationCanceledException) when (disposeCancellation.IsCancellationRequested)
+        {
+        }
+        catch (JSException)
+        {
+            manifestExportError = "The manifest could not be exported. Please try again.";
+        }
+        finally
+        {
+            isExportingManifest = false;
         }
     }
 

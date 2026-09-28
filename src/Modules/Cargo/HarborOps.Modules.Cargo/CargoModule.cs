@@ -26,6 +26,7 @@ public static class CargoModule
         services.AddScoped<GetBillsOfLadingQuery>();
         services.AddScoped<GetCargoBookingDetailsQuery>();
         services.AddScoped<GetCargoContainersQuery>();
+        services.AddScoped<GetCargoManifestExportQuery>();
         services.AddScoped<GetCargoOperationsQuery>();
         services.AddScoped<GetCargoSafetyInformationQuery>();
         services.AddScoped<GetContainerControlQuery>();

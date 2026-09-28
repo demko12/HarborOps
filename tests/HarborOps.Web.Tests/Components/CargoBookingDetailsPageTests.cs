@@ -2641,13 +2641,14 @@ public sealed class CargoBookingDetailsPageTests : BunitContext
 
         var page = RenderDetailsPage();
 
-        page.WaitForAssertion(() =>
-            Assert.Contains("Loading the container manifest...", page.Markup, StringComparison.Ordinal));
+        page.WaitForAssertion(
+            () => Assert.Contains("Loading the container manifest...", page.Markup, StringComparison.Ordinal),
+            TimeSpan.FromSeconds(5));
         Assert.Empty(page.FindAll(".manifest-filters"));
 
         containers.SetResult();
 
-        page.WaitForAssertion(() => Assert.Single(page.FindAll(".manifest-row")));
+        page.WaitForAssertion(() => Assert.Single(page.FindAll(".manifest-row")), TimeSpan.FromSeconds(5));
     }
 
     [Fact]
@@ -2777,6 +2778,194 @@ public sealed class CargoBookingDetailsPageTests : BunitContext
         Assert.Equal("TGHU", ContainerQuery(LastContainerRequest(), "search"));
         Assert.Equal("TGHU0000001", Assert.Single(page.FindAll(".manifest-number")).TextContent);
         Assert.Contains("Loaded", page.Find(".manifest-row .cargo-status").TextContent, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task Export_downloads_every_page_of_the_applied_filters_and_reports_success()
+    {
+        RespondWithManifest(NumberedContainers("MSKU", 20).Concat(NumberedContainers("TGHU", 3)).ToList());
+        var download = JSInterop.Setup<CargoFileDownloadResult>("harborOpsFiles.download", _ => true);
+        download.SetResult(new CargoFileDownloadResult(true, 200, null, 20));
+
+        var page = RenderDetailsPage();
+        page.WaitForAssertion(() => Assert.Equal(15, page.FindAll(".manifest-row").Count));
+        await page.InvokeAsync(() => page.Find("#manifest-search").Input("msku"));
+        page.WaitForAssertion(() => Assert.Contains("of 20 matching containers", page.Find(".manifest-pagination").TextContent, StringComparison.Ordinal), TimeSpan.FromSeconds(3));
+        await page.InvokeAsync(() => page.Find(".manifest-pagination button:last-child").Click());
+        page.WaitForAssertion(() => Assert.Equal(5, page.FindAll(".manifest-row").Count));
+
+        await page.InvokeAsync(() => page.Find(".manifest-export").Click());
+
+        page.WaitForAssertion(() => Assert.Equal("Exported 20 matching containers.", page.Find(".manifest-output-notice").TextContent.Trim()));
+        var invocation = Assert.Single(download.Invocations);
+        Assert.Equal($"/cargo/{BookingId}/manifest/export?search=MSKU", invocation.Arguments[0]);
+        Assert.Equal("text/csv", invocation.Arguments[1]);
+        Assert.Equal("Uses the applied filters, every page.", page.Find(".manifest-output-scope").TextContent.Trim());
+    }
+
+    [Fact]
+    public async Task Export_reports_that_it_is_generating_until_the_file_is_ready()
+    {
+        RespondWithManifest(NumberedContainers("MSKU", 2));
+        var download = JSInterop.Setup<CargoFileDownloadResult>("harborOpsFiles.download", _ => true);
+
+        var page = RenderDetailsPage();
+        page.WaitForAssertion(() => Assert.Equal(2, page.FindAll(".manifest-row").Count));
+
+        await page.InvokeAsync(() => page.Find(".manifest-export").Click());
+
+        Assert.Equal("Generating CSV...", page.Find(".manifest-export").TextContent.Trim());
+        Assert.True(page.Find(".manifest-export").HasAttribute("disabled"));
+        Assert.Equal("Includes the whole manifest.", page.Find(".manifest-output-scope").TextContent.Trim());
+
+        download.SetResult(new CargoFileDownloadResult(true, 200, null, 2));
+
+        page.WaitForAssertion(() => Assert.Equal("Export CSV", page.Find(".manifest-export").TextContent.Trim()));
+        Assert.Equal($"/cargo/{BookingId}/manifest/export", Assert.Single(download.Invocations).Arguments[0]);
+    }
+
+    [Fact]
+    public async Task A_failed_export_explains_why_and_can_be_retried()
+    {
+        RespondWithManifest(NumberedContainers("MSKU", 2));
+        var download = JSInterop.Setup<CargoFileDownloadResult>("harborOpsFiles.download", _ => true);
+        download.SetResult(new CargoFileDownloadResult(false, 503, "The manifest could not be exported. Please try again.", null));
+
+        var page = RenderDetailsPage();
+        page.WaitForAssertion(() => Assert.Equal(2, page.FindAll(".manifest-row").Count));
+        await page.InvokeAsync(() => page.Find(".manifest-export").Click());
+
+        page.WaitForAssertion(() => Assert.Contains(
+            "The manifest could not be exported. Please try again.",
+            page.Find(".manifest-output-error").TextContent,
+            StringComparison.Ordinal));
+
+        download.SetResult(new CargoFileDownloadResult(true, 200, null, 2));
+        await page.InvokeAsync(() => page.Find(".manifest-output-retry").Click());
+
+        page.WaitForAssertion(() => Assert.Equal("Exported 2 matching containers.", page.Find(".manifest-output-notice").TextContent.Trim()));
+        Assert.Empty(page.FindAll(".manifest-output-error"));
+        Assert.Equal(2, download.Invocations.Count);
+    }
+
+    [Fact]
+    public async Task A_failed_export_without_a_reason_still_offers_a_retry()
+    {
+        RespondWithManifest(NumberedContainers("MSKU", 2));
+        JSInterop.Setup<CargoFileDownloadResult>("harborOpsFiles.download", _ => true)
+            .SetResult(new CargoFileDownloadResult(false, 0, null, null));
+
+        var page = RenderDetailsPage();
+        page.WaitForAssertion(() => Assert.Equal(2, page.FindAll(".manifest-row").Count));
+        await page.InvokeAsync(() => page.Find(".manifest-export").Click());
+
+        page.WaitForAssertion(() => Assert.Contains("could not be exported", page.Find(".manifest-output-error").TextContent, StringComparison.Ordinal));
+        Assert.Single(page.FindAll(".manifest-output-retry"));
+    }
+
+    [Fact]
+    public async Task Exporting_a_filter_without_matches_explains_that_the_file_has_only_headers()
+    {
+        RespondWithManifest(NumberedContainers("MSKU", 2));
+        JSInterop.Setup<CargoFileDownloadResult>("harborOpsFiles.download", _ => true)
+            .SetResult(new CargoFileDownloadResult(true, 200, null, 0));
+
+        var page = RenderDetailsPage();
+        page.WaitForAssertion(() => Assert.Equal(2, page.FindAll(".manifest-row").Count));
+        await page.InvokeAsync(() => page.Find("#manifest-pol").Input("DEHAM"));
+        page.WaitForAssertion(() => Assert.Contains("No containers match these filters", page.Markup, StringComparison.Ordinal), TimeSpan.FromSeconds(3));
+        page.Render();
+
+        await page.InvokeAsync(() => page.Find(".manifest-export").Click());
+
+        page.WaitForAssertion(() => Assert.Equal(
+            "No containers match, so the CSV contains only the column headers.",
+            page.Find(".manifest-output-notice").TextContent.Trim()));
+        Assert.Equal($"/cargo/{BookingId}/manifest/print?portOfLoadingCode=DEHAM", page.Find("a.manifest-print").GetAttribute("href"));
+    }
+
+    [Theory]
+    [InlineData(1234, "Exported 1,234 matching containers.")]
+    [InlineData(1, "Exported 1 matching container.")]
+    [InlineData(null, "Exported the matching containers.")]
+    public async Task The_export_notice_reports_the_count_of_the_downloaded_file_not_the_screen(int? fileCount, string expected)
+    {
+        RespondWithManifest(NumberedContainers("MSKU", 2));
+        JSInterop.Setup<CargoFileDownloadResult>("harborOpsFiles.download", _ => true)
+            .SetResult(new CargoFileDownloadResult(true, 200, null, fileCount));
+
+        var page = RenderDetailsPage();
+        page.WaitForAssertion(() => Assert.Equal(2, page.FindAll(".manifest-row").Count));
+
+        await page.InvokeAsync(() => page.Find(".manifest-export").Click());
+
+        page.WaitForAssertion(() => Assert.Equal(expected, page.Find(".manifest-output-notice").TextContent.Trim()));
+    }
+
+    [Fact]
+    public async Task The_print_link_carries_the_applied_filters_the_board_and_the_current_page()
+    {
+        RespondWithManifest(NumberedContainers("MSKU", 20));
+
+        var page = RenderDetailsPageFrom("status=InTransit");
+        page.WaitForAssertion(() => Assert.Equal(15, page.FindAll(".manifest-row").Count));
+        await page.InvokeAsync(() => page.Find("#manifest-search").Input("MSKU"));
+        page.WaitForAssertion(() => Assert.Equal("MSKU", ContainerQuery(LastContainerRequest(), "search")), TimeSpan.FromSeconds(3));
+        page.Render();
+        await page.InvokeAsync(() => page.Find(".manifest-pagination button:last-child").Click());
+        page.WaitForAssertion(() => Assert.Equal(5, page.FindAll(".manifest-row").Count));
+
+        Assert.Equal(
+            $"/cargo/{BookingId}/manifest/print?search=MSKU&from=status%3DInTransit&returnPage=2",
+            page.Find("a.manifest-print").GetAttribute("href"));
+    }
+
+    [Fact]
+    public void The_outputs_are_disabled_when_more_containers_match_than_can_be_exported()
+    {
+        var items = NumberedContainers("MSKU", 15);
+        respond = request => IsContainersRequest(request)
+            ? Json(HttpStatusCode.OK, ManifestPage(items, 10_001, 1, 0, 10_001))
+            : SectionResponse(request, EmptyItems, EmptyItems, Details());
+
+        var page = RenderDetailsPage();
+        page.WaitForAssertion(() => Assert.Equal(15, page.FindAll(".manifest-row").Count));
+
+        Assert.True(page.Find(".manifest-export").HasAttribute("disabled"));
+        Assert.True(page.Find("button.manifest-print").HasAttribute("disabled"));
+        Assert.Empty(page.FindAll("a.manifest-print"));
+        Assert.Equal(
+            "10,001 containers match, more than the 10,000 that can be exported or printed at once. Narrow the filters first.",
+            page.Find("#manifest-output-limit").TextContent.Trim());
+        Assert.Equal("manifest-output-limit", page.Find(".manifest-export").GetAttribute("aria-describedby"));
+    }
+
+    [Fact]
+    public async Task The_outputs_wait_while_a_port_code_is_still_being_typed()
+    {
+        RespondWithManifest(NumberedContainers("MSKU", 2));
+
+        var page = RenderDetailsPage();
+        page.WaitForAssertion(() => Assert.Equal(2, page.FindAll(".manifest-row").Count));
+
+        await page.InvokeAsync(() => page.Find("#manifest-pol").Input("NLR"));
+        page.WaitForAssertion(() => Assert.NotEmpty(page.FindAll(".manifest-filter-hint")), TimeSpan.FromSeconds(3));
+
+        Assert.True(page.Find(".manifest-export").HasAttribute("disabled"));
+        Assert.Empty(page.FindAll("a.manifest-print"));
+    }
+
+    [Fact]
+    public void A_reader_can_export_and_print_the_manifest()
+    {
+        RespondWithManifest(NumberedContainers("MSKU", 2));
+
+        var page = RenderDetailsPage(CurrentUserAuthorizationState.CargoReadPermission);
+        page.WaitForAssertion(() => Assert.Equal(2, page.FindAll(".manifest-row").Count));
+
+        Assert.False(page.Find(".manifest-export").HasAttribute("disabled"));
+        Assert.Equal($"/cargo/{BookingId}/manifest/print", page.Find("a.manifest-print").GetAttribute("href"));
+        Assert.Empty(page.FindAll(".manifest-add-form"));
     }
 
     private sealed record ManifestContainer(

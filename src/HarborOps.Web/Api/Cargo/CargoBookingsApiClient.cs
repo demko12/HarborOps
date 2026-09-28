@@ -131,6 +131,33 @@ internal sealed class CargoBookingsApiClient(HttpClient httpClient)
             cancellationToken);
     }
 
+    internal Task<CargoApiResult<CargoManifestPrintView>> GetManifestPrintAsync(
+        Guid bookingId,
+        CargoContainerFilter filter,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(filter);
+
+        return GetAsync<CargoManifestPrintView>(
+            BuildManifestOutputPath(bookingId, "print", filter),
+            "Unable to prepare the printable manifest",
+            ReviewAccessDetail,
+            cancellationToken);
+    }
+
+    internal Task<HttpResponseMessage> DownloadManifestCsvAsync(
+        Guid bookingId,
+        CargoContainerFilter filter,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(filter);
+
+        return httpClient.GetAsync(
+            BuildManifestOutputPath(bookingId, "export", filter),
+            HttpCompletionOption.ResponseContentRead,
+            cancellationToken);
+    }
+
     internal Task<CargoApiResult<AddedCargoContainer>> AddContainerAsync(
         Guid bookingId,
         AddCargoContainerWebRequest request,
@@ -484,25 +511,21 @@ internal sealed class CargoBookingsApiClient(HttpClient httpClient)
     }
     private static string BuildContainersPath(Guid bookingId, CargoContainerFilter filter, int pageNumber)
     {
-        var query = new List<string>();
-
-        AddQueryValue(query, "search", filter.Search);
-        AddQueryValue(query, "status", filter.Status);
-        AddQueryValue(query, "containerType", filter.ContainerType);
-        AddQueryValue(query, "portOfLoadingCode", filter.PortOfLoadingCode);
-        AddQueryValue(query, "portOfDischargeCode", filter.PortOfDischargeCode);
-        query.Add($"pageNumber={pageNumber}");
-        query.Add("pageSize=15");
+        var query = new List<string>(filter.QueryParts())
+        {
+            $"pageNumber={pageNumber}",
+            "pageSize=15",
+        };
 
         return $"{BasePath}/{bookingId}/containers?{string.Join('&', query)}";
     }
 
-    private static void AddQueryValue(List<string> query, string name, string? value)
+    private static string BuildManifestOutputPath(Guid bookingId, string output, CargoContainerFilter filter)
     {
-        if (!string.IsNullOrWhiteSpace(value))
-        {
-            query.Add($"{name}={Uri.EscapeDataString(value.Trim())}");
-        }
+        var query = filter.QueryParts();
+        var path = $"{BasePath}/{bookingId}/containers/{output}";
+
+        return query.Count == 0 ? path : $"{path}?{string.Join('&', query)}";
     }
 
     private static string BuildPath(CargoBookingFilter filter)

@@ -67,6 +67,7 @@ app.UseHttpsRedirection();
 app.UseAntiforgery();
 app.UseAuthentication();
 app.UseAuthorization();
+app.UseNoStoreForManifestPrint();
 app.MapWebAuthenticationEndpoints();
 app.MapDocumentFileDownloadEndpoints();
 app.MapReportsDownloadEndpoints();

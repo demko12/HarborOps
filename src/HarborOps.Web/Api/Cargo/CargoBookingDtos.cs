@@ -158,11 +158,65 @@ internal sealed record CargoContainerFilter(
             Normalize(portOfDischargeCode));
     }
 
+    internal IReadOnlyList<string> QueryParts()
+    {
+        var parts = new List<string>();
+
+        AddQueryPart(parts, "search", Search);
+        AddQueryPart(parts, "status", Status);
+        AddQueryPart(parts, "containerType", ContainerType);
+        AddQueryPart(parts, "portOfLoadingCode", PortOfLoadingCode);
+        AddQueryPart(parts, "portOfDischargeCode", PortOfDischargeCode);
+
+        return parts;
+    }
+
+    private static void AddQueryPart(List<string> parts, string name, string? value)
+    {
+        if (!string.IsNullOrWhiteSpace(value))
+        {
+            parts.Add($"{name}={Uri.EscapeDataString(value.Trim())}");
+        }
+    }
+
     private static string? Normalize(string? value)
     {
         return string.IsNullOrWhiteSpace(value) ? null : value.Trim().ToUpperInvariant();
     }
 }
+
+internal sealed record CargoManifestPrintFilters(
+    string? Search,
+    string? Status,
+    string? ContainerType,
+    string? PortOfLoadingCode,
+    string? PortOfDischargeCode);
+
+internal sealed record CargoManifestPrintRow(
+    Guid ContainerId,
+    string ContainerNumber,
+    string ContainerType,
+    string Status,
+    string? PortOfLoadingCode,
+    string? PortOfDischargeCode,
+    decimal? WeightKg,
+    Guid? VesselId);
+
+internal sealed record CargoManifestPrintView(
+    Guid CargoBookingId,
+    string BookingNumber,
+    DateTime GeneratedAtUtc,
+    CargoManifestPrintFilters Filters,
+    bool IsFiltered,
+    int MatchingCount,
+    int BookingContainerCount,
+    decimal KnownWeightKg,
+    int KnownWeightCount,
+    int UnknownWeightCount,
+    int RowLimit,
+    IReadOnlyList<CargoManifestPrintRow> Rows);
+
+internal sealed record CargoFileDownloadResult(bool Ok, int Status, string? Message, int? Count);
 
 internal sealed record CargoOperationRow(
     Guid OperationId,

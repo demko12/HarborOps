@@ -1,0 +1,136 @@
+@page "/cargo/{BookingId:guid}/manifest/print"
+@attribute [Microsoft.AspNetCore.Authorization.Authorize(Policy = "AccessCargo")]
+@using HarborOps.Web.Api.Cargo
+@implements IDisposable
+@inject CargoBookingsApiClient CargoApi
+@inject IJSRuntime JS
+
+<PageTitle>@PageHeading | HarborOps</PageTitle>
+
+<section class="manifest-print-page">
+    <nav class="manifest-print-toolbar" aria-label="Printable manifest actions">
+        <a class="manifest-print-back" href="@BookingHref">Back to booking</a>
+        <button type="button"
+                class="manifest-print-button"
+                disabled="@(model is null)"
+                @onclick="PrintAsync">
+            <span class="bi bi-printer" aria-hidden="true"></span>
+            Print
+        </button>
+    </nav>
+
+    @if (isLoading)
+    {
+        <p class="manifest-print-note" role="status">Preparing the printable manifest...</p>
+    }
+    else if (failure is { IsNotFound: true })
+    {
+        <EmptyState Title="Booking not found"
+                    Message="This booking is no longer registered. Return to the cargo board to pick another one." />
+    }
+    else if (failure is { IsForbidden: true })
+    {
+        <EmptyState Title="You cannot print this manifest"
+                    Message="Your account does not carry a cargo permission. Ask an administrator for access." />
+    }
+    else if (IsLimitFailure || failure is { IsValidation: true })
+    {
+        <div class="manifest-print-limit" role="alert">
+            <p>@FailureMessage</p>
+            <a href="@BookingHref">Back to the manifest filters</a>
+        </div>
+    }
+    else if (failure is not null)
+    {
+        <ApiErrorState Title="@failure.Title" Message="@failure.Message" OnRetry="LoadAsync" />
+    }
+    else if (model is { } manifest)
+    {
+        <article class="manifest-print-sheet">
+            <header class="manifest-print-head">
+                <div>
+                    <p class="manifest-print-kicker">Container manifest</p>
+                    <h1 class="manifest-print-number">@manifest.BookingNumber</h1>
+                </div>
+                <span class="manifest-print-scope @(manifest.IsFiltered ? "is-filtered" : "is-complete")">
+                    @(manifest.IsFiltered ? "Filtered manifest" : "Complete manifest")
+                </span>
+            </header>
+
+            <dl class="manifest-print-meta">
+                <div>
+                    <dt>Generated (UTC)</dt>
+                    <dd class="manifest-print-generated">@CargoBookingFormat.CreatedUtc(manifest.GeneratedAtUtc) UTC</dd>
+                </div>
+                <div>
+                    <dt>Containers</dt>
+                    <dd class="manifest-print-count">@MatchingSummary(manifest)</dd>
+                </div>
+                <div>
+                    <dt>Applied filters</dt>
+                    <dd class="manifest-print-filters">
+                        @if (manifest.IsFiltered)
+                        {
+                            <ul>
+                                @foreach (var filter in AppliedFilters(manifest.Filters))
+                                {
+                                    <li><span>@filter.Label</span> @filter.Value</li>
+                                }
+                            </ul>
+                        }
+                        else
+                        {
+                            <span>None, every container on the booking</span>
+                        }
+                    </dd>
+                </div>
+                <div>
+                    <dt>Known weight</dt>
+                    <dd class="manifest-print-weight">@KnownWeightSummary(manifest)</dd>
+                </div>
+                <div>
+                    <dt>Unknown weight</dt>
+                    <dd class="manifest-print-unknown">@UnknownWeightSummary(manifest)</dd>
+                </div>
+            </dl>
+
+            @if (manifest.Rows.Count == 0)
+            {
+                <p class="manifest-print-empty" role="status">
+                    No containers on this booking match the applied filters.
+                </p>
+            }
+            else
+            {
+                <table class="manifest-print-table">
+                    <caption class="visually-hidden">Matching containers ordered by container number</caption>
+                    <thead>
+                        <tr>
+                            <th scope="col">Container</th>
+                            <th scope="col">Type</th>
+                            <th scope="col">POL</th>
+                            <th scope="col">POD</th>
+                            <th scope="col" class="manifest-print-num">Weight (kg)</th>
+                            <th scope="col">Status</th>
+                            <th scope="col">Vessel ID</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var row in manifest.Rows)
+                        {
+                            <tr class="manifest-print-row" @key="row.ContainerId">
+                                <td class="manifest-print-container">@row.ContainerNumber</td>
+                                <td>@row.ContainerType</td>
+                                <td>@row.PortOfLoadingCode</td>
+                                <td>@row.PortOfDischargeCode</td>
+                                <td class="manifest-print-num">@(row.WeightKg is { } weightKg ? CargoBookingFormat.WeightKg(weightKg) : null)</td>
+                                <td>@row.Status</td>
+                                <td class="manifest-print-vessel">@row.VesselId</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            }
+        </article>
+    }
+</section>
