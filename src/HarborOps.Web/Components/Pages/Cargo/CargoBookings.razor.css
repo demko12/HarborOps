@@ -240,10 +240,10 @@ html[data-theme="light"] .cargo-validation { border-color: rgba(185, 28, 28, .3)
 .cargo-card-heading p { margin: .4rem 0 0; color: var(--text-secondary); font-size: .85rem; }
 
 .cargo-table-scroll { overflow-x: auto; scrollbar-width: thin; scrollbar-color: var(--border-medium) transparent; }
-.cargo-table { width: 100%; min-width: 1080px; border-collapse: separate; border-spacing: 0 .55rem; }
+.cargo-table { width: 100%; border-collapse: separate; border-spacing: 0 .55rem; }
 
 .cargo-table th {
-    padding: .55rem .8rem;
+    padding: .55rem .6rem;
     color: var(--text-muted);
     text-align: left;
     white-space: nowrap;
@@ -255,7 +255,7 @@ html[data-theme="light"] .cargo-validation { border-color: rgba(185, 28, 28, .3)
 }
 
 .cargo-table td {
-    padding: .85rem .8rem;
+    padding: .85rem .6rem;
     vertical-align: middle;
     background: var(--bg-surface);
     transition: background-color .16s ease, border-color .16s ease;
@@ -292,12 +292,8 @@ html[data-theme="light"] .cargo-validation { border-color: rgba(185, 28, 28, .3)
 .cargo-voyage { display: block; margin-top: .2rem; color: var(--text-muted); font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: .74rem; }
 
 .cargo-desc {
-    display: -webkit-box;
-    -webkit-box-orient: vertical;
-    -webkit-line-clamp: 2;
-    line-clamp: 2;
-    max-width: 22rem;
-    overflow: hidden;
+    display: block;
+    min-width: 8rem;
     white-space: normal;
     overflow-wrap: anywhere;
 }
@@ -372,6 +368,7 @@ html[data-theme="light"] .cargo-validation { border-color: rgba(185, 28, 28, .3)
     .cargo-card-heading { flex-wrap: wrap; }
     .filter-field-grow { flex-basis: auto; }
     .cargo-pagination { align-items: flex-start; flex-direction: column; }
+    .cargo-table { min-width: 720px; }
 }
 
 .cargo-register-grid {
@@ -516,5 +513,5 @@ html[data-theme="light"] .cargo-modal { border-color: #cbd5e1; background: #fff;
 .cargo-register-button { border-color: var(--accent-border); background: var(--accent-bg); }
 .cargo-identity { display: flex; align-items: center; gap: .65rem; }
 .cargo-row-icon { display: grid; place-items: center; width: 2rem; height: 2rem; flex-shrink: 0; color: var(--accent); background: var(--accent-bg); border-radius: .55rem; }
-.cargo-type { display: inline-flex; padding: .3rem .55rem; border: 1px solid var(--border-subtle); border-radius: .4rem; font-size: .76rem; white-space: nowrap; }
+.cargo-type { display: inline-flex; padding: .3rem .55rem; border: 1px solid var(--border-subtle); border-radius: .4rem; font-size: .76rem; }
 .cargo-table th.cargo-num { text-align: right; }

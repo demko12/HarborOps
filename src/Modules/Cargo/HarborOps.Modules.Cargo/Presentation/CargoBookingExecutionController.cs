@@ -23,31 +23,30 @@ public sealed class CargoBookingExecutionController(
     [HttpGet("containers")]
     [Authorize(ReadCargoPolicy)]
     [ProducesResponseType<GetCargoContainersResponse>(StatusCodes.Status200OK)]
+    [ProducesResponseType<HttpValidationProblemDetails>(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
     public async Task<ActionResult<GetCargoContainersResponse>> GetContainers(
         Guid bookingId,
-        CancellationToken cancellationToken,
-        [FromQuery] int pageNumber = 1,
-        [FromQuery] int pageSize = GetCargoContainersQuery.DefaultPageSize)
+        [FromQuery] GetCargoContainersRequest request,
+        CancellationToken cancellationToken)
     {
         try
         {
             var response = await getCargoContainersQuery.GetContainersAsync(
                 bookingId,
-                pageNumber,
-                pageSize,
+                request,
                 cancellationToken);
 
             return Ok(response);
         }
+        catch (GetCargoContainersValidationException exception)
+        {
+            return ValidationFailed(exception.Errors);
+        }
         catch (CargoBookingNotFoundException exception)
         {
             return BookingNotFound(exception);
-        }
-        catch (CargoContainerPageValidationException)
-        {
-            return BadRequest(new ProblemDetails { Title = "Page number must be positive and page size must be between 1 and 15." });
         }
     }
 

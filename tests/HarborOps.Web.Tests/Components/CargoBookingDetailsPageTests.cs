@@ -1507,6 +1507,17 @@ public sealed class CargoBookingDetailsPageTests : BunitContext
         string? boardQuery,
         params string[] permissions)
     {
+        return RenderDetailsPageAt(
+            boardQuery is null
+                ? $"/cargo/{BookingId}"
+                : $"/cargo/{BookingId}?from={Uri.EscapeDataString(boardQuery)}",
+            permissions);
+    }
+
+    private IRenderedComponent<DetailsPage> RenderDetailsPageAt(
+        string address,
+        params string[] permissions)
+    {
         var httpClient = new HttpClient(new StubHttpMessageHandler((request, token) =>
         {
             requestedUris.Add(request.RequestUri!);
@@ -1523,9 +1534,7 @@ public sealed class CargoBookingDetailsPageTests : BunitContext
             : permissions);
 
         // A query-string parameter can only reach the component through the address bar.
-        Services.GetRequiredService<NavigationManager>().NavigateTo(boardQuery is null
-            ? $"/cargo/{BookingId}"
-            : $"/cargo/{BookingId}?from={Uri.EscapeDataString(boardQuery)}");
+        Services.GetRequiredService<NavigationManager>().NavigateTo(address);
 
         var page = Render<DetailsPage>(parameters => parameters
             .Add(component => component.BookingId, Guid.Parse(BookingId)));
@@ -2156,6 +2165,712 @@ public sealed class CargoBookingDetailsPageTests : BunitContext
         Assert.DoesNotContain(
             refreshed,
             path => path.EndsWith("/containers", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void Searching_finds_a_container_on_a_later_page_while_the_booking_counts_stay_whole()
+    {
+        var manifest = NumberedContainers("MSKU", 20, status: "Loaded");
+        RespondWithManifest(manifest);
+
+        var page = RenderDetailsPage();
+        page.WaitForAssertion(() => Assert.Equal(15, page.FindAll(".manifest-row").Count));
+
+        page.Find("#manifest-search").Input("0000019");
+
+        page.WaitForAssertion(
+            () => Assert.Equal("MSKU0000019", Assert.Single(page.FindAll(".manifest-number")).TextContent),
+            TimeSpan.FromSeconds(3));
+        Assert.Equal("1 of 20 containers match", page.Find(".manifest-results").TextContent.Trim());
+        Assert.Equal("20 of 20 loaded", page.Find(".manifest-progress").TextContent.Trim());
+        Assert.Contains("20", page.Find(".kpi-containers .booking-kpi-value").TextContent, StringComparison.Ordinal);
+        Assert.Empty(page.FindAll(".manifest-pagination"));
+        Assert.Equal("0000019", ContainerQuery(LastContainerRequest(), "search"));
+        Assert.Equal("1", ContainerQuery(LastContainerRequest(), "pageNumber"));
+    }
+
+    [Fact]
+    public async Task Typing_a_search_sends_one_request_for_the_final_text()
+    {
+        RespondWithManifest(NumberedContainers("MSKU", 3));
+
+        var page = RenderDetailsPage();
+        page.WaitForAssertion(() => Assert.Equal(3, page.FindAll(".manifest-row").Count));
+
+        await page.InvokeAsync(() => page.Find("#manifest-search").Input("M"));
+        await page.InvokeAsync(() => page.Find("#manifest-search").Input("MS"));
+        await page.InvokeAsync(() => page.Find("#manifest-search").Input("MSKU0000002"));
+
+        page.WaitForAssertion(
+            () => Assert.Single(page.FindAll(".manifest-row")),
+            TimeSpan.FromSeconds(3));
+        Assert.Equal(
+            ["MSKU0000002"],
+            ContainerRequests().Select(uri => ContainerQuery(uri, "search")).OfType<string>());
+    }
+
+    [Fact]
+    public async Task An_older_search_response_never_replaces_a_newer_one()
+    {
+        var manifest = new List<ManifestContainer>
+        {
+            new("AAAU0000001"),
+            new("BBBU0000001"),
+        };
+        var olderRequestSent = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var olderResponse = new TaskCompletionSource<HttpResponseMessage>(TaskCreationOptions.RunContinuationsAsynchronously);
+        respond = request =>
+        {
+            if (IsContainersRequest(request) && ContainerQuery(request.RequestUri!, "search") == "AAAU")
+            {
+                olderRequestSent.TrySetResult();
+
+                return olderResponse.Task;
+            }
+
+            return ManifestResponse(request, manifest);
+        };
+
+        var page = RenderDetailsPage();
+        page.WaitForAssertion(() => Assert.Equal(2, page.FindAll(".manifest-row").Count));
+
+        await page.InvokeAsync(() => page.Find("#manifest-search").Input("AAAU"));
+        await olderRequestSent.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        await page.InvokeAsync(() => page.Find("#manifest-search").Input("BBBU"));
+        page.WaitForAssertion(
+            () => Assert.Equal("BBBU0000001", Assert.Single(page.FindAll(".manifest-number")).TextContent),
+            TimeSpan.FromSeconds(3));
+
+        olderResponse.SetResult(new HttpResponseMessage(HttpStatusCode.OK)
+        {
+            Content = new StringContent(ManifestPage(manifest.Take(1).ToList(), manifest.Count, 1, 0, 1), Encoding.UTF8, "application/json"),
+        });
+        await Task.Delay(TimeSpan.FromMilliseconds(200));
+        page.Render();
+
+        Assert.Equal("BBBU0000001", Assert.Single(page.FindAll(".manifest-number")).TextContent);
+        Assert.Equal("BBBU", page.FindAll(".manifest-active-filter").Single().TextContent.Split(' ', StringSplitOptions.RemoveEmptyEntries)[^1]);
+    }
+
+    [Fact]
+    public async Task Every_filter_is_normalized_combined_and_resets_to_page_one()
+    {
+        var manifest = NumberedContainers("MSKU", 20, status: "Loaded", containerType: "42R1");
+        RespondWithManifest(manifest);
+
+        var page = RenderDetailsPage();
+        page.WaitForAssertion(() => Assert.Equal(15, page.FindAll(".manifest-row").Count));
+        await page.InvokeAsync(() => page.Find(".manifest-pagination button:last-child").Click());
+        page.WaitForAssertion(() => Assert.Equal("2", ContainerQuery(LastContainerRequest(), "pageNumber")));
+
+        page.Find("#manifest-status").Change("Loaded");
+        page.Find("#manifest-type").Change("42R1");
+        await page.InvokeAsync(() => page.Find("#manifest-pol").Input("nlrtm"));
+        await page.InvokeAsync(() => page.Find("#manifest-pod").Input("usnyc"));
+
+        page.WaitForAssertion(
+            () =>
+            {
+                var request = LastContainerRequest();
+
+                Assert.Equal("Loaded", ContainerQuery(request, "status"));
+                Assert.Equal("42R1", ContainerQuery(request, "containerType"));
+                Assert.Equal("NLRTM", ContainerQuery(request, "portOfLoadingCode"));
+                Assert.Equal("USNYC", ContainerQuery(request, "portOfDischargeCode"));
+                Assert.Equal("1", ContainerQuery(request, "pageNumber"));
+            },
+            TimeSpan.FromSeconds(3));
+        Assert.Equal(
+            ["StatusLoaded", "Type42R1", "POLNLRTM", "PODUSNYC"],
+            page.FindAll(".manifest-active-filter").Select(chip => chip.TextContent.Replace(" ", string.Empty, StringComparison.Ordinal)));
+    }
+
+    [Fact]
+    public async Task Paging_keeps_the_applied_filters_and_counts_only_the_matching_rows()
+    {
+        var manifest = NumberedContainers("MSKU", 17).Concat(NumberedContainers("TGHU", 10)).ToList();
+        RespondWithManifest(manifest);
+
+        var page = RenderDetailsPage();
+        page.WaitForAssertion(() => Assert.Contains("of 27 containers", page.Find(".manifest-pagination").TextContent, StringComparison.Ordinal));
+
+        page.Find("#manifest-search").Input("msku");
+        page.WaitForAssertion(
+            () => Assert.Contains("Showing 1–15 of 17 matching containers", page.Find(".manifest-pagination").TextContent, StringComparison.Ordinal),
+            TimeSpan.FromSeconds(3));
+        await page.InvokeAsync(() => page.Find(".manifest-pagination button:last-child").Click());
+
+        page.WaitForAssertion(() =>
+            Assert.Equal(["MSKU0000016", "MSKU0000017"], page.FindAll(".manifest-number").Select(cell => cell.TextContent)));
+        Assert.Equal("MSKU", ContainerQuery(LastContainerRequest(), "search"));
+        Assert.Equal("2", ContainerQuery(LastContainerRequest(), "pageNumber"));
+        Assert.Contains("Page 2 of 2", page.Find(".manifest-pagination").TextContent, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task Reset_clears_every_filter_and_reloads_the_whole_manifest()
+    {
+        RespondWithManifest(NumberedContainers("MSKU", 3, status: "Loaded").Append(new ManifestContainer("TGHU0000001")).ToList());
+
+        var page = RenderDetailsPage();
+        page.WaitForAssertion(() => Assert.Equal(4, page.FindAll(".manifest-row").Count));
+        Assert.True(page.Find(".manifest-reset").HasAttribute("disabled"));
+
+        page.Find("#manifest-status").Change("Loaded");
+        page.WaitForAssertion(() => Assert.Equal(3, page.FindAll(".manifest-row").Count));
+        await page.InvokeAsync(() => page.Find(".manifest-reset").Click());
+
+        page.WaitForAssertion(() => Assert.Equal(4, page.FindAll(".manifest-row").Count));
+        Assert.Empty(page.FindAll(".manifest-active-filter"));
+        Assert.Equal(string.Empty, page.Find("#manifest-status").GetAttribute("value") ?? string.Empty);
+        Assert.Null(ContainerQuery(LastContainerRequest(), "status"));
+    }
+
+    [Fact]
+    public void No_matching_containers_is_distinguished_from_an_empty_manifest_and_add_stays_available()
+    {
+        RespondWithManifest(NumberedContainers("MSKU", 2));
+
+        var page = RenderDetailsPage();
+        page.WaitForAssertion(() => Assert.Equal(2, page.FindAll(".manifest-row").Count));
+
+        page.Find("#manifest-pol").Input("DEHAM");
+
+        page.WaitForAssertion(
+            () => Assert.Contains("No containers match these filters", page.Markup, StringComparison.Ordinal),
+            TimeSpan.FromSeconds(3));
+        Assert.Empty(page.FindAll(".manifest-table"));
+        Assert.DoesNotContain("No containers yet", page.Markup, StringComparison.Ordinal);
+        Assert.Single(page.FindAll(".manifest-add-form"));
+        Assert.Single(page.FindAll(".manifest-import"));
+        Assert.Equal("0 of 2 containers match", page.Find(".manifest-results").TextContent.Trim());
+    }
+
+    [Fact]
+    public void An_empty_manifest_offers_no_filters()
+    {
+        RespondWithManifest([]);
+
+        var page = RenderDetailsPage();
+
+        page.WaitForAssertion(() =>
+            Assert.Contains("No containers yet. Add the first one using the form below.", page.Markup, StringComparison.Ordinal));
+        Assert.Empty(page.FindAll(".manifest-filters"));
+        Assert.DoesNotContain("No containers match these filters", page.Markup, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void A_reader_can_search_and_filter_without_being_offered_mutations()
+    {
+        RespondWithManifest(NumberedContainers("MSKU", 2).Append(new ManifestContainer("TGHU0000001", "Loaded")).ToList());
+
+        var page = RenderDetailsPage(CurrentUserAuthorizationState.CargoReadPermission);
+        page.WaitForAssertion(() => Assert.Equal(3, page.FindAll(".manifest-row").Count));
+
+        page.Find("#manifest-status").Change("Loaded");
+
+        page.WaitForAssertion(() =>
+            Assert.Equal("TGHU0000001", Assert.Single(page.FindAll(".manifest-number")).TextContent));
+        Assert.Empty(page.FindAll(".manifest-add-form"));
+        Assert.Empty(page.FindAll(".manifest-import"));
+    }
+
+    [Fact]
+    public void An_invalid_port_code_is_explained_without_calling_the_api()
+    {
+        RespondWithManifest(NumberedContainers("MSKU", 2));
+
+        var page = RenderDetailsPage();
+        page.WaitForAssertion(() => Assert.Equal(2, page.FindAll(".manifest-row").Count));
+        var before = ContainerRequests().Count;
+
+        page.Find("#manifest-pol").Input("NL-R");
+
+        page.WaitForAssertion(
+            () => Assert.Equal("POL must be a five-character UN/LOCODE.", page.Find(".manifest-filter-error").TextContent.Trim()),
+            TimeSpan.FromSeconds(3));
+        Assert.Equal(before, ContainerRequests().Count);
+        Assert.Equal(2, page.FindAll(".manifest-row").Count);
+    }
+
+    [Fact]
+    public async Task A_port_code_is_applied_as_soon_as_it_is_complete_without_pressing_enter()
+    {
+        RespondWithManifest(NumberedContainers("MSKU", 2).Append(new ManifestContainer("TGHU0000001", PortOfLoadingCode: "DEHAM")).ToList());
+
+        var page = RenderDetailsPage();
+        page.WaitForAssertion(() => Assert.Equal(3, page.FindAll(".manifest-row").Count));
+        var before = ContainerRequests().Count;
+
+        await page.InvokeAsync(() => page.Find("#manifest-pol").Input("de"));
+        await page.InvokeAsync(() => page.Find("#manifest-pol").Input("deh"));
+        page.WaitForAssertion(
+            () => Assert.Contains(
+                "Enter all 5 characters of the POL code",
+                page.Find(".manifest-filter-hint").TextContent,
+                StringComparison.Ordinal),
+            TimeSpan.FromSeconds(3));
+        Assert.Equal(before, ContainerRequests().Count);
+        Assert.Empty(page.FindAll(".manifest-filter-error"));
+        Assert.Equal("e.g. NLRTM", page.Find("#manifest-pol").GetAttribute("placeholder"));
+
+        await page.InvokeAsync(() => page.Find("#manifest-pol").Input("deham"));
+
+        page.WaitForAssertion(
+            () => Assert.Equal("TGHU0000001", Assert.Single(page.FindAll(".manifest-number")).TextContent),
+            TimeSpan.FromSeconds(3));
+        Assert.Empty(page.FindAll(".manifest-filter-hint"));
+        Assert.Equal("DEHAM", ContainerQuery(LastContainerRequest(), "portOfLoadingCode"));
+        Assert.Equal(before + 1, ContainerRequests().Count);
+    }
+
+    [Fact]
+    public async Task Leaving_an_incomplete_port_code_explains_what_is_missing()
+    {
+        RespondWithManifest(NumberedContainers("MSKU", 2));
+
+        var page = RenderDetailsPage();
+        page.WaitForAssertion(() => Assert.Equal(2, page.FindAll(".manifest-row").Count));
+        var before = ContainerRequests().Count;
+
+        await page.InvokeAsync(() => page.Find("#manifest-pod").Input("USN"));
+        await page.InvokeAsync(() => page.Find("#manifest-pod").Blur());
+
+        page.WaitForAssertion(() =>
+            Assert.Equal("POD must be a five-character UN/LOCODE.", page.Find(".manifest-filter-error").TextContent.Trim()));
+        Assert.Equal(before, ContainerRequests().Count);
+    }
+
+    [Fact]
+    public async Task A_filter_rejected_by_the_api_is_reported_beside_the_filters_and_can_be_reset()
+    {
+        respond = request => IsContainersRequest(request) && ContainerQuery(request.RequestUri!, "status") is not null
+            ? Json(
+                HttpStatusCode.BadRequest,
+                """{"title":"One or more validation errors occurred.","status":400,"errors":{"status":["Status is not a known container status."]}}""")
+            : ManifestResponse(request, NumberedContainers("MSKU", 2));
+
+        var page = RenderDetailsPageAt($"/cargo/{BookingId}?manifestStatus=Lost");
+
+        page.WaitForAssertion(() =>
+            Assert.Equal("Status is not a known container status.", page.Find(".manifest-filter-error").TextContent.Trim()));
+        Assert.Empty(page.FindAll(".api-error-state"));
+
+        await page.InvokeAsync(() => page.Find(".manifest-reset").Click());
+
+        page.WaitForAssertion(() => Assert.Equal(2, page.FindAll(".manifest-row").Count));
+        Assert.Empty(page.FindAll(".manifest-filter-error"));
+    }
+
+    [Fact]
+    public async Task A_failed_filtered_load_can_be_retried_with_the_same_filters()
+    {
+        var failNext = false;
+        var manifest = NumberedContainers("MSKU", 3);
+        respond = request =>
+        {
+            if (IsContainersRequest(request) && failNext)
+            {
+                failNext = false;
+
+                return Json(HttpStatusCode.ServiceUnavailable, "{}");
+            }
+
+            return ManifestResponse(request, manifest);
+        };
+
+        var page = RenderDetailsPage();
+        page.WaitForAssertion(() => Assert.Equal(3, page.FindAll(".manifest-row").Count));
+
+        failNext = true;
+        page.Find("#manifest-search").Input("0000003");
+        page.WaitForAssertion(
+            () => Assert.Contains("Unable to load the container manifest", page.Markup, StringComparison.Ordinal),
+            TimeSpan.FromSeconds(3));
+        Assert.Single(page.FindAll(".manifest-filters"));
+        await page.InvokeAsync(() => page.Find(".api-error-state button").Click());
+
+        page.WaitForAssertion(() =>
+            Assert.Equal("MSKU0000003", Assert.Single(page.FindAll(".manifest-number")).TextContent));
+        Assert.Equal("0000003", ContainerQuery(LastContainerRequest(), "search"));
+    }
+
+    [Fact]
+    public void Applied_filters_and_page_are_kept_in_the_address()
+    {
+        RespondWithManifest(NumberedContainers("MSKU", 20, status: "Loaded"));
+
+        var page = RenderDetailsPageFrom("status=InTransit");
+        page.WaitForAssertion(() => Assert.Equal(15, page.FindAll(".manifest-row").Count));
+
+        page.Find("#manifest-status").Change("Loaded");
+
+        page.WaitForAssertion(() =>
+        {
+            var address = new Uri(Services.GetRequiredService<NavigationManager>().Uri);
+
+            Assert.Equal($"/cargo/{BookingId}", address.AbsolutePath);
+            Assert.Equal("Loaded", ContainerQuery(address, "manifestStatus"));
+            Assert.Equal("status=InTransit", ContainerQuery(address, "from"));
+        });
+        Assert.Contains("/cargo?status=InTransit", page.Find(".page-breadcrumb a").GetAttribute("href"), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Filters_in_the_address_are_applied_to_the_first_request()
+    {
+        RespondWithManifest(NumberedContainers("MSKU", 20, containerType: "42R1"));
+
+        var page = RenderDetailsPageAt(
+            $"/cargo/{BookingId}?manifestSearch=msku&manifestType=42r1&manifestPol=NLRTM&manifestPage=2");
+
+        page.WaitForAssertion(() => Assert.Equal(5, page.FindAll(".manifest-row").Count));
+        var firstRequest = ContainerRequests()[0];
+        Assert.Equal("MSKU", ContainerQuery(firstRequest, "search"));
+        Assert.Equal("42R1", ContainerQuery(firstRequest, "containerType"));
+        Assert.Equal("NLRTM", ContainerQuery(firstRequest, "portOfLoadingCode"));
+        Assert.Equal("2", ContainerQuery(firstRequest, "pageNumber"));
+        Assert.Equal("msku", page.Find("#manifest-search").GetAttribute("value"));
+    }
+
+    [Fact]
+    public async Task An_edit_that_empties_the_last_page_moves_back_without_losing_the_filters()
+    {
+        var manifest = NumberedContainers("MSKU", 16);
+        respond = request =>
+        {
+            if (request.Method == HttpMethod.Put)
+            {
+                manifest.RemoveAt(manifest.Count - 1);
+
+                return Json(
+                    HttpStatusCode.OK,
+                    """{"id":"70000000-0000-0000-0000-000000000016","containerNumber":"TGHU0000016","containerType":"22G1","portOfLoadingCode":"NLRTM","portOfDischargeCode":"USNYC","weightKg":12500}""");
+            }
+
+            return ManifestResponse(request, manifest);
+        };
+
+        var page = RenderDetailsPage();
+        page.WaitForAssertion(() => Assert.Equal(15, page.FindAll(".manifest-row").Count));
+        page.Find("#manifest-search").Input("MSKU");
+        page.WaitForAssertion(
+            () => Assert.Equal("MSKU", ContainerQuery(LastContainerRequest(), "search")),
+            TimeSpan.FromSeconds(3));
+        await page.InvokeAsync(() => page.Find(".manifest-pagination button:last-child").Click());
+        page.WaitForAssertion(() => Assert.Single(page.FindAll(".manifest-row")));
+
+        await page.InvokeAsync(() => page.FindAll(".manifest-row button").Single(button => button.TextContent == "Edit").Click());
+        await page.InvokeAsync(() => page.Find(".container-edit-modal form").Submit());
+
+        page.WaitForAssertion(() => Assert.Equal(15, page.FindAll(".manifest-row").Count));
+        Assert.Equal("1", ContainerQuery(LastContainerRequest(), "pageNumber"));
+        Assert.Equal("MSKU", ContainerQuery(LastContainerRequest(), "search"));
+        Assert.Empty(page.FindAll(".manifest-pagination"));
+    }
+
+    [Fact]
+    public async Task A_filtered_manifest_still_completes_operations_for_the_whole_booking()
+    {
+        var manifest = NumberedContainers("MSKU", 4);
+        respond = request => request.RequestUri!.AbsolutePath.EndsWith("/operations", StringComparison.Ordinal)
+            ? Json(HttpStatusCode.OK, Items(OperationJson(OperationId, "Load", "InProgress", StartedStamp)))
+            : ManifestResponse(request, manifest);
+
+        var page = RenderDetailsPage();
+        page.WaitForAssertion(() => Assert.Equal(4, page.FindAll(".manifest-row").Count));
+
+        page.Find("#manifest-pod").Input("SGSIN");
+        page.WaitForAssertion(
+            () =>
+            {
+                Assert.Contains("No containers match these filters", page.Markup, StringComparison.Ordinal);
+                Assert.Contains("manifestPod=SGSIN", Services.GetRequiredService<NavigationManager>().Uri, StringComparison.Ordinal);
+            },
+            TimeSpan.FromSeconds(3));
+
+        Assert.Contains("Completing an operation settles all 4 containers on this manifest.", page.Find(".operations-effect").TextContent, StringComparison.Ordinal);
+        Assert.False(page.Find(".operation-complete").HasAttribute("disabled"));
+
+        page.Render();
+        await page.InvokeAsync(() => page.Find(".operation-complete").Click());
+
+        Assert.Contains("set every container on this booking to Loaded", page.Find(".operation-confirm-question").TextContent, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task Opening_and_closing_a_container_control_keeps_the_filters()
+    {
+        var manifest = NumberedContainers("MSKU", 3);
+        respond = request => request.RequestUri!.AbsolutePath.EndsWith("/control", StringComparison.Ordinal)
+            ? Json(HttpStatusCode.OK, $$"""{"control":{{ContainerControlJson(manifest[1].Id, "Pending")}},"history":[]}""")
+            : ManifestResponse(request, manifest);
+
+        var page = RenderDetailsPage();
+        page.WaitForAssertion(() => Assert.Equal(3, page.FindAll(".manifest-row").Count));
+        page.Find("#manifest-search").Input("0000002");
+        page.WaitForAssertion(() => Assert.Single(page.FindAll(".manifest-row")), TimeSpan.FromSeconds(3));
+        var requestsBeforeControl = ContainerRequests().Count;
+
+        await page.InvokeAsync(() => page.Find(".manifest-row .manifest-control-open").Click());
+        page.WaitForAssertion(() => Assert.NotEmpty(page.FindAll(".container-control-panel")));
+        await page.InvokeAsync(() => page.Find(".container-control-modal .operation-modal-close").Click());
+
+        Assert.Empty(page.FindAll(".container-control-panel"));
+        Assert.Equal("0000002", page.Find("#manifest-search").GetAttribute("value"));
+        Assert.Equal("MSKU0000002", Assert.Single(page.FindAll(".manifest-number")).TextContent);
+        Assert.Equal(requestsBeforeControl, ContainerRequests().Count);
+    }
+
+    [Fact]
+    public void The_manifest_reports_that_it_is_loading()
+    {
+        var containers = new TaskCompletionSource<HttpResponseMessage>(TaskCreationOptions.RunContinuationsAsynchronously);
+        respond = request => IsContainersRequest(request)
+            ? containers.Task
+            : SectionResponse(request, EmptyItems, EmptyItems, Details());
+
+        var page = RenderDetailsPage();
+
+        page.WaitForAssertion(() =>
+            Assert.Contains("Loading the container manifest...", page.Markup, StringComparison.Ordinal));
+        Assert.Empty(page.FindAll(".manifest-filters"));
+
+        containers.SetResult(new HttpResponseMessage(HttpStatusCode.OK)
+        {
+            Content = new StringContent(ManifestPage([new ManifestContainer("MSKU0000001")], 1, 1, 0), Encoding.UTF8, "application/json"),
+        });
+
+        page.WaitForAssertion(() => Assert.Single(page.FindAll(".manifest-row")));
+    }
+
+    [Fact]
+    public async Task A_running_search_keeps_the_current_rows_and_reports_that_it_is_searching()
+    {
+        var manifest = NumberedContainers("MSKU", 3);
+        var searchSent = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var searchResponse = new TaskCompletionSource<HttpResponseMessage>(TaskCreationOptions.RunContinuationsAsynchronously);
+        respond = request =>
+        {
+            if (IsContainersRequest(request) && ContainerQuery(request.RequestUri!, "search") is not null)
+            {
+                searchSent.TrySetResult();
+
+                return searchResponse.Task;
+            }
+
+            return ManifestResponse(request, manifest);
+        };
+
+        var page = RenderDetailsPage();
+        page.WaitForAssertion(() => Assert.Equal(3, page.FindAll(".manifest-row").Count));
+
+        await page.InvokeAsync(() => page.Find("#manifest-search").Input("0000002"));
+        await searchSent.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        page.Render();
+
+        Assert.Equal("Searching the manifest...", page.Find(".manifest-searching").TextContent.Trim());
+        Assert.Equal("true", page.Find(".booking-table-scroll[aria-busy]").GetAttribute("aria-busy"));
+        Assert.Equal(3, page.FindAll(".manifest-row").Count);
+
+        searchResponse.SetResult(new HttpResponseMessage(HttpStatusCode.OK)
+        {
+            Content = new StringContent(ManifestPage([manifest[1]], 3, 1, 0, 1), Encoding.UTF8, "application/json"),
+        });
+
+        page.WaitForAssertion(() =>
+            Assert.Equal("MSKU0000002", Assert.Single(page.FindAll(".manifest-number")).TextContent));
+        Assert.Empty(page.FindAll(".manifest-searching"));
+    }
+
+    [Fact]
+    public async Task An_import_refreshes_the_counts_and_keeps_the_filters()
+    {
+        var manifest = NumberedContainers("MSKU", 2).Append(new ManifestContainer("TGHU0000001")).ToList();
+        respond = request =>
+        {
+            var path = request.RequestUri!.AbsolutePath;
+
+            if (path.EndsWith("/containers/import/preview", StringComparison.Ordinal))
+            {
+                return Json(HttpStatusCode.OK, """{"totalCount":1,"validCount":1,"invalidCount":0,"rows":[]}""");
+            }
+
+            if (path.EndsWith("/containers/import", StringComparison.Ordinal))
+            {
+                var imported = new ManifestContainer("MSKU0000003");
+                manifest.Add(imported);
+
+                return Json(HttpStatusCode.OK, $$"""{"createdCount":1,"containerIds":["{{imported.Id}}"]}""");
+            }
+
+            return ManifestResponse(request, manifest);
+        };
+
+        var page = RenderDetailsPage();
+        page.WaitForAssertion(() => Assert.Equal(3, page.FindAll(".manifest-row").Count));
+        await page.InvokeAsync(() => page.Find("#manifest-search").Input("MSKU"));
+        page.WaitForAssertion(() => Assert.Equal(2, page.FindAll(".manifest-row").Count), TimeSpan.FromSeconds(3));
+
+        page.FindComponent<Microsoft.AspNetCore.Components.Forms.InputFile>()
+            .UploadFiles(InputFileContent.CreateFromText("<manifest />", "manifest.xml", contentType: "application/xml"));
+        await page.InvokeAsync(() => page.FindAll(".manifest-import button").Single(button => button.TextContent.Contains("Preview manifest", StringComparison.Ordinal)).Click());
+        page.WaitForAssertion(() => Assert.Contains("Confirm import", page.Markup, StringComparison.Ordinal));
+        await page.InvokeAsync(() => page.FindAll(".manifest-import button").Single(button => button.TextContent.Contains("Confirm import", StringComparison.Ordinal)).Click());
+
+        page.WaitForAssertion(() => Assert.Equal(3, page.FindAll(".manifest-row").Count));
+        Assert.Equal("MSKU", ContainerQuery(LastContainerRequest(), "search"));
+        Assert.Equal("3 of 4 containers match", page.Find(".manifest-results").TextContent.Trim());
+        Assert.Contains("4", page.Find(".kpi-containers .booking-kpi-value").TextContent, StringComparison.Ordinal);
+        Assert.Equal("MSKU", page.Find(".manifest-active-filter").TextContent.Split(' ', StringSplitOptions.RemoveEmptyEntries)[^1]);
+    }
+
+    [Fact]
+    public async Task Completing_an_operation_refreshes_the_counts_and_keeps_the_filters()
+    {
+        var manifest = NumberedContainers("MSKU", 3).Append(new ManifestContainer("TGHU0000001")).ToList();
+        var completed = false;
+        respond = request =>
+        {
+            var path = request.RequestUri!.AbsolutePath;
+
+            if (path.EndsWith("/complete", StringComparison.Ordinal))
+            {
+                completed = true;
+                manifest = manifest.Select(container => container with { Status = "Loaded" }).ToList();
+
+                return Json(HttpStatusCode.OK, Transition("Completed", StartedStamp, FinishedStamp));
+            }
+
+            if (path.EndsWith("/operations", StringComparison.Ordinal))
+            {
+                return Json(HttpStatusCode.OK, Items(completed
+                    ? OperationJson(OperationId, "Load", "Completed", StartedStamp, FinishedStamp)
+                    : OperationJson(OperationId, "Load", "InProgress", StartedStamp)));
+            }
+
+            return ManifestResponse(request, manifest);
+        };
+
+        var page = RenderDetailsPage();
+        page.WaitForAssertion(() => Assert.Equal(4, page.FindAll(".manifest-row").Count));
+        await page.InvokeAsync(() => page.Find("#manifest-search").Input("TGHU"));
+        page.WaitForAssertion(
+            () =>
+            {
+                Assert.Single(page.FindAll(".manifest-row"));
+                Assert.Contains("manifestSearch=TGHU", Services.GetRequiredService<NavigationManager>().Uri, StringComparison.Ordinal);
+            },
+            TimeSpan.FromSeconds(3));
+
+        page.Render();
+        await page.InvokeAsync(() => page.Find(".operation-complete").Click());
+        await page.InvokeAsync(() => page.Find(".operation-confirm").Click());
+
+        page.WaitForAssertion(() => Assert.Equal("4 of 4 loaded", page.Find(".manifest-progress").TextContent.Trim()));
+        Assert.Equal("TGHU", ContainerQuery(LastContainerRequest(), "search"));
+        Assert.Equal("TGHU0000001", Assert.Single(page.FindAll(".manifest-number")).TextContent);
+        Assert.Contains("Loaded", page.Find(".manifest-row .cargo-status").TextContent, StringComparison.Ordinal);
+    }
+
+    private sealed record ManifestContainer(
+        string Number,
+        string Status = "Registered",
+        string ContainerType = "22G1",
+        string? PortOfLoadingCode = "NLRTM",
+        string? PortOfDischargeCode = "USNYC")
+    {
+        public string Id { get; } = Guid.NewGuid().ToString();
+    }
+
+    private static List<ManifestContainer> NumberedContainers(
+        string ownerCode,
+        int count,
+        string status = "Registered",
+        string containerType = "22G1")
+    {
+        return Enumerable.Range(1, count)
+            .Select(ordinal => new ManifestContainer($"{ownerCode}{ordinal:D7}", status, containerType))
+            .ToList();
+    }
+
+    private void RespondWithManifest(IReadOnlyList<ManifestContainer> manifest)
+    {
+        respond = request => ManifestResponse(request, manifest);
+    }
+
+    private static Task<HttpResponseMessage> ManifestResponse(
+        HttpRequestMessage request,
+        IReadOnlyList<ManifestContainer> manifest)
+    {
+        if (!IsContainersRequest(request))
+        {
+            return SectionResponse(request, EmptyItems, EmptyItems, Details());
+        }
+
+        var uri = request.RequestUri!;
+        var search = ContainerQuery(uri, "search");
+        var status = ContainerQuery(uri, "status");
+        var containerType = ContainerQuery(uri, "containerType");
+        var portOfLoading = ContainerQuery(uri, "portOfLoadingCode");
+        var portOfDischarge = ContainerQuery(uri, "portOfDischargeCode");
+        var pageNumber = int.Parse(ContainerQuery(uri, "pageNumber") ?? "1", System.Globalization.CultureInfo.InvariantCulture);
+
+        var matching = manifest
+            .Where(container => search is null || container.Number.Contains(search, StringComparison.OrdinalIgnoreCase))
+            .Where(container => status is null || container.Status == status)
+            .Where(container => containerType is null || container.ContainerType == containerType)
+            .Where(container => portOfLoading is null || container.PortOfLoadingCode == portOfLoading)
+            .Where(container => portOfDischarge is null || container.PortOfDischargeCode == portOfDischarge)
+            .OrderBy(container => container.Number, StringComparer.Ordinal)
+            .ToList();
+
+        return Json(
+            HttpStatusCode.OK,
+            ManifestPage(
+                matching.Skip((pageNumber - 1) * 15).Take(15).ToList(),
+                manifest.Count,
+                pageNumber,
+                manifest.Count(container => container.Status == "Loaded"),
+                matching.Count));
+    }
+
+    private static string ManifestPage(
+        IReadOnlyList<ManifestContainer> items,
+        int totalCount,
+        int pageNumber,
+        int loadedCount,
+        int? matchingCount = null)
+    {
+        var rows = items.Select(container => $$"""
+            {"containerId":"{{container.Id}}","containerNumber":"{{container.Number}}","containerType":"{{container.ContainerType}}","status":"{{container.Status}}","cargoBookingId":"{{BookingId}}","vesselId":null,"portOfLoadingCode":"{{container.PortOfLoadingCode}}","portOfDischargeCode":"{{container.PortOfDischargeCode}}","weightKg":12500}
+            """);
+
+        return $$"""{"items":[{{string.Join(',', rows)}}],"totalCount":{{totalCount}},"pageNumber":{{pageNumber}},"pageSize":15,"loadedCount":{{loadedCount}},"matchingCount":{{matchingCount ?? items.Count}}}""";
+    }
+
+    private static bool IsContainersRequest(HttpRequestMessage request)
+    {
+        return request.RequestUri!.AbsolutePath.EndsWith("/containers", StringComparison.Ordinal);
+    }
+
+    private List<Uri> ContainerRequests()
+    {
+        return requestedUris
+            .Where(uri => uri.AbsolutePath.EndsWith("/containers", StringComparison.Ordinal))
+            .ToList();
+    }
+
+    private Uri LastContainerRequest()
+    {
+        return ContainerRequests()[^1];
+    }
+
+    private static string? ContainerQuery(Uri uri, string key)
+    {
+        return Microsoft.AspNetCore.WebUtilities.QueryHelpers.ParseQuery(uri.Query).TryGetValue(key, out var value)
+            ? value.ToString()
+            : null;
     }
 
     private static string Items(params string[] rows)
