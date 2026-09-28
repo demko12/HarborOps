@@ -630,6 +630,82 @@ public sealed class CargoBookingsApiClientTests
     }
 
     [Fact]
+    public async Task GetContainersAsync_sends_every_applied_filter_with_the_page()
+    {
+        HttpRequestMessage? captured = null;
+        using var httpClient = CreateHttpClient((request, _) =>
+        {
+            captured = request;
+            return Json(HttpStatusCode.OK, """{"items":[]}""");
+        });
+
+        await CreateClient(httpClient).GetContainersAsync(
+            BookingId,
+            CargoContainerFilter.Create(" msku 12&3 ", "Loaded", "42r1", "nlrtm", " usnyc"),
+            3,
+            CancellationToken.None);
+
+        Assert.Equal(
+            "?search=MSKU%2012%263&status=Loaded&containerType=42R1&portOfLoadingCode=NLRTM&portOfDischargeCode=USNYC&pageNumber=3&pageSize=15",
+            captured!.RequestUri!.Query);
+    }
+
+    [Fact]
+    public async Task GetContainersAsync_leaves_out_blank_filters()
+    {
+        HttpRequestMessage? captured = null;
+        using var httpClient = CreateHttpClient((request, _) =>
+        {
+            captured = request;
+            return Json(HttpStatusCode.OK, """{"items":[]}""");
+        });
+
+        await CreateClient(httpClient).GetContainersAsync(
+            BookingId,
+            CargoContainerFilter.Create("  ", "", null, " ", null),
+            1,
+            CancellationToken.None);
+
+        Assert.Equal("?pageNumber=1&pageSize=15", captured!.RequestUri!.Query);
+    }
+
+    [Fact]
+    public async Task GetContainersAsync_reads_the_matching_and_whole_booking_counts()
+    {
+        using var httpClient = CreateHttpClient((_, _) => Json(
+            HttpStatusCode.OK,
+            """{"items":[],"totalCount":40,"pageNumber":2,"pageSize":15,"loadedCount":12,"matchingCount":17}"""));
+
+        var result = await CreateClient(httpClient).GetContainersAsync(
+            BookingId,
+            CargoContainerFilter.Create("MSKU", null, null, null, null),
+            2,
+            CancellationToken.None);
+
+        Assert.Equal(40, result.Value!.TotalCount);
+        Assert.Equal(12, result.Value.LoadedCount);
+        Assert.Equal(17, result.Value.MatchingCount);
+        Assert.Equal(2, result.Value.PageNumber);
+    }
+
+    [Fact]
+    public async Task GetContainersAsync_reports_the_rejected_filter_fields()
+    {
+        using var httpClient = CreateHttpClient((_, _) => Json(
+            HttpStatusCode.BadRequest,
+            """{"title":"One or more validation errors occurred.","status":400,"errors":{"portOfLoadingCode":["POL must be a five-character UN/LOCODE."]}}"""));
+
+        var result = await CreateClient(httpClient).GetContainersAsync(
+            BookingId,
+            CargoContainerFilter.Create(null, null, null, "NL", null),
+            1,
+            CancellationToken.None);
+
+        Assert.True(result.Failure!.IsValidation);
+        Assert.Equal(["POL must be a five-character UN/LOCODE."], result.Failure.Errors["portOfLoadingCode"]);
+    }
+
+    [Fact]
     public async Task GetContainersAsync_reports_a_forbidden_failure()
     {
         using var httpClient = CreateHttpClient((_, _) => Json(HttpStatusCode.Forbidden, "{}"));

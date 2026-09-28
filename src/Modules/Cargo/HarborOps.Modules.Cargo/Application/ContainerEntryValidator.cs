@@ -30,8 +30,10 @@ internal static class ContainerEntryValidator
 
     internal static string NormalizePort(string value) => value.Trim().ToUpperInvariant();
 
+    internal static bool IsPortCode(string? value) => !string.IsNullOrWhiteSpace(value) && value.Trim().Length == Container.PortCodeLength && value.Trim().All(char.IsLetterOrDigit);
+
     private static void ValidatePort(string? value, string field, string label, IDictionary<string, string[]> errors)
     {
-        if (string.IsNullOrWhiteSpace(value) || value.Trim().Length != Container.PortCodeLength || !value.Trim().All(char.IsLetterOrDigit)) errors[field] = [$"{label} must be a five-character UN/LOCODE."];
+        if (!IsPortCode(value)) errors[field] = [$"{label} must be a five-character UN/LOCODE."];
     }
 }

@@ -5,6 +5,7 @@
 @inject CargoBookingsApiClient CargoApi
 @inject CurrentUserAuthorizationState AuthorizationState
 @inject IJSRuntime JS
+@inject NavigationManager Navigation
 
 <PageTitle>@PageHeading | HarborOps</PageTitle>
 
@@ -172,11 +173,11 @@
                 <span style="width:@(LoadedPercent)%"></span>
             </div>
 
-            @if (isLoadingContainers)
+            @if (!hasLoadedContainers && isLoadingContainers)
             {
                 <LoadingState Message="Loading the container manifest..." />
             }
-            else if (containersFailure is not null)
+            else if (!hasLoadedContainers && containersFailure is { IsValidation: false })
             {
                 <ApiErrorState Title="@containersFailure.Title"
                                Message="@containersFailure.Message"
@@ -191,7 +192,7 @@
                     </p>
                 }
 
-                @if (containers.Count == 0 && !CanAddContainers)
+                @if (hasLoadedContainers && containerTotalCount == 0 && !CanAddContainers)
                 {
                     <EmptyState Title="No containers on the manifest"
                                 Message="Containers added here are the ones a load or unload operation settles." />
@@ -199,7 +200,7 @@
                 else
                 {
 
-                @if (containers.Count == 0)
+                @if (hasLoadedContainers && containerTotalCount == 0)
                 {
                     <p class="booking-note">No containers yet. Add the first one using the form below.</p>
                 }
@@ -300,7 +301,137 @@
                     </EditForm>
                 }
 
-                <div class="booking-table-scroll">
+                @if (containerTotalCount > 0 || IsContainerFilterActive)
+                {
+                <section class="manifest-filters" aria-label="Filter the container manifest">
+                    <div class="manifest-filter-layout">
+                        <div class="booking-field manifest-filter-search">
+                            <label for="manifest-search">Search container number</label>
+                            <input id="manifest-search"
+                                   type="search"
+                                   maxlength="@ContainerSearchMaxLength"
+                                   placeholder="e.g. MSKU123"
+                                   autocomplete="off"
+                                   @bind="containerSearchInput"
+                                   @bind:event="oninput"
+                                   @bind:after="ScheduleContainerSearchAsync" />
+                        </div>
+
+                        <div class="booking-field">
+                            <label for="manifest-status">Status</label>
+                            <select id="manifest-status" @bind="containerStatusInput" @bind:after="ApplyContainerFiltersNowAsync">
+                                <option value="">All statuses</option>
+                                @foreach (var statusOption in ContainerStatusOptions)
+                                {
+                                    <option value="@statusOption">@statusOption</option>
+                                }
+                            </select>
+                        </div>
+
+                        <div class="booking-field">
+                            <label for="manifest-type">Container type</label>
+                            <select id="manifest-type" @bind="containerTypeInput" @bind:after="ApplyContainerFiltersNowAsync">
+                                <option value="">All types</option>
+                                @foreach (var containerType in FilterContainerTypes)
+                                {
+                                    <option value="@containerType.Code">@containerType.Label</option>
+                                }
+                            </select>
+                        </div>
+
+                        <div class="booking-field">
+                            <label for="manifest-pol">POL</label>
+                            <input id="manifest-pol"
+                                   maxlength="@PortCodeLength"
+                                   placeholder="e.g. NLRTM"
+                                   title="Five-character UN/LOCODE, e.g. NLRTM"
+                                   autocomplete="off"
+                                   @bind="containerPolInput"
+                                   @bind:event="oninput"
+                                   @bind:after="ScheduleContainerSearchAsync"
+                                   @onblur="ApplyContainerFiltersNowAsync" />
+                        </div>
+
+                        <div class="booking-field">
+                            <label for="manifest-pod">POD</label>
+                            <input id="manifest-pod"
+                                   maxlength="@PortCodeLength"
+                                   placeholder="e.g. USNYC"
+                                   title="Five-character UN/LOCODE, e.g. USNYC"
+                                   autocomplete="off"
+                                   @bind="containerPodInput"
+                                   @bind:event="oninput"
+                                   @bind:after="ScheduleContainerSearchAsync"
+                                   @onblur="ApplyContainerFiltersNowAsync" />
+                        </div>
+
+                        <div class="manifest-filter-reset">
+                            <button type="button"
+                                    class="manifest-reset"
+                                    disabled="@(!HasContainerFilterInput)"
+                                    @onclick="ResetContainerFiltersAsync">Reset</button>
+                        </div>
+                    </div>
+
+                    @if (containerFilterError is not null)
+                    {
+                        <div class="booking-form-error manifest-filter-error" role="alert">@containerFilterError</div>
+                    }
+
+                    <div class="manifest-filter-summary" role="status" aria-live="polite">
+                        @if (containerFilterHint is not null && containerFilterError is null)
+                        {
+                            <span class="manifest-filter-hint">
+                                <span class="bi bi-info-circle" aria-hidden="true"></span>
+                                @containerFilterHint
+                            </span>
+                        }
+                        else if (isLoadingContainers)
+                        {
+                            <span class="manifest-searching">Searching the manifest...</span>
+                        }
+                        else if (IsContainerFilterActive && containersFailure is null)
+                        {
+                            <span class="manifest-results">@containerMatchingCount of @containerTotalCount containers match</span>
+                        }
+
+                        @if (IsContainerFilterActive)
+                        {
+                            <ul class="manifest-active-filters" aria-label="Active filters">
+                                @foreach (var activeFilter in ActiveContainerFilters)
+                                {
+                                    <li class="manifest-active-filter"><span>@activeFilter.Label</span> @activeFilter.Value</li>
+                                }
+                            </ul>
+                        }
+                    </div>
+                </section>
+                }
+
+                @if (containersFailure is { IsValidation: true } validationFailure)
+                {
+                    <div class="booking-form-error manifest-filter-error" role="alert">
+                        @(validationFailure.Errors.Count > 0
+                            ? string.Join(" ", validationFailure.Errors.SelectMany(error => error.Value))
+                            : validationFailure.Title)
+                    </div>
+                }
+                else if (containersFailure is not null)
+                {
+                    <ApiErrorState Title="@containersFailure.Title"
+                                   Message="@containersFailure.Message"
+                                   OnRetry="LoadContainersAsync" />
+                }
+                else if (containerTotalCount > 0 && containerMatchingCount == 0)
+                {
+                    <div class="manifest-no-match">
+                        <EmptyState Title="No containers match these filters"
+                                    Message="@($"None of the {containerTotalCount} containers on this booking match. Change or reset the filters to see the rest of the manifest.")" />
+                    </div>
+                }
+                else if (containerTotalCount > 0)
+                {
+                <div class="booking-table-scroll" aria-busy="@(isLoadingContainers ? "true" : "false")">
                     <table class="booking-table manifest-table">
                         <caption class="visually-hidden">Containers on this booking, ordered by container number</caption>
                         <thead>
@@ -355,16 +486,17 @@
                     </table>
                 </div>
 
-                @if (containerTotalCount > ContainersPerPage)
+                @if (containerMatchingCount > ContainersPerPage)
                 {
                     <nav class="manifest-pagination" aria-label="Container manifest pages">
-                        <span>Showing @(((containerPageNumber - 1) * ContainersPerPage) + 1)–@Math.Min(containerPageNumber * ContainersPerPage, containerTotalCount) of @containerTotalCount containers</span>
+                        <span>Showing @FirstContainerRowNumber–@LastContainerRowNumber of @containerMatchingCount @(IsContainerFilterActive ? "matching containers" : "containers")</span>
                         <div>
-                            <button type="button" class="booking-pagination-button" disabled="@(containerPageNumber == 1)" @onclick="() => ChangeContainerPageAsync(containerPageNumber - 1)">Previous</button>
+                            <button type="button" class="booking-pagination-button" disabled="@(containerPageNumber == 1 || isLoadingContainers)" @onclick="() => ChangeContainerPageAsync(containerPageNumber - 1)">Previous</button>
                             <span aria-current="page">Page @containerPageNumber of @ContainerPageCount</span>
-                            <button type="button" class="booking-pagination-button" disabled="@(containerPageNumber == ContainerPageCount)" @onclick="() => ChangeContainerPageAsync(containerPageNumber + 1)">Next</button>
+                            <button type="button" class="booking-pagination-button" disabled="@(containerPageNumber == ContainerPageCount || isLoadingContainers)" @onclick="() => ChangeContainerPageAsync(containerPageNumber + 1)">Next</button>
                         </div>
                     </nav>
+                }
                 }
 
                 }
@@ -382,8 +514,8 @@
                 <span class="booking-count">@PlannedOperationCount planned</span>
             </div>
 
-            <p class="booking-note operations-effect @(containers.Count == 0 ? "booking-note-warning" : null)" role="status">
-                @(containers.Count == 0
+            <p class="booking-note operations-effect @(containerTotalCount == 0 ? "booking-note-warning" : null)" role="status">
+                @(containerTotalCount == 0
                     ? "Add at least one container to the manifest before an operation can be completed."
                     : $"Completing an operation settles all {containerTotalCount} containers on this manifest.")
             </p>
@@ -512,7 +644,7 @@
                                                 {
                                                     <button type="button"
                                                             class="booking-submit operation-complete"
-                                                            disabled="@(containers.Count == 0)"
+                                                            disabled="@(containerTotalCount == 0)"
                                                             @onclick="() => AskToConfirm(operation, CompleteAction)">Complete</button>
                                                 }
                                                 else
