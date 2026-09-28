@@ -28,6 +28,30 @@ public sealed class CrewRotationsPageTests : BunitContext
         _ => Json(HttpStatusCode.OK, VesselSearchPage());
 
     [Fact]
+    public void A_manager_can_request_and_dismiss_cancellation_from_the_card()
+    {
+        respondToRotations = _ => Json(HttpStatusCode.OK, Page(Row()));
+        var page = RenderRotationsPage(CurrentUserAuthorizationState.CrewManagePermission);
+        page.WaitForAssertion(() => Assert.Single(page.FindAll(".crew-card-actions button")));
+
+        page.Find(".crew-card-actions button").Click();
+
+        Assert.Equal("Confirm", page.FindAll(".crew-card-actions button")[0].TextContent);
+        page.FindAll(".crew-card-actions button")[1].Click();
+        Assert.Equal("Cancel", page.Find(".crew-card-actions button").TextContent);
+    }
+
+    [Fact]
+    public void Read_only_users_have_no_card_cancellation_action()
+    {
+        respondToRotations = _ => Json(HttpStatusCode.OK, Page(Row()));
+        var page = RenderRotationsPage(CurrentUserAuthorizationState.CrewReadPermission);
+        page.WaitForAssertion(() => Assert.Single(page.FindAll(".crew-rotation-card")));
+
+        Assert.Empty(page.FindAll(".crew-card-actions"));
+    }
+
+    [Fact]
     public void Initial_state_loads_rotations_without_filters()
     {
         var page = RenderRotationsPage();

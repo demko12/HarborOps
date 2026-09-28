@@ -7,20 +7,28 @@
 
 <PageTitle>Crew manning | HarborOps</PageTitle>
 
-<section class="crew-manning-page">
+<section class="crew-manning-page crew-operations-page" aria-busy="@((plansLoading || coverageLoading).ToString().ToLowerInvariant())">
     <header class="crew-manning-header">
         <div>
             <nav class="page-breadcrumb" aria-label="Breadcrumb"><a href="/crew">Crewing operations</a><span aria-hidden="true">/</span><span>Manning</span></nav>
             <h1>Crew manning plan &amp; coverage</h1>
-            <p>
-                Define staffing targets by rank for a vessel and compare them against current assignments and approved
-                availability. This board is a projection from current records &mdash; not a historical audit or a
-                statutory safe-manning certification, and it does not authorize departure.
-            </p>
+            <p>Plan staffing by rank, compare coverage, and identify gaps before the next handover.</p>
         </div>
     </header>
 
     <CrewNavigation />
+
+    @if (vesselId is not null && !plansLoading && !coverageLoading && plansFailure is null && coverageFailure is null && coverage is not null)
+    {
+        <section class="crew-metrics" aria-label="Manning summary">
+            <CrewMetricCard Label="Manning plans" Value="@plans.Count" Note="For the selected vessel" Icon="bi-journal-text" />
+            <CrewMetricCard Label="Ranks with shortages" Value="@(coverage.ShortageIntervals.Select(i => i.RankId).Distinct().Count())" Note="In the selected window" Icon="bi-person-exclamation" Tone="red" />
+            <CrewMetricCard Label="Shortage intervals" Value="@coverage.ShortageIntervals.Count" Note="In the selected window" Icon="bi-calendar-x" Tone="amber" />
+            <CrewMetricCard Label="Days in view" Value="@(coverage.To.DayNumber - coverage.From.DayNumber + 1)" Note="Selected coverage window" Icon="bi-calendar-range" />
+        </section>
+    }
+
+    <p class="crew-workspace-note"><span class="bi bi-info-circle" aria-hidden="true"></span><span>Coverage is projected from current assignments and approved availability. It is not a historical audit or statutory safe-manning certification, and does not authorize departure.</span></p>
 
     <div class="crew-manning-filters">
         <div class="filter-field filter-field-wide">
@@ -47,16 +55,17 @@
 
     @if (vesselId is null)
     {
-        <EmptyState Title="Choose a vessel" Message="Search for a vessel above to view its manning plans and coverage." />
+        <section class="crew-card"><EmptyState Title="Choose a vessel" Message="Search for a vessel above to view its manning plans and coverage." /></section>
     }
     else
     {
         <div class="crew-manning-workspace">
             <section class="crew-card" aria-labelledby="manning-plans-title">
                 <div class="crew-card-heading">
-                    <div>
-                        <h2 id="manning-plans-title">Manning plans</h2>
-                        <p>@plans.Count plan(s) for this vessel</p>
+                    <div class="crew-register-title">
+                        <span class="crew-register-mark bi bi-journal-text" aria-hidden="true"></span>
+                        <div><h2 id="manning-plans-title">Manning plans</h2>
+                        <p>@plans.Count plan(s) for this vessel</p></div>
                     </div>
                     @if (CanManage)
                     {
@@ -214,9 +223,10 @@
 
             <section class="crew-card" aria-labelledby="manning-coverage-title">
                 <div class="crew-card-heading">
-                    <div>
-                        <h2 id="manning-coverage-title">Shortage intervals</h2>
-                        <p>@fromFilter.ToString("dd MMM yyyy") &ndash; @toFilter.ToString("dd MMM yyyy")</p>
+                    <div class="crew-register-title">
+                        <span class="crew-register-mark bi bi-calendar-x" aria-hidden="true"></span>
+                        <div><h2 id="manning-coverage-title">Shortage intervals</h2>
+                        <p>@fromFilter.ToString("dd MMM yyyy") &ndash; @toFilter.ToString("dd MMM yyyy")</p></div>
                     </div>
                     <a class="crew-manning-rotations-link" href="@($"/crew/rotations?vesselId={vesselId}")">View rotations</a>
                 </div>

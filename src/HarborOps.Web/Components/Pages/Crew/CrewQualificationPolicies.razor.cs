@@ -17,6 +17,7 @@ public partial class CrewQualificationPolicies : IDisposable
     private int pageNumber = 1;
     private int totalCount;
     private bool isLoading = true;
+    private bool cardView = true;
     private CrewApiFailure? failure;
 
     private IReadOnlyList<QualificationPolicyListItemResponse> policies = [];

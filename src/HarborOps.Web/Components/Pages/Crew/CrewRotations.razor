@@ -9,7 +9,7 @@
 
 <PageTitle>Crew rotations | HarborOps</PageTitle>
 
-<section class="crew-rotations-page">
+<section class="crew-rotations-page crew-operations-page" aria-busy="@isLoading.ToString().ToLowerInvariant()">
     <header class="crew-rotations-header">
         <div>
             <nav class="page-breadcrumb" aria-label="Breadcrumb"><a href="/crew">Crewing operations</a><span aria-hidden="true">/</span><span>Rotations</span></nav>
@@ -20,41 +20,51 @@
 
     <CrewNavigation />
 
-    <div class="crew-rotations-filters">
-        <div class="filter-field filter-field-wide">
-            <label for="crew-rotations-vessel">Vessel</label>
-            <VesselPicker @key="vesselPickerResetToken" InputId="crew-rotations-vessel" Value="vesselIdFilter" ValueChanged="OnVesselFilterChangedAsync" Placeholder="All vessels" />
-        </div>
-        <div class="filter-field">
-            <label for="crew-rotations-from">Relief from</label>
-            <input id="crew-rotations-from" type="date" @bind="fromFilter" @bind:after="SearchAsync" />
-        </div>
-        <div class="filter-field">
-            <label for="crew-rotations-to">Relief to</label>
-            <input id="crew-rotations-to" type="date" @bind="toFilter" @bind:after="SearchAsync" />
-        </div>
-        <div class="filter-field">
-            <label for="crew-rotations-overdue">Overdue</label>
-            <select id="crew-rotations-overdue" @bind="overdueSelection" @bind:after="SearchAsync">
-                <option value="">All</option>
-                <option value="true">Overdue only</option>
-            </select>
-        </div>
-        <div class="crew-rotations-filter-actions">
-            <button type="button" class="crew-reset-button" @onclick="ResetFiltersAsync" disabled="@isLoading">Reset</button>
-        </div>
-    </div>
-
-    @if (filterValidationMessage is not null)
+    @if (!isLoading && failure is null)
     {
-        <div class="crew-rotations-validation" role="alert">@filterValidationMessage</div>
+        <section class="crew-metrics" aria-label="Page summary">
+            <CrewMetricCard Label="Matching rotations" Value="@totalCount" Note="Across the current filters" Icon="bi-arrow-repeat" />
+            <CrewMetricCard Label="Planned reliefs" Value="@(rotations.Count(r => r.Status == "Planned"))" Icon="bi-calendar-event" />
+            <CrewMetricCard Label="Overdue handovers" Value="@(rotations.Count(r => r.IsOverdue))" Icon="bi-exclamation-triangle" Tone="red" />
+            <CrewMetricCard Label="Relief not selected" Value="@(rotations.Count(r => r.Status == "Planned" && r.RelievingCrewMemberId is null))" Icon="bi-person-plus" Tone="amber" />
+        </section>
     }
 
-    <section class="crew-card" aria-labelledby="crew-rotations-list-title">
+    <section class="crew-card @(cardView ? "crew-display-cards" : "crew-display-list")" aria-labelledby="crew-rotations-list-title">
         <div class="crew-card-heading">
-            <div><h2 id="crew-rotations-list-title">Rotation history</h2><p>@totalCount rotations found</p></div>
-            <span class="bi bi-arrow-repeat" aria-hidden="true"></span>
+            <div class="crew-register-title"><span class="crew-register-mark bi bi-arrow-repeat" aria-hidden="true"></span><div><h2 id="crew-rotations-list-title">Rotation history</h2><p>@totalCount rotations found</p></div></div>
+            <CrewViewSwitch @bind-Cards="cardView" />
         </div>
+
+        <div class="crew-rotations-filters">
+            <div class="filter-field filter-field-wide">
+                <label for="crew-rotations-vessel">Vessel</label>
+                <VesselPicker @key="vesselPickerResetToken" InputId="crew-rotations-vessel" Value="vesselIdFilter" ValueChanged="OnVesselFilterChangedAsync" Placeholder="All vessels" />
+            </div>
+            <div class="filter-field">
+                <label for="crew-rotations-from">Relief from</label>
+                <input id="crew-rotations-from" type="date" @bind="fromFilter" @bind:after="SearchAsync" />
+            </div>
+            <div class="filter-field">
+                <label for="crew-rotations-to">Relief to</label>
+                <input id="crew-rotations-to" type="date" @bind="toFilter" @bind:after="SearchAsync" />
+            </div>
+            <div class="filter-field">
+                <label for="crew-rotations-overdue">Overdue</label>
+                <select id="crew-rotations-overdue" @bind="overdueSelection" @bind:after="SearchAsync">
+                    <option value="">All</option>
+                    <option value="true">Overdue only</option>
+                </select>
+            </div>
+            <div class="crew-rotations-filter-actions">
+                <button type="button" class="crew-reset-button" @onclick="ResetFiltersAsync" disabled="@isLoading">Reset</button>
+            </div>
+        </div>
+
+        @if (filterValidationMessage is not null)
+        {
+            <div class="crew-rotations-validation" role="alert">@filterValidationMessage</div>
+        }
 
         @if (isLoading)
         {
@@ -140,6 +150,27 @@
                             <span class="bi bi-chevron-down crew-rotation-card-chevron" aria-hidden="true"></span>
                         </button>
 
+                        <div class="crew-card-preview">
+                            <span><span class="bi bi-water" aria-hidden="true"></span>@VesselDisplayName(rotation.VesselId)</span>
+                            <span><span class="bi bi-person-badge" aria-hidden="true"></span>@rotation.RankName</span>
+                            <span><span class="bi bi-calendar-event" aria-hidden="true"></span>Relief @rotation.PlannedReliefDate.ToString("dd MMM yyyy")</span>
+                            <small>Relieving crew: @(rotation.RelievingCrewMemberName ?? "Not selected")</small>
+                            <a href="@($"/crew/{rotation.CrewMemberId}")">View crew profile <span class="bi bi-arrow-up-right" aria-hidden="true"></span></a>
+                        </div>
+                        @if (CanManage && rotation.Status == "Planned")
+                        {
+                            <div class="crew-card-actions">
+                                @if (pendingCancellationId == rotation.RotationId)
+                                {
+                                    <button type="button" disabled="@isCancellingRotation" @onclick="() => CancelRotationAsync(rotation.RotationId)">Confirm</button>
+                                    <button type="button" disabled="@isCancellingRotation" @onclick="CancelRotationCancellation">Keep</button>
+                                }
+                                else
+                                {
+                                    <button type="button" disabled="@isCancellingRotation" @onclick="() => RequestRotationCancellation(rotation.RotationId)">Cancel</button>
+                                }
+                            </div>
+                        }
                         @if (isExpanded)
                         {
                             <dl class="crew-rotation-card-details">

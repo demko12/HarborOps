@@ -1,0 +1,12 @@
+<article class="crew-metric-card">
+    <div><span>@Label</span><strong>@Value</strong><small>@Note</small></div>
+    <span class="crew-metric-icon crew-metric-@Tone"><span class="bi @Icon" aria-hidden="true"></span></span>
+</article>
+
+@code {
+    [Parameter, EditorRequired] public string Label { get; set; } = string.Empty;
+    [Parameter, EditorRequired] public int Value { get; set; }
+    [Parameter] public string Note { get; set; } = "On this page";
+    [Parameter] public string Icon { get; set; } = "bi-people";
+    [Parameter] public string Tone { get; set; } = "purple";
+}

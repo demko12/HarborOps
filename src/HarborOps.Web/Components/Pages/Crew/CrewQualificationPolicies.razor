@@ -6,7 +6,7 @@
 
 <PageTitle>Crew qualification policies | HarborOps</PageTitle>
 
-<section class="crew-positions-page">
+<section class="crew-positions-page crew-operations-page" aria-busy="@isLoading.ToString().ToLowerInvariant()">
     <header class="crew-positions-header">
         <div>
             <nav class="page-breadcrumb" aria-label="Breadcrumb"><a href="/crew">Crewing operations</a><span aria-hidden="true">/</span><span>Qualification policies</span></nav>
@@ -24,26 +24,36 @@
 
     <CrewNavigation />
 
-    <div class="crew-positions-filters">
-        <div class="filter-field filter-field-wide">
-            <label for="policy-rank-filter">Rank</label>
-            <select id="policy-rank-filter" value="@(crewPositionFilter?.ToString() ?? string.Empty)" @onchange="e => { crewPositionFilter = Guid.TryParse(e.Value?.ToString(), out var id) ? id : null; }" @onchange:after="FilterChangedAsync">
-                <option value="">All ranks</option>
-                @foreach (var option in positionOptions)
-                {
-                    <option value="@option.CrewPositionId">@option.RankName (@option.Department)</option>
-                }
-            </select>
-        </div>
-        <div class="crew-positions-filter-actions">
-            <button type="button" class="crew-reset-button" @onclick="ResetFiltersAsync" disabled="@isLoading">Reset</button>
-        </div>
-    </div>
+    @if (!isLoading && failure is null)
+    {
+        <section class="crew-metrics" aria-label="Page summary">
+            <CrewMetricCard Label="Matching policies" Value="@totalCount" Note="Across the current filters" Icon="bi-patch-check" />
+            <CrewMetricCard Label="Enabled policies" Value="@(policies.Count(p => p.Enabled))" Icon="bi-check2-circle" Tone="green" />
+            <CrewMetricCard Label="Disabled policies" Value="@(policies.Count(p => !p.Enabled))" Icon="bi-pause-circle" Tone="amber" />
+            <CrewMetricCard Label="Certificate requirements" Value="@(policies.Sum(p => p.RequiredTypeCount))" Note="Total across policies on this page" Icon="bi-file-earmark-check" />
+        </section>
+    }
 
-    <section class="crew-card" aria-labelledby="qualification-policies-list-title">
+    <section class="crew-card @(cardView ? "crew-display-cards" : "crew-display-list")" aria-labelledby="qualification-policies-list-title">
         <div class="crew-card-heading">
-            <div><h2 id="qualification-policies-list-title">Policies</h2><p>@totalCount polic(ies) found</p></div>
-            <span class="bi bi-patch-check" aria-hidden="true"></span>
+            <div class="crew-register-title"><span class="crew-register-mark bi bi-patch-check" aria-hidden="true"></span><div><h2 id="qualification-policies-list-title">Policies</h2><p>@totalCount policies found</p></div></div>
+            <CrewViewSwitch @bind-Cards="cardView" />
+        </div>
+
+        <div class="crew-positions-filters">
+            <div class="filter-field filter-field-wide">
+                <label for="policy-rank-filter">Rank</label>
+                <select id="policy-rank-filter" value="@(crewPositionFilter?.ToString() ?? string.Empty)" @onchange="e => { crewPositionFilter = Guid.TryParse(e.Value?.ToString(), out var id) ? id : null; }" @onchange:after="FilterChangedAsync">
+                    <option value="">All ranks</option>
+                    @foreach (var option in positionOptions)
+                    {
+                        <option value="@option.CrewPositionId">@option.RankName (@option.Department)</option>
+                    }
+                </select>
+            </div>
+            <div class="crew-positions-filter-actions">
+                <button type="button" class="crew-reset-button" @onclick="ResetFiltersAsync" disabled="@isLoading">Reset</button>
+            </div>
         </div>
 
         @if (isLoading)
@@ -68,8 +78,8 @@
                 {
                     <div class="crew-positions-row" @key="policy.Id">
                         <div class="crew-positions-row-primary"><strong>@policy.RankName</strong></div>
-                        <div class="crew-positions-row-cell">@(policy.Enabled ? "Enabled" : "Disabled")</div>
-                        <div class="crew-positions-row-cell">@policy.RequiredTypeCount</div>
+                        <div class="crew-positions-row-cell" data-label="Status">@(policy.Enabled ? "Enabled" : "Disabled")</div>
+                        <div class="crew-positions-row-cell" data-label="Required types">@policy.RequiredTypeCount</div>
                         <div class="crew-positions-row-actions">
                             @if (CanManage)
                             {
@@ -80,7 +90,7 @@
                 }
             </div>
             <div class="crew-pagination">
-                <span>Showing @FirstRowNumber&ndash;@LastRowNumber of @totalCount polic(ies)</span>
+                <span>Showing @FirstRowNumber&ndash;@LastRowNumber of @totalCount policies</span>
                 <div>
                     <button type="button" @onclick="PreviousPageAsync" disabled="@(pageNumber <= 1)">Previous</button>
                     <span class="crew-page-indicator">Page @pageNumber of @TotalPages</span>
