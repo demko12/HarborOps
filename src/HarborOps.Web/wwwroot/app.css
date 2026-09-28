@@ -917,3 +917,12 @@ html[data-theme="dark"] .fleet-page .fleet-vessel-row:is(:hover, :focus-visible)
 html[data-theme="dark"] .fleet-details-page .fleet-details-vessels a:is(:hover, :focus-visible) {
     background: var(--bg-surface-strong);
 }
+
+.voyage-card-map.leaflet-container { cursor: pointer; font-family: Inter, sans-serif; }
+.voyage-card-map .leaflet-tile { filter: saturate(.45); }
+.voyage-card-map .leaflet-control-attribution { padding: 0 .3rem; font-size: .5rem; line-height: 1.5; }
+.voyage-map-marker.voyage-map-marker-mini { font-size: 9px; border-width: 2px; box-shadow: 0 1px 4px rgba(22, 48, 88, .3); }
+html[data-theme="dark"] .voyage-card-map .leaflet-tile {
+    filter: grayscale(1) invert(1) sepia(.2) hue-rotate(170deg) saturate(1.4) brightness(.8) contrast(.9);
+}
+html[data-theme="dark"] .voyage-card-map .leaflet-control-attribution { color: #cbd5e1; background: rgba(23, 32, 51, .75); }

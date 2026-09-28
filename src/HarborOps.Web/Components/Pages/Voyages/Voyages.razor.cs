@@ -1,8 +1,10 @@
 using System.Globalization;
+using System.Text.Json;
 using HarborOps.Web.Api.Fleet;
 using HarborOps.Web.Api.Voyages;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Web;
+using Microsoft.JSInterop;
 
 namespace HarborOps.Web.Components.Pages.Voyages;
 
@@ -17,6 +19,7 @@ public partial class Voyages
     internal const int ImminentDepartureHours = 24;
 
     internal const string RoutesTabUrl = "/voyages/routes";
+    internal const string CardsView = "cards";
 
     internal const string ForbiddenTitle = "You do not have access to voyages";
 
@@ -62,6 +65,9 @@ public partial class Voyages
     [SupplyParameterFromQuery(Name = "size")]
     private int? SizeFromQuery { get; set; }
 
+    [SupplyParameterFromQuery(Name = "view")]
+    private string? ViewFromQuery { get; set; }
+
     private DateOnly fromDate = DefaultFrom();
     private DateOnly toDate = DefaultTo();
     private string statusFilter = string.Empty;
@@ -75,6 +81,8 @@ public partial class Voyages
     private int totalCount;
     private VoyagesApiFailure? failure;
     private bool isLoading = true;
+    private bool cardView;
+    private ElementReference cardGridElement;
 
     private Guid? actionVoyageId;
     private string? actionKind;
@@ -142,6 +150,8 @@ public partial class Voyages
         {
             pageSize = size;
         }
+
+        cardView = string.Equals(ViewFromQuery, CardsView, StringComparison.Ordinal);
     }
 
     private string BoardQuery
@@ -180,6 +190,11 @@ public partial class Voyages
                 parts.Add($"size={pageSize}");
             }
 
+            if (cardView)
+            {
+                parts.Add($"view={CardsView}");
+            }
+
             return string.Join('&', parts);
         }
     }
@@ -208,6 +223,11 @@ public partial class Voyages
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
+        if (cardView && !isLoading && failure is null && voyages.Count > 0)
+        {
+            await JS.InvokeVoidAsync("voyageRouteMap.renderMiniMaps", cardGridElement);
+        }
+
         if (!shouldFocusAction)
         {
             return;
@@ -224,6 +244,22 @@ public partial class Voyages
         var arrival = voyage.LastStopPortName ?? voyage.ArrivalPortCode;
 
         return $"{departure} → {arrival}";
+    }
+    internal static string FormatStopCount(int count)
+    {
+        return count == 1 ? "1 stop" : $"{count} stops";
+    }
+    internal static IReadOnlyList<VoyageListStopModel> MappedStops(VoyageListItemModel voyage)
+    {
+        return voyage.Stops?
+            .Where(stop => stop.Latitude is not null && stop.Longitude is not null)
+            .OrderBy(stop => stop.StopOrder)
+            .ToList()
+            ?? [];
+    }
+    internal static string RouteMapStops(IReadOnlyList<VoyageListStopModel> stops)
+    {
+        return JsonSerializer.Serialize(stops, JsonSerializerOptions.Web);
     }
     internal static string FormatCount(int? value)
     {

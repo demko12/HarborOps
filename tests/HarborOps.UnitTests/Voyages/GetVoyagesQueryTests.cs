@@ -322,6 +322,39 @@ public sealed class GetVoyagesQueryTests
 
         Assert.Null(item.FirstStopPortName);
         Assert.Null(item.LastStopPortName);
+        Assert.Empty(item.Stops);
+    }
+
+    [Fact]
+    public async Task Row_exposes_itinerary_stops_in_order_with_port_coordinates()
+    {
+        await using var dbContext = CreateDbContext();
+        var voyage = await SeedAsync(
+            dbContext,
+            "VOY-583",
+            new DateTime(2026, 9, 1, 8, 0, 0, DateTimeKind.Utc));
+        var bar = Port.Create("Port of Bar", "Montenegro", latitude: 42.0936m, longitude: 19.0936m);
+        var dubrovnik = Port.Create("Port of Dubrovnik", "Croatia");
+        await dbContext.Set<Port>().AddRangeAsync([bar, dubrovnik]);
+        await dbContext.Set<VoyageStop>().AddRangeAsync(
+            [
+                VoyageStop.Create(voyage.Id, dubrovnik.Id, 2, voyage.PlannedDeparture.AddHours(20), voyage.PlannedDeparture.AddHours(24)),
+                VoyageStop.Create(voyage.Id, bar.Id, 1, voyage.PlannedDeparture, voyage.PlannedDeparture.AddHours(4)),
+            ]);
+        await dbContext.SaveChangesAsync();
+
+        var response = await CreateQuery(dbContext).GetVoyagesAsync(
+            new GetVoyagesRequest { From = WindowFrom, To = WindowTo },
+            CancellationToken.None);
+
+        var item = Assert.Single(response.Items);
+
+        Assert.Equal(
+            [
+                new VoyageListStopItem(1, "Port of Bar", VoyageStop.PlannedStatus, 42.0936m, 19.0936m),
+                new VoyageListStopItem(2, "Port of Dubrovnik", VoyageStop.PlannedStatus, null, null),
+            ],
+            item.Stops);
     }
 
     [Fact]

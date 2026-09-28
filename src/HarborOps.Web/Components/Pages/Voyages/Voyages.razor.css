@@ -992,3 +992,42 @@ html[data-theme="light"] .voyages-row-action-danger:hover { background: rgba(185
 .voyages-page ::deep .voyages-table-scroll { padding: .15rem; }
 .voyages-page ::deep .voyages-row-action { border-radius: .5rem; font-size: .72rem; }
 .voyages-page ::deep .voyages-filters .filter-field:first-child { flex: 1 1 14rem; }
+
+.voyages-view-switch { display: flex; gap: .2rem; padding: .2rem; border: 1px solid var(--border-subtle); border-radius: .65rem; background: var(--bg-surface); }
+.voyages-view-switch button { display: flex; align-items: center; gap: .45rem; padding: .45rem .7rem; border: 1px solid transparent; border-radius: .45rem; color: var(--text-secondary); background: transparent; font-size: .72rem; cursor: pointer; }
+.voyages-view-switch button.selected { color: var(--text-primary); border-color: var(--accent-border); background: var(--accent-bg); }
+.voyages-view-switch button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+.voyages-card-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(290px, 1fr)); gap: .85rem; }
+.voyage-card { display: flex; flex-direction: column; gap: .8rem; min-width: 0; padding: 1rem; border: 1px solid var(--border-subtle); border-top: 3px solid var(--accent); border-radius: .75rem; background: linear-gradient(170deg, var(--bg-surface-strong), var(--bg-surface) 55%); cursor: pointer; }
+.voyage-card.cancelled { opacity: .8; }
+.voyage-card.imminent { background: linear-gradient(170deg, color-mix(in srgb, var(--accent) 8%, var(--bg-surface-strong)), var(--bg-surface) 55%); box-shadow: inset 0 0 0 1px var(--accent-border); }
+.voyage-card:hover { background: color-mix(in srgb, var(--accent) 8%, var(--bg-surface)); }
+.voyage-card:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.voyage-card-head { display: flex; align-items: flex-start; gap: .65rem; }
+.voyage-card-head .voyage-number-icon { flex: 0 0 auto; margin-right: 0; }
+.voyage-card-identity { display: flex; flex: 1; flex-direction: column; gap: .2rem; min-width: 0; }
+.voyage-card-number { color: var(--text-primary); font-size: .9rem; font-weight: 600; text-decoration: none; overflow-wrap: anywhere; }
+.voyage-card-number:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.voyage-card-identity .voyage-vessel { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.voyage-card-status { display: flex; flex: 0 0 auto; flex-direction: column; align-items: flex-end; }
+.voyage-card-status .voyage-status { min-width: 0; }
+.voyage-card-route { display: flex; align-items: center; gap: .5rem; min-width: 0; padding: .55rem .7rem; border: 1px solid var(--border-subtle); border-radius: .6rem; background: var(--bg-surface); font-size: .75rem; }
+.voyage-card-route > span { min-width: 0; overflow: hidden; font-weight: 600; text-overflow: ellipsis; white-space: nowrap; }
+.voyage-card-route > i { flex: 1 1 .75rem; min-width: .75rem; height: 1px; background: repeating-linear-gradient(90deg, color-mix(in srgb, var(--text-muted) 60%, transparent) 0 4px, transparent 4px 8px); }
+.voyage-card-route > small { color: var(--text-muted); font-size: .66rem; white-space: nowrap; }
+.voyage-card-stamps { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .75rem; }
+.voyage-card-stamps small { display: block; margin-bottom: .25rem; color: var(--text-muted); font-size: .6rem; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; }
+.voyage-card-map { position: relative; z-index: 0; height: 5.25rem; overflow: hidden; border: 1px solid var(--border-subtle); border-radius: .6rem; background: #aad3df; }
+html[data-theme="dark"] .voyage-card-map { background: #131e2c; }
+.voyage-card-map.voyage-card-map-empty { display: flex; align-items: center; justify-content: center; gap: .45rem; color: var(--text-muted); background: var(--bg-surface); font-size: .7rem; }
+.voyage-card-footer { display: flex; align-items: center; justify-content: space-between; gap: .5rem; margin-top: auto; }
+.voyage-card-footer .voyage-actions { width: auto; }
+.voyage-card .voyage-actions-none { display: none; }
+.voyage-card .voyage-action-form { max-width: none; }
+.voyage-card-open { display: inline-flex; align-items: center; gap: .3rem; margin-left: auto; color: var(--accent); font-size: .72rem; font-weight: 500; text-decoration: none; white-space: nowrap; }
+.voyage-card-open .bi { font-size: .6rem; }
+.voyage-card-open:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+@media (max-width: 760px) {
+    .voyages-card-grid { grid-template-columns: 1fr; }
+}

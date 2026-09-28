@@ -12,4 +12,5 @@ public sealed record VoyageListItem(
     DateTime? ActualDeparture,
     DateTime? ActualArrival,
     string? FirstStopPortName,
-    string? LastStopPortName);
+    string? LastStopPortName,
+    IReadOnlyList<VoyageListStopItem> Stops);

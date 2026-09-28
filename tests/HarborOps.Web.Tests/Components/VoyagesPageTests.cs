@@ -7,6 +7,7 @@ using HarborOps.Web.Api;
 using HarborOps.Web.Api.Fleet;
 using HarborOps.Web.Api.Voyages;
 using HarborOps.Web.Components.Pages.Voyages;
+using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -19,6 +20,8 @@ public sealed class VoyagesPageTests : BunitContext
 
     private Func<HttpRequestMessage, Task<HttpResponseMessage>> respond =
         _ => Json(HttpStatusCode.OK, Page());
+
+    private string? startUri;
 
     [Fact]
     public void Rows_render_the_route_and_utc_stamps()
@@ -84,6 +87,99 @@ public sealed class VoyagesPageTests : BunitContext
         Assert.Equal(3, page.FindAll(".voyage-steps i").Count);
         Assert.Equal(2, page.FindAll(".voyage-steps i.on").Count);
         Assert.Equal("InProgress", page.Find(".voyage-status").TextContent.Trim());
+    }
+
+    [Fact]
+    public void The_board_opens_in_the_list_view()
+    {
+        respond = _ => Json(HttpStatusCode.OK, Page(Row("VOY-0301")));
+
+        var page = RenderVoyagesPage();
+
+        Assert.Equal("true", page.Find(".voyages-view-switch button[aria-label='List view']").GetAttribute("aria-pressed"));
+        Assert.Single(page.FindAll("tbody tr"));
+        Assert.Empty(page.FindAll(".voyage-card"));
+    }
+
+    [Fact]
+    public void The_card_view_shows_each_voyage_with_its_route_stops_and_map()
+    {
+        JSInterop.SetupVoid("voyageRouteMap.renderMiniMaps", _ => true);
+        respond = _ => Json(HttpStatusCode.OK, Page(Row(
+            "VOY-0302",
+            firstStopPortName: "Port of Bar",
+            lastStopPortName: "Port of Dubrovnik",
+            stops: MappedStops())));
+
+        var page = RenderVoyagesPage();
+        page.Find(".voyages-view-switch button[aria-label='Card view']").Click();
+
+        var card = page.Find(".voyage-card");
+
+        Assert.Empty(page.FindAll("table.voyages-table"));
+        Assert.Contains("VOY-0302", card.TextContent, StringComparison.Ordinal);
+        Assert.Equal("Port of Bar 3 stops Port of Dubrovnik", NormalizeWhitespace(card.QuerySelector(".voyage-card-route")!.TextContent));
+        Assert.Equal("Route map, 2 port calls", card.QuerySelector(".voyage-card-map")!.GetAttribute("aria-label"));
+        Assert.Contains("\"portName\":\"Port of Dubrovnik\"", card.QuerySelector(".voyage-card-map")!.GetAttribute("data-route-stops"), StringComparison.Ordinal);
+        Assert.DoesNotContain("Port of Kotor", card.QuerySelector(".voyage-card-map")!.GetAttribute("data-route-stops"), StringComparison.Ordinal);
+        page.WaitForAssertion(() => JSInterop.VerifyInvoke("voyageRouteMap.renderMiniMaps"));
+    }
+
+    [Fact]
+    public void Cards_without_two_mapped_ports_show_a_placeholder_instead_of_a_map()
+    {
+        JSInterop.SetupVoid("voyageRouteMap.renderMiniMaps", _ => true);
+        respond = _ => Json(HttpStatusCode.OK, Page(Row("VOY-0303")));
+
+        var page = RenderVoyagesPage();
+        page.Find(".voyages-view-switch button[aria-label='Card view']").Click();
+
+        Assert.Equal("MEBAR ITGOA", NormalizeWhitespace(page.Find(".voyage-card-route").TextContent));
+        Assert.Contains("Route not mapped yet", page.Find(".voyage-card-map-empty").TextContent, StringComparison.Ordinal);
+        Assert.Empty(page.FindAll("[data-route-stops]"));
+    }
+
+    [Fact]
+    public void Cards_offer_the_same_actions_as_rows()
+    {
+        JSInterop.SetupVoid("voyageRouteMap.renderMiniMaps", _ => true);
+        respond = _ => Json(HttpStatusCode.OK, Page(Row("VOY-0304")));
+
+        var page = RenderVoyagesPage(Voyages.ManageVoyagesPermission);
+        page.Find(".voyages-view-switch button[aria-label='Card view']").Click();
+
+        Assert.Equal(
+            ["Depart", "Cancel"],
+            page.FindAll(".voyage-card .voyages-row-action").Select(button => button.TextContent.Trim()));
+
+        page.Find(".voyage-card .voyages-row-action").Click();
+
+        Assert.NotNull(page.Find(".voyage-card .voyage-action-form"));
+    }
+
+    [Fact]
+    public void The_card_view_is_kept_when_returning_from_a_timeline()
+    {
+        JSInterop.SetupVoid("voyageRouteMap.renderMiniMaps", _ => true);
+        respond = _ => Json(HttpStatusCode.OK, Page(Row("VOY-0305")));
+
+        var page = RenderVoyagesPage();
+        page.Find(".voyages-view-switch button[aria-label='Card view']").Click();
+
+        Assert.EndsWith("?from=view%3Dcards", page.Find(".voyage-card-open").GetAttribute("href"), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void The_card_view_is_restored_from_the_board_query()
+    {
+        JSInterop.SetupVoid("voyageRouteMap.renderMiniMaps", _ => true);
+        respond = _ => Json(HttpStatusCode.OK, Page(Row("VOY-0306")));
+        startUri = "/voyages?view=cards";
+
+        var page = RenderVoyagesPage();
+
+        page.WaitForAssertion(() => Assert.Single(page.FindAll(".voyage-card")));
+        Assert.Equal("true", page.Find(".voyages-view-switch button[aria-label='Card view']").GetAttribute("aria-pressed"));
     }
 
     [Fact]
@@ -719,10 +815,20 @@ public sealed class VoyagesPageTests : BunitContext
         });
         Services.AddScoped<CurrentUserAuthorizationState>();
 
+        if (startUri is not null)
+        {
+            Services.GetRequiredService<NavigationManager>().NavigateTo(startUri);
+        }
+
         var page = Render<Voyages>();
         page.WaitForAssertion(() => Assert.NotEmpty(requestedUris));
 
         return page;
+    }
+
+    private static string NormalizeWhitespace(string text)
+    {
+        return string.Join(' ', text.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries));
     }
 
     private static string Stamp(DateTime value)
@@ -736,13 +842,21 @@ public sealed class VoyagesPageTests : BunitContext
         string plannedArrival = "2026-09-18T17:30:00Z",
         string status = "Planned",
         string? firstStopPortName = null,
-        string? lastStopPortName = null)
+        string? lastStopPortName = null,
+        string stops = "null")
     {
         var firstStop = firstStopPortName is null ? "null" : $"\"{firstStopPortName}\"";
         var lastStop = lastStopPortName is null ? "null" : $"\"{lastStopPortName}\"";
 
         return $$"""
-            {"voyageId":"20000000-0000-0000-0000-000000000001","voyageNumber":"{{voyageNumber}}","vesselId":"30000000-0000-0000-0000-000000000002","departurePortCode":"MEBAR","arrivalPortCode":"ITGOA","status":"{{status}}","plannedDeparture":"{{plannedDeparture}}","plannedArrival":"{{plannedArrival}}","actualDeparture":null,"actualArrival":null,"firstStopPortName":{{firstStop}},"lastStopPortName":{{lastStop}}}
+            {"voyageId":"20000000-0000-0000-0000-000000000001","voyageNumber":"{{voyageNumber}}","vesselId":"30000000-0000-0000-0000-000000000002","departurePortCode":"MEBAR","arrivalPortCode":"ITGOA","status":"{{status}}","plannedDeparture":"{{plannedDeparture}}","plannedArrival":"{{plannedArrival}}","actualDeparture":null,"actualArrival":null,"firstStopPortName":{{firstStop}},"lastStopPortName":{{lastStop}},"stops":{{stops}}}
+            """;
+    }
+
+    private static string MappedStops()
+    {
+        return """
+            [{"stopOrder":1,"portName":"Port of Bar","status":"Departed","latitude":42.0936,"longitude":19.0936},{"stopOrder":2,"portName":"Port of Kotor","status":"Planned","latitude":null,"longitude":null},{"stopOrder":3,"portName":"Port of Dubrovnik","status":"Planned","latitude":42.6507,"longitude":18.0944}]
             """;
     }
 

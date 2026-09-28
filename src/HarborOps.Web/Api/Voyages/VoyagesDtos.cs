@@ -12,7 +12,15 @@ internal sealed record VoyageListItemModel(
     DateTime? ActualDeparture,
     DateTime? ActualArrival,
     string? FirstStopPortName,
-    string? LastStopPortName);
+    string? LastStopPortName,
+    IReadOnlyList<VoyageListStopModel>? Stops = null);
+
+internal sealed record VoyageListStopModel(
+    int StopOrder,
+    string PortName,
+    string Status,
+    decimal? Latitude,
+    decimal? Longitude);
 
 internal sealed record VoyagePage(
     IReadOnlyList<VoyageListItemModel> Items,

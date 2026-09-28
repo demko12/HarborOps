@@ -3,13 +3,7 @@ window.voyageRouteMap = {
         if (!element || !window.L || !stops || stops.length < 2) return;
         const signature = JSON.stringify(stops);
         if (element._harborOpsSignature === signature && element._harborOpsMap) return;
-        // Keep adjacent ports in the nearest world copy, including dateline crossings.
-        const mappedStops = stops.map(stop => ({ ...stop }));
-        for (let index = 1; index < mappedStops.length; index++) {
-            const previous = mappedStops[index - 1].longitude;
-            while (mappedStops[index].longitude - previous > 180) mappedStops[index].longitude -= 360;
-            while (mappedStops[index].longitude - previous < -180) mappedStops[index].longitude += 360;
-        }
+        const mappedStops = unwrapLongitudes(stops);
         const coordinates = curvedRoute(mappedStops);
         const map = element._harborOpsMap ?? L.map(element, { zoomControl: true, scrollWheelZoom: false });
         if (!element._harborOpsMap) {
@@ -43,6 +37,15 @@ window.voyageRouteMap = {
         if (!element?._harborOpsMap || !element._harborOpsLayer) return;
         element._harborOpsMap.fitBounds(element._harborOpsLayer.getBounds(), { padding: [44, 44], maxZoom: 6, animate: false });
     },
+    renderMiniMaps(container) {
+        if (!container || !window.L) return;
+        container.querySelectorAll("[data-route-stops]").forEach(element => {
+            const signature = element.dataset.routeStops;
+            if (element._harborOpsSignature === signature) return;
+            element._harborOpsSignature = signature;
+            miniMapObserver.observe(element);
+        });
+    },
     dispose(element) {
         if (!element?._harborOpsMap) return;
         cancelAnimationFrame(element._harborOpsFrame);
@@ -53,6 +56,60 @@ window.voyageRouteMap = {
         delete element._harborOpsFrame;
     }
 };
+
+const miniMapObserver = new IntersectionObserver(entries => entries.forEach(entry => {
+    if (!entry.isIntersecting) return;
+    miniMapObserver.unobserve(entry.target);
+    drawMiniMap(entry.target);
+}), { rootMargin: "200px" });
+
+function drawMiniMap(element) {
+    const stops = unwrapLongitudes(JSON.parse(element.dataset.routeStops));
+    if (stops.length < 2) return;
+    const map = element._harborOpsMap ?? L.map(element, {
+        zoomControl: false,
+        dragging: false,
+        scrollWheelZoom: false,
+        doubleClickZoom: false,
+        boxZoom: false,
+        keyboard: false,
+        touchZoom: false
+    });
+    if (!element._harborOpsMap) {
+        L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
+            maxZoom: 18,
+            attribution: "© OpenStreetMap"
+        }).addTo(map);
+        map.attributionControl.setPrefix(false);
+        element._harborOpsMap = map;
+    }
+    if (element._harborOpsLayer) map.removeLayer(element._harborOpsLayer);
+    const layer = L.featureGroup().addTo(map);
+    element._harborOpsLayer = layer;
+    const coordinates = curvedRoute(stops);
+    L.polyline(coordinates, { color: "#60a5fa", weight: 6, opacity: 0.18, interactive: false }).addTo(layer);
+    L.polyline(coordinates, { color: "#4285e4", weight: 2, opacity: 0.9, interactive: false }).addTo(layer);
+    stops.forEach(stop => {
+        const status = ["planned", "arrived", "departed"].includes(String(stop.status).toLowerCase()) ? stop.status.toLowerCase() : "planned";
+        L.marker([stop.latitude, stop.longitude], {
+            interactive: false,
+            keyboard: false,
+            icon: L.divIcon({ className: `voyage-map-marker voyage-map-marker-mini ${status}`, html: `<span>${escapeHtml(stop.stopOrder)}</span>`, iconSize: [18, 18], iconAnchor: [9, 9] })
+        }).addTo(layer);
+    });
+    map.fitBounds(layer.getBounds(), { padding: [18, 18], maxZoom: 6, animate: false });
+}
+
+// Keep adjacent ports in the nearest world copy, including dateline crossings.
+function unwrapLongitudes(stops) {
+    const mappedStops = stops.map(stop => ({ ...stop }));
+    for (let index = 1; index < mappedStops.length; index++) {
+        const previous = mappedStops[index - 1].longitude;
+        while (mappedStops[index].longitude - previous > 180) mappedStops[index].longitude -= 360;
+        while (mappedStops[index].longitude - previous < -180) mappedStops[index].longitude += 360;
+    }
+    return mappedStops;
+}
 
 function curvedRoute(stops) {
     const route = [];

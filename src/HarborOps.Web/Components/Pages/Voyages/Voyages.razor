@@ -7,6 +7,7 @@
 @inject VoyagesApiClient VoyagesApi
 @inject CurrentUserAuthorizationState AuthorizationState
 @inject NavigationManager Navigation
+@inject IJSRuntime JS
 
 <PageTitle>Voyages | HarborOps</PageTitle>
 
@@ -83,6 +84,10 @@
                 </div>
             </div>
             <div class="voyages-card-tools">
+                <div class="voyages-view-switch" role="group" aria-label="Voyage display">
+                    <button type="button" aria-label="List view" aria-pressed="@((!cardView).ToString().ToLowerInvariant())" class="@(!cardView ? "selected" : "")" @onclick="() => cardView = false"><span class="bi bi-list-ul" aria-hidden="true"></span> List</button>
+                    <button type="button" aria-label="Card view" aria-pressed="@cardView.ToString().ToLowerInvariant()" class="@(cardView ? "selected" : "")" @onclick="() => cardView = true"><span class="bi bi-grid" aria-hidden="true"></span> Cards</button>
+                </div>
                 @if (CanManageVoyages)
                 {
                     <a class="voyages-schedule-button" href="/voyages/schedule">
@@ -185,6 +190,94 @@
                 </div>
             }
         }
+        else if (cardView)
+        {
+            <div class="voyages-card-grid" @ref="cardGridElement">
+                @{
+                    var utcNow = DateTime.UtcNow;
+                }
+                @foreach (var voyage in voyages)
+                {
+                    var isImminent = IsImminentDeparture(voyage.PlannedDeparture, utcNow);
+                    var stopCount = voyage.Stops?.Count ?? 0;
+                    var mappedStops = MappedStops(voyage);
+
+                    <article @key="voyage.VoyageId"
+                             class="voyage-card @StatusModifier(voyage.Status) @(isImminent ? "imminent" : null)"
+                             title="@(isImminent ? "Departs within 24 hours" : null)"
+                             role="link"
+                             tabindex="0"
+                             aria-label="@($"Open {voyage.VoyageNumber} timeline")"
+                             @onclick="() => OpenTimeline(voyage.VoyageId)"
+                             @onkeydown="(args) => HandleVoyageRowKeyDown(args, voyage.VoyageId)">
+                        <div class="voyage-card-head">
+                            <span class="voyage-number-icon bi bi-signpost-split" aria-hidden="true"></span>
+                            <div class="voyage-card-identity">
+                                <a class="voyage-card-number" href="@TimelineHref(voyage.VoyageId)" @onclick:stopPropagation="true">@voyage.VoyageNumber</a>
+                                <span class="voyage-vessel">@VesselDisplayName(voyage.VesselId)</span>
+                            </div>
+                            <div class="voyage-card-status">
+                                <span class="voyage-status @StatusModifier(voyage.Status)">@voyage.Status</span>
+                                <span class="voyage-steps @StatusModifier(voyage.Status)"
+                                      role="img"
+                                      aria-label="@($"Step {StatusStep(voyage.Status)} of 3")">
+                                    @for (var step = 1; step <= 3; step++)
+                                    {
+                                        <i class="@(step <= StatusStep(voyage.Status) ? "on" : null)"></i>
+                                    }
+                                </span>
+                            </div>
+                        </div>
+
+                        <div class="voyage-card-route">
+                            <span title="Departure port">@(voyage.FirstStopPortName ?? voyage.DeparturePortCode)</span>
+                            <i aria-hidden="true"></i>
+                            @if (stopCount > 0)
+                            {
+                                <small>@FormatStopCount(stopCount)</small>
+                                <i aria-hidden="true"></i>
+                            }
+                            <span title="Arrival port">@(voyage.LastStopPortName ?? voyage.ArrivalPortCode)</span>
+                        </div>
+
+                        <div class="voyage-card-stamps">
+                            <div class="voyage-stamps">
+                                <small>Planned</small>
+                                <span><b>DEP</b>@FormatUtc(voyage.PlannedDeparture)</span>
+                                <span><b>ARR</b>@FormatUtc(voyage.PlannedArrival)</span>
+                            </div>
+                            <div class="voyage-stamps">
+                                <small>Actual</small>
+                                <span class="@(voyage.ActualDeparture is null ? "missing" : null)"><b>DEP</b>@FormatUtc(voyage.ActualDeparture)</span>
+                                <span class="@(voyage.ActualArrival is null ? "missing" : null)"><b>ARR</b>@FormatUtc(voyage.ActualArrival)</span>
+                            </div>
+                        </div>
+
+                        @if (mappedStops.Count >= 2)
+                        {
+                            <div class="voyage-card-map"
+                                 data-route-stops="@RouteMapStops(mappedStops)"
+                                 role="img"
+                                 aria-label="@($"Route map, {mappedStops.Count} port calls")"></div>
+                        }
+                        else
+                        {
+                            <div class="voyage-card-map voyage-card-map-empty"><span class="bi bi-map" aria-hidden="true"></span> Route not mapped yet</div>
+                        }
+
+                        <div class="voyage-card-footer">
+                            @if (CanManageVoyages)
+                            {
+                                <div class="voyage-actions" @onclick:stopPropagation="true">
+                                    @VoyageActions(voyage)
+                                </div>
+                            }
+                            <a class="voyage-card-open" href="@TimelineHref(voyage.VoyageId)" @onclick:stopPropagation="true">Timeline <span class="bi bi-chevron-right" aria-hidden="true"></span></a>
+                        </div>
+                    </article>
+                }
+            </div>
+        }
         else
         {
             <div class="voyages-table-scroll">
@@ -245,63 +338,7 @@
                                 @if (CanManageVoyages)
                                 {
                                     <td class="voyage-actions" @onclick:stopPropagation="true">
-                                        @if (actionVoyageId == voyage.VoyageId)
-                                        {
-                                            <div class="voyage-action-form" @onkeydown="HandleActionKeyDown">
-                                                @if (IsCancellingVoyage)
-                                                {
-                                                    <label for="voyage-action-reason">Cancel @actionVoyageNumber</label>
-                                                    <input id="voyage-action-reason" @bind="actionReason"
-                                                           @ref="actionReasonInput"
-                                                           placeholder="Cargo booking cancelled"
-                                                           aria-label="@($"Reason for cancelling {actionVoyageNumber}")" />
-                                                }
-                                                else
-                                                {
-                                                    <label for="voyage-action-date">@ActionLabel(actionKind!, actionVoyageNumber)</label>
-                                                    <div class="voyage-action-stamp">
-                                                        <input id="voyage-action-date" type="date" @bind="actionDate"
-                                                               @ref="actionDateInput"
-                                                               min="@(actionMinDate is { } earliest ? FormatIsoDate(earliest) : null)"
-                                                               max="@FormatIsoDate(actionMaxDate)" />
-                                                        <input id="voyage-action-time" type="time" @bind="actionTime"
-                                                               aria-label="Time in UTC" />
-                                                    </div>
-                                                }
-                                                <div class="voyage-action-buttons">
-                                                    <button class="voyages-button" type="button"
-                                                            @onclick="ConfirmActionAsync" disabled="@isActionSubmitting">
-                                                        @ConfirmLabel()
-                                                    </button>
-                                                    <button class="voyages-reset" type="button"
-                                                            @onclick="CancelAction" disabled="@isActionSubmitting">@KeepLabel()</button>
-                                                </div>
-                                            </div>
-                                        }
-                                        else
-                                        {
-                                            <div class="voyage-row-actions">
-                                                @if (CanDepart(voyage.Status))
-                                                {
-                                                    <button class="voyages-row-action" type="button"
-                                                            @onclick="() => BeginAction(voyage, DepartAction)">Depart</button>
-                                                }
-                                                @if (CanArrive(voyage.Status))
-                                                {
-                                                    <button class="voyages-row-action" type="button"
-                                                            @onclick="() => BeginAction(voyage, ArriveAction)">Arrive</button>
-                                                }
-                                                @if (CanCancel(voyage.Status))
-                                                {
-                                                    <button class="voyages-row-action voyages-row-action-danger" type="button"
-                                                            @onclick="() => BeginAction(voyage, CancelVoyageAction)">Cancel</button>
-                                                }
-                                                @if (!CanDepart(voyage.Status) && !CanArrive(voyage.Status) && !CanCancel(voyage.Status))
-                                                {
-                                                    <span class="voyage-actions-none" aria-hidden="true">@MissingValue</span>
-                                                }
-                                            </div>
-                                        }
+                                        @VoyageActions(voyage)
                                     </td>
                                 }
                                 <td class="col-chevron"><span class="bi bi-chevron-right voyage-row-chevron" aria-hidden="true"></span></td>
@@ -310,7 +347,10 @@
                     </tbody>
                 </table>
             </div>
+        }
 
+        @if (!isLoading && failure is null && voyages.Count > 0)
+        {
             <div class="voyages-pagination">
                 <span>Showing @FirstRowNumber&ndash;@LastRowNumber of @totalCount voyages</span>
                 <div>
@@ -322,3 +362,66 @@
         }
     </section>
 </section>
+
+@code {
+    private RenderFragment VoyageActions(VoyageListItemModel voyage) => __builder =>
+    {
+        @if (actionVoyageId == voyage.VoyageId)
+        {
+            <div class="voyage-action-form" @onkeydown="HandleActionKeyDown">
+                @if (IsCancellingVoyage)
+                {
+                    <label for="voyage-action-reason">Cancel @actionVoyageNumber</label>
+                    <input id="voyage-action-reason" @bind="actionReason"
+                           @ref="actionReasonInput"
+                           placeholder="Cargo booking cancelled"
+                           aria-label="@($"Reason for cancelling {actionVoyageNumber}")" />
+                }
+                else
+                {
+                    <label for="voyage-action-date">@ActionLabel(actionKind!, actionVoyageNumber)</label>
+                    <div class="voyage-action-stamp">
+                        <input id="voyage-action-date" type="date" @bind="actionDate"
+                               @ref="actionDateInput"
+                               min="@(actionMinDate is { } earliest ? FormatIsoDate(earliest) : null)"
+                               max="@FormatIsoDate(actionMaxDate)" />
+                        <input id="voyage-action-time" type="time" @bind="actionTime"
+                               aria-label="Time in UTC" />
+                    </div>
+                }
+                <div class="voyage-action-buttons">
+                    <button class="voyages-button" type="button"
+                            @onclick="ConfirmActionAsync" disabled="@isActionSubmitting">
+                        @ConfirmLabel()
+                    </button>
+                    <button class="voyages-reset" type="button"
+                            @onclick="CancelAction" disabled="@isActionSubmitting">@KeepLabel()</button>
+                </div>
+            </div>
+        }
+        else
+        {
+            <div class="voyage-row-actions">
+                @if (CanDepart(voyage.Status))
+                {
+                    <button class="voyages-row-action" type="button"
+                            @onclick="() => BeginAction(voyage, DepartAction)">Depart</button>
+                }
+                @if (CanArrive(voyage.Status))
+                {
+                    <button class="voyages-row-action" type="button"
+                            @onclick="() => BeginAction(voyage, ArriveAction)">Arrive</button>
+                }
+                @if (CanCancel(voyage.Status))
+                {
+                    <button class="voyages-row-action voyages-row-action-danger" type="button"
+                            @onclick="() => BeginAction(voyage, CancelVoyageAction)">Cancel</button>
+                }
+                @if (!CanDepart(voyage.Status) && !CanArrive(voyage.Status) && !CanCancel(voyage.Status))
+                {
+                    <span class="voyage-actions-none" aria-hidden="true">@MissingValue</span>
+                }
+            </div>
+        }
+    };
+}
