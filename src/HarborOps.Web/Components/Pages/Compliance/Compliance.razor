@@ -4,6 +4,7 @@
 @implements IDisposable
 @inject ComplianceApiClient ComplianceApi
 @inject CurrentUserAuthorizationState AuthorizationState
+@inject NavigationManager Navigation
 
 <PageTitle>Compliance | HarborOps</PageTitle>
 
@@ -46,14 +47,17 @@
     else if (overview is not null)
     {
         <section class="compliance-summary" aria-label="Selected vessel compliance summary">
-            <article><div><span>Certificates</span><strong>@overview.Certificates.Count</strong><small>@overview.Certificates.Count(IsExpired) expired</small></div><span class="bi bi-patch-check" aria-hidden="true"></span></article>
+            <article><div><span>Valid certificates</span><strong>@overview.Certificates.Count(IsCurrent)</strong><small>@overview.Certificates.Count(IsUncoveredExpired) expired · @overview.Certificates.Count(IsRevoked) revoked</small></div><span class="bi bi-patch-check" aria-hidden="true"></span></article>
             <article><div><span>Insurance policies</span><strong>@overview.InsurancePolicies.Count</strong><small>Recorded for this vessel</small></div><span class="bi bi-shield-plus" aria-hidden="true"></span></article>
             <article><div><span>PSC inspections</span><strong>@overview.PscInspections.Count</strong><small>Recorded for this vessel</small></div><span class="bi bi-clipboard-check" aria-hidden="true"></span></article>
             <article><div><span>Open findings</span><strong>@overview.OpenNonConformities.Count</strong><small>Non-conformities to resolve</small></div><span class="bi bi-exclamation-diamond" aria-hidden="true"></span></article>
         </section>
         <div class="compliance-actions">
-            <button type="button" @onclick="OpenCertificateForm"><span class="bi bi-patch-check"></span> Register certificate</button>
-            <button type="button" @onclick="OpenPscForm"><span class="bi bi-clipboard2-check"></span> Register PSC inspection</button>
+            @if (AuthorizationState.CanManageCompliance)
+            {
+                <button type="button" @onclick="OpenCertificateForm"><span class="bi bi-patch-check"></span> Register certificate</button>
+                <button type="button" @onclick="OpenPscForm"><span class="bi bi-clipboard2-check"></span> Register PSC inspection</button>
+            }
             @if (AuthorizationState.CanManageCompliance)
             {
                 <button type="button" @onclick="OpenNonConformityForm"><span class="bi bi-exclamation-diamond"></span> Register non-conformity</button>
@@ -202,28 +206,104 @@
             </div>
         }
 
-        <ComplianceSection Icon="bi-patch-check" Title="Certificates" EmptyTitle="No certificates recorded" IsEmpty="@(overview.Certificates.Count == 0)">
-            @foreach (var item in overview.Certificates)
+        <section class="compliance-card compliance-section certificate-register" aria-labelledby="certificate-register-title">
+            <div class="certificate-register-heading">
+                <div class="certificate-register-title">
+                    <span class="compliance-section-icon bi bi-patch-check" aria-hidden="true"></span>
+                    <div>
+                        <h2 id="certificate-register-title">Certificates</h2>
+                        <p>@overview.Certificates.Count @(overview.Certificates.Count == 1 ? "certificate" : "certificates") · Expiry order</p>
+                    </div>
+                </div>
+                <div class="certificate-view-switch" role="group" aria-label="Certificate display">
+                    <button type="button" aria-label="List view" aria-pressed="@((!certificateCardView).ToString().ToLowerInvariant())" class="@(!certificateCardView ? "selected" : "")" @onclick="() => certificateCardView = false"><span class="bi bi-list-ul" aria-hidden="true"></span> List</button>
+                    <button type="button" aria-label="Card view" aria-pressed="@certificateCardView.ToString().ToLowerInvariant()" class="@(certificateCardView ? "selected" : "")" @onclick="() => certificateCardView = true"><span class="bi bi-grid" aria-hidden="true"></span> Cards</button>
+                </div>
+            </div>
+            @if (overview.Certificates.Count == 0)
             {
-                <article class="compliance-record certificate-card @(IsExpired(item) ? "is-expired" : null)">
-                    <div class="record-identity">
-                        <span class="record-kicker">Certificate</span>
-                        <strong>@item.CertificateType</strong>
-                        <span class="record-reference">@item.CertificateNumber</span>
-                    </div>
-                    <div class="record-detail">
-                        <span class="record-label">Issued by</span>
-                        <span>@item.IssuingAuthority</span>
-                        <small>Issued @item.IssuedOn.ToString("dd MMM yyyy")</small>
-                    </div>
-                    <div class="record-status-block">
-                        <span class="compliance-badge @(IsExpired(item) ? "danger" : "success")">@(IsExpired(item) ? "Expired" : "Valid")</span>
-                        <span class="record-label">Expires</span>
-                        <strong>@item.ExpiresOn.ToString("dd MMM yyyy")</strong>
-                    </div>
-                </article>
+                <EmptyState Title="No certificates recorded" Message="Records will appear here when they are added for this vessel." />
             }
-        </ComplianceSection>
+            else if (certificateCardView)
+            {
+                <div class="certificate-tile-grid">
+                    @foreach (var item in overview.Certificates)
+                    {
+                        <a @key="item.Id" class="certificate-tile @(IsAtRisk(item) ? "is-at-risk" : null)" href="@CertificateHref(item.Id)">
+                            <div class="certificate-tile-head">
+                                <span class="certificate-type-icon bi bi-patch-check" aria-hidden="true"></span>
+                                <div class="certificate-tile-identity">
+                                    <strong>@item.CertificateNumber</strong>
+                                    <span>@item.CertificateType</span>
+                                </div>
+                                <span class="compliance-badge @CertificateStatusClass(item.Status, item.IsRenewalCovered)">@CertificateStatusLabel(item.Status, item.IsRenewalCovered)</span>
+                            </div>
+                            <div class="certificate-tile-validity">
+                                <div><small>Issued</small><span>@item.IssuedOn.ToString("dd MMM yyyy")</span></div>
+                                <i aria-hidden="true"></i>
+                                <div><small>Expires</small><span>@item.ExpiresOn.ToString("dd MMM yyyy")</span></div>
+                            </div>
+                            <div class="certificate-tile-issuer"><small>Issued by</small><span>@item.IssuingAuthority</span></div>
+                            @if (item.SuccessorCertificateId is not null)
+                            {
+                                <div class="certificate-renewal">@RenewalSummary(item)</div>
+                            }
+                            <span class="certificate-tile-open">Open certificate <span class="bi bi-chevron-right" aria-hidden="true"></span></span>
+                        </a>
+                    }
+                </div>
+            }
+            else
+            {
+                <div class="certificate-table-scroll">
+                    <table class="certificate-table">
+                        <thead>
+                            <tr>
+                                <th scope="col">Certificate</th>
+                                <th scope="col">Issued by</th>
+                                <th scope="col">Issued</th>
+                                <th scope="col">Expires</th>
+                                <th scope="col">Status</th>
+                                <th scope="col">Renewal</th>
+                                <th scope="col" class="col-chevron"><span class="visually-hidden">Open certificate</span></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var item in overview.Certificates)
+                            {
+                                <tr @key="item.Id"
+                                    class="certificate-row @(IsAtRisk(item) ? "is-at-risk" : null)"
+                                    role="link"
+                                    tabindex="0"
+                                    aria-label="@($"Open certificate {item.CertificateNumber}")"
+                                    @onclick="() => OpenCertificate(item.Id)"
+                                    @onkeydown="(args) => HandleCertificateRowKeyDown(args, item.Id)">
+                                    <td><div class="certificate-identity">
+                                        <span class="certificate-type-icon bi bi-patch-check" aria-hidden="true"></span>
+                                        <span><a href="@CertificateHref(item.Id)" @onclick:stopPropagation="true">@item.CertificateNumber</a><small>@item.CertificateType</small></span>
+                                    </div></td>
+                                    <td>@item.IssuingAuthority</td>
+                                    <td class="certificate-date">@item.IssuedOn.ToString("dd MMM yyyy")</td>
+                                    <td class="certificate-date">@item.ExpiresOn.ToString("dd MMM yyyy")</td>
+                                    <td><span class="compliance-badge @CertificateStatusClass(item.Status, item.IsRenewalCovered)">@CertificateStatusLabel(item.Status, item.IsRenewalCovered)</span></td>
+                                    <td><div class="certificate-renewal">
+                                        @if (item.SuccessorCertificateId is null)
+                                        {
+                                            <span class="certificate-renewal-none">Not renewed</span>
+                                        }
+                                        else
+                                        {
+                                            @RenewalSummary(item)
+                                        }
+                                    </div></td>
+                                    <td class="col-chevron"><span class="bi bi-chevron-right" aria-hidden="true"></span></td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
+        </section>
         <ComplianceSection Icon="bi-shield-plus" Title="Insurance policies" EmptyTitle="No insurance policies recorded" IsEmpty="@(overview.InsurancePolicies.Count == 0)">
             @foreach (var item in overview.InsurancePolicies)
             {
@@ -274,3 +354,16 @@
         </ComplianceSection>
     }
 </section>
+
+@code {
+    private RenderFragment RenewalSummary(ComplianceCertificateItem item) => __builder =>
+    {
+        <span>@(item.SuccessorIsRevoked ? "Renewal revoked" : "Renewed by")</span>
+        <code>@item.SuccessorCertificateNumber</code>
+        <span>effective @item.SuccessorIssuedOn?.ToString("dd MMM yyyy")</span>
+        @if (item.RenewalGapDays is > 0)
+        {
+            <span class="compliance-badge danger">Coverage gap: @item.RenewalGapDays @(item.RenewalGapDays == 1 ? "day" : "days")</span>
+        }
+    };
+}

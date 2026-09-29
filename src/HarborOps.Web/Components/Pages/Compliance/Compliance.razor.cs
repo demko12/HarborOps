@@ -2,6 +2,7 @@ using System.ComponentModel.DataAnnotations;
 using HarborOps.Web.Api.Compliance;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Forms;
+using Microsoft.AspNetCore.Components.Web;
 
 namespace HarborOps.Web.Components.Pages.Compliance;
 
@@ -20,6 +21,7 @@ public partial class Compliance
     private int overviewVersion;
     private bool isCertificateFormOpen;
     private bool isPscFormOpen;
+    private bool certificateCardView;
 
     private CertificateFormModel certificateModel = new();
     private EditContext certificateEditContext = null!;
@@ -310,7 +312,37 @@ public partial class Compliance
         context.NotifyValidationStateChanged();
     }
 
-    private static bool IsExpired(ComplianceCertificateItem item) => item.ExpiresOn < DateOnly.FromDateTime(DateTime.Today);
+    private static bool IsCurrent(ComplianceCertificateItem item) => item.Status == "Current";
+    private static bool IsUncoveredExpired(ComplianceCertificateItem item) => item.Status == "Expired" && !item.IsRenewalCovered;
+    private static bool IsRevoked(ComplianceCertificateItem item) => item.Status == "Revoked";
+    private static bool IsAtRisk(ComplianceCertificateItem item) => IsUncoveredExpired(item) || IsRevoked(item);
+    private static string CertificateHref(Guid certificateId) => $"/compliance/certificates/{certificateId}";
+
+    private void OpenCertificate(Guid certificateId) => Navigation.NavigateTo(CertificateHref(certificateId));
+
+    private void HandleCertificateRowKeyDown(KeyboardEventArgs args, Guid certificateId)
+    {
+        if (args.Key is "Enter" or " ")
+        {
+            OpenCertificate(certificateId);
+        }
+    }
+
+    internal static string CertificateStatusLabel(string status, bool isRenewalCovered = false) => status switch
+    {
+        "Current" => "Valid",
+        "NotYetEffective" => "Not yet effective",
+        "Expired" when isRenewalCovered => "Expired · renewed",
+        _ => status,
+    };
+
+    internal static string CertificateStatusClass(string status, bool isRenewalCovered = false) => status switch
+    {
+        "Current" => "success",
+        "Expired" when isRenewalCovered => "neutral",
+        "Expired" or "Revoked" => "danger",
+        _ => "neutral",
+    };
     private static bool IsCritical(OpenNonConformityItem item) => string.Equals(item.Severity, "Critical", StringComparison.OrdinalIgnoreCase);
 
     private static readonly IReadOnlyDictionary<string, string> CertificateFieldMap = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)

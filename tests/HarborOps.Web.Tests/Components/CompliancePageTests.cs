@@ -212,6 +212,119 @@ public sealed class CompliancePageTests : BunitContext
     }
 
     [Fact]
+    public async Task Register_certificate_button_is_hidden_without_the_manage_permission()
+    {
+        ConfigureAuthorization(CurrentUserAuthorizationState.ComplianceReadPermission);
+        var page = Render<Compliance>();
+        await SelectAsync(page, "Aurora");
+        page.WaitForAssertion(() => Assert.Contains("CERT-OLD", page.Markup));
+        Assert.DoesNotContain("Register certificate", page.Markup);
+    }
+
+    [Fact]
+    public async Task Register_psc_inspection_button_is_hidden_without_the_manage_permission()
+    {
+        ConfigureAuthorization(CurrentUserAuthorizationState.ComplianceReadPermission);
+        var page = Render<Compliance>();
+        await SelectAsync(page, "Aurora");
+        page.WaitForAssertion(() => Assert.Contains("CERT-OLD", page.Markup));
+        Assert.DoesNotContain("Register PSC inspection", page.Markup);
+    }
+
+    [Fact]
+    public async Task Certificate_summary_counts_valid_uncovered_expired_and_revoked_certificates()
+    {
+        var overviewJson = CertificatesOverview(
+            CertificateJson("30000000-0000-0000-0000-000000000011", "SMC-VALID", "Current", isRenewalCovered: false),
+            CertificateJson("30000000-0000-0000-0000-000000000012", "SMC-COVERED", "Expired", isRenewalCovered: true),
+            CertificateJson("30000000-0000-0000-0000-000000000013", "SMC-LAPSED", "Expired", isRenewalCovered: false),
+            CertificateJson("30000000-0000-0000-0000-000000000014", "SMC-REVOKED", "Revoked", isRenewalCovered: false),
+            CertificateJson("30000000-0000-0000-0000-000000000015", "SMC-FUTURE", "NotYetEffective", isRenewalCovered: false));
+        responder = request => request.RequestUri!.AbsolutePath.Contains("overview") ? Json(HttpStatusCode.OK, overviewJson) : DefaultResponse(request);
+        var page = Render<Compliance>();
+        await SelectAsync(page, "Aurora");
+        page.WaitForAssertion(() => Assert.Contains("SMC-VALID", page.Markup));
+
+        var summary = page.Find(".compliance-summary article");
+        Assert.Contains("Valid certificates", summary.TextContent);
+        Assert.Equal("1", summary.QuerySelector("strong")!.TextContent);
+        Assert.Contains("1 expired · 1 revoked", summary.TextContent);
+    }
+
+    [Fact]
+    public async Task Expired_certificate_covered_by_its_renewal_is_not_shown_as_a_risk()
+    {
+        var overviewJson = CertificatesOverview(
+            CertificateJson("30000000-0000-0000-0000-000000000012", "SMC-COVERED", "Expired", isRenewalCovered: true),
+            CertificateJson("30000000-0000-0000-0000-000000000013", "SMC-LAPSED", "Expired", isRenewalCovered: false),
+            CertificateJson("30000000-0000-0000-0000-000000000014", "SMC-REVOKED", "Revoked", isRenewalCovered: false));
+        responder = request => request.RequestUri!.AbsolutePath.Contains("overview") ? Json(HttpStatusCode.OK, overviewJson) : DefaultResponse(request);
+        var page = Render<Compliance>();
+        await SelectAsync(page, "Aurora");
+        page.WaitForAssertion(() => Assert.Contains("SMC-COVERED", page.Markup));
+
+        AssertRiskStyling(page.FindAll(".certificate-row"));
+
+        page.Find(".certificate-view-switch button[aria-label='Card view']").Click();
+
+        AssertRiskStyling(page.FindAll(".certificate-tile"));
+
+        static void AssertRiskStyling(IReadOnlyList<AngleSharp.Dom.IElement> records)
+        {
+            var covered = records.Single(record => record.TextContent.Contains("SMC-COVERED", StringComparison.Ordinal));
+            var lapsed = records.Single(record => record.TextContent.Contains("SMC-LAPSED", StringComparison.Ordinal));
+            var revoked = records.Single(record => record.TextContent.Contains("SMC-REVOKED", StringComparison.Ordinal));
+            Assert.DoesNotContain("is-at-risk", covered.ClassName, StringComparison.Ordinal);
+            Assert.Equal("Expired · renewed", covered.QuerySelector(".compliance-badge.neutral")!.TextContent);
+            Assert.Contains("is-at-risk", lapsed.ClassName, StringComparison.Ordinal);
+            Assert.Equal("Expired", lapsed.QuerySelector(".compliance-badge.danger")!.TextContent);
+            Assert.Contains("is-at-risk", revoked.ClassName, StringComparison.Ordinal);
+            Assert.Equal("Revoked", revoked.QuerySelector(".compliance-badge.danger")!.TextContent);
+        }
+    }
+
+    [Fact]
+    public async Task Certificates_default_to_a_list_whose_rows_open_the_certificate_and_show_the_renewal_gap()
+    {
+        var page = Render<Compliance>();
+        await SelectAsync(page, "Aurora");
+        page.WaitForAssertion(() => Assert.Contains("CERT-OLD", page.Markup));
+
+        Assert.Equal("true", page.Find(".certificate-view-switch button[aria-label='List view']").GetAttribute("aria-pressed"));
+        Assert.Empty(page.FindAll(".certificate-tile"));
+        var row = page.Find(".certificate-row");
+        Assert.Equal("/compliance/certificates/30000000-0000-0000-0000-000000000003", row.QuerySelector("a")!.GetAttribute("href"));
+        Assert.Contains("Renewed by", row.TextContent);
+        Assert.Contains("CERT-RENEWED", row.TextContent);
+        Assert.Contains("Coverage gap: 4 days", row.TextContent);
+        Assert.Contains("Expired", row.TextContent);
+
+        row.Click();
+
+        Assert.EndsWith("/compliance/certificates/30000000-0000-0000-0000-000000000003", Services.GetRequiredService<Microsoft.AspNetCore.Components.NavigationManager>().Uri, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task Card_view_shows_certificate_tiles_that_link_to_details_with_the_renewal_gap()
+    {
+        var page = Render<Compliance>();
+        await SelectAsync(page, "Aurora");
+        page.WaitForAssertion(() => Assert.Contains("CERT-OLD", page.Markup));
+
+        page.Find(".certificate-view-switch button[aria-label='Card view']").Click();
+
+        Assert.Equal("true", page.Find(".certificate-view-switch button[aria-label='Card view']").GetAttribute("aria-pressed"));
+        Assert.Empty(page.FindAll(".certificate-row"));
+        var tile = page.Find(".certificate-tile[href]");
+        Assert.Equal("/compliance/certificates/30000000-0000-0000-0000-000000000003", tile.GetAttribute("href"));
+        Assert.Contains("Renewed by", tile.TextContent);
+        Assert.Contains("CERT-RENEWED", tile.TextContent);
+        Assert.Contains("Coverage gap: 4 days", tile.TextContent);
+        Assert.Contains("01 Jan 2020", tile.TextContent);
+        Assert.Contains("31 Dec 2020", tile.TextContent);
+    }
+
+    [Fact]
     public async Task Non_conformity_button_opens_a_form_defaulting_to_the_survey_source()
     {
         var page = Render<Compliance>();
@@ -412,7 +525,9 @@ public sealed class CompliancePageTests : BunitContext
         page.Find("#certificate-expires").Change("2027-01-01");
     }
 
-    private static string Overview(string number) => $$"""{"certificates":[{"id":"30000000-0000-0000-0000-000000000003","vesselId":"{{VesselOne}}","certificateType":"Safety Management","certificateNumber":"{{number}}","issuingAuthority":"Flag State","issuedOn":"2020-01-01","expiresOn":"2020-12-31"}],"pscInspections":[{"id":1,"vesselId":"{{VesselOne}}","portId":"40000000-0000-0000-0000-000000000004","inspectionDate":"2026-08-01","inspectingAuthority":"Port Authority","deficiencyCount":2,"vesselDetained":true}],"surveyAudits":[{"id":1,"vesselId":"{{VesselOne}}","date":"2026-07-01","type":"Annual Survey","result":"Pass"}],"openNonConformities":[{"id":1,"vesselId":"{{VesselOne}}","evidenceDocumentId":"50000000-0000-0000-0000-000000000005","severity":"Critical","correctiveActionDeadline":"2026-09-01","closureStatus":"Open"}],"insurancePolicies":[{"id":1,"vesselId":"{{VesselOne}}","insurer":"Harbor Mutual","policyNumber":"HM-2026-001","coverage":"P&I","expiryDate":"2026-08-20","expiryClassification":"Expiring soon"}]}""";
+    private static string Overview(string number) => $$"""{"certificates":[{"id":"30000000-0000-0000-0000-000000000003","vesselId":"{{VesselOne}}","certificateType":"Safety Management","certificateNumber":"{{number}}","issuingAuthority":"Flag State","issuedOn":"2020-01-01","expiresOn":"2020-12-31","status":"Expired","predecessorCertificateId":null,"revokedAtUtc":null,"successorCertificateId":"30000000-0000-0000-0000-000000000009","successorCertificateNumber":"CERT-RENEWED","successorIssuedOn":"2021-01-05","successorIsRevoked":false,"isRenewalCovered":false,"renewalGapDays":4}],"pscInspections":[{"id":1,"vesselId":"{{VesselOne}}","portId":"40000000-0000-0000-0000-000000000004","inspectionDate":"2026-08-01","inspectingAuthority":"Port Authority","deficiencyCount":2,"vesselDetained":true}],"surveyAudits":[{"id":1,"vesselId":"{{VesselOne}}","date":"2026-07-01","type":"Annual Survey","result":"Pass"}],"openNonConformities":[{"id":1,"vesselId":"{{VesselOne}}","evidenceDocumentId":"50000000-0000-0000-0000-000000000005","severity":"Critical","correctiveActionDeadline":"2026-09-01","closureStatus":"Open"}],"insurancePolicies":[{"id":1,"vesselId":"{{VesselOne}}","insurer":"Harbor Mutual","policyNumber":"HM-2026-001","coverage":"P&I","expiryDate":"2026-08-20","expiryClassification":"Expiring soon"}]}""";
+    private static string CertificatesOverview(params string[] certificates) => $$"""{"certificates":[{{string.Join(",", certificates)}}],"pscInspections":[],"surveyAudits":[],"openNonConformities":[],"insurancePolicies":[]}""";
+    private static string CertificateJson(string id, string number, string status, bool isRenewalCovered) => $$"""{"id":"{{id}}","vesselId":"{{VesselOne}}","certificateType":"Safety Management","certificateNumber":"{{number}}","issuingAuthority":"Flag State","issuedOn":"2020-01-01","expiresOn":"2020-12-31","status":"{{status}}","predecessorCertificateId":null,"revokedAtUtc":null,"successorCertificateId":null,"successorCertificateNumber":null,"successorIssuedOn":null,"successorIsRevoked":false,"isRenewalCovered":{{(isRenewalCovered ? "true" : "false")}},"renewalGapDays":null}""";
     private const string EmptyOverview = "{\"certificates\":[],\"pscInspections\":[],\"surveyAudits\":[],\"openNonConformities\":[],\"insurancePolicies\":[]}";
     private const string DocumentsPageJson = """{"items":[{"documentId":"60000000-0000-0000-0000-000000000006","vesselId":"10000000-0000-0000-0000-000000000001","number":"BRZ-2024-0091","documentTypeName":"Bill of Lading","status":"Active","expiryDate":"2027-01-01"}],"pageNumber":1,"pageSize":10,"totalCount":1}""";
     private static HttpResponseMessage Json(HttpStatusCode status, string body) => new(status) { Content = new StringContent(body, Encoding.UTF8, "application/json") };

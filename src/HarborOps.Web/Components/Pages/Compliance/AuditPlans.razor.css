@@ -206,8 +206,9 @@ html[data-theme="dark"] .audit-plans-modal {
 .audit-plans-action-buttons button:hover:not(:disabled) { color: var(--text-primary); border-color: var(--accent-border); background: var(--bg-surface-strong); transform: translateY(-1px); }
 .audit-plans-action-buttons button:focus-visible { outline: 0; box-shadow: var(--focus-ring); }
 .audit-plans-action-buttons button:disabled { opacity: .5; cursor: not-allowed; }
-.audit-plans-danger-button { color: var(--status-danger-strong) !important; border-color: rgba(248,113,113,.35) !important; background: rgba(127,29,29,.12) !important; }
-.audit-plans-danger-button:hover:not(:disabled) { color: var(--status-danger-strong) !important; border-color: rgba(248,113,113,.65) !important; background: rgba(127,29,29,.2) !important; }
+.audit-plans-danger-button { color: #fecaca !important; border-color: rgba(248, 113, 113, .45) !important; background: rgba(127, 29, 29, .25) !important; }
+.audit-plans-danger-button:hover:not(:disabled) { color: #fecaca !important; border-color: rgba(248, 113, 113, .7) !important; background: rgba(127, 29, 29, .38) !important; }
+html[data-theme="light"] .audit-plans-danger-button { color: #991b1b !important; border-color: rgba(185, 28, 28, .35) !important; background: rgba(254, 226, 226, .8) !important; }
 
 .audit-plans-confirm { display: flex; align-items: center; flex-wrap: wrap; gap: .6rem; margin-bottom: 1.1rem; padding: .75rem; border: 1px solid var(--accent-border); border-radius: var(--radius-control); background: var(--accent-bg); font-size: .82rem; }
 .audit-plans-confirm button { height: 2.1rem; padding: 0 .9rem; border: 1px solid var(--border-medium); border-radius: var(--radius-button); background: var(--bg-surface); font: inherit; font-size: .8rem; font-weight: 600; cursor: pointer; }

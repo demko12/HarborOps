@@ -246,7 +246,7 @@ html[data-theme="dark"] .nc-select-shell select { color-scheme: dark; }
 .nc-button:disabled { opacity: .55; cursor: not-allowed; }
 .nc-button-secondary { background: var(--bg-surface); }
 .nc-button-danger { color: #fecaca; border-color: rgba(248, 113, 113, .45); background: rgba(127, 29, 29, .25); }
-.nc-button-danger:hover:not(:disabled) { border-color: rgba(248, 113, 113, .65); background: rgba(127, 29, 29, .4); }
+.nc-button-danger:hover:not(:disabled) { border-color: rgba(248, 113, 113, .7); background: rgba(127, 29, 29, .38); }
 
 .nc-inline-form {
     display: grid;
@@ -400,7 +400,7 @@ html[data-theme="light"] .nc-error-banner,
 html[data-theme="light"] .nc-forbidden-banner { background: rgba(254, 226, 226, .6); }
 html[data-theme="light"] .nc-conflict-banner { background: rgba(254, 243, 199, .7); }
 html[data-theme="light"] .nc-confirm-panel { background: rgba(254, 226, 226, .5); }
-html[data-theme="light"] .nc-button-danger { color: #991b1b; background: rgba(254, 226, 226, .8); }
+html[data-theme="light"] .nc-button-danger { color: #991b1b; border-color: rgba(185, 28, 28, .35); background: rgba(254, 226, 226, .8); }
 html[data-theme="light"] .nc-button-danger:hover:not(:disabled) { background: rgba(254, 202, 202, .9); }
 
 @media (max-width: 900px) {

@@ -164,12 +164,12 @@ public sealed class OperationsDashboardService(
         try
         {
             var result = await complianceQuery.GetAttentionItemsAsync(through, MaximumItemsPerSection, cancellationToken);
-            return Section("compliance", "Compliance", "Expiring certificates and critical findings", result.AttentionItemCount, "/compliance",
+            return Section("compliance", "Compliance", "Expiring or revoked certificates and critical findings", result.AttentionItemCount, "/compliance",
                 result.Items.Select(item => Item(item.Title, item.ItemType, item.DueDate.ToString("yyyy-MM-dd"), item.Severity == "Critical" ? "critical" : "warning")));
         }
         catch (Exception exception) when (IsSectionFailure(exception, cancellationToken))
         {
-            return Unavailable("compliance", "Compliance", "Expiring certificates and critical findings", "/compliance");
+            return Unavailable("compliance", "Compliance", "Expiring or revoked certificates and critical findings", "/compliance");
         }
     }
 

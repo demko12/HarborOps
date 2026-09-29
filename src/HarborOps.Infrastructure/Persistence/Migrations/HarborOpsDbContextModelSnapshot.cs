@@ -1172,6 +1172,12 @@ namespace HarborOps.Infrastructure.Persistence.Migrations
                         .HasMaxLength(100)
                         .HasColumnType("nvarchar(100)");
 
+                    b.Property<Guid>("ConcurrencyToken")
+                        .IsConcurrencyToken()
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier")
+                        .HasDefaultValueSql("NEWID()");
+
                     b.Property<DateTime>("CreatedUtc")
                         .HasColumnType("datetime2");
 
@@ -1186,6 +1192,19 @@ namespace HarborOps.Infrastructure.Persistence.Migrations
                         .HasMaxLength(200)
                         .HasColumnType("nvarchar(200)");
 
+                    b.Property<Guid?>("PredecessorCertificateId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("RevocationReason")
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
+
+                    b.Property<DateTime?>("RevokedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("RevokedByUserId")
+                        .HasColumnType("uniqueidentifier");
+
                     b.Property<Guid>("VesselId")
                         .HasColumnType("uniqueidentifier");
 
@@ -1193,9 +1212,46 @@ namespace HarborOps.Infrastructure.Persistence.Migrations
 
                     b.HasIndex("ExpiresOn");
 
+                    b.HasIndex("PredecessorCertificateId")
+                        .IsUnique()
+                        .HasFilter("[PredecessorCertificateId] IS NOT NULL");
+
                     b.HasIndex("VesselId");
 
                     b.ToTable("ComplianceCertificates", "compliance");
+                });
+
+            modelBuilder.Entity("HarborOps.Modules.Compliance.Domain.ComplianceCertificateHistory", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("ActorUserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("CertificateId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("EventType")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("nvarchar(30)");
+
+                    b.Property<DateTime>("OccurredAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Reason")
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
+
+                    b.Property<Guid?>("SuccessorCertificateId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CertificateId", "OccurredAtUtc");
+
+                    b.ToTable("ComplianceCertificateHistories", "compliance");
                 });
 
             modelBuilder.Entity("HarborOps.Modules.Compliance.Domain.CorrectiveAction", b =>
@@ -5447,6 +5503,23 @@ namespace HarborOps.Infrastructure.Persistence.Migrations
                         .WithMany()
                         .HasForeignKey("AuditPlanId")
                         .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("HarborOps.Modules.Compliance.Domain.ComplianceCertificate", b =>
+                {
+                    b.HasOne("HarborOps.Modules.Compliance.Domain.ComplianceCertificate", null)
+                        .WithOne()
+                        .HasForeignKey("HarborOps.Modules.Compliance.Domain.ComplianceCertificate", "PredecessorCertificateId")
+                        .OnDelete(DeleteBehavior.Restrict);
+                });
+
+            modelBuilder.Entity("HarborOps.Modules.Compliance.Domain.ComplianceCertificateHistory", b =>
+                {
+                    b.HasOne("HarborOps.Modules.Compliance.Domain.ComplianceCertificate", null)
+                        .WithMany()
+                        .HasForeignKey("CertificateId")
+                        .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
                 });
 

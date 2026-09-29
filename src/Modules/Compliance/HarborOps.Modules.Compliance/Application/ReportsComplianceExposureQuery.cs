@@ -10,6 +10,9 @@ internal sealed class ReportsComplianceExposureQuery(DbContext dbContext) : IRep
     internal const string CategoryInsurance = "Insurance";
     internal const string CategoryDetention = "Detention";
     internal const string CategoryNonConformity = "NonConformity";
+    internal const string StatusRevoked = ComplianceCertificate.RevokedStatus;
+    internal const string StatusRenewed = "Renewed";
+    internal const string StatusNotYetEffective = "Not yet effective";
 
     private const int ExposureWindowDays = 60;
     private const int MaxCandidatesPerCategory = 2000;
@@ -66,7 +69,7 @@ internal sealed class ReportsComplianceExposureQuery(DbContext dbContext) : IRep
     {
         var certificates = dbContext.Set<ComplianceCertificate>()
             .AsNoTracking()
-            .Where(certificate => certificate.ExpiresOn <= exposureThrough);
+            .Where(certificate => certificate.ExpiresOn <= exposureThrough || certificate.RevokedAtUtc != null);
 
         if (vesselId is { } id)
         {
@@ -79,22 +82,56 @@ internal sealed class ReportsComplianceExposureQuery(DbContext dbContext) : IRep
             .Take(MaxCandidatesPerCategory)
             .Select(certificate => new
             {
+                certificate.Id,
                 certificate.VesselId,
                 certificate.CertificateNumber,
                 certificate.CertificateType,
+                certificate.IssuedOn,
                 certificate.ExpiresOn,
+                certificate.RevokedAtUtc,
             })
             .ToListAsync(cancellationToken);
 
+        var successors = await ComplianceCertificateValidity.LoadSuccessorsAsync(
+            dbContext,
+            rows
+                .Where(row => row.RevokedAtUtc is null)
+                .Select(row => new ComplianceCertificateSuccessorKey(row.Id, row.VesselId, row.CertificateType))
+                .ToList(),
+            cancellationToken);
+
         return rows
-            .Select(row => new ReportsComplianceExposureRow(
-                CategoryCertificate,
-                row.VesselId,
-                row.CertificateNumber,
-                row.CertificateType,
-                row.ExpiresOn,
-                row.ExpiresOn < asOf ? "Expired" : "Expiring",
-                null))
+            .Select(row =>
+            {
+                if (row.RevokedAtUtc is { } revokedAtUtc)
+                {
+                    return new ReportsComplianceExposureRow(
+                        CategoryCertificate,
+                        row.VesselId,
+                        row.CertificateNumber,
+                        row.CertificateType,
+                        DateOnly.FromDateTime(revokedAtUtc),
+                        StatusRevoked,
+                        null);
+                }
+
+                var successor = successors.GetValueOrDefault(row.Id);
+                var status = successor is not null && ComplianceCertificateValidity.CoversExpiry(
+                        row.ExpiresOn, successor.IssuedOn, successor.ExpiresOn, successor.IsRevoked)
+                    ? StatusRenewed
+                    : row.IssuedOn > asOf
+                        ? StatusNotYetEffective
+                        : row.ExpiresOn < asOf ? "Expired" : "Expiring";
+
+                return new ReportsComplianceExposureRow(
+                    CategoryCertificate,
+                    row.VesselId,
+                    row.CertificateNumber,
+                    row.CertificateType,
+                    row.ExpiresOn,
+                    status,
+                    null);
+            })
             .ToList();
     }
 

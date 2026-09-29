@@ -8,7 +8,32 @@ internal sealed record ComplianceOverview(
     IReadOnlyList<InsurancePolicyItem> InsurancePolicies);
 
 internal sealed record ComplianceCertificateItem(Guid Id, Guid VesselId, string CertificateType,
-    string CertificateNumber, string IssuingAuthority, DateOnly IssuedOn, DateOnly ExpiresOn);
+    string CertificateNumber, string IssuingAuthority, DateOnly IssuedOn, DateOnly ExpiresOn,
+    string Status, Guid? PredecessorCertificateId, DateTime? RevokedAtUtc, Guid? SuccessorCertificateId,
+    string? SuccessorCertificateNumber, DateOnly? SuccessorIssuedOn, bool SuccessorIsRevoked,
+    bool IsRenewalCovered, int? RenewalGapDays);
+
+internal sealed record ComplianceCertificateChainItem(Guid Id, string CertificateNumber, string IssuingAuthority,
+    DateOnly IssuedOn, DateOnly ExpiresOn, string Status, DateTime? RevokedAtUtc, Guid? PredecessorCertificateId,
+    int? GapDaysAfterPredecessor, bool CoversPredecessorExpiry);
+
+internal sealed record ComplianceCertificateHistoryItem(Guid Id, Guid CertificateId, string EventType,
+    Guid ActorUserId, DateTime OccurredAtUtc, string? Reason, Guid? SuccessorCertificateId);
+
+internal sealed record ComplianceCertificateDetail(Guid Id, Guid VesselId, string CertificateType,
+    string CertificateNumber, string IssuingAuthority, DateOnly IssuedOn, DateOnly ExpiresOn, string Status,
+    DateTime CreatedUtc, Guid? PredecessorCertificateId, Guid? SuccessorCertificateId, DateTime? RevokedAtUtc,
+    Guid? RevokedByUserId, string? RevocationReason, bool CanRenew, bool CanRevoke, Guid ConcurrencyToken,
+    IReadOnlyList<ComplianceCertificateChainItem> Chain, IReadOnlyList<ComplianceCertificateHistoryItem> History);
+
+internal sealed record RenewComplianceCertificateRequest(Guid? ExpectedConcurrencyToken, string? CertificateNumber,
+    string? IssuingAuthority, DateOnly? IssuedOn, DateOnly? ExpiresOn);
+
+internal sealed record RenewComplianceCertificateResult(Guid Id, Guid PredecessorCertificateId);
+
+internal sealed record RevokeComplianceCertificateRequest(Guid? ExpectedConcurrencyToken, string? Reason);
+
+internal sealed record RevokeComplianceCertificateResult(Guid Id, DateTime RevokedAtUtc, Guid RevokedByUserId);
 
 internal sealed record PscInspectionItem(int Id, Guid VesselId, Guid PortId, DateOnly InspectionDate,
     string InspectingAuthority, int DeficiencyCount, bool VesselDetained);

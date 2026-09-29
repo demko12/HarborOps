@@ -22,21 +22,60 @@ internal sealed class GetVesselComplianceOverviewQuery(DbContext dbContext, IDat
             throw new GetVesselComplianceOverviewValidationException(errors);
         }
 
-        var certificates = await dbContext.Set<ComplianceCertificate>()
+        var asOf = DateOnly.FromDateTime(dateTimeProvider?.UtcNow ?? DateTime.UtcNow);
+
+        var certificateRows = await dbContext.Set<ComplianceCertificate>()
             .AsNoTracking()
             .Where(certificate => certificate.VesselId == request.VesselId)
             .OrderBy(certificate => certificate.ExpiresOn)
             .ThenBy(certificate => certificate.Id)
             .Take(MaxItemsPerCollection)
-            .Select(certificate => new ComplianceCertificateOverviewItem(
+            .Select(certificate => new
+            {
                 certificate.Id,
                 certificate.VesselId,
                 certificate.CertificateType,
                 certificate.CertificateNumber,
                 certificate.IssuingAuthority,
                 certificate.IssuedOn,
-                certificate.ExpiresOn))
+                certificate.ExpiresOn,
+                certificate.PredecessorCertificateId,
+                certificate.RevokedAtUtc,
+            })
             .ToListAsync(cancellationToken);
+
+        var successors = await ComplianceCertificateValidity.LoadSuccessorsAsync(
+            dbContext,
+            certificateRows
+                .Select(row => new ComplianceCertificateSuccessorKey(row.Id, row.VesselId, row.CertificateType))
+                .ToList(),
+            cancellationToken);
+
+        var certificates = certificateRows
+            .Select(row =>
+            {
+                var successor = successors.GetValueOrDefault(row.Id);
+
+                return new ComplianceCertificateOverviewItem(
+                    row.Id,
+                    row.VesselId,
+                    row.CertificateType,
+                    row.CertificateNumber,
+                    row.IssuingAuthority,
+                    row.IssuedOn,
+                    row.ExpiresOn,
+                    ComplianceCertificateValidity.Status(row.IssuedOn, row.ExpiresOn, row.RevokedAtUtc is not null, asOf),
+                    row.PredecessorCertificateId,
+                    row.RevokedAtUtc,
+                    successor?.Id,
+                    successor?.CertificateNumber,
+                    successor?.IssuedOn,
+                    successor?.IsRevoked ?? false,
+                    successor is not null && ComplianceCertificateValidity.CoversExpiry(
+                        row.ExpiresOn, successor.IssuedOn, successor.ExpiresOn, successor.IsRevoked),
+                    successor is null ? null : ComplianceCertificateValidity.GapDays(row.ExpiresOn, successor.IssuedOn));
+            })
+            .ToList();
 
         var pscInspections = await dbContext.Set<PscInspection>()
             .AsNoTracking()
@@ -68,7 +107,6 @@ internal sealed class GetVesselComplianceOverviewQuery(DbContext dbContext, IDat
                 survey.Result))
             .ToListAsync(cancellationToken);
 
-        var asOf = DateOnly.FromDateTime(dateTimeProvider?.UtcNow ?? DateTime.UtcNow);
         var nearExpiry = asOf.AddDays(30);
         var insurancePolicies = await dbContext.Set<InsurancePolicy>()
             .AsNoTracking()

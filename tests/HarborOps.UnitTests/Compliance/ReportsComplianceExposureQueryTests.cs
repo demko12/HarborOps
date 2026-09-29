@@ -196,6 +196,84 @@ public sealed class ReportsComplianceExposureQueryTests
         Assert.Equal(5, secondPage.Items.Count);
     }
 
+    [Fact]
+    public async Task SearchAsync_keeps_revoked_certificates_visible_as_revoked_exposure_on_their_revocation_date()
+    {
+        await using var dbContext = CreateDbContext();
+        var vesselId = Guid.NewGuid();
+        var revokedAtUtc = new DateTime(2026, 8, 10, 9, 0, 0, DateTimeKind.Utc);
+        var revoked = ComplianceCertificate.Register(
+            vesselId, "SMC", "REVOKED", "Authority", AsOf.AddYears(-1), AsOf.AddYears(3));
+        revoked.Revoke(Guid.NewGuid(), "Issued in error by the flag state.", revokedAtUtc);
+        await dbContext.AddAsync(revoked);
+        await dbContext.SaveChangesAsync();
+
+        var result = await QueryAsync(dbContext, AsOf);
+
+        var item = Assert.Single(result.Items);
+        Assert.Equal("REVOKED", item.Reference);
+        Assert.Equal(ReportsComplianceExposureQuery.StatusRevoked, item.Status);
+        Assert.Equal(new DateOnly(2026, 8, 10), item.RelevantDate);
+    }
+
+    [Fact]
+    public async Task SearchAsync_marks_a_covered_original_as_renewed_and_keeps_gaps_and_revoked_successors_as_exposure()
+    {
+        await using var dbContext = CreateDbContext();
+        var vesselId = Guid.NewGuid();
+        var renewedAtUtc = new DateTime(2026, 8, 1, 9, 0, 0, DateTimeKind.Utc);
+        var covered = ComplianceCertificate.Register(vesselId, "SMC", "COVERED", "Authority", AsOf.AddYears(-1), AsOf.AddDays(20));
+        var coveredSuccessor = covered.Renew("COVERED-2", "Authority", AsOf.AddDays(21), AsOf.AddYears(5), renewedAtUtc);
+        var gapped = ComplianceCertificate.Register(vesselId, "ISM", "GAPPED", "Authority", AsOf.AddYears(-1), AsOf.AddDays(20));
+        var gappedSuccessor = gapped.Renew("GAPPED-2", "Authority", AsOf.AddDays(25), AsOf.AddYears(5), renewedAtUtc);
+        var withRevokedSuccessor = ComplianceCertificate.Register(vesselId, "IOPP", "REVOKED-SUCCESSOR", "Authority", AsOf.AddYears(-1), AsOf.AddDays(20));
+        var revokedSuccessor = withRevokedSuccessor.Renew("REVOKED-SUCCESSOR-2", "Authority", AsOf.AddDays(10), AsOf.AddYears(5), renewedAtUtc);
+        revokedSuccessor.Revoke(Guid.NewGuid(), "Successor issued with a wrong IMO number.", renewedAtUtc);
+        await dbContext.AddRangeAsync(covered, coveredSuccessor, gapped, gappedSuccessor, withRevokedSuccessor, revokedSuccessor);
+        await dbContext.SaveChangesAsync();
+
+        var result = await QueryAsync(dbContext, AsOf, category: "Certificate");
+
+        Assert.Equal(ReportsComplianceExposureQuery.StatusRenewed, result.Items.Single(item => item.Reference == "COVERED").Status);
+        Assert.Equal("Expiring", result.Items.Single(item => item.Reference == "GAPPED").Status);
+        Assert.Equal("Expiring", result.Items.Single(item => item.Reference == "REVOKED-SUCCESSOR").Status);
+        Assert.Equal(ReportsComplianceExposureQuery.StatusRevoked, result.Items.Single(item => item.Reference == "REVOKED-SUCCESSOR-2").Status);
+        Assert.DoesNotContain(result.Items, item => item.Reference is "COVERED-2" or "GAPPED-2");
+    }
+
+    [Fact]
+    public async Task SearchAsync_marks_a_certificate_issued_after_as_of_as_not_yet_effective()
+    {
+        await using var dbContext = CreateDbContext();
+        var future = ComplianceCertificate.Register(
+            Guid.NewGuid(), "SMC", "FUTURE", "Authority", AsOf.AddDays(5), AsOf.AddDays(40));
+        await dbContext.AddAsync(future);
+        await dbContext.SaveChangesAsync();
+
+        var result = await QueryAsync(dbContext, AsOf);
+
+        Assert.Equal(ReportsComplianceExposureQuery.StatusNotYetEffective, Assert.Single(result.Items).Status);
+    }
+
+    [Fact]
+    public async Task SearchAsync_leaves_insurance_rows_unchanged_by_certificate_revocation()
+    {
+        await using var dbContext = CreateDbContext();
+        var vesselId = Guid.NewGuid();
+        var certificate = ComplianceCertificate.Register(vesselId, "SMC", "CERT-1", "Authority", AsOf.AddYears(-1), AsOf.AddDays(10));
+        certificate.Revoke(Guid.NewGuid(), "Issued in error by the flag state.", new DateTime(2026, 8, 1, 0, 0, 0, DateTimeKind.Utc));
+        var policy = new InsurancePolicy(vesselId, "Insurer", "POL-1", "Hull", AsOf.AddDays(-1));
+        await dbContext.AddRangeAsync(certificate, policy);
+        await dbContext.SaveChangesAsync();
+
+        var result = await QueryAsync(dbContext, AsOf, category: "Insurance");
+
+        var item = Assert.Single(result.Items);
+        Assert.Equal("POL-1", item.Reference);
+        Assert.Equal("Insurer · Hull", item.Description);
+        Assert.Equal("Expired", item.Status);
+    }
+
     private static Task<ReportsComplianceExposureResult> QueryAsync(
         HarborOpsDbContext dbContext,
         DateOnly asOf,

@@ -16,6 +16,9 @@ public static class ComplianceModule
     public static IServiceCollection AddComplianceModule(this IServiceCollection services)
     {
         services.AddScoped<RegisterComplianceCertificateService>();
+        services.AddScoped<RenewComplianceCertificateService>();
+        services.AddScoped<RevokeComplianceCertificateService>();
+        services.AddScoped<IGetComplianceCertificateDetailQuery, GetComplianceCertificateDetailQuery>();
         services.AddScoped<RegisterPscInspectionService>();
         services.AddScoped<PscInspectionWorkflowService>();
         services.AddScoped<IGetPscInspectionDetailQuery, GetPscInspectionDetailQuery>();
