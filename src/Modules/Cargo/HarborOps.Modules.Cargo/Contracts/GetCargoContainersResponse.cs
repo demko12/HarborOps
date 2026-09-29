@@ -5,4 +5,5 @@ public sealed record GetCargoContainersResponse(
     int TotalCount = 0,
     int PageNumber = 1,
     int PageSize = 15,
-    int LoadedCount = 0);
+    int LoadedCount = 0,
+    int MatchingCount = 0);

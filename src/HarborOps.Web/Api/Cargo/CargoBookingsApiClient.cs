@@ -113,10 +113,19 @@ internal sealed class CargoBookingsApiClient(HttpClient httpClient)
     internal Task<CargoApiResult<CargoContainerList>> GetContainersAsync(
         Guid bookingId,
         int pageNumber,
+        CancellationToken cancellationToken) =>
+        GetContainersAsync(bookingId, CargoContainerFilter.None, pageNumber, cancellationToken);
+
+    internal Task<CargoApiResult<CargoContainerList>> GetContainersAsync(
+        Guid bookingId,
+        CargoContainerFilter filter,
+        int pageNumber,
         CancellationToken cancellationToken)
     {
+        ArgumentNullException.ThrowIfNull(filter);
+
         return GetAsync<CargoContainerList>(
-            $"{BasePath}/{bookingId}/containers?pageNumber={pageNumber}&pageSize=15",
+            BuildContainersPath(bookingId, filter, pageNumber),
             "Unable to load the container manifest",
             ReviewAccessDetail,
             cancellationToken);
@@ -473,6 +482,29 @@ internal sealed class CargoBookingsApiClient(HttpClient httpClient)
     {
         return $"{BasePath}/{bookingId}/safety-information";
     }
+    private static string BuildContainersPath(Guid bookingId, CargoContainerFilter filter, int pageNumber)
+    {
+        var query = new List<string>();
+
+        AddQueryValue(query, "search", filter.Search);
+        AddQueryValue(query, "status", filter.Status);
+        AddQueryValue(query, "containerType", filter.ContainerType);
+        AddQueryValue(query, "portOfLoadingCode", filter.PortOfLoadingCode);
+        AddQueryValue(query, "portOfDischargeCode", filter.PortOfDischargeCode);
+        query.Add($"pageNumber={pageNumber}");
+        query.Add("pageSize=15");
+
+        return $"{BasePath}/{bookingId}/containers?{string.Join('&', query)}";
+    }
+
+    private static void AddQueryValue(List<string> query, string name, string? value)
+    {
+        if (!string.IsNullOrWhiteSpace(value))
+        {
+            query.Add($"{name}={Uri.EscapeDataString(value.Trim())}");
+        }
+    }
+
     private static string BuildPath(CargoBookingFilter filter)
     {
         var query = new List<string>

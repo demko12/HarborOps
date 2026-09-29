@@ -11,6 +11,7 @@ public partial class VesselPositions : IDisposable
     private const int AttentionPreviewLimit = 6;
 
     private readonly CancellationTokenSource pageCancellation = new();
+    private CancellationTokenSource? searchCancellation;
     private int loadVersion;
 
     private VesselPositionsWebModel? positions;
@@ -20,6 +21,7 @@ public partial class VesselPositions : IDisposable
 
     private Guid? selectedFleetId;
     private string? selectedStatus;
+    private string? search;
     private bool staleOnly;
     private int pageNumber = 1;
 
@@ -101,6 +103,7 @@ public partial class VesselPositions : IDisposable
                 staleOnly,
                 pageNumber,
                 PageSize,
+                search,
                 pageCancellation.Token);
         }
         catch (OperationCanceledException) when (pageCancellation.IsCancellationRequested)
@@ -142,11 +145,47 @@ public partial class VesselPositions : IDisposable
     {
         selectedFleetId = null;
         selectedStatus = null;
+        search = null;
         staleOnly = false;
         await ApplyFiltersAsync();
     }
 
     private Task RefreshAsync() => LoadPositionsAsync();
+
+    private async Task ScheduleSearchAsync()
+    {
+        searchCancellation?.Cancel();
+        searchCancellation?.Dispose();
+        searchCancellation = CancellationTokenSource.CreateLinkedTokenSource(pageCancellation.Token);
+
+        try
+        {
+            await Task.Delay(TimeSpan.FromMilliseconds(350), searchCancellation.Token);
+            pageNumber = 1;
+            await LoadPositionsAsync();
+        }
+        catch (OperationCanceledException)
+        {
+        }
+    }
+
+    private void BeginPositionReport(VesselPositionWebModel vessel)
+    {
+        if (!CanManageFleet) return;
+        reportVesselId = vessel.VesselId;
+        reportLatitude = vessel.CurrentLatitude;
+        reportLongitude = vessel.CurrentLongitude;
+        submitFailure = null;
+        submitSuccessMessage = null;
+    }
+
+    private void CancelPositionReport()
+    {
+        reportVesselId = null;
+        reportLatitude = null;
+        reportLongitude = null;
+        submitFailure = null;
+    }
 
     private async Task PreviousPageAsync()
     {
@@ -210,7 +249,13 @@ public partial class VesselPositions : IDisposable
             reportLatitude = null;
             reportLongitude = null;
 
+            // A successful report is current by definition. Keeping the "missing or stale"
+            // filter active would immediately hide the vessel the operator has just updated.
+            staleOnly = false;
+            pageNumber = 1;
+
             await LoadPositionsAsync();
+            reportVesselId = null;
         }
         finally
         {
@@ -250,6 +295,8 @@ public partial class VesselPositions : IDisposable
     public void Dispose()
     {
         pageCancellation.Cancel();
+        searchCancellation?.Cancel();
+        searchCancellation?.Dispose();
         pageCancellation.Dispose();
     }
 }

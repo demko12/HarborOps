@@ -25,6 +25,26 @@ public sealed class CrewPositionsPageTests : BunitContext
         _ => Json(HttpStatusCode.OK, $$"""{"id":"{{PositionId}}"}""");
 
     [Fact]
+    public void Switching_display_keeps_the_loaded_positions_without_another_api_request()
+    {
+        respondToSearch = _ => Json(HttpStatusCode.OK, Page(Row()));
+        var page = RenderPositionsPage();
+        page.WaitForAssertion(() => Assert.Single(page.FindAll(".crew-positions-row")));
+        var requestCount = requestedUris.Count;
+
+        page.Find("button[aria-label='List view']").Click();
+
+        Assert.Single(page.FindAll(".crew-display-list"));
+        Assert.Equal("true", page.Find("button[aria-label='List view']").GetAttribute("aria-pressed"));
+        Assert.Single(page.FindAll(".crew-positions-row"));
+
+        page.Find("button[aria-label='Card view']").Click();
+
+        Assert.Single(page.FindAll(".crew-display-cards"));
+        Assert.Equal(requestCount, requestedUris.Count);
+    }
+
+    [Fact]
     public void Rows_are_rendered_with_rank_department_seniority_and_usage_counts()
     {
         respondToSearch = _ => Json(HttpStatusCode.OK, Page(Row()));

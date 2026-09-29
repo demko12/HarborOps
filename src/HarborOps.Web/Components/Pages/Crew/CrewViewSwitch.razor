@@ -1,0 +1,9 @@
+<div class="crew-display-switch" role="group" aria-label="Display options">
+    <button type="button" aria-label="Card view" aria-pressed="@Cards.ToString().ToLowerInvariant()" @onclick="() => CardsChanged.InvokeAsync(true)"><span class="bi bi-grid" aria-hidden="true"></span> Cards</button>
+    <button type="button" aria-label="List view" aria-pressed="@((!Cards).ToString().ToLowerInvariant())" @onclick="() => CardsChanged.InvokeAsync(false)"><span class="bi bi-list-ul" aria-hidden="true"></span> List</button>
+</div>
+
+@code {
+    [Parameter] public bool Cards { get; set; }
+    [Parameter] public EventCallback<bool> CardsChanged { get; set; }
+}

@@ -28,6 +28,7 @@ public static class FleetModule
         services.AddScoped<FleetManagementService>();
         services.AddScoped<IVesselPositionsQuery, VesselPositionsQuery>();
         services.AddScoped<RecordVesselPositionService>();
+        services.AddScoped<IVesselPositionHistoryQuery, VesselPositionHistoryQuery>();
         services.AddControllers()
             .AddApplicationPart(Assembly);
 

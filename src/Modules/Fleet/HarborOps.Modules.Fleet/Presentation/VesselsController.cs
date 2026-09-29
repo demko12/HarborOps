@@ -320,11 +320,13 @@ public sealed class VesselsController(
     [FromBody] RecordVesselPositionRequest request,
     CancellationToken cancellationToken)
     {
+        if (!Guid.TryParse(User.FindFirstValue(ClaimTypes.NameIdentifier), out var reporterUserId)) return Unauthorized();
         try
         {
             var response = await recordVesselPositionService.RecordAsync(
                 vesselId,
                 request,
+                reporterUserId,
                 cancellationToken);
 
             return Ok(response);
@@ -350,6 +352,16 @@ public sealed class VesselsController(
                 Detail = exception.Message,
             });
         }
+    }
+
+    [HttpGet("{vesselId:guid}/position-reports")]
+    [Authorize(ReadFleetPolicy)]
+    [ProducesResponseType<VesselPositionHistoryResponse>(StatusCodes.Status200OK)]
+    public async Task<ActionResult<VesselPositionHistoryResponse>> GetPositionHistory(
+        Guid vesselId, [FromQuery] VesselPositionHistoryRequest request, [FromServices] IVesselPositionHistoryQuery historyQuery, CancellationToken cancellationToken)
+    {
+        try { return Ok(await historyQuery.GetAsync(vesselId, request, cancellationToken)); }
+        catch (VesselPositionHistoryValidationException) { return BadRequest(new ProblemDetails { Title = "Invalid position history date window." }); }
     }
 
     private ActionResult ValidationProblemResult(IReadOnlyDictionary<string, string[]> errors)

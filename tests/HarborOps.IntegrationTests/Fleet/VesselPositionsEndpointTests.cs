@@ -87,15 +87,15 @@ public sealed class VesselPositionsEndpointTests : IntegrationTestBase
         Assert.NotNull(result);
         Assert.Equal(3, result.TotalCount);
 
-        // Stale and missing rows come first, ordered by name.
-        Assert.Equal(["Missing", "Stale", "Fresh"], result.Items.Select(item => item.Name));
+        // The newest accepted report leads; stale and unreported vessels follow.
+        Assert.Equal(["Fresh", "Stale", "Missing"], result.Items.Select(item => item.Name));
 
-        var missing = result.Items[0];
+        var missing = result.Items[2];
         Assert.Null(missing.CurrentLatitude);
         Assert.Null(missing.LastPositionReportedAtUtc);
-        Assert.True(missing.IsPositionStale);
+        Assert.False(result.Items[0].IsPositionStale);
         Assert.True(result.Items[1].IsPositionStale);
-        Assert.False(result.Items[2].IsPositionStale);
+        Assert.True(missing.IsPositionStale);
     }
 
     [Fact]

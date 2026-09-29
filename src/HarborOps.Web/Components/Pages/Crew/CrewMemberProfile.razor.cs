@@ -1,5 +1,6 @@
 using HarborOps.Web.Api;
 using Microsoft.AspNetCore.Components;
+using Microsoft.AspNetCore.Components.Web;
 
 namespace HarborOps.Web.Components.Pages.Crew;
 
@@ -65,6 +66,70 @@ public partial class CrewMemberProfile : IDisposable
     private bool isEditingRotation;
 
     private bool isEditingProfile;
+    private ProfileRegistration? registrationEditor;
+    private EditCrewMemberProfileForm? profileEditorForm;
+    private AssignToVesselForm? assignmentEditorForm;
+    private RegisterCertificateForm? certificateEditorForm;
+    private RegisterMedicalExaminationForm? medicalEditorForm;
+    private ElementReference profileEditorElement;
+    private bool wasProfileEditorOpen;
+    private string? profileEditorSuccess;
+
+    private enum ProfileRegistration { Assignment, Certificate, Medical }
+
+    private bool IsProfileEditorOpen => isEditingProfile || registrationEditor is not null
+        || isConfirmingEmploymentStatusChange || isRequestingUnavailability;
+
+    private bool IsProfileEditorBusy => isSubmittingEmploymentStatus || isSubmittingAvailabilityRequest
+        || (isEditingProfile && profileEditorForm?.IsSubmitting == true)
+        || (registrationEditor == ProfileRegistration.Assignment && assignmentEditorForm?.IsSubmitting == true)
+        || (registrationEditor == ProfileRegistration.Certificate && certificateEditorForm?.IsSubmitting == true)
+        || (registrationEditor == ProfileRegistration.Medical && medicalEditorForm?.IsSubmitting == true);
+
+    private string ProfileEditorTitle => isEditingProfile ? "Edit profile"
+        : isConfirmingEmploymentStatusChange ? "Change employment status"
+        : isRequestingUnavailability ? "Request unavailability"
+        : registrationEditor switch
+        {
+            ProfileRegistration.Assignment => "Assign to vessel",
+            ProfileRegistration.Certificate => "Register certificate",
+            _ => "Register medical examination",
+        };
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        var editorOpen = CanManage && IsProfileEditorOpen && profile is not null && !isLoading && failure is null;
+        if (editorOpen && !wasProfileEditorOpen)
+        {
+            wasProfileEditorOpen = true;
+            await profileEditorElement.FocusAsync();
+        }
+        else
+        {
+            wasProfileEditorOpen = editorOpen;
+        }
+    }
+
+    private void CloseProfileEditor()
+    {
+        if (IsProfileEditorBusy)
+        {
+            return;
+        }
+
+        isEditingProfile = false;
+        registrationEditor = null;
+        CancelEmploymentStatusChange();
+        CancelUnavailabilityRequest();
+    }
+
+    private void HandleProfileEditorKeyDown(KeyboardEventArgs args)
+    {
+        if (args.Key == "Escape")
+        {
+            CloseProfileEditor();
+        }
+    }
 
     private static readonly string[] EmploymentStatusOptions = ["Active", "OnLeave", "Suspended", "Terminated"];
 
@@ -201,6 +266,7 @@ public partial class CrewMemberProfile : IDisposable
 
     private void CancelEmploymentStatusChange()
     {
+        if (isSubmittingEmploymentStatus) return;
         isConfirmingEmploymentStatusChange = false;
         employmentStatusActionError = null;
     }
@@ -286,6 +352,7 @@ public partial class CrewMemberProfile : IDisposable
 
     private void CancelUnavailabilityRequest()
     {
+        if (isSubmittingAvailabilityRequest) return;
         isRequestingUnavailability = false;
         ClearAvailabilityRequestErrors();
     }
@@ -431,6 +498,8 @@ public partial class CrewMemberProfile : IDisposable
 
     private async Task OnCertificateRegisteredAsync()
     {
+        registrationEditor = null;
+        profileEditorSuccess = "Certificate registered.";
         // "Refresh only affected profile sections": re-query the profile but only replace
         // the certificates collection on the currently displayed model, leaving personal/
         // employment fields and the assignments list untouched.
@@ -474,7 +543,12 @@ public partial class CrewMemberProfile : IDisposable
         }
     }
 
-    private Task OnMedicalExaminationRegisteredAsync() => LoadMedicalExaminationsAsync();
+    private Task OnMedicalExaminationRegisteredAsync()
+    {
+        registrationEditor = null;
+        profileEditorSuccess = "Examination registered.";
+        return LoadMedicalExaminationsAsync();
+    }
 
     private static FitnessState GetFitnessResultState(string fitnessResult) => fitnessResult switch
     {
@@ -500,6 +574,8 @@ public partial class CrewMemberProfile : IDisposable
 
     private async Task OnAssignmentRegisteredAsync()
     {
+        registrationEditor = null;
+        profileEditorSuccess = "Crew member assigned to vessel.";
         var result = await CrewApi.GetProfileAsync(CrewMemberId, disposeCancellation.Token);
         if (result.IsSuccess && result.Value is not null && profile is not null)
         {

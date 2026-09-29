@@ -130,7 +130,39 @@ internal sealed record CargoContainerRow(
     string? PortOfDischargeCode = null,
     decimal? WeightKg = null);
 
-internal sealed record CargoContainerList(IReadOnlyList<CargoContainerRow> Items, int TotalCount = 0, int PageNumber = 1, int PageSize = 15, int LoadedCount = 0);
+internal sealed record CargoContainerList(IReadOnlyList<CargoContainerRow> Items, int TotalCount = 0, int PageNumber = 1, int PageSize = 15, int LoadedCount = 0, int? MatchingCount = null);
+
+internal sealed record CargoContainerFilter(
+    string? Search = null,
+    string? Status = null,
+    string? ContainerType = null,
+    string? PortOfLoadingCode = null,
+    string? PortOfDischargeCode = null)
+{
+    internal static CargoContainerFilter None { get; } = new();
+
+    internal bool IsEmpty => this == None;
+
+    internal static CargoContainerFilter Create(
+        string? search,
+        string? status,
+        string? containerType,
+        string? portOfLoadingCode,
+        string? portOfDischargeCode)
+    {
+        return new CargoContainerFilter(
+            Normalize(search),
+            string.IsNullOrWhiteSpace(status) ? null : status.Trim(),
+            Normalize(containerType),
+            Normalize(portOfLoadingCode),
+            Normalize(portOfDischargeCode));
+    }
+
+    private static string? Normalize(string? value)
+    {
+        return string.IsNullOrWhiteSpace(value) ? null : value.Trim().ToUpperInvariant();
+    }
+}
 
 internal sealed record CargoOperationRow(
     Guid OperationId,

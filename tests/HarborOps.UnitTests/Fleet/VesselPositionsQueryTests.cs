@@ -305,7 +305,7 @@ public sealed class VesselPositionsQueryTests
     }
 
     [Fact]
-    public async Task Get_orders_stale_first_then_name_then_imo_number_then_id()
+    public async Task Get_orders_most_recent_reports_first_then_unreported_vessels_by_name_and_imo_number()
     {
         await using var dbContext = CreateDbContext();
         var vesselTypeId = await SeedVesselTypeAsync(dbContext);
@@ -337,12 +337,12 @@ public sealed class VesselPositionsQueryTests
 
         Assert.Equal(
             [
+                fresh.Id,
                 staleAurora.Id,
                 staleBorealisLowImo.Id,
                 staleBorealisHighImo.Id,
                 expectedTwinIds[0],
                 expectedTwinIds[1],
-                fresh.Id,
             ],
             response.Items.Select(item => item.VesselId));
     }

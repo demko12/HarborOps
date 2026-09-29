@@ -6,7 +6,7 @@
 
 <PageTitle>Crew positions | HarborOps</PageTitle>
 
-<section class="crew-positions-page">
+<section class="crew-positions-page crew-operations-page" aria-busy="@isLoading.ToString().ToLowerInvariant()">
     <header class="crew-positions-header">
         <div>
             <nav class="page-breadcrumb" aria-label="Breadcrumb"><a href="/crew">Crewing operations</a><span aria-hidden="true">/</span><span>Positions</span></nav>
@@ -15,36 +15,46 @@
         </div>
         @if (CanManage)
         {
-            <button type="button" class="crew-positions-add-button" @onclick="OpenCreateDialog">Add position</button>
+            <button type="button" class="crew-positions-add-button" @onclick="OpenCreateDialog"><span class="bi bi-plus-lg" aria-hidden="true"></span>Add position</button>
         }
     </header>
 
     <CrewNavigation />
 
-    <div class="crew-positions-filters">
-        <div class="filter-field filter-field-wide">
-            <label for="crew-positions-search">Search</label>
-            <input id="crew-positions-search" @bind="search" @bind:event="oninput" @bind:after="SearchAsync" placeholder="Search rank name" />
-        </div>
-        <div class="filter-field">
-            <label for="crew-positions-department">Department</label>
-            <select id="crew-positions-department" @bind="departmentFilter" @bind:after="SearchAsync">
-                <option value="">All departments</option>
-                @foreach (var option in DepartmentOptions)
-                {
-                    <option value="@option.Value">@option.Label</option>
-                }
-            </select>
-        </div>
-        <div class="crew-positions-filter-actions">
-            <button type="button" class="crew-reset-button" @onclick="ResetFiltersAsync" disabled="@isLoading">Reset</button>
-        </div>
-    </div>
+    @if (!isLoading && failure is null)
+    {
+        <section class="crew-metrics" aria-label="Page summary">
+            <CrewMetricCard Label="Matching positions" Value="@totalCount" Note="Across the current filters" Icon="bi-person-badge" />
+            <CrewMetricCard Label="Departments" Value="@(positions.Select(p => p.Department).Distinct().Count())" Icon="bi-diagram-3" />
+            <CrewMetricCard Label="Crew members" Value="@(positions.Sum(p => p.CrewMemberUsageCount))" Note="Using positions on this page" Icon="bi-people" Tone="green" />
+            <CrewMetricCard Label="Assignments" Value="@(positions.Sum(p => p.AssignmentUsageCount))" Note="Using positions on this page" Icon="bi-briefcase" Tone="amber" />
+        </section>
+    }
 
-    <section class="crew-card" aria-labelledby="crew-positions-list-title">
+    <section class="crew-card @(cardView ? "crew-display-cards" : "crew-display-list")" aria-labelledby="crew-positions-list-title">
         <div class="crew-card-heading">
-            <div><h2 id="crew-positions-list-title">Position catalogue</h2><p>@totalCount positions found</p></div>
-            <span class="bi bi-person-badge" aria-hidden="true"></span>
+            <div class="crew-register-title"><span class="crew-register-mark bi bi-person-badge" aria-hidden="true"></span><div><h2 id="crew-positions-list-title">Position catalogue</h2><p>@totalCount positions found</p></div></div>
+            <CrewViewSwitch @bind-Cards="cardView" />
+        </div>
+
+        <div class="crew-positions-filters">
+            <div class="filter-field filter-field-wide">
+                <label for="crew-positions-search">Search</label>
+                <input id="crew-positions-search" @bind="search" @bind:event="oninput" @bind:after="SearchAsync" placeholder="Search rank name" />
+            </div>
+            <div class="filter-field">
+                <label for="crew-positions-department">Department</label>
+                <select id="crew-positions-department" @bind="departmentFilter" @bind:after="SearchAsync">
+                    <option value="">All departments</option>
+                    @foreach (var option in DepartmentOptions)
+                    {
+                        <option value="@option.Value">@option.Label</option>
+                    }
+                </select>
+            </div>
+            <div class="crew-positions-filter-actions">
+                <button type="button" class="crew-reset-button" @onclick="ResetFiltersAsync" disabled="@isLoading">Reset</button>
+            </div>
         </div>
 
         @if (isLoading)
@@ -69,10 +79,10 @@
                 {
                     <div class="crew-positions-row" @key="position.CrewPositionId">
                         <div class="crew-positions-row-primary"><strong>@position.RankName</strong></div>
-                        <div class="crew-positions-row-cell">@DepartmentLabel(position.Department)</div>
-                        <div class="crew-positions-row-cell">@SeniorityLevelLabel(position.SeniorityLevel)</div>
-                        <div class="crew-positions-row-cell">@position.CrewMemberUsageCount</div>
-                        <div class="crew-positions-row-cell">@position.AssignmentUsageCount</div>
+                        <div class="crew-positions-row-cell" data-label="Department">@DepartmentLabel(position.Department)</div>
+                        <div class="crew-positions-row-cell" data-label="Seniority">@SeniorityLevelLabel(position.SeniorityLevel)</div>
+                        <div class="crew-positions-row-cell" data-label="Crew members">@position.CrewMemberUsageCount</div>
+                        <div class="crew-positions-row-cell" data-label="Assignments">@position.AssignmentUsageCount</div>
                         <div class="crew-positions-row-actions">
                             @if (CanManage)
                             {
@@ -98,7 +108,7 @@
         <div class="crew-positions-modal-backdrop" role="presentation" @onclick="CloseDialog">
             <section class="crew-positions-modal" role="dialog" aria-modal="true" aria-labelledby="crew-positions-dialog-title" @onclick:stopPropagation="true">
                 <div class="crew-positions-modal-heading">
-                    <h2 id="crew-positions-dialog-title">@(editingPositionId is null ? "Add position" : "Edit position")</h2>
+                    <div class="crew-dialog-title"><span class="crew-register-mark bi bi-person-badge" aria-hidden="true"></span><div><p class="crew-dialog-eyebrow">Position catalogue</p><h2 id="crew-positions-dialog-title">@(editingPositionId is null ? "Add position" : "Edit position")</h2></div></div>
                     <button type="button" class="crew-positions-modal-close" @onclick="CloseDialog" aria-label="Close">
                         <span class="bi bi-x-lg" aria-hidden="true"></span>
                     </button>
@@ -124,7 +134,7 @@
                     </ul>
                 }
 
-                <form class="crew-positions-form-grid" @onsubmit="SubmitAsync" @onsubmit:preventDefault="true">
+                <form class="crew-positions-form-grid crew-operation-form" @onsubmit="SubmitAsync" @onsubmit:preventDefault="true">
                     <div class="crew-positions-form-field">
                         <label for="position-rank-name">Rank name</label>
                         <input id="position-rank-name" type="text" @bind="dialogModel.RankName" maxlength="100" />
@@ -149,9 +159,12 @@
                             }
                         </select>
                     </div>
-                    <button type="submit" class="crew-positions-form-submit" disabled="@isSubmitting">
-                        @(isSubmitting ? "Saving..." : "Save position")
-                    </button>
+                    <div class="crew-form-footer">
+                        <button type="button" class="crew-form-cancel" @onclick="CloseDialog" disabled="@isSubmitting">Cancel</button>
+                        <button type="submit" class="crew-positions-form-submit" disabled="@isSubmitting">
+                            @(isSubmitting ? "Saving..." : "Save position")
+                        </button>
+                    </div>
                 </form>
             </section>
         </div>

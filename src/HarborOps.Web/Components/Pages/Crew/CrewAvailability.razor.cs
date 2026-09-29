@@ -19,6 +19,7 @@ public partial class CrewAvailability : IDisposable
     private int pageNumber = 1;
     private int totalCount;
     private bool isLoading = true;
+    private bool cardView = true;
     private CrewApiFailure? failure;
     private string? filterValidationMessage;
 

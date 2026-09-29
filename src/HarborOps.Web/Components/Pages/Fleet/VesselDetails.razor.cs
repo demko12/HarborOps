@@ -23,6 +23,11 @@ public partial class VesselDetails : IDisposable
     private string? submitSuccessMessage;
     private FleetDirectoryWebModel? fleets;
     private FleetAssignmentHistoryWebModel? assignmentHistory;
+    private VesselPositionHistoryWebModel? positionHistory;
+    private FleetApiFailure? positionHistoryFailure;
+    private DateTime? positionHistoryFromUtc;
+    private DateTime? positionHistoryToUtc;
+    private int positionHistoryPage = 1;
     private Guid? selectedFleetId;
     private bool isAssigning;
     private FleetApiFailure? assignmentFailure;
@@ -99,6 +104,7 @@ public partial class VesselDetails : IDisposable
                 ? details.CurrentStatus
                 : FleetStatusOptions.All[0];
             await LoadAssignmentsAsync();
+            await LoadPositionHistoryAsync();
 
             if (CanManageFleet)
             {
@@ -116,6 +122,30 @@ public partial class VesselDetails : IDisposable
 
         isLoading = false;
     }
+
+    private async Task LoadPositionHistoryAsync()
+    {
+        var result = await FleetApi.GetVesselPositionHistoryAsync(VesselId, positionHistoryFromUtc, positionHistoryToUtc, positionHistoryPage, pageCancellation.Token);
+        if (result.IsSuccess && result.Value is { } history)
+        {
+            // A partially populated successful payload must render as an empty
+            // history rather than dereferencing a deserialized null Items value.
+            positionHistory = history with { Items = history.Items ?? [] };
+            positionHistoryFailure = null;
+        }
+        else if (result.IsSuccess)
+        {
+            positionHistory = new VesselPositionHistoryWebModel([], positionHistoryPage, 50, 0);
+            positionHistoryFailure = null;
+        }
+        else positionHistoryFailure = result.Failure;
+    }
+
+    private async Task ApplyPositionHistoryFiltersAsync() { positionHistoryPage = 1; await LoadPositionHistoryAsync(); }
+    private async Task ResetPositionHistoryFiltersAsync() { positionHistoryFromUtc = null; positionHistoryToUtc = null; positionHistoryPage = 1; await LoadPositionHistoryAsync(); }
+    private async Task PreviousPositionHistoryPageAsync() { if (positionHistoryPage > 1) { positionHistoryPage--; await LoadPositionHistoryAsync(); } }
+    private async Task NextPositionHistoryPageAsync() { if (positionHistory is { } history && history.PageNumber * history.PageSize < history.TotalCount) { positionHistoryPage++; await LoadPositionHistoryAsync(); } }
+    private static string FormatCoordinate(decimal value, bool latitude) => $"{Math.Abs(value).ToString("0.0000", CultureInfo.InvariantCulture)}° {(latitude ? value < 0 ? "S" : "N" : value < 0 ? "W" : "E")}";
 
     private async Task LoadAssignmentsAsync()
     {

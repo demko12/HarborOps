@@ -6,7 +6,7 @@
 
 <PageTitle>Crew medical examinations | HarborOps</PageTitle>
 
-<section class="crew-medical-page">
+<section class="crew-medical-page crew-operations-page" aria-busy="@isLoading.ToString().ToLowerInvariant()">
     <header class="crew-medical-header">
         <div>
             <nav class="page-breadcrumb" aria-label="Breadcrumb"><a href="/crew">Crewing operations</a><span aria-hidden="true">/</span><span>Medical</span></nav>
@@ -17,40 +17,50 @@
 
     <CrewNavigation />
 
-    <div class="crew-medical-filters">
-        <div class="filter-field filter-field-wide">
-            <label for="crew-medical-search">Crew member</label>
-            <input id="crew-medical-search" type="search" @bind="searchFilter" @bind:after="SearchAsync" placeholder="Search by name..." />
-        </div>
-        <div class="filter-field">
-            <label for="crew-medical-fitness">Fitness result</label>
-            <select id="crew-medical-fitness" @bind="fitnessResultSelection" @bind:after="SearchAsync">
-                <option value="">All</option>
-                <option value="Fit">Fit</option>
-                <option value="FitWithRestrictions">Fit with restrictions</option>
-                <option value="Unfit">Unfit</option>
-            </select>
-        </div>
-        <div class="filter-field">
-            <label for="crew-medical-expired">Expired</label>
-            <select id="crew-medical-expired" @bind="expiredSelection" @bind:after="SearchAsync">
-                <option value="">All</option>
-                <option value="true">Expired only</option>
-            </select>
-        </div>
-        <div class="filter-field">
-            <label for="crew-medical-expiring-within">Expiring within (days)</label>
-            <input id="crew-medical-expiring-within" type="number" min="0" @bind="expiringWithinDaysFilter" @bind:after="SearchAsync" />
-        </div>
-        <div class="crew-medical-filter-actions">
-            <button type="button" class="crew-reset-button" @onclick="ResetFiltersAsync" disabled="@isLoading">Reset</button>
-        </div>
-    </div>
+    @if (!isLoading && failure is null)
+    {
+        <section class="crew-metrics" aria-label="Page summary">
+            <CrewMetricCard Label="Matching examinations" Value="@totalCount" Note="Across the current filters" Icon="bi-heart-pulse" />
+            <CrewMetricCard Label="Expired examinations" Value="@(examinations.Count(e => e.IsExpired))" Icon="bi-exclamation-triangle" Tone="red" />
+            <CrewMetricCard Label="Expiring soon" Value="@(examinations.Count(e => e.IsExpiringSoon && !e.IsExpired))" Icon="bi-calendar-event" Tone="amber" />
+            <CrewMetricCard Label="Unfit results" Value="@(examinations.Count(e => e.FitnessResult == "Unfit"))" Icon="bi-person-exclamation" Tone="red" />
+        </section>
+    }
 
-    <section class="crew-card" aria-labelledby="crew-medical-list-title">
+    <section class="crew-card @(cardView ? "crew-display-cards" : "crew-display-list")" aria-labelledby="crew-medical-list-title">
         <div class="crew-card-heading">
-            <div><h2 id="crew-medical-list-title">Medical examinations</h2><p>@totalCount examinations found</p></div>
-            <span class="bi bi-heart-pulse" aria-hidden="true"></span>
+            <div class="crew-register-title"><span class="crew-register-mark bi bi-heart-pulse" aria-hidden="true"></span><div><h2 id="crew-medical-list-title">Medical examinations</h2><p>@totalCount examinations found</p></div></div>
+            <CrewViewSwitch @bind-Cards="cardView" />
+        </div>
+
+        <div class="crew-medical-filters">
+            <div class="filter-field filter-field-wide">
+                <label for="crew-medical-search">Crew member</label>
+                <input id="crew-medical-search" type="search" @bind="searchFilter" @bind:after="SearchAsync" placeholder="Search by name..." />
+            </div>
+            <div class="filter-field">
+                <label for="crew-medical-fitness">Fitness result</label>
+                <select id="crew-medical-fitness" @bind="fitnessResultSelection" @bind:after="SearchAsync">
+                    <option value="">All</option>
+                    <option value="Fit">Fit</option>
+                    <option value="FitWithRestrictions">Fit with restrictions</option>
+                    <option value="Unfit">Unfit</option>
+                </select>
+            </div>
+            <div class="filter-field">
+                <label for="crew-medical-expired">Expired</label>
+                <select id="crew-medical-expired" @bind="expiredSelection" @bind:after="SearchAsync">
+                    <option value="">All</option>
+                    <option value="true">Expired only</option>
+                </select>
+            </div>
+            <div class="filter-field">
+                <label for="crew-medical-expiring-within">Expiring within (days)</label>
+                <input id="crew-medical-expiring-within" type="number" min="0" @bind="expiringWithinDaysFilter" @bind:after="SearchAsync" />
+            </div>
+            <div class="crew-medical-filter-actions">
+                <button type="button" class="crew-reset-button" @onclick="ResetFiltersAsync" disabled="@isLoading">Reset</button>
+            </div>
         </div>
 
         @if (isLoading)
@@ -111,6 +121,12 @@
                             <span class="bi bi-chevron-down crew-medical-card-chevron" aria-hidden="true"></span>
                         </button>
 
+                        <div class="crew-card-preview">
+                            <span><span class="bi bi-heart-pulse" aria-hidden="true"></span>@FitnessLabel(exam.FitnessResult)</span>
+                            <span><span class="bi bi-calendar-event" aria-hidden="true"></span>Expires @exam.ExpiryDate.ToString("dd MMM yyyy")</span>
+                            <small>@exam.ExamType · @exam.Clinic</small>
+                            <a href="@($"/crew/{exam.CrewMemberId}")">View crew profile <span class="bi bi-arrow-up-right" aria-hidden="true"></span></a>
+                        </div>
                         @if (isExpanded)
                         {
                             <dl class="crew-medical-card-details">

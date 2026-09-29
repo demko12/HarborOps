@@ -7,7 +7,7 @@
 
 <PageTitle>Crew availability | HarborOps</PageTitle>
 
-<section class="crew-availability-page">
+<section class="crew-availability-page crew-operations-page" aria-busy="@isLoading.ToString().ToLowerInvariant()">
     <header class="crew-availability-header">
         <div>
             <nav class="page-breadcrumb" aria-label="Breadcrumb"><a href="/crew">Crewing operations</a><span aria-hidden="true">/</span><span>Availability</span></nav>
@@ -18,54 +18,64 @@
 
     <CrewNavigation />
 
-    <div class="crew-availability-filters">
-        <div class="filter-field filter-field-wide">
-            <label for="crew-availability-member">Crew member</label>
-            <RelievingMemberPicker @key="memberPickerResetToken" InputId="crew-availability-member" Value="crewMemberIdFilter" ValueChanged="OnMemberFilterChangedAsync" Placeholder="All crew members" />
-        </div>
-        <div class="filter-field">
-            <label for="crew-availability-type">Type</label>
-            <select id="crew-availability-type" @bind="typeFilter" @bind:after="SearchAsync">
-                <option value="">All types</option>
-                <option value="AnnualLeave">Annual leave</option>
-                <option value="SickLeave">Sick leave</option>
-                <option value="Training">Training</option>
-                <option value="OtherUnavailable">Other</option>
-            </select>
-        </div>
-        <div class="filter-field">
-            <label for="crew-availability-status">Status</label>
-            <select id="crew-availability-status" @bind="statusFilter" @bind:after="SearchAsync">
-                <option value="">All statuses</option>
-                <option value="Requested">Requested</option>
-                <option value="Approved">Approved</option>
-                <option value="Rejected">Rejected</option>
-                <option value="Cancelled">Cancelled</option>
-            </select>
-        </div>
-        <div class="filter-field">
-            <label for="crew-availability-from">From</label>
-            <input id="crew-availability-from" type="date" @bind="fromFilter" @bind:after="SearchAsync" />
-        </div>
-        <div class="filter-field">
-            <label for="crew-availability-to">To</label>
-            <input id="crew-availability-to" type="date" @bind="toFilter" @bind:after="SearchAsync" />
-        </div>
-        <div class="crew-availability-filter-actions">
-            <button type="button" class="crew-reset-button" @onclick="ResetFiltersAsync" disabled="@isLoading">Reset</button>
-        </div>
-    </div>
-
-    @if (filterValidationMessage is not null)
+    @if (!isLoading && failure is null)
     {
-        <div class="crew-availability-validation" role="alert">@filterValidationMessage</div>
+        <section class="crew-metrics" aria-label="Page summary">
+            <CrewMetricCard Label="Matching periods" Value="@totalCount" Note="Across the current filters" Icon="bi-calendar-range" />
+            <CrewMetricCard Label="Awaiting review" Value="@(items.Count(i => i.Status == "Requested"))" Icon="bi-hourglass-split" Tone="amber" />
+            <CrewMetricCard Label="Approved" Value="@(items.Count(i => i.Status == "Approved"))" Icon="bi-check2-circle" Tone="green" />
+            <CrewMetricCard Label="Crew affected" Value="@(items.Select(i => i.CrewMemberId).Distinct().Count())" Icon="bi-people" />
+        </section>
     }
 
-    <section class="crew-card" aria-labelledby="crew-availability-list-title">
+    <section class="crew-card @(cardView ? "crew-display-cards" : "crew-display-list")" aria-labelledby="crew-availability-list-title">
         <div class="crew-card-heading">
-            <div><h2 id="crew-availability-list-title">Unavailability periods</h2><p>@totalCount periods found</p></div>
-            <span class="bi bi-calendar-x" aria-hidden="true"></span>
+            <div class="crew-register-title"><span class="crew-register-mark bi bi-calendar-x" aria-hidden="true"></span><div><h2 id="crew-availability-list-title">Unavailability periods</h2><p>@totalCount periods found</p></div></div>
+            <CrewViewSwitch @bind-Cards="cardView" />
         </div>
+
+        <div class="crew-availability-filters">
+            <div class="filter-field filter-field-wide">
+                <label for="crew-availability-member">Crew member</label>
+                <RelievingMemberPicker @key="memberPickerResetToken" InputId="crew-availability-member" Value="crewMemberIdFilter" ValueChanged="OnMemberFilterChangedAsync" Placeholder="All crew members" />
+            </div>
+            <div class="filter-field">
+                <label for="crew-availability-type">Type</label>
+                <select id="crew-availability-type" @bind="typeFilter" @bind:after="SearchAsync">
+                    <option value="">All types</option>
+                    <option value="AnnualLeave">Annual leave</option>
+                    <option value="SickLeave">Sick leave</option>
+                    <option value="Training">Training</option>
+                    <option value="OtherUnavailable">Other</option>
+                </select>
+            </div>
+            <div class="filter-field">
+                <label for="crew-availability-status">Status</label>
+                <select id="crew-availability-status" @bind="statusFilter" @bind:after="SearchAsync">
+                    <option value="">All statuses</option>
+                    <option value="Requested">Requested</option>
+                    <option value="Approved">Approved</option>
+                    <option value="Rejected">Rejected</option>
+                    <option value="Cancelled">Cancelled</option>
+                </select>
+            </div>
+            <div class="filter-field">
+                <label for="crew-availability-from">From</label>
+                <input id="crew-availability-from" type="date" @bind="fromFilter" @bind:after="SearchAsync" />
+            </div>
+            <div class="filter-field">
+                <label for="crew-availability-to">To</label>
+                <input id="crew-availability-to" type="date" @bind="toFilter" @bind:after="SearchAsync" />
+            </div>
+            <div class="crew-availability-filter-actions">
+                <button type="button" class="crew-reset-button" @onclick="ResetFiltersAsync" disabled="@isLoading">Reset</button>
+            </div>
+        </div>
+
+        @if (filterValidationMessage is not null)
+        {
+            <div class="crew-availability-validation" role="alert">@filterValidationMessage</div>
+        }
 
         @if (isLoading)
         {
@@ -86,8 +96,8 @@
                 {
                     var isExpanded = expandedIds.Contains(item.Id);
                     <article class="crew-availability-row" @key="item.Id">
-                        <button type="button" class="crew-availability-row-heading" aria-expanded="@(isExpanded ? "true" : "false")" @onclick="() => ToggleExpanded(item.Id)">
-                            <span class="crew-availability-row-member"><a href="@($"/crew/{item.CrewMemberId}")" @onclick:stopPropagation="true">@item.CrewMemberName</a></span>
+                        <span class="crew-availability-row-member"><a href="@($"/crew/{item.CrewMemberId}")">@item.CrewMemberName</a></span>
+                        <button type="button" class="crew-availability-row-heading" aria-label="@($"Availability details for {item.CrewMemberName}, {item.StartDate:dd MMM yyyy}")" aria-expanded="@(isExpanded ? "true" : "false")" @onclick="() => ToggleExpanded(item.Id)">
                             <span class="crew-availability-row-type">@TypeLabel(item.Type)</span>
                             <span class="crew-availability-row-dates">@item.StartDate.ToString("dd MMM yyyy") &ndash; @item.EndDate.ToString("dd MMM yyyy")</span>
                             <span class="crew-availability-status @StatusClass(item.Status)">@item.Status</span>
@@ -127,7 +137,7 @@
 
                                     @if (decisionRequestId == item.Id)
                                     {
-                                        <form class="crew-availability-decision-form" @onsubmit="SubmitDecisionAsync" @onsubmit:preventDefault="true">
+                                        <form class="crew-availability-decision-form crew-operation-form" @onsubmit="SubmitDecisionAsync" @onsubmit:preventDefault="true">
                                             <label for="crew-availability-decision-reason">@(decisionKind == DecisionKind.Reject ? "Rejection reason" : "Cancellation reason")</label>
                                             <input id="crew-availability-decision-reason" @bind="decisionReason" maxlength="500" />
                                             <div class="crew-availability-decision-form-actions">

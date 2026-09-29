@@ -2976,6 +2976,41 @@ namespace HarborOps.Infrastructure.Persistence.Migrations
                             }));
                 });
 
+            modelBuilder.Entity("HarborOps.Modules.Fleet.Domain.VesselPositionReport", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<decimal>("Latitude")
+                        .HasPrecision(9, 6)
+                        .HasColumnType("decimal(9,6)");
+
+                    b.Property<decimal>("Longitude")
+                        .HasPrecision(9, 6)
+                        .HasColumnType("decimal(9,6)");
+
+                    b.Property<DateTime>("ReportedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid>("ReportedByUserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<long>("Sequence")
+                        .HasColumnType("bigint");
+
+                    b.Property<Guid>("VesselId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("VesselId", "Sequence")
+                        .IsUnique();
+
+                    b.HasIndex("VesselId", "ReportedAtUtc", "Sequence");
+
+                    b.ToTable("VesselPositionReports", "fleet");
+                });
+
             modelBuilder.Entity("HarborOps.Modules.Fleet.Domain.VesselStatusHistory", b =>
                 {
                     b.Property<Guid>("Id")

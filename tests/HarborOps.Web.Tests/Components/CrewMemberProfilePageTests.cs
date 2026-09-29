@@ -116,6 +116,43 @@ public sealed class CrewMemberProfilePageTests : BunitContext
 
     // ---- Personal / employment summary ----
 
+    [Theory]
+    [InlineData(".crew-edit-profile-toggle", "Edit profile", "#edit-profile-first-name")]
+    [InlineData(".crew-register-certificate-toggle", "Register certificate", "#cert-type")]
+    [InlineData(".crew-register-assignment-toggle", "Assign to vessel", "#assign-rank")]
+    [InlineData(".crew-register-medical-toggle", "Register medical examination", "#medical-exam-type")]
+    [InlineData(".crew-employment-status-toggle", "Change employment status", "#employment-status-select")]
+    [InlineData(".crew-availability-request-toggle", "Request unavailability", "#availability-type")]
+    public void Profile_actions_open_modal_forms_and_dismiss_without_writing(string trigger, string title, string field)
+    {
+        var page = RenderProfilePage(
+            CurrentUserAuthorizationState.CrewReadPermission,
+            CurrentUserAuthorizationState.CrewManagePermission);
+
+        page.WaitForAssertion(() => Assert.NotEmpty(page.FindAll(trigger)));
+        Assert.Empty(page.FindAll(field));
+        Assert.Empty(page.FindAll("nav[aria-label='Profile sections']"));
+
+        foreach (var dismissal in new[] { "close", "backdrop", "escape" })
+        {
+            page.Find(trigger).Click();
+            page.WaitForAssertion(() => Assert.NotEmpty(page.FindAll(field)));
+            var dialog = page.Find(".crew-profile-editor[role='dialog'][aria-modal='true']");
+            Assert.Equal(title, dialog.QuerySelector("#crew-profile-editor-title")!.TextContent);
+            Assert.True(page.Find(".crew-profile-content").HasAttribute("inert"));
+
+            if (dismissal == "close") page.Find(".crew-profile-editor .crew-assignment-modal-close").Click();
+            else if (dismissal == "backdrop") page.Find(".crew-profile-editor-backdrop").Click();
+            else page.Find(".crew-profile-editor-backdrop").KeyDown("Escape");
+
+            Assert.Empty(page.FindAll(".crew-profile-editor"));
+            Assert.Empty(page.FindAll(field));
+            Assert.False(page.Find(".crew-profile-content").HasAttribute("inert"));
+        }
+
+        Assert.Empty(writes);
+    }
+
     [Fact]
     public void Sensitive_fields_are_masked_until_revealed()
     {
@@ -515,7 +552,7 @@ public sealed class CrewMemberProfilePageTests : BunitContext
         // The second GetProfileAsync response also carries an updated assignments
         // list (status "Planned"), but only the certificates collection should have
         // been applied - the assignment indicator must still read "Active".
-        var assignmentIndicator = page.FindAll(".crew-profile-indicator")[1];
+        var assignmentIndicator = page.Find("[aria-labelledby='crew-profile-assignments-title'] .crew-profile-indicator");
         Assert.Equal("Active", assignmentIndicator.TextContent.Trim());
     }
 
@@ -530,7 +567,7 @@ public sealed class CrewMemberProfilePageTests : BunitContext
             CurrentUserAuthorizationState.CrewReadPermission,
             CurrentUserAuthorizationState.CrewManagePermission);
 
-        page.WaitForAssertion(() => Assert.NotEmpty(page.FindAll("#cert-type")));
+        OpenRegistrationEditor(page, "certificate");
         FillCertificateForm(page);
         Closest(page, "#cert-type", "form").Submit();
 
@@ -553,7 +590,7 @@ public sealed class CrewMemberProfilePageTests : BunitContext
             CurrentUserAuthorizationState.CrewReadPermission,
             CurrentUserAuthorizationState.CrewManagePermission);
 
-        page.WaitForAssertion(() => Assert.NotEmpty(page.FindAll("#cert-type")));
+        OpenRegistrationEditor(page, "certificate");
         FillCertificateForm(page);
         Closest(page, "#cert-type", "form").Submit();
 
@@ -578,7 +615,7 @@ public sealed class CrewMemberProfilePageTests : BunitContext
             CurrentUserAuthorizationState.CrewReadPermission,
             CurrentUserAuthorizationState.CrewManagePermission);
 
-        page.WaitForAssertion(() => Assert.NotEmpty(page.FindAll("#cert-type")));
+        OpenRegistrationEditor(page, "certificate");
         FillCertificateForm(page);
         var form = Closest(page, "#cert-type", "form");
         form.Submit();
@@ -671,7 +708,7 @@ public sealed class CrewMemberProfilePageTests : BunitContext
             CurrentUserAuthorizationState.CrewReadPermission,
             CurrentUserAuthorizationState.CrewManagePermission);
 
-        page.WaitForAssertion(() => Assert.NotEmpty(page.FindAll("#medical-exam-type")));
+        OpenRegistrationEditor(page, "medical");
     }
 
     [Fact]
@@ -690,7 +727,7 @@ public sealed class CrewMemberProfilePageTests : BunitContext
             CurrentUserAuthorizationState.CrewReadPermission,
             CurrentUserAuthorizationState.CrewManagePermission);
 
-        page.WaitForAssertion(() => Assert.NotEmpty(page.FindAll("#medical-exam-type")));
+        OpenRegistrationEditor(page, "medical");
         FillMedicalExaminationForm(page);
         Closest(page, "#medical-exam-type", "form").Submit();
 
@@ -713,13 +750,13 @@ public sealed class CrewMemberProfilePageTests : BunitContext
             CurrentUserAuthorizationState.CrewReadPermission,
             CurrentUserAuthorizationState.CrewManagePermission);
 
-        page.WaitForAssertion(() => Assert.NotEmpty(page.FindAll("#medical-exam-type")));
+        OpenRegistrationEditor(page, "medical");
         FillMedicalExaminationForm(page);
         Closest(page, "#medical-exam-type", "form").Submit();
 
         page.WaitForAssertion(() => Assert.Contains(
             "Fitness result is not supported.",
-            page.Find(".crew-medical-card .crew-profile-form-field-errors").TextContent,
+            page.Find(".crew-profile-editor .crew-profile-form-field-errors").TextContent,
             StringComparison.Ordinal));
     }
 
@@ -1329,6 +1366,7 @@ public sealed class CrewMemberProfilePageTests : BunitContext
 
     private static void FillCertificateForm(IRenderedComponent<CrewMemberProfile> page)
     {
+        if (page.FindAll("#cert-type").Count == 0) OpenRegistrationEditor(page, "certificate");
         page.Find("#cert-type").Change("STCW");
         page.Find("#cert-name").Change("Basic Safety Training");
         page.Find("#cert-authority").Change("Flag State Authority");
@@ -1348,6 +1386,7 @@ public sealed class CrewMemberProfilePageTests : BunitContext
 
     private async Task FillAssignmentFormAsync(IRenderedComponent<CrewMemberProfile> page)
     {
+        OpenRegistrationEditor(page, "assignment");
         page.WaitForAssertion(() => Assert.NotEmpty(page.FindAll("#assign-rank option[value='" + RankId + "']")));
 
         page.Find(".vessel-picker-input").Input("Northern");
@@ -1370,6 +1409,13 @@ public sealed class CrewMemberProfilePageTests : BunitContext
     {
         return page.Find(selector).Closest(ancestorSelector)
             ?? throw new InvalidOperationException($"No ancestor '{ancestorSelector}' found for '{selector}'.");
+    }
+
+    private static void OpenRegistrationEditor(IRenderedComponent<CrewMemberProfile> page, string kind)
+    {
+        page.WaitForAssertion(() => Assert.NotEmpty(page.FindAll($".crew-register-{kind}-toggle")));
+        page.Find($".crew-register-{kind}-toggle").Click();
+        page.WaitForAssertion(() => Assert.Single(page.FindAll(".crew-profile-editor")));
     }
 
     private IRenderedComponent<CrewMemberProfile> RenderProfilePage(params string[] permissions)

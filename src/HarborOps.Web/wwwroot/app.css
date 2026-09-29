@@ -213,6 +213,8 @@ html, body {
     .crew-profile-card,
     .crew-profile-summary-card,
     .crew-summary-card,
+    .crew-metric-card,
+    .crew-profile-highlight,
     .dashboard-priority-queue,
     .dashboard-summary-card,
     .documents-card,
@@ -287,6 +289,8 @@ html[data-theme="dark"] .page:not(.login-layout) :is(
     .crew-profile-card,
     .crew-profile-summary-card,
     .crew-summary-card,
+    .crew-metric-card,
+    .crew-profile-highlight,
     .dashboard-priority-queue,
     .dashboard-summary-card,
     .documents-card,
@@ -588,6 +592,8 @@ html[data-theme="dark"] .page:not(.login-layout) .maintenance-modal-backdrop :is
         .crew-card,
         .crew-insight-card,
         .crew-summary-card,
+        .crew-metric-card,
+        .crew-profile-highlight,
         .fleet-card,
         .fleet-summary-card) {
         border-color: #999999 !important;
