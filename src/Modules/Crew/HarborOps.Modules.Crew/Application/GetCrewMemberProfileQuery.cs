@@ -39,12 +39,19 @@ internal sealed class GetCrewMemberProfileQuery(DbContext dbContext) : IGetCrewM
             throw new CrewMemberNotFoundException(crewMemberId);
         }
 
-        var certificates = await dbContext.Set<CrewCertificate>()
+        var certificateRows = await dbContext.Set<CrewCertificate>()
             .AsNoTracking()
             .Where(certificate => certificate.CrewMemberId == crewMemberId)
             .OrderBy(certificate => certificate.ExpiryDate)
             .ThenBy(certificate => certificate.Id)
             .Take(MaxCertificates)
+            .ToListAsync(cancellationToken);
+
+        var successorByPredecessorId = certificateRows
+            .Where(certificate => certificate.PredecessorCertificateId is not null)
+            .ToDictionary(certificate => certificate.PredecessorCertificateId!.Value, certificate => certificate.Id);
+
+        var certificates = certificateRows
             .Select(certificate => new CrewCertificateProfileItem(
                 certificate.Id,
                 certificate.Type,
@@ -53,8 +60,12 @@ internal sealed class GetCrewMemberProfileQuery(DbContext dbContext) : IGetCrewM
                 certificate.LicenseNumber,
                 certificate.IssueDate,
                 certificate.ExpiryDate,
-                certificate.Status))
-            .ToListAsync(cancellationToken);
+                certificate.Status,
+                certificate.IsRevoked,
+                certificate.PredecessorCertificateId,
+                successorByPredecessorId.TryGetValue(certificate.Id, out var successorId) ? successorId : null,
+                certificate.ConcurrencyToken))
+            .ToList();
 
         var assignments = await (
             from assignment in dbContext.Set<CrewAssignment>().AsNoTracking()

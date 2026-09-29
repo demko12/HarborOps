@@ -1,0 +1,62 @@
+@using HarborOps.Web.Api
+@inject CrewApiClient CrewApi
+
+<section class="crew-profile-form" aria-labelledby="crew-certificate-renew-form-title">
+    <div class="crew-profile-form-header">
+        <h3 id="crew-certificate-renew-form-title">Renew certificate</h3>
+    </div>
+
+    @if (conflictMessage is not null)
+    {
+        <div class="crew-profile-form-conflict" role="alert">@conflictMessage</div>
+    }
+
+    @if (generalError is not null)
+    {
+        <div class="crew-profile-form-error" role="alert">@generalError</div>
+    }
+
+    @if (fieldErrors.Count > 0)
+    {
+        <ul class="crew-profile-form-field-errors" role="alert">
+            @foreach (var message in fieldErrors)
+            {
+                <li>@message</li>
+            }
+        </ul>
+    }
+
+    <form class="crew-profile-form-grid" @onsubmit="SubmitAsync" @onsubmit:preventDefault="true">
+        <div class="crew-profile-form-field">
+            <label for="cert-renew-type">Type</label>
+            <input id="cert-renew-type" value="@Type" disabled />
+        </div>
+        <div class="crew-profile-form-field">
+            <label for="cert-renew-name">Name</label>
+            <input id="cert-renew-name" @bind="model.Name" maxlength="200" />
+        </div>
+        <div class="crew-profile-form-field">
+            <label for="cert-renew-authority">Issuing authority</label>
+            <input id="cert-renew-authority" @bind="model.IssuingAuthority" maxlength="200" />
+        </div>
+        <div class="crew-profile-form-field">
+            <label for="cert-renew-license">License number</label>
+            <input id="cert-renew-license" @bind="model.LicenseNumber" maxlength="100" />
+        </div>
+        <div class="crew-profile-form-field">
+            <label for="cert-renew-issue-date">Issue date</label>
+            <input id="cert-renew-issue-date" type="date" @bind="model.IssueDate" />
+        </div>
+        <div class="crew-profile-form-field">
+            <label for="cert-renew-expiry-date">Expiry date</label>
+            <input id="cert-renew-expiry-date" type="date" @bind="model.ExpiryDate" />
+        </div>
+
+        <div class="crew-renew-form-actions">
+            <button type="submit" class="crew-profile-form-submit" disabled="@isSubmitting">
+                @(isSubmitting ? "Renewing..." : "Renew certificate")
+            </button>
+            <button type="button" class="crew-renew-form-cancel" @onclick="Cancel">Cancel</button>
+        </div>
+    </form>
+</section>

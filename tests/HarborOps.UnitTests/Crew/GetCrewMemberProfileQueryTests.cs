@@ -111,6 +111,43 @@ public sealed class GetCrewMemberProfileQueryTests
         Assert.Equal(ownCertificate.Id, profile.Certificates[0].CertificateId);
     }
 
+    [Fact]
+    public async Task GetAsync_reports_predecessor_successor_and_revocation_state_for_certificates()
+    {
+        await using var dbContext = CreateDbContext();
+        var position = await SeedCrewPositionAsync(dbContext, "Bosun");
+        var member = await SeedCrewMemberAsync(dbContext, position.Id, "IMO100006");
+
+        var original = CrewCertificate.Create(
+            member.Id, "STCW", "Basic Safety", "Authority", "LIC-ORIG",
+            new DateOnly(2020, 1, 1), new DateOnly(2024, 1, 1), "Expired");
+        var renewal = CrewCertificate.CreateRenewal(
+            original.Id, member.Id, "STCW", "Basic Safety", "Authority", "LIC-RENEW",
+            new DateOnly(2024, 1, 1), new DateOnly(2028, 1, 1), "Valid");
+        var revoked = CrewCertificate.Create(
+            member.Id, "Medical", "Fitness Certificate", "Authority", "LIC-REVOKED",
+            new DateOnly(2024, 1, 1), new DateOnly(2028, 1, 1), "Valid");
+        revoked.Revoke(Guid.NewGuid(), "Issued in error", new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc));
+
+        await dbContext.Set<CrewCertificate>().AddRangeAsync(original, renewal, revoked);
+        await dbContext.SaveChangesAsync();
+
+        var query = new GetCrewMemberProfileQuery(dbContext);
+        var profile = await query.GetAsync(member.Id, CancellationToken.None);
+
+        var originalItem = Assert.Single(profile.Certificates, item => item.CertificateId == original.Id);
+        Assert.False(originalItem.IsRevoked);
+        Assert.Null(originalItem.PredecessorCertificateId);
+        Assert.Equal(renewal.Id, originalItem.SuccessorCertificateId);
+
+        var renewalItem = Assert.Single(profile.Certificates, item => item.CertificateId == renewal.Id);
+        Assert.Equal(original.Id, renewalItem.PredecessorCertificateId);
+        Assert.Null(renewalItem.SuccessorCertificateId);
+
+        var revokedItem = Assert.Single(profile.Certificates, item => item.CertificateId == revoked.Id);
+        Assert.True(revokedItem.IsRevoked);
+    }
+
     private static async Task<CrewPosition> SeedCrewPositionAsync(HarborOpsDbContext dbContext, string rankName)
     {
         var position = CrewPosition.Create(rankName, "Deck", "Senior");

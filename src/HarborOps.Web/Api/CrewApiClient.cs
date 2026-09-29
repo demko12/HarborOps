@@ -192,6 +192,26 @@ internal sealed class CrewApiClient(HttpClient httpClient)
             $"api/crew/members/{crewMemberId}/certificates", request, cancellationToken);
     }
 
+    internal Task<CrewApiWriteResult<RenewCrewCertificateResponse>> RenewCertificateAsync(
+        Guid certificateId,
+        RenewCrewCertificateRequest request,
+        CancellationToken cancellationToken)
+        => PostAsync<RenewCrewCertificateRequest, RenewCrewCertificateResponse>(
+            $"api/crew/certificates/{certificateId}/renew", request, cancellationToken);
+
+    internal Task<CrewApiWriteResult<RevokeCrewCertificateResponse>> RevokeCertificateAsync(
+        Guid certificateId,
+        RevokeCrewCertificateRequest request,
+        CancellationToken cancellationToken)
+        => PostAsync<RevokeCrewCertificateRequest, RevokeCrewCertificateResponse>(
+            $"api/crew/certificates/{certificateId}/revoke", request, cancellationToken);
+
+    internal Task<CrewApiResult<GetCrewCertificateHistoryResponse>> GetCertificateHistoryAsync(
+        Guid certificateId,
+        CancellationToken cancellationToken)
+        => GetJsonAsync<GetCrewCertificateHistoryResponse>(
+            $"api/crew/certificates/{certificateId}/history", "Unable to load certificate history", cancellationToken);
+
     internal async Task<CrewApiWriteResult<RegisterCrewAssignmentResponse>> RegisterAssignmentAsync(
         RegisterCrewAssignmentRequest request,
         CancellationToken cancellationToken)
@@ -912,7 +932,11 @@ internal sealed record CrewCertificateProfileItemResponse(
     string LicenseNumber,
     DateOnly IssueDate,
     DateOnly ExpiryDate,
-    string Status);
+    string Status,
+    bool IsRevoked,
+    Guid? PredecessorCertificateId,
+    Guid? SuccessorCertificateId,
+    Guid ConcurrencyToken);
 
 internal sealed record CrewAssignmentProfileItemResponse(
     Guid AssignmentId,
@@ -972,6 +996,50 @@ internal sealed record RegisterCrewCertificateRequest
 }
 
 internal sealed record RegisterCrewCertificateResponse(Guid Id);
+
+internal sealed record RenewCrewCertificateRequest
+{
+    public string? Name { get; init; }
+    public string? IssuingAuthority { get; init; }
+    public string? LicenseNumber { get; init; }
+    public DateOnly? IssueDate { get; init; }
+    public DateOnly? ExpiryDate { get; init; }
+}
+
+internal sealed record RenewCrewCertificateResponse(
+    Guid Id,
+    Guid PredecessorCertificateId,
+    Guid CrewMemberId,
+    string Type,
+    string Status,
+    Guid ConcurrencyToken);
+
+internal sealed record RevokeCrewCertificateRequest
+{
+    public string? Reason { get; init; }
+}
+
+internal sealed record AffectedCertificateAssignmentResponse(Guid AssignmentId, Guid VesselId, Guid RankId);
+
+internal sealed record RevokeCrewCertificateResponse(
+    Guid Id,
+    DateTime RevokedAtUtc,
+    Guid ConcurrencyToken,
+    IReadOnlyList<AffectedCertificateAssignmentResponse> AffectedActiveAssignments);
+
+internal sealed record CrewCertificateHistoryItemResponse(
+    Guid Id,
+    Guid CertificateId,
+    string EventType,
+    Guid ActorUserId,
+    DateTime OccurredAtUtc,
+    string? Reason,
+    Guid? PredecessorCertificateId);
+
+internal sealed record GetCrewCertificateHistoryResponse(
+    Guid CertificateId,
+    IReadOnlyList<Guid> ChainCertificateIds,
+    IReadOnlyList<CrewCertificateHistoryItemResponse> History);
 
 internal sealed record RegisterCrewAssignmentRequest
 {

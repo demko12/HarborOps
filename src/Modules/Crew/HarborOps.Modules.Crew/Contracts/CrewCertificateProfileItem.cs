@@ -8,4 +8,8 @@ public sealed record CrewCertificateProfileItem(
     string LicenseNumber,
     DateOnly IssueDate,
     DateOnly ExpiryDate,
-    string Status);
+    string Status,
+    bool IsRevoked,
+    Guid? PredecessorCertificateId,
+    Guid? SuccessorCertificateId,
+    Guid ConcurrencyToken);
