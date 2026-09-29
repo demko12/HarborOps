@@ -18,6 +18,11 @@
         <span class="settings-header-icon bi bi-palette" aria-hidden="true"></span>
     </header>
 
+    <nav class="settings-navigation" aria-label="Account navigation">
+        <a href="/profile"><span class="bi bi-person" aria-hidden="true"></span>My profile</a>
+        <a href="/settings" aria-current="page"><span class="bi bi-sliders" aria-hidden="true"></span>Settings</a>
+    </nav>
+
     <section class="settings-card" aria-labelledby="appearance-title">
         <div class="settings-card-heading">
             <div><h2 id="appearance-title">Appearance</h2><p>Your choice is saved only in this browser.</p></div>
@@ -27,12 +32,17 @@
             @foreach (var option in ThemeOptions)
             {
                 <button type="button" class="theme-option @(ThemePreference.Preference == option.Value ? "selected" : string.Empty)" role="radio" aria-checked="@(ThemePreference.Preference == option.Value)" @onclick="() => SetThemeAsync(option.Value)">
+                    <span class="theme-preview theme-preview-@option.Value" aria-hidden="true">
+                        <span class="theme-preview-sidebar"><i></i><i></i><i></i></span>
+                        <span class="theme-preview-content"><i class="theme-preview-heading"></i><span><i></i><i></i></span><i class="theme-preview-row"></i><i class="theme-preview-row"></i></span>
+                    </span>
                     <span class="theme-option-icon bi @option.Icon" aria-hidden="true"></span>
                     <span><strong>@option.Label</strong><small>@option.Description</small></span>
                     <span class="theme-option-check bi bi-check2" aria-hidden="true"></span>
                 </button>
             }
         </div>
+        <p class="settings-preference-note"><span class="bi bi-display" aria-hidden="true"></span>Current preference: <strong>@(ThemeOptions.FirstOrDefault(option => option.Value == ThemePreference.Preference)?.Label ?? "System")</strong><span>Applies to this browser only.</span></p>
     </section>
 
     <section class="settings-card settings-security-card" aria-labelledby="security-title">

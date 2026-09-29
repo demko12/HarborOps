@@ -14,6 +14,22 @@
         <span class="profile-header-icon bi bi-person-circle" aria-hidden="true"></span>
     </header>
 
+    <nav class="profile-navigation" aria-label="Account navigation">
+        <a href="/profile" aria-current="page"><span class="bi bi-person" aria-hidden="true"></span>My profile</a>
+        <a href="/settings"><span class="bi bi-sliders" aria-hidden="true"></span>Settings</a>
+    </nav>
+
+    <section class="profile-card profile-overview" aria-label="Account overview">
+        <div class="profile-identity">
+            <span class="profile-avatar" aria-hidden="true">@AccountName[..1]</span>
+            <div><p class="profile-section-label">Signed in as</p><h2>@AccountName</h2><p>@(AuthorizationState.Email ?? "Email unavailable")</p></div>
+        </div>
+        <dl class="profile-access-summary">
+            <div><dt>Modules with access</dt><dd>@Permissions.Select(GetCapability).Distinct(StringComparer.OrdinalIgnoreCase).Count()</dd></div>
+            <div><dt>Effective permissions</dt><dd>@Permissions.Count</dd></div>
+        </dl>
+    </section>
+
     <section class="profile-card profile-account-card" aria-labelledby="account-details-title">
         <div class="profile-card-heading">
             <div><h2 id="account-details-title">Account details</h2><p>Your authenticated HarborOps account.</p></div>
@@ -40,7 +56,7 @@
                 @foreach (var group in Permissions.GroupBy(GetCapability).OrderBy(group => group.Key, StringComparer.OrdinalIgnoreCase))
                 {
                     <section class="profile-permission-group">
-                        <h3>@group.Key</h3>
+                        <div class="profile-group-heading"><h3>@group.Key</h3><span>@group.Count()</span></div>
                         <ul>
                             @foreach (var permission in group.OrderBy(permission => permission, StringComparer.OrdinalIgnoreCase))
                             {
@@ -55,6 +71,15 @@
 </section>
 
 @code {
+    private string AccountName
+    {
+        get
+        {
+            var name = AuthorizationState.Email?.Split('@', 2)[0].Trim();
+            return string.IsNullOrEmpty(name) ? "Account" : ToTitleCase(name);
+        }
+    }
+
     private IReadOnlyList<string> Permissions => AuthorizationState.Permissions;
 
     private static string GetCapability(string permission)
