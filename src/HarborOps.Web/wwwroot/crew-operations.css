@@ -230,6 +230,7 @@ html[data-theme="dark"] .crew-profile-page .crew-assignment-modal {
     box-shadow: 0 28px 64px rgba(0, 0, 0, .5);
 }
 html[data-theme="light"] .crew-profile-page .crew-assignment-modal-delete { color: var(--status-danger-strong); border-color: rgba(185,28,28,.3); background: rgba(185,28,28,.08); }
+html[data-theme="light"] .crew-profile-page .crew-certificate-revoke-button { color: var(--status-danger-strong); border-color: rgba(185,28,28,.3); background: rgba(185,28,28,.08); }
 html[data-theme="light"] .crew-profile-page .crew-assignment-modal-error { border-color: rgba(185, 28, 28, .3); background: rgba(185, 28, 28, .08); }
 html[data-theme="light"] .crew-profile-page .crew-profile-form-error,
 html[data-theme="light"] .crew-profile-page .crew-profile-form-field-errors { border-color: rgba(185, 28, 28, .3); background: rgba(185, 28, 28, .08); }

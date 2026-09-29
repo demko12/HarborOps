@@ -173,7 +173,15 @@
                         <h2 id="crew-profile-certificates-title">Certificates</h2>
                         <p>@profile.Certificates.Count on record @(profile.Certificates.Count > 0 ? "· click one to view details" : "")</p>
                     </div>
-                    <span class="bi bi-award" aria-hidden="true"></span>
+                    <div class="crew-profile-card-heading-actions">
+                        @if (profile.Certificates.Count > CertificatePreviewCount)
+                        {
+                            <button type="button" class="crew-profile-edit-toggle" @onclick="OpenAllCertificates">
+                                View all (@profile.Certificates.Count)
+                            </button>
+                        }
+                        <span class="bi bi-award" aria-hidden="true"></span>
+                    </div>
                 </div>
 
                 @if (profile.Certificates.Count == 0)
@@ -182,11 +190,11 @@
                 }
                 else
                 {
-                    <div class="crew-profile-list">
-                        @foreach (var certificate in profile.Certificates)
+                    <div class="crew-profile-list crew-profile-list-preview">
+                        @foreach (var certificate in profile.Certificates.Take(CertificatePreviewCount))
                         {
-                            var state = GetCertificateState(certificate.ExpiryDate);
-                            <button type="button" class="crew-profile-row crew-profile-row-clickable" @key="certificate.CertificateId" @onclick="() => OpenCertificateDetails(certificate)">
+                            var state = GetCertificateState(certificate);
+                            <button type="button" class="crew-profile-row crew-profile-row-clickable" @key="certificate.CertificateId" @onclick="() => OpenCertificateDetailsAsync(certificate)">
                                 <div class="crew-profile-row-primary">
                                     <strong>@certificate.Name</strong>
                                     <span>@certificate.Type &middot; @certificate.IssuingAuthority</span>
@@ -736,7 +744,7 @@
 
         @if (selectedCertificate is not null)
         {
-            var certificateState = GetCertificateState(selectedCertificate.ExpiryDate);
+            var certificateState = GetCertificateState(selectedCertificate);
             <div class="crew-assignment-modal-backdrop" @onclick="CloseCertificateDetails">
                 <section class="crew-assignment-modal" role="dialog" aria-modal="true" aria-labelledby="crew-certificate-detail-title" @onclick:stopPropagation="true">
                     <div class="crew-profile-card-heading">
@@ -754,7 +762,196 @@
                         <div><dt>Issue date</dt><dd>@selectedCertificate.IssueDate.ToString("dd MMM yyyy")</dd></div>
                         <div><dt>Expiry date</dt><dd>@selectedCertificate.ExpiryDate.ToString("dd MMM yyyy")</dd></div>
                         <div><dt>Status</dt><dd><span class="crew-profile-indicator @certificateState.Class">@certificateState.Label</span></dd></div>
+                        @if (selectedCertificate.IsRevoked)
+                        {
+                            <div><dt>Revocation reason</dt><dd>@GetRevocationReason()</dd></div>
+                        }
                     </dl>
+
+                    @if (affectedActiveAssignments.Count > 0)
+                    {
+                        <div class="crew-qualification-warning" role="alert">
+                            <strong>Active assignments relied on this certificate:</strong>
+                            <span>@string.Join(", ", affectedActiveAssignments.Select(affected => VesselDisplayName(affected.VesselId)))</span>
+                            <span>They are not cancelled automatically -- review and reassign as needed.</span>
+                        </div>
+                    }
+
+                    <div class="crew-rotation-section">
+                        <h3>Renewal chain and history</h3>
+
+                        @if (isLoadingCertificateHistory)
+                        {
+                            <p class="crew-assignment-modal-hint">Loading history...</p>
+                        }
+                        else if (certificateHistory is not null)
+                        {
+                            @if (certificateHistory.ChainCertificateIds.Count > 1)
+                            {
+                                <ol class="crew-availability-profile-history">
+                                    @foreach (var chainId in certificateHistory.ChainCertificateIds)
+                                    {
+                                        var chainCertificate = FindCertificate(chainId);
+                                        <li>
+                                            @if (chainCertificate is not null)
+                                            {
+                                                <span>@chainCertificate.LicenseNumber (@chainCertificate.IssueDate.ToString("dd MMM yyyy")–@chainCertificate.ExpiryDate.ToString("dd MMM yyyy"))</span>
+                                                @if (chainCertificate.IsRevoked)
+                                                {
+                                                    <span class="crew-profile-indicator crew-profile-indicator-expired">Revoked</span>
+                                                }
+                                                @if (chainId == selectedCertificate.CertificateId)
+                                                {
+                                                    <span class="crew-profile-indicator crew-profile-indicator-neutral">Viewing</span>
+                                                }
+                                            }
+                                            else
+                                            {
+                                                <span>@chainId</span>
+                                            }
+                                        </li>
+                                    }
+                                </ol>
+                            }
+
+                            @if (certificateHistory.History.Count == 0)
+                            {
+                                <p class="crew-assignment-modal-hint">No renewal or revocation actions recorded yet.</p>
+                            }
+                            else
+                            {
+                                <ol class="crew-availability-profile-history">
+                                    @foreach (var entry in certificateHistory.History)
+                                    {
+                                        <li>
+                                            <span>@entry.EventType</span>
+                                            <span>@entry.OccurredAtUtc.ToString("dd MMM yyyy HH:mm") UTC</span>
+                                            @if (!string.IsNullOrWhiteSpace(entry.Reason))
+                                            {
+                                                <span class="crew-availability-profile-history-reason">@entry.Reason</span>
+                                            }
+                                        </li>
+                                    }
+                                </ol>
+                            }
+                        }
+                    </div>
+
+                    @if (certificateConflictMessage is not null)
+                    {
+                        <div class="crew-profile-form-conflict" role="alert">@certificateConflictMessage</div>
+                    }
+
+                    @if (certificateActionError is not null)
+                    {
+                        <div class="crew-assignment-modal-error" role="alert">@certificateActionError</div>
+                    }
+
+                    @if (CanManage && !selectedCertificate.IsRevoked)
+                    {
+                        <section class="crew-assignment-lifecycle-actions" aria-label="Certificate lifecycle actions">
+                            <div class="crew-assignment-action-heading">
+                                <div>
+                                    <p>Certificate lifecycle</p>
+                                    <h3>Renew or revoke</h3>
+                                </div>
+                                <span>Changes are retained in the certificate history.</span>
+                            </div>
+
+                            <div class="crew-certificate-actions-row">
+                                @if (selectedCertificate.SuccessorCertificateId is null)
+                                {
+                                    <button type="button" class="crew-assignment-activate" @onclick="RequestRenewCertificate">Renew certificate</button>
+                                }
+                                <button type="button" class="crew-certificate-revoke-button" @onclick="RequestRevokeCertificate">Revoke certificate</button>
+                            </div>
+                        </section>
+
+                        @if (isRenewingCertificate)
+                        {
+                            <RenewCertificateForm
+                                CertificateId="selectedCertificate.CertificateId"
+                                Type="@selectedCertificate.Type"
+                                Name="@selectedCertificate.Name"
+                                IssuingAuthority="@selectedCertificate.IssuingAuthority"
+                                LicenseNumber="@selectedCertificate.LicenseNumber"
+                                ExpiryDate="selectedCertificate.ExpiryDate"
+                                OnRenewed="OnCertificateRenewedAsync"
+                                OnCancelled="CancelRenewCertificate" />
+                        }
+
+                        @if (isRevokingCertificate)
+                        {
+                            <form class="crew-availability-decision-form" @onsubmit="SubmitRevokeCertificateAsync" @onsubmit:preventDefault="true">
+                                <label for="certificate-revoke-reason">Revocation reason</label>
+                                <input id="certificate-revoke-reason" type="text" @bind="revokeReason" maxlength="500" />
+                                <div class="crew-availability-decision-form-actions">
+                                    <button type="submit" class="crew-availability-decision-submit" disabled="@isSubmittingCertificateAction">Confirm</button>
+                                    <button type="button" @onclick="CancelRevokeCertificate">Keep</button>
+                                </div>
+                            </form>
+                        }
+                    }
+                </section>
+            </div>
+        }
+
+        @if (isViewingAllCertificates)
+        {
+            <div class="crew-assignment-modal-backdrop" @onclick="CloseAllCertificates">
+                <section class="crew-assignment-modal" role="dialog" aria-modal="true" aria-labelledby="crew-all-certificates-title" @onclick:stopPropagation="true">
+                    <div class="crew-profile-card-heading">
+                        <h2 id="crew-all-certificates-title">All certificates</h2>
+                        <button type="button" class="crew-assignment-modal-close" @onclick="CloseAllCertificates" aria-label="Close all certificates">
+                            <span class="bi bi-x-lg" aria-hidden="true"></span>
+                        </button>
+                    </div>
+
+                    <div class="crew-filters">
+                        <div class="crew-input-shell">
+                            <span class="bi bi-search" aria-hidden="true"></span>
+                            <input @bind="certificateSearch" @bind:event="oninput" placeholder="Search type, name, or license number" aria-label="Search certificates" />
+                        </div>
+                        <div class="crew-status-select">
+                            <select @bind="certificateStatusFilter" aria-label="Filter by certificate status">
+                                <option value="">All statuses</option>
+                                <option value="Valid">Valid</option>
+                                <option value="Expiring soon">Expiring soon</option>
+                                <option value="Expired">Expired</option>
+                                <option value="Revoked">Revoked</option>
+                            </select>
+                            <span class="bi bi-chevron-down" aria-hidden="true"></span>
+                        </div>
+                    </div>
+
+                    @{
+                        var filteredCertificates = FilteredCertificates.ToList();
+                    }
+
+                    @if (filteredCertificates.Count == 0)
+                    {
+                        <EmptyState Title="No matching certificates" Message="Try another search term or status filter." />
+                    }
+                    else
+                    {
+                        <div class="crew-profile-list crew-profile-list-scrollable">
+                            @foreach (var certificate in filteredCertificates)
+                            {
+                                var state = GetCertificateState(certificate);
+                                <button type="button" class="crew-profile-row crew-profile-row-clickable" @key="certificate.CertificateId" @onclick="() => OpenCertificateFromAllListAsync(certificate)">
+                                    <div class="crew-profile-row-primary">
+                                        <strong>@certificate.Name</strong>
+                                        <span>@certificate.Type &middot; @certificate.IssuingAuthority</span>
+                                    </div>
+                                    <div class="crew-profile-row-secondary">
+                                        <span>License @certificate.LicenseNumber</span>
+                                        <span>Expires @certificate.ExpiryDate.ToString("dd MMM yyyy")</span>
+                                    </div>
+                                    <span class="crew-profile-indicator @state.Class">@state.Label</span>
+                                </button>
+                            }
+                        </div>
+                    }
                 </section>
             </div>
         }

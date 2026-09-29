@@ -1753,6 +1753,12 @@ namespace HarborOps.Infrastructure.Persistence.Migrations
                     b.Property<Guid>("Id")
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<Guid>("ConcurrencyToken")
+                        .IsConcurrencyToken()
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier")
+                        .HasDefaultValueSql("NEWID()");
+
                     b.Property<Guid>("CrewMemberId")
                         .HasColumnType("uniqueidentifier");
 
@@ -1777,6 +1783,19 @@ namespace HarborOps.Infrastructure.Persistence.Migrations
                         .HasMaxLength(200)
                         .HasColumnType("nvarchar(200)");
 
+                    b.Property<Guid?>("PredecessorCertificateId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("RevocationReason")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<DateTime?>("RevokedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("RevokedByUserId")
+                        .HasColumnType("uniqueidentifier");
+
                     b.Property<string>("Status")
                         .IsRequired()
                         .HasMaxLength(50)
@@ -1789,7 +1808,46 @@ namespace HarborOps.Infrastructure.Persistence.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("CrewMemberId");
+
+                    b.HasIndex("PredecessorCertificateId")
+                        .IsUnique()
+                        .HasFilter("[PredecessorCertificateId] IS NOT NULL");
+
                     b.ToTable("CrewCertificates", "crew");
+                });
+
+            modelBuilder.Entity("HarborOps.Modules.Crew.Domain.CrewCertificateHistory", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("ActorUserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("CertificateId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("EventType")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<DateTime>("OccurredAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("PredecessorCertificateId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Reason")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CertificateId");
+
+                    b.ToTable("CrewCertificateHistories", "crew");
                 });
 
             modelBuilder.Entity("HarborOps.Modules.Crew.Domain.CrewEmploymentStatusHistory", b =>
@@ -5591,6 +5649,14 @@ namespace HarborOps.Infrastructure.Persistence.Migrations
                         .HasForeignKey("PscInspectionId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
+                });
+
+            modelBuilder.Entity("HarborOps.Modules.Crew.Domain.CrewCertificate", b =>
+                {
+                    b.HasOne("HarborOps.Modules.Crew.Domain.CrewCertificate", null)
+                        .WithMany()
+                        .HasForeignKey("PredecessorCertificateId")
+                        .OnDelete(DeleteBehavior.Restrict);
                 });
 
             modelBuilder.Entity("HarborOps.Modules.Crew.Domain.CrewQualificationRequirement", b =>

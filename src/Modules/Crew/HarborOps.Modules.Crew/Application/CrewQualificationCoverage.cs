@@ -38,6 +38,7 @@ internal static class CrewQualificationCoverage
             .AsNoTracking()
             .Where(certificate => certificate.CrewMemberId == crewMemberId
                 && certificate.Status == ValidCertificateStatus
+                && certificate.RevokedAtUtc == null
                 && requiredTypes.Contains(certificate.Type))
             .ToListAsync(cancellationToken);
 
@@ -60,7 +61,9 @@ internal static class CrewQualificationCoverage
         foreach (var type in requiredTypes)
         {
             var certificatesOfType = certificates
-                .Where(certificate => certificate.Type == type && certificate.Status == ValidCertificateStatus)
+                .Where(certificate => certificate.Type == type
+                    && certificate.Status == ValidCertificateStatus
+                    && !certificate.IsRevoked)
                 .ToList();
 
             foreach (var date in dates)
@@ -90,6 +93,7 @@ internal static class CrewQualificationCoverage
     internal static bool IsCoveredOnDay(IReadOnlyList<CrewCertificate> certificates, string requiredType, DateOnly date) =>
         certificates.Any(certificate => certificate.Type == requiredType
             && certificate.Status == ValidCertificateStatus
+            && !certificate.IsRevoked
             && certificate.IssueDate <= date
             && date <= certificate.ExpiryDate);
 

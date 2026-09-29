@@ -24,38 +24,54 @@
     <VoyagesNavigation />
 
     <section class="voyages-summary" aria-label="Voyage summary">
-        <article class="voyages-kpi">
-            <div>
-                <p class="voyages-kpi-label">Planned</p>
-                <p class="voyages-kpi-value">@FormatCount(StatusCount(PlannedStatus))</p>
-                <p class="voyages-kpi-note">@FormatDate(appliedFrom) &ndash; @FormatDate(appliedTo)</p>
-            </div>
+        <button type="button"
+                class="voyages-kpi voyages-kpi-filter @(IsStatusKpiSelected(PlannedStatus) ? "selected" : null)"
+                aria-pressed="@IsStatusKpiSelected(PlannedStatus).ToString().ToLowerInvariant()"
+                aria-label="Show planned voyages"
+                @onclick="() => ToggleStatusKpiAsync(PlannedStatus)">
+            <span class="voyages-kpi-body">
+                <span class="voyages-kpi-label">Planned</span>
+                <span class="voyages-kpi-value">@FormatCount(StatusCount(PlannedStatus))</span>
+                <span class="voyages-kpi-note">@FormatDate(appliedFrom) &ndash; @FormatDate(appliedTo)</span>
+            </span>
             <span class="voyages-kpi-icon kpi-icon-planned" aria-hidden="true"><span class="bi bi-calendar-check"></span></span>
-        </article>
-        <article class="voyages-kpi">
-            <div>
-                <p class="voyages-kpi-label">In progress</p>
-                <p class="voyages-kpi-value">@FormatCount(StatusCount(InProgressStatus))</p>
-                <p class="voyages-kpi-note">Departed, not yet arrived</p>
-            </div>
+        </button>
+        <button type="button"
+                class="voyages-kpi voyages-kpi-filter @(IsStatusKpiSelected(InProgressStatus) ? "selected" : null)"
+                aria-pressed="@IsStatusKpiSelected(InProgressStatus).ToString().ToLowerInvariant()"
+                aria-label="Show voyages in progress"
+                @onclick="() => ToggleStatusKpiAsync(InProgressStatus)">
+            <span class="voyages-kpi-body">
+                <span class="voyages-kpi-label">In progress</span>
+                <span class="voyages-kpi-value">@FormatCount(StatusCount(InProgressStatus))</span>
+                <span class="voyages-kpi-note">Departed, not yet arrived</span>
+            </span>
             <span class="voyages-kpi-icon kpi-icon-progress" aria-hidden="true"><span class="bi bi-arrow-right-circle"></span></span>
-        </article>
-        <article class="voyages-kpi">
-            <div>
-                <p class="voyages-kpi-label">Completed</p>
-                <p class="voyages-kpi-value">@FormatCount(StatusCount(CompletedStatus))</p>
-                <p class="voyages-kpi-note">Arrival recorded</p>
-            </div>
+        </button>
+        <button type="button"
+                class="voyages-kpi voyages-kpi-filter @(IsStatusKpiSelected(CompletedStatus) ? "selected" : null)"
+                aria-pressed="@IsStatusKpiSelected(CompletedStatus).ToString().ToLowerInvariant()"
+                aria-label="Show completed voyages"
+                @onclick="() => ToggleStatusKpiAsync(CompletedStatus)">
+            <span class="voyages-kpi-body">
+                <span class="voyages-kpi-label">Completed</span>
+                <span class="voyages-kpi-value">@FormatCount(StatusCount(CompletedStatus))</span>
+                <span class="voyages-kpi-note">Arrival recorded</span>
+            </span>
             <span class="voyages-kpi-icon kpi-icon-completed" aria-hidden="true"><span class="bi bi-check2-circle"></span></span>
-        </article>
-        <article class="voyages-kpi">
-            <div>
-                <p class="voyages-kpi-label">@DelayedStatus</p>
-                <p class="voyages-kpi-value">@FormatCount(delayedKpiCount)</p>
-                <p class="voyages-kpi-note">Delay impact applied</p>
-            </div>
+        </button>
+        <button type="button"
+                class="voyages-kpi voyages-kpi-filter @(delayedOnly ? "selected" : null)"
+                aria-pressed="@delayedOnly.ToString().ToLowerInvariant()"
+                aria-label="Show delayed voyages"
+                @onclick="ToggleDelayedKpiAsync">
+            <span class="voyages-kpi-body">
+                <span class="voyages-kpi-label">@DelayedStatus</span>
+                <span class="voyages-kpi-value">@FormatCount(delayedKpiCount)</span>
+                <span class="voyages-kpi-note">Delay impact applied</span>
+            </span>
             <span class="voyages-kpi-icon kpi-icon-delayed" aria-hidden="true"><span class="bi bi-hourglass-split"></span></span>
-        </article>
+        </button>
     </section>
 
     @if (failure is { IsValidation: true, Errors.Count: > 0 })
@@ -245,6 +261,10 @@
                                 <small>Planned</small>
                                 <span><b>DEP</b>@FormatUtc(voyage.PlannedDeparture)</span>
                                 <span><b>ARR</b>@FormatUtc(voyage.PlannedArrival)</span>
+                                @if (isImminent)
+                                {
+                                    <span class="voyage-departs-in"><i class="bi bi-clock" aria-hidden="true"></i>@FormatDepartsIn(voyage.PlannedDeparture, utcNow)</span>
+                                }
                             </div>
                             <div class="voyage-stamps">
                                 <small>Actual</small>
@@ -330,6 +350,10 @@
                                 <td class="voyage-stamps">
                                     <span><b>DEP</b>@FormatUtc(voyage.PlannedDeparture)</span>
                                     <span><b>ARR</b>@FormatUtc(voyage.PlannedArrival)</span>
+                                    @if (isImminent)
+                                    {
+                                        <span class="voyage-departs-in"><i class="bi bi-clock" aria-hidden="true"></i>@FormatDepartsIn(voyage.PlannedDeparture, utcNow)</span>
+                                    }
                                 </td>
                                 <td class="voyage-stamps col-actual">
                                     <span class="@(voyage.ActualDeparture is null ? "missing" : null)"><b>DEP</b>@FormatUtc(voyage.ActualDeparture)</span>

@@ -9,7 +9,7 @@
 <section class="certificate-detail-page">
     <header class="certificate-header">
         <div>
-            <nav class="page-breadcrumb" aria-label="Breadcrumb"><a href="/compliance">Compliance operations</a><span aria-hidden="true">/</span><span>Certificate</span></nav>
+            <nav class="page-breadcrumb" aria-label="Breadcrumb"><a href="@(certificate is null ? "/compliance" : Compliance.OverviewHref(certificate.VesselId))">Compliance operations</a><span aria-hidden="true">/</span><span>Certificate</span></nav>
             <h1>Certificate details</h1>
             <p>Review validity, the renewal chain, and every renewal or revocation recorded for this certificate.</p>
         </div>

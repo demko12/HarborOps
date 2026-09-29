@@ -71,6 +71,35 @@ public sealed class VoyagesApiClientTests
         Assert.DoesNotContain("status=", captured.RequestUri.Query, StringComparison.Ordinal);
     }
 
+    [Theory]
+    [InlineData(true, true)]
+    [InlineData(false, false)]
+    public async Task GetVoyagesAsync_asks_for_delayed_voyages_only_when_requested(bool delayImpactApplied, bool expected)
+    {
+        HttpRequestMessage? captured = null;
+        using var httpClient = CreateHttpClient((request, _) =>
+        {
+            captured = request;
+            return Json(HttpStatusCode.OK, PageJson);
+        });
+
+        var result = await CreateClient(httpClient).GetVoyagesAsync(
+            new DateOnly(2026, 9, 1),
+            new DateOnly(2026, 9, 30),
+            null,
+            "InProgress",
+            true,
+            delayImpactApplied,
+            1,
+            25,
+            CancellationToken.None);
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal(expected, captured!.RequestUri!.Query.Contains("delayImpactApplied=true", StringComparison.Ordinal));
+        Assert.Contains("status=InProgress", captured.RequestUri.Query, StringComparison.Ordinal);
+        Assert.Contains("pageSize=25", captured.RequestUri.Query, StringComparison.Ordinal);
+    }
+
     [Fact]
     public async Task GetVoyagesAsync_sends_an_empty_status_when_no_status_is_selected()
     {

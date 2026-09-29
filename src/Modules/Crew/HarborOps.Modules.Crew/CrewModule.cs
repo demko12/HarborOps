@@ -26,6 +26,9 @@ public static class CrewModule
         services.AddScoped<CompleteCrewAssignmentService>();
         services.AddScoped<CancelCrewAssignmentService>();
         services.AddScoped<RegisterCrewCertificateService>();
+        services.AddScoped<RenewCrewCertificateService>();
+        services.AddScoped<RevokeCrewCertificateService>();
+        services.AddScoped<IGetCrewCertificateHistoryQuery, GetCrewCertificateHistoryQuery>();
         services.TryAddSingleton<IDateTimeProvider, SystemDateTimeProvider>();
         services.TryAddSingleton(TimeProvider.System);
         services

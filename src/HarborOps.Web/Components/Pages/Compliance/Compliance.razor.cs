@@ -1,5 +1,7 @@
 using System.ComponentModel.DataAnnotations;
+using HarborOps.Web.Api;
 using HarborOps.Web.Api.Compliance;
+using HarborOps.Web.Api.Documents;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Forms;
 using Microsoft.AspNetCore.Components.Web;
@@ -8,10 +10,18 @@ namespace HarborOps.Web.Components.Pages.Compliance;
 
 public partial class Compliance
 {
+    internal const int ExpiringSoonDays = 30;
+
     [SupplyParameterFromQuery(Name = "surveyId")]
     private int? SurveyIdFromQuery { get; set; }
 
+    [SupplyParameterFromQuery(Name = "vesselId")]
+    private Guid? VesselIdFromQuery { get; set; }
+
     private Guid? selectedVesselId;
+    private string? initialVesselLabel;
+    private IReadOnlyDictionary<Guid, string> portNames = new Dictionary<Guid, string>();
+    private IReadOnlyDictionary<Guid, DocumentDetailsDto> evidenceDocuments = new Dictionary<Guid, DocumentDetailsDto>();
     private ComplianceOverview? overview;
     private ComplianceApiFailure? overviewFailure;
     private bool isOverviewLoading;
@@ -60,7 +70,24 @@ public partial class Compliance
         ResetNonConformityForm();
         ResetInsurancePolicyForm();
 
-        return ApplySurveyQueryParameterAsync();
+        return SurveyIdFromQuery is not null
+            ? ApplySurveyQueryParameterAsync()
+            : ApplyVesselQueryParameterAsync();
+    }
+
+    private async Task ApplyVesselQueryParameterAsync()
+    {
+        if (VesselIdFromQuery is not { } vesselId)
+        {
+            return;
+        }
+
+        selectedVesselId = vesselId;
+
+        var namesTask = FleetApi.LookupVesselNamesAsync([vesselId], CancellationToken.None);
+        await Task.WhenAll(namesTask, LoadOverviewAsync());
+
+        initialVesselLabel = namesTask.Result.TryGetValue(vesselId, out var name) ? name : null;
     }
 
     private async Task ApplySurveyQueryParameterAsync()
@@ -123,8 +150,11 @@ public partial class Compliance
         overview = null;
         overviewFailure = null;
         certificateSuccess = pscSuccess = operationSuccess = null;
+        Navigation.NavigateTo(vesselId is { } id ? OverviewHref(id) : "/compliance", replace: true);
         if (vesselId is not null) await LoadOverviewAsync();
     }
+
+    internal static string OverviewHref(Guid vesselId) => $"/compliance?vesselId={vesselId}";
 
     private async Task LoadOverviewAsync()
     {
@@ -141,6 +171,12 @@ public partial class Compliance
         {
             var result = await ComplianceApi.GetOverviewAsync(vesselId, cts.Token);
             if (cts.IsCancellationRequested || version != overviewVersion || selectedVesselId != vesselId) return;
+            if (result.Value is { } loaded)
+            {
+                await ResolveOverviewReferencesAsync(loaded, cts.Token);
+                if (cts.IsCancellationRequested || version != overviewVersion) return;
+            }
+
             overview = result.Value;
             overviewFailure = result.Failure;
         }
@@ -149,6 +185,25 @@ public partial class Compliance
         {
             if (version == overviewVersion) isOverviewLoading = false;
         }
+    }
+
+    private async Task ResolveOverviewReferencesAsync(ComplianceOverview loaded, CancellationToken cancellationToken)
+    {
+        var portIds = loaded.PscInspections.Select(item => item.PortId).Distinct().ToArray();
+        var portsTask = VoyagesApi.LookupPortNamesAsync(portIds, cancellationToken);
+        var documentTasks = loaded.OpenNonConformities
+            .Select(item => item.EvidenceDocumentId)
+            .Distinct()
+            .Select(documentId => DocumentsApi.GetDocumentByIdAsync(documentId, cancellationToken))
+            .ToArray();
+
+        await Task.WhenAll(documentTasks.Append<Task>(portsTask));
+
+        portNames = portsTask.Result;
+        evidenceDocuments = documentTasks
+            .Select(task => task.Result.Value)
+            .OfType<DocumentDetailsDto>()
+            .ToDictionary(document => document.Id);
     }
 
     private Task RetryOverviewAsync() => LoadOverviewAsync();
@@ -182,8 +237,7 @@ public partial class Compliance
         isSubmittingPsc = true;
         try
         {
-            Guid.TryParse(pscModel.PortIdText, out var portId);
-            var result = await ComplianceApi.RegisterPscInspectionAsync(new(vesselId, portId,
+            var result = await ComplianceApi.RegisterPscInspectionAsync(new(vesselId, pscModel.PortId,
                 pscModel.InspectionDate, pscModel.InspectingAuthority, pscModel.DeficiencyCount,
                 pscModel.VesselDetained), CancellationToken.None);
             if (!result.IsSuccess) { ApplyErrors(result.Failure!, pscEditContext, pscMessages, PscFieldMap, value => pscError = value); return; }
@@ -205,6 +259,12 @@ public partial class Compliance
     private void ResetPscForm()
     {
         pscModel = new(); pscEditContext = new(pscModel); pscMessages = new(pscEditContext);
+    }
+
+    private void SetPscPort(Guid? portId)
+    {
+        pscModel.PortId = portId;
+        pscEditContext.NotifyFieldChanged(new FieldIdentifier(pscModel, nameof(PscFormModel.PortId)));
     }
 
     private async Task SubmitNonConformityAsync()
@@ -345,6 +405,104 @@ public partial class Compliance
     };
     private static bool IsCritical(OpenNonConformityItem item) => string.Equals(item.Severity, "Critical", StringComparison.OrdinalIgnoreCase);
 
+    private static DateOnly Today() => DateOnly.FromDateTime(DateTime.UtcNow);
+
+    internal static bool IsExpiringSoon(ComplianceCertificateItem item, DateOnly today) =>
+        IsCurrent(item) && !item.IsRenewalCovered && item.ExpiresOn <= today.AddDays(ExpiringSoonDays);
+
+    internal static string? ExpiryCountdown(ComplianceCertificateItem item, DateOnly today)
+    {
+        var days = item.ExpiresOn.DayNumber - today.DayNumber;
+
+        return item.Status switch
+        {
+            "Current" when days == 0 => "Expires today",
+            "Current" => days == 1 ? "Expires in 1 day" : $"Expires in {days} days",
+            "Expired" => days == -1 ? "Expired 1 day ago" : $"Expired {-days} days ago",
+            _ => null,
+        };
+    }
+
+    internal static string ValidityTone(ComplianceCertificateItem item, DateOnly today) => item.Status switch
+    {
+        "Revoked" => "danger",
+        "Expired" => item.IsRenewalCovered ? "neutral" : "danger",
+        "Current" when IsExpiringSoon(item, today) => "warning",
+        "Current" => "success",
+        _ => "neutral",
+    };
+
+    internal static int ValidityElapsedPercent(DateOnly issuedOn, DateOnly expiresOn, DateOnly today)
+    {
+        var totalDays = expiresOn.DayNumber - issuedOn.DayNumber;
+        if (totalDays <= 0) return today >= expiresOn ? 100 : 0;
+
+        return Math.Clamp((int)Math.Round((today.DayNumber - issuedOn.DayNumber) * 100d / totalDays), 0, 100);
+    }
+
+    internal static int OverdueDays(OpenNonConformityItem item, DateOnly today) =>
+        Math.Max(0, today.DayNumber - item.CorrectiveActionDeadline.DayNumber);
+
+    internal static string FormatOverdue(int days) => days == 1 ? "1 day overdue" : $"{days} days overdue";
+
+    private string PortName(Guid portId) =>
+        portNames.TryGetValue(portId, out var name) ? name : "Unknown port";
+
+    private string EvidenceDocumentLabel(Guid documentId) =>
+        evidenceDocuments.TryGetValue(documentId, out var document)
+            ? $"{document.DocumentTypeName} — {document.Number}"
+            : "Unknown document";
+
+    private string? EvidenceDownloadHref(Guid documentId) =>
+        evidenceDocuments.TryGetValue(documentId, out var document)
+            && document.HasFile
+            && AuthorizationState.HasPermission(CurrentUserAuthorizationState.DocumentsReadPermission)
+                ? $"/documents/{documentId}/file/download"
+                : null;
+
+    internal static string HealthTone(ComplianceOverview overview, DateOnly today)
+    {
+        if (overview.Certificates.Any(IsUncoveredExpired) || overview.OpenNonConformities.Any(item => OverdueDays(item, today) > 0))
+        {
+            return "danger";
+        }
+
+        return overview.Certificates.Any(item => IsExpiringSoon(item, today)) ? "warning" : "success";
+    }
+
+    private static string HealthIcon(string tone) => tone switch
+    {
+        "danger" => "bi-exclamation-octagon",
+        "warning" => "bi-hourglass-split",
+        _ => "bi-shield-check",
+    };
+
+    private static string HealthTitle(string tone) => tone switch
+    {
+        "danger" => "Action required",
+        "warning" => "Attention needed",
+        _ => "All clear",
+    };
+
+    internal static string HealthSummary(ComplianceOverview overview, DateOnly today)
+    {
+        var parts = new List<string>();
+        var expired = overview.Certificates.Count(IsUncoveredExpired);
+        var expiring = overview.Certificates.Count(item => IsExpiringSoon(item, today));
+        var overdue = overview.OpenNonConformities.Where(item => OverdueDays(item, today) > 0).ToList();
+        var overdueCritical = overdue.Count(IsCritical);
+        var overdueOther = overdue.Count - overdueCritical;
+
+        if (expired > 0) parts.Add(expired == 1 ? "1 certificate expired" : $"{expired} certificates expired");
+        if (expiring > 0) parts.Add(expiring == 1 ? $"1 certificate expires within {ExpiringSoonDays} days" : $"{expiring} certificates expire within {ExpiringSoonDays} days");
+        if (overdueCritical > 0) parts.Add(overdueCritical == 1 ? "1 critical finding overdue" : $"{overdueCritical} critical findings overdue");
+        if (overdueOther > 0) parts.Add(overdueOther == 1 ? "1 finding overdue" : $"{overdueOther} findings overdue");
+
+        return parts.Count == 0
+            ? "No expired or expiring certificates and no overdue findings."
+            : string.Join(" · ", parts);
+    }
+
     private static readonly IReadOnlyDictionary<string, string> CertificateFieldMap = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
     {
         ["certificateType"] = nameof(CertificateFormModel.CertificateType),
@@ -355,7 +513,7 @@ public partial class Compliance
     };
     private static readonly IReadOnlyDictionary<string, string> PscFieldMap = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
     {
-        ["portId"] = nameof(PscFormModel.PortIdText),
+        ["portId"] = nameof(PscFormModel.PortId),
         ["inspectionDate"] = nameof(PscFormModel.InspectionDate),
         ["inspectingAuthority"] = nameof(PscFormModel.InspectingAuthority),
         ["deficiencyCount"] = nameof(PscFormModel.DeficiencyCount),
@@ -390,7 +548,7 @@ public partial class Compliance
 
     private sealed class PscFormModel
     {
-        [Required, RegularExpression("^[0-9a-fA-F-]{36}$", ErrorMessage = "Port ID must be a valid GUID.")] public string? PortIdText { get; set; }
+        [Required, Display(Name = "Port")] public Guid? PortId { get; set; }
         [Required] public DateOnly? InspectionDate { get; set; }
         [Required, StringLength(200)] public string? InspectingAuthority { get; set; }
         [Required, Range(0, int.MaxValue)] public int? DeficiencyCount { get; set; }

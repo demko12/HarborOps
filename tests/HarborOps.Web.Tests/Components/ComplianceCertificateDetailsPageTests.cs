@@ -51,6 +51,16 @@ public sealed class ComplianceCertificateDetailsPageTests : BunitContext
     }
 
     [Fact]
+    public void Breadcrumb_returns_to_the_overview_of_the_certificate_vessel()
+    {
+        var page = RenderPage();
+
+        page.WaitForAssertion(() => Assert.Equal(
+            "/compliance?vesselId=10000000-0000-0000-0000-000000000001",
+            page.Find(".page-breadcrumb a").GetAttribute("href")));
+    }
+
+    [Fact]
     public void Summary_shows_status_validity_chain_position_and_history_count()
     {
         renewed = true;
