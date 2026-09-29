@@ -942,3 +942,12 @@ html[data-theme="dark"] .timeline-page .timeline-table > tbody > tr:not(.timelin
 html[data-theme="dark"] .timeline-page .timeline-table > tbody > tr:not(.timeline-clearance-row):is(:hover, :focus-within) {
     background: var(--bg-surface-strong);
 }
+
+/* Cargo booking details: shared module surfaces in both themes. */
+html[data-theme="dark"] .booking-page .booking-table td { background: var(--module-card-background); }
+html[data-theme="dark"] .booking-page .booking-table tr:is(:hover, :focus-within) td { background: var(--bg-surface-strong); }
+html[data-theme="light"] .booking-page .booking-field :is(input, select, textarea) { color-scheme: light; }
+html[data-theme="light"] .booking-page .operation-state.active { color: #1d4ed8; }
+html[data-theme="light"] .booking-page .operation-state.done,
+html[data-theme="light"] .booking-page .booking-complete-icon { color: #0f766e; }
+html[data-theme="light"] .booking-page .kpi-icon-hazard { color: #b45309; }

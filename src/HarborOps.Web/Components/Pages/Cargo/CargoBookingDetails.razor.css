@@ -1,4 +1,7 @@
 .booking-page {
+    --accent: #f57c00;
+    --accent-bg: rgba(245, 124, 0, .1);
+    --accent-border: rgba(245, 124, 0, .3);
     max-width: var(--page-max-width);
     margin: 0 auto;
     padding: var(--page-padding);
@@ -30,7 +33,7 @@
 
 .booking-summary {
     display: grid;
-    grid-template-columns: repeat(4, minmax(0, 1fr));
+    grid-template-columns: repeat(5, minmax(0, 1fr));
     gap: 1rem;
     margin-bottom: 1rem;
 }
@@ -442,7 +445,8 @@ html[data-theme="light"] .booking-form-error { border-color: rgba(185, 28, 28, .
 html[data-theme="light"] .operation-state.active { color: #1d4ed8; background: rgba(37, 99, 235, .12); }
 html[data-theme="light"] .operation-state.done { color: #0f766e; background: rgba(15, 118, 110, .14); }
 
-.operation-stamps { display: flex; flex-direction: column; font-variant-numeric: tabular-nums; }
+.operation-stamps { font-variant-numeric: tabular-nums; }
+.operation-stamps > span { display: block; }
 
 .operation-actions { white-space: nowrap; }
 
@@ -760,3 +764,42 @@ html[data-theme="light"] .manifest-control .control-status-held { color: var(--s
 }
 
 html[data-theme="light"] .manifest-filter-hint { color: var(--status-info-strong); border-color: rgba(37, 99, 235, .3); background: rgba(37, 99, 235, .08); }
+
+/* Booking details share the Cargo module's surfaces and compact rhythm. */
+.booking-header-actions { display: flex; align-items: center; flex-wrap: wrap; gap: .65rem; }
+.booking-back { display: inline-flex; align-items: center; gap: .5rem; padding: .65rem .9rem; border: 1px solid var(--border-medium); border-radius: .65rem; background: var(--bg-surface); color: var(--text-secondary); text-decoration: none; font-size: .8rem; font-weight: 600; }
+.booking-back:hover { color: var(--accent); border-color: var(--accent-border); background: var(--accent-bg); }
+.booking-section-nav { display: flex; gap: .4rem; flex-wrap: wrap; margin-bottom: 1.4rem; padding-bottom: .8rem; border-bottom: 1px solid var(--border-subtle); }
+.booking-section-nav a { display: inline-flex; align-items: center; gap: .5rem; padding: .65rem .85rem; border: 1px solid transparent; border-radius: .65rem; color: var(--text-secondary); font-size: .82rem; text-decoration: none; }
+.booking-section-nav a:hover { color: var(--accent); border-color: var(--accent-border); background: var(--accent-bg); }
+.booking-section-nav a:focus-visible, .booking-back:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+.booking-card h2 { scroll-margin-top: 6rem; }
+.booking-section-eyebrow { margin: 0 0 .3rem; color: var(--accent); font-size: .62rem; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; }
+.booking-kpi { min-height: 7rem; padding: 1rem; gap: .6rem; }
+.booking-kpi-value { font-size: clamp(1.15rem, 1.6vw, 1.65rem); line-height: 1.2; }
+.booking-kpi-icon:is(.kpi-icon-status, .kpi-icon-load, .kpi-icon-events) { color: var(--accent); border-color: var(--accent-border); background: var(--accent-bg); }
+.booking-grid { grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr); align-items: start; }
+.booking-facts > div { padding: .6rem 0; border-bottom: 1px solid var(--border-subtle); }
+.booking-facts > div:last-child { border: 0; }
+.booking-lifecycle { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: .35rem; margin: .3rem 0 0; padding: 1rem 0 0; list-style: none; border-top: 1px solid var(--border-subtle); }
+.booking-lifecycle li { display: flex; flex-direction: column; align-items: center; gap: .4rem; color: var(--text-muted); font-size: .65rem; text-align: center; }
+.booking-stage-dot { display: grid; place-items: center; width: 1.7rem; height: 1.7rem; border: 1px solid var(--border-medium); border-radius: 50%; font-size: .72rem; }
+.booking-lifecycle .is-reached { color: var(--text-primary); }
+.is-reached .booking-stage-dot { color: var(--accent); border-color: var(--accent-border); background: var(--accent-bg); }
+.booking-lifecycle [aria-current="step"] .booking-stage-dot { outline: 2px solid var(--accent-border); outline-offset: 3px; }
+.booking-table { border-collapse: separate; border-spacing: 0 .45rem; }
+.booking-table th { border: 0; font-size: .62rem; }
+.booking-table td, .booking-table tbody tr:last-child td { padding: .75rem .8rem; vertical-align: middle; border-top: 1px solid var(--border-subtle); border-bottom: 1px solid var(--border-subtle); background: var(--bg-surface); transition: background .15s ease; }
+.booking-table td:first-child { border-left: 2px solid var(--accent-border); border-radius: .7rem 0 0 .7rem; }
+.booking-table td:last-child { border-right: 1px solid var(--border-subtle); border-radius: 0 .7rem .7rem 0; }
+.booking-table tbody tr:hover { background: transparent; }
+.booking-table tbody tr:is(:hover, :focus-within) td { background: var(--bg-surface-strong); }
+.booking-table tbody tr:is(:hover, :focus-within) td:first-child { border-left-color: var(--accent); }
+.booking-submit { color: var(--text-primary); background: var(--accent-bg); border-color: var(--accent-border); }
+.booking-submit:hover:not(:disabled) { background: color-mix(in srgb, var(--accent) 18%, transparent); border-color: var(--accent); transform: none; }
+.manifest-bar > span { background: var(--accent); }
+.manifest-import { display: flex; flex-direction: column; gap: .8rem; padding: 1rem; border: 1px solid var(--border-subtle); border-radius: .8rem; background: var(--bg-surface); }
+.manifest-import h3 { margin: 0; font-size: .9rem; }
+@media (max-width: 1100px) { .booking-summary { grid-template-columns: repeat(3, minmax(0, 1fr)); } .booking-grid { grid-template-columns: minmax(0, 1fr); } }
+@media (max-width: 760px) { .booking-header { flex-direction: column; } .booking-summary { grid-template-columns: repeat(2, minmax(0, 1fr)); } .booking-card { padding: 1rem; } .booking-card-heading { flex-wrap: wrap; } .booking-lifecycle { grid-template-columns: repeat(4, minmax(0, 1fr)); row-gap: .9rem; } .booking-facts > div { flex-wrap: wrap; } .booking-facts dd { text-align: left; } }
+@media (max-width: 420px) { .booking-summary { grid-template-columns: minmax(0, 1fr); } }

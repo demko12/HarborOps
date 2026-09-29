@@ -19,7 +19,10 @@
                 <p>Registered @CargoBookingFormat.CreatedUtcDate(details.CreatedUtc) at @CargoBookingFormat.CreatedUtcTime(details.CreatedUtc) UTC.</p>
             }
         </div>
-        <span class="booking-utc" aria-label="All times are shown in UTC">UTC</span>
+        <div class="booking-header-actions">
+            <span class="booking-utc" aria-label="All times are shown in UTC">UTC</span>
+            
+        </div>
     </header>
 
     @if (isLoading)
@@ -42,6 +45,14 @@
     }
     else if (details is not null)
     {
+        <nav class="booking-section-nav" aria-label="Booking sections">
+            <a href="@(Navigation.Uri.Split('#')[0] + "#booking-summary-title")"><span class="bi bi-box-seam" aria-hidden="true"></span> Overview</a>
+            <a href="@(Navigation.Uri.Split('#')[0] + "#booking-hazard-title")"><span class="bi bi-shield-check" aria-hidden="true"></span> Safety</a>
+            <a href="@(Navigation.Uri.Split('#')[0] + "#booking-manifest-title")"><span class="bi bi-stack" aria-hidden="true"></span> Manifest</a>
+            <a href="@(Navigation.Uri.Split('#')[0] + "#booking-operations-title")"><span class="bi bi-arrow-down-up" aria-hidden="true"></span> Operations</a>
+            <a href="@(Navigation.Uri.Split('#')[0] + "#booking-tracking-title")"><span class="bi bi-clock-history" aria-hidden="true"></span> Tracking</a>
+        </nav>
+
         <section class="booking-summary" aria-label="Booking summary">
             <article class="booking-kpi">
                 <div>
@@ -57,7 +68,7 @@
                     <p class="booking-kpi-value">@CargoBookingFormat.HazardLabel(details.IsHazardous)</p>
                     <p class="booking-kpi-note">@(details.IsHazardous ? "Requires IMDG handling" : "No declaration required")</p>
                 </div>
-                <span class="booking-kpi-icon @(details.IsHazardous ? "kpi-icon-hazard" : "kpi-icon-clear")" aria-hidden="true"><span class="bi bi-exclamation-triangle-fill"></span></span>
+                <span class="booking-kpi-icon @(details.IsHazardous ? "kpi-icon-hazard" : "kpi-icon-clear")" aria-hidden="true"><span class="bi @(details.IsHazardous ? "bi-exclamation-triangle" : "bi-shield-check")"></span></span>
             </article>
             <article class="booking-kpi">
                 <div>
@@ -88,7 +99,7 @@
         <section class="booking-grid">
             <article class="booking-card" aria-labelledby="booking-summary-title">
                 <div class="booking-card-heading">
-                    <h2 id="booking-summary-title">Booking summary</h2>
+                    <div><p class="booking-section-eyebrow">Shipment overview</p><h2 id="booking-summary-title">Booking summary</h2></div>
                     <span class="cargo-status @CargoBookingFormat.StatusModifier(details.Status)">@details.Status</span>
                 </div>
 
@@ -124,24 +135,22 @@
                     </div>
                 </dl>
 
-                <div class="booking-lifecycle">
-                    <span class="cargo-track @CargoBookingFormat.StatusModifier(details.Status)"
-                          role="img"
-                          aria-label="@($"Step {CargoBookingFormat.LifecycleStep(details.Status)} of {CargoBookingFormat.Statuses.Count}")">
-                        @for (var step = 1; step <= CargoBookingFormat.Statuses.Count; step++)
-                        {
-                            <i class="@(step <= CargoBookingFormat.LifecycleStep(details.Status) ? "on" : null)"></i>
-                        }
-                    </span>
-                    <span class="booking-lifecycle-label">
-                        Step @CargoBookingFormat.LifecycleStep(details.Status) of @CargoBookingFormat.Statuses.Count
-                    </span>
-                </div>
+                <ol class="booking-lifecycle" aria-label="Shipment progress">
+                    @for (var step = 0; step < CargoBookingFormat.Statuses.Count; step++)
+                    {
+                        var stage = CargoBookingFormat.Statuses[step];
+                        var reached = step < CargoBookingFormat.LifecycleStep(details.Status);
+                        <li class="@(reached ? "is-reached" : null)" aria-current="@(stage == details.Status ? "step" : null)">
+                            <span class="booking-stage-dot" aria-hidden="true">@(step + 1)</span>
+                            <span>@(stage == "InTransit" ? "In transit" : stage)</span>
+                        </li>
+                    }
+                </ol>
             </article>
 
             <article class="booking-card" aria-labelledby="booking-hazard-title">
                 <div class="booking-card-heading">
-                    <h2 id="booking-hazard-title">Hazardous cargo</h2>
+                    <div><p class="booking-section-eyebrow">Safety & handling</p><h2 id="booking-hazard-title">Hazardous cargo</h2></div>
                     @if (details.IsHazardous)
                     {
                         <span class="cargo-hazard-chip">
@@ -163,7 +172,7 @@
 
         <section class="booking-card booking-manifest-card" aria-labelledby="booking-manifest-title">
             <div class="booking-card-heading">
-                <h2 id="booking-manifest-title">Container manifest</h2>
+                <div><p class="booking-section-eyebrow">Cargo inventory</p><h2 id="booking-manifest-title">Container manifest</h2></div>
                 <span class="booking-count manifest-progress">@LoadedContainerCount of @containerTotalCount loaded</span>
             </div>
 
@@ -510,7 +519,7 @@
 
         <section class="booking-card booking-operations-card" aria-labelledby="booking-operations-title">
             <div class="booking-card-heading">
-                <h2 id="booking-operations-title">Load and unload operations</h2>
+                <div><p class="booking-section-eyebrow">Cargo execution</p><h2 id="booking-operations-title">Load and unload operations</h2></div>
                 <span class="booking-count">@PlannedOperationCount planned</span>
             </div>
 
@@ -704,7 +713,7 @@
 
         <section class="booking-card booking-tracking-card" aria-labelledby="booking-tracking-title">
             <div class="booking-card-heading">
-                <h2 id="booking-tracking-title">Tracking history</h2>
+                <div><p class="booking-section-eyebrow">Shipment activity</p><h2 id="booking-tracking-title">Tracking history</h2></div>
                 <span class="booking-count">@details.TrackingEvents.Count recorded</span>
             </div>
 
