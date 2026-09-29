@@ -20,7 +20,9 @@ public sealed class ChangePurchaseOrderStatusService(DbContext dbContext)
         Guid purchaseOrderId,
         CancellationToken cancellationToken)
     {
-        return ChangeStatusAsync(purchaseOrderId, PurchaseOrderStatus.Received, cancellationToken);
+        return dbContext.Database.IsRelational()
+            ? ReceiveAtomicallyAsync(purchaseOrderId, cancellationToken)
+            : ChangeStatusAsync(purchaseOrderId, PurchaseOrderStatus.Received, cancellationToken);
     }
 
     public Task<ChangePurchaseOrderStatusResponse> CancelAsync(
@@ -52,7 +54,7 @@ public sealed class ChangePurchaseOrderStatusService(DbContext dbContext)
         }
 
         var stockAdjustments = targetStatus == PurchaseOrderStatus.Received
-            ? await ApplyReceiptAsync(purchaseOrder, cancellationToken)
+            ? await ApplyReceiptAsync(purchaseOrder.Id, cancellationToken)
             : [];
 
         purchaseOrder.ChangeStatusTo(targetStatus);
@@ -71,18 +73,18 @@ public sealed class ChangePurchaseOrderStatusService(DbContext dbContext)
     }
 
     private async Task<IReadOnlyList<PurchaseOrderStockAdjustment>> ApplyReceiptAsync(
-        PurchaseOrder purchaseOrder,
+        Guid purchaseOrderId,
         CancellationToken cancellationToken)
     {
         var lines = await dbContext.Set<PurchaseOrderLine>()
             .AsNoTracking()
-            .Where(line => line.PurchaseOrderId == purchaseOrder.Id)
+            .Where(line => line.PurchaseOrderId == purchaseOrderId)
             .ToListAsync(cancellationToken);
 
         if (lines.Count == 0)
         {
             throw new PurchaseOrderConflictException(
-                $"Purchase order '{purchaseOrder.Id}' has no lines to receive.");
+                $"Purchase order '{purchaseOrderId}' has no lines to receive.");
         }
 
         var quantitiesByItem = lines
@@ -119,5 +121,53 @@ public sealed class ChangePurchaseOrderStatusService(DbContext dbContext)
         }
 
         return adjustments;
+    }
+
+    private async Task<ChangePurchaseOrderStatusResponse> ReceiveAtomicallyAsync(
+        Guid purchaseOrderId,
+        CancellationToken cancellationToken)
+    {
+        await using var transaction = await dbContext.Database.BeginTransactionAsync(cancellationToken);
+
+        var currentStatus = await dbContext.Set<PurchaseOrder>()
+            .Where(order => order.Id == purchaseOrderId)
+            .Select(order => (PurchaseOrderStatus?)order.Status)
+            .SingleOrDefaultAsync(cancellationToken);
+
+        if (currentStatus is null)
+        {
+            throw new PurchaseOrderNotFoundException(purchaseOrderId);
+        }
+
+        if (currentStatus != PurchaseOrderStatus.Ordered)
+        {
+            throw new PurchaseOrderConflictException(
+                $"Purchase order '{purchaseOrderId}' cannot move from status '{currentStatus}' to '{PurchaseOrderStatus.Received}'.");
+        }
+
+        var claimed = await dbContext.Set<PurchaseOrder>()
+            .Where(order => order.Id == purchaseOrderId && order.Status == PurchaseOrderStatus.Ordered)
+            .ExecuteUpdateAsync(
+                setters => setters.SetProperty(order => order.Status, PurchaseOrderStatus.Received),
+                cancellationToken);
+
+        if (claimed == 0)
+        {
+            throw new PurchaseOrderConflictException(
+                $"Purchase order '{purchaseOrderId}' has already been received or changed.");
+        }
+
+        var stockAdjustments = await ApplyReceiptAsync(purchaseOrderId, cancellationToken);
+        await dbContext.SaveChangesAsync(cancellationToken);
+        await transaction.CommitAsync(cancellationToken);
+
+        return new ChangePurchaseOrderStatusResponse(
+            purchaseOrderId,
+            PurchaseOrderStatus.Ordered.ToString(),
+            PurchaseOrderStatus.Received.ToString(),
+            PurchaseOrder.AllowedTransitions(PurchaseOrderStatus.Received)
+                .Select(status => status.ToString())
+                .ToList(),
+            stockAdjustments);
     }
 }

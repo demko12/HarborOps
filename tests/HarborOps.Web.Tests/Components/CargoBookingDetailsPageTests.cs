@@ -2625,10 +2625,19 @@ public sealed class CargoBookingDetailsPageTests : BunitContext
     [Fact]
     public void The_manifest_reports_that_it_is_loading()
     {
-        var containers = new TaskCompletionSource<HttpResponseMessage>(TaskCreationOptions.RunContinuationsAsynchronously);
-        respond = request => IsContainersRequest(request)
-            ? containers.Task
-            : SectionResponse(request, EmptyItems, EmptyItems, Details());
+        var containers = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        respond = async request =>
+        {
+            if (!IsContainersRequest(request))
+            {
+                return await SectionResponse(request, EmptyItems, EmptyItems, Details());
+            }
+
+            await containers.Task;
+            return await Json(
+                HttpStatusCode.OK,
+                ManifestPage([new ManifestContainer("MSKU0000001")], 1, 1, 0));
+        };
 
         var page = RenderDetailsPage();
 
@@ -2636,10 +2645,7 @@ public sealed class CargoBookingDetailsPageTests : BunitContext
             Assert.Contains("Loading the container manifest...", page.Markup, StringComparison.Ordinal));
         Assert.Empty(page.FindAll(".manifest-filters"));
 
-        containers.SetResult(new HttpResponseMessage(HttpStatusCode.OK)
-        {
-            Content = new StringContent(ManifestPage([new ManifestContainer("MSKU0000001")], 1, 1, 0), Encoding.UTF8, "application/json"),
-        });
+        containers.SetResult();
 
         page.WaitForAssertion(() => Assert.Single(page.FindAll(".manifest-row")));
     }
