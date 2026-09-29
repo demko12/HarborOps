@@ -213,3 +213,29 @@ html[data-theme="dark"] .crew-operations-page .crew-operation-form :is(input, se
 @media (prefers-reduced-motion: reduce) {
     .crew-operations-page *, .crew-operations-page *::before { transition: none; }
 }
+
+/* Profile theme selectors must stay global: html is outside Blazor CSS isolation. */
+html[data-theme="light"] .crew-profile-page .employment-active { color: #047857; border-color: rgba(5,150,105,.34); background: rgba(16,185,129,.16); }
+html[data-theme="light"] .crew-profile-page .employment-onleave { color: var(--status-warning-strong); border-color: rgba(180,83,9,.3); background: rgba(180,83,9,.12); }
+html[data-theme="light"] .crew-profile-page .employment-suspended { color: var(--status-danger-strong); border-color: rgba(185,28,28,.3); background: rgba(185,28,28,.12); }
+html[data-theme="light"] .crew-profile-page .employment-terminated, html[data-theme="light"] .crew-profile-page .employment-inactive { color: #475569; border-color: rgba(71,85,105,.3); background: rgba(71,85,105,.1); }
+html[data-theme="light"] .crew-profile-page .crew-profile-indicator-valid { color: var(--status-success-strong); border-color: rgba(15,118,110,.3); background: rgba(15,118,110,.12); }
+html[data-theme="light"] .crew-profile-page .crew-profile-indicator-warning { color: var(--status-warning-strong); border-color: rgba(180,83,9,.3); background: rgba(180,83,9,.12); }
+html[data-theme="light"] .crew-profile-page .crew-profile-indicator-expired { color: var(--status-danger-strong); border-color: rgba(185,28,28,.3); background: rgba(185,28,28,.12); }
+html[data-theme="light"] .crew-profile-page .crew-profile-indicator-neutral { color: #475569; border-color: rgba(71,85,105,.3); background: rgba(71,85,105,.1); }
+html[data-theme="dark"] .crew-profile-page .crew-assignment-modal-backdrop { background: rgba(2, 6, 23, .48); }
+html[data-theme="dark"] .crew-profile-page .crew-assignment-modal {
+    border-color: rgba(148, 163, 184, .28);
+    background: #172033;
+    box-shadow: 0 28px 64px rgba(0, 0, 0, .5);
+}
+html[data-theme="light"] .crew-profile-page .crew-assignment-modal-delete { color: var(--status-danger-strong); border-color: rgba(185,28,28,.3); background: rgba(185,28,28,.08); }
+html[data-theme="light"] .crew-profile-page .crew-assignment-modal-error { border-color: rgba(185, 28, 28, .3); background: rgba(185, 28, 28, .08); }
+html[data-theme="light"] .crew-profile-page .crew-profile-form-error,
+html[data-theme="light"] .crew-profile-page .crew-profile-form-field-errors { border-color: rgba(185, 28, 28, .3); background: rgba(185, 28, 28, .08); }
+html[data-theme="light"] .crew-profile-page .crew-profile-form-grid select,
+html[data-theme="light"] .crew-profile-page .crew-profile-form-grid input:not(.vessel-picker-input):not(.relieving-member-picker-input) { color-scheme: light; }
+html[data-theme="light"] .crew-profile-page .crew-rotation-execute { color: #047857; border-color: rgba(5, 150, 105, .3); background: rgba(5, 150, 105, .1); }
+html[data-theme="dark"] .crew-profile-highlight-active { --profile-metric-color: #34d399; }
+html[data-theme="dark"] .crew-profile-highlight-review { --profile-metric-color: #fbbf24; }
+html:has(.crew-profile-editor-backdrop) { overflow: hidden; }

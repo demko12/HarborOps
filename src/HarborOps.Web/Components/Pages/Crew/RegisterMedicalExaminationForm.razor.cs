@@ -23,6 +23,8 @@ public partial class RegisterMedicalExaminationForm
 
     private FormModel model = new();
     private bool isSubmitting;
+
+    public bool IsSubmitting => isSubmitting;
     private string? successMessage;
     private string? generalError;
     private IReadOnlyList<string> fieldErrors = [];
