@@ -880,7 +880,7 @@ html[data-theme="dark"] .timeline-map .leaflet-popup-close-button { color: #b6c6
 html[data-theme="dark"] .timeline-map .leaflet-control-attribution a { color: #93c5fd; }
 html[data-theme="dark"] .timeline-map .leaflet-control-zoom a:hover { background: #263952; color: #f1f5f9; }
 html[data-theme="dark"] .timeline-map .voyage-map-flow { opacity: .7; }
-html[data-theme="dark"] .timeline-route-map .timeline-eyebrow { color: #8ab9ff; }
+html[data-theme="dark"] .timeline-route-map .timeline-eyebrow { color: var(--accent); }
 html[data-theme="dark"] .timeline-map-status-key i.planned { background: #70aaff; }
 html[data-theme="dark"] .timeline-map-status-key i.arrived { background: #4ccbb4; }
 html[data-theme="dark"] .timeline-map-status-key i.departed { background: #8a9bb3; }
@@ -932,3 +932,13 @@ html[data-theme="dark"] .voyage-card-map .leaflet-tile {
     filter: grayscale(1) invert(1) sepia(.2) hue-rotate(170deg) saturate(1.4) brightness(.8) contrast(.9);
 }
 html[data-theme="dark"] .voyage-card-map .leaflet-control-attribution { color: #cbd5e1; background: rgba(23, 32, 51, .75); }
+
+html[data-theme="dark"] .timeline-page .timeline-table > tbody > tr:not(.timeline-clearance-row) {
+    background: var(--module-card-background);
+}
+html[data-theme="dark"] .timeline-page .timeline-table > tbody > tr:not(.timeline-clearance-row) > td {
+    background: transparent;
+}
+html[data-theme="dark"] .timeline-page .timeline-table > tbody > tr:not(.timeline-clearance-row):is(:hover, :focus-within) {
+    background: var(--bg-surface-strong);
+}

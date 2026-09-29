@@ -30,6 +30,37 @@ public sealed class VoyageTimelinePageTests : BunitContext
     private Func<HttpRequestMessage, Task<HttpResponseMessage>> respond =
         _ => Json(HttpStatusCode.OK, Itinerary());
 
+    [Theory]
+    [InlineData("Planned", "Next port call", "Port of Bar", "0")]
+    [InlineData("Arrived", "Current port call", "Port of Bar", "0")]
+    [InlineData("Departed", "Next port call", "Port of Kotor", "1")]
+    public void The_summary_tracks_the_current_call_and_departed_progress(
+        string status, string label, string port, string departed)
+    {
+        respond = _ => Json(HttpStatusCode.OK, Itinerary(firstStopStatus: status, firstStopClearanceOverdue: 2));
+
+        var page = RenderTimelinePage();
+        var cards = page.FindAll(".timeline-summary .timeline-kpi");
+
+        Assert.Contains(label, cards[2].TextContent, StringComparison.Ordinal);
+        Assert.Contains(port, cards[2].TextContent, StringComparison.Ordinal);
+        Assert.Equal("2", cards[3].QuerySelector(".timeline-kpi-value")!.TextContent);
+        Assert.Equal(departed, page.Find(".timeline-progress progress").GetAttribute("value"));
+        Assert.Equal("2", page.Find(".timeline-progress progress").GetAttribute("max"));
+    }
+
+    [Fact]
+    public void An_empty_itinerary_has_no_misleading_progress_or_next_port()
+    {
+        respond = _ => Json(HttpStatusCode.OK, EmptyItinerary());
+
+        var page = RenderTimelinePage();
+
+        Assert.Empty(page.FindAll(".timeline-progress"));
+        Assert.Equal("—", page.Find(".timeline-kpi-port").TextContent);
+        Assert.Contains("No remaining port calls", page.Markup, StringComparison.Ordinal);
+    }
+
     [Fact]
     public void The_itinerary_is_requested_for_the_voyage_in_the_route()
     {

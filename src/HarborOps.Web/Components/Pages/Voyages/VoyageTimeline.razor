@@ -5,6 +5,7 @@
 @inject VoyagesApiClient VoyagesApi
 @inject CurrentUserAuthorizationState AuthorizationState
 @inject IJSRuntime JS
+@inject NavigationManager Navigation
 
 <PageTitle>Voyage timeline | HarborOps</PageTitle>
 
@@ -13,6 +14,10 @@
         <div>
             <nav class="page-breadcrumb" aria-label="Breadcrumb"><a href="@BoardHref">Voyages</a><span aria-hidden="true">/</span><span>Timeline</span></nav>
             <h1>Voyage timeline</h1>
+            @if (schedule is not null)
+            {
+                <p class="timeline-route-identity"><strong>@schedule.Voyage.VoyageNumber</strong><span>@(schedule.Voyage.DeparturePortName ?? MissingValue) <span aria-hidden="true">→</span> @(schedule.Voyage.ArrivalPortName ?? MissingValue)</span></p>
+            }
             <p class="timeline-voyage-cell">
                 <code class="timeline-voyage" title="@VoyageId">@VoyageId</code>
                 <button type="button"
@@ -47,6 +52,14 @@
     }
     else if (itinerary is not null)
     {
+        var focusStop = itinerary.Stops.OrderBy(stop => stop.StopOrder).FirstOrDefault(stop => stop.Status != DepartedStatus);
+        <nav class="timeline-section-nav" aria-label="Voyage sections">
+            <a href="@($"{Navigation.Uri.Split('#')[0]}#timeline-route-map-title")"><span class="bi bi-map" aria-hidden="true"></span>Route map</a>
+            <a href="@($"{Navigation.Uri.Split('#')[0]}#timeline-stops-title")"><span class="bi bi-geo-alt" aria-hidden="true"></span>Port calls</a>
+            <a href="@($"{Navigation.Uri.Split('#')[0]}#timeline-delays-title")"><span class="bi bi-hourglass-split" aria-hidden="true"></span>Delays</a>
+            <a href="@($"{Navigation.Uri.Split('#')[0]}#timeline-revisions-title")"><span class="bi bi-clock-history" aria-hidden="true"></span>Revisions</a>
+            <a href="@($"{Navigation.Uri.Split('#')[0]}#timeline-schedule-title")"><span class="bi bi-calendar3" aria-hidden="true"></span>Schedule</a>
+        </nav>
         <section class="timeline-summary" aria-label="Timeline summary">
             <article class="timeline-kpi">
                 <div>
@@ -64,7 +77,31 @@
                 </div>
                 <span class="timeline-kpi-icon kpi-icon-delay" aria-hidden="true"><span class="bi bi-hourglass-split"></span></span>
             </article>
+            <article class="timeline-kpi">
+                <div>
+                    <p class="timeline-kpi-label">@(focusStop?.Status == ArrivedStatus ? "Current port call" : "Next port call")</p>
+                    <p class="timeline-kpi-value timeline-kpi-port">@(focusStop?.PortName ?? MissingValue)</p>
+                    <p class="timeline-kpi-note">@(focusStop is null ? "No remaining port calls" : $"Stop {focusStop.StopOrder} · {focusStop.Status}")</p>
+                </div>
+                <span class="timeline-kpi-icon" aria-hidden="true"><span class="bi bi-signpost-split"></span></span>
+            </article>
+            <article class="timeline-kpi">
+                <div>
+                    <p class="timeline-kpi-label">Overdue clearance</p>
+                    <p class="timeline-kpi-value">@itinerary.Stops.Sum(stop => stop.ClearanceOverdueRequiredItemCount)</p>
+                    <p class="timeline-kpi-note">Required items across port calls</p>
+                </div>
+                <span class="timeline-kpi-icon" aria-hidden="true"><span class="bi bi-clipboard-check"></span></span>
+            </article>
         </section>
+
+        @if (itinerary.Stops.Count > 0)
+        {
+            <div class="timeline-progress">
+                <span>Voyage progress <strong>@CompletedStopCount(itinerary) / @itinerary.Stops.Count port calls departed</strong></span>
+                <progress value="@CompletedStopCount(itinerary)" max="@itinerary.Stops.Count" aria-label="Departed port calls">@CompletedStopCount(itinerary) / @itinerary.Stops.Count</progress>
+            </div>
+        }
 
         <section class="timeline-card timeline-route-map" aria-labelledby="timeline-route-map-title">
             <div class="timeline-card-heading">
@@ -110,9 +147,9 @@
             <div class="timeline-action-success" role="status">@actionSuccess</div>
         }
 
-        <section class="timeline-card" aria-labelledby="timeline-stops-title">
+        <section class="timeline-card timeline-port-calls" aria-labelledby="timeline-stops-title">
             <div class="timeline-card-heading">
-                <h2 id="timeline-stops-title">Port calls</h2>
+                <div><p class="timeline-eyebrow">Voyage execution</p><h2 id="timeline-stops-title">Port calls</h2></div>
                 <span class="timeline-count">@itinerary.Stops.Count stops</span>
             </div>
 
@@ -374,7 +411,7 @@
 
         <section class="timeline-card" aria-labelledby="timeline-delays-title">
             <div class="timeline-card-heading">
-                <h2 id="timeline-delays-title">Delays</h2>
+                <div><p class="timeline-eyebrow">Operational exceptions</p><h2 id="timeline-delays-title">Delays</h2></div>
                 <span class="timeline-count">@itinerary.Delays.Count recorded</span>
             </div>
 
@@ -643,7 +680,7 @@
 
         <section class="timeline-card" aria-labelledby="timeline-revisions-title">
             <div class="timeline-card-heading">
-                <h2 id="timeline-revisions-title">Estimate revisions</h2>
+                <div><p class="timeline-eyebrow">Estimate history</p><h2 id="timeline-revisions-title">Estimate revisions</h2></div>
                 <span class="timeline-count">@(estimateRevisions?.Revisions.Count ?? 0) published</span>
             </div>
 
@@ -719,7 +756,7 @@
 
         <section class="timeline-card" aria-labelledby="timeline-schedule-title">
             <div class="timeline-card-heading">
-                <h2 id="timeline-schedule-title">Schedule</h2>
+                <div><p class="timeline-eyebrow">Voyage schedule</p><h2 id="timeline-schedule-title">Schedule</h2></div>
                 @if (schedule is not null)
                 {
                     <span class="timeline-status @VoyageStatusModifier(schedule.Voyage.Status)">@schedule.Voyage.Status</span>
