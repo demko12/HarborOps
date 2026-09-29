@@ -11,7 +11,7 @@ internal sealed class VoyagesApiClient(HttpClient httpClient)
     private static readonly IReadOnlyDictionary<string, string[]> NoErrors =
         new Dictionary<string, string[]>(StringComparer.OrdinalIgnoreCase);
 
-    internal async Task<VoyagesApiResult<VoyagePage>> GetVoyagesAsync(
+    internal Task<VoyagesApiResult<VoyagePage>> GetVoyagesAsync(
         DateOnly from,
         DateOnly to,
         string? search,
@@ -21,9 +21,32 @@ internal sealed class VoyagesApiClient(HttpClient httpClient)
         int pageSize,
         CancellationToken cancellationToken)
     {
+        return GetVoyagesAsync(
+            from,
+            to,
+            search,
+            status,
+            includeActive,
+            false,
+            pageNumber,
+            pageSize,
+            cancellationToken);
+    }
+
+    internal async Task<VoyagesApiResult<VoyagePage>> GetVoyagesAsync(
+        DateOnly from,
+        DateOnly to,
+        string? search,
+        string? status,
+        bool includeActive,
+        bool delayImpactApplied,
+        int pageNumber,
+        int pageSize,
+        CancellationToken cancellationToken)
+    {
         var path = string.Create(
             CultureInfo.InvariantCulture,
-            $"{BasePath}?from={from:yyyy-MM-dd}&to={to:yyyy-MM-dd}&search={Uri.EscapeDataString(search ?? string.Empty)}&status={Uri.EscapeDataString(status ?? string.Empty)}&includeActive={(includeActive ? "true" : "false")}&pageNumber={pageNumber}&pageSize={pageSize}");
+            $"{BasePath}?from={from:yyyy-MM-dd}&to={to:yyyy-MM-dd}&search={Uri.EscapeDataString(search ?? string.Empty)}&status={Uri.EscapeDataString(status ?? string.Empty)}&includeActive={(includeActive ? "true" : "false")}{(delayImpactApplied ? "&delayImpactApplied=true" : string.Empty)}&pageNumber={pageNumber}&pageSize={pageSize}");
 
         try
         {

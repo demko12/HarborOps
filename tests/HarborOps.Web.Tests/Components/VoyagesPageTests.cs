@@ -225,6 +225,109 @@ public sealed class VoyagesPageTests : BunitContext
     }
 
     [Fact]
+    public void Clicking_a_status_summary_card_filters_the_board_and_clicking_it_again_clears_the_filter()
+    {
+        var page = RenderVoyagesPage();
+        var inProgress = "button.voyages-kpi[aria-label='Show voyages in progress']";
+
+        page.Find(inProgress).Click();
+
+        page.WaitForAssertion(() =>
+        {
+            Assert.Contains("status=InProgress", ResultQueries()[^1], StringComparison.Ordinal);
+            Assert.Equal("true", page.Find(inProgress).GetAttribute("aria-pressed"));
+            Assert.Contains("selected", page.Find(inProgress).ClassName, StringComparison.Ordinal);
+            Assert.Equal(Voyages.InProgressStatus, page.Find("#voyages-status").GetAttribute("value"));
+        });
+
+        page.Find(inProgress).Click();
+
+        page.WaitForAssertion(() =>
+        {
+            Assert.Contains("status=&", ResultQueries()[^1], StringComparison.Ordinal);
+            Assert.Equal("false", page.Find(inProgress).GetAttribute("aria-pressed"));
+        });
+    }
+
+    [Fact]
+    public void Clicking_the_delayed_summary_card_shows_only_delayed_voyages_until_the_filters_are_reset()
+    {
+        var page = RenderVoyagesPage();
+        var delayed = "button.voyages-kpi[aria-label='Show delayed voyages']";
+
+        page.Find(delayed).Click();
+
+        page.WaitForAssertion(() =>
+        {
+            Assert.Contains("delayImpactApplied=true", ResultQueries()[^1], StringComparison.Ordinal);
+            Assert.Equal("true", page.Find(delayed).GetAttribute("aria-pressed"));
+        });
+
+        page.Find(".voyages-reset").Click();
+
+        page.WaitForAssertion(() =>
+        {
+            Assert.DoesNotContain("delayImpactApplied", ResultQueries()[^1], StringComparison.Ordinal);
+            Assert.Equal("false", page.Find(delayed).GetAttribute("aria-pressed"));
+        });
+    }
+
+    [Fact]
+    public void The_delayed_filter_is_kept_when_returning_from_a_timeline()
+    {
+        respond = _ => Json(HttpStatusCode.OK, Page(Row("VOY-0307")));
+        startUri = "/voyages?delayed=true";
+
+        var page = RenderVoyagesPage();
+
+        page.WaitForAssertion(() => Assert.Contains("delayImpactApplied=true", ResultQueries()[^1], StringComparison.Ordinal));
+        Assert.EndsWith("?from=delayed%3Dtrue", page.Find("td.voyage-number a").GetAttribute("href"), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Departures_inside_the_next_day_show_how_soon_they_leave()
+    {
+        respond = _ => Json(HttpStatusCode.OK, Page(
+            Row("VOY-0310", plannedDeparture: Stamp(DateTime.UtcNow.AddHours(5).AddMinutes(20))),
+            Row("VOY-0311")));
+
+        var page = RenderVoyagesPage();
+
+        var label = Assert.Single(page.FindAll(".voyage-departs-in"));
+        Assert.Equal("Departs in 5h", label.TextContent.Trim());
+        Assert.Contains("VOY-0310", page.Find("tbody tr.imminent").TextContent, StringComparison.Ordinal);
+    }
+
+    [Theory]
+    [InlineData(330, "Departs in 5h")]
+    [InlineData(45, "Departs in 45m")]
+    [InlineData(0.5, "Departs in 1m")]
+    public void Departure_countdown_uses_hours_or_minutes(double minutes, string expected)
+    {
+        var utcNow = new DateTime(2026, 9, 29, 8, 0, 0, DateTimeKind.Utc);
+
+        Assert.Equal(expected, Voyages.FormatDepartsIn(utcNow.AddMinutes(minutes), utcNow));
+    }
+
+    [Fact]
+    public void A_success_message_disappears_after_a_few_seconds()
+    {
+        respond = request => request.Method == HttpMethod.Get
+            ? Json(HttpStatusCode.OK, Page(Row("VOY-0312")))
+            : Json(HttpStatusCode.OK, """{"id":"20000000-0000-0000-0000-000000000001","status":"InProgress"}""");
+
+        var page = RenderVoyagesPage(Voyages.ManageVoyagesPermission);
+
+        page.Find(".voyages-row-action").Click();
+        page.Find(".voyage-action-buttons .voyages-button").Click();
+
+        page.WaitForAssertion(() => Assert.Contains("VOY-0312 is now InProgress", page.Find(".voyages-action-success").TextContent, StringComparison.Ordinal));
+        page.WaitForAssertion(
+            () => Assert.Empty(page.FindAll(".voyages-action-success")),
+            TimeSpan.FromMilliseconds(Voyages.SuccessToastMilliseconds + 2000));
+    }
+
+    [Fact]
     public void Applying_filters_sends_the_window_status_and_page_size_to_the_api()
     {
         var page = RenderVoyagesPage();
