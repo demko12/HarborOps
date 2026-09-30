@@ -96,6 +96,45 @@ public sealed class CrewQualificationCoverageTests
     }
 
     [Fact]
+    public void Evaluate_excludes_a_revoked_certificate_whose_date_range_would_otherwise_cover_the_window()
+    {
+        var revoked = Certificate("STCW-II/1", new DateOnly(2026, 1, 1), new DateOnly(2026, 12, 31));
+        revoked.Revoke(Guid.NewGuid(), "Issued in error", new DateTime(2026, 1, 5, 0, 0, 0, DateTimeKind.Utc));
+
+        var result = CrewQualificationCoverage.Evaluate(
+            [revoked], ["STCW-II/1"], new DateOnly(2026, 1, 1), new DateOnly(2026, 1, 10));
+
+        Assert.False(result.IsFullyCovered);
+        Assert.DoesNotContain(revoked.Id, result.ContributingCertificateIds);
+    }
+
+    [Fact]
+    public void Evaluate_still_covers_via_a_non_revoked_successor_when_the_predecessor_is_revoked()
+    {
+        var predecessor = Certificate("STCW-II/1", new DateOnly(2026, 1, 1), new DateOnly(2026, 6, 30));
+        predecessor.Revoke(Guid.NewGuid(), "Superseded", new DateTime(2026, 3, 1, 0, 0, 0, DateTimeKind.Utc));
+        var successor = CrewCertificate.CreateRenewal(
+            predecessor.Id, MemberId, "STCW-II/1", "STCW-II/1 certificate", "Flag Authority",
+            $"LIC-{Guid.NewGuid():N}"[..15], new DateOnly(2026, 1, 1), new DateOnly(2026, 12, 31), "Valid");
+
+        var result = CrewQualificationCoverage.Evaluate(
+            [predecessor, successor], ["STCW-II/1"], new DateOnly(2026, 1, 1), new DateOnly(2026, 12, 31));
+
+        Assert.True(result.IsFullyCovered);
+        Assert.Contains(successor.Id, result.ContributingCertificateIds);
+        Assert.DoesNotContain(predecessor.Id, result.ContributingCertificateIds);
+    }
+
+    [Fact]
+    public void IsCoveredOnDay_excludes_a_revoked_certificate()
+    {
+        var certificate = Certificate("STCW-II/1", new DateOnly(2026, 1, 5), new DateOnly(2026, 1, 10));
+        certificate.Revoke(Guid.NewGuid(), "Issued in error", new DateTime(2026, 1, 6, 0, 0, 0, DateTimeKind.Utc));
+
+        Assert.False(CrewQualificationCoverage.IsCoveredOnDay([certificate], "STCW-II/1", new DateOnly(2026, 1, 7)));
+    }
+
+    [Fact]
     public void Evaluate_reports_missing_types_independently_per_required_type()
     {
         var covered = Certificate("STCW-II/1", new DateOnly(2026, 1, 1), new DateOnly(2026, 1, 10));

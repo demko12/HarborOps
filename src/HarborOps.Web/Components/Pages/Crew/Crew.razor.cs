@@ -4,6 +4,8 @@ namespace HarborOps.Web.Components.Pages.Crew;
 
 public partial class Crew
 {
+    private const int PageSize = 24;
+
     private readonly CancellationTokenSource disposeCancellation = new();
     private int loadVersion;
     private readonly DateOnly currentDate = DateOnly.FromDateTime(DateTime.Today);
@@ -78,7 +80,7 @@ public partial class Crew
         CrewApiResult<CrewMemberPageResponse> result;
         try
         {
-            result = await CrewApi.GetMembersAsync(search, employmentStatus, roster?.PageNumber ?? 1, 25, cancellationToken);
+            result = await CrewApi.GetMembersAsync(search, employmentStatus, roster?.PageNumber ?? 1, PageSize, cancellationToken);
         }
         catch (OperationCanceledException) when (disposeCancellation.IsCancellationRequested)
         {

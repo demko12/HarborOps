@@ -22,6 +22,25 @@ internal sealed class ComplianceApiClient(HttpClient httpClient)
             () => httpClient.PostAsJsonAsync($"{BasePath}/certificates", request, cancellationToken),
             HttpStatusCode.Created, "Unable to register certificate", cancellationToken);
 
+    internal Task<ComplianceApiResult<ComplianceCertificateDetail>> GetCertificateAsync(
+        Guid certificateId, CancellationToken cancellationToken) =>
+        SendAsync<ComplianceCertificateDetail>(
+            () => httpClient.GetAsync($"{BasePath}/certificates/{certificateId}",
+                HttpCompletionOption.ResponseHeadersRead, cancellationToken),
+            HttpStatusCode.OK, "Unable to load certificate", cancellationToken);
+
+    internal Task<ComplianceApiResult<RenewComplianceCertificateResult>> RenewCertificateAsync(
+        Guid certificateId, RenewComplianceCertificateRequest request, CancellationToken cancellationToken) =>
+        SendAsync<RenewComplianceCertificateResult>(
+            () => httpClient.PostAsJsonAsync($"{BasePath}/certificates/{certificateId}/renewals", request, cancellationToken),
+            HttpStatusCode.Created, "Unable to renew certificate", cancellationToken);
+
+    internal Task<ComplianceApiResult<RevokeComplianceCertificateResult>> RevokeCertificateAsync(
+        Guid certificateId, RevokeComplianceCertificateRequest request, CancellationToken cancellationToken) =>
+        SendAsync<RevokeComplianceCertificateResult>(
+            () => httpClient.PostAsJsonAsync($"{BasePath}/certificates/{certificateId}/revoke", request, cancellationToken),
+            HttpStatusCode.OK, "Unable to revoke certificate", cancellationToken);
+
     internal Task<ComplianceApiResult<RegisterPscInspectionResult>> RegisterPscInspectionAsync(
         RegisterPscInspectionRequest request, CancellationToken cancellationToken) =>
         SendAsync<RegisterPscInspectionResult>(

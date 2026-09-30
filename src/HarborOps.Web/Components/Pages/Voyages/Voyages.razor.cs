@@ -17,6 +17,7 @@ public partial class Voyages
     internal const string MissingValue = "—";
     internal const int DefaultWindowDays = 30;
     internal const int ImminentDepartureHours = 24;
+    internal const int SuccessToastMilliseconds = 3000;
 
     internal const string RoutesTabUrl = "/voyages/routes";
     internal const string CardsView = "cards";
@@ -45,6 +46,7 @@ public partial class Voyages
     private readonly CancellationTokenSource actionCancellation = new();
 
     private readonly CancellationTokenSource disposeCancellation = new();
+    private CancellationTokenSource? toastCancellation;
     private int loadVersion;
 
     [SupplyParameterFromQuery(Name = "from")]
@@ -68,6 +70,9 @@ public partial class Voyages
     [SupplyParameterFromQuery(Name = "view")]
     private string? ViewFromQuery { get; set; }
 
+    [SupplyParameterFromQuery(Name = "delayed")]
+    private bool? DelayedFromQuery { get; set; }
+
     private DateOnly fromDate = DefaultFrom();
     private DateOnly toDate = DefaultTo();
     private string statusFilter = string.Empty;
@@ -76,6 +81,7 @@ public partial class Voyages
     private DateOnly appliedTo = DefaultTo();
     private string appliedStatus = string.Empty;
     private string? appliedSearch;
+    private bool delayedOnly;
     private int pageNumber = 1;
     private int pageSize = 25;
     private int totalCount;
@@ -152,6 +158,7 @@ public partial class Voyages
         }
 
         cardView = string.Equals(ViewFromQuery, CardsView, StringComparison.Ordinal);
+        delayedOnly = DelayedFromQuery == true;
     }
 
     private string BoardQuery
@@ -193,6 +200,11 @@ public partial class Voyages
             if (cardView)
             {
                 parts.Add($"view={CardsView}");
+            }
+
+            if (delayedOnly)
+            {
+                parts.Add("delayed=true");
             }
 
             return string.Join('&', parts);
@@ -314,6 +326,14 @@ public partial class Voyages
     {
         return plannedDeparture >= utcNow
             && plannedDeparture <= utcNow.AddHours(ImminentDepartureHours);
+    }
+    internal static string FormatDepartsIn(DateTime plannedDeparture, DateTime utcNow)
+    {
+        var remaining = plannedDeparture - utcNow;
+
+        return remaining.TotalMinutes < 60
+            ? $"Departs in {Math.Max(1, (int)remaining.TotalMinutes)}m"
+            : $"Departs in {(int)remaining.TotalHours}h";
     }
     internal static string FailureTitle(VoyagesApiFailure failure)
     {
@@ -452,7 +472,7 @@ public partial class Voyages
                     return;
                 }
 
-                actionSuccess = $"{voyageNumber} is now {cancellation.Value!.Voyage.Status}.";
+                ShowSuccess($"{voyageNumber} is now {cancellation.Value!.Voyage.Status}.");
                 CancelAction();
 
                 await LoadAsync();
@@ -488,7 +508,7 @@ public partial class Voyages
                 return;
             }
 
-            actionSuccess = $"{voyageNumber} is now {result.Value!.Status}.";
+            ShowSuccess($"{voyageNumber} is now {result.Value!.Status}.");
             CancelAction();
 
             await LoadAsync();
@@ -497,6 +517,34 @@ public partial class Voyages
         {
             isActionSubmitting = false;
         }
+    }
+
+    private void ShowSuccess(string message)
+    {
+        toastCancellation?.Cancel();
+        toastCancellation?.Dispose();
+
+        var cancellation = CancellationTokenSource.CreateLinkedTokenSource(disposeCancellation.Token);
+        toastCancellation = cancellation;
+        actionSuccess = message;
+
+        _ = HideSuccessAfterDelayAsync(cancellation);
+    }
+
+    private async Task HideSuccessAfterDelayAsync(CancellationTokenSource cancellation)
+    {
+        try
+        {
+            await Task.Delay(SuccessToastMilliseconds, cancellation.Token);
+        }
+        catch (OperationCanceledException)
+        {
+            return;
+        }
+
+        actionSuccess = null;
+
+        await InvokeAsync(StateHasChanged);
     }
     private static DateOnly DefaultFrom()
     {
@@ -524,6 +572,26 @@ public partial class Voyages
         toDate = DefaultTo();
         statusFilter = string.Empty;
         searchTerm = null;
+        delayedOnly = false;
+
+        await ApplyFiltersAsync();
+    }
+
+    private bool IsStatusKpiSelected(string status)
+    {
+        return string.Equals(appliedStatus, status, StringComparison.Ordinal);
+    }
+
+    private async Task ToggleStatusKpiAsync(string status)
+    {
+        statusFilter = IsStatusKpiSelected(status) ? string.Empty : status;
+
+        await ApplyFiltersAsync();
+    }
+
+    private async Task ToggleDelayedKpiAsync()
+    {
+        delayedOnly = !delayedOnly;
 
         await ApplyFiltersAsync();
     }
@@ -564,6 +632,7 @@ public partial class Voyages
                 appliedSearch,
                 appliedStatus,
                 true,
+                delayedOnly,
                 pageNumber,
                 pageSize,
                 cancellationToken);
@@ -596,8 +665,9 @@ public partial class Voyages
         pageNumber = page.PageNumber;
         totalCount = page.TotalCount;
 
-        await ResolveVesselNamesAsync(page.Items.Select(voyage => voyage.VesselId), cancellationToken, requestVersion);
-        await LoadStatusCountsAsync(cancellationToken, requestVersion);
+        await Task.WhenAll(
+            ResolveVesselNamesAsync(page.Items.Select(voyage => voyage.VesselId), cancellationToken, requestVersion),
+            LoadStatusCountsAsync(cancellationToken, requestVersion));
     }
     private async Task LoadStatusCountsAsync(CancellationToken cancellationToken, int requestVersion)
     {
@@ -648,6 +718,8 @@ public partial class Voyages
     }
     public void Dispose()
     {
+        toastCancellation?.Cancel();
+        toastCancellation?.Dispose();
         actionCancellation.Cancel();
         actionCancellation.Dispose();
         disposeCancellation.Cancel();

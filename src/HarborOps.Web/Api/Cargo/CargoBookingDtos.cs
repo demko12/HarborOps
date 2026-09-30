@@ -130,7 +130,93 @@ internal sealed record CargoContainerRow(
     string? PortOfDischargeCode = null,
     decimal? WeightKg = null);
 
-internal sealed record CargoContainerList(IReadOnlyList<CargoContainerRow> Items, int TotalCount = 0, int PageNumber = 1, int PageSize = 15, int LoadedCount = 0);
+internal sealed record CargoContainerList(IReadOnlyList<CargoContainerRow> Items, int TotalCount = 0, int PageNumber = 1, int PageSize = 15, int LoadedCount = 0, int? MatchingCount = null);
+
+internal sealed record CargoContainerFilter(
+    string? Search = null,
+    string? Status = null,
+    string? ContainerType = null,
+    string? PortOfLoadingCode = null,
+    string? PortOfDischargeCode = null)
+{
+    internal static CargoContainerFilter None { get; } = new();
+
+    internal bool IsEmpty => this == None;
+
+    internal static CargoContainerFilter Create(
+        string? search,
+        string? status,
+        string? containerType,
+        string? portOfLoadingCode,
+        string? portOfDischargeCode)
+    {
+        return new CargoContainerFilter(
+            Normalize(search),
+            string.IsNullOrWhiteSpace(status) ? null : status.Trim(),
+            Normalize(containerType),
+            Normalize(portOfLoadingCode),
+            Normalize(portOfDischargeCode));
+    }
+
+    internal IReadOnlyList<string> QueryParts()
+    {
+        var parts = new List<string>();
+
+        AddQueryPart(parts, "search", Search);
+        AddQueryPart(parts, "status", Status);
+        AddQueryPart(parts, "containerType", ContainerType);
+        AddQueryPart(parts, "portOfLoadingCode", PortOfLoadingCode);
+        AddQueryPart(parts, "portOfDischargeCode", PortOfDischargeCode);
+
+        return parts;
+    }
+
+    private static void AddQueryPart(List<string> parts, string name, string? value)
+    {
+        if (!string.IsNullOrWhiteSpace(value))
+        {
+            parts.Add($"{name}={Uri.EscapeDataString(value.Trim())}");
+        }
+    }
+
+    private static string? Normalize(string? value)
+    {
+        return string.IsNullOrWhiteSpace(value) ? null : value.Trim().ToUpperInvariant();
+    }
+}
+
+internal sealed record CargoManifestPrintFilters(
+    string? Search,
+    string? Status,
+    string? ContainerType,
+    string? PortOfLoadingCode,
+    string? PortOfDischargeCode);
+
+internal sealed record CargoManifestPrintRow(
+    Guid ContainerId,
+    string ContainerNumber,
+    string ContainerType,
+    string Status,
+    string? PortOfLoadingCode,
+    string? PortOfDischargeCode,
+    decimal? WeightKg,
+    Guid? VesselId);
+
+internal sealed record CargoManifestPrintView(
+    Guid CargoBookingId,
+    string BookingNumber,
+    DateTime GeneratedAtUtc,
+    CargoManifestPrintFilters Filters,
+    bool IsFiltered,
+    int MatchingCount,
+    int BookingContainerCount,
+    decimal KnownWeightKg,
+    int KnownWeightCount,
+    int UnknownWeightCount,
+    int RowLimit,
+    IReadOnlyList<CargoManifestPrintRow> Rows);
+
+internal sealed record CargoFileDownloadResult(bool Ok, int Status, string? Message, int? Count);
 
 internal sealed record CargoOperationRow(
     Guid OperationId,

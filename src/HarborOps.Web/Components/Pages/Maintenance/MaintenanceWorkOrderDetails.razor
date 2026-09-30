@@ -5,6 +5,7 @@
 @implements IDisposable
 @inject MaintenanceApiClient MaintenanceApi
 @inject FleetApiClient FleetApi
+@inject NavigationManager Navigation
 @inject CurrentUserAuthorizationState AuthorizationState
 
 <PageTitle>@PageHeading | HarborOps</PageTitle>
@@ -13,16 +14,16 @@
 	<header class="work-order-details-header">
 		<div>
 			<nav class="page-breadcrumb" aria-label="Breadcrumb"><a href="@MaintenanceHref">Maintenance operations</a><span aria-hidden="true">/</span><span>Work order details</span></nav>
-			<p class="work-order-details-eyebrow">Work order</p>
 			<h1>@PageHeading</h1>
 			@if (details is not null)
 			{
-				<p class="work-order-details-vessel" title="@details.VesselId">@VesselDisplayName</p>
+				<p class="work-order-details-vessel"><span class="bi bi-tools" aria-hidden="true"></span> <a href="@($"/fleet/{details.VesselId}")" title="@details.VesselId">@VesselDisplayName</a></p>
 			}
 		</div>
 		@if (details is not null)
 		{
 			<div class="work-order-details-state">
+                <span class="work-order-timezone">All times UTC</span>
 				<span class="work-order-status @MaintenanceFormat.StatusModifier(details.Status)">
 					@details.Status
 				</span>
@@ -65,6 +66,17 @@
 			</div>
 		}
 
+		<nav class="work-order-section-nav" aria-label="Work order sections">
+            <a href="@(Navigation.Uri.Split('#')[0] + "#work-order-actions-title")">Execution</a>
+            <a href="@(Navigation.Uri.Split('#')[0] + "#work-order-scope-title")">Scope & equipment</a>
+            <a href="@(Navigation.Uri.Split('#')[0] + "#work-order-reservations-title")">Reservations</a>
+            <a href="@(Navigation.Uri.Split('#')[0] + "#work-order-parts-title")">Part usage</a>
+            @if (details.Completion is not null)
+            {
+                <a href="@(Navigation.Uri.Split('#')[0] + "#work-order-completion-title")">Completion record</a>
+            }
+        </nav>
+
 		<section class="work-order-summary" aria-label="Work order summary">
 			<article class="work-order-kpi">
 				<div>
@@ -90,12 +102,104 @@
 				</div>
 				<span class="work-order-kpi-icon kpi-icon-completed" aria-hidden="true"><span class="bi bi-clipboard-check"></span></span>
 			</article>
+            <article class="work-order-kpi">
+                <div>
+                    <p class="work-order-kpi-label">Equipment in scope</p>
+                    <p class="work-order-kpi-value">@details.Equipment.Count</p>
+                    <p class="work-order-kpi-note">@details.PartUsages.Count part usage records</p>
+                </div>
+                <span class="work-order-kpi-icon" aria-hidden="true"><span class="bi bi-gear"></span></span>
+            </article>
 		</section>
+
+		<section class="work-order-card work-order-execution-card" aria-labelledby="work-order-actions-title">
+			<div class="work-order-card-heading">
+				<div>
+					<p class="work-order-section-eyebrow">Work order control</p>
+						<h2 id="work-order-actions-title">Execution</h2>
+					<p>@StateSummary</p>
+				</div>
+				<span class="work-order-card-icon" aria-hidden="true"><span class="bi bi-signpost-split-fill"></span></span>
+			</div>
+
+			@if (actionFailure is { IsValidation: true })
+			{
+				<div class="work-order-field-errors" role="alert">
+					<strong>Please correct the following before saving</strong>
+					<ul>
+						@foreach (var entry in actionFailure.Errors)
+						{
+							@foreach (var message in entry.Value)
+							{
+								<li>
+									<span class="work-order-error-field">@MaintenanceFormat.FieldLabel(entry.Key)</span>
+									<span>@message</span>
+								</li>
+							}
+						}
+					</ul>
+				</div>
+			}
+			else if (actionFailure is not null)
+			{
+				<div class="work-order-details-error" role="alert">@actionFailure.Message</div>
+			}
+
+			@if (!CanManage)
+			{
+				<p class="work-order-details-note work-order-details-readonly">
+					Your account can view this work order but not change it.
+					Ask an administrator for the maintenance management permission.
+				</p>
+			}
+			else if (IsClosed)
+			{
+				<p class="work-order-details-note work-order-details-closed">
+					This work order is @details.Status.ToLowerInvariant(). Its scope and execution can no longer change.
+				</p>
+			}
+			else
+			{
+				<div class="work-order-details-actions">
+					@if (CanStart)
+					{
+						<div class="work-order-action">
+							<button type="button"
+									class="work-order-button work-order-start"
+									disabled="@isActing"
+									@onclick="() => AskToConfirm(StartAction)">
+								Start work order
+							</button>
+							<p class="work-order-action-note">
+								Records the order as under work.
+								<strong>Only an open work order can be started.</strong>
+							</p>
+						</div>
+					}
+					@if (CanCancel)
+					{
+						<div class="work-order-action">
+							<button type="button"
+									class="work-order-quiet-button work-order-cancel"
+									disabled="@isActing"
+									@onclick="() => AskToConfirm(CancelAction)">
+								Cancel work order
+							</button>
+							<p class="work-order-action-note">
+								No further work will be done. The record is kept for history.
+							</p>
+						</div>
+					}
+				</div>
+			}
+		</section>
+
 
 		<div class="work-order-details-grid">
 			<section class="work-order-card" aria-labelledby="work-order-scope-title">
 				<div class="work-order-card-heading">
 					<div>
+						<p class="work-order-section-eyebrow">Work specification</p>
 						<h2 id="work-order-scope-title">Scope</h2>
 						<p>What this work order covers</p>
 					</div>
@@ -130,6 +234,7 @@
 			<section class="work-order-card" aria-labelledby="work-order-equipment-title">
 				<div class="work-order-card-heading">
 					<div>
+						<p class="work-order-section-eyebrow">Maintained assets</p>
 						<h2 id="work-order-equipment-title">Equipment</h2>
 						<p>The maintained equipment of this vessel</p>
 					</div>
@@ -178,7 +283,8 @@
 		<section class="work-order-card" aria-labelledby="work-order-reservations-title">
 			<div class="work-order-card-heading">
 				<div>
-					<h2 id="work-order-reservations-title">Part reservations</h2>
+					<p class="work-order-section-eyebrow">Inventory planning</p>
+						<h2 id="work-order-reservations-title">Part reservations</h2>
 					<p>Stock held for this work order before execution</p>
 				</div>
 				<div class="work-order-card-heading-actions">
@@ -280,7 +386,8 @@
 		<section class="work-order-card" aria-labelledby="work-order-parts-title">
 			<div class="work-order-card-heading">
 				<div>
-					<h2 id="work-order-parts-title">Part usage</h2>
+					<p class="work-order-section-eyebrow">Material consumption</p>
+						<h2 id="work-order-parts-title">Part usage</h2>
 					<p>Inventory consumed by this work order</p>
 				</div>
 				<span class="work-order-card-icon" aria-hidden="true"><span class="bi bi-box-seam"></span></span>
@@ -324,6 +431,7 @@
 			<section class="work-order-card" aria-labelledby="work-order-completion-title">
 				<div class="work-order-card-heading">
 					<div>
+						<p class="work-order-section-eyebrow">Maintenance history</p>
 						<h2 id="work-order-completion-title">Completion record</h2>
 						<p>What was reported when the work was closed</p>
 					</div>
@@ -353,86 +461,6 @@
 			</section>
 		}
 
-		<section class="work-order-card" aria-labelledby="work-order-actions-title">
-			<div class="work-order-card-heading">
-				<div>
-					<h2 id="work-order-actions-title">Execution</h2>
-					<p>@StateSummary</p>
-				</div>
-				<span class="work-order-card-icon" aria-hidden="true"><span class="bi bi-signpost-split-fill"></span></span>
-			</div>
-
-			@if (actionFailure is { IsValidation: true })
-			{
-				<div class="work-order-field-errors" role="alert">
-					<strong>Please correct the following before saving</strong>
-					<ul>
-						@foreach (var entry in actionFailure.Errors)
-						{
-							@foreach (var message in entry.Value)
-							{
-								<li>
-									<span class="work-order-error-field">@MaintenanceFormat.FieldLabel(entry.Key)</span>
-									<span>@message</span>
-								</li>
-							}
-						}
-					</ul>
-				</div>
-			}
-			else if (actionFailure is not null)
-			{
-				<div class="work-order-details-error" role="alert">@actionFailure.Message</div>
-			}
-
-			@if (!CanManage)
-			{
-				<p class="work-order-details-note work-order-details-readonly">
-					Your account can view this work order but not change it.
-					Ask an administrator for the maintenance management permission.
-				</p>
-			}
-			else if (IsClosed)
-			{
-				<p class="work-order-details-note work-order-details-closed">
-					This work order is @details.Status.ToLowerInvariant(). Its scope and execution can no longer change.
-				</p>
-			}
-			else
-			{
-				<div class="work-order-details-actions">
-					@if (CanStart)
-					{
-						<div class="work-order-action">
-							<button type="button"
-									class="work-order-button work-order-start"
-									disabled="@isActing"
-									@onclick="() => AskToConfirm(StartAction)">
-								Start work order
-							</button>
-							<p class="work-order-action-note">
-								Records the order as under work.
-								<strong>Only an open work order can be started.</strong>
-							</p>
-						</div>
-					}
-					@if (CanCancel)
-					{
-						<div class="work-order-action">
-							<button type="button"
-									class="work-order-quiet-button work-order-cancel"
-									disabled="@isActing"
-									@onclick="() => AskToConfirm(CancelAction)">
-								Cancel work order
-							</button>
-							<p class="work-order-action-note">
-								No further work will be done. The record is kept for history.
-							</p>
-						</div>
-					}
-				</div>
-			}
-		</section>
 
 		@if (pendingAction is { } action)
 		{

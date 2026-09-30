@@ -15,7 +15,7 @@
         </div>
         @if (CanManage)
         {
-            <button type="button" class="crew-positions-add-button" @onclick="OpenCreateDialog">Add position</button>
+            <button type="button" class="crew-positions-add-button" @onclick="OpenCreateDialog"><span class="bi bi-plus-lg" aria-hidden="true"></span>Add position</button>
         }
     </header>
 
@@ -108,7 +108,7 @@
         <div class="crew-positions-modal-backdrop" role="presentation" @onclick="CloseDialog">
             <section class="crew-positions-modal" role="dialog" aria-modal="true" aria-labelledby="crew-positions-dialog-title" @onclick:stopPropagation="true">
                 <div class="crew-positions-modal-heading">
-                    <h2 id="crew-positions-dialog-title">@(editingPositionId is null ? "Add position" : "Edit position")</h2>
+                    <div class="crew-dialog-title"><span class="crew-register-mark bi bi-person-badge" aria-hidden="true"></span><div><p class="crew-dialog-eyebrow">Position catalogue</p><h2 id="crew-positions-dialog-title">@(editingPositionId is null ? "Add position" : "Edit position")</h2></div></div>
                     <button type="button" class="crew-positions-modal-close" @onclick="CloseDialog" aria-label="Close">
                         <span class="bi bi-x-lg" aria-hidden="true"></span>
                     </button>
@@ -134,7 +134,7 @@
                     </ul>
                 }
 
-                <form class="crew-positions-form-grid" @onsubmit="SubmitAsync" @onsubmit:preventDefault="true">
+                <form class="crew-positions-form-grid crew-operation-form" @onsubmit="SubmitAsync" @onsubmit:preventDefault="true">
                     <div class="crew-positions-form-field">
                         <label for="position-rank-name">Rank name</label>
                         <input id="position-rank-name" type="text" @bind="dialogModel.RankName" maxlength="100" />
@@ -159,9 +159,12 @@
                             }
                         </select>
                     </div>
-                    <button type="submit" class="crew-positions-form-submit" disabled="@isSubmitting">
-                        @(isSubmitting ? "Saving..." : "Save position")
-                    </button>
+                    <div class="crew-form-footer">
+                        <button type="button" class="crew-form-cancel" @onclick="CloseDialog" disabled="@isSubmitting">Cancel</button>
+                        <button type="submit" class="crew-positions-form-submit" disabled="@isSubmitting">
+                            @(isSubmitting ? "Saving..." : "Save position")
+                        </button>
+                    </div>
                 </form>
             </section>
         </div>

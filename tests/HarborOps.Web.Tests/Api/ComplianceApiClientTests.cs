@@ -110,6 +110,48 @@ public sealed class ComplianceApiClientTests
     }
 
     [Fact]
+    public async Task Client_uses_the_certificate_detail_renewal_and_revocation_endpoints()
+    {
+        var requests = new List<(HttpMethod Method, string Path)>();
+        var certificateId = Guid.NewGuid();
+        var successorId = Guid.NewGuid();
+        var token = Guid.NewGuid();
+        using var http = CreateClient((request, _) =>
+        {
+            requests.Add((request.Method, request.RequestUri!.AbsolutePath));
+            return request.RequestUri!.AbsolutePath.EndsWith("/renewals", StringComparison.Ordinal)
+                ? Json(HttpStatusCode.Created, $"{{\"id\":\"{successorId}\",\"predecessorCertificateId\":\"{certificateId}\"}}")
+                : request.RequestUri!.AbsolutePath.EndsWith("/revoke", StringComparison.Ordinal)
+                    ? Json(HttpStatusCode.OK, $"{{\"id\":\"{certificateId}\",\"revokedAtUtc\":\"2026-09-28T09:00:00Z\",\"revokedByUserId\":\"{Guid.NewGuid()}\"}}")
+                    : Json(HttpStatusCode.OK, $"{{\"id\":\"{certificateId}\",\"vesselId\":\"{Guid.NewGuid()}\",\"certificateType\":\"Safety\",\"certificateNumber\":\"SMC-1\",\"issuingAuthority\":\"Flag\",\"issuedOn\":\"2022-01-01\",\"expiresOn\":\"2027-01-01\",\"status\":\"Current\",\"createdUtc\":\"2022-01-02T08:00:00Z\",\"canRenew\":true,\"canRevoke\":true,\"concurrencyToken\":\"{token}\",\"chain\":[],\"history\":[]}}");
+        });
+        var client = new ComplianceApiClient(http);
+
+        var detail = await client.GetCertificateAsync(certificateId, CancellationToken.None);
+        var renewal = await client.RenewCertificateAsync(certificateId, new(token, "SMC-2", "Flag", new(2026, 12, 1), new(2031, 12, 1)), CancellationToken.None);
+        var revocation = await client.RevokeCertificateAsync(certificateId, new(token, "Issued in error by the flag state."), CancellationToken.None);
+
+        Assert.Contains((HttpMethod.Get, $"/api/compliance/certificates/{certificateId}"), requests);
+        Assert.Contains((HttpMethod.Post, $"/api/compliance/certificates/{certificateId}/renewals"), requests);
+        Assert.Contains((HttpMethod.Post, $"/api/compliance/certificates/{certificateId}/revoke"), requests);
+        Assert.Equal(token, detail.Value!.ConcurrencyToken);
+        Assert.Equal(successorId, renewal.Value!.Id);
+        Assert.Equal(certificateId, revocation.Value!.Id);
+    }
+
+    [Fact]
+    public async Task Client_maps_certificate_renewal_conflicts()
+    {
+        using var http = CreateClient((_, _) => Json(HttpStatusCode.Conflict, "{\"title\":\"The certificate could not be changed.\",\"detail\":\"This certificate has already been renewed.\"}"));
+
+        var result = await new ComplianceApiClient(http).RenewCertificateAsync(
+            Guid.NewGuid(), new(Guid.NewGuid(), "SMC-2", "Flag", new(2026, 12, 1), new(2031, 12, 1)), CancellationToken.None);
+
+        Assert.True(result.Failure!.IsConflict);
+        Assert.Equal("This certificate has already been renewed.", result.Failure.Message);
+    }
+
+    [Fact]
     public async Task Client_maps_audit_plan_conflict_and_not_found_failures()
     {
         using var conflictHttp = CreateClient((_, _) => Json(HttpStatusCode.Conflict, "{\"title\":\"Conflict\",\"detail\":\"Overlaps another plan.\"}"));

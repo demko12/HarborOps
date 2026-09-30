@@ -6,98 +6,144 @@
 <PageTitle>Sign in | HarborOps</PageTitle>
 
 <section class="login-page">
-    <LoginRouteBackground />
-    @if (isCompletingLogin)
-    {
-        <div class="login-success-loading" role="status" aria-live="polite">
-            <div class="workspace-scene" aria-hidden="true">
-                <div class="workspace-orbit workspace-orbit-outer"></div>
-                <div class="workspace-orbit workspace-orbit-inner"></div>
-                <span class="workspace-compass">N</span>
-                <svg class="workspace-seascape" viewBox="0 0 400 220" fill="none">
-                    <path class="workspace-course" d="M24 151C80 151 90 104 155 104S270 148 376 91" />
-                    <circle cx="24" cy="151" r="4" fill="#fff" stroke="#94b6d8" stroke-width="2" />
-                    <circle class="workspace-destination" cx="376" cy="91" r="5" fill="#2563eb" />
-                    <g class="workspace-ship">
-                        <path d="M135 112H269L251 136H157Z" fill="#2563eb" />
-                        <path d="M135 112H269L263 120H142Z" fill="#4988f5" />
-                        <path d="M154 109V89H180V109M184 109V82H210V109M214 109V89H238V109" fill="#e3efff" stroke="#497bd0" stroke-width="2" stroke-linejoin="round" />
-                        <path d="M241 109V75H258V109" fill="#fff" stroke="#497bd0" stroke-width="2" />
-                        <path d="M248 75V64M248 65H260" stroke="#497bd0" stroke-width="2" stroke-linecap="round" />
-                        <path d="M246 82H253M246 89H253" stroke="#72a8e7" stroke-width="3" />
-                        <path d="M162 94V105M171 94V105M192 87V105M201 87V105M222 94V105M230 94V105" stroke="#adcaf0" stroke-width="2" />
-                        <circle cx="162" cy="125" r="2.5" fill="#dbeafe" />
-                        <circle cx="247" cy="125" r="2.5" fill="#dbeafe" />
-                    </g>
-                    <g class="workspace-waves" stroke-linecap="round">
-                        <path d="M124 146H271M146 154H239" stroke="#a8c9eb" stroke-width="2" />
-                        <path d="M97 161H128M255 163H287M167 166H216" stroke="#d0e1f2" stroke-width="2" />
-                    </g>
-                </svg>
+    <aside class="login-introduction" aria-label="HarborOps">
+        <svg class="login-route-map" viewBox="0 0 576 900" preserveAspectRatio="xMidYMax slice" aria-hidden="true" focusable="false">
+            <g class="login-route-lanes">
+                <path d="M-20 700 C 90 640, 150 560, 250 540 S 420 470, 600 380" />
+                <path d="M-20 820 C 120 780, 260 760, 360 690 S 520 600, 600 590" />
+                <path d="M60 900 C 110 780, 180 700, 250 540" />
+                <path d="M250 540 C 330 600, 400 650, 470 760 S 540 860, 600 900" />
+            </g>
+            <g class="login-route-active">
+                <path d="M110 640 C 170 600, 200 560, 250 540 S 360 500, 430 440" />
+                <path d="M360 690 C 400 650, 420 540, 430 440" />
+            </g>
+            <g class="login-route-ports">
+                <circle cx="110" cy="640" r="3.5" />
+                <circle cx="250" cy="540" r="4" />
+                <circle cx="430" cy="440" r="3.5" />
+                <circle cx="360" cy="690" r="3" />
+                <circle cx="470" cy="760" r="3" />
+            </g>
+            <g class="login-route-rings">
+                <circle cx="250" cy="540" r="10" />
+                <circle cx="250" cy="540" r="18" />
+            </g>
+        </svg>
+        <div class="login-wordmark" role="img" aria-label="HarborOps">
+<svg viewBox="0 0 190 50" class="logo-svg logo-dark" xmlns="http://www.w3.org/2000/svg">
+			<defs>
+				<linearGradient id="loginStarGradDark" x1="0" y1="0" x2="1" y2="1">
+					<stop offset="0%" stop-color="rgba(255,255,255,1)" />
+					<stop offset="60%" stop-color="rgba(186,220,255,0.95)" />
+					<stop offset="100%" stop-color="rgba(96,165,250,0.85)" />
+				</linearGradient>
+			</defs>
+			<path transform="translate(95,13)"
+				  d="M0,-12 L0.84,-2.03 L5.3,-5.3 L2.03,-0.84 L12,0 L2.03,0.84 L5.3,5.3 L0.84,2.03 L0,12 L-0.84,2.03 L-5.3,5.3 L-2.03,0.84 L-12,0 L-2.03,-0.84 L-5.3,-5.3 L-0.84,-2.03 Z"
+				  fill="url(#loginStarGradDark)" />
+			<text x="95" y="44" text-anchor="middle" font-family="'Cormorant Garamond', Georgia, serif" font-size="26" letter-spacing="1">
+				<tspan font-weight="600" fill="rgba(255,255,255,0.97)">Harbor</tspan><tspan font-weight="400" fill="rgba(147,197,253,0.9)">Ops</tspan>
+			</text>
+		</svg>
+<svg viewBox="0 0 190 50" class="logo-svg logo-light" xmlns="http://www.w3.org/2000/svg">
+			<defs>
+				<linearGradient id="loginStarGradLight" x1="0" y1="0" x2="1" y2="1">
+					<stop offset="0%" stop-color="rgba(37,99,235,1)" />
+					<stop offset="60%" stop-color="rgba(29,78,216,0.95)" />
+					<stop offset="100%" stop-color="rgba(30,64,175,0.9)" />
+				</linearGradient>
+			</defs>
+			<path transform="translate(95,13)"
+				  d="M0,-12 L0.84,-2.03 L5.3,-5.3 L2.03,-0.84 L12,0 L2.03,0.84 L5.3,5.3 L0.84,2.03 L0,12 L-0.84,2.03 L-5.3,5.3 L-2.03,0.84 L-12,0 L-2.03,-0.84 L-5.3,-5.3 L-0.84,-2.03 Z"
+				  fill="url(#loginStarGradLight)" />
+			<text x="95" y="44" text-anchor="middle" font-family="'Cormorant Garamond', Georgia, serif" font-size="26" letter-spacing="1">
+				<tspan font-weight="600" fill="rgba(15,23,42,0.92)">Harbor</tspan><tspan font-weight="400" fill="rgba(37,99,235,0.95)">Ops</tspan>
+			</text>
+		</svg>
+        </div>
+        <div class="login-introduction-copy">
+            <p class="login-eyebrow">Maritime operations</p>
+            <h1>Your operations.<br />One workspace.</h1>
+            <p>Coordinate your fleet, people, and cargo with a connected view of every operation.</p>
+            <div class="login-capabilities" aria-label="Workspace capabilities">
+                <div class="login-cap-fleet">
+                    <span class="login-cap-icon" aria-hidden="true">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 10.189V14"></path><path d="M12 2v3"></path><path d="M19 13V7a2 2 0 0 0-2-2H7a2 2 0 0 0-2 2v6"></path><path d="M19.38 20A11.6 11.6 0 0 0 21 14l-8.188-3.639a2 2 0 0 0-1.624 0L3 14a11.6 11.6 0 0 0 2.81 7.76"></path><path d="M2 21c.6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1s1.2 1 2.5 1c2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1"></path></svg>
+                    </span>
+                    <p><strong>Fleet & voyages</strong><small>Vessels, schedules, and port calls.</small></p>
+                </div>
+                <div class="login-cap-people">
+                    <span class="login-cap-icon" aria-hidden="true"><span class="bi bi-people-fill"></span></span>
+                    <p><strong>People & cargo</strong><small>Crew readiness and shipment oversight.</small></p>
+                </div>
+                <div class="login-cap-maintenance">
+                    <span class="login-cap-icon" aria-hidden="true"><span class="bi bi-tools"></span></span>
+                    <p><strong>Maintenance & compliance</strong><small>Work orders, certificates, and records.</small></p>
+                </div>
             </div>
-            <p class="login-success-eyebrow"><span class="workspace-session-dot" aria-hidden="true"></span> Session established</p>
-            <h1>Preparing your<br /><span>workspace.</span></h1>
-            <p class="workspace-description">Setting course for your HarborOps workspace.</p>
-            <div class="workspace-progress" aria-hidden="true"><span></span></div>
-            <p class="workspace-loading-label" aria-hidden="true">Getting things ready<span class="workspace-loading-dots"><span>.</span><span>.</span><span>.</span></span></p>
         </div>
-    }
-    else
-    {
-    <form id="login-form" class="login-card" method="post" action="/session/login" data-enhance="false" onsubmit="document.getElementById('login-pending-state').classList.add('is-visible'); this.setAttribute('aria-busy', 'true'); this.querySelector('button[type=submit]').disabled = true;">
-        <input type="hidden" name="@antiforgeryToken.FormFieldName" value="@antiforgeryToken.RequestToken" />
-        <input type="hidden" name="returnUrl" value="@returnUrl" />
-        <div class="login-brand" aria-label="HarborOps">
-            <svg viewBox="0 0 190 50" xmlns="http://www.w3.org/2000/svg" role="img">
-                <defs>
-                    <linearGradient id="loginStar" x1="0" y1="0" x2="1" y2="1">
-                        <stop offset="0%" stop-color="#ffffff" />
-                        <stop offset="100%" stop-color="#60a5fa" />
-                    </linearGradient>
-                </defs>
-                <path transform="translate(95,13)" d="M0,-12 L0.84,-2.03 L5.3,-5.3 L2.03,-0.84 L12,0 L2.03,0.84 L5.3,5.3 L0.84,2.03 L0,12 L-0.84,2.03 L-5.3,5.3 L-2.03,0.84 L-12,0 L-2.03,-0.84 L-5.3,-5.3 L-0.84,-2.03 Z" fill="url(#loginStar)" />
-                <text x="95" y="44" text-anchor="middle" font-family="'Cormorant Garamond', Georgia, serif" font-size="26" letter-spacing="1"><tspan font-weight="600" fill="#0f172a">Harbor</tspan><tspan font-weight="400" fill="#2563eb">Ops</tspan></text>
-            </svg>
-        </div>
-        <h1>Welcome back</h1>
-        <p class="login-copy">Sign in to continue to your operations workspace.</p>
-        @if (error is not null)
+        <p class="login-introduction-footer">HarborOps <span>Operations management</span></p>
+    </aside>
+
+    <div class="login-access">
+        @if (isCompletingLogin)
         {
-            <div class="login-error" role="alert">@error</div>
+            <div class="login-state-card"><LoginProgress SessionEstablished="true" /></div>
         }
-        <label for="login-email">Email address</label>
-        <input id="login-email" name="email" type="email" autocomplete="email" required />
-        <label for="login-password">Password</label>
-        <input id="login-password" name="password" type="password" autocomplete="current-password" required />
-        <button type="submit">Sign in <svg class="login-submit-vessel" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 10v4"></path><path d="M12 2v3"></path><path d="M19 13V7a2 2 0 0 0-2-2H7a2 2 0 0 0-2 2v6"></path><path d="M19.4 20A11.5 11.5 0 0 0 21 14l-8.2-3.6a2 2 0 0 0-1.6 0L3 14a11.5 11.5 0 0 0 2.8 7.8"></path><path d="M2 21c.6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1s1.2 1 2.5 1c2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1"></path></svg></button>
-    </form>
-    <div id="login-pending-state" class="login-pending-state" role="status" aria-live="polite">
-        <LoginRouteBackground />
-        <div class="login-success-loading login-session-loading">
-            <div class="workspace-scene" aria-hidden="true">
-                <div class="workspace-orbit workspace-orbit-outer"></div>
-                <div class="workspace-orbit workspace-orbit-inner"></div>
-                <span class="workspace-compass">N</span>
-                <svg class="workspace-seascape" viewBox="0 0 400 220" fill="none">
-                    <path class="workspace-course" d="M24 135C94 135 111 110 157 110M243 110C297 110 313 85 376 85" />
-                    <circle cx="24" cy="135" r="4" fill="#fff" stroke="#94b6d8" stroke-width="2" />
-                    <circle class="workspace-destination" cx="376" cy="85" r="5" fill="#2563eb" />
-                    <circle class="session-signal" cx="200" cy="110" r="52" stroke="#8ab9ed" />
-                    <circle cx="200" cy="110" r="43" fill="#f0f6ff" stroke="#d4e4f8" />
-                    <path d="M200 76L226 86V106C226 124 214 136 200 143C186 136 174 124 174 106V86Z" fill="#e3efff" stroke="#497bd0" stroke-width="2" stroke-linejoin="round" />
-                    <rect x="189" y="103" width="22" height="19" rx="4" fill="#2563eb" />
-                    <path d="M193 103V97A7 7 0 0 1 207 97V103" stroke="#2563eb" stroke-width="3" />
-                    <path d="M200 110V115" stroke="white" stroke-width="2" stroke-linecap="round" />
-                </svg>
+        else
+        {
+            <form id="login-form" class="login-card" method="post" action="/session/login" data-enhance="false" onsubmit="document.getElementById('login-pending-state').hidden = false; this.hidden = true; this.setAttribute('aria-busy', 'true'); this.querySelector('button[type=submit]').disabled = true;">
+                <input type="hidden" name="@antiforgeryToken.FormFieldName" value="@antiforgeryToken.RequestToken" />
+                <input type="hidden" name="returnUrl" value="@returnUrl" />
+                <div class="login-access-heading">
+                    <span class="login-access-icon" aria-hidden="true"><span class="bi bi-shield-check"></span></span>
+                    <p class="login-access-label">Workspace access</p>
+                </div>
+                <h2>Sign in to HarborOps</h2>
+                <p class="login-copy">Enter your work account details to continue.</p>
+                @if (error is not null)
+                {
+                    <div class="login-error" role="alert">@error</div>
+                }
+                <label for="login-email">Email address</label>
+                <div class="login-input">
+                    <span class="bi bi-envelope" aria-hidden="true"></span>
+                    <input id="login-email" name="email" type="email" autocomplete="username" autocapitalize="none" spellcheck="false" placeholder="name@company.com" required />
+                </div>
+                <label for="login-password">Password</label>
+                <div class="login-input">
+                    <span class="bi bi-lock" aria-hidden="true"></span>
+                    <input id="login-password"
+                           name="password"
+                           type="password"
+                           autocomplete="current-password"
+                           aria-describedby="login-capslock"
+                           required
+                           onkeydown="document.getElementById('login-capslock').hidden = !event.getModifierState('CapsLock');"
+                           onkeyup="document.getElementById('login-capslock').hidden = !event.getModifierState('CapsLock');"
+                           onblur="document.getElementById('login-capslock').hidden = true;" />
+                    <button type="button"
+                            class="login-password-toggle"
+                            aria-label="Show password"
+                            aria-pressed="false"
+                            onclick="const input = document.getElementById('login-password'); const show = input.type === 'password'; input.type = show ? 'text' : 'password'; this.setAttribute('aria-pressed', show); this.setAttribute('aria-label', show ? 'Hide password' : 'Show password'); this.firstElementChild.className = show ? 'bi bi-eye-slash' : 'bi bi-eye';">
+                        <span class="bi bi-eye" aria-hidden="true"></span>
+                    </button>
+                </div>
+                <p id="login-capslock" class="login-capslock" role="status" hidden><span class="bi bi-capslock" aria-hidden="true"></span> Caps Lock is on</p>
+                <button type="submit" class="login-submit">Sign in <span aria-hidden="true">→</span></button>
+                <div class="login-help">
+                    <span class="bi bi-info-circle" aria-hidden="true"></span>
+                    <p><strong>Need access or help signing in?</strong><br />Contact your workspace administrator.</p>
+                </div>
+            </form>
+            <div id="login-pending-state" class="login-pending-state login-state-card" hidden>
+                <LoginProgress />
             </div>
-            <p class="login-success-eyebrow"><span class="workspace-session-dot session-pending-dot" aria-hidden="true"></span> HarborOps secure access</p>
-            <h1>Establishing your<br /><span>session.</span></h1>
-            <p class="workspace-description">Verifying your account and permissions.</p>
-            <div class="workspace-progress" aria-hidden="true"><span></span></div>
-            <p class="workspace-loading-label" aria-hidden="true">Connecting securely<span class="workspace-loading-dots"><span>.</span><span>.</span><span>.</span></span></p>
-        </div>
+        }
+        <p class="login-access-footer"><span class="bi bi-lock" aria-hidden="true"></span> HarborOps account access</p>
     </div>
-    }
 </section>
 
 @code {
@@ -125,11 +171,10 @@
         } : null;
     }
 
-    protected override async Task OnAfterRenderAsync(bool firstRender)
+    protected override void OnAfterRender(bool firstRender)
     {
         if (firstRender && isCompletingLogin)
         {
-            await Task.Delay(1900);
             Navigation.NavigateTo(returnUrl, forceLoad: true);
         }
     }

@@ -7,7 +7,7 @@
 @inject FleetApiClient FleetApi
 @inject CurrentUserAuthorizationState CurrentUser
 
-<PageTitle>Crew profile | HarborOps</PageTitle>
+<PageTitle>@(profile is null ? "Crew profile" : $"{profile.FirstName} {profile.LastName}") | HarborOps</PageTitle>
 
 <section class="crew-profile-page">
     @if (isLoading)
@@ -20,14 +20,29 @@
     }
     else if (profile is not null)
     {
+        <div class="crew-profile-content" inert="@IsProfileEditorOpen">
+        @if (profileEditorSuccess is not null)
+        {
+            <div class="crew-profile-form-success" role="status">@profileEditorSuccess</div>
+        }
         <header class="crew-profile-header">
             <div>
                 <nav class="page-breadcrumb" aria-label="Breadcrumb"><a href="/crew">Crewing operations</a><span aria-hidden="true">/</span><span>Crew profile</span></nav>
-                <h1>@profile.FirstName @profile.LastName</h1>
-                <p>@profile.BaseRankName &middot; @profile.Nationality &middot; IMO @profile.ImoSeafarerId</p>
+                <div class="crew-profile-identity">
+                    <span class="crew-profile-avatar" aria-hidden="true"><span class="bi bi-person"></span></span>
+                    <div><h1>@profile.FirstName @profile.LastName</h1>
+                    <p>@profile.BaseRankName &middot; @profile.Nationality &middot; IMO @profile.ImoSeafarerId</p></div>
+                </div>
             </div>
             <span class="employment-status @GetEmploymentStatusClass(profile.EmploymentStatus)">@profile.EmploymentStatus</span>
         </header>
+
+        <section class="crew-profile-highlights" aria-label="Profile overview">
+            <article class="crew-profile-highlight crew-profile-highlight-active"><span class="bi bi-water" aria-hidden="true"></span><div><span>Active assignments</span><strong>@profile.Assignments.Count(item => GetAssignmentState(item).Label == "Active")</strong><small>Current vessel deployments</small></div></article>
+            <article class="crew-profile-highlight crew-profile-highlight-review"><span class="bi bi-award" aria-hidden="true"></span><div><span>Certificates to review</span><strong>@profile.Certificates.Count(item => item.ExpiryDate <= currentDate.AddDays(30))</strong><small>Expired or expiring within 30 days</small></div></article>
+            <article class="crew-profile-highlight"><span class="bi bi-heart-pulse" aria-hidden="true"></span><div><span>Medical fitness</span><strong class="crew-profile-highlight-text">@(isLoadingMedical ? "Loading…" : medicalFailure is not null ? "Unavailable" : CurrentFitnessDisplayState.Label)</strong><small>Latest reported assessment</small></div></article>
+            <article class="crew-profile-highlight"><span class="bi bi-passport" aria-hidden="true"></span><div><span>Passport</span><strong class="crew-profile-highlight-text">@(IsPassportExpired(profile.PassportExpiry) ? "Expired" : IsPassportExpiringSoon(profile.PassportExpiry) ? "Renewal due" : "Valid")</strong><small>Expires @profile.PassportExpiry.ToString("dd MMM yyyy")</small></div></article>
+        </section>
 
         <section class="crew-profile-summary-card" aria-labelledby="crew-profile-summary-title">
             <div class="crew-profile-card-heading">
@@ -36,7 +51,7 @@
                     @if (CanManage)
                     {
                         <button type="button" class="crew-profile-edit-toggle crew-edit-profile-toggle" @onclick="ToggleEditProfile">
-                            @(isEditingProfile ? "Cancel" : "Edit profile")
+                            <span class="bi bi-pencil" aria-hidden="true"></span> @(isEditingProfile ? "Cancel" : "Edit profile")
                         </button>
                     }
                     <span class="bi bi-person-vcard" aria-hidden="true"></span>
@@ -100,27 +115,169 @@
                     </dd>
                 </div>
             </dl>
-            <button type="button" class="crew-profile-reveal-button" @onclick="ToggleSensitiveData">
+            <button type="button" class="crew-profile-reveal-button" aria-pressed="@isSensitiveDataRevealed.ToString().ToLowerInvariant()" @onclick="ToggleSensitiveData">
                 <span class="bi @(isSensitiveDataRevealed ? "bi-eye-slash" : "bi-eye")" aria-hidden="true"></span>
                 @(isSensitiveDataRevealed ? "Hide sensitive data" : "Show sensitive data")
             </button>
 
-            @if (isEditingProfile)
+        </section>
+
+        <div class="crew-profile-workspace">
+            <section class="crew-profile-card" aria-labelledby="crew-profile-assignments-title">
+                <div class="crew-profile-card-heading">
+                    <div>
+                        <h2 id="crew-profile-assignments-title">Assignments</h2>
+                        <p>@profile.Assignments.Count on record @(profile.Assignments.Count > 0 ? "· click one to view details or plan a relief" : "")</p>
+                    </div>
+                    <span class="bi bi-ship" aria-hidden="true"></span>
+                </div>
+
+                @if (profile.Assignments.Count == 0)
+                {
+                    <EmptyState Title="No assignments on record" Message="Assign this crew member to a vessel to start tracking deployments." />
+                }
+                else
+                {
+                    <div class="crew-profile-list">
+                        @foreach (var assignment in profile.Assignments)
+                        {
+                            var state = GetAssignmentState(assignment);
+                            <button type="button" class="crew-profile-row crew-profile-row-clickable" @key="assignment.AssignmentId" @onclick="() => OpenAssignmentDetailsAsync(assignment)">
+                                <div class="crew-profile-row-primary">
+                                    <strong>@VesselDisplayName(assignment.VesselId)</strong>
+                                    <span>@assignment.RankName</span>
+                                </div>
+                                <div class="crew-profile-row-secondary">
+                                    <span>Signed on @assignment.SignOnDate.ToString("dd MMM yyyy")</span>
+                                    <span>
+                                        @(assignment.ActualSignOffDate is { } actual
+                                            ? $"Signed off {actual:dd MMM yyyy}"
+                                            : $"Planned off {assignment.PlannedSignOffDate:dd MMM yyyy}")
+                                    </span>
+                                </div>
+                                <span class="crew-profile-indicator @state.Class">@state.Label</span>
+                            </button>
+                        }
+                    </div>
+                }
+
+                @if (CanManage)
+                {
+                    <button type="button" class="crew-profile-edit-toggle crew-register-assignment-toggle" @onclick="() => registrationEditor = ProfileRegistration.Assignment"><span class="bi bi-plus-lg" aria-hidden="true"></span> Assign to vessel</button>
+                }
+            </section>
+
+            <section class="crew-profile-card" aria-labelledby="crew-profile-certificates-title">
+                <div class="crew-profile-card-heading">
+                    <div>
+                        <h2 id="crew-profile-certificates-title">Certificates</h2>
+                        <p>@profile.Certificates.Count on record @(profile.Certificates.Count > 0 ? "· click one to view details" : "")</p>
+                    </div>
+                    <div class="crew-profile-card-heading-actions">
+                        @if (profile.Certificates.Count > CertificatePreviewCount)
+                        {
+                            <button type="button" class="crew-profile-edit-toggle" @onclick="OpenAllCertificates">
+                                View all (@profile.Certificates.Count)
+                            </button>
+                        }
+                        <span class="bi bi-award" aria-hidden="true"></span>
+                    </div>
+                </div>
+
+                @if (profile.Certificates.Count == 0)
+                {
+                    <EmptyState Title="No certificates on record" Message="Register a certificate to start tracking qualifications." />
+                }
+                else
+                {
+                    <div class="crew-profile-list crew-profile-list-preview">
+                        @foreach (var certificate in profile.Certificates.Take(CertificatePreviewCount))
+                        {
+                            var state = GetCertificateState(certificate);
+                            <button type="button" class="crew-profile-row crew-profile-row-clickable" @key="certificate.CertificateId" @onclick="() => OpenCertificateDetailsAsync(certificate)">
+                                <div class="crew-profile-row-primary">
+                                    <strong>@certificate.Name</strong>
+                                    <span>@certificate.Type &middot; @certificate.IssuingAuthority</span>
+                                </div>
+                                <div class="crew-profile-row-secondary">
+                                    <span>License @certificate.LicenseNumber</span>
+                                    <span>Expires @certificate.ExpiryDate.ToString("dd MMM yyyy")</span>
+                                </div>
+                                <span class="crew-profile-indicator @state.Class">@state.Label</span>
+                            </button>
+                        }
+                    </div>
+                }
+
+                @if (CanManage)
+                {
+                    <button type="button" class="crew-profile-edit-toggle crew-register-certificate-toggle" @onclick="() => registrationEditor = ProfileRegistration.Certificate"><span class="bi bi-plus-lg" aria-hidden="true"></span> Register certificate</button>
+                }
+            </section>
+
+        </div>
+
+        <section class="crew-profile-card crew-medical-card" aria-labelledby="crew-profile-medical-title">
+            <div class="crew-profile-card-heading">
+                <div>
+                    <h2 id="crew-profile-medical-title">Medical fitness</h2>
+                    <p>@medicalExaminations.Count exam(s) on record</p>
+                </div>
+                <span class="bi bi-heart-pulse" aria-hidden="true"></span>
+            </div>
+
+            @if (isLoadingMedical)
             {
-                <EditCrewMemberProfileForm CrewMemberId="CrewMemberId"
-                                            FirstName="@profile.FirstName"
-                                            LastName="@profile.LastName"
-                                            DateOfBirth="profile.DateOfBirth"
-                                            Nationality="@profile.Nationality"
-                                            PassportNumber="@profile.PassportNumber"
-                                            PassportExpiry="profile.PassportExpiry"
-                                            CdcNumber="@profile.CdcNumber"
-                                            HireDate="profile.HireDate"
-                                            BaseRankId="profile.BaseRankId"
-                                            OnUpdated="OnProfileUpdatedAsync" />
+                <LoadingState Message="Loading medical examinations..." />
+            }
+            else if (medicalFailure is not null)
+            {
+                <ApiErrorState Title="@medicalFailure.Title" Message="@medicalFailure.Message" OnRetry="LoadMedicalExaminationsAsync" />
+            }
+            else
+            {
+                <div class="crew-medical-current-fitness">
+                    <span>Current fitness</span>
+                    <span class="crew-profile-indicator @CurrentFitnessDisplayState.Class">@CurrentFitnessDisplayState.Label</span>
+                </div>
+
+                @if (medicalExaminations.Count == 0)
+                {
+                    <EmptyState Title="No medical examinations on record" Message="Register an examination to start tracking medical fitness." />
+                }
+                else
+                {
+                    <div class="crew-profile-list">
+                        @foreach (var exam in medicalExaminations)
+                        {
+                            var fitnessState = GetFitnessResultState(exam.FitnessResult);
+                            var statusState = GetExamStatusState(exam);
+                            <article class="crew-profile-row" @key="exam.MedicalExaminationId">
+                                <div class="crew-profile-row-primary">
+                                    <strong>@exam.ExamType</strong>
+                                    <span>@exam.Clinic</span>
+                                </div>
+                                <div class="crew-profile-row-secondary">
+                                    <span>Examined @exam.ExamDate.ToString("dd MMM yyyy")</span>
+                                    <span>Expires @exam.ExpiryDate.ToString("dd MMM yyyy")</span>
+                                </div>
+                                <div class="crew-medical-row-badges">
+                                    <span class="crew-profile-indicator @fitnessState.Class">@fitnessState.Label</span>
+                                    <span class="crew-profile-indicator @statusState.Class">@statusState.Label</span>
+                                </div>
+                            </article>
+                        }
+                    </div>
+                }
+
+                @if (CanManage)
+                {
+                    <button type="button" class="crew-profile-edit-toggle crew-register-medical-toggle" @onclick="() => registrationEditor = ProfileRegistration.Medical"><span class="bi bi-plus-lg" aria-hidden="true"></span> Register medical examination</button>
+                }
             }
         </section>
 
+        <div class="crew-profile-workspace crew-profile-administration">
         <section class="crew-profile-card" aria-labelledby="crew-profile-employment-title">
             <div class="crew-profile-card-heading">
                 <div>
@@ -132,37 +289,7 @@
 
             @if (CanManage)
             {
-                @if (employmentStatusActionError is not null)
-                {
-                    <div class="crew-profile-form-error" role="alert">@employmentStatusActionError</div>
-                }
-
-                @if (isConfirmingEmploymentStatusChange)
-                {
-                    <form class="crew-profile-form-grid" @onsubmit="ConfirmEmploymentStatusChangeAsync" @onsubmit:preventDefault="true">
-                        <div class="crew-profile-form-field">
-                            <label for="employment-status-select">New status</label>
-                            <select id="employment-status-select" @bind="employmentStatusForm.Status">
-                                @foreach (var option in EmploymentStatusOptions)
-                                {
-                                    <option value="@option">@option</option>
-                                }
-                            </select>
-                        </div>
-                        <div class="crew-profile-form-field crew-profile-form-field-wide">
-                            <label for="employment-status-notes">Notes</label>
-                            <input id="employment-status-notes" type="text" @bind="employmentStatusForm.Notes" maxlength="1000" placeholder="Optional note" />
-                        </div>
-                        <button type="submit" class="crew-profile-form-submit" disabled="@isSubmittingEmploymentStatus">
-                            @(isSubmittingEmploymentStatus ? "Saving..." : "Confirm status change")
-                        </button>
-                        <button type="button" class="crew-rotation-edit-toggle" @onclick="CancelEmploymentStatusChange">Cancel</button>
-                    </form>
-                }
-                else
-                {
-                    <button type="button" class="crew-profile-edit-toggle crew-employment-status-toggle" @onclick="RequestEmploymentStatusChange">Change employment status</button>
-                }
+                <button type="button" class="crew-profile-edit-toggle crew-employment-status-toggle" @onclick="RequestEmploymentStatusChange">Change employment status</button>
             }
 
             @if (isLoadingEmploymentHistory)
@@ -207,59 +334,7 @@
 
             @if (CanManage)
             {
-                @if (isRequestingUnavailability)
-                {
-                    <form class="crew-profile-form-grid" @onsubmit="SubmitUnavailabilityRequestAsync" @onsubmit:preventDefault="true">
-                        <div class="crew-profile-form-field">
-                            <label for="availability-type">Type</label>
-                            <select id="availability-type" @bind="availabilityRequestForm.Type">
-                                @foreach (var option in AvailabilityTypeOptions)
-                                {
-                                    <option value="@option">@AvailabilityTypeLabel(option)</option>
-                                }
-                            </select>
-                        </div>
-                        <div class="crew-profile-form-field">
-                            <label for="availability-start">Start date</label>
-                            <input id="availability-start" type="date" @bind="availabilityRequestForm.StartDate" />
-                        </div>
-                        <div class="crew-profile-form-field">
-                            <label for="availability-end">End date</label>
-                            <input id="availability-end" type="date" @bind="availabilityRequestForm.EndDate" />
-                        </div>
-                        <div class="crew-profile-form-field crew-profile-form-field-wide">
-                            <label for="availability-reason">Reason</label>
-                            <input id="availability-reason" type="text" @bind="availabilityRequestForm.Reason" maxlength="500" />
-                        </div>
-                        <div class="crew-profile-form-field crew-profile-form-field-wide">
-                            <label for="availability-notes">Notes</label>
-                            <input id="availability-notes" type="text" @bind="availabilityRequestForm.Notes" maxlength="1000" placeholder="Optional" />
-                        </div>
-                        <button type="submit" class="crew-profile-form-submit" disabled="@isSubmittingAvailabilityRequest">
-                            @(isSubmittingAvailabilityRequest ? "Submitting..." : "Submit request")
-                        </button>
-                        <button type="button" class="crew-rotation-edit-toggle" @onclick="CancelUnavailabilityRequest">Cancel</button>
-                    </form>
-
-                    @if (availabilityRequestConflict is not null)
-                    {
-                        <div class="crew-profile-form-conflict" role="alert">@availabilityRequestConflict</div>
-                    }
-                    @if (availabilityRequestFieldErrors.Count > 0)
-                    {
-                        <ul class="crew-profile-form-field-errors" role="alert">
-                            @foreach (var error in availabilityRequestFieldErrors) { <li>@error</li> }
-                        </ul>
-                    }
-                    @if (availabilityRequestGeneralError is not null)
-                    {
-                        <div class="crew-profile-form-error" role="alert">@availabilityRequestGeneralError</div>
-                    }
-                }
-                else
-                {
-                    <button type="button" class="crew-profile-edit-toggle crew-availability-request-toggle" @onclick="RequestUnavailability">Request unavailability</button>
-                }
+                <button type="button" class="crew-profile-edit-toggle crew-availability-request-toggle" @onclick="RequestUnavailability">Request unavailability</button>
             }
 
             @if (isLoadingAvailability)
@@ -342,152 +417,125 @@
             }
         </section>
 
-        <div class="crew-profile-workspace">
-            <section class="crew-profile-card" aria-labelledby="crew-profile-certificates-title">
-                <div class="crew-profile-card-heading">
-                    <div>
-                        <h2 id="crew-profile-certificates-title">Certificates</h2>
-                        <p>@profile.Certificates.Count on record @(profile.Certificates.Count > 0 ? "· click one to view details" : "")</p>
-                    </div>
-                    <span class="bi bi-award" aria-hidden="true"></span>
-                </div>
-
-                @if (profile.Certificates.Count == 0)
-                {
-                    <EmptyState Title="No certificates on record" Message="Register a certificate to start tracking qualifications." />
-                }
-                else
-                {
-                    <div class="crew-profile-list">
-                        @foreach (var certificate in profile.Certificates)
-                        {
-                            var state = GetCertificateState(certificate.ExpiryDate);
-                            <button type="button" class="crew-profile-row crew-profile-row-clickable" @key="certificate.CertificateId" @onclick="() => OpenCertificateDetails(certificate)">
-                                <div class="crew-profile-row-primary">
-                                    <strong>@certificate.Name</strong>
-                                    <span>@certificate.Type &middot; @certificate.IssuingAuthority</span>
-                                </div>
-                                <div class="crew-profile-row-secondary">
-                                    <span>License @certificate.LicenseNumber</span>
-                                    <span>Expires @certificate.ExpiryDate.ToString("dd MMM yyyy")</span>
-                                </div>
-                                <span class="crew-profile-indicator @state.Class">@state.Label</span>
-                            </button>
-                        }
-                    </div>
-                }
-
-                @if (CanManage)
-                {
-                    <RegisterCertificateForm CrewMemberId="CrewMemberId" OnRegistered="OnCertificateRegisteredAsync" />
-                }
-            </section>
-
-            <section class="crew-profile-card" aria-labelledby="crew-profile-assignments-title">
-                <div class="crew-profile-card-heading">
-                    <div>
-                        <h2 id="crew-profile-assignments-title">Assignments</h2>
-                        <p>@profile.Assignments.Count on record @(profile.Assignments.Count > 0 ? "· click one to view details or plan a relief" : "")</p>
-                    </div>
-                    <span class="bi bi-ship" aria-hidden="true"></span>
-                </div>
-
-                @if (profile.Assignments.Count == 0)
-                {
-                    <EmptyState Title="No assignments on record" Message="Assign this crew member to a vessel to start tracking deployments." />
-                }
-                else
-                {
-                    <div class="crew-profile-list">
-                        @foreach (var assignment in profile.Assignments)
-                        {
-                            var state = GetAssignmentState(assignment);
-                            <button type="button" class="crew-profile-row crew-profile-row-clickable" @key="assignment.AssignmentId" @onclick="() => OpenAssignmentDetailsAsync(assignment)">
-                                <div class="crew-profile-row-primary">
-                                    <strong>@VesselDisplayName(assignment.VesselId)</strong>
-                                    <span>@assignment.RankName</span>
-                                </div>
-                                <div class="crew-profile-row-secondary">
-                                    <span>Signed on @assignment.SignOnDate.ToString("dd MMM yyyy")</span>
-                                    <span>
-                                        @(assignment.ActualSignOffDate is { } actual
-                                            ? $"Signed off {actual:dd MMM yyyy}"
-                                            : $"Planned off {assignment.PlannedSignOffDate:dd MMM yyyy}")
-                                    </span>
-                                </div>
-                                <span class="crew-profile-indicator @state.Class">@state.Label</span>
-                            </button>
-                        }
-                    </div>
-                }
-
-                @if (CanManage)
-                {
-                    <AssignToVesselForm CrewMemberId="CrewMemberId" CrewMemberName="@($"{profile.FirstName} {profile.LastName}")" OnRegistered="OnAssignmentRegisteredAsync" />
-                }
-            </section>
         </div>
 
-        <section class="crew-profile-card crew-medical-card" aria-labelledby="crew-profile-medical-title">
-            <div class="crew-profile-card-heading">
-                <div>
-                    <h2 id="crew-profile-medical-title">Medical fitness</h2>
-                    <p>@medicalExaminations.Count exam(s) on record</p>
-                </div>
-                <span class="bi bi-heart-pulse" aria-hidden="true"></span>
-            </div>
-
-            @if (isLoadingMedical)
-            {
-                <LoadingState Message="Loading medical examinations..." />
-            }
-            else if (medicalFailure is not null)
-            {
-                <ApiErrorState Title="@medicalFailure.Title" Message="@medicalFailure.Message" OnRetry="LoadMedicalExaminationsAsync" />
-            }
-            else
-            {
-                <div class="crew-medical-current-fitness">
-                    <span>Current fitness</span>
-                    <span class="crew-profile-indicator @CurrentFitnessDisplayState.Class">@CurrentFitnessDisplayState.Label</span>
-                </div>
-
-                @if (medicalExaminations.Count == 0)
-                {
-                    <EmptyState Title="No medical examinations on record" Message="Register an examination to start tracking medical fitness." />
-                }
-                else
-                {
-                    <div class="crew-profile-list">
-                        @foreach (var exam in medicalExaminations)
-                        {
-                            var fitnessState = GetFitnessResultState(exam.FitnessResult);
-                            var statusState = GetExamStatusState(exam);
-                            <article class="crew-profile-row" @key="exam.MedicalExaminationId">
-                                <div class="crew-profile-row-primary">
-                                    <strong>@exam.ExamType</strong>
-                                    <span>@exam.Clinic</span>
-                                </div>
-                                <div class="crew-profile-row-secondary">
-                                    <span>Examined @exam.ExamDate.ToString("dd MMM yyyy")</span>
-                                    <span>Expires @exam.ExpiryDate.ToString("dd MMM yyyy")</span>
-                                </div>
-                                <div class="crew-medical-row-badges">
-                                    <span class="crew-profile-indicator @fitnessState.Class">@fitnessState.Label</span>
-                                    <span class="crew-profile-indicator @statusState.Class">@statusState.Label</span>
-                                </div>
-                            </article>
-                        }
+        </div>
+        @if (CanManage && IsProfileEditorOpen)
+        {
+            <div class="crew-assignment-modal-backdrop crew-profile-editor-backdrop" @onclick="CloseProfileEditor" @onkeydown="HandleProfileEditorKeyDown">
+                <section class="crew-assignment-modal crew-profile-editor" role="dialog" aria-modal="true" aria-labelledby="crew-profile-editor-title" tabindex="-1" @ref="profileEditorElement" @onclick:stopPropagation="true">
+                    <div class="crew-assignment-modal-heading">
+                        <div><p class="crew-assignment-modal-eyebrow">@profile.FirstName @profile.LastName</p><h2 id="crew-profile-editor-title">@ProfileEditorTitle</h2></div>
+                        <button type="button" class="crew-assignment-modal-close" aria-label="Close form" @onclick="CloseProfileEditor" disabled="@IsProfileEditorBusy"><span class="bi bi-x-lg" aria-hidden="true"></span></button>
                     </div>
-                }
+                    @if (isEditingProfile)
+                    {
+                        <EditCrewMemberProfileForm @ref="profileEditorForm" CrewMemberId="CrewMemberId"
+                                                    FirstName="@profile.FirstName"
+                                                    LastName="@profile.LastName"
+                                                    DateOfBirth="profile.DateOfBirth"
+                                                    Nationality="@profile.Nationality"
+                                                    PassportNumber="@profile.PassportNumber"
+                                                    PassportExpiry="profile.PassportExpiry"
+                                                    CdcNumber="@profile.CdcNumber"
+                                                    HireDate="profile.HireDate"
+                                                    BaseRankId="profile.BaseRankId"
+                                                    OnUpdated="OnProfileUpdatedAsync" />
+                    }
 
-                @if (CanManage)
-                {
-                    <RegisterMedicalExaminationForm CrewMemberId="CrewMemberId" OnRegistered="OnMedicalExaminationRegisteredAsync" />
-                }
-            }
-        </section>
+                    @if (registrationEditor == ProfileRegistration.Assignment)
+                    {
+                        <AssignToVesselForm @ref="assignmentEditorForm" CrewMemberId="CrewMemberId" CrewMemberName="@($"{profile.FirstName} {profile.LastName}")" OnRegistered="OnAssignmentRegisteredAsync" />
+                    }
+                    @if (registrationEditor == ProfileRegistration.Certificate)
+                    {
+                        <RegisterCertificateForm @ref="certificateEditorForm" CrewMemberId="CrewMemberId" OnRegistered="OnCertificateRegisteredAsync" />
+                    }
+                    @if (registrationEditor == ProfileRegistration.Medical)
+                    {
+                        <RegisterMedicalExaminationForm @ref="medicalEditorForm" CrewMemberId="CrewMemberId" OnRegistered="OnMedicalExaminationRegisteredAsync" />
+                    }
+                    @if (employmentStatusActionError is not null)
+                    {
+                        <div class="crew-profile-form-error" role="alert">@employmentStatusActionError</div>
+                    }
 
+                    @if (isConfirmingEmploymentStatusChange)
+                    {
+                        <form class="crew-profile-form-grid" @onsubmit="ConfirmEmploymentStatusChangeAsync" @onsubmit:preventDefault="true">
+                            <div class="crew-profile-form-field">
+                                <label for="employment-status-select">New status</label>
+                                <select id="employment-status-select" @bind="employmentStatusForm.Status">
+                                    @foreach (var option in EmploymentStatusOptions)
+                                    {
+                                        <option value="@option">@option</option>
+                                    }
+                                </select>
+                            </div>
+                            <div class="crew-profile-form-field crew-profile-form-field-wide">
+                                <label for="employment-status-notes">Notes</label>
+                                <input id="employment-status-notes" type="text" @bind="employmentStatusForm.Notes" maxlength="1000" placeholder="Optional note" />
+                            </div>
+                            <button type="submit" class="crew-profile-form-submit" disabled="@isSubmittingEmploymentStatus">
+                                @(isSubmittingEmploymentStatus ? "Saving..." : "Confirm status change")
+                            </button>
+                            <button type="button" class="crew-rotation-edit-toggle" @onclick="CancelEmploymentStatusChange">Cancel</button>
+                        </form>
+                    }
+
+                    @if (isRequestingUnavailability)
+                    {
+                        <form class="crew-profile-form-grid" @onsubmit="SubmitUnavailabilityRequestAsync" @onsubmit:preventDefault="true">
+                            <div class="crew-profile-form-field">
+                                <label for="availability-type">Type</label>
+                                <select id="availability-type" @bind="availabilityRequestForm.Type">
+                                    @foreach (var option in AvailabilityTypeOptions)
+                                    {
+                                        <option value="@option">@AvailabilityTypeLabel(option)</option>
+                                    }
+                                </select>
+                            </div>
+                            <div class="crew-profile-form-field">
+                                <label for="availability-start">Start date</label>
+                                <input id="availability-start" type="date" @bind="availabilityRequestForm.StartDate" />
+                            </div>
+                            <div class="crew-profile-form-field">
+                                <label for="availability-end">End date</label>
+                                <input id="availability-end" type="date" @bind="availabilityRequestForm.EndDate" />
+                            </div>
+                            <div class="crew-profile-form-field crew-profile-form-field-wide">
+                                <label for="availability-reason">Reason</label>
+                                <input id="availability-reason" type="text" @bind="availabilityRequestForm.Reason" maxlength="500" />
+                            </div>
+                            <div class="crew-profile-form-field crew-profile-form-field-wide">
+                                <label for="availability-notes">Notes</label>
+                                <input id="availability-notes" type="text" @bind="availabilityRequestForm.Notes" maxlength="1000" placeholder="Optional" />
+                            </div>
+                            <button type="submit" class="crew-profile-form-submit" disabled="@isSubmittingAvailabilityRequest">
+                                @(isSubmittingAvailabilityRequest ? "Submitting..." : "Submit request")
+                            </button>
+                            <button type="button" class="crew-rotation-edit-toggle" @onclick="CancelUnavailabilityRequest">Cancel</button>
+                        </form>
+
+                        @if (availabilityRequestConflict is not null)
+                        {
+                            <div class="crew-profile-form-conflict" role="alert">@availabilityRequestConflict</div>
+                        }
+                        @if (availabilityRequestFieldErrors.Count > 0)
+                        {
+                            <ul class="crew-profile-form-field-errors" role="alert">
+                                @foreach (var error in availabilityRequestFieldErrors) { <li>@error</li> }
+                            </ul>
+                        }
+                        @if (availabilityRequestGeneralError is not null)
+                        {
+                            <div class="crew-profile-form-error" role="alert">@availabilityRequestGeneralError</div>
+                        }
+                    }
+
+                </section>
+            </div>
+        }
         @if (selectedAssignment is not null)
         {
             var detailState = GetAssignmentState(selectedAssignment);
@@ -696,7 +744,7 @@
 
         @if (selectedCertificate is not null)
         {
-            var certificateState = GetCertificateState(selectedCertificate.ExpiryDate);
+            var certificateState = GetCertificateState(selectedCertificate);
             <div class="crew-assignment-modal-backdrop" @onclick="CloseCertificateDetails">
                 <section class="crew-assignment-modal" role="dialog" aria-modal="true" aria-labelledby="crew-certificate-detail-title" @onclick:stopPropagation="true">
                     <div class="crew-profile-card-heading">
@@ -714,7 +762,196 @@
                         <div><dt>Issue date</dt><dd>@selectedCertificate.IssueDate.ToString("dd MMM yyyy")</dd></div>
                         <div><dt>Expiry date</dt><dd>@selectedCertificate.ExpiryDate.ToString("dd MMM yyyy")</dd></div>
                         <div><dt>Status</dt><dd><span class="crew-profile-indicator @certificateState.Class">@certificateState.Label</span></dd></div>
+                        @if (selectedCertificate.IsRevoked)
+                        {
+                            <div><dt>Revocation reason</dt><dd>@GetRevocationReason()</dd></div>
+                        }
                     </dl>
+
+                    @if (affectedActiveAssignments.Count > 0)
+                    {
+                        <div class="crew-qualification-warning" role="alert">
+                            <strong>Active assignments relied on this certificate:</strong>
+                            <span>@string.Join(", ", affectedActiveAssignments.Select(affected => VesselDisplayName(affected.VesselId)))</span>
+                            <span>They are not cancelled automatically -- review and reassign as needed.</span>
+                        </div>
+                    }
+
+                    <div class="crew-rotation-section">
+                        <h3>Renewal chain and history</h3>
+
+                        @if (isLoadingCertificateHistory)
+                        {
+                            <p class="crew-assignment-modal-hint">Loading history...</p>
+                        }
+                        else if (certificateHistory is not null)
+                        {
+                            @if (certificateHistory.ChainCertificateIds.Count > 1)
+                            {
+                                <ol class="crew-availability-profile-history">
+                                    @foreach (var chainId in certificateHistory.ChainCertificateIds)
+                                    {
+                                        var chainCertificate = FindCertificate(chainId);
+                                        <li>
+                                            @if (chainCertificate is not null)
+                                            {
+                                                <span>@chainCertificate.LicenseNumber (@chainCertificate.IssueDate.ToString("dd MMM yyyy")–@chainCertificate.ExpiryDate.ToString("dd MMM yyyy"))</span>
+                                                @if (chainCertificate.IsRevoked)
+                                                {
+                                                    <span class="crew-profile-indicator crew-profile-indicator-expired">Revoked</span>
+                                                }
+                                                @if (chainId == selectedCertificate.CertificateId)
+                                                {
+                                                    <span class="crew-profile-indicator crew-profile-indicator-neutral">Viewing</span>
+                                                }
+                                            }
+                                            else
+                                            {
+                                                <span>@chainId</span>
+                                            }
+                                        </li>
+                                    }
+                                </ol>
+                            }
+
+                            @if (certificateHistory.History.Count == 0)
+                            {
+                                <p class="crew-assignment-modal-hint">No renewal or revocation actions recorded yet.</p>
+                            }
+                            else
+                            {
+                                <ol class="crew-availability-profile-history">
+                                    @foreach (var entry in certificateHistory.History)
+                                    {
+                                        <li>
+                                            <span>@entry.EventType</span>
+                                            <span>@entry.OccurredAtUtc.ToString("dd MMM yyyy HH:mm") UTC</span>
+                                            @if (!string.IsNullOrWhiteSpace(entry.Reason))
+                                            {
+                                                <span class="crew-availability-profile-history-reason">@entry.Reason</span>
+                                            }
+                                        </li>
+                                    }
+                                </ol>
+                            }
+                        }
+                    </div>
+
+                    @if (certificateConflictMessage is not null)
+                    {
+                        <div class="crew-profile-form-conflict" role="alert">@certificateConflictMessage</div>
+                    }
+
+                    @if (certificateActionError is not null)
+                    {
+                        <div class="crew-assignment-modal-error" role="alert">@certificateActionError</div>
+                    }
+
+                    @if (CanManage && !selectedCertificate.IsRevoked)
+                    {
+                        <section class="crew-assignment-lifecycle-actions" aria-label="Certificate lifecycle actions">
+                            <div class="crew-assignment-action-heading">
+                                <div>
+                                    <p>Certificate lifecycle</p>
+                                    <h3>Renew or revoke</h3>
+                                </div>
+                                <span>Changes are retained in the certificate history.</span>
+                            </div>
+
+                            <div class="crew-certificate-actions-row">
+                                @if (selectedCertificate.SuccessorCertificateId is null)
+                                {
+                                    <button type="button" class="crew-assignment-activate" @onclick="RequestRenewCertificate">Renew certificate</button>
+                                }
+                                <button type="button" class="crew-certificate-revoke-button" @onclick="RequestRevokeCertificate">Revoke certificate</button>
+                            </div>
+                        </section>
+
+                        @if (isRenewingCertificate)
+                        {
+                            <RenewCertificateForm
+                                CertificateId="selectedCertificate.CertificateId"
+                                Type="@selectedCertificate.Type"
+                                Name="@selectedCertificate.Name"
+                                IssuingAuthority="@selectedCertificate.IssuingAuthority"
+                                LicenseNumber="@selectedCertificate.LicenseNumber"
+                                ExpiryDate="selectedCertificate.ExpiryDate"
+                                OnRenewed="OnCertificateRenewedAsync"
+                                OnCancelled="CancelRenewCertificate" />
+                        }
+
+                        @if (isRevokingCertificate)
+                        {
+                            <form class="crew-availability-decision-form" @onsubmit="SubmitRevokeCertificateAsync" @onsubmit:preventDefault="true">
+                                <label for="certificate-revoke-reason">Revocation reason</label>
+                                <input id="certificate-revoke-reason" type="text" @bind="revokeReason" maxlength="500" />
+                                <div class="crew-availability-decision-form-actions">
+                                    <button type="submit" class="crew-availability-decision-submit" disabled="@isSubmittingCertificateAction">Confirm</button>
+                                    <button type="button" @onclick="CancelRevokeCertificate">Keep</button>
+                                </div>
+                            </form>
+                        }
+                    }
+                </section>
+            </div>
+        }
+
+        @if (isViewingAllCertificates)
+        {
+            <div class="crew-assignment-modal-backdrop" @onclick="CloseAllCertificates">
+                <section class="crew-assignment-modal" role="dialog" aria-modal="true" aria-labelledby="crew-all-certificates-title" @onclick:stopPropagation="true">
+                    <div class="crew-profile-card-heading">
+                        <h2 id="crew-all-certificates-title">All certificates</h2>
+                        <button type="button" class="crew-assignment-modal-close" @onclick="CloseAllCertificates" aria-label="Close all certificates">
+                            <span class="bi bi-x-lg" aria-hidden="true"></span>
+                        </button>
+                    </div>
+
+                    <div class="crew-filters">
+                        <div class="crew-input-shell">
+                            <span class="bi bi-search" aria-hidden="true"></span>
+                            <input @bind="certificateSearch" @bind:event="oninput" placeholder="Search type, name, or license number" aria-label="Search certificates" />
+                        </div>
+                        <div class="crew-status-select">
+                            <select @bind="certificateStatusFilter" aria-label="Filter by certificate status">
+                                <option value="">All statuses</option>
+                                <option value="Valid">Valid</option>
+                                <option value="Expiring soon">Expiring soon</option>
+                                <option value="Expired">Expired</option>
+                                <option value="Revoked">Revoked</option>
+                            </select>
+                            <span class="bi bi-chevron-down" aria-hidden="true"></span>
+                        </div>
+                    </div>
+
+                    @{
+                        var filteredCertificates = FilteredCertificates.ToList();
+                    }
+
+                    @if (filteredCertificates.Count == 0)
+                    {
+                        <EmptyState Title="No matching certificates" Message="Try another search term or status filter." />
+                    }
+                    else
+                    {
+                        <div class="crew-profile-list crew-profile-list-scrollable">
+                            @foreach (var certificate in filteredCertificates)
+                            {
+                                var state = GetCertificateState(certificate);
+                                <button type="button" class="crew-profile-row crew-profile-row-clickable" @key="certificate.CertificateId" @onclick="() => OpenCertificateFromAllListAsync(certificate)">
+                                    <div class="crew-profile-row-primary">
+                                        <strong>@certificate.Name</strong>
+                                        <span>@certificate.Type &middot; @certificate.IssuingAuthority</span>
+                                    </div>
+                                    <div class="crew-profile-row-secondary">
+                                        <span>License @certificate.LicenseNumber</span>
+                                        <span>Expires @certificate.ExpiryDate.ToString("dd MMM yyyy")</span>
+                                    </div>
+                                    <span class="crew-profile-indicator @state.Class">@state.Label</span>
+                                </button>
+                            }
+                        </div>
+                    }
                 </section>
             </div>
         }

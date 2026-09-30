@@ -6,35 +6,81 @@
     pointer-events: none;
 }
 
-.login-route-background svg { display: block; width: 100%; height: 100%; }
-.ocean-route-line { stroke: #649bd1; stroke-width: 1; opacity: .19; }
-.ocean-route-trail, .ocean-route-light {
-    stroke-linecap: round;
-    animation: ocean-passage var(--route-duration) linear var(--route-delay) infinite;
+.login-route-background svg {
+    display: block;
+    width: 100%;
+    height: 100%;
 }
-.ocean-route-trail { stroke: #60a5fa; stroke-width: 2.5; stroke-dasharray: 5 95; opacity: .3; }
-.ocean-route-light { stroke: #2584dc; stroke-width: 3.5; stroke-dasharray: .2 99.8; opacity: .8; }
-.ocean-port-dot { fill: #f8fafc; stroke: #75a9d8; stroke-width: 1.5; }
+.ocean-route-line {
+    stroke: #649bd1;
+    stroke-width: 1;
+    opacity: 0.19;
+}
+.ocean-route-trail,
+.ocean-route-light {
+    stroke-linecap: round;
+    animation: ocean-passage var(--route-duration) linear var(--route-delay)
+        infinite;
+}
+.ocean-route-trail {
+    stroke: #60a5fa;
+    stroke-width: 2.5;
+    stroke-dasharray: 5 95;
+    opacity: 0.3;
+}
+.ocean-route-light {
+    stroke: #2584dc;
+    stroke-width: 3.5;
+    stroke-dasharray: 0.2 99.8;
+    opacity: 0.8;
+}
+.ocean-port-dot {
+    fill: #f8fafc;
+    stroke: #75a9d8;
+    stroke-width: 1.5;
+}
 .ocean-port-pulse {
     fill: #60a5fa;
-    opacity: .08;
+    opacity: 0.08;
     transform-box: fill-box;
     transform-origin: center;
     animation: ocean-port-signal 5s ease-out var(--port-delay) infinite;
 }
 
-@keyframes ocean-passage { to { stroke-dashoffset: -100; } }
+@keyframes ocean-passage {
+    to {
+        stroke-dashoffset: -100;
+    }
+}
 @keyframes ocean-port-signal {
-    0% { transform: scale(.4); opacity: .22; }
-    75%, 100% { transform: scale(1.8); opacity: 0; }
+    0% {
+        transform: scale(0.4);
+        opacity: 0.22;
+    }
+    75%,
+    100% {
+        transform: scale(1.8);
+        opacity: 0;
+    }
 }
 
 @media (max-width: 600px) {
-    .ocean-route-trail { opacity: .2; }
-    .ocean-route-light { opacity: .55; }
+    .ocean-route-trail {
+        opacity: 0.2;
+    }
+    .ocean-route-light {
+        opacity: 0.55;
+    }
 }
 
 @media (prefers-reduced-motion: reduce) {
-    .ocean-route-trail, .ocean-route-light, .ocean-port-pulse { animation: none; }
-    .ocean-route-trail, .ocean-route-light { display: none; }
+    .ocean-route-trail,
+    .ocean-route-light,
+    .ocean-port-pulse {
+        animation: none;
+    }
+    .ocean-route-trail,
+    .ocean-route-light {
+        display: none;
+    }
 }

@@ -126,7 +126,18 @@ public partial class VesselDetails : IDisposable
     private async Task LoadPositionHistoryAsync()
     {
         var result = await FleetApi.GetVesselPositionHistoryAsync(VesselId, positionHistoryFromUtc, positionHistoryToUtc, positionHistoryPage, pageCancellation.Token);
-        if (result.IsSuccess) { positionHistory = result.Value; positionHistoryFailure = null; }
+        if (result.IsSuccess && result.Value is { } history)
+        {
+            // A partially populated successful payload must render as an empty
+            // history rather than dereferencing a deserialized null Items value.
+            positionHistory = history with { Items = history.Items ?? [] };
+            positionHistoryFailure = null;
+        }
+        else if (result.IsSuccess)
+        {
+            positionHistory = new VesselPositionHistoryWebModel([], positionHistoryPage, 50, 0);
+            positionHistoryFailure = null;
+        }
         else positionHistoryFailure = result.Failure;
     }
 

@@ -18,7 +18,7 @@
         </div>
         @if (CanManage)
         {
-            <button type="button" class="crew-positions-add-button" @onclick="OpenCreateDialog">Add policy</button>
+            <button type="button" class="crew-positions-add-button" @onclick="OpenCreateDialog"><span class="bi bi-plus-lg" aria-hidden="true"></span>Add policy</button>
         }
     </header>
 
@@ -105,7 +105,7 @@
         <div class="crew-positions-modal-backdrop" role="presentation" @onclick="CloseDialog">
             <section class="crew-positions-modal" role="dialog" aria-modal="true" aria-labelledby="qualification-policy-dialog-title" @onclick:stopPropagation="true">
                 <div class="crew-positions-modal-heading">
-                    <h2 id="qualification-policy-dialog-title">@(editingPolicyId is null ? "Add policy" : "Edit policy")</h2>
+                    <div class="crew-dialog-title"><span class="crew-register-mark bi bi-patch-check" aria-hidden="true"></span><div><p class="crew-dialog-eyebrow">Qualification policy</p><h2 id="qualification-policy-dialog-title">@(editingPolicyId is null ? "Add policy" : "Edit policy")</h2></div></div>
                     <button type="button" class="crew-positions-modal-close" @onclick="CloseDialog" aria-label="Close">
                         <span class="bi bi-x-lg" aria-hidden="true"></span>
                     </button>
@@ -131,7 +131,7 @@
                     </ul>
                 }
 
-                <form class="crew-positions-form-grid" @onsubmit="SubmitAsync" @onsubmit:preventDefault="true">
+                <form class="crew-positions-form-grid crew-operation-form" @onsubmit="SubmitAsync" @onsubmit:preventDefault="true">
                     <div class="crew-positions-form-field">
                         <label for="policy-rank">Rank</label>
                         <select id="policy-rank" value="@(dialogModel.CrewPositionId?.ToString() ?? string.Empty)" @onchange="OnRankChanged" disabled="@(editingPolicyId is not null)">
@@ -154,16 +154,19 @@
                         @foreach (var row in requirementRows)
                         {
                             <div class="crew-manning-line-row" @key="row">
-                                <input type="text" maxlength="100" placeholder="e.g. STCW-II/1" @bind="row.RequiredType" />
+                                <input type="text" maxlength="100" placeholder="e.g. STCW-II/1" aria-label="Required certificate type" @bind="row.RequiredType" />
                                 <button type="button" class="crew-manning-remove-line" @onclick="() => RemoveRequirementRow(row)" disabled="@(requirementRows.Count <= 1)">Remove</button>
                             </div>
                         }
                         <button type="button" class="crew-manning-add-line" @onclick="AddRequirementRow">Add required type</button>
                     </div>
 
-                    <button type="submit" class="crew-positions-form-submit" disabled="@isSubmitting">
-                        @(isSubmitting ? "Saving..." : "Save policy")
-                    </button>
+                    <div class="crew-form-footer">
+                        <button type="button" class="crew-form-cancel" @onclick="CloseDialog" disabled="@isSubmitting">Cancel</button>
+                        <button type="submit" class="crew-positions-form-submit" disabled="@isSubmitting">
+                            @(isSubmitting ? "Saving..." : "Save policy")
+                        </button>
+                    </div>
                 </form>
             </section>
         </div>

@@ -595,6 +595,121 @@ public sealed class CrewApiClientTests
         Assert.True(notFoundResult.Failure!.IsNotFound);
     }
 
+    [Fact]
+    public async Task RenewCertificateAsync_posts_to_the_certificate_renew_endpoint()
+    {
+        var certificateId = Guid.NewGuid();
+        var predecessorId = Guid.NewGuid();
+        var crewMemberId = Guid.NewGuid();
+        HttpRequestMessage? captured = null;
+        using var httpClient = CreateHttpClient((request, _) =>
+        {
+            captured = request;
+            return Json(HttpStatusCode.Created, $$"""
+                {"id":"{{certificateId}}","predecessorCertificateId":"{{predecessorId}}","crewMemberId":"{{crewMemberId}}",
+                "type":"STCW","status":"Valid","concurrencyToken":"{{Guid.NewGuid()}}"}
+                """);
+        });
+
+        var result = await new CrewApiClient(httpClient).RenewCertificateAsync(
+            predecessorId,
+            new RenewCrewCertificateRequest { Name = "Basic Safety", LicenseNumber = "LIC-2" },
+            CancellationToken.None);
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal($"/api/crew/certificates/{predecessorId}/renew", captured!.RequestUri!.AbsolutePath);
+        Assert.Equal(certificateId, result.Value!.Id);
+        Assert.Equal(predecessorId, result.Value.PredecessorCertificateId);
+    }
+
+    [Fact]
+    public async Task RenewCertificateAsync_reports_conflict_for_a_duplicate_renewal()
+    {
+        using var httpClient = CreateHttpClient((_, _) => Json(
+            HttpStatusCode.Conflict,
+            """{"title":"This certificate already has a renewal successor."}"""));
+
+        var result = await new CrewApiClient(httpClient).RenewCertificateAsync(
+            Guid.NewGuid(), new RenewCrewCertificateRequest(), CancellationToken.None);
+
+        Assert.False(result.IsSuccess);
+        Assert.True(result.Failure!.IsConflict);
+    }
+
+    [Fact]
+    public async Task RevokeCertificateAsync_posts_to_the_certificate_revoke_endpoint()
+    {
+        var certificateId = Guid.NewGuid();
+        var vesselId = Guid.NewGuid();
+        var rankId = Guid.NewGuid();
+        var assignmentId = Guid.NewGuid();
+        HttpRequestMessage? captured = null;
+        using var httpClient = CreateHttpClient((request, _) =>
+        {
+            captured = request;
+            return Json(HttpStatusCode.OK, $$"""
+                {"id":"{{certificateId}}","revokedAtUtc":"2026-09-28T10:00:00Z","concurrencyToken":"{{Guid.NewGuid()}}",
+                "affectedActiveAssignments":[{"assignmentId":"{{assignmentId}}","vesselId":"{{vesselId}}","rankId":"{{rankId}}"}]}
+                """);
+        });
+
+        var result = await new CrewApiClient(httpClient).RevokeCertificateAsync(
+            certificateId, new RevokeCrewCertificateRequest { Reason = "Issued in error" }, CancellationToken.None);
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal($"/api/crew/certificates/{certificateId}/revoke", captured!.RequestUri!.AbsolutePath);
+        var affected = Assert.Single(result.Value!.AffectedActiveAssignments);
+        Assert.Equal(assignmentId, affected.AssignmentId);
+        Assert.Equal(vesselId, affected.VesselId);
+        Assert.Equal(rankId, affected.RankId);
+    }
+
+    [Fact]
+    public async Task RevokeCertificateAsync_reports_a_validation_failure_for_a_missing_reason()
+    {
+        using var httpClient = CreateHttpClient((_, _) => Json(
+            HttpStatusCode.BadRequest,
+            """{"title":"One or more validation errors occurred.","errors":{"reason":["Reason is required."]}}"""));
+
+        var result = await new CrewApiClient(httpClient).RevokeCertificateAsync(
+            Guid.NewGuid(), new RevokeCrewCertificateRequest(), CancellationToken.None);
+
+        Assert.False(result.IsSuccess);
+        Assert.True(result.Failure!.IsValidation);
+        Assert.Equal("Reason is required.", Assert.Single(result.Failure.Errors!["reason"]));
+    }
+
+    [Fact]
+    public async Task GetCertificateHistoryAsync_sends_request_to_the_certificate_history_endpoint()
+    {
+        var certificateId = Guid.NewGuid();
+        HttpRequestMessage? captured = null;
+        using var httpClient = CreateHttpClient((request, _) =>
+        {
+            captured = request;
+            return Json(HttpStatusCode.OK, $$"""
+                {"certificateId":"{{certificateId}}","chainCertificateIds":["{{certificateId}}"],"history":[]}
+                """);
+        });
+
+        var result = await new CrewApiClient(httpClient).GetCertificateHistoryAsync(certificateId, CancellationToken.None);
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal($"/api/crew/certificates/{certificateId}/history", captured!.RequestUri!.AbsolutePath);
+        Assert.Equal(certificateId, result.Value!.CertificateId);
+    }
+
+    [Fact]
+    public async Task GetCertificateHistoryAsync_reports_not_found_for_an_unknown_certificate()
+    {
+        using var httpClient = CreateHttpClient((_, _) => Json(HttpStatusCode.NotFound, """{"title":"Not found"}"""));
+
+        var result = await new CrewApiClient(httpClient).GetCertificateHistoryAsync(Guid.NewGuid(), CancellationToken.None);
+
+        Assert.False(result.IsSuccess);
+        Assert.True(result.Failure!.IsNotFound);
+    }
+
     private static HttpClient CreateHttpClient(Func<HttpRequestMessage, CancellationToken, Task<HttpResponseMessage>> responseFactory) =>
         new(new StubHttpMessageHandler(responseFactory)) { BaseAddress = new Uri("https://api.harborops.test/") };
 

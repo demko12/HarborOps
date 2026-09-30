@@ -113,12 +113,48 @@ internal sealed class CargoBookingsApiClient(HttpClient httpClient)
     internal Task<CargoApiResult<CargoContainerList>> GetContainersAsync(
         Guid bookingId,
         int pageNumber,
+        CancellationToken cancellationToken) =>
+        GetContainersAsync(bookingId, CargoContainerFilter.None, pageNumber, cancellationToken);
+
+    internal Task<CargoApiResult<CargoContainerList>> GetContainersAsync(
+        Guid bookingId,
+        CargoContainerFilter filter,
+        int pageNumber,
         CancellationToken cancellationToken)
     {
+        ArgumentNullException.ThrowIfNull(filter);
+
         return GetAsync<CargoContainerList>(
-            $"{BasePath}/{bookingId}/containers?pageNumber={pageNumber}&pageSize=15",
+            BuildContainersPath(bookingId, filter, pageNumber),
             "Unable to load the container manifest",
             ReviewAccessDetail,
+            cancellationToken);
+    }
+
+    internal Task<CargoApiResult<CargoManifestPrintView>> GetManifestPrintAsync(
+        Guid bookingId,
+        CargoContainerFilter filter,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(filter);
+
+        return GetAsync<CargoManifestPrintView>(
+            BuildManifestOutputPath(bookingId, "print", filter),
+            "Unable to prepare the printable manifest",
+            ReviewAccessDetail,
+            cancellationToken);
+    }
+
+    internal Task<HttpResponseMessage> DownloadManifestCsvAsync(
+        Guid bookingId,
+        CargoContainerFilter filter,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(filter);
+
+        return httpClient.GetAsync(
+            BuildManifestOutputPath(bookingId, "export", filter),
+            HttpCompletionOption.ResponseContentRead,
             cancellationToken);
     }
 
@@ -473,6 +509,25 @@ internal sealed class CargoBookingsApiClient(HttpClient httpClient)
     {
         return $"{BasePath}/{bookingId}/safety-information";
     }
+    private static string BuildContainersPath(Guid bookingId, CargoContainerFilter filter, int pageNumber)
+    {
+        var query = new List<string>(filter.QueryParts())
+        {
+            $"pageNumber={pageNumber}",
+            "pageSize=15",
+        };
+
+        return $"{BasePath}/{bookingId}/containers?{string.Join('&', query)}";
+    }
+
+    private static string BuildManifestOutputPath(Guid bookingId, string output, CargoContainerFilter filter)
+    {
+        var query = filter.QueryParts();
+        var path = $"{BasePath}/{bookingId}/containers/{output}";
+
+        return query.Count == 0 ? path : $"{path}?{string.Join('&', query)}";
+    }
+
     private static string BuildPath(CargoBookingFilter filter)
     {
         var query = new List<string>

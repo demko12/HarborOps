@@ -173,13 +173,13 @@ public partial class ReportsComplianceExposure : IDisposable
     private string VesselDisplayName(Guid vesselId) =>
         vesselNames.TryGetValue(vesselId, out var name) ? name : "Unknown vessel";
 
-    // "Detained"/"Expired" are the most severe outcomes on this report (red, same as an
+    // "Detained"/"Expired"/"Revoked" are the most severe outcomes on this report (red, same as an
     // expired document); "Expiring" and an open non-conformity both mean "needs attention
     // soon" (amber) - matching the severity language used everywhere else in the app.
     private static string ComplianceStatusClass(ComplianceExposureReportRow row) =>
         row.Status.Trim().ToUpperInvariant() switch
         {
-            "EXPIRED" or "DETAINED" => "reports-status-expired",
+            "EXPIRED" or "DETAINED" or "REVOKED" => "reports-status-expired",
             "EXPIRING" or "OPEN" => "reports-status-warning",
             _ => "reports-status-neutral",
         };

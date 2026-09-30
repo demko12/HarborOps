@@ -97,6 +97,113 @@ public sealed class CargoContainersEndpointTests : IntegrationTestBase
     }
 
     [Fact]
+    public async Task Get_lets_a_reader_find_a_container_beyond_the_first_page()
+    {
+        using var client = await _application.CreateAuthenticatedClientWithPermissionsAsync(
+            Permissions.Cargo.Read);
+        using var manageClient = await _application.CreateAuthenticatedClientWithPermissionsAsync(
+            Permissions.Cargo.Manage);
+        var bookingId = await RegisterBookingAsync(manageClient, "BK-CONT-INT-0101");
+        var otherBookingId = await RegisterBookingAsync(manageClient, "BK-CONT-INT-0102");
+        await SeedContainersAsync(bookingId, "FLTU", 18, CargoStatus.Loaded);
+        await SeedContainersAsync(otherBookingId, "FLTU", 1, CargoStatus.Loaded, firstOrdinal: 900);
+
+        using var response = await client.GetAsync(
+            $"{ContainersEndpoint(bookingId)}?search=%20fltu0000017%20&status=loaded&containerType=42r1&portOfLoadingCode=nlrtm&portOfDischargeCode=USNYC",
+            CancellationToken.None);
+        var result = await response.Content.ReadFromJsonAsync<GetCargoContainersResponse>(
+            CancellationToken.None);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.NotNull(result);
+        Assert.Equal("FLTU0000017", Assert.Single(result.Items).ContainerNumber);
+        Assert.Equal(1, result.MatchingCount);
+        Assert.Equal(18, result.TotalCount);
+        Assert.Equal(18, result.LoadedCount);
+    }
+
+    [Fact]
+    public async Task Get_pages_the_matching_containers()
+    {
+        using var client = await _application.CreateAuthenticatedClientWithPermissionsAsync(
+            Permissions.Cargo.Read);
+        using var manageClient = await _application.CreateAuthenticatedClientWithPermissionsAsync(
+            Permissions.Cargo.Manage);
+        var bookingId = await RegisterBookingAsync(manageClient, "BK-CONT-INT-0103");
+        await SeedContainersAsync(bookingId, "PGEU", 16, CargoStatus.Registered);
+        await SeedContainersAsync(bookingId, "PGFU", 3, CargoStatus.Loaded);
+
+        using var response = await client.GetAsync(
+            $"{ContainersEndpoint(bookingId)}?search=PGEU&pageNumber=2&pageSize=15",
+            CancellationToken.None);
+        var result = await response.Content.ReadFromJsonAsync<GetCargoContainersResponse>(
+            CancellationToken.None);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.NotNull(result);
+        Assert.Equal("PGEU0000016", Assert.Single(result.Items).ContainerNumber);
+        Assert.Equal(16, result.MatchingCount);
+        Assert.Equal(19, result.TotalCount);
+        Assert.Equal(3, result.LoadedCount);
+        Assert.Equal(2, result.PageNumber);
+    }
+
+    [Fact]
+    public async Task Get_rejects_invalid_filters_with_a_message_for_each_field()
+    {
+        using var client = await _application.CreateAuthenticatedClientWithPermissionsAsync(
+            Permissions.Cargo.Read);
+        using var manageClient = await _application.CreateAuthenticatedClientWithPermissionsAsync(
+            Permissions.Cargo.Manage);
+        var bookingId = await RegisterBookingAsync(manageClient, "BK-CONT-INT-0104");
+
+        using var response = await client.GetAsync(
+            $"{ContainersEndpoint(bookingId)}?status=Lost&containerType=99ZZ&portOfLoadingCode=NL&portOfDischargeCode=US-NYC&search={new string('M', 21)}&pageSize=16",
+            CancellationToken.None);
+        var problem = await response.Content.ReadFromJsonAsync<HttpValidationProblemDetails>(
+            CancellationToken.None);
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        Assert.NotNull(problem);
+        Assert.Equal(
+            ["containerType", "pageSize", "portOfDischargeCode", "portOfLoadingCode", "search", "status"],
+            problem.Errors.Keys.Order(StringComparer.Ordinal));
+    }
+
+    [Fact]
+    public async Task Get_rejects_a_page_number_that_would_overflow_the_offset()
+    {
+        using var client = await _application.CreateAuthenticatedClientWithPermissionsAsync(
+            Permissions.Cargo.Read);
+        using var manageClient = await _application.CreateAuthenticatedClientWithPermissionsAsync(
+            Permissions.Cargo.Manage);
+        var bookingId = await RegisterBookingAsync(manageClient, "BK-CONT-INT-0105");
+
+        using var response = await client.GetAsync(
+            $"{ContainersEndpoint(bookingId)}?pageNumber={int.MaxValue}",
+            CancellationToken.None);
+        var problem = await response.Content.ReadFromJsonAsync<HttpValidationProblemDetails>(
+            CancellationToken.None);
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        Assert.NotNull(problem);
+        Assert.Equal(["pageNumber"], problem.Errors.Keys);
+    }
+
+    [Fact]
+    public async Task Get_with_filters_is_forbidden_without_a_cargo_permission()
+    {
+        using var client = await _application.CreateAuthenticatedClientWithPermissionsAsync(
+            Permissions.IdentityUsers.Read);
+
+        using var response = await client.GetAsync(
+            $"{ContainersEndpoint(Guid.NewGuid())}?search=MSKU&status=Loaded",
+            CancellationToken.None);
+
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+    }
+
+    [Fact]
     public async Task Post_adds_and_persists_a_normalized_container()
     {
         using var client = await _application.CreateAuthenticatedClientWithPermissionsAsync(
@@ -232,6 +339,30 @@ public sealed class CargoContainersEndpointTests : IntegrationTestBase
             CancellationToken.None);
 
         Assert.Equal(HttpStatusCode.Created, response.StatusCode);
+    }
+
+    private async Task SeedContainersAsync(
+        Guid bookingId,
+        string ownerCode,
+        int count,
+        CargoStatus status,
+        int firstOrdinal = 1)
+    {
+        await using var scope = _application.Services.CreateAsyncScope();
+        var dbContext = scope.ServiceProvider.GetRequiredService<HarborOpsDbContext>();
+
+        dbContext.Set<Container>().AddRange(Enumerable
+            .Range(firstOrdinal, count)
+            .Select(ordinal => Container.Register(
+                $"{ownerCode}{ordinal:D7}",
+                "42R1",
+                status,
+                cargoBookingId: bookingId,
+                portOfLoadingCode: "NLRTM",
+                portOfDischargeCode: "USNYC",
+                weightKg: 12500m)));
+
+        await dbContext.SaveChangesAsync(CancellationToken.None);
     }
 
     private async Task CompleteBookingAsync(Guid bookingId)

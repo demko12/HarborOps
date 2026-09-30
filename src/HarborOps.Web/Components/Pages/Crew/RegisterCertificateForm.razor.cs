@@ -19,6 +19,8 @@ public partial class RegisterCertificateForm
 
     private FormModel model = new();
     private bool isSubmitting;
+
+    public bool IsSubmitting => isSubmitting;
     private string? successMessage;
     private string? conflictMessage;
     private string? generalError;

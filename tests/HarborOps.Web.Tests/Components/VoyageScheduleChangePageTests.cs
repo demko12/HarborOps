@@ -116,8 +116,30 @@ public sealed class VoyageScheduleChangePageTests : BunitContext
     {
         var page = RenderTimelinePage();
 
+        page.Find(".timeline-history-filter[data-filter='schedule']").Click();
+
         Assert.Contains("No schedule changes", page.Markup, StringComparison.Ordinal);
         Assert.Empty(page.FindAll(".timeline-schedule-change"));
+    }
+
+    [Fact]
+    public void A_history_filter_shows_only_entries_of_that_kind()
+    {
+        respondToSchedule = _ => Json(HttpStatusCode.OK, Schedule(changes:
+        [
+            AmendmentChange(ChangeOneId, "2026-09-02T10:00:00Z"),
+        ]));
+
+        var page = RenderTimelinePage();
+
+        page.Find(".timeline-history-filter[data-filter='schedule']").Click();
+
+        var entries = page.FindAll("[aria-labelledby='timeline-history-title'] .timeline-history-entry");
+        var entry = Assert.Single(entries);
+        Assert.Contains("timeline-schedule-change", entry.ClassList);
+        Assert.Equal(
+            "true",
+            page.Find(".timeline-history-filter[data-filter='schedule']").GetAttribute("aria-pressed"));
     }
 
     [Fact]
@@ -370,7 +392,10 @@ public sealed class VoyageScheduleChangePageTests : BunitContext
         page.Find(".api-error-state button").Click();
 
         page.WaitForAssertion(() => Assert.True(attempt >= 2));
-        page.WaitForAssertion(() => Assert.Contains("No schedule changes", page.Markup, StringComparison.Ordinal));
+        page.WaitForAssertion(() => Assert.Contains(
+            "VOY-100",
+            page.Find("[aria-labelledby='timeline-schedule-title']").TextContent,
+            StringComparison.Ordinal));
     }
 
     [Fact]

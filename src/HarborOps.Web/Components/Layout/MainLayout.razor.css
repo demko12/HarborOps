@@ -5,7 +5,9 @@
     isolation: isolate;
     background-color: var(--bg-app);
     color: var(--text-primary);
-    transition: background-color 0.2s ease, color 0.2s ease;
+    transition:
+        background-color 0.2s ease,
+        color 0.2s ease;
 }
 
 main {
@@ -34,10 +36,10 @@ main {
         display: block;
     }
 
-        .page:not(.login-layout) main {
-            margin-left: 0;
-            padding-top: 3.75rem;
-        }
+    .page:not(.login-layout) main {
+        margin-left: 0;
+        padding-top: 3.75rem;
+    }
 }
 
 .login-layout main,
@@ -67,9 +69,9 @@ main {
     z-index: 1000;
 }
 
-    #blazor-error-ui .dismiss {
-        cursor: pointer;
-        position: absolute;
-        right: 0.75rem;
-        top: 0.5rem;
-    }
+#blazor-error-ui .dismiss {
+    cursor: pointer;
+    position: absolute;
+    right: 0.75rem;
+    top: 0.5rem;
+}

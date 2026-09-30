@@ -1,6 +1,6 @@
 @page "/administration"
 @attribute [Microsoft.AspNetCore.Authorization.Authorize(Policy = "ManageAdministration")]
-@implements IDisposable
+@implements IAsyncDisposable
 @inject IdentityAdministrationApiClient AdministrationApi
 @inject CurrentUserAuthorizationState AuthorizationState
 @inject ServerSessionTicketStore SessionTicketStore
@@ -35,7 +35,7 @@
     <div class="administration-grid">
         <section class="administration-card administration-users" aria-labelledby="users-title">
             <div class="card-heading">
-                <div><span class="administration-section-label">Account directory</span><h2 id="users-title">Users</h2><p>Assign roles to existing accounts.</p></div>
+                <div><span class="administration-section-label">Account directory</span><h2 id="users-title">Users</h2><p>Select an account to manage roles and sign-in access.</p></div>
                 <span class="bi bi-people" aria-hidden="true"></span>
             </div>
             <div class="administration-search">
@@ -65,7 +65,7 @@
                 <div class="user-list">
                     @foreach (var user in users)
                     {
-                        <button type="button" class="user-row @(selectedUser?.Id == user.Id ? "selected" : string.Empty)" aria-pressed="@((selectedUser?.Id == user.Id).ToString().ToLowerInvariant())" @onclick="() => SelectUser(user)">
+                        <button type="button" class="user-row @(selectedUser?.Id == user.Id ? "selected" : string.Empty)" aria-haspopup="dialog" @onclick="() => SelectUser(user)">
                             <span class="admin-row-identity"><span class="admin-row-icon bi bi-person" aria-hidden="true"></span><span><strong>@user.Email</strong><small>@(user.Roles.Count == 0 ? "No roles assigned" : string.Join(", ", user.Roles))</small></span></span>
                             <span class="user-row-trailing"><span class="account-status @(user.IsActive ? "active" : "disabled")">@(user.IsActive ? "Active" : "Disabled")</span><span class="bi bi-chevron-right" aria-hidden="true"></span></span>
                         </button>
@@ -79,16 +79,21 @@
         </section>
 
         <section class="administration-card administration-roles" aria-labelledby="roles-title">
-            <div class="card-heading"><div><span class="administration-section-label">Permission groups</span><h2 id="roles-title">Roles</h2><p>Create and configure reusable access roles.</p></div><span class="bi bi-person-badge"></span></div>
+            <div class="card-heading"><div><span class="administration-section-label">Permission groups</span><h2 id="roles-title">Roles</h2><p>Select a role to review and update its permissions.</p></div><span class="bi bi-person-badge"></span></div>
             <form class="create-role" @onsubmit="CreateRoleAsync" @onsubmit:preventDefault="true"><div class="input-shell"><span class="bi bi-person-badge" aria-hidden="true"></span><input @bind="newRoleName" placeholder="e.g. Port operations" aria-label="New role name" /></div><button class="admin-button" type="submit" disabled="@isCreatingRole">Create role</button></form>
             @if (roleFormMessage is not null) { <p class="form-message @roleFormMessageClass">@roleFormMessage</p> }
             @if (isLoadingRoles) { <LoadingState Message="Loading roles..." /> }
             else if (rolesFailure is not null) { <ApiErrorState Title="@rolesFailure.Title" Message="@rolesFailure.Message" OnRetry="LoadRolesAsync" /> }
             else if (roles.Count == 0) { <EmptyState Title="No roles yet" Message="Create a role to begin assigning access." /> }
-            else { <div class="role-list">@foreach (var role in roles) { <button type="button" class="role-row @(selectedRole?.Id == role.Id ? "selected" : string.Empty)" aria-pressed="@((selectedRole?.Id == role.Id).ToString().ToLowerInvariant())" @onclick="() => SelectRole(role)"><span class="admin-row-identity"><span class="admin-row-icon bi bi-person-badge" aria-hidden="true"></span><strong>@role.Name</strong></span><small>@role.Permissions.Count permissions</small></button> }</div> }
+            else { <div class="role-list">@foreach (var role in roles) { <button type="button" class="role-row @(selectedRole?.Id == role.Id ? "selected" : string.Empty)" aria-haspopup="dialog" @onclick="() => SelectRole(role)"><span class="admin-row-identity"><span class="admin-row-icon bi bi-person-badge" aria-hidden="true"></span><strong>@role.Name</strong></span><span class="user-row-trailing"><small>@role.Permissions.Count permissions</small><span class="bi bi-chevron-right" aria-hidden="true"></span></span></button> }</div> }
         </section>
 
-		<section id="administration-editor" class="administration-card administration-editor" aria-labelledby="editor-title">
+    </div>
+
+		<dialog @ref="editorDialog" id="administration-editor" class="administration-access-dialog administration-editor" aria-labelledby="editor-title">
+            @if (selectedUser is not null || selectedRole is not null)
+            {
+                <div class="access-dialog-toolbar"><span class="administration-section-label">Manage access</span><button type="button" class="administration-modal-close" aria-label="Close access editor" disabled="@(isSaving || isSavingLifecycle)" @onclick="CloseEditorAsync"><span class="bi bi-x-lg" aria-hidden="true"></span> Close</button></div>
             @if (selectedUser is not null)
             {
                 <div class="card-heading"><div><h2 id="editor-title">User roles</h2><p>@selectedUser.Email</p></div><span class="bi bi-shield-check"></span></div>
@@ -99,7 +104,7 @@
                 }
                 @if (roles.Count == 0) { <EmptyState Title="No roles available" Message="Create a role before assigning it." /> }
                 @if (editorMessage is not null) { <p class="form-message @editorMessageClass">@editorMessage</p> }
-                @if (confirmUserRoles) { <div class="confirmation"><strong>Replace user roles?</strong><p>This will remove any unselected roles.</p><button class="admin-button" @onclick="SaveUserRolesAsync">Confirm replacement</button><button class="admin-button-link" @onclick="() => confirmUserRoles = false">Cancel</button></div> }
+                @if (confirmUserRoles) { <div class="confirmation"><strong>Replace user roles?</strong><p>This will remove any unselected roles.</p><button class="admin-button" disabled="@isSaving" @onclick="SaveUserRolesAsync">Confirm replacement</button><button class="admin-button-link" @onclick="() => confirmUserRoles = false">Cancel</button></div> }
                 else { <button class="admin-button" disabled="@(isSaving || roles.Count == 0)" @onclick="() => confirmUserRoles = true">Replace roles</button> }
 
                 <section class="account-lifecycle" aria-labelledby="account-lifecycle-title">
@@ -136,17 +141,19 @@
             {
                 <div class="card-heading"><div><h2 id="editor-title">Role permissions</h2><p>@selectedRole.Name</p></div><span class="bi bi-key"></span></div>
                 <p class="editor-note">Saving replaces every permission assigned to this role.</p>
+                <div class="permission-groups">
                 @foreach (var capability in PermissionCatalog.GroupBy(permission => permission.Capability))
                 {
                     <fieldset><legend>@capability.Key</legend>@foreach (var permission in capability) { <label class="choice"><input type="checkbox" checked="@selectedPermissions.Contains(permission.Name)" @onchange="e => TogglePermission(permission.Name, e.Value)" /> <span>@permission.Action</span></label> }</fieldset>
                 }
+                </div>
                 @if (editorMessage is not null) { <p class="form-message @editorMessageClass">@editorMessage</p> }
-                @if (confirmRolePermissions) { <div class="confirmation"><strong>Replace role permissions?</strong><p>This can immediately change administrator access.</p><button class="admin-button" @onclick="SaveRolePermissionsAsync">Confirm replacement</button><button class="admin-button-link" @onclick="() => confirmRolePermissions = false">Cancel</button></div> }
+                @if (confirmRolePermissions) { <div class="confirmation"><strong>Replace role permissions?</strong><p>This can immediately change administrator access.</p><button class="admin-button" disabled="@isSaving" @onclick="SaveRolePermissionsAsync">Confirm replacement</button><button class="admin-button-link" @onclick="() => confirmRolePermissions = false">Cancel</button></div> }
                 else { <button class="admin-button" disabled="@isSaving" @onclick="() => confirmRolePermissions = true">Replace permissions</button> }
             }
-            else { <EmptyState Title="Select a user or role" Message="Choose an item to manage its access." /> }
-        </section>
-    </div>
+
+            }
+        </dialog>
 
     @if (showCreateUserDialog)
     {

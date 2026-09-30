@@ -1,3 +1,501 @@
-.settings-page { max-width: 880px; margin: 0 auto; padding: var(--page-padding); }.settings-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem; margin-bottom: 1.5rem; }.settings-eyebrow { margin: 0 0 .4rem; color: var(--accent); font-size: .72rem; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; }.settings-header h1 { margin: 0; font-size: clamp(1.75rem, 3vw, 2.25rem); letter-spacing: -.04em; }.settings-header p:last-child, .settings-card-heading p { margin: .4rem 0 0; color: var(--text-secondary); }.settings-header-icon, .settings-card-heading > span { display: grid; width: 2.2rem; height: 2.2rem; place-items: center; color: var(--accent); border: 1px solid var(--accent-border); border-radius: .7rem; background: var(--accent-bg); }.settings-card { padding: 1.35rem; border: 1px solid var(--border-medium); border-radius: var(--radius-card); background: linear-gradient(145deg, var(--bg-surface-strong), var(--bg-surface)); box-shadow: 0 12px 35px rgba(0, 0, 0, .08); }.settings-card-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem; margin-bottom: 1.15rem; }.settings-card-heading h2 { margin: 0; font-size: 1.05rem; }.theme-options { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: .8rem; }.theme-option { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: .75rem; min-height: 6.6rem; padding: 1rem; color: var(--text-primary); text-align: left; border: 1px solid var(--border-medium); border-radius: var(--radius-row); background: var(--bg-surface); cursor: pointer; transition: border-color .15s ease, background .15s ease, transform .15s ease; }.theme-option:hover { border-color: var(--accent-border); background: var(--accent-bg); transform: translateY(-1px); }.theme-option.selected { border-color: var(--accent); background: var(--accent-bg); box-shadow: 0 0 0 1px var(--accent-border); }.theme-option-icon { display: grid; width: 2.2rem; height: 2.2rem; place-items: center; color: var(--accent); border-radius: var(--radius-control); background: color-mix(in srgb, var(--accent) 14%, transparent); }.theme-option strong, .theme-option small { display: block; }.theme-option strong { font-size: .9rem; }.theme-option small { margin-top: .25rem; color: var(--text-secondary); font-size: .74rem; line-height: 1.35; }.theme-option-check { color: var(--accent); opacity: 0; }.theme-option.selected .theme-option-check { opacity: 1; } @media (max-width: 760px) { .settings-page { padding: var(--page-padding-compact); }.theme-options { grid-template-columns: 1fr; }.theme-option { min-height: 5.2rem; } }
+.settings-page {
+    max-width: 880px;
+    margin: 0 auto;
+    padding: var(--page-padding);
+}
+.settings-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+}
+.settings-eyebrow {
+    margin: 0 0 0.4rem;
+    color: var(--accent);
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+}
+.settings-header h1 {
+    margin: 0;
+    font-size: clamp(1.75rem, 3vw, 2.25rem);
+    letter-spacing: -0.04em;
+}
+.settings-header p:last-child,
+.settings-card-heading p {
+    margin: 0.4rem 0 0;
+    color: var(--text-secondary);
+}
+.settings-header-icon,
+.settings-card-heading > span {
+    display: grid;
+    width: 2.2rem;
+    height: 2.2rem;
+    place-items: center;
+    color: var(--accent);
+    border: 1px solid var(--accent-border);
+    border-radius: 0.7rem;
+    background: var(--accent-bg);
+}
+.settings-card {
+    padding: 1.35rem;
+    border: 1px solid var(--border-medium);
+    border-radius: var(--radius-card);
+    background: linear-gradient(
+        145deg,
+        var(--bg-surface-strong),
+        var(--bg-surface)
+    );
+    box-shadow: 0 12px 35px rgba(0, 0, 0, 0.08);
+}
+.settings-card-heading {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 1rem;
+    margin-bottom: 1.15rem;
+}
+.settings-card-heading h2 {
+    margin: 0;
+    font-size: 1.05rem;
+}
+.theme-options {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 0.8rem;
+}
+.theme-option {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 0.75rem;
+    min-height: 6.6rem;
+    padding: 1rem;
+    color: var(--text-primary);
+    text-align: left;
+    border: 1px solid var(--border-medium);
+    border-radius: var(--radius-row);
+    background: var(--bg-surface);
+    cursor: pointer;
+    transition:
+        border-color 0.15s ease,
+        background 0.15s ease,
+        transform 0.15s ease;
+}
+.theme-option:hover {
+    border-color: var(--accent-border);
+    background: var(--accent-bg);
+    transform: translateY(-1px);
+}
+.theme-option.selected {
+    border-color: var(--accent);
+    background: var(--accent-bg);
+    box-shadow: 0 0 0 1px var(--accent-border);
+}
+.theme-option-icon {
+    display: grid;
+    width: 2.2rem;
+    height: 2.2rem;
+    place-items: center;
+    color: var(--accent);
+    border-radius: var(--radius-control);
+    background: color-mix(in srgb, var(--accent) 14%, transparent);
+}
+.theme-option strong,
+.theme-option small {
+    display: block;
+}
+.theme-option strong {
+    font-size: 0.9rem;
+}
+.theme-option small {
+    margin-top: 0.25rem;
+    color: var(--text-secondary);
+    font-size: 0.74rem;
+    line-height: 1.35;
+}
+.theme-option-check {
+    color: var(--accent);
+    opacity: 0;
+}
+.theme-option.selected .theme-option-check {
+    opacity: 1;
+}
+@media (max-width: 760px) {
+    .settings-page {
+        padding: var(--page-padding-compact);
+    }
+    .theme-options {
+        grid-template-columns: 1fr;
+    }
+    .theme-option {
+        min-height: 5.2rem;
+    }
+}
 
-.settings-security-card { margin-top: 1rem; }.settings-security-form { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: .8rem; }.settings-security-form label { display: grid; gap: .35rem; color: var(--text-muted); font-size: .7rem; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; }.settings-password-field { position: relative; display: block; }.settings-security-form input { width: 100%; height: var(--control-height); padding: 0 2.9rem 0 .8rem; color: var(--text-primary); border: 1px solid var(--border-medium); border-radius: var(--radius-control); background: var(--control-surface); font: inherit; }.settings-password-toggle { position: absolute; top: 50%; right: .25rem; display: grid; width: 2.25rem; height: 2.25rem; place-items: center; padding: 0; color: var(--text-secondary); border: 0; border-radius: var(--radius-control); background: transparent; cursor: pointer; transform: translateY(-50%); }.settings-password-toggle:hover { color: var(--accent); background: var(--accent-bg); }.settings-security-help { grid-column: 1 / -1; margin: 0; color: var(--text-secondary); font-size: .78rem; }.settings-security-button, .settings-revoke-form button { width: fit-content; height: var(--control-height); padding: 0 1rem; color: var(--apply-text); border: 1px solid var(--apply-border); border-radius: var(--radius-button); background: var(--apply-surface); font: inherit; font-weight: 600; cursor: pointer; }.settings-revoke-form { display: flex; align-items: center; justify-content: space-between; gap: 1rem; margin-top: 1.25rem; padding-top: 1.25rem; border-top: 1px solid var(--border-subtle); }.settings-revoke-form strong { color: var(--text-primary); }.settings-revoke-form p { margin: .25rem 0 0; color: var(--text-secondary); font-size: .8rem; }.settings-security-error { padding: .75rem .9rem; color: var(--status-danger-strong); border: 1px solid rgba(248,113,113,.35); border-radius: var(--radius-control); background: rgba(127,29,29,.08); } @media (max-width: 760px) { .settings-security-form { grid-template-columns: 1fr; }.settings-revoke-form { align-items: flex-start; flex-direction: column; } }
+.settings-security-card {
+    margin-top: 1rem;
+}
+.settings-security-form {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 0.8rem;
+}
+.settings-security-form label {
+    display: grid;
+    gap: 0.35rem;
+    color: var(--text-muted);
+    font-size: 0.7rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+.settings-password-field {
+    position: relative;
+    display: block;
+}
+.settings-security-form input {
+    width: 100%;
+    height: var(--control-height);
+    padding: 0 2.9rem 0 0.8rem;
+    color: var(--text-primary);
+    border: 1px solid var(--border-medium);
+    border-radius: var(--radius-control);
+    background: var(--control-surface);
+    font: inherit;
+}
+.settings-password-toggle {
+    position: absolute;
+    top: 50%;
+    right: 0.25rem;
+    display: grid;
+    width: 2.25rem;
+    height: 2.25rem;
+    place-items: center;
+    padding: 0;
+    color: var(--text-secondary);
+    border: 0;
+    border-radius: var(--radius-control);
+    background: transparent;
+    cursor: pointer;
+    transform: translateY(-50%);
+}
+.settings-password-toggle:hover {
+    color: var(--accent);
+    background: var(--accent-bg);
+}
+.settings-security-help {
+    grid-column: 1 / -1;
+    margin: 0;
+    color: var(--text-secondary);
+    font-size: 0.78rem;
+}
+.settings-security-button,
+.settings-revoke-form button {
+    width: fit-content;
+    height: var(--control-height);
+    padding: 0 1rem;
+    color: var(--apply-text);
+    border: 1px solid var(--apply-border);
+    border-radius: var(--radius-button);
+    background: var(--apply-surface);
+    font: inherit;
+    font-weight: 600;
+    cursor: pointer;
+}
+.settings-revoke-form {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    margin-top: 1.25rem;
+    padding-top: 1.25rem;
+    border-top: 1px solid var(--border-subtle);
+}
+.settings-revoke-form strong {
+    color: var(--text-primary);
+}
+.settings-revoke-form p {
+    margin: 0.25rem 0 0;
+    color: var(--text-secondary);
+    font-size: 0.8rem;
+}
+.settings-security-error {
+    padding: 0.75rem 0.9rem;
+    color: var(--status-danger-strong);
+    border: 1px solid rgba(248, 113, 113, 0.35);
+    border-radius: var(--radius-control);
+    background: rgba(127, 29, 29, 0.08);
+}
+@media (max-width: 760px) {
+    .settings-security-form {
+        grid-template-columns: 1fr;
+    }
+    .settings-revoke-form {
+        align-items: flex-start;
+        flex-direction: column;
+    }
+}
+
+/* Account workspace follows the module page typography and surfaces. */
+.settings-page {
+    --account-accent-bg: color-mix(in srgb, var(--accent) 12%, transparent);
+    --account-accent-border: color-mix(in srgb, var(--accent) 30%, transparent);
+    max-width: 1200px;
+    padding: 1.5rem 1rem 3rem;
+}
+.settings-header h1 {
+    font-size: clamp(1.8rem, 2.6vw, 2.35rem);
+    font-weight: 600;
+    letter-spacing: -0.045em;
+}
+.settings-header p:last-child {
+    font-size: 0.875rem;
+}
+.settings-header-icon {
+    width: 2.8rem;
+    height: 2.8rem;
+    border-radius: 0.85rem;
+    background: var(--account-accent-bg);
+    border-color: var(--account-accent-border);
+}
+.settings-navigation {
+    display: flex;
+    gap: 0.35rem;
+    margin-bottom: 1.5rem;
+    padding: 0.2rem 0.2rem 0.8rem;
+    border-bottom: 1px solid var(--border-subtle);
+}
+.settings-navigation a {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.55rem;
+    padding: 0.65rem 0.85rem;
+    border: 1px solid transparent;
+    border-radius: 0.65rem;
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+    text-decoration: none;
+}
+.settings-navigation a[aria-current="page"] {
+    color: var(--text-primary);
+    background: var(--account-accent-bg);
+    border-color: var(--account-accent-border);
+}
+.settings-navigation a:hover {
+    background: var(--bg-surface-strong);
+}
+.settings-navigation a:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+}
+.settings-card {
+    padding: 1.25rem;
+}
+.settings-card-heading {
+    padding-bottom: 1rem;
+    border-bottom: 1px solid var(--border-subtle);
+}
+.settings-card-heading h2 {
+    font-size: 1.15rem;
+    font-weight: 600;
+    letter-spacing: -0.025em;
+}
+.settings-card-heading p {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+}
+@media (max-width: 760px) {
+    .settings-page {
+        padding: 1rem 0.5rem 2rem;
+    }
+    .settings-card {
+        padding: 1rem;
+    }
+}
+
+.theme-option {
+    align-content: start;
+    min-height: 0;
+    padding: 0.85rem;
+    gap: 0.7rem;
+    border-radius: 0.75rem;
+}
+.theme-option:hover {
+    transform: none;
+    background: var(--bg-surface-strong);
+}
+.theme-option.selected {
+    background: var(--account-accent-bg);
+    border-color: var(--account-accent-border);
+    box-shadow: inset 0 0 0 1px var(--account-accent-border);
+}
+.theme-option:focus-visible,
+.settings-password-toggle:focus-visible,
+.settings-security-button:focus-visible,
+.settings-revoke-form button:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 3px;
+}
+.theme-option-icon {
+    width: 1.8rem;
+    height: 1.8rem;
+}
+.theme-option strong {
+    font-size: 0.82rem;
+    font-weight: 600;
+}
+.theme-option small {
+    font-size: 0.7rem;
+}
+.theme-preview {
+    grid-column: 1 / -1;
+    display: flex;
+    height: 6.5rem;
+    gap: 0.65rem;
+    padding: 0.65rem;
+    border: 1px solid rgba(148, 163, 184, 0.25);
+    border-radius: 0.5rem;
+    background: #e9eef5;
+}
+.theme-preview-sidebar {
+    display: grid;
+    align-content: start;
+    gap: 0.45rem;
+    width: 1.5rem;
+    padding: 0.35rem;
+    border-radius: 0.3rem;
+    background: #fff;
+}
+.theme-preview-sidebar i {
+    height: 0.4rem;
+    border-radius: 0.1rem;
+    background: #cbd5e1;
+}
+.theme-preview-sidebar i:first-child {
+    background: #60a5fa;
+}
+.theme-preview-content {
+    display: grid;
+    align-content: start;
+    gap: 0.5rem;
+    flex: 1;
+    padding-top: 0.3rem;
+}
+.theme-preview-heading {
+    width: 45%;
+    height: 0.35rem;
+    border-radius: 0.2rem;
+    background: #94a3b8;
+}
+.theme-preview-content > span {
+    display: flex;
+    gap: 0.4rem;
+}
+.theme-preview-content > span i {
+    flex: 1;
+    height: 1.4rem;
+    border-radius: 0.3rem;
+    background: #fff;
+}
+.theme-preview-row {
+    height: 0.65rem;
+    border-radius: 0.2rem;
+    background: #fff;
+}
+.theme-preview-dark {
+    background: #172033;
+}
+.theme-preview-dark .theme-preview-sidebar,
+.theme-preview-dark .theme-preview-content > span i,
+.theme-preview-dark .theme-preview-row {
+    background: #28364c;
+}
+.theme-preview-system {
+    background: linear-gradient(90deg, #e9eef5 50%, #172033 50%);
+}
+.theme-preview-system .theme-preview-content > span i:last-child {
+    background: #28364c;
+}
+.theme-preview-system .theme-preview-row {
+    background: linear-gradient(90deg, #fff 40%, #28364c 40%);
+}
+.settings-preference-note {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.45rem;
+    margin: 1rem 0 0;
+    color: var(--text-secondary);
+    font-size: 0.72rem;
+}
+.settings-preference-note > .bi {
+    color: var(--accent);
+}
+.settings-preference-note strong {
+    color: var(--text-primary);
+    font-weight: 600;
+}
+.settings-security-form {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 1rem;
+    max-width: 48rem;
+}
+.settings-security-form > label:first-of-type {
+    grid-column: 1 / -1;
+}
+.settings-security-form label {
+    font-size: 0.62rem;
+}
+.settings-security-form input {
+    box-sizing: border-box;
+    font-size: 0.85rem;
+    letter-spacing: normal;
+}
+.settings-security-form input:focus {
+    outline: 0;
+    border-color: var(--accent);
+    box-shadow: var(--focus-ring);
+}
+.settings-security-button {
+    grid-column: 1 / -1;
+    color: var(--text-primary);
+    background: var(--account-accent-bg);
+    border-color: var(--account-accent-border);
+    font-size: 0.78rem;
+}
+.settings-revoke-form {
+    padding: 1rem;
+    border: 1px solid var(--border-subtle);
+    border-radius: 0.75rem;
+    background: var(--bg-surface);
+}
+.settings-revoke-form strong {
+    font-size: 0.85rem;
+}
+.settings-revoke-form p {
+    font-size: 0.75rem;
+}
+.settings-revoke-form button {
+    color: var(--danger-text);
+    border-color: color-mix(in srgb, var(--danger-text) 30%, transparent);
+    background: color-mix(in srgb, var(--danger-text) 8%, transparent);
+    font-size: 0.78rem;
+    white-space: nowrap;
+}
+.settings-security-error {
+    color: var(--danger-text);
+}
+@media (max-width: 760px) {
+    .settings-security-form {
+        grid-template-columns: 1fr;
+    }
+    .theme-preview {
+        height: 5rem;
+    }
+    .settings-revoke-form {
+        align-items: stretch;
+    }
+}

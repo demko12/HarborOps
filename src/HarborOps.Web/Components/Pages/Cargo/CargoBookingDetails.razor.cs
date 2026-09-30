@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations;
+using System.Globalization;
 using HarborOps.Web.Api.Cargo;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Forms;
@@ -19,8 +20,34 @@ public partial class CargoBookingDetails : IDisposable
     [Parameter]
     public Guid BookingId { get; set; }
 
-    [SupplyParameterFromQuery(Name = "from")]
+    [SupplyParameterFromQuery(Name = BoardQueryKey)]
     public string? BoardQuery { get; set; }
+
+    [SupplyParameterFromQuery(Name = ManifestSearchQueryKey)]
+    public string? ManifestSearchFromQuery { get; set; }
+
+    [SupplyParameterFromQuery(Name = ManifestStatusQueryKey)]
+    public string? ManifestStatusFromQuery { get; set; }
+
+    [SupplyParameterFromQuery(Name = ManifestTypeQueryKey)]
+    public string? ManifestTypeFromQuery { get; set; }
+
+    [SupplyParameterFromQuery(Name = ManifestPolQueryKey)]
+    public string? ManifestPolFromQuery { get; set; }
+
+    [SupplyParameterFromQuery(Name = ManifestPodQueryKey)]
+    public string? ManifestPodFromQuery { get; set; }
+
+    [SupplyParameterFromQuery(Name = ManifestPageQueryKey)]
+    public int? ManifestPageFromQuery { get; set; }
+
+    internal const string BoardQueryKey = "from";
+    private const string ManifestSearchQueryKey = "manifestSearch";
+    private const string ManifestStatusQueryKey = "manifestStatus";
+    private const string ManifestTypeQueryKey = "manifestType";
+    private const string ManifestPolQueryKey = "manifestPol";
+    private const string ManifestPodQueryKey = "manifestPod";
+    private const string ManifestPageQueryKey = "manifestPage";
 
     private string CargoHref => string.IsNullOrWhiteSpace(BoardQuery) ? "/cargo" : $"/cargo?{BoardQuery}";
 
@@ -72,6 +99,8 @@ public partial class CargoBookingDetails : IDisposable
         }
 
         loadedBookingId = BookingId;
+        hasLoadedContainers = false;
+        ApplyAddressToContainerFilters();
 
         return LoadAsync();
     }
@@ -208,11 +237,52 @@ public partial class CargoBookingDetails : IDisposable
     private IReadOnlyList<CargoContainerRow> containers = [];
     private int containerPageNumber = 1;
     private int containerTotalCount;
+    private int containerMatchingCount;
     private int loadedContainerCount;
     private const int ContainersPerPage = 15;
+    private const int ContainerSearchMaxLength = 20;
+    private const int PortCodeLength = 5;
+    private static readonly TimeSpan ContainerSearchDebounce = TimeSpan.FromMilliseconds(300);
     private CargoApiFailure? containersFailure;
     private bool isLoadingContainers;
+    private bool hasLoadedContainers;
+    private int containerLoadVersion;
+    private CancellationTokenSource? containerLoadCancellation;
+    private CancellationTokenSource? containerSearchDebounce;
     private Guid? selectedControlContainerId;
+
+    private string? containerSearchInput;
+    private string containerStatusInput = string.Empty;
+    private string containerTypeInput = string.Empty;
+    private string? containerPolInput;
+    private string? containerPodInput;
+    private string? containerFilterError;
+    private string? containerFilterHint;
+    private CargoContainerFilter appliedContainerFilter = CargoContainerFilter.None;
+
+    private static readonly IReadOnlyList<string> ContainerStatusOptions = ["Registered", "Loaded", "Unloaded"];
+
+    private bool IsContainerFilterActive => !appliedContainerFilter.IsEmpty;
+
+    private bool HasContainerFilterInput =>
+        !string.IsNullOrWhiteSpace(containerSearchInput)
+        || !string.IsNullOrEmpty(containerStatusInput)
+        || !string.IsNullOrEmpty(containerTypeInput)
+        || !string.IsNullOrWhiteSpace(containerPolInput)
+        || !string.IsNullOrWhiteSpace(containerPodInput)
+        || IsContainerFilterActive;
+
+    private IEnumerable<(string Label, string Value)> ActiveContainerFilters
+    {
+        get
+        {
+            if (appliedContainerFilter.Search is { } search) yield return ("Number contains", search);
+            if (appliedContainerFilter.Status is { } status) yield return ("Status", status);
+            if (appliedContainerFilter.ContainerType is { } containerType) yield return ("Type", containerType);
+            if (appliedContainerFilter.PortOfLoadingCode is { } portOfLoading) yield return ("POL", portOfLoading);
+            if (appliedContainerFilter.PortOfDischargeCode is { } portOfDischarge) yield return ("POD", portOfDischarge);
+        }
+    }
 
     private IReadOnlyList<CargoOperationRow> operations = [];
     private CargoApiFailure? operationsFailure;
@@ -294,20 +364,40 @@ public partial class CargoBookingDetails : IDisposable
     private async Task LoadContainersAsync()
     {
         var requestedBookingId = BookingId;
+        var requestVersion = ++containerLoadVersion;
+        var filter = appliedContainerFilter;
+        var pageNumber = containerPageNumber;
+
+        containerLoadCancellation?.Cancel();
+        var cancellation = CancellationTokenSource.CreateLinkedTokenSource(disposeCancellation.Token);
+        containerLoadCancellation = cancellation;
+
         isLoadingContainers = true;
         containersFailure = null;
+        StateHasChanged();
 
         CargoApiResult<CargoContainerList> result;
         try
         {
-            result = await CargoApi.GetContainersAsync(requestedBookingId, containerPageNumber, disposeCancellation.Token);
+            result = await CargoApi.GetContainersAsync(requestedBookingId, filter, pageNumber, cancellation.Token);
         }
-        catch (OperationCanceledException) when (disposeCancellation.IsCancellationRequested)
+        catch (OperationCanceledException) when (cancellation.IsCancellationRequested)
         {
             return;
         }
+        finally
+        {
+            if (ReferenceEquals(containerLoadCancellation, cancellation))
+            {
+                containerLoadCancellation = null;
+            }
 
-        if (disposeCancellation.IsCancellationRequested || requestedBookingId != BookingId)
+            cancellation.Dispose();
+        }
+
+        if (disposeCancellation.IsCancellationRequested
+            || requestVersion != containerLoadVersion
+            || requestedBookingId != BookingId)
         {
             return;
         }
@@ -317,21 +407,42 @@ public partial class CargoBookingDetails : IDisposable
         if (!result.IsSuccess)
         {
             containersFailure = result.Failure;
-            containers = [];
+
+            if (!hasLoadedContainers)
+            {
+                containers = [];
+            }
 
             return;
         }
 
-        containers = result.Value?.Items ?? [];
-        var isLegacyResponse = result.Value?.TotalCount is 0 && containers.Count > 0;
-        containerTotalCount = isLegacyResponse ? containers.Count : result.Value?.TotalCount ?? 0;
+        var page = result.Value!;
+        containers = page.Items ?? [];
+        var isLegacyResponse = page.TotalCount is 0 && containers.Count > 0;
+        containerTotalCount = isLegacyResponse ? containers.Count : page.TotalCount;
         loadedContainerCount = isLegacyResponse
             ? containers.Count(container => string.Equals(container.Status, LoadedStatus, StringComparison.OrdinalIgnoreCase))
-            : result.Value?.LoadedCount ?? 0;
-        containerPageNumber = result.Value?.PageNumber ?? 1;
+            : page.LoadedCount;
+        containerMatchingCount = page.MatchingCount ?? (filter.IsEmpty ? containerTotalCount : containers.Count);
+        containerPageNumber = page.PageNumber;
+        hasLoadedContainers = true;
+
+        if (containers.Count == 0 && containerMatchingCount > 0 && ContainerPageCount < containerPageNumber)
+        {
+            containerPageNumber = ContainerPageCount;
+            await LoadContainersAsync();
+
+            return;
+        }
+
+        SyncManifestAddress();
     }
 
-    private int ContainerPageCount => Math.Max(1, (int)Math.Ceiling(containerTotalCount / (double)ContainersPerPage));
+    private int ContainerPageCount => Math.Max(1, (int)Math.Ceiling(containerMatchingCount / (double)ContainersPerPage));
+
+    private int FirstContainerRowNumber => containers.Count == 0 ? 0 : ((containerPageNumber - 1) * ContainersPerPage) + 1;
+
+    private int LastContainerRowNumber => FirstContainerRowNumber + containers.Count - 1;
 
     private async Task ChangeContainerPageAsync(int pageNumber)
     {
@@ -340,6 +451,298 @@ public partial class CargoBookingDetails : IDisposable
         selectedControlContainerId = null;
         CancelContainerEdit();
         await LoadContainersAsync();
+    }
+
+    private async Task ScheduleContainerSearchAsync()
+    {
+        containerSearchDebounce?.Cancel();
+        var cancellation = CancellationTokenSource.CreateLinkedTokenSource(disposeCancellation.Token);
+        containerSearchDebounce = cancellation;
+
+        try
+        {
+            await Task.Delay(ContainerSearchDebounce, cancellation.Token);
+        }
+        catch (OperationCanceledException) when (cancellation.IsCancellationRequested)
+        {
+            return;
+        }
+        finally
+        {
+            if (ReferenceEquals(containerSearchDebounce, cancellation))
+            {
+                containerSearchDebounce = null;
+            }
+
+            cancellation.Dispose();
+        }
+
+        await InvokeAsync(ApplyTypedContainerFiltersAsync);
+    }
+
+    private Task ApplyTypedContainerFiltersAsync()
+    {
+        containerFilterHint = IncompletePortHint();
+
+        if (containerFilterHint is not null)
+        {
+            containerFilterError = null;
+
+            return Task.CompletedTask;
+        }
+
+        return ApplyContainerFiltersAsync();
+    }
+
+    private string? IncompletePortHint()
+    {
+        var incompletePorts = new[]
+        {
+            IsIncompletePortCode(containerPolInput) ? "POL" : null,
+            IsIncompletePortCode(containerPodInput) ? "POD" : null,
+        }.OfType<string>().ToList();
+
+        return incompletePorts.Count == 0
+            ? null
+            : $"Enter all {PortCodeLength} characters of the {string.Join(" and ", incompletePorts)} code (e.g. NLRTM). The filters and search apply once it is complete.";
+    }
+
+    private static bool IsIncompletePortCode(string? value)
+    {
+        return !string.IsNullOrWhiteSpace(value)
+            && value.Trim().Length < PortCodeLength
+            && value.Trim().All(char.IsLetterOrDigit);
+    }
+
+    private Task ApplyContainerFiltersNowAsync()
+    {
+        containerSearchDebounce?.Cancel();
+
+        return ApplyContainerFiltersAsync();
+    }
+
+    private Task ApplyContainerFiltersAsync()
+    {
+        containerFilterHint = null;
+        containerFilterError = ValidateContainerFilterInputs();
+
+        if (containerFilterError is not null)
+        {
+            return Task.CompletedTask;
+        }
+
+        var filter = CargoContainerFilter.Create(
+            containerSearchInput,
+            containerStatusInput,
+            containerTypeInput,
+            containerPolInput,
+            containerPodInput);
+
+        if (filter == appliedContainerFilter && containersFailure is null)
+        {
+            return Task.CompletedTask;
+        }
+
+        appliedContainerFilter = filter;
+        containerPageNumber = 1;
+        manifestExportError = null;
+        manifestExportNotice = null;
+
+        return LoadContainersAsync();
+    }
+
+    private Task ResetContainerFiltersAsync()
+    {
+        containerSearchDebounce?.Cancel();
+        containerSearchInput = null;
+        containerStatusInput = string.Empty;
+        containerTypeInput = string.Empty;
+        containerPolInput = null;
+        containerPodInput = null;
+        containerFilterError = null;
+        containerFilterHint = null;
+
+        return ApplyContainerFiltersAsync();
+    }
+
+    private string? ValidateContainerFilterInputs()
+    {
+        if (containerSearchInput?.Trim().Length > ContainerSearchMaxLength)
+        {
+            return $"Search must not exceed {ContainerSearchMaxLength} characters.";
+        }
+
+        if (!IsBlankOrPortCode(containerPolInput))
+        {
+            return "POL must be a five-character UN/LOCODE.";
+        }
+
+        if (!IsBlankOrPortCode(containerPodInput))
+        {
+            return "POD must be a five-character UN/LOCODE.";
+        }
+
+        return null;
+    }
+
+    private static bool IsBlankOrPortCode(string? value)
+    {
+        return string.IsNullOrWhiteSpace(value)
+            || (value.Trim().Length == PortCodeLength && value.Trim().All(char.IsLetterOrDigit));
+    }
+
+    private void ApplyAddressToContainerFilters()
+    {
+        containerSearchInput = ManifestSearchFromQuery;
+        containerStatusInput = ManifestStatusFromQuery ?? string.Empty;
+        containerTypeInput = ManifestTypeFromQuery?.Trim().ToUpperInvariant() ?? string.Empty;
+        containerPolInput = ManifestPolFromQuery;
+        containerPodInput = ManifestPodFromQuery;
+        containerFilterError = ValidateContainerFilterInputs();
+        appliedContainerFilter = containerFilterError is null
+            ? CargoContainerFilter.Create(containerSearchInput, containerStatusInput, containerTypeInput, containerPolInput, containerPodInput)
+            : CargoContainerFilter.None;
+        containerPageNumber = ManifestPageFromQuery is > 0 ? ManifestPageFromQuery.Value : 1;
+    }
+
+    private string ManifestAddress =>
+        BuildManifestAddress(BookingId, BoardQuery, appliedContainerFilter, containerPageNumber);
+
+    internal static string BuildManifestAddress(
+        Guid bookingId,
+        string? boardQuery,
+        CargoContainerFilter filter,
+        int pageNumber)
+    {
+        var parts = new List<string>();
+
+        AddAddressPart(parts, BoardQueryKey, boardQuery);
+        AddAddressPart(parts, ManifestSearchQueryKey, filter.Search);
+        AddAddressPart(parts, ManifestStatusQueryKey, filter.Status);
+        AddAddressPart(parts, ManifestTypeQueryKey, filter.ContainerType);
+        AddAddressPart(parts, ManifestPolQueryKey, filter.PortOfLoadingCode);
+        AddAddressPart(parts, ManifestPodQueryKey, filter.PortOfDischargeCode);
+
+        if (pageNumber > 1)
+        {
+            parts.Add($"{ManifestPageQueryKey}={pageNumber}");
+        }
+
+        return parts.Count == 0
+            ? $"cargo/{bookingId}"
+            : $"cargo/{bookingId}?{string.Join('&', parts)}";
+    }
+
+    private string ManifestOutputQuery(bool includeReturnState)
+    {
+        var parts = new List<string>(appliedContainerFilter.QueryParts());
+
+        if (includeReturnState)
+        {
+            AddAddressPart(parts, BoardQueryKey, BoardQuery);
+
+            if (containerPageNumber > 1)
+            {
+                parts.Add($"returnPage={containerPageNumber}");
+            }
+        }
+
+        return parts.Count == 0 ? string.Empty : $"?{string.Join('&', parts)}";
+    }
+
+    private string ManifestExportUrl => $"/cargo/{BookingId}/manifest/export{ManifestOutputQuery(includeReturnState: false)}";
+
+    private string ManifestPrintHref => $"/cargo/{BookingId}/manifest/print{ManifestOutputQuery(includeReturnState: true)}";
+
+    private const int ManifestOutputRowLimit = 10_000;
+
+    private bool ManifestOutputExceedsLimit => containerMatchingCount > ManifestOutputRowLimit;
+
+    private string ManifestOutputLimitMessage => string.Create(
+        CultureInfo.InvariantCulture,
+        $"{containerMatchingCount:N0} containers match, more than the {ManifestOutputRowLimit:N0} that can be exported or printed at once. Narrow the filters first.");
+
+    private bool CanProduceManifestOutput =>
+        hasLoadedContainers
+        && !isLoadingContainers
+        && !ManifestOutputExceedsLimit
+        && containersFailure is null
+        && containerFilterError is null
+        && containerFilterHint is null;
+
+    private bool isExportingManifest;
+    private string? manifestExportError;
+    private string? manifestExportNotice;
+
+    private async Task ExportManifestCsvAsync()
+    {
+        if (isExportingManifest || !CanProduceManifestOutput)
+        {
+            return;
+        }
+
+        isExportingManifest = true;
+        manifestExportError = null;
+        manifestExportNotice = null;
+
+        try
+        {
+            var result = await JS.InvokeAsync<CargoFileDownloadResult>(
+                "harborOpsFiles.download",
+                disposeCancellation.Token,
+                ManifestExportUrl,
+                "text/csv");
+
+            if (result.Ok)
+            {
+                manifestExportNotice = result.Count switch
+                {
+                    null => "Exported the matching containers.",
+                    0 => "No containers match, so the CSV contains only the column headers.",
+                    var count => string.Create(
+                        CultureInfo.InvariantCulture,
+                        $"Exported {count:N0} matching {(count == 1 ? "container" : "containers")}."),
+                };
+            }
+            else
+            {
+                manifestExportError = result.Message ?? "The manifest could not be exported. Please try again.";
+            }
+        }
+        catch (OperationCanceledException) when (disposeCancellation.IsCancellationRequested)
+        {
+        }
+        catch (JSException)
+        {
+            manifestExportError = "The manifest could not be exported. Please try again.";
+        }
+        finally
+        {
+            isExportingManifest = false;
+        }
+    }
+
+    private static void AddAddressPart(List<string> parts, string key, string? value)
+    {
+        if (!string.IsNullOrWhiteSpace(value))
+        {
+            parts.Add($"{key}={Uri.EscapeDataString(value)}");
+        }
+    }
+
+    private void SyncManifestAddress()
+    {
+        var target = ManifestAddress;
+
+        if (string.Equals(
+            Navigation.ToBaseRelativePath(Navigation.Uri).TrimStart('/'),
+            target,
+            StringComparison.Ordinal))
+        {
+            return;
+        }
+
+        Navigation.NavigateTo($"/{target}", forceLoad: false, replace: true);
     }
 
     private async Task LoadOperationsAsync()
@@ -447,6 +850,14 @@ public partial class CargoBookingDetails : IDisposable
         new("22P1", "20 ft flat rack (22P1)"),
         new("42P1", "40 ft flat rack (42P1)"),
         new("22T1", "20 ft tank (22T1)"),
+    ];
+
+    private static readonly IReadOnlyList<ContainerTypeOption> FilterContainerTypes =
+    [
+        .. StandardContainerTypes,
+        new("20GP", "20 ft general purpose (20GP)"),
+        new("40HC", "40 ft high-cube (40HC)"),
+        new("40RH", "40 ft refrigerated high-cube (40RH)"),
     ];
 
     private async Task SubmitContainerAsync()

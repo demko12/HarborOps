@@ -1,8 +1,34 @@
-.crew-links { display: flex; overflow-x: auto; gap: .35rem; margin-bottom: 1.5rem; padding: .2rem .2rem .8rem; border-bottom: 1px solid var(--border-subtle); }
-.crew-links ::deep a { display: inline-flex; align-items: center; flex: 0 0 auto; gap: .55rem; padding: .65rem .85rem; color: var(--text-secondary); border: 1px solid transparent; border-radius: .65rem; font-size: .8rem; text-decoration: none; }
-.crew-links ::deep a.selected { border-color: rgba(155,117,237,.3); color: var(--text-primary); background: rgba(155,117,237,.12); }
-.crew-links ::deep a:hover { background: var(--bg-surface-strong); }
+.crew-links {
+    display: flex;
+    overflow-x: auto;
+    gap: 0.35rem;
+    margin-bottom: 1.5rem;
+    padding: 0.2rem 0.2rem 0.8rem;
+    border-bottom: 1px solid var(--border-subtle);
+}
+.crew-links ::deep a {
+    display: inline-flex;
+    align-items: center;
+    flex: 0 0 auto;
+    gap: 0.55rem;
+    padding: 0.65rem 0.85rem;
+    color: var(--text-secondary);
+    border: 1px solid transparent;
+    border-radius: 0.65rem;
+    font-size: 0.8rem;
+    text-decoration: none;
+}
+.crew-links ::deep a.selected {
+    border-color: rgba(155, 117, 237, 0.3);
+    color: var(--text-primary);
+    background: rgba(155, 117, 237, 0.12);
+}
+.crew-links ::deep a:hover {
+    background: var(--bg-surface-strong);
+}
 
 @media print {
-    .crew-links { display: none !important; }
+    .crew-links {
+        display: none !important;
+    }
 }

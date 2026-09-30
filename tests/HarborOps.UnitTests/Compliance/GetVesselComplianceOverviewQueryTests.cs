@@ -117,6 +117,67 @@ public sealed class GetVesselComplianceOverviewQueryTests
         Assert.Empty(response.OpenNonConformities);
     }
 
+    [Fact]
+    public async Task GetAsync_distinguishes_current_not_yet_effective_expired_renewed_and_revoked_certificates()
+    {
+        await using var dbContext = CreateDbContext();
+        var vesselId = Guid.NewGuid();
+        var asOf = new DateOnly(2026, 9, 28);
+        var renewedAtUtc = new DateTime(2026, 9, 1, 8, 0, 0, DateTimeKind.Utc);
+        var original = ComplianceCertificate.Register(vesselId, "Safety", "SMC-1", "Flag State", new DateOnly(2021, 10, 1), new DateOnly(2026, 9, 30));
+        var futureSuccessor = original.Renew("SMC-2", "Flag State", new DateOnly(2026, 10, 1), new DateOnly(2031, 9, 30), renewedAtUtc);
+        var expired = ComplianceCertificate.Register(vesselId, "Load Line", "LL-1", "Class", new DateOnly(2021, 1, 1), new DateOnly(2026, 9, 27));
+        var gappedSuccessor = expired.Renew("LL-2", "Class", new DateOnly(2026, 10, 5), new DateOnly(2031, 10, 4), renewedAtUtc);
+        var revoked = ComplianceCertificate.Register(vesselId, "IOPP", "IOPP-1", "Class", new DateOnly(2024, 1, 1), new DateOnly(2029, 1, 1));
+        revoked.Revoke(Guid.NewGuid(), "Issued in error by the flag state.", renewedAtUtc);
+        await dbContext.AddRangeAsync(original, futureSuccessor, expired, gappedSuccessor, revoked);
+        await dbContext.SaveChangesAsync();
+
+        var response = await new GetVesselComplianceOverviewQuery(dbContext, new FakeDateTimeProvider(asOf.ToDateTime(TimeOnly.MinValue)))
+            .GetAsync(new GetVesselComplianceOverviewRequest { VesselId = vesselId }, CancellationToken.None);
+
+        var originalItem = response.Certificates.Single(item => item.Id == original.Id);
+        Assert.Equal(ComplianceCertificate.CurrentStatus, originalItem.Status);
+        Assert.Equal(futureSuccessor.Id, originalItem.SuccessorCertificateId);
+        Assert.Equal("SMC-2", originalItem.SuccessorCertificateNumber);
+        Assert.Equal(new DateOnly(2026, 10, 1), originalItem.SuccessorIssuedOn);
+        Assert.True(originalItem.IsRenewalCovered);
+        Assert.Equal(0, originalItem.RenewalGapDays);
+
+        var successorItem = response.Certificates.Single(item => item.Id == futureSuccessor.Id);
+        Assert.Equal(ComplianceCertificate.NotYetEffectiveStatus, successorItem.Status);
+        Assert.Equal(original.Id, successorItem.PredecessorCertificateId);
+        Assert.Null(successorItem.SuccessorCertificateId);
+
+        var expiredItem = response.Certificates.Single(item => item.Id == expired.Id);
+        Assert.Equal(ComplianceCertificate.ExpiredStatus, expiredItem.Status);
+        Assert.False(expiredItem.IsRenewalCovered);
+        Assert.Equal(7, expiredItem.RenewalGapDays);
+
+        var revokedItem = response.Certificates.Single(item => item.Id == revoked.Id);
+        Assert.Equal(ComplianceCertificate.RevokedStatus, revokedItem.Status);
+        Assert.Equal(renewedAtUtc, revokedItem.RevokedAtUtc);
+    }
+
+    [Fact]
+    public async Task GetAsync_marks_a_revoked_successor_as_not_covering_the_original()
+    {
+        await using var dbContext = CreateDbContext();
+        var vesselId = Guid.NewGuid();
+        var original = ComplianceCertificate.Register(vesselId, "Safety", "SMC-1", "Flag State", new DateOnly(2021, 10, 1), new DateOnly(2026, 9, 30));
+        var successor = original.Renew("SMC-2", "Flag State", new DateOnly(2026, 9, 1), new DateOnly(2031, 9, 30), DateTime.UtcNow);
+        successor.Revoke(Guid.NewGuid(), "Successor issued with a wrong IMO number.", DateTime.UtcNow);
+        await dbContext.AddRangeAsync(original, successor);
+        await dbContext.SaveChangesAsync();
+
+        var response = await QueryAsync(dbContext, vesselId);
+
+        var originalItem = response.Certificates.Single(item => item.Id == original.Id);
+        Assert.Equal(successor.Id, originalItem.SuccessorCertificateId);
+        Assert.True(originalItem.SuccessorIsRevoked);
+        Assert.False(originalItem.IsRenewalCovered);
+    }
+
     private static Task<GetVesselComplianceOverviewResponse> QueryAsync(
         HarborOpsDbContext dbContext,
         Guid vesselId) => new GetVesselComplianceOverviewQuery(dbContext).GetAsync(

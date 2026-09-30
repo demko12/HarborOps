@@ -1,0 +1,243 @@
+@page "/compliance/certificates/{CertificateId:guid}"
+@attribute [Microsoft.AspNetCore.Authorization.Authorize(Policy = "AccessCompliance")]
+@using HarborOps.Web.Api.Compliance
+@inject ComplianceApiClient ComplianceApi
+@inject CurrentUserAuthorizationState AuthorizationState
+
+<PageTitle>Certificate | HarborOps</PageTitle>
+
+<section class="certificate-detail-page">
+    <header class="certificate-header">
+        <div>
+            <nav class="page-breadcrumb" aria-label="Breadcrumb"><a href="@(certificate is null ? "/compliance" : Compliance.OverviewHref(certificate.VesselId))">Compliance operations</a><span aria-hidden="true">/</span><span>Certificate</span></nav>
+            <h1>Certificate details</h1>
+            <p>Review validity, the renewal chain, and every renewal or revocation recorded for this certificate.</p>
+        </div>
+        <span class="certificate-utc" aria-label="All times are shown in UTC">UTC</span>
+    </header>
+
+    @if (isLoading && certificate is null)
+    {
+        <LoadingState Message="Loading certificate..." />
+    }
+    else if (failure is not null)
+    {
+        <ApiErrorState Title="@failure.Title" Message="@failure.Message" OnRetry="LoadAsync" />
+    }
+    else if (certificate is not null)
+    {
+        <section class="certificate-summary" aria-label="Certificate summary">
+            <article class="certificate-kpi">
+                <div>
+                    <p class="certificate-kpi-label">Status</p>
+                    <p class="certificate-kpi-value">@Compliance.CertificateStatusLabel(certificate.Status, IsCoveredByRenewal(certificate.Id))</p>
+                    <p class="certificate-kpi-note">@ValidityNote()</p>
+                </div>
+                <span class="certificate-kpi-icon bi bi-patch-check" aria-hidden="true"></span>
+            </article>
+            <article class="certificate-kpi">
+                <div>
+                    <p class="certificate-kpi-label">Expires on</p>
+                    <p class="certificate-kpi-value">@certificate.ExpiresOn.ToString("dd MMM yyyy")</p>
+                    <p class="certificate-kpi-note">Issued @certificate.IssuedOn.ToString("dd MMM yyyy")</p>
+                </div>
+                <span class="certificate-kpi-icon bi bi-calendar-event" aria-hidden="true"></span>
+            </article>
+            <article class="certificate-kpi">
+                <div>
+                    <p class="certificate-kpi-label">Renewal chain</p>
+                    <p class="certificate-kpi-value">@certificate.Chain.Count</p>
+                    <p class="certificate-kpi-note">@ChainPositionNote()</p>
+                </div>
+                <span class="certificate-kpi-icon bi bi-link-45deg" aria-hidden="true"></span>
+            </article>
+            <article class="certificate-kpi">
+                <div>
+                    <p class="certificate-kpi-label">History</p>
+                    <p class="certificate-kpi-value">@certificate.History.Count</p>
+                    <p class="certificate-kpi-note">@(certificate.History.Count == 0 ? "No events recorded" : $"Last event {certificate.History[0].OccurredAtUtc:dd MMM yyyy}")</p>
+                </div>
+                <span class="certificate-kpi-icon bi bi-clock-history" aria-hidden="true"></span>
+            </article>
+        </section>
+
+        <section class="certificate-card certificate-overview-card">
+            <div class="certificate-section-heading">
+                <div class="certificate-register-title">
+                    <span class="certificate-register-mark bi bi-patch-check" aria-hidden="true"></span>
+                    <div>
+                        <span class="certificate-kicker">@certificate.CertificateType</span>
+                        <h2>@certificate.CertificateNumber</h2>
+                        <p>Issued by @certificate.IssuingAuthority</p>
+                    </div>
+                </div>
+                <span class="compliance-badge @Compliance.CertificateStatusClass(certificate.Status, IsCoveredByRenewal(certificate.Id))">@Compliance.CertificateStatusLabel(certificate.Status, IsCoveredByRenewal(certificate.Id))</span>
+            </div>
+            <div class="certificate-summary-grid">
+                <div><span>Issued on</span><strong>@certificate.IssuedOn.ToString("dd MMM yyyy")</strong></div>
+                <div><span>Expires on</span><strong>@certificate.ExpiresOn.ToString("dd MMM yyyy")</strong></div>
+                <div><span>Registered</span><strong>@certificate.CreatedUtc.ToString("dd MMM yyyy HH:mm 'UTC'")</strong></div>
+                <div><span>Renewal</span><strong>@(certificate.SuccessorCertificateId is null ? "Not renewed" : "Renewed")</strong></div>
+            </div>
+            @if (certificate.RevokedAtUtc is { } revokedAtUtc)
+            {
+                <div class="certificate-revoked-message" role="status">
+                    <strong>Revoked @revokedAtUtc.ToString("dd MMM yyyy HH:mm 'UTC'")</strong>
+                    @if (certificate.RevokedByUserId is { } revokedByUserId)
+                    {
+                        <span>By <span class="certificate-actor" title="@revokedByUserId">@ShortUser(revokedByUserId)</span></span>
+                    }
+                    <span>@certificate.RevocationReason</span>
+                </div>
+            }
+        </section>
+
+        @if (actionSuccess is not null)
+        {
+            <div class="certificate-success" role="status">@actionSuccess</div>
+        }
+
+        <section class="certificate-card">
+            <div class="certificate-section-heading"><div class="certificate-register-title"><span class="certificate-register-mark bi bi-link-45deg" aria-hidden="true"></span><div><span class="certificate-kicker">Renewal chain</span><h2>Validity periods</h2><p>Oldest certificate first. A renewal does not end the validity of the certificate it renews.</p></div></div></div>
+            <ol class="certificate-chain">
+                @foreach (var item in certificate.Chain)
+                {
+                    <li @key="item.Id" class="@(item.Id == certificate.Id ? "is-selected" : null)">
+                        @if (item.GapDaysAfterPredecessor is > 0)
+                        {
+                            <p class="certificate-gap" role="note">Coverage gap: @item.GapDaysAfterPredecessor @(item.GapDaysAfterPredecessor == 1 ? "day" : "days") without a valid certificate before this renewal.</p>
+                        }
+                        else if (item.PredecessorCertificateId is not null && item.CoversPredecessorExpiry)
+                        {
+                            <p class="certificate-covered">Continues the previous certificate without a gap.</p>
+                        }
+                        else if (item.PredecessorCertificateId is not null)
+                        {
+                            <p class="certificate-gap" role="note">This renewal does not cover the previous certificate's expiry.</p>
+                        }
+                        <div class="certificate-chain-row">
+                            <div><span>Number</span>@if (item.Id == certificate.Id) { <strong>@item.CertificateNumber</strong> } else { <a href="/compliance/certificates/@item.Id">@item.CertificateNumber</a> }</div>
+                            <div><span>Issuing authority</span><strong>@item.IssuingAuthority</strong></div>
+                            <div><span>Issued on</span><strong>@item.IssuedOn.ToString("dd MMM yyyy")</strong></div>
+                            <div><span>Expires on</span><strong>@item.ExpiresOn.ToString("dd MMM yyyy")</strong></div>
+                            <div><span>Status</span><span class="compliance-badge @Compliance.CertificateStatusClass(item.Status, IsCoveredByRenewal(item.Id))">@Compliance.CertificateStatusLabel(item.Status, IsCoveredByRenewal(item.Id))</span></div>
+                        </div>
+                        @if (item.RevokedAtUtc is { } itemRevokedAtUtc)
+                        {
+                            <p class="certificate-chain-note">Revoked @itemRevokedAtUtc.ToString("dd MMM yyyy HH:mm 'UTC'")</p>
+                        }
+                    </li>
+                }
+            </ol>
+        </section>
+
+        @if (AuthorizationState.CanManageCompliance && (certificate.CanRenew || certificate.CanRevoke))
+        {
+            <section class="certificate-card">
+                <div class="certificate-section-heading"><div class="certificate-register-title"><span class="certificate-register-mark bi bi-sliders" aria-hidden="true"></span><div><span class="certificate-kicker">Compliance actions</span><h2>Renew or revoke</h2><p>Actions are attributed to the signed-in user. Revocation is permanent.</p></div></div></div>
+
+                @if (actionFailure is not null)
+                {
+                    <div class="certificate-error" role="alert">
+                        <strong>@actionFailure.Title</strong>
+                        <span>@actionFailure.Message</span>
+                        @if (actionFailure.IsConflict)
+                        {
+                            <button type="button" class="certificate-secondary-button certificate-reload-button" disabled="@isLoading" @onclick="ReloadAfterConflictAsync">Reload and retry</button>
+                        }
+                    </div>
+                }
+
+                @if (activeAction is null)
+                {
+                    <div class="certificate-action-buttons">
+                        @if (certificate.CanRenew)
+                        {
+                            <button type="button" class="certificate-primary-button certificate-renew-button" @onclick='() => OpenAction("renew")'><span class="bi bi-arrow-repeat" aria-hidden="true"></span>Renew certificate</button>
+                        }
+                        @if (certificate.CanRevoke)
+                        {
+                            <button type="button" class="certificate-danger-button certificate-revoke-button" @onclick='() => OpenAction("revoke")'><span class="bi bi-x-octagon" aria-hidden="true"></span>Revoke certificate</button>
+                        }
+                    </div>
+                }
+                else if (activeAction == "renew")
+                {
+                    <form class="certificate-form-grid certificate-renew-form" @onsubmit="SubmitRenew" @onsubmit:preventDefault="true">
+                        <label><span>Certificate number</span><input id="renew-number" @bind="renewModel.CertificateNumber" maxlength="100" disabled="@isConfirming" />@foreach (var message in FieldMessages(RenewNumberField)) { <small class="certificate-field-error">@message</small> }</label>
+                        <label><span>Issuing authority</span><input id="renew-authority" @bind="renewModel.IssuingAuthority" maxlength="200" disabled="@isConfirming" />@foreach (var message in FieldMessages(RenewAuthorityField)) { <small class="certificate-field-error">@message</small> }</label>
+                        <label><span>Issued on</span><input id="renew-issued" type="date" @bind="renewModel.IssuedOn" min="@DateInputValue(certificate.IssuedOn)" disabled="@isConfirming" /><small class="certificate-field-hint">On or after @certificate.IssuedOn.ToString("dd MMM yyyy")</small>@foreach (var message in FieldMessages(RenewIssuedOnField)) { <small class="certificate-field-error">@message</small> }</label>
+                        <label><span>Expires on</span><input id="renew-expires" type="date" @bind="renewModel.ExpiresOn" min="@DateInputValue(certificate.ExpiresOn.AddDays(1))" disabled="@isConfirming" /><small class="certificate-field-hint">After @certificate.ExpiresOn.ToString("dd MMM yyyy")</small>@foreach (var message in FieldMessages(RenewExpiresOnField)) { <small class="certificate-field-error">@message</small> }</label>
+                        @if (isConfirming)
+                        {
+                            <div class="certificate-confirm" role="alertdialog" aria-label="Confirm renewal">
+                                <span>Register @renewModel.CertificateNumber as the renewal of @certificate.CertificateNumber? The current certificate stays valid until @certificate.ExpiresOn.ToString("dd MMM yyyy").</span>
+                                <button type="button" class="certificate-primary-button certificate-confirm-button" disabled="@isSubmitting" @onclick="ConfirmRenewAsync">@(isSubmitting ? "Renewing..." : "Yes, renew")</button>
+                                <button type="button" class="certificate-secondary-button" disabled="@isSubmitting" @onclick="() => isConfirming = false">Back</button>
+                            </div>
+                        }
+                        else
+                        {
+                            <div class="certificate-form-actions">
+                                <button type="submit" class="certificate-primary-button">Review renewal</button>
+                                <button type="button" class="certificate-secondary-button" @onclick="CloseAction">Cancel</button>
+                            </div>
+                        }
+                    </form>
+                }
+                else if (activeAction == "revoke")
+                {
+                    <form class="certificate-form-grid certificate-revoke-form" @onsubmit="SubmitRevoke" @onsubmit:preventDefault="true">
+                        <label class="certificate-form-wide"><span>Reason</span><textarea id="revoke-reason" @bind="revokeModel.Reason" @bind:event="oninput" maxlength="@RevocationReasonMaxLength" rows="3" disabled="@isConfirming"></textarea><small class="certificate-field-hint certificate-reason-count">@(revokeModel.Reason?.Trim().Length ?? 0) / @RevocationReasonMaxLength</small>@foreach (var message in FieldMessages(RevokeReasonField)) { <small class="certificate-field-error">@message</small> }</label>
+                        @if (isConfirming)
+                        {
+                            <div class="certificate-confirm" role="alertdialog" aria-label="Confirm revocation">
+                                <span>Revoke @certificate.CertificateNumber permanently? It stops counting as valid coverage immediately and cannot be reinstated.@if (ActiveSuccessorNumber() is { } successorNumber)
+                                    {
+                                        @($" Its renewal {successorNumber} is not revoked and stays valid on its own dates.")
+                                    }</span>
+                                <button type="button" class="certificate-danger-button certificate-confirm-button" disabled="@isSubmitting" @onclick="ConfirmRevokeAsync">@(isSubmitting ? "Revoking..." : "Yes, revoke")</button>
+                                <button type="button" class="certificate-secondary-button" disabled="@isSubmitting" @onclick="() => isConfirming = false">Back</button>
+                            </div>
+                        }
+                        else
+                        {
+                            <div class="certificate-form-actions">
+                                <button type="submit" class="certificate-danger-button">Review revocation</button>
+                                <button type="button" class="certificate-secondary-button" @onclick="CloseAction">Cancel</button>
+                            </div>
+                        }
+                    </form>
+                }
+            </section>
+        }
+
+        <section class="certificate-card">
+            <div class="certificate-section-heading"><div class="certificate-register-title"><span class="certificate-register-mark bi bi-clock-history" aria-hidden="true"></span><div><span class="certificate-kicker">Audit trail</span><h2>Renewal and revocation history</h2><p>Newest event first, across the whole chain.</p></div></div></div>
+            @if (certificate.History.Count == 0)
+            {
+                <EmptyState Title="No renewals or revocations" Message="Events appear here when a certificate in this chain is renewed or revoked." />
+            }
+            else
+            {
+                <ol class="certificate-history">
+                    @foreach (var entry in certificate.History)
+                    {
+                        <li @key="entry.Id">
+                            <strong>@entry.EventType · @ChainNumber(entry.CertificateId)</strong>
+                            <span>@entry.OccurredAtUtc.ToString("dd MMM yyyy HH:mm 'UTC'") · by <span class="certificate-actor" title="@entry.ActorUserId">@ShortUser(entry.ActorUserId)</span></span>
+                            @if (entry.SuccessorCertificateId is { } successorId)
+                            {
+                                <span>Renewed by @ChainNumber(successorId)</span>
+                            }
+                            @if (!string.IsNullOrWhiteSpace(entry.Reason))
+                            {
+                                <span>@entry.Reason</span>
+                            }
+                        </li>
+                    }
+                </ol>
+            }
+        </section>
+    }
+</section>

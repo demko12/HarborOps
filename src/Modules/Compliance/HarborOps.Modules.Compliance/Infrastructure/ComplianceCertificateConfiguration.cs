@@ -39,6 +39,28 @@ internal sealed class ComplianceCertificateConfiguration : IEntityTypeConfigurat
         builder.Property(certificate => certificate.CreatedUtc)
             .IsRequired();
 
+        builder.Property(certificate => certificate.PredecessorCertificateId);
+
+        builder.Property(certificate => certificate.RevokedAtUtc);
+
+        builder.Property(certificate => certificate.RevokedByUserId);
+
+        builder.Property(certificate => certificate.RevocationReason)
+            .HasMaxLength(ComplianceCertificate.RevocationReasonMaxLength);
+
+        builder.Property(certificate => certificate.ConcurrencyToken)
+            .IsConcurrencyToken()
+            .HasDefaultValueSql("NEWID()");
+
+        builder.HasOne<ComplianceCertificate>()
+            .WithOne()
+            .HasForeignKey<ComplianceCertificate>(certificate => certificate.PredecessorCertificateId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        builder.HasIndex(certificate => certificate.PredecessorCertificateId)
+            .IsUnique()
+            .HasFilter("[PredecessorCertificateId] IS NOT NULL");
+
         builder.HasIndex(certificate => certificate.VesselId);
 
         builder.HasIndex(certificate => certificate.ExpiresOn);

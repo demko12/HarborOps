@@ -1,0 +1,82 @@
+.login-progress {
+    width: min(100%, 25rem);
+    color: var(--text-primary);
+}
+.progress-eyebrow {
+    margin: 0 0 2rem;
+    color: var(--accent);
+    font-size: 0.66rem;
+    font-weight: 700;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+}
+.progress-indicator {
+    display: block;
+    width: 1.8rem;
+    height: 1.8rem;
+    margin-bottom: 1.5rem;
+    border: 2px solid var(--border-medium);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: access-spin 1s linear infinite;
+}
+.login-progress h2 {
+    margin: 0;
+    font-size: 1.75rem;
+    font-weight: 600;
+    line-height: 1.2;
+    letter-spacing: -0.04em;
+}
+.progress-description {
+    margin: 0.75rem 0 0;
+    color: var(--text-secondary);
+    font-size: 0.88rem;
+    line-height: 1.7;
+}
+.progress-steps {
+    display: grid;
+    gap: 1rem;
+    padding: 1.4rem 0 0;
+    margin: 2rem 0 0;
+    border-top: 1px solid var(--border-subtle);
+    list-style: none;
+}
+.progress-steps li {
+    display: flex;
+    align-items: center;
+    gap: 0.65rem;
+    color: var(--text-muted);
+    font-size: 0.78rem;
+}
+.progress-steps li > span {
+    display: grid;
+    place-items: center;
+    width: 1.45rem;
+    height: 1.45rem;
+    border: 1px solid var(--border-medium);
+    border-radius: 50%;
+    font-size: 0.65rem;
+}
+.progress-steps .current {
+    color: var(--text-primary);
+    font-weight: 600;
+}
+.progress-steps .current > span {
+    border-color: var(--accent-border);
+    background: var(--accent-bg);
+}
+.progress-steps .complete > span {
+    color: var(--accent);
+    border-color: var(--accent-border);
+    background: var(--accent-bg);
+}
+@keyframes access-spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+@media (prefers-reduced-motion: reduce) {
+    .progress-indicator {
+        animation: none;
+    }
+}

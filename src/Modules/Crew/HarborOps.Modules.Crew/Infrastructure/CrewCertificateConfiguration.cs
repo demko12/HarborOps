@@ -43,5 +43,25 @@ internal sealed class CrewCertificateConfiguration : IEntityTypeConfiguration<Cr
         builder.Property(crewCertificate => crewCertificate.Status)
             .HasMaxLength(CrewCertificate.StatusMaxLength)
             .IsRequired();
+
+        builder.Property(crewCertificate => crewCertificate.ConcurrencyToken)
+            .IsConcurrencyToken()
+            .HasDefaultValueSql("NEWID()");
+
+        builder.Property(crewCertificate => crewCertificate.RevocationReason)
+            .HasMaxLength(CrewCertificate.RevocationReasonMaxLength);
+
+        builder.HasOne<CrewCertificate>()
+            .WithMany()
+            .HasForeignKey(crewCertificate => crewCertificate.PredecessorCertificateId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        // A certificate may have at most one direct successor; NULL predecessors (brand-new
+        // registrations) are excluded so multiple originals don't collide on the filter.
+        builder.HasIndex(crewCertificate => crewCertificate.PredecessorCertificateId)
+            .IsUnique()
+            .HasFilter("[PredecessorCertificateId] IS NOT NULL");
+
+        builder.HasIndex(crewCertificate => crewCertificate.CrewMemberId);
     }
 }

@@ -1,5 +1,6 @@
 using HarborOps.Web.Api;
 using Microsoft.AspNetCore.Components;
+using Microsoft.AspNetCore.Components.Web;
 
 namespace HarborOps.Web.Components.Pages.Crew;
 
@@ -43,7 +44,22 @@ public partial class CrewMemberProfile : IDisposable
     private bool isLoadingMedical = true;
     private CrewApiFailure? medicalFailure;
 
+    private const int CertificatePreviewCount = 3;
+
+    private bool isViewingAllCertificates;
+    private string certificateSearch = string.Empty;
+    private string certificateStatusFilter = string.Empty;
+
     private CrewCertificateProfileItemResponse? selectedCertificate;
+    private GetCrewCertificateHistoryResponse? certificateHistory;
+    private bool isLoadingCertificateHistory;
+    private bool isRenewingCertificate;
+    private bool isRevokingCertificate;
+    private string? revokeReason;
+    private bool isSubmittingCertificateAction;
+    private string? certificateActionError;
+    private string? certificateConflictMessage;
+    private IReadOnlyList<AffectedCertificateAssignmentResponse> affectedActiveAssignments = [];
 
     private CrewRotationListItemResponse? selectedRotation;
     private bool rotationExists;
@@ -65,6 +81,70 @@ public partial class CrewMemberProfile : IDisposable
     private bool isEditingRotation;
 
     private bool isEditingProfile;
+    private ProfileRegistration? registrationEditor;
+    private EditCrewMemberProfileForm? profileEditorForm;
+    private AssignToVesselForm? assignmentEditorForm;
+    private RegisterCertificateForm? certificateEditorForm;
+    private RegisterMedicalExaminationForm? medicalEditorForm;
+    private ElementReference profileEditorElement;
+    private bool wasProfileEditorOpen;
+    private string? profileEditorSuccess;
+
+    private enum ProfileRegistration { Assignment, Certificate, Medical }
+
+    private bool IsProfileEditorOpen => isEditingProfile || registrationEditor is not null
+        || isConfirmingEmploymentStatusChange || isRequestingUnavailability;
+
+    private bool IsProfileEditorBusy => isSubmittingEmploymentStatus || isSubmittingAvailabilityRequest
+        || (isEditingProfile && profileEditorForm?.IsSubmitting == true)
+        || (registrationEditor == ProfileRegistration.Assignment && assignmentEditorForm?.IsSubmitting == true)
+        || (registrationEditor == ProfileRegistration.Certificate && certificateEditorForm?.IsSubmitting == true)
+        || (registrationEditor == ProfileRegistration.Medical && medicalEditorForm?.IsSubmitting == true);
+
+    private string ProfileEditorTitle => isEditingProfile ? "Edit profile"
+        : isConfirmingEmploymentStatusChange ? "Change employment status"
+        : isRequestingUnavailability ? "Request unavailability"
+        : registrationEditor switch
+        {
+            ProfileRegistration.Assignment => "Assign to vessel",
+            ProfileRegistration.Certificate => "Register certificate",
+            _ => "Register medical examination",
+        };
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        var editorOpen = CanManage && IsProfileEditorOpen && profile is not null && !isLoading && failure is null;
+        if (editorOpen && !wasProfileEditorOpen)
+        {
+            wasProfileEditorOpen = true;
+            await profileEditorElement.FocusAsync();
+        }
+        else
+        {
+            wasProfileEditorOpen = editorOpen;
+        }
+    }
+
+    private void CloseProfileEditor()
+    {
+        if (IsProfileEditorBusy)
+        {
+            return;
+        }
+
+        isEditingProfile = false;
+        registrationEditor = null;
+        CancelEmploymentStatusChange();
+        CancelUnavailabilityRequest();
+    }
+
+    private void HandleProfileEditorKeyDown(KeyboardEventArgs args)
+    {
+        if (args.Key == "Escape")
+        {
+            CloseProfileEditor();
+        }
+    }
 
     private static readonly string[] EmploymentStatusOptions = ["Active", "OnLeave", "Suspended", "Terminated"];
 
@@ -201,6 +281,7 @@ public partial class CrewMemberProfile : IDisposable
 
     private void CancelEmploymentStatusChange()
     {
+        if (isSubmittingEmploymentStatus) return;
         isConfirmingEmploymentStatusChange = false;
         employmentStatusActionError = null;
     }
@@ -286,6 +367,7 @@ public partial class CrewMemberProfile : IDisposable
 
     private void CancelUnavailabilityRequest()
     {
+        if (isSubmittingAvailabilityRequest) return;
         isRequestingUnavailability = false;
         ClearAvailabilityRequestErrors();
     }
@@ -431,14 +513,9 @@ public partial class CrewMemberProfile : IDisposable
 
     private async Task OnCertificateRegisteredAsync()
     {
-        // "Refresh only affected profile sections": re-query the profile but only replace
-        // the certificates collection on the currently displayed model, leaving personal/
-        // employment fields and the assignments list untouched.
-        var result = await CrewApi.GetProfileAsync(CrewMemberId, disposeCancellation.Token);
-        if (result.IsSuccess && result.Value is not null && profile is not null)
-        {
-            profile = profile with { Certificates = result.Value.Certificates };
-        }
+        registrationEditor = null;
+        profileEditorSuccess = "Certificate registered.";
+        await RefreshCertificatesAsync();
     }
 
     private async Task LoadMedicalExaminationsAsync()
@@ -474,7 +551,12 @@ public partial class CrewMemberProfile : IDisposable
         }
     }
 
-    private Task OnMedicalExaminationRegisteredAsync() => LoadMedicalExaminationsAsync();
+    private Task OnMedicalExaminationRegisteredAsync()
+    {
+        registrationEditor = null;
+        profileEditorSuccess = "Examination registered.";
+        return LoadMedicalExaminationsAsync();
+    }
 
     private static FitnessState GetFitnessResultState(string fitnessResult) => fitnessResult switch
     {
@@ -500,6 +582,8 @@ public partial class CrewMemberProfile : IDisposable
 
     private async Task OnAssignmentRegisteredAsync()
     {
+        registrationEditor = null;
+        profileEditorSuccess = "Crew member assigned to vessel.";
         var result = await CrewApi.GetProfileAsync(CrewMemberId, disposeCancellation.Token);
         if (result.IsSuccess && result.Value is not null && profile is not null)
         {
@@ -546,9 +630,172 @@ public partial class CrewMemberProfile : IDisposable
         ResetRotationFormState();
     }
 
-    private void OpenCertificateDetails(CrewCertificateProfileItemResponse certificate) => selectedCertificate = certificate;
+    private async Task OpenCertificateDetailsAsync(CrewCertificateProfileItemResponse certificate)
+    {
+        selectedCertificate = certificate;
+        certificateHistory = null;
+        isRenewingCertificate = false;
+        isRevokingCertificate = false;
+        revokeReason = null;
+        certificateActionError = null;
+        certificateConflictMessage = null;
+        affectedActiveAssignments = [];
 
-    private void CloseCertificateDetails() => selectedCertificate = null;
+        await LoadCertificateHistoryAsync();
+    }
+
+    private async Task LoadCertificateHistoryAsync()
+    {
+        if (selectedCertificate is null)
+        {
+            return;
+        }
+
+        isLoadingCertificateHistory = true;
+
+        var result = await CrewApi.GetCertificateHistoryAsync(selectedCertificate.CertificateId, disposeCancellation.Token);
+
+        isLoadingCertificateHistory = false;
+        certificateHistory = result.IsSuccess ? result.Value : null;
+    }
+
+    private void CloseCertificateDetails()
+    {
+        selectedCertificate = null;
+        certificateHistory = null;
+        isRenewingCertificate = false;
+        isRevokingCertificate = false;
+        revokeReason = null;
+        certificateActionError = null;
+        certificateConflictMessage = null;
+        affectedActiveAssignments = [];
+    }
+
+    private void OpenAllCertificates()
+    {
+        certificateSearch = string.Empty;
+        certificateStatusFilter = string.Empty;
+        isViewingAllCertificates = true;
+    }
+
+    private void CloseAllCertificates() => isViewingAllCertificates = false;
+
+    private async Task OpenCertificateFromAllListAsync(CrewCertificateProfileItemResponse certificate)
+    {
+        isViewingAllCertificates = false;
+        await OpenCertificateDetailsAsync(certificate);
+    }
+
+    private IEnumerable<CrewCertificateProfileItemResponse> FilteredCertificates =>
+        (profile?.Certificates ?? [])
+            .Where(certificate => string.IsNullOrEmpty(certificateStatusFilter)
+                || GetCertificateState(certificate).Label == certificateStatusFilter)
+            .Where(certificate => string.IsNullOrWhiteSpace(certificateSearch)
+                || certificate.Type.Contains(certificateSearch, StringComparison.OrdinalIgnoreCase)
+                || certificate.Name.Contains(certificateSearch, StringComparison.OrdinalIgnoreCase)
+                || certificate.LicenseNumber.Contains(certificateSearch, StringComparison.OrdinalIgnoreCase));
+
+    private CrewCertificateProfileItemResponse? FindCertificate(Guid certificateId) =>
+        profile?.Certificates.FirstOrDefault(certificate => certificate.CertificateId == certificateId);
+
+    private string? GetRevocationReason() =>
+        certificateHistory?.History
+            .FirstOrDefault(entry => entry.CertificateId == selectedCertificate!.CertificateId && entry.EventType == "Revoked")
+            ?.Reason;
+
+    private void RequestRenewCertificate()
+    {
+        certificateActionError = null;
+        certificateConflictMessage = null;
+        isRevokingCertificate = false;
+        isRenewingCertificate = true;
+    }
+
+    private void CancelRenewCertificate() => isRenewingCertificate = false;
+
+    private async Task OnCertificateRenewedAsync()
+    {
+        isRenewingCertificate = false;
+        await RefreshCertificatesAsync();
+
+        if (selectedCertificate is not null)
+        {
+            selectedCertificate = FindCertificate(selectedCertificate.CertificateId) ?? selectedCertificate;
+            await LoadCertificateHistoryAsync();
+        }
+    }
+
+    private void RequestRevokeCertificate()
+    {
+        certificateActionError = null;
+        certificateConflictMessage = null;
+        revokeReason = null;
+        isRenewingCertificate = false;
+        isRevokingCertificate = true;
+    }
+
+    private void CancelRevokeCertificate()
+    {
+        isRevokingCertificate = false;
+        revokeReason = null;
+    }
+
+    private async Task SubmitRevokeCertificateAsync()
+    {
+        if (selectedCertificate is null || isSubmittingCertificateAction)
+        {
+            return;
+        }
+
+        isSubmittingCertificateAction = true;
+        certificateActionError = null;
+        certificateConflictMessage = null;
+
+        var result = await CrewApi.RevokeCertificateAsync(
+            selectedCertificate.CertificateId,
+            new RevokeCrewCertificateRequest { Reason = revokeReason },
+            disposeCancellation.Token);
+
+        isSubmittingCertificateAction = false;
+
+        if (!result.IsSuccess)
+        {
+            var revokeFailure = result.Failure!;
+            if (revokeFailure.IsConflict)
+            {
+                certificateConflictMessage = revokeFailure.Message;
+            }
+            else
+            {
+                certificateActionError = revokeFailure.Message;
+            }
+
+            return;
+        }
+
+        isRevokingCertificate = false;
+        revokeReason = null;
+        affectedActiveAssignments = result.Value!.AffectedActiveAssignments;
+
+        await RefreshCertificatesAsync();
+
+        if (selectedCertificate is not null)
+        {
+            selectedCertificate = FindCertificate(selectedCertificate.CertificateId) ?? selectedCertificate;
+            await LoadCertificateHistoryAsync();
+        }
+    }
+
+    private async Task RefreshCertificatesAsync()
+    {
+        // Re-query the profile but only replace the certificates collection on the currently
+        // displayed model, leaving personal/employment fields and the assignments list untouched.
+        var result = await CrewApi.GetProfileAsync(CrewMemberId, disposeCancellation.Token);
+        if (result.IsSuccess && result.Value is not null && profile is not null)
+        {
+            profile = profile with { Certificates = result.Value.Certificates };
+        }
+    }
 
     private void ResetRotationFormState()
     {
@@ -794,14 +1041,19 @@ public partial class CrewMemberProfile : IDisposable
 
     private bool IsPassportExpired(DateOnly passportExpiry) => passportExpiry < currentDate;
 
-    private CertificateState GetCertificateState(DateOnly expiryDate)
+    private CertificateState GetCertificateState(CrewCertificateProfileItemResponse certificate)
     {
-        if (expiryDate < currentDate)
+        if (certificate.IsRevoked)
+        {
+            return new CertificateState("Revoked", "crew-profile-indicator-expired");
+        }
+
+        if (certificate.ExpiryDate < currentDate)
         {
             return new CertificateState("Expired", "crew-profile-indicator-expired");
         }
 
-        return expiryDate <= currentDate.AddDays(30)
+        return certificate.ExpiryDate <= currentDate.AddDays(30)
             ? new CertificateState("Expiring soon", "crew-profile-indicator-warning")
             : new CertificateState("Valid", "crew-profile-indicator-valid");
     }

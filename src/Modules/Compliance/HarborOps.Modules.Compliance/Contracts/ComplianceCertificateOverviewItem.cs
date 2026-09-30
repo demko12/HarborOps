@@ -7,4 +7,13 @@ public sealed record ComplianceCertificateOverviewItem(
     string CertificateNumber,
     string IssuingAuthority,
     DateOnly IssuedOn,
-    DateOnly ExpiresOn);
+    DateOnly ExpiresOn,
+    string Status,
+    Guid? PredecessorCertificateId,
+    DateTime? RevokedAtUtc,
+    Guid? SuccessorCertificateId,
+    string? SuccessorCertificateNumber,
+    DateOnly? SuccessorIssuedOn,
+    bool SuccessorIsRevoked,
+    bool IsRenewalCovered,
+    int? RenewalGapDays);

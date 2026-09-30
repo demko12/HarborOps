@@ -35,6 +35,22 @@ public sealed class CrewMemberProfilePageTests : BunitContext
     private Func<HttpRequestMessage, Task<HttpResponseMessage>> respondToRegisterCertificate =
         _ => Json(HttpStatusCode.Created, """{"id":"60000000-0000-0000-0000-000000000001"}""");
 
+    private Func<HttpRequestMessage, Task<HttpResponseMessage>> respondToCertificateHistory = request =>
+    {
+        var certificateId = request.RequestUri!.AbsolutePath.Split('/')[^2];
+        return Json(HttpStatusCode.OK, $$"""{"certificateId":"{{certificateId}}","chainCertificateIds":["{{certificateId}}"],"history":[]}""");
+    };
+
+    private Func<HttpRequestMessage, Task<HttpResponseMessage>> respondToRenewCertificate =
+        _ => Json(
+            HttpStatusCode.Created,
+            """{"id":"65000000-0000-0000-0000-000000000001","predecessorCertificateId":"30000000-0000-0000-0000-000000000001","crewMemberId":"10000000-0000-0000-0000-000000000001","type":"STCW","status":"Valid","concurrencyToken":"70000000-0000-0000-0000-000000000099"}""");
+
+    private Func<HttpRequestMessage, Task<HttpResponseMessage>> respondToRevokeCertificate =
+        _ => Json(
+            HttpStatusCode.OK,
+            """{"id":"30000000-0000-0000-0000-000000000001","revokedAtUtc":"2026-09-28T10:00:00Z","concurrencyToken":"70000000-0000-0000-0000-000000000098","affectedActiveAssignments":[]}""");
+
     private Func<HttpRequestMessage, Task<HttpResponseMessage>> respondToRegisterAssignment =
         _ => Json(HttpStatusCode.Created, """{"id":"70000000-0000-0000-0000-000000000001"}""");
 
@@ -115,6 +131,43 @@ public sealed class CrewMemberProfilePageTests : BunitContext
         """);
 
     // ---- Personal / employment summary ----
+
+    [Theory]
+    [InlineData(".crew-edit-profile-toggle", "Edit profile", "#edit-profile-first-name")]
+    [InlineData(".crew-register-certificate-toggle", "Register certificate", "#cert-type")]
+    [InlineData(".crew-register-assignment-toggle", "Assign to vessel", "#assign-rank")]
+    [InlineData(".crew-register-medical-toggle", "Register medical examination", "#medical-exam-type")]
+    [InlineData(".crew-employment-status-toggle", "Change employment status", "#employment-status-select")]
+    [InlineData(".crew-availability-request-toggle", "Request unavailability", "#availability-type")]
+    public void Profile_actions_open_modal_forms_and_dismiss_without_writing(string trigger, string title, string field)
+    {
+        var page = RenderProfilePage(
+            CurrentUserAuthorizationState.CrewReadPermission,
+            CurrentUserAuthorizationState.CrewManagePermission);
+
+        page.WaitForAssertion(() => Assert.NotEmpty(page.FindAll(trigger)));
+        Assert.Empty(page.FindAll(field));
+        Assert.Empty(page.FindAll("nav[aria-label='Profile sections']"));
+
+        foreach (var dismissal in new[] { "close", "backdrop", "escape" })
+        {
+            page.Find(trigger).Click();
+            page.WaitForAssertion(() => Assert.NotEmpty(page.FindAll(field)));
+            var dialog = page.Find(".crew-profile-editor[role='dialog'][aria-modal='true']");
+            Assert.Equal(title, dialog.QuerySelector("#crew-profile-editor-title")!.TextContent);
+            Assert.True(page.Find(".crew-profile-content").HasAttribute("inert"));
+
+            if (dismissal == "close") page.Find(".crew-profile-editor .crew-assignment-modal-close").Click();
+            else if (dismissal == "backdrop") page.Find(".crew-profile-editor-backdrop").Click();
+            else page.Find(".crew-profile-editor-backdrop").KeyDown("Escape");
+
+            Assert.Empty(page.FindAll(".crew-profile-editor"));
+            Assert.Empty(page.FindAll(field));
+            Assert.False(page.Find(".crew-profile-content").HasAttribute("inert"));
+        }
+
+        Assert.Empty(writes);
+    }
 
     [Fact]
     public void Sensitive_fields_are_masked_until_revealed()
@@ -515,7 +568,7 @@ public sealed class CrewMemberProfilePageTests : BunitContext
         // The second GetProfileAsync response also carries an updated assignments
         // list (status "Planned"), but only the certificates collection should have
         // been applied - the assignment indicator must still read "Active".
-        var assignmentIndicator = page.FindAll(".crew-profile-indicator")[1];
+        var assignmentIndicator = page.Find("[aria-labelledby='crew-profile-assignments-title'] .crew-profile-indicator");
         Assert.Equal("Active", assignmentIndicator.TextContent.Trim());
     }
 
@@ -530,7 +583,7 @@ public sealed class CrewMemberProfilePageTests : BunitContext
             CurrentUserAuthorizationState.CrewReadPermission,
             CurrentUserAuthorizationState.CrewManagePermission);
 
-        page.WaitForAssertion(() => Assert.NotEmpty(page.FindAll("#cert-type")));
+        OpenRegistrationEditor(page, "certificate");
         FillCertificateForm(page);
         Closest(page, "#cert-type", "form").Submit();
 
@@ -553,7 +606,7 @@ public sealed class CrewMemberProfilePageTests : BunitContext
             CurrentUserAuthorizationState.CrewReadPermission,
             CurrentUserAuthorizationState.CrewManagePermission);
 
-        page.WaitForAssertion(() => Assert.NotEmpty(page.FindAll("#cert-type")));
+        OpenRegistrationEditor(page, "certificate");
         FillCertificateForm(page);
         Closest(page, "#cert-type", "form").Submit();
 
@@ -578,7 +631,7 @@ public sealed class CrewMemberProfilePageTests : BunitContext
             CurrentUserAuthorizationState.CrewReadPermission,
             CurrentUserAuthorizationState.CrewManagePermission);
 
-        page.WaitForAssertion(() => Assert.NotEmpty(page.FindAll("#cert-type")));
+        OpenRegistrationEditor(page, "certificate");
         FillCertificateForm(page);
         var form = Closest(page, "#cert-type", "form");
         form.Submit();
@@ -671,7 +724,7 @@ public sealed class CrewMemberProfilePageTests : BunitContext
             CurrentUserAuthorizationState.CrewReadPermission,
             CurrentUserAuthorizationState.CrewManagePermission);
 
-        page.WaitForAssertion(() => Assert.NotEmpty(page.FindAll("#medical-exam-type")));
+        OpenRegistrationEditor(page, "medical");
     }
 
     [Fact]
@@ -690,7 +743,7 @@ public sealed class CrewMemberProfilePageTests : BunitContext
             CurrentUserAuthorizationState.CrewReadPermission,
             CurrentUserAuthorizationState.CrewManagePermission);
 
-        page.WaitForAssertion(() => Assert.NotEmpty(page.FindAll("#medical-exam-type")));
+        OpenRegistrationEditor(page, "medical");
         FillMedicalExaminationForm(page);
         Closest(page, "#medical-exam-type", "form").Submit();
 
@@ -713,13 +766,13 @@ public sealed class CrewMemberProfilePageTests : BunitContext
             CurrentUserAuthorizationState.CrewReadPermission,
             CurrentUserAuthorizationState.CrewManagePermission);
 
-        page.WaitForAssertion(() => Assert.NotEmpty(page.FindAll("#medical-exam-type")));
+        OpenRegistrationEditor(page, "medical");
         FillMedicalExaminationForm(page);
         Closest(page, "#medical-exam-type", "form").Submit();
 
         page.WaitForAssertion(() => Assert.Contains(
             "Fitness result is not supported.",
-            page.Find(".crew-medical-card .crew-profile-form-field-errors").TextContent,
+            page.Find(".crew-profile-editor .crew-profile-form-field-errors").TextContent,
             StringComparison.Ordinal));
     }
 
@@ -778,6 +831,443 @@ public sealed class CrewMemberProfilePageTests : BunitContext
         page.Find(".crew-assignment-modal-backdrop").Click();
 
         Assert.Empty(page.FindAll(".crew-assignment-modal"));
+    }
+
+    // ---- View all certificates ----
+
+    [Fact]
+    public void The_view_all_button_is_hidden_when_certificates_are_within_the_preview_count()
+    {
+        respondToProfile = _ => Json(
+            HttpStatusCode.OK,
+            Profile(certificates: [Certificate()], assignments: []));
+
+        var page = RenderProfilePage(CurrentUserAuthorizationState.CrewReadPermission);
+
+        page.WaitForAssertion(() => Assert.Contains("Basic Safety Training", page.Markup, StringComparison.Ordinal));
+        Assert.Empty(page.FindAll(".crew-profile-card .crew-profile-edit-toggle"));
+    }
+
+    [Fact]
+    public void The_view_all_button_appears_and_opens_a_modal_listing_every_certificate()
+    {
+        respondToProfile = _ => Json(
+            HttpStatusCode.OK,
+            Profile(
+                certificates:
+                [
+                    Certificate(certificateId: Guid.Parse("30000000-0000-0000-0000-000000000001"), name: "Cert One"),
+                    Certificate(certificateId: Guid.Parse("30000000-0000-0000-0000-000000000002"), name: "Cert Two"),
+                    Certificate(certificateId: Guid.Parse("30000000-0000-0000-0000-000000000003"), name: "Cert Three"),
+                    Certificate(certificateId: Guid.Parse("30000000-0000-0000-0000-000000000004"), name: "Cert Four"),
+                ],
+                assignments: []));
+
+        var page = RenderProfilePage(CurrentUserAuthorizationState.CrewReadPermission);
+
+        page.WaitForAssertion(() => Assert.Contains("View all (4)", page.Markup, StringComparison.Ordinal));
+
+        // Only the first 3 are shown in the card preview - the 4th requires "View all".
+        Assert.DoesNotContain("Cert Four", page.Find(".crew-profile-list-preview").TextContent, StringComparison.Ordinal);
+
+        page.Find(".crew-profile-card .crew-profile-edit-toggle").Click();
+
+        var modal = page.Find(".crew-assignment-modal");
+        Assert.Contains("Cert One", modal.TextContent, StringComparison.Ordinal);
+        Assert.Contains("Cert Four", modal.TextContent, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Searching_in_the_all_certificates_modal_narrows_the_list()
+    {
+        respondToProfile = _ => Json(
+            HttpStatusCode.OK,
+            Profile(
+                certificates:
+                [
+                    Certificate(certificateId: Guid.Parse("30000000-0000-0000-0000-000000000001"), name: "Basic Safety"),
+                    Certificate(certificateId: Guid.Parse("30000000-0000-0000-0000-000000000002"), name: "Advanced Firefighting"),
+                    Certificate(certificateId: Guid.Parse("30000000-0000-0000-0000-000000000003"), name: "Medical First Aid"),
+                    Certificate(certificateId: Guid.Parse("30000000-0000-0000-0000-000000000004"), name: "Survival Craft"),
+                ],
+                assignments: []));
+
+        var page = RenderProfilePage(CurrentUserAuthorizationState.CrewReadPermission);
+
+        page.WaitForAssertion(() => Assert.Contains("View all (4)", page.Markup, StringComparison.Ordinal));
+        page.Find(".crew-profile-card .crew-profile-edit-toggle").Click();
+
+        page.Find(".crew-assignment-modal .crew-input-shell input").Input("Firefighting");
+
+        var modal = page.Find(".crew-assignment-modal");
+        Assert.Contains("Advanced Firefighting", modal.TextContent, StringComparison.Ordinal);
+        Assert.DoesNotContain("Basic Safety", modal.TextContent, StringComparison.Ordinal);
+        Assert.DoesNotContain("Medical First Aid", modal.TextContent, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Filtering_by_status_in_the_all_certificates_modal_narrows_the_list()
+    {
+        var farFutureExpiry = DateOnly.FromDateTime(DateTime.Today).AddYears(2);
+        respondToProfile = _ => Json(
+            HttpStatusCode.OK,
+            Profile(
+                certificates:
+                [
+                    Certificate(certificateId: Guid.Parse("30000000-0000-0000-0000-000000000001"), name: "Still Valid", expiryDate: farFutureExpiry),
+                    Certificate(certificateId: Guid.Parse("30000000-0000-0000-0000-000000000002"), name: "No Longer Valid", isRevoked: true),
+                    Certificate(certificateId: Guid.Parse("30000000-0000-0000-0000-000000000003"), name: "Third Cert", expiryDate: farFutureExpiry),
+                    Certificate(certificateId: Guid.Parse("30000000-0000-0000-0000-000000000004"), name: "Fourth Cert", expiryDate: farFutureExpiry),
+                ],
+                assignments: []));
+
+        var page = RenderProfilePage(CurrentUserAuthorizationState.CrewReadPermission);
+
+        page.WaitForAssertion(() => Assert.Contains("View all (4)", page.Markup, StringComparison.Ordinal));
+        page.Find(".crew-profile-card .crew-profile-edit-toggle").Click();
+
+        page.Find(".crew-assignment-modal .crew-status-select select").Change("Revoked");
+
+        var modal = page.Find(".crew-assignment-modal");
+        Assert.Contains("No Longer Valid", modal.TextContent, StringComparison.Ordinal);
+        Assert.DoesNotContain("Still Valid", modal.TextContent, StringComparison.Ordinal);
+        Assert.DoesNotContain("Third Cert", modal.TextContent, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Clicking_a_certificate_in_the_all_list_opens_its_details_and_closes_the_list()
+    {
+        respondToProfile = _ => Json(
+            HttpStatusCode.OK,
+            Profile(
+                certificates:
+                [
+                    Certificate(certificateId: Guid.Parse("30000000-0000-0000-0000-000000000001"), name: "Cert One"),
+                    Certificate(certificateId: Guid.Parse("30000000-0000-0000-0000-000000000002"), name: "Cert Two"),
+                    Certificate(certificateId: Guid.Parse("30000000-0000-0000-0000-000000000003"), name: "Cert Three"),
+                    Certificate(certificateId: Guid.Parse("30000000-0000-0000-0000-000000000004"), name: "Cert Four"),
+                ],
+                assignments: []));
+
+        var page = RenderProfilePage(CurrentUserAuthorizationState.CrewReadPermission);
+
+        page.WaitForAssertion(() => Assert.Contains("View all (4)", page.Markup, StringComparison.Ordinal));
+        page.Find(".crew-profile-card .crew-profile-edit-toggle").Click();
+        page.Find(".crew-assignment-modal .crew-profile-row-clickable").Click();
+
+        page.WaitForAssertion(() =>
+        {
+            Assert.Contains("Certificate details", page.Markup, StringComparison.Ordinal);
+            Assert.Empty(page.FindAll("#crew-all-certificates-title"));
+        });
+    }
+
+    // ---- Certificate renewal and revocation ----
+
+    [Fact]
+    public void A_revoked_certificate_shows_the_revoked_indicator_and_no_lifecycle_actions()
+    {
+        respondToProfile = _ => Json(
+            HttpStatusCode.OK,
+            Profile(certificates: [Certificate(isRevoked: true)], assignments: []));
+
+        var page = RenderProfilePage(
+            CurrentUserAuthorizationState.CrewReadPermission,
+            CurrentUserAuthorizationState.CrewManagePermission);
+
+        page.WaitForAssertion(() => Assert.NotEmpty(page.FindAll(".crew-profile-row-clickable")));
+        page.Find(".crew-profile-row-clickable").Click();
+
+        var modal = page.Find(".crew-assignment-modal");
+        Assert.Contains("Revoked", modal.QuerySelector(".crew-profile-indicator")!.TextContent, StringComparison.Ordinal);
+        Assert.Empty(modal.QuerySelectorAll(".crew-assignment-activate"));
+        Assert.Empty(modal.QuerySelectorAll(".crew-certificate-revoke-button"));
+    }
+
+    [Fact]
+    public void Without_the_manage_permission_no_renew_or_revoke_button_is_offered()
+    {
+        respondToProfile = _ => Json(
+            HttpStatusCode.OK,
+            Profile(certificates: [Certificate()], assignments: []));
+
+        var page = RenderProfilePage(CurrentUserAuthorizationState.CrewReadPermission);
+
+        page.WaitForAssertion(() => Assert.NotEmpty(page.FindAll(".crew-profile-row-clickable")));
+        page.Find(".crew-profile-row-clickable").Click();
+
+        var modal = page.Find(".crew-assignment-modal");
+        Assert.Empty(modal.QuerySelectorAll(".crew-assignment-activate"));
+        Assert.Empty(modal.QuerySelectorAll(".crew-certificate-revoke-button"));
+    }
+
+    [Fact]
+    public void The_renew_button_is_hidden_once_a_successor_already_exists()
+    {
+        respondToProfile = _ => Json(
+            HttpStatusCode.OK,
+            Profile(
+                certificates: [Certificate(successorCertificateId: Guid.Parse("65000000-0000-0000-0000-000000000009"))],
+                assignments: []));
+
+        var page = RenderProfilePage(
+            CurrentUserAuthorizationState.CrewReadPermission,
+            CurrentUserAuthorizationState.CrewManagePermission);
+
+        page.WaitForAssertion(() => Assert.NotEmpty(page.FindAll(".crew-profile-row-clickable")));
+        page.Find(".crew-profile-row-clickable").Click();
+
+        var modal = page.Find(".crew-assignment-modal");
+        Assert.Empty(modal.QuerySelectorAll(".crew-assignment-activate"));
+        Assert.NotEmpty(modal.QuerySelectorAll(".crew-certificate-revoke-button"));
+    }
+
+    [Fact]
+    public void The_renewal_form_is_prefilled_with_the_certificates_own_fields_and_type_is_read_only()
+    {
+        respondToProfile = _ => Json(
+            HttpStatusCode.OK,
+            Profile(certificates: [Certificate()], assignments: []));
+
+        var page = RenderProfilePage(
+            CurrentUserAuthorizationState.CrewReadPermission,
+            CurrentUserAuthorizationState.CrewManagePermission);
+
+        page.WaitForAssertion(() => Assert.NotEmpty(page.FindAll(".crew-profile-row-clickable")));
+        page.Find(".crew-profile-row-clickable").Click();
+        page.Find(".crew-assignment-activate").Click();
+
+        Assert.Equal("STCW", page.Find("#cert-renew-type").GetAttribute("value"));
+        Assert.True(page.Find("#cert-renew-type").HasAttribute("disabled"));
+        Assert.Equal("Basic Safety Training", page.Find("#cert-renew-name").GetAttribute("value"));
+        Assert.Equal("LIC-1001", page.Find("#cert-renew-license").GetAttribute("value"));
+    }
+
+    [Fact]
+    public void Renewing_a_certificate_refreshes_the_certificates_section_and_closes_the_form()
+    {
+        var callCount = 0;
+        respondToProfile = _ =>
+        {
+            callCount++;
+            return callCount == 1
+                ? Json(HttpStatusCode.OK, Profile(certificates: [Certificate(name: "Basic Safety")], assignments: []))
+                : Json(HttpStatusCode.OK, Profile(certificates: [Certificate(name: "Renewed Certificate")], assignments: []));
+        };
+
+        var page = RenderProfilePage(
+            CurrentUserAuthorizationState.CrewReadPermission,
+            CurrentUserAuthorizationState.CrewManagePermission);
+
+        page.WaitForAssertion(() => Assert.Contains("Basic Safety", page.Markup, StringComparison.Ordinal));
+        page.Find(".crew-profile-row-clickable").Click();
+        page.Find(".crew-assignment-activate").Click();
+
+        page.WaitForAssertion(() => Assert.NotEmpty(page.FindAll("#cert-renew-expiry-date")));
+        page.Find("#cert-renew-expiry-date").Change("2028-01-01");
+        Closest(page, "#cert-renew-name", "form").Submit();
+
+        page.WaitForAssertion(() => Assert.Contains("Renewed Certificate", page.Markup, StringComparison.Ordinal));
+        Assert.Empty(page.FindAll("#cert-renew-name"));
+    }
+
+    [Fact]
+    public void A_renewal_conflict_shows_a_banner_on_the_form()
+    {
+        respondToRenewCertificate = _ => Json(
+            HttpStatusCode.Conflict,
+            """{"title":"This certificate already has a renewal successor.","status":409,"detail":"This certificate already has a renewal successor."}""");
+        respondToProfile = _ => Json(HttpStatusCode.OK, Profile(certificates: [Certificate()], assignments: []));
+
+        var page = RenderProfilePage(
+            CurrentUserAuthorizationState.CrewReadPermission,
+            CurrentUserAuthorizationState.CrewManagePermission);
+
+        page.WaitForAssertion(() => Assert.NotEmpty(page.FindAll(".crew-profile-row-clickable")));
+        page.Find(".crew-profile-row-clickable").Click();
+        page.Find(".crew-assignment-activate").Click();
+
+        page.WaitForAssertion(() => Assert.NotEmpty(page.FindAll("#cert-renew-name")));
+        Closest(page, "#cert-renew-name", "form").Submit();
+
+        page.WaitForAssertion(() => Assert.Contains(
+            "This certificate already has a renewal successor.",
+            page.Find(".crew-profile-form-conflict").TextContent,
+            StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void Cancelling_the_renewal_form_hides_it_without_submitting()
+    {
+        respondToProfile = _ => Json(HttpStatusCode.OK, Profile(certificates: [Certificate()], assignments: []));
+
+        var page = RenderProfilePage(
+            CurrentUserAuthorizationState.CrewReadPermission,
+            CurrentUserAuthorizationState.CrewManagePermission);
+
+        page.WaitForAssertion(() => Assert.NotEmpty(page.FindAll(".crew-profile-row-clickable")));
+        page.Find(".crew-profile-row-clickable").Click();
+        page.Find(".crew-assignment-activate").Click();
+
+        page.WaitForAssertion(() => Assert.NotEmpty(page.FindAll("#cert-renew-name")));
+        page.FindAll(".crew-profile-form button[type='button']").First(button => button.TextContent == "Cancel").Click();
+
+        Assert.Empty(page.FindAll("#cert-renew-name"));
+    }
+
+    [Fact]
+    public void Revoking_a_certificate_requires_confirmation_and_refreshes_the_section()
+    {
+        var callCount = 0;
+        respondToProfile = _ =>
+        {
+            callCount++;
+            return callCount == 1
+                ? Json(HttpStatusCode.OK, Profile(certificates: [Certificate()], assignments: []))
+                : Json(HttpStatusCode.OK, Profile(certificates: [Certificate(isRevoked: true)], assignments: []));
+        };
+
+        var page = RenderProfilePage(
+            CurrentUserAuthorizationState.CrewReadPermission,
+            CurrentUserAuthorizationState.CrewManagePermission);
+
+        page.WaitForAssertion(() => Assert.NotEmpty(page.FindAll(".crew-profile-row-clickable")));
+        page.Find(".crew-profile-row-clickable").Click();
+        page.Find(".crew-certificate-revoke-button").Click();
+
+        page.WaitForAssertion(() => Assert.NotEmpty(page.FindAll("#certificate-revoke-reason")));
+        page.Find("#certificate-revoke-reason").Change("Issued in error");
+        Closest(page, "#certificate-revoke-reason", "form").Submit();
+
+        page.WaitForAssertion(() => Assert.Contains(
+            "Revoked", page.Find(".crew-assignment-modal .crew-profile-indicator").TextContent, StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void Keeping_the_certificate_hides_the_revoke_confirmation_form()
+    {
+        respondToProfile = _ => Json(HttpStatusCode.OK, Profile(certificates: [Certificate()], assignments: []));
+
+        var page = RenderProfilePage(
+            CurrentUserAuthorizationState.CrewReadPermission,
+            CurrentUserAuthorizationState.CrewManagePermission);
+
+        page.WaitForAssertion(() => Assert.NotEmpty(page.FindAll(".crew-profile-row-clickable")));
+        page.Find(".crew-profile-row-clickable").Click();
+        page.Find(".crew-certificate-revoke-button").Click();
+
+        page.WaitForAssertion(() => Assert.NotEmpty(page.FindAll("#certificate-revoke-reason")));
+        page.FindAll(".crew-availability-decision-form-actions button").First(button => button.TextContent == "Keep").Click();
+
+        Assert.Empty(page.FindAll("#certificate-revoke-reason"));
+    }
+
+    [Fact]
+    public void A_revoke_conflict_shows_a_banner()
+    {
+        respondToRevokeCertificate = _ => Json(
+            HttpStatusCode.Conflict,
+            """{"title":"This certificate is already revoked.","status":409,"detail":"This certificate is already revoked."}""");
+        respondToProfile = _ => Json(HttpStatusCode.OK, Profile(certificates: [Certificate()], assignments: []));
+
+        var page = RenderProfilePage(
+            CurrentUserAuthorizationState.CrewReadPermission,
+            CurrentUserAuthorizationState.CrewManagePermission);
+
+        page.WaitForAssertion(() => Assert.NotEmpty(page.FindAll(".crew-profile-row-clickable")));
+        page.Find(".crew-profile-row-clickable").Click();
+        page.Find(".crew-certificate-revoke-button").Click();
+
+        page.WaitForAssertion(() => Assert.NotEmpty(page.FindAll("#certificate-revoke-reason")));
+        Closest(page, "#certificate-revoke-reason", "form").Submit();
+
+        page.WaitForAssertion(() => Assert.Contains(
+            "This certificate is already revoked.",
+            page.Find(".crew-profile-form-conflict").TextContent,
+            StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void Affected_active_assignments_are_shown_as_a_non_blocking_warning_after_revocation()
+    {
+        respondToProfile = _ => Json(
+            HttpStatusCode.OK,
+            Profile(certificates: [Certificate()], assignments: [Assignment(status: "Active")]));
+        respondToRevokeCertificate = _ => Json(
+            HttpStatusCode.OK,
+            $$"""{"id":"30000000-0000-0000-0000-000000000001","revokedAtUtc":"2026-09-28T10:00:00Z","concurrencyToken":"70000000-0000-0000-0000-000000000098","affectedActiveAssignments":[{"assignmentId":"31000000-0000-0000-0000-000000000001","vesselId":"{{VesselId}}","rankId":"{{RankId}}"}]}""");
+
+        var page = RenderProfilePage(
+            CurrentUserAuthorizationState.CrewReadPermission,
+            CurrentUserAuthorizationState.CrewManagePermission);
+
+        page.WaitForAssertion(() => Assert.NotEmpty(page.FindAll(".crew-profile-row-clickable")));
+        Closest(page, "#crew-profile-certificates-title", ".crew-profile-card")
+            .QuerySelector(".crew-profile-row-clickable")!.Click();
+        page.WaitForAssertion(() => Assert.NotEmpty(page.FindAll(".crew-certificate-revoke-button")));
+        page.Find(".crew-assignment-modal .crew-certificate-revoke-button").Click();
+
+        page.WaitForAssertion(() => Assert.NotEmpty(page.FindAll("#certificate-revoke-reason")));
+        Closest(page, "#certificate-revoke-reason", "form").Submit();
+
+        page.WaitForAssertion(() => Assert.Contains(
+            "Active assignments relied on this certificate",
+            page.Find(".crew-qualification-warning").TextContent,
+            StringComparison.Ordinal));
+
+        // Non-blocking: the assignment itself is not cancelled by revocation.
+        Assert.Contains("Active", page.Markup, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void The_certificate_chain_and_history_are_shown_after_loading()
+    {
+        respondToProfile = _ => Json(
+            HttpStatusCode.OK,
+            Profile(
+                certificates:
+                [
+                    Certificate(
+                        certificateId: Guid.Parse("30000000-0000-0000-0000-000000000001"),
+                        successorCertificateId: Guid.Parse("30000000-0000-0000-0000-000000000002")),
+                    Certificate(certificateId: Guid.Parse("30000000-0000-0000-0000-000000000002"), name: "Renewed cert"),
+                ],
+                assignments: []));
+        respondToCertificateHistory = _ => Json(
+            HttpStatusCode.OK,
+            """{"certificateId":"30000000-0000-0000-0000-000000000001","chainCertificateIds":["30000000-0000-0000-0000-000000000001","30000000-0000-0000-0000-000000000002"],"history":[{"id":"40000000-0000-0000-0000-000000000001","certificateId":"30000000-0000-0000-0000-000000000002","eventType":"Renewed","actorUserId":"20000000-0000-0000-0000-000000000003","occurredAtUtc":"2026-09-01T10:00:00Z","reason":null,"predecessorCertificateId":"30000000-0000-0000-0000-000000000001"}]}""");
+
+        var page = RenderProfilePage(CurrentUserAuthorizationState.CrewReadPermission);
+
+        page.WaitForAssertion(() => Assert.NotEmpty(page.FindAll(".crew-profile-row-clickable")));
+        page.FindAll(".crew-profile-row-clickable").First().Click();
+
+        page.WaitForAssertion(() =>
+        {
+            var modal = page.Find(".crew-assignment-modal");
+            Assert.Contains("LIC-1001", modal.TextContent, StringComparison.Ordinal);
+            Assert.Contains("Renewed", modal.TextContent, StringComparison.Ordinal);
+        });
+    }
+
+    [Fact]
+    public void No_chain_is_shown_for_a_certificate_that_was_never_renewed()
+    {
+        respondToProfile = _ => Json(HttpStatusCode.OK, Profile(certificates: [Certificate()], assignments: []));
+        respondToCertificateHistory = _ => Json(
+            HttpStatusCode.OK,
+            """{"certificateId":"30000000-0000-0000-0000-000000000001","chainCertificateIds":["30000000-0000-0000-0000-000000000001"],"history":[]}""");
+
+        var page = RenderProfilePage(CurrentUserAuthorizationState.CrewReadPermission);
+
+        page.WaitForAssertion(() => Assert.NotEmpty(page.FindAll(".crew-profile-row-clickable")));
+        page.Find(".crew-profile-row-clickable").Click();
+
+        page.WaitForAssertion(() => Assert.Contains(
+            "No renewal or revocation actions recorded yet.",
+            page.Find(".crew-assignment-modal").TextContent,
+            StringComparison.Ordinal));
+        Assert.Empty(page.Find(".crew-assignment-modal").QuerySelectorAll(".crew-availability-profile-history"));
     }
 
     // ---- Assign to vessel ----
@@ -1329,6 +1819,7 @@ public sealed class CrewMemberProfilePageTests : BunitContext
 
     private static void FillCertificateForm(IRenderedComponent<CrewMemberProfile> page)
     {
+        if (page.FindAll("#cert-type").Count == 0) OpenRegistrationEditor(page, "certificate");
         page.Find("#cert-type").Change("STCW");
         page.Find("#cert-name").Change("Basic Safety Training");
         page.Find("#cert-authority").Change("Flag State Authority");
@@ -1348,6 +1839,7 @@ public sealed class CrewMemberProfilePageTests : BunitContext
 
     private async Task FillAssignmentFormAsync(IRenderedComponent<CrewMemberProfile> page)
     {
+        OpenRegistrationEditor(page, "assignment");
         page.WaitForAssertion(() => Assert.NotEmpty(page.FindAll("#assign-rank option[value='" + RankId + "']")));
 
         page.Find(".vessel-picker-input").Input("Northern");
@@ -1370,6 +1862,13 @@ public sealed class CrewMemberProfilePageTests : BunitContext
     {
         return page.Find(selector).Closest(ancestorSelector)
             ?? throw new InvalidOperationException($"No ancestor '{ancestorSelector}' found for '{selector}'.");
+    }
+
+    private static void OpenRegistrationEditor(IRenderedComponent<CrewMemberProfile> page, string kind)
+    {
+        page.WaitForAssertion(() => Assert.NotEmpty(page.FindAll($".crew-register-{kind}-toggle")));
+        page.Find($".crew-register-{kind}-toggle").Click();
+        page.WaitForAssertion(() => Assert.Single(page.FindAll(".crew-profile-editor")));
     }
 
     private IRenderedComponent<CrewMemberProfile> RenderProfilePage(params string[] permissions)
@@ -1424,6 +1923,21 @@ public sealed class CrewMemberProfilePageTests : BunitContext
             if (path.EndsWith("/positions", StringComparison.Ordinal))
             {
                 return respondToPositions(request);
+            }
+
+            if (path.EndsWith("/renew", StringComparison.Ordinal) && path.Contains("/certificates/", StringComparison.Ordinal))
+            {
+                return respondToRenewCertificate(request);
+            }
+
+            if (path.EndsWith("/revoke", StringComparison.Ordinal) && path.Contains("/certificates/", StringComparison.Ordinal))
+            {
+                return respondToRevokeCertificate(request);
+            }
+
+            if (path.EndsWith("/history", StringComparison.Ordinal) && path.Contains("/certificates/", StringComparison.Ordinal))
+            {
+                return respondToCertificateHistory(request);
             }
 
             if (path.EndsWith("/certificates", StringComparison.Ordinal))
@@ -1541,7 +2055,10 @@ public sealed class CrewMemberProfilePageTests : BunitContext
     private static string Certificate(
         Guid? certificateId = null,
         string name = "Basic Safety Training",
-        DateOnly? expiryDate = null)
+        DateOnly? expiryDate = null,
+        bool isRevoked = false,
+        Guid? predecessorCertificateId = null,
+        Guid? successorCertificateId = null)
     {
         var expiry = expiryDate ?? DateOnly.FromDateTime(DateTime.Today).AddYears(1);
 
@@ -1549,7 +2066,10 @@ public sealed class CrewMemberProfilePageTests : BunitContext
             {"certificateId":"{{certificateId ?? Guid.Parse("30000000-0000-0000-0000-000000000001")}}",
             "type":"STCW","name":"{{name}}","issuingAuthority":"Flag State Authority",
             "licenseNumber":"LIC-1001","issueDate":"2024-01-01","expiryDate":"{{expiry:yyyy-MM-dd}}",
-            "status":"Valid"}
+            "status":"Valid","isRevoked":{{(isRevoked ? "true" : "false")}},
+            "predecessorCertificateId":{{(predecessorCertificateId is null ? "null" : $"\"{predecessorCertificateId}\"")}},
+            "successorCertificateId":{{(successorCertificateId is null ? "null" : $"\"{successorCertificateId}\"")}},
+            "concurrencyToken":"70000000-0000-0000-0000-000000000001"}
             """;
     }
 
