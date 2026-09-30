@@ -67,7 +67,10 @@ public partial class Administration
     private bool forbidden;
     private bool isSavingLifecycle;
     private LifecycleAction? lifecycleAction;
-    private bool scrollToEditor;
+    private bool openEditorAfterRender;
+    private Microsoft.AspNetCore.Components.ElementReference editorDialog;
+    private IJSObjectReference? dialogModule;
+    private DotNetObjectReference<Administration>? dialogReference;
 
     protected override async Task OnInitializedAsync()
     {
@@ -79,21 +82,36 @@ public partial class Administration
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
-        if (!scrollToEditor)
+        if (!openEditorAfterRender)
         {
             return;
         }
 
-        scrollToEditor = false;
+        openEditorAfterRender = false;
+        dialogModule ??= await Js.InvokeAsync<IJSObjectReference>("import", "./js/administration-dialog.js");
+        dialogReference ??= DotNetObjectReference.Create(this);
+        await dialogModule.InvokeVoidAsync("open", editorDialog, dialogReference);
+    }
 
-        try
+    [JSInvokable]
+    public async Task CloseEditorAsync()
+    {
+        if (isSaving || isSavingLifecycle)
         {
-            await Js.InvokeVoidAsync("scrollInterop.toElement", "administration-editor");
+            return;
         }
-        catch (JSException)
+
+        if (dialogModule is not null)
         {
-            // Scrolling is an enhancement and JavaScript can be unavailable during rendering.
+            await dialogModule.InvokeVoidAsync("close", editorDialog);
         }
+
+        selectedUser = null;
+        selectedRole = null;
+        selectedRoleNames.Clear();
+        selectedPermissions.Clear();
+        ResetEditor();
+        await InvokeAsync(StateHasChanged);
     }
 
     private async Task SearchAsync()
@@ -247,7 +265,7 @@ public partial class Administration
         selectedRoleNames.Clear();
         selectedRoleNames.UnionWith(user.Roles);
         ResetEditor();
-        scrollToEditor = true;
+        openEditorAfterRender = true;
     }
 
     private void OpenCreateUserDialog()
@@ -278,7 +296,7 @@ public partial class Administration
         selectedPermissions.Clear();
         selectedPermissions.UnionWith(role.Permissions);
         ResetEditor();
-        scrollToEditor = true;
+        openEditorAfterRender = true;
     }
 
     private void ToggleRole(string name, object? isSelected)
@@ -496,12 +514,24 @@ public partial class Administration
     private static string FormatLockout(DateTimeOffset? lockoutEndUtc) =>
         lockoutEndUtc == DateTimeOffset.MaxValue ? "further notice" : lockoutEndUtc?.ToString("dd MMM yyyy") ?? "further notice";
 
-    public void Dispose()
+    public async ValueTask DisposeAsync()
     {
         newUser.TemporaryPassword = string.Empty;
         newUser.Confirmation = string.Empty;
         lifecycleTemporaryPassword = string.Empty;
         lifecycleTemporaryPasswordConfirmation = string.Empty;
+        dialogReference?.Dispose();
+        if (dialogModule is not null)
+        {
+            try
+            {
+                await dialogModule.DisposeAsync();
+            }
+            catch (JSDisconnectedException)
+            {
+                // The circuit may already be disconnected during navigation.
+            }
+        }
     }
 
     private sealed record PermissionOption(string Name, string Capability, string Action);
