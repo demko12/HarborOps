@@ -492,6 +492,59 @@ public sealed class VesselDetailsPageTests : BunitContext
         });
     }
 
+    [Fact]
+    public void Position_map_follows_the_current_history_page_and_can_fit_positions()
+    {
+        JSInterop.Setup<bool>("vesselPositionMap.render", _ => true).SetResult(true);
+        JSInterop.SetupVoid("vesselPositionMap.fit", _ => true);
+        JSInterop.SetupVoid("vesselPositionMap.dispose", _ => true);
+        respond = request => Json(HttpStatusCode.OK,
+            request.RequestUri!.AbsolutePath.EndsWith("/position-reports", StringComparison.Ordinal)
+                ? PositionHistory(request.RequestUri.Query.Contains("pageNumber=2", StringComparison.Ordinal) ? 2 : 1)
+                : Details());
+
+        var page = RenderDetailsPage();
+        page.WaitForAssertion(() => Assert.Single(page.FindAll(".position-history-map")));
+        Assert.Contains("on this page", page.Find(".position-map-heading").TextContent, StringComparison.Ordinal);
+        page.Find(".position-map-fit").Click();
+        Assert.Single(JSInterop.Invocations["vesselPositionMap.fit"]);
+        page.FindAll(".position-history-pagination button")[1].Click();
+        page.WaitForAssertion(() => Assert.Contains("Page 2", page.Find(".position-history-pagination").TextContent, StringComparison.Ordinal));
+        var invocation = JSInterop.Invocations["vesselPositionMap.render"][^1];
+        var items = Assert.IsAssignableFrom<IReadOnlyList<VesselPositionHistoryItemWebModel>>(invocation.Arguments[2]);
+        Assert.Equal(42m, Assert.Single(items).Latitude);
+    }
+
+    [Fact]
+    public void Map_failure_keeps_position_reports_available_and_can_be_retried()
+    {
+        var render = JSInterop.Setup<bool>("vesselPositionMap.render", _ => true);
+        render.SetResult(false);
+        JSInterop.SetupVoid("vesselPositionMap.dispose", _ => true);
+        respond = request => Json(HttpStatusCode.OK,
+            request.RequestUri!.AbsolutePath.EndsWith("/position-reports", StringComparison.Ordinal) ? PositionHistory(1) : Details());
+        var page = RenderDetailsPage();
+        page.WaitForAssertion(() => Assert.Single(page.FindAll(".position-map-error")));
+        Assert.Single(page.FindAll(".position-history-table tbody tr"));
+        render.SetResult(true);
+        page.Find(".position-map-error button").Click();
+        page.WaitForAssertion(() => Assert.Empty(page.FindAll(".position-map-error")));
+    }
+
+    [Fact]
+    public void Empty_position_history_does_not_initialize_a_map()
+    {
+        var page = RenderDetailsPage();
+        Assert.Empty(page.FindAll(".position-history-map"));
+        Assert.Empty(JSInterop.Invocations);
+    }
+
+    private static string PositionHistory(int page) => $$"""
+        {"items":[{"id":"90000000-0000-0000-0000-000000000001","latitude":{{40 + page}},"longitude":18,
+        "reportedAtUtc":"2026-09-01T10:00:00Z","reportedByUserId":"90000000-0000-0000-0000-000000000002",
+        "reportedByDisplayName":"Operator"}],"pageNumber":{{page}},"pageSize":1,"totalCount":2}
+        """;
+
     private IRenderedComponent<VesselDetails> RenderDetailsPage(
         string? returnTo = null,
         params string[] permissions)

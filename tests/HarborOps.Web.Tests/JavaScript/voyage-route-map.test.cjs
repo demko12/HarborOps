@@ -25,9 +25,10 @@ function setup() {
             return marker;
         }
     };
-    const context = { window: { L }, L, requestAnimationFrame: () => 1, cancelAnimationFrame() {} };
+    const context = { window: { L }, L, requestAnimationFrame: () => 1, cancelAnimationFrame() {},
+        IntersectionObserver: class { observe() {} unobserve() {} } };
     vm.runInNewContext(source, context);
-    return { api: context.window.voyageRouteMap, lines, markers, removed, fits: () => fits, disposed: () => disposed };
+    return { api: context.window.voyageRouteMap, positions: context.window.vesselPositionMap, context, lines, markers, removed, fits: () => fits, disposed: () => disposed };
 }
 
 const stops = [
@@ -73,4 +74,49 @@ test('dispose clears map state and permits rendering again', () => {
     assert.equal(element._harborOpsSignature, undefined);
     state.api.render(element, stops);
     assert.equal(state.fits(), 2);
+});
+
+const reports = [
+    { id: 'new', latitude: 38, longitude: -170, reportedAtUtc: '2026-09-02T10:00:00Z', reportedByDisplayName: '<img src=x onerror=alert(1)>' },
+    { id: 'old', latitude: 35, longitude: 170, reportedAtUtc: '2026-09-01T10:00:00Z', reportedByDisplayName: 'Operator' }
+];
+
+test('position history connects chronological reports across the dateline and highlights latest', () => {
+    const state = setup();
+    assert.equal(state.positions.render('vessel', {}, reports), true);
+    assert.equal(state.markers[0].point[1], 170);
+    assert.equal(state.markers[1].point[1], 190);
+    assert.equal(state.lines[0].points.length, 2);
+    assert.equal(state.markers[1].options.icon.className, 'voyage-map-marker arrived');
+    assert.ok(state.markers[1].popup.includes('&lt;img'));
+    assert.ok(!state.markers[1].popup.includes('<img'));
+    assert.equal(reports[0].longitude, -170);
+    assert.equal(reports[0].id, 'new');
+});
+
+test('a single position has a marker, preserves viewport on rerender, and cleans up on disposal', () => {
+    const state = setup(), element = {};
+    state.positions.render('vessel', element, [reports[0]]);
+    state.positions.render('vessel', element, [reports[0]]);
+    assert.equal(state.lines.length, 0);
+    assert.equal(state.markers.length, 1);
+    assert.equal(state.fits(), 1);
+    state.positions.fit('vessel');
+    assert.equal(state.fits(), 2);
+    state.positions.render('vessel', element, reports);
+    assert.equal(state.removed.length, 1);
+    state.positions.dispose('vessel');
+    assert.equal(state.disposed(), true);
+    state.positions.render('vessel', {}, reports);
+    assert.equal(state.fits(), 4);
+});
+
+test('position map fails gracefully for missing Leaflet and invalid coordinates', () => {
+    const state = setup();
+    assert.equal(state.positions.render('vessel', {}, [{ ...reports[0], latitude: 91 }]), false);
+    assert.equal(state.positions.render('vessel', {}, [{ ...reports[0], reportedAtUtc: 'invalid' }]), false);
+    assert.equal(state.positions.render('vessel', {}, []), false);
+    delete state.context.window.L;
+    assert.equal(state.positions.render('vessel', {}, reports), false);
+    assert.equal(state.markers.length, 0);
 });
