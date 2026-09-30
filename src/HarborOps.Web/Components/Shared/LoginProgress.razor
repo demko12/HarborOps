@@ -1,0 +1,15 @@
+<div class="login-progress" role="status" aria-live="polite" aria-atomic="true">
+    <p class="progress-eyebrow">Workspace access</p>
+    <span class="progress-indicator" aria-hidden="true"></span>
+    <h2>@(SessionEstablished ? "Opening your workspace" : "Signing in")</h2>
+    <p class="progress-description">@(SessionEstablished ? "Your session is established. Taking you to HarborOps." : "Checking your account details. Please wait.")</p>
+    <ol class="progress-steps" aria-label="Sign-in progress">
+        <li class="@(SessionEstablished ? "complete" : "current")" aria-current="@(!SessionEstablished ? "step" : null)"><span aria-hidden="true">@(SessionEstablished ? "✓" : "1")</span>Account verification</li>
+        <li class="@(SessionEstablished ? "current" : null)" aria-current="@(SessionEstablished ? "step" : null)"><span aria-hidden="true">2</span>Workspace access</li>
+    </ol>
+</div>
+
+@code {
+    [Parameter]
+    public bool SessionEstablished { get; set; }
+}

@@ -1027,3 +1027,13 @@ html[data-theme="light"] .work-order-reservation-duplicate {
 }
 html[data-theme="dark"] .work-order-details-page .work-order-table td { background: var(--module-card-background); }
 html[data-theme="dark"] .work-order-details-page .work-order-table tr:is(:hover, :focus-within) td { background: var(--bg-surface-strong); }
+
+/* Sign-in uses the same surfaces as the workspace, including the saved theme. */
+html[data-theme="light"] .login-page {
+    --login-color-scheme: light;
+    --login-card-surface: linear-gradient(135deg, rgba(255, 255, 255, .4), rgba(255, 255, 255, .14));
+}
+html[data-theme="dark"] .login-page {
+    --login-color-scheme: dark;
+    --login-card-surface: var(--module-card-background);
+}
