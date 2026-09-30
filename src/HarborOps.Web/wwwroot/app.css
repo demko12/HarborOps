@@ -23,6 +23,15 @@
     --accent-border: rgba(255, 255, 255, 0.16);
     --accent-text: #ffffff;
 
+    /* Module identity shared by dashboard tiles and navigation. */
+    --module-fleet: var(--accent);
+    --module-crew: #9b75ed;
+    --module-voyages: #0891b2;
+    --module-cargo: #d97706;
+    --module-maintenance: #d98a93;
+    --module-compliance: #059669;
+    --module-documents: #8270ef;
+
     /* ---------- Shared control vocabulary ----------
        One definition of the Compliance look, resolved by every page. Pages read
        these instead of restating their own surfaces, so a change here moves the
@@ -92,6 +101,7 @@
     --accent-bg: rgba(29, 78, 216, 0.14);
     --accent-border: rgba(29, 78, 216, 0.42);
     --accent-text: #1e40af;
+    --module-maintenance: #e05260;
 
     /* Light-theme values for the shared control vocabulary. The --apply-* tokens
        resolve through --bg-surface-strong and --accent-*, so they need no override. */
