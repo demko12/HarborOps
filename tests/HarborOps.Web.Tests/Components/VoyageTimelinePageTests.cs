@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Net;
 using System.Security.Claims;
 using System.Text;
@@ -45,8 +46,54 @@ public sealed class VoyageTimelinePageTests : BunitContext
         Assert.Contains(label, cards[2].TextContent, StringComparison.Ordinal);
         Assert.Contains(port, cards[2].TextContent, StringComparison.Ordinal);
         Assert.Equal("2", cards[3].QuerySelector(".timeline-kpi-value")!.TextContent);
-        Assert.Equal(departed, page.Find(".timeline-progress progress").GetAttribute("value"));
-        Assert.Equal("2", page.Find(".timeline-progress progress").GetAttribute("max"));
+        Assert.Equal(2, page.FindAll(".timeline-kpi-progress .timeline-kpi-segment").Count);
+        Assert.Equal(departed, page.FindAll(".timeline-kpi-progress .timeline-kpi-segment.departed").Count.ToString(CultureInfo.InvariantCulture));
+    }
+
+    [Fact]
+    public void Overdue_clearance_turns_the_card_into_a_link_to_the_port_calls()
+    {
+        respond = _ => Json(HttpStatusCode.OK, Itinerary(firstStopClearanceOverdue: 2));
+
+        var page = RenderTimelinePage();
+
+        var card = page.Find("a.timeline-kpi-alert");
+
+        Assert.EndsWith("#timeline-stops-title", card.GetAttribute("href"), StringComparison.Ordinal);
+        Assert.Contains("Stop 1 · Port of Bar", card.TextContent, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Without_overdue_clearance_the_card_is_not_highlighted()
+    {
+        var page = RenderTimelinePage();
+
+        Assert.Empty(page.FindAll(".timeline-kpi-alert"));
+        Assert.Contains("Required items across port calls", page.Markup, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void The_timeline_chart_has_one_row_per_stop_in_itinerary_order()
+    {
+        var page = RenderTimelinePage();
+
+        var rows = page.FindAll(".timeline-chart-row");
+
+        Assert.Equal(2, rows.Count);
+        Assert.Contains("Port of Bar", rows[0].TextContent, StringComparison.Ordinal);
+        Assert.Contains("Port of Kotor", rows[1].TextContent, StringComparison.Ordinal);
+        Assert.NotEmpty(rows[0].QuerySelectorAll(".timeline-chart-bar.plan"));
+    }
+
+    [Fact]
+    public void An_empty_itinerary_has_no_timeline_chart()
+    {
+        respond = _ => Json(HttpStatusCode.OK, EmptyItinerary());
+
+        var page = RenderTimelinePage();
+
+        Assert.Empty(page.FindAll(".timeline-chart"));
+        Assert.Contains("Plan the itinerary to see its port calls on the timeline.", page.Markup, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -56,7 +103,7 @@ public sealed class VoyageTimelinePageTests : BunitContext
 
         var page = RenderTimelinePage();
 
-        Assert.Empty(page.FindAll(".timeline-progress"));
+        Assert.Empty(page.FindAll(".timeline-kpi-progress"));
         Assert.Equal("—", page.Find(".timeline-kpi-port").TextContent);
         Assert.Contains("No remaining port calls", page.Markup, StringComparison.Ordinal);
     }
@@ -280,7 +327,7 @@ public sealed class VoyageTimelinePageTests : BunitContext
         var page = RenderTimelinePage();
 
         page.Find(".timeline-row-action").Click();
-        page.WaitForAssertion(() => Assert.NotEmpty(page.FindAll("#timeline-berth-select")));
+        page.WaitForAssertion(() => Assert.NotEmpty(page.FindAll(".timeline-berth-modal #timeline-berth-select")));
 
         page.Find("#timeline-berth-select").Focus();
         page.WaitForAssertion(() => Assert.Single(page.FindAll(".berth-picker-option")));
@@ -357,7 +404,7 @@ public sealed class VoyageTimelinePageTests : BunitContext
         arriveButtons[1].Click();
         page.WaitForAssertion(() => Assert.NotEmpty(page.FindAll(".timeline-action-form")));
 
-        page.Find(".timeline-reset").Click();
+        page.Find(".timeline-action-form .timeline-reset").Click();
 
         Assert.Empty(page.FindAll(".timeline-action-form"));
         Assert.Empty(writes);
@@ -374,10 +421,11 @@ public sealed class VoyageTimelinePageTests : BunitContext
 
         var page = RenderTimelinePage();
 
+        page.Find(".timeline-record-delay").Click();
         page.Find("#delay-reason").Change("Port congestion");
         page.Find("#delay-duration").Change("90");
         page.Find("#delay-stop").Change(StopOneId);
-        page.Find(".timeline-submit").Click();
+        page.Find(".timeline-delay-modal .timeline-submit").Click();
 
         page.WaitForAssertion(() => Assert.Contains(
             writes,
@@ -386,6 +434,23 @@ public sealed class VoyageTimelinePageTests : BunitContext
                 && write.Body.Contains("\"duration\":90", StringComparison.Ordinal)
                 && write.Body.Contains(StopOneId, StringComparison.Ordinal)));
         page.WaitForAssertion(() => Assert.Contains("Delay recorded", page.Markup, StringComparison.Ordinal));
+        Assert.Empty(page.FindAll(".timeline-delay-modal"));
+    }
+
+    [Fact]
+    public void The_record_delay_dialog_opens_from_the_delays_card_and_closes_without_submitting()
+    {
+        var page = RenderTimelinePage();
+
+        Assert.Empty(page.FindAll(".timeline-delay-modal"));
+
+        page.Find(".timeline-record-delay").Click();
+        Assert.NotEmpty(page.FindAll(".timeline-delay-modal"));
+
+        page.Find(".timeline-delay-modal .timeline-reset").Click();
+
+        Assert.Empty(page.FindAll(".timeline-delay-modal"));
+        Assert.DoesNotContain(writes, write => write.Path.EndsWith("/delays", StringComparison.Ordinal));
     }
 
     [Fact]
@@ -399,14 +464,16 @@ public sealed class VoyageTimelinePageTests : BunitContext
 
         var page = RenderTimelinePage();
 
+        page.Find(".timeline-record-delay").Click();
         page.Find("#delay-reason").Change("Port congestion");
         page.Find("#delay-duration").Change("0");
-        page.Find(".timeline-submit").Click();
+        page.Find(".timeline-delay-modal .timeline-submit").Click();
 
         page.WaitForAssertion(() => Assert.Contains(
             "Delay duration must be greater than zero",
             page.Markup,
             StringComparison.Ordinal));
+        Assert.Equal("Port congestion", page.Find("#delay-reason").GetAttribute("value"));
     }
 
     [Fact]
@@ -415,7 +482,7 @@ public sealed class VoyageTimelinePageTests : BunitContext
         var page = RenderTimelinePage(CurrentUserAuthorizationState.VoyagesReadPermission);
 
         Assert.Empty(page.FindAll(".timeline-row-action"));
-        Assert.Empty(page.FindAll(".timeline-delay-form"));
+        Assert.Empty(page.FindAll(".timeline-record-delay"));
     }
 
     [Fact]
@@ -485,12 +552,12 @@ public sealed class VoyageTimelinePageTests : BunitContext
 
         page.FindAll("[data-testid=timeline-clearance-toggle]")[0].Click();
 
-        page.WaitForAssertion(() => Assert.NotEmpty(page.FindAll(".clearance-panel")));
+        page.WaitForAssertion(() => Assert.NotEmpty(page.FindAll(".timeline-panel-modal .clearance-panel")));
         Assert.Contains(
             $"/api/voyages/{VoyageId}/stops/{StopOneId}/clearance",
             requestedUris.Select(uri => uri.AbsolutePath));
 
-        page.FindAll("[data-testid=timeline-clearance-toggle]")[0].Click();
+        page.Find(".timeline-panel-modal .voyages-modal-close").Click();
 
         page.WaitForAssertion(() => Assert.Empty(page.FindAll(".clearance-panel")));
     }
@@ -532,12 +599,12 @@ public sealed class VoyageTimelinePageTests : BunitContext
 
         page.FindAll("[data-testid=timeline-activity-toggle]")[0].Click();
 
-        page.WaitForAssertion(() => Assert.NotEmpty(page.FindAll(".activity-panel")));
+        page.WaitForAssertion(() => Assert.NotEmpty(page.FindAll("[data-testid=timeline-activity-modal] .activity-panel")));
         Assert.Contains(
             $"/api/voyages/{VoyageId}/stops/{StopOneId}/activity-timeline",
             requestedUris.Select(uri => uri.AbsolutePath));
 
-        page.FindAll("[data-testid=timeline-activity-toggle]")[0].Click();
+        page.Find("[data-testid=timeline-activity-modal] .voyages-modal-close").Click();
 
         page.WaitForAssertion(() => Assert.Empty(page.FindAll(".activity-panel")));
     }
@@ -636,6 +703,144 @@ public sealed class VoyageTimelinePageTests : BunitContext
         page.Find(".api-error-state button").Click();
 
         page.WaitForAssertion(() => Assert.True(attempt >= 2));
+    }
+
+    [Fact]
+    public void The_timeline_chart_spans_whole_utc_days_around_the_itinerary()
+    {
+        var chart = TimelinePage.BuildTimelineChart(ChartItinerary(), null, Utc(2, 20))!;
+
+        Assert.Equal(Utc(1, 0), chart.Start);
+        Assert.Equal(new DateTime(2026, 9, 4, 0, 0, 0, DateTimeKind.Utc), chart.End);
+        Assert.Equal(["01 Sep", "02 Sep", "03 Sep"], chart.Days.Select(day => day.Label));
+        Assert.True(chart.Days[1].IsToday);
+        Assert.NotNull(chart.NowPercent);
+    }
+
+    [Fact]
+    public void The_timeline_chart_compares_actual_times_with_the_original_plan()
+    {
+        var chart = TimelinePage.BuildTimelineChart(ChartItinerary(), null, Utc(2, 20))!;
+
+        var departed = chart.Rows[0];
+        Assert.Equal("+1h 30m", departed.VarianceLabel);
+        Assert.Equal("very-late", departed.VarianceModifier);
+        Assert.Null(departed.Expected);
+
+        var arrived = chart.Rows[1];
+        Assert.Equal("+40m", arrived.VarianceLabel);
+        Assert.Equal("late", arrived.VarianceModifier);
+        Assert.NotNull(arrived.Actual);
+        Assert.NotNull(arrived.Expected);
+    }
+
+    [Fact]
+    public void The_timeline_chart_writes_plan_and_actual_times_next_to_the_bars()
+    {
+        var chart = TimelinePage.BuildTimelineChart(ChartItinerary(), null, Utc(2, 20))!;
+
+        Assert.Equal("Plan 01 Sep 06:00 – 18:00", chart.Rows[0].PlanLabel.Text);
+        Assert.Equal("Actual 01 Sep 06:10 – 19:30", chart.Rows[0].DetailLabel!.Text);
+        Assert.Equal("Plan 02 Sep 12:00 – 03 Sep 08:00", chart.Rows[1].PlanLabel.Text);
+        Assert.Equal("Arrived 02 Sep 12:40 · ETD 03 Sep 08:00", chart.Rows[1].DetailLabel!.Text);
+        Assert.Equal("after", chart.Rows[0].PlanLabel.Placement);
+    }
+
+    [Fact]
+    public void The_berth_form_opens_in_a_dialog_and_closes_from_its_backdrop()
+    {
+        var page = RenderTimelinePage();
+
+        page.Find(".timeline-row-action").Click();
+        Assert.NotEmpty(page.FindAll(".timeline-berth-modal"));
+
+        page.Find(".timeline-berth-modal").ParentElement!.Click();
+
+        Assert.Empty(page.FindAll(".timeline-berth-modal"));
+    }
+
+    [Fact]
+    public void The_timeline_chart_shows_revised_estimates_for_stops_not_yet_reached()
+    {
+        var stopId = Guid.Parse(StopTwoId);
+        var revisions = new VoyageEstimateRevisions(
+            Guid.Parse(VoyageId),
+            [new VoyageEstimateStopModel(stopId, 2, Guid.Parse(PortTwoId), "Port of Kotor", "Planned", Utc(2, 12), Utc(3, 8), Utc(2, 13).AddMinutes(35), Utc(3, 9).AddMinutes(35), null, null)],
+            []);
+
+        var chart = TimelinePage.BuildTimelineChart(ChartItinerary(secondStopStatus: "Planned"), revisions, Utc(2, 1))!;
+
+        var row = chart.Rows[1];
+        Assert.NotNull(row.Revised);
+        Assert.Null(row.Actual);
+        Assert.Equal("+1h 35m", row.VarianceLabel);
+        Assert.Equal("revised", row.VarianceModifier);
+    }
+
+    [Fact]
+    public void Stop_delays_are_marked_on_their_row_and_voyage_delays_on_the_axis()
+    {
+        var chart = TimelinePage.BuildTimelineChart(
+            ChartItinerary(delays:
+            [
+                new VoyageDelayModel(Guid.NewGuid(), Guid.Parse(StopTwoId), "Port congestion", null, 35, Utc(2, 11)),
+                new VoyageDelayModel(Guid.NewGuid(), null, "Weather", null, 30, Utc(1, 20)),
+            ]),
+            null,
+            Utc(2, 20))!;
+
+        Assert.Empty(chart.Rows[0].Delays);
+        Assert.Single(chart.Rows[1].Delays);
+        Assert.Single(chart.VoyageDelays);
+    }
+
+    [Theory]
+    [InlineData(10, "+10m", "on-time")]
+    [InlineData(15, "+15m", "on-time")]
+    [InlineData(16, "+16m", "late")]
+    [InlineData(60, "+1h", "very-late")]
+    [InlineData(95, "+1h 35m", "very-late")]
+    [InlineData(-20, "−20m", "on-time")]
+    public void Variances_are_formatted_and_classified_against_the_on_time_tolerance(int minutes, string label, string modifier)
+    {
+        Assert.Equal(label, TimelinePage.FormatVariance(minutes));
+        Assert.Equal(modifier, TimelinePage.VarianceModifier(minutes));
+    }
+
+    [Fact]
+    public void The_history_lists_every_kind_newest_first_and_filters_by_kind()
+    {
+        var delay = new VoyageDelayModel(Guid.NewGuid(), null, "Weather", null, 30, Utc(1, 10));
+        var revision = new VoyageEstimateRevisionModel(Guid.NewGuid(), delay.DelayId, "Weather routing", Guid.NewGuid(), Utc(1, 12), true, []);
+        var itinerary = new VoyageItinerary(Guid.Parse(VoyageId), Guid.NewGuid(), [], [delay]);
+        var revisions = new VoyageEstimateRevisions(Guid.Parse(VoyageId), [], [revision]);
+
+        var history = TimelinePage.BuildHistory(itinerary, revisions, null);
+
+        Assert.Equal([TimelinePage.RevisionHistoryKind, TimelinePage.DelayHistoryKind], history.Select(entry => entry.Kind));
+        Assert.Same(delay, Assert.Single(TimelinePage.FilterHistory(history, TimelinePage.DelayHistoryKind)).Delay);
+        Assert.Equal(2, TimelinePage.FilterHistory(history, TimelinePage.AllHistoryFilter).Count);
+    }
+
+    private static DateTime Utc(int day, int hour)
+    {
+        return new DateTime(2026, 9, day, hour, 0, 0, DateTimeKind.Utc);
+    }
+
+    private static VoyageItinerary ChartItinerary(
+        string secondStopStatus = "Arrived",
+        IReadOnlyList<VoyageDelayModel>? delays = null)
+    {
+        var secondStopArrived = secondStopStatus == "Arrived";
+
+        return new VoyageItinerary(
+            Guid.Parse(VoyageId),
+            Guid.NewGuid(),
+            [
+                new VoyageItineraryStopModel(Guid.Parse(StopOneId), 1, Guid.Parse(PortOneId), "Port of Bar", "Montenegro", "MEBAR", null, null, Utc(1, 6), Utc(1, 18), Utc(1, 6).AddMinutes(10), Utc(1, 19).AddMinutes(30), "Departed"),
+                new VoyageItineraryStopModel(Guid.Parse(StopTwoId), 2, Guid.Parse(PortTwoId), "Port of Kotor", "Montenegro", "MEKOT", null, null, Utc(2, 12), Utc(3, 8), secondStopArrived ? Utc(2, 12).AddMinutes(40) : null, null, secondStopStatus),
+            ],
+            delays ?? []);
     }
 
     private IRenderedComponent<TimelinePage> RenderTimelinePage(params string[] permissions)

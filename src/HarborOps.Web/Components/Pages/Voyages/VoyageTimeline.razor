@@ -53,24 +53,104 @@
     else if (itinerary is not null)
     {
         var focusStop = itinerary.Stops.OrderBy(stop => stop.StopOrder).FirstOrDefault(stop => stop.Status != DepartedStatus);
+        var overdueClearance = OverdueClearanceCount(itinerary);
+        var chart = BuildTimelineChart(itinerary, estimateRevisions, DateTime.UtcNow);
+        var history = BuildHistory(itinerary, estimateRevisions, schedule);
+        var visibleHistory = FilterHistory(history, historyFilter);
+
+        <section class="timeline-card timeline-schedule-card" aria-labelledby="timeline-schedule-title">
+            <div class="timeline-card-heading">
+                <div><p class="timeline-eyebrow">Voyage schedule</p><h2 id="timeline-schedule-title">Schedule</h2></div>
+                @if (schedule is not null)
+                {
+                    <div class="timeline-schedule-heading-actions">
+                        <span class="timeline-status @VoyageStatusModifier(schedule.Voyage.Status)">@schedule.Voyage.Status</span>
+                        @if (CanManageVoyages && CanAmendSchedule(schedule.Voyage.Status))
+                        {
+                            <button class="timeline-submit timeline-schedule-amend" type="button" @onclick="OpenAmendModal">Amend schedule</button>
+                            <button class="timeline-reset timeline-schedule-cancel" type="button" @onclick="OpenCancelModal">Cancel voyage</button>
+                        }
+                    </div>
+                }
+            </div>
+
+            @if (scheduleFailure is { IsForbidden: true })
+            {
+                <EmptyState Title="You cannot view schedule changes"
+                            Message="Your account does not carry a voyages read permission. Ask an administrator for access." />
+            }
+            else if (scheduleFailure is not null)
+            {
+                <ApiErrorState Title="@scheduleFailure.Title"
+                               Message="@scheduleFailure.Message"
+                               RetryLabel="Retry"
+                               OnRetry="LoadScheduleAsync" />
+            }
+            else if (schedule is not null)
+            {
+                <dl class="timeline-schedule-grid">
+                    <div>
+                        <dt>Voyage number</dt>
+                        <dd>@schedule.Voyage.VoyageNumber</dd>
+                    </div>
+                    <div>
+                        <dt>Departure port</dt>
+                        <dd>@(schedule.Voyage.DeparturePortName ?? MissingValue)</dd>
+                    </div>
+                    <div>
+                        <dt>Arrival port</dt>
+                        <dd>@(schedule.Voyage.ArrivalPortName ?? MissingValue)</dd>
+                    </div>
+                    <div>
+                        <dt>Route</dt>
+                        <dd>@(schedule.Voyage.RouteName ?? MissingValue)</dd>
+                    </div>
+                    <div>
+                        <dt>Planned departure (UTC)</dt>
+                        <dd>@FormatUtc(schedule.Voyage.PlannedDeparture)</dd>
+                    </div>
+                    <div>
+                        <dt>Planned arrival (UTC)</dt>
+                        <dd>@FormatUtc(schedule.Voyage.PlannedArrival)</dd>
+                    </div>
+                </dl>
+
+                @if (scheduleSuccess is not null)
+                {
+                    <div class="timeline-action-success" role="status">@scheduleSuccess</div>
+                }
+            }
+        </section>
+
         <nav class="timeline-section-nav" aria-label="Voyage sections">
             <a href="@($"{Navigation.Uri.Split('#')[0]}#timeline-route-map-title")"><span class="bi bi-map" aria-hidden="true"></span>Route map</a>
+            <a href="@($"{Navigation.Uri.Split('#')[0]}#timeline-chart-title")"><span class="bi bi-bar-chart-steps" aria-hidden="true"></span>Timeline</a>
             <a href="@($"{Navigation.Uri.Split('#')[0]}#timeline-stops-title")"><span class="bi bi-geo-alt" aria-hidden="true"></span>Port calls</a>
             <a href="@($"{Navigation.Uri.Split('#')[0]}#timeline-delays-title")"><span class="bi bi-hourglass-split" aria-hidden="true"></span>Delays</a>
-            <a href="@($"{Navigation.Uri.Split('#')[0]}#timeline-revisions-title")"><span class="bi bi-clock-history" aria-hidden="true"></span>Revisions</a>
-            <a href="@($"{Navigation.Uri.Split('#')[0]}#timeline-schedule-title")"><span class="bi bi-calendar3" aria-hidden="true"></span>Schedule</a>
+            <a href="@($"{Navigation.Uri.Split('#')[0]}#timeline-history-title")"><span class="bi bi-clock-history" aria-hidden="true"></span>History</a>
         </nav>
         <section class="timeline-summary" aria-label="Timeline summary">
             <article class="timeline-kpi">
-                <div>
+                <div class="timeline-kpi-body">
                     <p class="timeline-kpi-label">Stops</p>
                     <p class="timeline-kpi-value">@itinerary.Stops.Count</p>
-                    <p class="timeline-kpi-note">@CompletedStopCount(itinerary) departed</p>
+                    @if (itinerary.Stops.Count > 0)
+                    {
+                        <div class="timeline-kpi-progress"
+                             role="img"
+                             aria-label="@($"{CompletedStopCount(itinerary)} of {itinerary.Stops.Count} port calls departed")">
+                            @foreach (var stop in itinerary.Stops.OrderBy(stop => stop.StopOrder))
+                            {
+                                <span class="timeline-kpi-segment @StatusModifier(stop.Status)" @key="stop.StopId"></span>
+                            }
+                        </div>
+                    }
+                    <p class="timeline-kpi-note">@CompletedStopCount(itinerary) departed · @StopCountWithModifier(itinerary, "arrived") in port · @StopCountWithModifier(itinerary, "planned") planned</p>
                 </div>
                 <span class="timeline-kpi-icon kpi-icon-stops" aria-hidden="true"><span class="bi bi-geo-alt-fill"></span></span>
             </article>
             <article class="timeline-kpi">
-                <div>
+                <div class="timeline-kpi-body">
                     <p class="timeline-kpi-label">Total delay</p>
                     <p class="timeline-kpi-value">@TotalDelayMinutes(itinerary) min</p>
                     <p class="timeline-kpi-note">@itinerary.Delays.Count recorded</p>
@@ -78,30 +158,38 @@
                 <span class="timeline-kpi-icon kpi-icon-delay" aria-hidden="true"><span class="bi bi-hourglass-split"></span></span>
             </article>
             <article class="timeline-kpi">
-                <div>
+                <div class="timeline-kpi-body">
                     <p class="timeline-kpi-label">@(focusStop?.Status == ArrivedStatus ? "Current port call" : "Next port call")</p>
                     <p class="timeline-kpi-value timeline-kpi-port">@(focusStop?.PortName ?? MissingValue)</p>
                     <p class="timeline-kpi-note">@(focusStop is null ? "No remaining port calls" : $"Stop {focusStop.StopOrder} · {focusStop.Status}")</p>
                 </div>
                 <span class="timeline-kpi-icon" aria-hidden="true"><span class="bi bi-signpost-split"></span></span>
             </article>
-            <article class="timeline-kpi">
-                <div>
-                    <p class="timeline-kpi-label">Overdue clearance</p>
-                    <p class="timeline-kpi-value">@itinerary.Stops.Sum(stop => stop.ClearanceOverdueRequiredItemCount)</p>
-                    <p class="timeline-kpi-note">Required items across port calls</p>
-                </div>
-                <span class="timeline-kpi-icon" aria-hidden="true"><span class="bi bi-clipboard-check"></span></span>
-            </article>
+            @if (overdueClearance > 0)
+            {
+                <a class="timeline-kpi timeline-kpi-alert"
+                   href="@($"{Navigation.Uri.Split('#')[0]}#timeline-stops-title")"
+                   aria-label="@($"{overdueClearance} overdue required clearance items. Go to port calls.")">
+                    <div class="timeline-kpi-body">
+                        <p class="timeline-kpi-label">Overdue clearance</p>
+                        <p class="timeline-kpi-value">@overdueClearance</p>
+                        <p class="timeline-kpi-note">@OverdueClearanceNote(itinerary)</p>
+                    </div>
+                    <span class="timeline-kpi-icon" aria-hidden="true"><span class="bi bi-clipboard-x"></span></span>
+                </a>
+            }
+            else
+            {
+                <article class="timeline-kpi">
+                    <div class="timeline-kpi-body">
+                        <p class="timeline-kpi-label">Overdue clearance</p>
+                        <p class="timeline-kpi-value">@overdueClearance</p>
+                        <p class="timeline-kpi-note">@OverdueClearanceNote(itinerary)</p>
+                    </div>
+                    <span class="timeline-kpi-icon" aria-hidden="true"><span class="bi bi-clipboard-check"></span></span>
+                </article>
+            }
         </section>
-
-        @if (itinerary.Stops.Count > 0)
-        {
-            <div class="timeline-progress">
-                <span>Voyage progress <strong>@CompletedStopCount(itinerary) / @itinerary.Stops.Count port calls departed</strong></span>
-                <progress value="@CompletedStopCount(itinerary)" max="@itinerary.Stops.Count" aria-label="Departed port calls">@CompletedStopCount(itinerary) / @itinerary.Stops.Count</progress>
-            </div>
-        }
 
         <section class="timeline-card timeline-route-map" aria-labelledby="timeline-route-map-title">
             <div class="timeline-card-heading">
@@ -139,6 +227,102 @@
                         </li>
                     }
                 </ol>
+            }
+        </section>
+
+        <section class="timeline-card timeline-chart-card" aria-labelledby="timeline-chart-title">
+            <div class="timeline-card-heading">
+                <div><p class="timeline-eyebrow">Voyage progress</p><h2 id="timeline-chart-title">Timeline</h2></div>
+                @if (chart is not null)
+                {
+                    <span class="timeline-count">@chart.Start.ToString("dd MMM yyyy", System.Globalization.CultureInfo.InvariantCulture) – @chart.End.AddDays(-1).ToString("dd MMM yyyy", System.Globalization.CultureInfo.InvariantCulture)</span>
+                }
+            </div>
+
+            @if (chart is null)
+            {
+                <p class="timeline-route-empty">Plan the itinerary to see its port calls on the timeline.</p>
+            }
+            else
+            {
+                <div class="timeline-chart-scroll">
+                    <div class="timeline-chart" style="--timeline-days: @chart.DayCount">
+                        <div class="timeline-chart-axis" aria-hidden="true">
+                            <span></span>
+                            <div class="timeline-chart-axis-track">
+                                @foreach (var day in chart.Days)
+                                {
+                                    <span class="timeline-chart-tick @(day.IsToday ? "today" : null)" style="left: @FormatPercent(day.LeftPercent)">@day.Label</span>
+                                }
+                                @foreach (var marker in chart.VoyageDelays)
+                                {
+                                    <span class="timeline-chart-delay" style="left: @FormatPercent(marker.LeftPercent)" title="@marker.Title"></span>
+                                }
+                            </div>
+                        </div>
+
+                        <ol class="timeline-chart-rows" aria-label="Port calls on the voyage timeline">
+                            @foreach (var row in chart.Rows)
+                            {
+                                <li class="timeline-chart-row" @key="row.Stop.StopId">
+                                    <div class="timeline-chart-label">
+                                        <span class="timeline-chart-order @StatusModifier(row.Stop.Status)" aria-hidden="true">@row.Stop.StopOrder</span>
+                                        <span>
+                                            <strong>@row.Stop.PortName</strong>
+                                            <small>@(row.Stop.UnLocode is null ? row.Stop.Status : $"{row.Stop.UnLocode} · {row.Stop.Status}")</small>
+                                        </span>
+                                    </div>
+                                    <div class="timeline-chart-track @StatusModifier(row.Stop.Status)" role="img" aria-label="@row.Summary">
+                                        <span class="timeline-chart-bar plan" style="left: @FormatPercent(row.Plan.LeftPercent); width: @FormatPercent(row.Plan.WidthPercent)" title="@row.Plan.Title"></span>
+                                        @if (row.Actual is { } actual)
+                                        {
+                                            <span class="timeline-chart-bar actual @StatusModifier(row.Stop.Status)" style="left: @FormatPercent(actual.LeftPercent); width: @FormatPercent(actual.WidthPercent)" title="@actual.Title"></span>
+                                        }
+                                        @if (row.Expected is { } expected)
+                                        {
+                                            <span class="timeline-chart-bar expected" style="left: @FormatPercent(expected.LeftPercent); width: @FormatPercent(expected.WidthPercent)" title="@expected.Title"></span>
+                                        }
+                                        @if (row.Revised is { } revised)
+                                        {
+                                            <span class="timeline-chart-bar revised" style="left: @FormatPercent(revised.LeftPercent); width: @FormatPercent(revised.WidthPercent)" title="@revised.Title"></span>
+                                        }
+                                        <span class="timeline-chart-times plan @row.PlanLabel.Placement" style="left: @FormatPercent(row.PlanLabel.LeftPercent)" aria-hidden="true">@row.PlanLabel.Text</span>
+                                        @if (row.DetailLabel is { } detailLabel)
+                                        {
+                                            <span class="timeline-chart-times detail @detailLabel.Placement" style="left: @FormatPercent(detailLabel.LeftPercent)" aria-hidden="true">
+                                                @detailLabel.Text
+                                                @if (row.VarianceLabel is not null)
+                                                {
+                                                    <b class="timeline-chart-variance @row.VarianceModifier">@row.VarianceLabel</b>
+                                                }
+                                            </span>
+                                        }
+                                        @foreach (var marker in row.Delays)
+                                        {
+                                            <span class="timeline-chart-delay" style="left: @FormatPercent(marker.LeftPercent)" title="@marker.Title"></span>
+                                        }
+                                    </div>
+                                </li>
+                            }
+                        </ol>
+
+                        @if (chart.NowPercent is { } nowPercent)
+                        {
+                            <div class="timeline-chart-now" style="--timeline-now: @FormatFraction(nowPercent)" aria-hidden="true">
+                                <span>Now · @DateTime.UtcNow.ToString("dd MMM HH:mm", System.Globalization.CultureInfo.InvariantCulture)</span>
+                            </div>
+                        }
+                    </div>
+                </div>
+
+                <ul class="timeline-chart-legend" aria-label="Timeline legend">
+                    <li><i class="plan" aria-hidden="true"></i>Original plan</li>
+                    <li><i class="revised" aria-hidden="true"></i>Revised estimate</li>
+                    <li><i class="departed" aria-hidden="true"></i>Actual · departed</li>
+                    <li><i class="arrived" aria-hidden="true"></i>Actual · in port</li>
+                    <li><i class="delay" aria-hidden="true"></i>Delay recorded</li>
+                    <li><i class="now" aria-hidden="true"></i>Now</li>
+                </ul>
             }
         </section>
 
@@ -226,10 +410,11 @@
                                         <button type="button"
                                                 class="timeline-activity-toggle"
                                                 data-testid="timeline-activity-toggle"
-                                                aria-expanded="@(activityStopId == stop.StopId ? "true" : "false")"
+                                                aria-haspopup="dialog"
                                                 @onclick="() => ToggleActivityLog(stop)">
                                             <span class="bi bi-list-check" aria-hidden="true"></span>
-                                            @(activityStopId == stop.StopId ? "Hide activity log" : "Activity log")
+                                            Activity log
+                                            <span class="bi bi-box-arrow-up-right timeline-popup-hint" aria-hidden="true"></span>
                                         </button>
                                     </td>
                                     <td class="timeline-clearance">
@@ -247,78 +432,19 @@
                                             </span>
                                         }
                                         <button type="button"
-                                                class="timeline-clearance-toggle"
+                                                class="timeline-clearance-toggle @(stop.ClearanceOverdueRequiredItemCount > 0 ? "attention" : null)"
                                                 data-testid="timeline-clearance-toggle"
-                                                aria-expanded="@(clearanceStopId == stop.StopId ? "true" : "false")"
+                                                aria-haspopup="dialog"
                                                 @onclick="() => ToggleClearance(stop)">
-                                            @(clearanceStopId == stop.StopId ? "Hide clearance" : "View clearance")
+                                            <span class="bi bi-clipboard-check" aria-hidden="true"></span>
+                                            View clearance
+                                            <span class="bi bi-box-arrow-up-right timeline-popup-hint" aria-hidden="true"></span>
                                         </button>
                                     </td>
                                     @if (CanManageVoyages)
                                     {
                                         <td class="timeline-actions">
-                                            @if (activeStopId == stop.StopId && activeActionKind == BerthActionKind)
-                                            {
-                                                <div class="timeline-action-form" @onkeydown="args => CancelAction(args)">
-                                                    <label for="timeline-berth-select">@(stop.BerthId is null ? "Assign berth" : "Reschedule berth")</label>
-                                                    <div class="timeline-allocation-grid">
-                                                        <BerthPicker InputId="timeline-berth-select"
-                                                                     PortId="@(activeStopPortId ?? stop.PortId)"
-                                                                     Value="selectedBerthId"
-                                                                     ValueChanged="value => selectedBerthId = value" />
-                                                        <div class="timeline-action-stamp">
-                                                            <input id="timeline-berth-arrival-date" type="date" aria-label="Planned arrival date" @bind="berthArrivalDate" />
-                                                            <input id="timeline-berth-arrival-time" type="time" aria-label="Planned arrival time" @bind="berthArrivalTime" />
-                                                        </div>
-                                                        <div class="timeline-action-stamp">
-                                                            <input id="timeline-berth-departure-date" type="date" aria-label="Planned departure date" @bind="berthDepartureDate" />
-                                                            <input id="timeline-berth-departure-time" type="time" aria-label="Planned departure time" @bind="berthDepartureTime" />
-                                                        </div>
-                                                        <input id="timeline-berth-reason" aria-label="Reason for rescheduling" @bind="berthReason" placeholder="Reason for rescheduling" />
-                                                    </div>
-                                                    @if (isLoadingBerthAvailability)
-                                                    {
-                                                        <p class="timeline-availability-note" role="status">Finding compatible berths…</p>
-                                                    }
-                                                    else if (berthAvailabilityFailure is not null)
-                                                    {
-                                                        <div class="timeline-inline-error" role="alert">@berthAvailabilityFailure.Message <button type="button" class="timeline-inline-retry" @onclick="() => LoadBerthAllocationContextAsync(stop)">Retry</button></div>
-                                                    }
-                                                    else if (berthAvailability is not null)
-                                                    {
-                                                        <div class="timeline-alternatives" aria-label="Compatible berth alternatives">
-                                                            @foreach (var berth in berthAvailability.Berths ?? [])
-                                                            {
-                                                                <button type="button" class="timeline-alternative @(berth.IsAvailableForRequestedWindow ? "available" : "conflict")" @onclick="() => UseAlternative(berth)">
-                                                                    <strong>@berth.BerthName</strong>
-                                                                    <span>@(berth.IsAvailableForRequestedWindow ? "Available for requested window" : berth.NearestAvailableFromUtc is { } availableFrom ? $"Next free {FormatUtc(availableFrom)}" : "No free window within 31 days")</span>
-                                                                </button>
-                                                            }
-                                                        </div>
-                                                    }
-                                                    @if (berthAllocationHistory is { Changes.Count: > 0 })
-                                                    {
-                                                        <details class="timeline-allocation-history">
-                                                            <summary>Allocation history (@berthAllocationHistory.Changes.Count)</summary>
-                                                            @foreach (var change in berthAllocationHistory.Changes)
-                                                            {
-                                                                <p><strong>@(change.PreviousBerthName ?? MissingValue) → @change.NewBerthName</strong><span>@FormatUtc(change.ChangedAtUtc) · @change.Reason</span></p>
-                                                            }
-                                                        </details>
-                                                    }
-                                                    @if (actionFailure is not null)
-                                                    {
-                                                        <p class="timeline-inline-error" role="alert">@(actionFailure.Errors.Count > 0 ? string.Join(" ", actionFailure.Errors.SelectMany(entry => entry.Value)) : actionFailure.Message)</p>
-                                                    }
-                                                    <div class="timeline-action-buttons">
-                                                        <button class="timeline-button" type="button" @onclick="ConfirmBerthAsync" disabled="@(isActionSubmitting || selectedBerthId is null || (IsReschedulingActiveStop && string.IsNullOrWhiteSpace(berthReason)))">
-                                                            @(isActionSubmitting ? "Saving..." : "Confirm")
-                                                        </button>
-                                                        <button class="timeline-reset" type="button" @onclick="() => CancelAction(null)" disabled="@isActionSubmitting">Cancel</button>
-                                                    </div>
-                                                </div>
-                                            }
-                                            else if (activeStopId == stop.StopId && (activeActionKind == ArriveActionKind || activeActionKind == DepartActionKind))
+                                            @if (activeStopId == stop.StopId && (activeActionKind == ArriveActionKind || activeActionKind == DepartActionKind))
                                             {
                                                 <div class="timeline-action-form" @onkeydown="args => CancelAction(args)">
                                                     <label for="timeline-action-date">@(activeActionKind == ArriveActionKind ? "Actual arrival (UTC)" : "Actual departure (UTC)")</label>
@@ -375,33 +501,6 @@
                                         </td>
                                     }
                                 </tr>
-
-                                @if (clearanceStopId == stop.StopId)
-                                {
-                                    <tr class="timeline-clearance-row">
-                                        <td colspan="@(CanManageVoyages ? 8 : 7)">
-                                            <PortCallClearancePanel VoyageId="VoyageId"
-                                                                    VesselId="itinerary.VesselId"
-                                                                    StopId="stop.StopId"
-                                                                    StopStatus="@stop.Status"
-                                                                    StopDepartedAtUtc="stop.Atd"
-                                                                    OnChanged="LoadAsync"
-                                                                    OnClose="CloseClearance" />
-                                        </td>
-                                    </tr>
-                                }
-
-                                @if (activityStopId == stop.StopId)
-                                {
-                                    <tr class="timeline-clearance-row" data-testid="timeline-activity-row">
-                                        <td colspan="@(CanManageVoyages ? 8 : 7)">
-                                            <PortCallActivityPanel VoyageId="VoyageId"
-                                                                   StopId="stop.StopId"
-                                                                   OnChanged="RefreshItineraryAsync"
-                                                                   OnClose="CloseActivityLog" />
-                                        </td>
-                                    </tr>
-                                }
                             }
                         </tbody>
                     </table>
@@ -412,71 +511,21 @@
         <section class="timeline-card" aria-labelledby="timeline-delays-title">
             <div class="timeline-card-heading">
                 <div><p class="timeline-eyebrow">Operational exceptions</p><h2 id="timeline-delays-title">Delays</h2></div>
-                <span class="timeline-count">@itinerary.Delays.Count recorded</span>
+                <div class="timeline-delays-heading-actions">
+                    <span class="timeline-count">@itinerary.Delays.Count recorded</span>
+                    @if (CanManageVoyages)
+                    {
+                        <button class="timeline-submit timeline-record-delay" type="button" @onclick="OpenDelayModal">
+                            <span class="bi bi-plus-lg" aria-hidden="true"></span>
+                            Record delay
+                        </button>
+                    }
+                </div>
             </div>
 
-            @if (CanManageVoyages)
+            @if (delaySuccess is not null)
             {
-                <div class="timeline-delay-form">
-                    @if (delayFailure is not null)
-                    {
-                        <div class="timeline-form-error" role="alert">
-                            <strong>@delayFailure.Title</strong>
-                            @if (delayFailure.Errors.Count > 0)
-                            {
-                                <ul>
-                                    @foreach (var entry in delayFailure.Errors)
-                                    {
-                                        @foreach (var message in entry.Value)
-                                        {
-                                            <li>@message</li>
-                                        }
-                                    }
-                                </ul>
-                            }
-                            else
-                            {
-                                <p>@delayFailure.Message</p>
-                            }
-                        </div>
-                    }
-
-                    @if (delaySuccess is not null)
-                    {
-                        <div class="timeline-action-success" role="status">@delaySuccess</div>
-                    }
-
-                    <div class="timeline-form-grid">
-                        <div class="timeline-field">
-                            <label for="delay-reason">Reason</label>
-                            <input id="delay-reason" @bind="delayReason" placeholder="Port congestion" />
-                        </div>
-                        <div class="timeline-field">
-                            <label for="delay-duration">Duration (minutes)</label>
-                            <input id="delay-duration" type="number" min="1" @bind="delayDurationMinutes" />
-                        </div>
-                        <div class="timeline-field">
-                            <label for="delay-stop">Applies to</label>
-                            <select id="delay-stop" @bind="delayStopSelection">
-                                <option value="">Voyage-level</option>
-                                @foreach (var stop in itinerary.Stops)
-                                {
-                                    <option value="@stop.StopId">Stop @stop.StopOrder — @stop.PortName</option>
-                                }
-                            </select>
-                        </div>
-                        <div class="timeline-field timeline-field-wide">
-                            <label for="delay-description">Description (optional)</label>
-                            <input id="delay-description" @bind="delayDescription" placeholder="Additional context" />
-                        </div>
-                    </div>
-
-                    <div class="timeline-form-actions">
-                        <button class="timeline-submit" type="button" @onclick="SubmitDelayAsync" disabled="@isSubmittingDelay">
-                            @(isSubmittingDelay ? "Recording..." : "Record delay")
-                        </button>
-                    </div>
-                </div>
+                <div class="timeline-action-success" role="status">@delaySuccess</div>
             }
 
             @if (itinerary.Delays.Count == 0)
@@ -678,10 +727,10 @@
             </section>
         }
 
-        <section class="timeline-card" aria-labelledby="timeline-revisions-title">
+        <section class="timeline-card" aria-labelledby="timeline-history-title">
             <div class="timeline-card-heading">
-                <div><p class="timeline-eyebrow">Estimate history</p><h2 id="timeline-revisions-title">Estimate revisions</h2></div>
-                <span class="timeline-count">@(estimateRevisions?.Revisions.Count ?? 0) published</span>
+                <div><p class="timeline-eyebrow">Voyage history</p><h2 id="timeline-history-title">History</h2></div>
+                <span class="timeline-count">@history.Count entries</span>
             </div>
 
             @if (impactSuccess is not null)
@@ -697,142 +746,99 @@
                 </div>
             }
 
-            @if (estimateRevisionsFailure is not null)
+            <div class="timeline-history-filters" role="group" aria-label="Filter history">
+                @foreach (var (filter, label, count) in new[]
+                {
+                    (AllHistoryFilter, "All", history.Count),
+                    (DelayHistoryKind, "Delays", history.Count(entry => entry.Kind == DelayHistoryKind)),
+                    (RevisionHistoryKind, "Estimate revisions", history.Count(entry => entry.Kind == RevisionHistoryKind)),
+                    (ScheduleHistoryKind, "Schedule changes", history.Count(entry => entry.Kind == ScheduleHistoryKind)),
+                })
+                {
+                    <button type="button"
+                            class="timeline-history-filter @(historyFilter == filter ? "selected" : null)"
+                            data-filter="@filter"
+                            aria-pressed="@((historyFilter == filter).ToString().ToLowerInvariant())"
+                            @onclick="() => SetHistoryFilter(filter)">
+                        @label <span class="timeline-history-filter-count">@count</span>
+                    </button>
+                }
+            </div>
+
+            @if (estimateRevisionsFailure is not null && historyFilter is AllHistoryFilter or RevisionHistoryKind)
             {
                 <ApiErrorState Title="@estimateRevisionsFailure.Title"
                                Message="@estimateRevisionsFailure.Message"
                                OnRetry="LoadEstimateRevisionsAsync" />
             }
-            else if (estimateRevisions is null || estimateRevisions.Revisions.Count == 0)
+
+            @if (visibleHistory.Count == 0)
             {
-                <EmptyState Title="No revised estimates"
-                            Message="Applying a delay impact publishes revised ETAs and ETDs here." />
+                var emptyState = HistoryEmptyState(historyFilter);
+                <EmptyState Title="@emptyState.Title" Message="@emptyState.Message" />
             }
             else
             {
                 <ol class="timeline-schedule-changes">
-                    @foreach (var revision in estimateRevisions.Revisions)
+                    @foreach (var entry in visibleHistory)
                     {
-                        <li class="timeline-schedule-change" @key="revision.RevisionBatchId">
-                            <div class="timeline-schedule-change-heading">
-                                <span class="timeline-status amended">Estimates revised</span>
-                                <span class="timeline-schedule-change-time">@FormatUtc(revision.RevisedAtUtc)</span>
-                                <code class="timeline-schedule-change-actor" title="@revision.RevisedByUserId">@FormatActor(revision.RevisedByUserId)</code>
-                                @if (revision.AlertCreated)
-                                {
-                                    <span class="timeline-alert-state sent">Alert sent</span>
-                                }
-                                else
-                                {
-                                    <span class="timeline-alert-state failed">Alert not sent</span>
-                                    @if (CanManageVoyages)
-                                    {
-                                        <button class="timeline-row-action"
-                                                type="button"
-                                                disabled="@(retryingRevisionBatchId == revision.RevisionBatchId)"
-                                                @onclick="() => RetryAlertAsync(revision.RevisionBatchId)">
-                                            @(retryingRevisionBatchId == revision.RevisionBatchId ? "Resending..." : "Retry alert")
-                                        </button>
-                                    }
-                                }
-                            </div>
-                            <p class="timeline-schedule-change-reason">@revision.Reason</p>
-                            <ul class="timeline-schedule-change-fields">
-                                @foreach (var change in revision.Changes)
-                                {
-                                    <li @key="change.StopId">
-                                        <span class="timeline-schedule-change-label">Stop @change.StopOrder — @change.PortName</span>
-                                        <span class="timeline-schedule-change-old">@FormatUtc(change.PreviousEta) → @FormatUtc(change.PreviousEtd)</span>
-                                        <span class="timeline-schedule-change-arrow" aria-hidden="true">→</span>
-                                        <span class="timeline-schedule-change-new">@FormatUtc(change.NewEta) → @FormatUtc(change.NewEtd)</span>
-                                    </li>
-                                }
-                            </ul>
-                        </li>
-                    }
-                </ol>
-            }
-        </section>
-
-        <section class="timeline-card" aria-labelledby="timeline-schedule-title">
-            <div class="timeline-card-heading">
-                <div><p class="timeline-eyebrow">Voyage schedule</p><h2 id="timeline-schedule-title">Schedule</h2></div>
-                @if (schedule is not null)
-                {
-                    <span class="timeline-status @VoyageStatusModifier(schedule.Voyage.Status)">@schedule.Voyage.Status</span>
-                }
-            </div>
-
-            @if (scheduleFailure is { IsForbidden: true })
-            {
-                <EmptyState Title="You cannot view schedule changes"
-                            Message="Your account does not carry a voyages read permission. Ask an administrator for access." />
-            }
-            else if (scheduleFailure is not null)
-            {
-                <ApiErrorState Title="@scheduleFailure.Title"
-                               Message="@scheduleFailure.Message"
-                               RetryLabel="Retry"
-                               OnRetry="LoadScheduleAsync" />
-            }
-            else if (schedule is not null)
-            {
-                <dl class="timeline-schedule-grid">
-                    <div>
-                        <dt>Voyage number</dt>
-                        <dd>@schedule.Voyage.VoyageNumber</dd>
-                    </div>
-                    <div>
-                        <dt>Departure port</dt>
-                        <dd>@(schedule.Voyage.DeparturePortName ?? MissingValue)</dd>
-                    </div>
-                    <div>
-                        <dt>Arrival port</dt>
-                        <dd>@(schedule.Voyage.ArrivalPortName ?? MissingValue)</dd>
-                    </div>
-                    <div>
-                        <dt>Route</dt>
-                        <dd>@(schedule.Voyage.RouteName ?? MissingValue)</dd>
-                    </div>
-                    <div>
-                        <dt>Planned departure (UTC)</dt>
-                        <dd>@FormatUtc(schedule.Voyage.PlannedDeparture)</dd>
-                    </div>
-                    <div>
-                        <dt>Planned arrival (UTC)</dt>
-                        <dd>@FormatUtc(schedule.Voyage.PlannedArrival)</dd>
-                    </div>
-                </dl>
-
-                @if (scheduleSuccess is not null)
-                {
-                    <div class="timeline-action-success" role="status">@scheduleSuccess</div>
-                }
-
-                @if (CanManageVoyages && CanAmendSchedule(schedule.Voyage.Status))
-                {
-                    <div class="timeline-schedule-actions">
-                        <button class="timeline-submit timeline-schedule-amend" type="button" @onclick="OpenAmendModal">Amend schedule</button>
-                        <button class="timeline-reset timeline-schedule-cancel" type="button" @onclick="OpenCancelModal">Cancel voyage</button>
-                    </div>
-                }
-
-                <div class="timeline-card-heading timeline-schedule-history-heading">
-                    <h3 id="timeline-schedule-history-title">Schedule changes</h3>
-                    <span class="timeline-count">@schedule.Changes.Count recorded</span>
-                </div>
-
-                @if (schedule.Changes.Count == 0)
-                {
-                    <EmptyState Title="No schedule changes"
-                                Message="Amendments and cancellations recorded for this voyage will appear here." />
-                }
-                else
-                {
-                    <ol class="timeline-schedule-changes">
-                        @foreach (var change in schedule.Changes)
+                        @if (entry.Delay is { } delay)
                         {
-                            <li class="timeline-schedule-change" @key="change.ChangeId">
+                            <li class="timeline-history-entry timeline-history-delay" @key="delay.DelayId">
+                                <div class="timeline-schedule-change-heading">
+                                    <span class="timeline-status delay">Delay recorded</span>
+                                    <span class="timeline-schedule-change-time">@FormatUtc(delay.CreatedAt)</span>
+                                    <span class="timeline-schedule-change-time">@DelaySourceLabel(itinerary, delay)</span>
+                                </div>
+                                <p class="timeline-schedule-change-reason">@delay.Reason · @delay.Duration min</p>
+                                @if (delay.Description is not null)
+                                {
+                                    <p class="timeline-schedule-change-empty">@delay.Description</p>
+                                }
+                            </li>
+                        }
+                        else if (entry.Revision is { } revision)
+                        {
+                            <li class="timeline-history-entry timeline-estimate-revision" @key="revision.RevisionBatchId">
+                                <div class="timeline-schedule-change-heading">
+                                    <span class="timeline-status amended">Estimates revised</span>
+                                    <span class="timeline-schedule-change-time">@FormatUtc(revision.RevisedAtUtc)</span>
+                                    <code class="timeline-schedule-change-actor" title="@revision.RevisedByUserId">@FormatActor(revision.RevisedByUserId)</code>
+                                    @if (revision.AlertCreated)
+                                    {
+                                        <span class="timeline-alert-state sent">Alert sent</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="timeline-alert-state failed">Alert not sent</span>
+                                        @if (CanManageVoyages)
+                                        {
+                                            <button class="timeline-row-action"
+                                                    type="button"
+                                                    disabled="@(retryingRevisionBatchId == revision.RevisionBatchId)"
+                                                    @onclick="() => RetryAlertAsync(revision.RevisionBatchId)">
+                                                @(retryingRevisionBatchId == revision.RevisionBatchId ? "Resending..." : "Retry alert")
+                                            </button>
+                                        }
+                                    }
+                                </div>
+                                <p class="timeline-schedule-change-reason">@revision.Reason</p>
+                                <ul class="timeline-schedule-change-fields">
+                                    @foreach (var change in revision.Changes)
+                                    {
+                                        <li @key="change.StopId">
+                                            <span class="timeline-schedule-change-label">Stop @change.StopOrder — @change.PortName</span>
+                                            <span class="timeline-schedule-change-old">@FormatUtc(change.PreviousEta) → @FormatUtc(change.PreviousEtd)</span>
+                                            <span class="timeline-schedule-change-arrow" aria-hidden="true">→</span>
+                                            <span class="timeline-schedule-change-new">@FormatUtc(change.NewEta) → @FormatUtc(change.NewEtd)</span>
+                                        </li>
+                                    }
+                                </ul>
+                            </li>
+                        }
+                        else if (entry.ScheduleChange is { } change)
+                        {
+                            <li class="timeline-history-entry timeline-schedule-change" @key="change.ChangeId">
                                 <div class="timeline-schedule-change-heading">
                                     <span class="timeline-status @ChangeTypeModifier(change.ChangeType)">@change.ChangeType</span>
                                     <span class="timeline-schedule-change-time">@FormatUtc(change.ChangedAtUtc)</span>
@@ -862,10 +868,222 @@
                                 }
                             </li>
                         }
-                    </ol>
-                }
+                    }
+                </ol>
             }
         </section>
+    }
+
+    @if (clearanceStopId is { } clearanceModalStopId && itinerary?.Stops.FirstOrDefault(candidate => candidate.StopId == clearanceModalStopId) is { } clearanceStop)
+    {
+        <div class="voyages-modal-backdrop" role="presentation" @onclick="CloseClearance">
+            <section class="voyages-form-card voyages-modal timeline-panel-modal"
+                     role="dialog"
+                     aria-modal="true"
+                     aria-labelledby="clearance-modal-title"
+                     @onclick:stopPropagation="true">
+                <div class="voyages-modal-header">
+                    <div>
+                        <h2 id="clearance-modal-title">Clearance</h2>
+                        <p>Stop @clearanceStop.StopOrder — @clearanceStop.PortName</p>
+                    </div>
+                    <button type="button"
+                            class="voyages-modal-close"
+                            aria-label="Close clearance dialog"
+                            @onclick="CloseClearance">&times;</button>
+                </div>
+                <PortCallClearancePanel VoyageId="VoyageId"
+                                        VesselId="itinerary.VesselId"
+                                        StopId="clearanceStop.StopId"
+                                        StopStatus="@clearanceStop.Status"
+                                        StopDepartedAtUtc="clearanceStop.Atd"
+                                        OnChanged="LoadAsync" />
+            </section>
+        </div>
+    }
+
+    @if (activityStopId is { } activityModalStopId && itinerary?.Stops.FirstOrDefault(candidate => candidate.StopId == activityModalStopId) is { } activityStop)
+    {
+        <div class="voyages-modal-backdrop" role="presentation" @onclick="CloseActivityLog">
+            <section class="voyages-form-card voyages-modal timeline-panel-modal"
+                     role="dialog"
+                     aria-modal="true"
+                     aria-labelledby="activity-modal-title"
+                     data-testid="timeline-activity-modal"
+                     @onclick:stopPropagation="true">
+                <div class="voyages-modal-header">
+                    <div>
+                        <h2 id="activity-modal-title">Activity log</h2>
+                        <p>Stop @activityStop.StopOrder — @activityStop.PortName</p>
+                    </div>
+                    <button type="button"
+                            class="voyages-modal-close"
+                            aria-label="Close activity log dialog"
+                            @onclick="CloseActivityLog">&times;</button>
+                </div>
+                <PortCallActivityPanel VoyageId="VoyageId"
+                                       StopId="activityStop.StopId"
+                                       OnChanged="RefreshItineraryAsync" />
+            </section>
+        </div>
+    }
+
+    @if (activeActionKind == BerthActionKind && activeStopId is { } berthModalStopId && itinerary?.Stops.FirstOrDefault(candidate => candidate.StopId == berthModalStopId) is { } berthStop)
+    {
+        <div class="voyages-modal-backdrop" role="presentation" @onclick="() => CancelAction(null)">
+            <section class="voyages-form-card voyages-modal timeline-berth-modal"
+                     role="dialog"
+                     aria-modal="true"
+                     aria-labelledby="berth-modal-title"
+                     @onclick:stopPropagation="true"
+                     @onkeydown="args => CancelAction(args)">
+                <div class="voyages-modal-header">
+                    <div>
+                        <h2 id="berth-modal-title">@(berthStop.BerthId is null ? "Assign berth" : "Change berth")</h2>
+                        <p>Stop @berthStop.StopOrder — @berthStop.PortName</p>
+                    </div>
+                    <button type="button"
+                            class="voyages-modal-close"
+                            aria-label="Close berth dialog"
+                            @onclick="() => CancelAction(null)">&times;</button>
+                </div>
+                <div class="timeline-action-form">
+                    <label for="timeline-berth-select">Berth</label>
+                    <div class="timeline-allocation-grid">
+                        <BerthPicker InputId="timeline-berth-select"
+                                     PortId="@(activeStopPortId ?? berthStop.PortId)"
+                                     Value="selectedBerthId"
+                                     ValueChanged="value => selectedBerthId = value" />
+                        <div class="timeline-action-stamp">
+                            <input id="timeline-berth-arrival-date" type="date" aria-label="Planned arrival date" @bind="berthArrivalDate" />
+                            <input id="timeline-berth-arrival-time" type="time" aria-label="Planned arrival time" @bind="berthArrivalTime" />
+                        </div>
+                        <div class="timeline-action-stamp">
+                            <input id="timeline-berth-departure-date" type="date" aria-label="Planned departure date" @bind="berthDepartureDate" />
+                            <input id="timeline-berth-departure-time" type="time" aria-label="Planned departure time" @bind="berthDepartureTime" />
+                        </div>
+                        <input id="timeline-berth-reason" aria-label="Reason for rescheduling" @bind="berthReason" placeholder="Reason for rescheduling" />
+                    </div>
+                    @if (isLoadingBerthAvailability)
+                    {
+                        <p class="timeline-availability-note" role="status">Finding compatible berths…</p>
+                    }
+                    else if (berthAvailabilityFailure is not null)
+                    {
+                        <div class="timeline-inline-error" role="alert">@berthAvailabilityFailure.Message <button type="button" class="timeline-inline-retry" @onclick="() => LoadBerthAllocationContextAsync(berthStop)">Retry</button></div>
+                    }
+                    else if (berthAvailability is not null)
+                    {
+                        <div class="timeline-alternatives" aria-label="Compatible berth alternatives">
+                            @foreach (var berth in berthAvailability.Berths ?? [])
+                            {
+                                <button type="button" class="timeline-alternative @(berth.IsAvailableForRequestedWindow ? "available" : "conflict")" @onclick="() => UseAlternative(berth)">
+                                    <strong>@berth.BerthName</strong>
+                                    <span>@(berth.IsAvailableForRequestedWindow ? "Available for requested window" : berth.NearestAvailableFromUtc is { } availableFrom ? $"Next free {FormatUtc(availableFrom)}" : "No free window within 31 days")</span>
+                                </button>
+                            }
+                        </div>
+                    }
+                    @if (berthAllocationHistory is { Changes.Count: > 0 })
+                    {
+                        <details class="timeline-allocation-history">
+                            <summary>Allocation history (@berthAllocationHistory.Changes.Count)</summary>
+                            @foreach (var change in berthAllocationHistory.Changes)
+                            {
+                                <p><strong>@(change.PreviousBerthName ?? MissingValue) → @change.NewBerthName</strong><span>@FormatUtc(change.ChangedAtUtc) · @change.Reason</span></p>
+                            }
+                        </details>
+                    }
+                    @if (actionFailure is not null)
+                    {
+                        <p class="timeline-inline-error" role="alert">@(actionFailure.Errors.Count > 0 ? string.Join(" ", actionFailure.Errors.SelectMany(entry => entry.Value)) : actionFailure.Message)</p>
+                    }
+                    <div class="timeline-action-buttons">
+                        <button class="timeline-button" type="button" @onclick="ConfirmBerthAsync" disabled="@(isActionSubmitting || selectedBerthId is null || (IsReschedulingActiveStop && string.IsNullOrWhiteSpace(berthReason)))">
+                            @(isActionSubmitting ? "Saving..." : "Confirm")
+                        </button>
+                        <button class="timeline-reset" type="button" @onclick="() => CancelAction(null)" disabled="@isActionSubmitting">Cancel</button>
+                    </div>
+                </div>
+            </section>
+        </div>
+    }
+
+    @if (isDelayModalOpen && itinerary is not null)
+    {
+        <div class="voyages-modal-backdrop" role="presentation" @onclick="CloseDelayModal">
+            <section class="voyages-form-card voyages-modal timeline-delay-modal"
+                     role="dialog"
+                     aria-modal="true"
+                     aria-labelledby="delay-modal-title"
+                     @onclick:stopPropagation="true">
+                <div class="voyages-modal-header">
+                    <div>
+                        <h2 id="delay-modal-title">Record delay</h2>
+                        <p>Log a delay for the voyage or one of its port calls. Assess its impact afterwards from the Delays table.</p>
+                    </div>
+                    <button type="button"
+                            class="voyages-modal-close"
+                            aria-label="Close record delay dialog"
+                            @onclick="CloseDelayModal">&times;</button>
+                </div>
+
+                @if (delayFailure is not null)
+                {
+                    <div class="timeline-form-error" role="alert">
+                        <strong>@delayFailure.Title</strong>
+                        @if (delayFailure.Errors.Count > 0)
+                        {
+                            <ul>
+                                @foreach (var entry in delayFailure.Errors)
+                                {
+                                    @foreach (var message in entry.Value)
+                                    {
+                                        <li>@message</li>
+                                    }
+                                }
+                            </ul>
+                        }
+                        else
+                        {
+                            <p>@delayFailure.Message</p>
+                        }
+                    </div>
+                }
+
+                <div class="timeline-form-grid">
+                    <div class="timeline-field">
+                        <label for="delay-reason">Reason</label>
+                        <input id="delay-reason" @bind="delayReason" placeholder="Port congestion" />
+                    </div>
+                    <div class="timeline-field">
+                        <label for="delay-duration">Duration (minutes)</label>
+                        <input id="delay-duration" type="number" min="1" @bind="delayDurationMinutes" />
+                    </div>
+                    <div class="timeline-field timeline-field-wide">
+                        <label for="delay-stop">Applies to</label>
+                        <select id="delay-stop" @bind="delayStopSelection">
+                            <option value="">Voyage-level</option>
+                            @foreach (var stop in itinerary.Stops)
+                            {
+                                <option value="@stop.StopId">Stop @stop.StopOrder — @stop.PortName</option>
+                            }
+                        </select>
+                    </div>
+                    <div class="timeline-field timeline-field-wide">
+                        <label for="delay-description">Description (optional)</label>
+                        <input id="delay-description" @bind="delayDescription" placeholder="Additional context" />
+                    </div>
+                </div>
+
+                <div class="timeline-form-actions">
+                    <button class="timeline-submit" type="button" @onclick="SubmitDelayAsync" disabled="@isSubmittingDelay">
+                        @(isSubmittingDelay ? "Recording..." : "Record delay")
+                    </button>
+                    <button class="timeline-reset" type="button" @onclick="CloseDelayModal" disabled="@isSubmittingDelay">Cancel</button>
+                </div>
+            </section>
+        </div>
     }
 
     @if (isAmendModalOpen && schedule is not null)

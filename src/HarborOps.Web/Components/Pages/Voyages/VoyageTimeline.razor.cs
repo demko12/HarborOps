@@ -30,6 +30,14 @@ public partial class VoyageTimeline : IDisposable
 
     internal const int MinimumItineraryStops = 2;
 
+    internal const string AllHistoryFilter = "all";
+    internal const string DelayHistoryKind = "delays";
+    internal const string RevisionHistoryKind = "revisions";
+    internal const string ScheduleHistoryKind = "schedule";
+
+    internal const int OnTimeToleranceMinutes = 15;
+    internal const int MaximumTimelineDayTicks = 10;
+
     private readonly CancellationTokenSource disposeCancellation = new();
 
     private VoyageItinerary? itinerary;
@@ -85,6 +93,9 @@ public partial class VoyageTimeline : IDisposable
     private VoyagesApiFailure? delayFailure;
     private string? delaySuccess;
     private bool isSubmittingDelay;
+    private bool isDelayModalOpen;
+
+    private string historyFilter = AllHistoryFilter;
 
     private VoyageSchedule? schedule;
     private VoyagesApiFailure? scheduleFailure;
@@ -262,6 +273,321 @@ public partial class VoyageTimeline : IDisposable
         return stop is null
             ? "Stop"
             : $"Stop {stop.StopOrder} — {stop.PortName}";
+    }
+
+    internal static int StopCountWithModifier(VoyageItinerary itinerary, string modifier)
+    {
+        return itinerary.Stops.Count(stop => string.Equals(StatusModifier(stop.Status), modifier, StringComparison.Ordinal));
+    }
+
+    internal static int OverdueClearanceCount(VoyageItinerary itinerary)
+    {
+        return itinerary.Stops.Sum(stop => stop.ClearanceOverdueRequiredItemCount);
+    }
+
+    internal static string OverdueClearanceNote(VoyageItinerary itinerary)
+    {
+        var overdueStop = itinerary.Stops
+            .OrderBy(stop => stop.StopOrder)
+            .FirstOrDefault(stop => stop.ClearanceOverdueRequiredItemCount > 0);
+
+        return overdueStop is null
+            ? "Required items across port calls"
+            : $"Stop {overdueStop.StopOrder} · {overdueStop.PortName} · View port calls";
+    }
+
+    internal static string FormatVariance(int minutes)
+    {
+        var sign = minutes < 0 ? "−" : "+";
+        var hours = Math.Abs(minutes) / 60;
+        var remainder = Math.Abs(minutes) % 60;
+
+        if (hours == 0)
+        {
+            return string.Create(CultureInfo.InvariantCulture, $"{sign}{remainder}m");
+        }
+
+        return remainder == 0
+            ? string.Create(CultureInfo.InvariantCulture, $"{sign}{hours}h")
+            : string.Create(CultureInfo.InvariantCulture, $"{sign}{hours}h {remainder}m");
+    }
+
+    internal static string VarianceModifier(int minutes)
+    {
+        if (minutes <= OnTimeToleranceMinutes)
+        {
+            return "on-time";
+        }
+
+        return minutes < 60 ? "late" : "very-late";
+    }
+
+    internal static string FormatPercent(double value)
+    {
+        return string.Create(CultureInfo.InvariantCulture, $"{value:0.###}%");
+    }
+
+    internal static string FormatFraction(double percent)
+    {
+        return (percent / 100).ToString("0.#####", CultureInfo.InvariantCulture);
+    }
+
+    internal static TimelineChart? BuildTimelineChart(
+        VoyageItinerary itinerary,
+        VoyageEstimateRevisions? revisions,
+        DateTime nowUtc)
+    {
+        ArgumentNullException.ThrowIfNull(itinerary);
+
+        if (itinerary.Stops.Count == 0)
+        {
+            return null;
+        }
+
+        var stops = itinerary.Stops.OrderBy(stop => stop.StopOrder).ToList();
+        var revisedStops = stops.ToDictionary(
+            stop => stop.StopId,
+            stop => revisions?.Stops.FirstOrDefault(candidate => candidate.StopId == stop.StopId && candidate.RevisedEta is not null));
+
+        var instants = new List<DateTime>();
+
+        foreach (var stop in stops)
+        {
+            instants.Add(stop.Eta);
+            instants.Add(stop.Etd);
+
+            if (stop.Ata is { } ata)
+            {
+                instants.Add(ata);
+            }
+
+            if (stop.Atd is { } atd)
+            {
+                instants.Add(atd);
+            }
+
+            if (revisedStops[stop.StopId] is { RevisedEta: { } revisedEta } revised)
+            {
+                instants.Add(revisedEta);
+                instants.Add(revised.RevisedEtd ?? stop.Etd);
+            }
+        }
+
+        if (stops.Any(stop => string.Equals(stop.Status, ArrivedStatus, StringComparison.Ordinal)))
+        {
+            instants.Add(nowUtc);
+        }
+
+        var start = instants.Min().Date;
+        var latest = instants.Max();
+        var end = latest == latest.Date ? latest : latest.Date.AddDays(1);
+
+        if (end <= start)
+        {
+            end = start.AddDays(1);
+        }
+
+        var totalMinutes = (end - start).TotalMinutes;
+
+        double Percent(DateTime instant)
+        {
+            return Math.Clamp((instant - start).TotalMinutes / totalMinutes * 100, 0, 100);
+        }
+
+        var dayCount = (int)Math.Round((end - start).TotalDays);
+        var step = Math.Max(1, (int)Math.Ceiling(dayCount / (double)MaximumTimelineDayTicks));
+        var days = new List<TimelineDayTick>();
+
+        for (var offset = 0; offset < dayCount; offset += step)
+        {
+            var day = start.AddDays(offset);
+            days.Add(new TimelineDayTick(
+                day.ToString("dd MMM", CultureInfo.InvariantCulture),
+                Percent(day),
+                day == nowUtc.Date));
+        }
+
+        var rows = stops
+            .Select(stop => BuildTimelineRow(stop, revisedStops[stop.StopId], itinerary.Delays, nowUtc, Percent))
+            .ToList();
+
+        var voyageDelays = itinerary.Delays
+            .Where(delay => delay.VoyageStopId is null)
+            .Select(delay => DelayMarker(delay, Percent))
+            .ToList();
+
+        double? nowPercent = nowUtc >= start && nowUtc <= end ? Percent(nowUtc) : null;
+
+        return new TimelineChart(start, end, dayCount, days, nowPercent, rows, voyageDelays);
+    }
+
+    private static TimelineChartRow BuildTimelineRow(
+        VoyageItineraryStopModel stop,
+        VoyageEstimateStopModel? revised,
+        IReadOnlyList<VoyageDelayModel> delays,
+        DateTime nowUtc,
+        Func<DateTime, double> percent)
+    {
+        var planText = $"Plan {FormatTimelineSpan(stop.Eta, stop.Etd)}";
+        var plan = TimelineBarFor(stop.Eta, stop.Etd, planText, percent);
+        TimelineBar? actual = null;
+        TimelineBar? expected = null;
+        TimelineBar? revisedBar = null;
+        string? detailText = null;
+        string? varianceLabel = null;
+        var varianceModifier = string.Empty;
+
+        if (stop.Ata is { } ata)
+        {
+            var actualEnd = stop.Atd ?? (nowUtc > ata ? nowUtc : ata);
+            var expectedDeparture = revised?.RevisedEtd ?? stop.Etd;
+
+            detailText = stop.Atd is { } departedAt
+                ? $"Actual {FormatTimelineSpan(ata, departedAt)}"
+                : $"Arrived {FormatTimelineStamp(ata)} · ETD {FormatTimelineStamp(expectedDeparture)}";
+            actual = TimelineBarFor(ata, actualEnd, detailText, percent);
+
+            var varianceMinutes = stop.Atd is { } atd
+                ? (int)Math.Round((atd - stop.Etd).TotalMinutes)
+                : (int)Math.Round((ata - stop.Eta).TotalMinutes);
+            varianceLabel = FormatVariance(varianceMinutes);
+            varianceModifier = VarianceModifier(varianceMinutes);
+
+            if (stop.Atd is null && expectedDeparture > actualEnd)
+            {
+                expected = TimelineBarFor(actualEnd, expectedDeparture, $"Expected departure {FormatUtc(expectedDeparture)}", percent);
+            }
+        }
+        else if (revised?.RevisedEta is { } revisedEta)
+        {
+            var revisedEtd = revised.RevisedEtd ?? stop.Etd;
+            detailText = $"Revised {FormatTimelineSpan(revisedEta, revisedEtd)}";
+            revisedBar = TimelineBarFor(revisedEta, revisedEtd, detailText, percent);
+            varianceLabel = FormatVariance((int)Math.Round((revisedEta - stop.Eta).TotalMinutes));
+            varianceModifier = "revised";
+        }
+
+        var detailBars = new[] { actual, expected, revisedBar }.OfType<TimelineBar>().ToList();
+        var detailLabel = detailText is null
+            ? null
+            : TimelineLabelFor(
+                detailText,
+                detailBars.Min(bar => bar.LeftPercent),
+                detailBars.Max(bar => bar.LeftPercent + bar.WidthPercent));
+
+        var markers = delays
+            .Where(delay => delay.VoyageStopId == stop.StopId)
+            .Select(delay => DelayMarker(delay, percent))
+            .ToList();
+
+        var summary = string.Join(
+            ". ",
+            new[] { plan, actual, expected, revisedBar }
+                .OfType<TimelineBar>()
+                .Select(bar => bar.Title)
+                .Concat(varianceLabel is null ? [] : [$"Variance {varianceLabel}"])
+                .Concat(markers.Select(marker => marker.Title)));
+
+        return new TimelineChartRow(
+            stop,
+            plan,
+            revisedBar,
+            actual,
+            expected,
+            TimelineLabelFor(planText, plan.LeftPercent, plan.LeftPercent + plan.WidthPercent),
+            detailLabel,
+            varianceLabel,
+            varianceModifier,
+            markers,
+            summary);
+    }
+
+    internal static string FormatTimelineStamp(DateTime value)
+    {
+        return value.ToString("dd MMM HH:mm", CultureInfo.InvariantCulture);
+    }
+
+    internal static string FormatTimelineSpan(DateTime from, DateTime to)
+    {
+        var end = to.Date == from.Date
+            ? to.ToString("HH:mm", CultureInfo.InvariantCulture)
+            : FormatTimelineStamp(to);
+
+        return $"{FormatTimelineStamp(from)} – {end}";
+    }
+
+    private static TimelineLabel TimelineLabelFor(string text, double start, double end)
+    {
+        if (end <= 72)
+        {
+            return new TimelineLabel(text, end, "after");
+        }
+
+        return start >= 28
+            ? new TimelineLabel(text, start, "before")
+            : new TimelineLabel(text, start, "inside");
+    }
+
+    private static TimelineBar TimelineBarFor(DateTime from, DateTime to, string title, Func<DateTime, double> percent)
+    {
+        var left = percent(from);
+
+        return new TimelineBar(left, Math.Max(percent(to) - left, 0.4), title);
+    }
+
+    private static TimelineDelayMarker DelayMarker(VoyageDelayModel delay, Func<DateTime, double> percent)
+    {
+        return new TimelineDelayMarker(
+            percent(delay.CreatedAt),
+            string.Create(CultureInfo.InvariantCulture, $"Delay {FormatUtc(delay.CreatedAt)} · {delay.Reason} · {delay.Duration} min"));
+    }
+
+    internal static IReadOnlyList<TimelineHistoryEntry> BuildHistory(
+        VoyageItinerary? itinerary,
+        VoyageEstimateRevisions? revisions,
+        VoyageSchedule? schedule)
+    {
+        var entries = new List<TimelineHistoryEntry>();
+
+        if (itinerary is not null)
+        {
+            entries.AddRange(itinerary.Delays.Select(delay => new TimelineHistoryEntry(DelayHistoryKind, delay.CreatedAt, Delay: delay)));
+        }
+
+        if (revisions is not null)
+        {
+            entries.AddRange(revisions.Revisions.Select(revision => new TimelineHistoryEntry(RevisionHistoryKind, revision.RevisedAtUtc, Revision: revision)));
+        }
+
+        if (schedule is not null)
+        {
+            entries.AddRange(schedule.Changes.Select(change => new TimelineHistoryEntry(ScheduleHistoryKind, change.ChangedAtUtc, ScheduleChange: change)));
+        }
+
+        return entries.OrderByDescending(entry => entry.OccurredAtUtc).ToList();
+    }
+
+    internal static IReadOnlyList<TimelineHistoryEntry> FilterHistory(IReadOnlyList<TimelineHistoryEntry> entries, string filter)
+    {
+        return string.Equals(filter, AllHistoryFilter, StringComparison.Ordinal)
+            ? entries
+            : entries.Where(entry => string.Equals(entry.Kind, filter, StringComparison.Ordinal)).ToList();
+    }
+
+    internal static (string Title, string Message) HistoryEmptyState(string filter)
+    {
+        return filter switch
+        {
+            DelayHistoryKind => ("No delays recorded", "Delays reported for this voyage or its stops will appear here."),
+            RevisionHistoryKind => ("No revised estimates", "Applying a delay impact publishes revised ETAs and ETDs here."),
+            ScheduleHistoryKind => ("No schedule changes", "Amendments and cancellations recorded for this voyage will appear here."),
+            _ => ("No history yet", "Delays, revised estimates and schedule changes for this voyage will appear here."),
+        };
+    }
+
+    private void SetHistoryFilter(string filter)
+    {
+        historyFilter = filter;
     }
 
     protected override Task OnParametersSetAsync()
@@ -477,6 +803,7 @@ public partial class VoyageTimeline : IDisposable
 
     private void ToggleClearance(VoyageItineraryStopModel stop)
     {
+        activityStopId = null;
         clearanceStopId = clearanceStopId == stop.StopId ? null : stop.StopId;
     }
 
@@ -487,6 +814,7 @@ public partial class VoyageTimeline : IDisposable
 
     private void ToggleActivityLog(VoyageItineraryStopModel stop)
     {
+        clearanceStopId = null;
         activityStopId = activityStopId == stop.StopId ? null : stop.StopId;
     }
 
@@ -678,6 +1006,23 @@ public partial class VoyageTimeline : IDisposable
         }
     }
 
+    private void OpenDelayModal()
+    {
+        isDelayModalOpen = true;
+        delayFailure = null;
+        delaySuccess = null;
+        delayReason = string.Empty;
+        delayDescription = null;
+        delayDurationMinutes = null;
+        delayStopSelection = string.Empty;
+    }
+
+    private void CloseDelayModal()
+    {
+        isDelayModalOpen = false;
+        delayFailure = null;
+    }
+
     private async Task SubmitDelayAsync()
     {
         if (isSubmittingDelay)
@@ -715,6 +1060,7 @@ public partial class VoyageTimeline : IDisposable
                 return;
             }
 
+            isDelayModalOpen = false;
             delaySuccess = "Delay recorded.";
             delayReason = string.Empty;
             delayDescription = null;
@@ -1134,6 +1480,43 @@ public partial class VoyageTimeline : IDisposable
         string Label,
         string PreviousValue,
         string NewValue);
+
+    internal sealed record TimelineChart(
+        DateTime Start,
+        DateTime End,
+        int DayCount,
+        IReadOnlyList<TimelineDayTick> Days,
+        double? NowPercent,
+        IReadOnlyList<TimelineChartRow> Rows,
+        IReadOnlyList<TimelineDelayMarker> VoyageDelays);
+
+    internal sealed record TimelineDayTick(string Label, double LeftPercent, bool IsToday);
+
+    internal sealed record TimelineBar(double LeftPercent, double WidthPercent, string Title);
+
+    internal sealed record TimelineDelayMarker(double LeftPercent, string Title);
+
+    internal sealed record TimelineLabel(string Text, double LeftPercent, string Placement);
+
+    internal sealed record TimelineChartRow(
+        VoyageItineraryStopModel Stop,
+        TimelineBar Plan,
+        TimelineBar? Revised,
+        TimelineBar? Actual,
+        TimelineBar? Expected,
+        TimelineLabel PlanLabel,
+        TimelineLabel? DetailLabel,
+        string? VarianceLabel,
+        string VarianceModifier,
+        IReadOnlyList<TimelineDelayMarker> Delays,
+        string Summary);
+
+    internal sealed record TimelineHistoryEntry(
+        string Kind,
+        DateTime OccurredAtUtc,
+        VoyageDelayModel? Delay = null,
+        VoyageEstimateRevisionModel? Revision = null,
+        VoyageScheduleChangeModel? ScheduleChange = null);
 
     private void OpenItineraryModal()
     {

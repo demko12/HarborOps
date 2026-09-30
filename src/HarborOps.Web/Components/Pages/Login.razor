@@ -7,6 +7,29 @@
 
 <section class="login-page">
     <aside class="login-introduction" aria-label="HarborOps">
+        <svg class="login-route-map" viewBox="0 0 576 900" preserveAspectRatio="xMidYMax slice" aria-hidden="true" focusable="false">
+            <g class="login-route-lanes">
+                <path d="M-20 700 C 90 640, 150 560, 250 540 S 420 470, 600 380" />
+                <path d="M-20 820 C 120 780, 260 760, 360 690 S 520 600, 600 590" />
+                <path d="M60 900 C 110 780, 180 700, 250 540" />
+                <path d="M250 540 C 330 600, 400 650, 470 760 S 540 860, 600 900" />
+            </g>
+            <g class="login-route-active">
+                <path d="M110 640 C 170 600, 200 560, 250 540 S 360 500, 430 440" />
+                <path d="M360 690 C 400 650, 420 540, 430 440" />
+            </g>
+            <g class="login-route-ports">
+                <circle cx="110" cy="640" r="3.5" />
+                <circle cx="250" cy="540" r="4" />
+                <circle cx="430" cy="440" r="3.5" />
+                <circle cx="360" cy="690" r="3" />
+                <circle cx="470" cy="760" r="3" />
+            </g>
+            <g class="login-route-rings">
+                <circle cx="250" cy="540" r="10" />
+                <circle cx="250" cy="540" r="18" />
+            </g>
+        </svg>
         <div class="login-wordmark" role="img" aria-label="HarborOps">
 <svg viewBox="0 0 190 50" class="logo-svg logo-dark" xmlns="http://www.w3.org/2000/svg">
 			<defs>
@@ -44,9 +67,20 @@
             <h1>Your operations.<br />One workspace.</h1>
             <p>Coordinate your fleet, people, and cargo with a connected view of every operation.</p>
             <div class="login-capabilities" aria-label="Workspace capabilities">
-                <div><span>01</span><p><strong>Fleet & voyages</strong><small>Vessels, schedules, and port calls.</small></p></div>
-                <div><span>02</span><p><strong>People & cargo</strong><small>Crew readiness and shipment oversight.</small></p></div>
-                <div><span>03</span><p><strong>Maintenance & compliance</strong><small>Work orders, certificates, and records.</small></p></div>
+                <div class="login-cap-fleet">
+                    <span class="login-cap-icon" aria-hidden="true">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 10.189V14"></path><path d="M12 2v3"></path><path d="M19 13V7a2 2 0 0 0-2-2H7a2 2 0 0 0-2 2v6"></path><path d="M19.38 20A11.6 11.6 0 0 0 21 14l-8.188-3.639a2 2 0 0 0-1.624 0L3 14a11.6 11.6 0 0 0 2.81 7.76"></path><path d="M2 21c.6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1s1.2 1 2.5 1c2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1"></path></svg>
+                    </span>
+                    <p><strong>Fleet & voyages</strong><small>Vessels, schedules, and port calls.</small></p>
+                </div>
+                <div class="login-cap-people">
+                    <span class="login-cap-icon" aria-hidden="true"><span class="bi bi-people-fill"></span></span>
+                    <p><strong>People & cargo</strong><small>Crew readiness and shipment oversight.</small></p>
+                </div>
+                <div class="login-cap-maintenance">
+                    <span class="login-cap-icon" aria-hidden="true"><span class="bi bi-tools"></span></span>
+                    <p><strong>Maintenance & compliance</strong><small>Work orders, certificates, and records.</small></p>
+                </div>
             </div>
         </div>
         <p class="login-introduction-footer">HarborOps <span>Operations management</span></p>
@@ -62,7 +96,10 @@
             <form id="login-form" class="login-card" method="post" action="/session/login" data-enhance="false" onsubmit="document.getElementById('login-pending-state').hidden = false; this.hidden = true; this.setAttribute('aria-busy', 'true'); this.querySelector('button[type=submit]').disabled = true;">
                 <input type="hidden" name="@antiforgeryToken.FormFieldName" value="@antiforgeryToken.RequestToken" />
                 <input type="hidden" name="returnUrl" value="@returnUrl" />
-                <p class="login-access-label">Workspace access</p>
+                <div class="login-access-heading">
+                    <span class="login-access-icon" aria-hidden="true"><span class="bi bi-shield-check"></span></span>
+                    <p class="login-access-label">Workspace access</p>
+                </div>
                 <h2>Sign in to HarborOps</h2>
                 <p class="login-copy">Enter your work account details to continue.</p>
                 @if (error is not null)
@@ -70,11 +107,36 @@
                     <div class="login-error" role="alert">@error</div>
                 }
                 <label for="login-email">Email address</label>
-                <input id="login-email" name="email" type="email" autocomplete="username" autocapitalize="none" spellcheck="false" placeholder="name@company.com" required />
+                <div class="login-input">
+                    <span class="bi bi-envelope" aria-hidden="true"></span>
+                    <input id="login-email" name="email" type="email" autocomplete="username" autocapitalize="none" spellcheck="false" placeholder="name@company.com" required />
+                </div>
                 <label for="login-password">Password</label>
-                <input id="login-password" name="password" type="password" autocomplete="current-password" required />
-                <button type="submit">Sign in <span aria-hidden="true">→</span></button>
-                <p class="login-help">Need access or help signing in?<br />Contact your workspace administrator.</p>
+                <div class="login-input">
+                    <span class="bi bi-lock" aria-hidden="true"></span>
+                    <input id="login-password"
+                           name="password"
+                           type="password"
+                           autocomplete="current-password"
+                           aria-describedby="login-capslock"
+                           required
+                           onkeydown="document.getElementById('login-capslock').hidden = !event.getModifierState('CapsLock');"
+                           onkeyup="document.getElementById('login-capslock').hidden = !event.getModifierState('CapsLock');"
+                           onblur="document.getElementById('login-capslock').hidden = true;" />
+                    <button type="button"
+                            class="login-password-toggle"
+                            aria-label="Show password"
+                            aria-pressed="false"
+                            onclick="const input = document.getElementById('login-password'); const show = input.type === 'password'; input.type = show ? 'text' : 'password'; this.setAttribute('aria-pressed', show); this.setAttribute('aria-label', show ? 'Hide password' : 'Show password'); this.firstElementChild.className = show ? 'bi bi-eye-slash' : 'bi bi-eye';">
+                        <span class="bi bi-eye" aria-hidden="true"></span>
+                    </button>
+                </div>
+                <p id="login-capslock" class="login-capslock" role="status" hidden><span class="bi bi-capslock" aria-hidden="true"></span> Caps Lock is on</p>
+                <button type="submit" class="login-submit">Sign in <span aria-hidden="true">→</span></button>
+                <div class="login-help">
+                    <span class="bi bi-info-circle" aria-hidden="true"></span>
+                    <p><strong>Need access or help signing in?</strong><br />Contact your workspace administrator.</p>
+                </div>
             </form>
             <div id="login-pending-state" class="login-pending-state login-state-card" hidden>
                 <LoginProgress />

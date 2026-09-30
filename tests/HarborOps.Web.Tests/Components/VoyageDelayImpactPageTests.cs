@@ -237,7 +237,7 @@ public sealed class VoyageDelayImpactPageTests : BunitContext
 
         var page = RenderTimelinePage();
 
-        var revision = page.Find("[aria-labelledby='timeline-revisions-title'] .timeline-schedule-change");
+        var revision = page.Find("[aria-labelledby='timeline-history-title'] .timeline-estimate-revision");
 
         Assert.Contains("Weather routing", revision.TextContent, StringComparison.Ordinal);
         Assert.Contains("02 Sep 2026 10:00", revision.TextContent, StringComparison.Ordinal);
@@ -296,7 +296,7 @@ public sealed class VoyageDelayImpactPageTests : BunitContext
         var page = RenderTimelinePage();
 
         estimateRevisions = EstimateRevisions([Revision()]);
-        page.Find("[aria-labelledby='timeline-revisions-title'] .timeline-row-action").Click();
+        page.Find("[aria-labelledby='timeline-history-title'] .timeline-row-action").Click();
 
         page.WaitForAssertion(() => Assert.Contains(
             "Alert sent",
@@ -319,7 +319,7 @@ public sealed class VoyageDelayImpactPageTests : BunitContext
 
         var page = RenderTimelinePage();
 
-        page.Find("[aria-labelledby='timeline-revisions-title'] .timeline-row-action").Click();
+        page.Find("[aria-labelledby='timeline-history-title'] .timeline-row-action").Click();
 
         page.WaitForAssertion(() => Assert.Contains(
             "Unable to resend the operational alert",
@@ -336,7 +336,7 @@ public sealed class VoyageDelayImpactPageTests : BunitContext
 
         var page = RenderTimelinePage(CurrentUserAuthorizationState.VoyagesReadPermission);
 
-        Assert.Empty(page.FindAll("[aria-labelledby='timeline-revisions-title'] .timeline-row-action"));
+        Assert.Empty(page.FindAll("[aria-labelledby='timeline-history-title'] .timeline-row-action"));
         Assert.Empty(page.FindAll("[aria-labelledby='timeline-delays-title'] .timeline-row-action"));
     }
 
@@ -349,7 +349,7 @@ public sealed class VoyageDelayImpactPageTests : BunitContext
 
         Assert.Contains("Unable to load the estimate revisions", page.Markup, StringComparison.Ordinal);
 
-        page.Find("[aria-labelledby='timeline-revisions-title'] .api-error-state button").Click();
+        page.Find("[aria-labelledby='timeline-history-title'] .api-error-state button").Click();
 
         page.WaitForAssertion(() => Assert.Equal(
             2,
