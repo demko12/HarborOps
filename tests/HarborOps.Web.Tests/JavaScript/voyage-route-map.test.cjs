@@ -28,7 +28,7 @@ function setup() {
     const context = { window: { L }, L, requestAnimationFrame: () => 1, cancelAnimationFrame() {},
         IntersectionObserver: class { observe() {} unobserve() {} } };
     vm.runInNewContext(source, context);
-    return { api: context.window.voyageRouteMap, positions: context.window.vesselPositionMap, context, lines, markers, removed, fits: () => fits, disposed: () => disposed };
+    return { api: context.window.voyageRouteMap, positions: context.window.vesselPositionMap, fleet: context.window.fleetPositionsMap, context, lines, markers, removed, fits: () => fits, disposed: () => disposed };
 }
 
 const stops = [
@@ -118,5 +118,65 @@ test('position map fails gracefully for missing Leaflet and invalid coordinates'
     assert.equal(state.positions.render('vessel', {}, []), false);
     delete state.context.window.L;
     assert.equal(state.positions.render('vessel', {}, reports), false);
+    assert.equal(state.markers.length, 0);
+});
+
+const vessels = [
+    { vesselId: '40000000-0000-0000-0000-000000000001', name: 'Northern Star', imoNumber: '5100001',
+        latitude: 35, longitude: -5, currentStatus: 'Active', fleetName: 'Adriatic Fleet',
+        lastPositionReportedAtUtc: '2026-09-30T10:00:00Z', isPositionStale: false },
+    { vesselId: '40000000-0000-0000-0000-000000000002', name: 'Southern Cross', imoNumber: '5100002',
+        latitude: -1, longitude: 36, currentStatus: 'At Port', fleetName: null,
+        lastPositionReportedAtUtc: null, isPositionStale: true }
+];
+
+test('fleet map shows independent ship positions, identity and report details', () => {
+    const state = setup();
+    assert.equal(state.fleet.render('fleet', {}, vessels), true);
+    assert.equal(state.lines.length, 0);
+    assert.equal(state.markers.length, 2);
+    assert.equal(state.markers[0].options.icon.className, 'fleet-map-ship current');
+    assert.equal(state.markers[1].options.icon.className, 'fleet-map-ship stale');
+    assert.ok(state.markers[0].options.icon.html.includes('<svg'));
+    assert.ok(state.markers[0].tooltip.includes('Northern Star'));
+    assert.ok(state.markers[0].tooltip.includes('IMO 5100001'));
+    assert.ok(state.markers[0].popup.includes('Adriatic Fleet'));
+    assert.ok(state.markers[0].popup.includes('2026-09-30 10:00:00 UTC'));
+    assert.ok(state.markers[0].popup.includes('/fleet/' + vessels[0].vesselId));
+    assert.ok(state.markers[1].popup.includes('Report time unknown'));
+});
+
+test('fleet map escapes vessel data and excludes invalid detail links', () => {
+    const state = setup();
+    state.fleet.render('fleet', {}, [{ ...vessels[0], name: '<img src=x onerror=alert(1)>',
+        imoNumber: '<script>', currentStatus: '<svg>', fleetName: '<iframe>', vesselId: 'bad" onclick="alert(1)' }]);
+    assert.ok(state.markers[0].tooltip.includes('&lt;img'));
+    assert.ok(!state.markers[0].popup.includes('<img'));
+    assert.ok(!state.markers[0].popup.includes('<a '));
+});
+
+test('fleet map preserves the viewport on rerender, replaces markers and cleans up', () => {
+    const state = setup(), element = {};
+    state.fleet.render('fleet', element, vessels);
+    state.fleet.render('fleet', element, vessels.map(vessel => ({ ...vessel })));
+    assert.equal(state.fits(), 1);
+    assert.equal(state.markers.length, 2);
+    state.fleet.render('fleet', element, [{ ...vessels[0], latitude: 40 }]);
+    assert.equal(state.removed.length, 1);
+    state.fleet.fit('fleet');
+    assert.equal(state.fits(), 3);
+    state.fleet.dispose('fleet');
+    assert.equal(state.disposed(), true);
+    state.fleet.render('fleet', {}, [vessels[0]]);
+    assert.equal(state.fits(), 4);
+});
+
+test('fleet map rejects invalid positions and handles missing Leaflet', () => {
+    const state = setup();
+    assert.equal(state.fleet.render('fleet', {}, [{ ...vessels[0], latitude: null }]), false);
+    assert.equal(state.fleet.render('fleet', {}, [{ ...vessels[0], longitude: 181 }]), false);
+    assert.equal(state.fleet.render('fleet', {}, []), false);
+    delete state.context.window.L;
+    assert.equal(state.fleet.render('fleet', {}, vessels), false);
     assert.equal(state.markers.length, 0);
 });

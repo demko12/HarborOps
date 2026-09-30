@@ -2,7 +2,8 @@
 @attribute [Microsoft.AspNetCore.Authorization.Authorize(Policy = "AccessFleet")]
 @using HarborOps.Web.Api.Fleet
 @using HarborOps.Web.Components.Shared
-@implements IDisposable
+@implements IAsyncDisposable
+@inject Microsoft.JSInterop.IJSRuntime JS
 @inject FleetApiClient FleetApi
 @inject CurrentUserAuthorizationState AuthorizationState
 
@@ -108,6 +109,57 @@
 		</div>
 		<button class="positions-reset" type="button" @onclick="ResetFiltersAsync" disabled="@isLoading">Reset</button>
 	</div>
+
+    @if (!isLoading && failure is null && positions is { TotalCount: > 0 })
+    {
+        <section class="positions-map-card" aria-labelledby="positions-map-title">
+            <div class="positions-card-heading">
+                <div>
+                    <span class="positions-section-label">Fleet location overview</span>
+                    <h2 id="positions-map-title">Vessel map</h2>
+                    <p>@MappedCount of @mapVessels.Count matching vessels have a reported location, across all table pages.</p>
+                </div>
+                @if (MappedCount > 0 && mapFailure is null && !mapUnavailable)
+                {
+                    <button class="positions-refresh" type="button" @onclick="FitMapAsync">Fit all vessels</button>
+                }
+            </div>
+            @if (mapFailure is not null)
+            {
+                <ApiErrorState Title="@mapFailure.Title" Message="@mapFailure.Message" OnRetry="LoadPositionsAsync" />
+            }
+            else if (MappedCount == 0)
+            {
+                <p class="positions-map-note">No reported coordinates are available for these vessels.</p>
+            }
+            else if (mapUnavailable)
+            {
+                <p class="positions-map-note" role="status">The map is unavailable. Vessel coordinates remain available in the table.</p>
+                <button class="positions-refresh" type="button" @onclick="RetryMap">Retry map</button>
+            }
+            else
+            {
+                <div class="positions-map timeline-map" @ref="mapElement" aria-label="Latest reported locations of all matching vessels"></div>
+                <div class="positions-map-legend">
+                    <span><i class="positions-map-current" aria-hidden="true"></i>Current report</span>
+                    <span><i class="positions-map-stale" aria-hidden="true"></i>Stale report</span>
+                    <span>Click a ship for vessel details.</span>
+                </div>
+            }
+            @if (mapFailure is null && mapVessels.Any(vessel => !vessel.HasPosition))
+            {
+                <details class="positions-map-missing">
+                    <summary>@(mapVessels.Count - MappedCount) vessels without coordinates</summary>
+                    <ul>
+                        @foreach (var vessel in mapVessels.Where(vessel => !vessel.HasPosition))
+                        {
+                            <li><a href="@DetailsUrl(vessel.VesselId)">@vessel.Name</a> <span>IMO @vessel.ImoNumber</span></li>
+                        }
+                    </ul>
+                </details>
+            }
+        </section>
+    }
 	@if (submitSuccessMessage is not null)
 	{
 		<div class="positions-success" role="status">@submitSuccessMessage</div>

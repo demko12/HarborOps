@@ -1438,3 +1438,18 @@ html[data-theme="dark"] .login-page {
     --login-color-scheme: dark;
     --login-card-surface: var(--module-card-background);
 }
+
+.fleet-map-ship {
+    display: grid;
+    place-items: center;
+    border: 2px solid #fff;
+    border-radius: 50%;
+    color: #fff;
+    background: #16a34a;
+    box-shadow: 0 3px 12px rgba(15, 23, 42, 0.35);
+}
+.fleet-map-ship.stale { background: #d97706; }
+.fleet-map-ship svg { width: 25px; height: 25px; }
+.fleet-map-ship:focus-visible { outline: 3px solid #60a5fa; outline-offset: 3px; }
+.timeline-map .voyage-map-popup a { color: #2563eb; font-weight: 600; }
+html[data-theme="dark"] .timeline-map .voyage-map-popup a { color: #93c5fd; }

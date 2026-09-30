@@ -1,10 +1,12 @@
 using System.Globalization;
 using HarborOps.Web.Api;
 using HarborOps.Web.Api.Fleet;
+using Microsoft.AspNetCore.Components;
+using Microsoft.JSInterop;
 
 namespace HarborOps.Web.Components.Pages.Fleet;
 
-public partial class VesselPositions : IDisposable
+public partial class VesselPositions : IDisposable, IAsyncDisposable
 {
     private const int PageSize = 50;
 
@@ -15,6 +17,13 @@ public partial class VesselPositions : IDisposable
     private int loadVersion;
 
     private VesselPositionsWebModel? positions;
+    private IReadOnlyList<VesselPositionWebModel> mapVessels = [];
+    private FleetApiFailure? mapFailure;
+    private readonly string mapId = $"fleet-positions-map-{Guid.NewGuid():N}";
+    private ElementReference mapElement;
+    private bool mapInitialized;
+    private bool mapUnavailable;
+    private int MappedCount => mapVessels.Count(vessel => vessel.HasPosition);
     private FleetDirectoryWebModel? fleets;
     private FleetApiFailure? failure;
     private bool isLoading = true;
@@ -88,7 +97,9 @@ public partial class VesselPositions : IDisposable
         }
     }
 
-    private async Task LoadPositionsAsync()
+    private Task LoadPositionsAsync() => LoadPositionsAsync(true);
+
+    private async Task LoadPositionsAsync(bool reloadMap)
     {
         var requestVersion = ++loadVersion;
         isLoading = true;
@@ -121,6 +132,12 @@ public partial class VesselPositions : IDisposable
             positions = result.Value;
             pageNumber = positions.PageNumber;
 
+            if (reloadMap)
+            {
+                await LoadMapVesselsAsync(positions, requestVersion);
+                if (pageCancellation.IsCancellationRequested || requestVersion != loadVersion) return;
+            }
+
             if (reportVesselId is { } selected
                 && positions.Items.All(vessel => vessel.VesselId != selected))
             {
@@ -133,6 +150,110 @@ public partial class VesselPositions : IDisposable
         }
 
         isLoading = false;
+    }
+
+    private async Task LoadMapVesselsAsync(VesselPositionsWebModel tablePage, int requestVersion)
+    {
+        mapUnavailable = false;
+        mapFailure = null;
+        if (tablePage.TotalCount <= tablePage.PageSize && tablePage.PageNumber == 1)
+        {
+            mapVessels = tablePage.Items;
+            return;
+        }
+
+        var vessels = new List<VesselPositionWebModel>();
+        var fleetId = selectedFleetId;
+        var status = selectedStatus;
+        var onlyStale = staleOnly;
+        var searchText = search;
+        var mapPage = 1;
+        while (true)
+        {
+            FleetApiResult<VesselPositionsWebModel> result;
+            try
+            {
+                result = await FleetApi.GetVesselPositionsAsync(
+                    fleetId, status, onlyStale, mapPage, 100, searchText, pageCancellation.Token);
+            }
+            catch (OperationCanceledException) when (pageCancellation.IsCancellationRequested)
+            {
+                return;
+            }
+
+            if (pageCancellation.IsCancellationRequested || requestVersion != loadVersion) return;
+            if (!result.IsSuccess || result.Value is not { } batch)
+            {
+                mapFailure = result.Failure;
+                mapVessels = [];
+                return;
+            }
+
+            vessels.AddRange(batch.Items);
+            if (batch.Items.Count == 0 || mapPage * batch.PageSize >= batch.TotalCount) break;
+            mapPage++;
+        }
+
+        mapVessels = vessels.DistinctBy(vessel => vessel.VesselId).ToList();
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (pageCancellation.IsCancellationRequested) return;
+        try
+        {
+            if (isLoading || failure is not null || mapFailure is not null || MappedCount == 0 || mapUnavailable)
+            {
+                if (mapInitialized)
+                {
+                    await JS.InvokeVoidAsync("fleetPositionsMap.dispose", mapId);
+                    mapInitialized = false;
+                }
+                return;
+            }
+
+            mapInitialized = await JS.InvokeAsync<bool>("fleetPositionsMap.render", mapId, mapElement,
+                mapVessels.Where(vessel => vessel.HasPosition).Select(vessel => new
+                {
+                    vessel.VesselId,
+                    vessel.Name,
+                    vessel.ImoNumber,
+                    vessel.CurrentStatus,
+                    vessel.FleetName,
+                    Latitude = vessel.CurrentLatitude,
+                    Longitude = vessel.CurrentLongitude,
+                    vessel.LastPositionReportedAtUtc,
+                    vessel.IsPositionStale,
+                }));
+            if (!mapInitialized)
+            {
+                mapUnavailable = true;
+                await InvokeAsync(StateHasChanged);
+            }
+        }
+        catch (JSDisconnectedException) { }
+        catch (JSException)
+        {
+            mapUnavailable = true;
+            await InvokeAsync(StateHasChanged);
+        }
+    }
+
+    private async Task FitMapAsync()
+    {
+        try { await JS.InvokeVoidAsync("fleetPositionsMap.fit", mapId); }
+        catch (JSDisconnectedException) { }
+        catch (JSException) { mapUnavailable = true; }
+    }
+
+    private void RetryMap() => mapUnavailable = false;
+
+    public async ValueTask DisposeAsync()
+    {
+        Dispose();
+        try { await JS.InvokeVoidAsync("fleetPositionsMap.dispose", mapId); }
+        catch (JSDisconnectedException) { }
+        catch (JSException) { }
     }
 
     private async Task ApplyFiltersAsync()
@@ -192,7 +313,7 @@ public partial class VesselPositions : IDisposable
         if (pageNumber > 1)
         {
             pageNumber--;
-            await LoadPositionsAsync();
+            await LoadPositionsAsync(false);
         }
     }
 
@@ -201,7 +322,7 @@ public partial class VesselPositions : IDisposable
         if (pageNumber < TotalPages)
         {
             pageNumber++;
-            await LoadPositionsAsync();
+            await LoadPositionsAsync(false);
         }
     }
 

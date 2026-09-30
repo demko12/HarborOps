@@ -28,6 +28,75 @@ public sealed class VesselPositionsPageTests : BunitContext
         _ => Json(HttpStatusCode.OK, Positions());
 
     [Fact]
+    public void The_map_shows_known_positions_and_lists_vessels_without_coordinates()
+    {
+        var page = RenderPositionsPage(CurrentUserAuthorizationState.FleetReadPermission);
+
+        Assert.NotNull(page.Find(".positions-map"));
+        Assert.Contains("2 of 3", page.Find(".positions-map-card").TextContent, StringComparison.Ordinal);
+        Assert.Contains("Western Gale", page.Find(".positions-map-missing").TextContent, StringComparison.Ordinal);
+        var call = JSInterop.Invocations["fleetPositionsMap.render"].Last();
+        var markers = Assert.IsAssignableFrom<IEnumerable<object>>(call.Arguments[2]).ToList();
+        Assert.Equal(2, markers.Count);
+    }
+
+    [Fact]
+    public void The_map_loads_all_pages_and_keeps_them_when_the_table_page_changes()
+    {
+        respond = request =>
+        {
+            var query = QueryHelpers.ParseQuery(request.RequestUri!.Query);
+            var size = int.Parse(query["pageSize"].ToString());
+            var number = int.Parse(PageNumberFrom(request));
+            var items = string.Join(',', Enumerable.Range((number - 1) * size, Math.Min(size, 201 - (number - 1) * size))
+                .Select(index => Item($"40000000-0000-0000-0000-{index + 1:000000000000}",
+                    $"Vessel {index + 1}", $"{5100000 + index}", latitude: "10", longitude: "20", isPositionStale: "false")));
+            return Json(HttpStatusCode.OK, Positions(items, "201", pageNumber: number.ToString(), pageSize: size.ToString()));
+        };
+
+        var page = RenderPositionsPage();
+
+        Assert.Contains("201 of 201", page.Find(".positions-map-card").TextContent, StringComparison.Ordinal);
+        Assert.Equal(50, page.FindAll(".positions-table tbody tr").Count);
+        Assert.Equal(3, PositionRequests().Count(request => QueryHelpers.ParseQuery(request.RequestUri!.Query)["pageSize"] == "100"));
+        var call = JSInterop.Invocations["fleetPositionsMap.render"].Last();
+        Assert.Equal(201, Assert.IsAssignableFrom<IEnumerable<object>>(call.Arguments[2]).Count());
+
+        page.Find(".positions-pagination button:last-child").Click();
+        Assert.Contains("201 of 201", page.Find(".positions-map-card").TextContent, StringComparison.Ordinal);
+        Assert.Contains("Vessel 51", page.Find(".positions-table").TextContent, StringComparison.Ordinal);
+        Assert.Equal(3, PositionRequests().Count(request => QueryHelpers.ParseQuery(request.RequestUri!.Query)["pageSize"] == "100"));
+    }
+
+    [Fact]
+    public void A_failed_map_batch_does_not_display_an_incomplete_fleet_or_hide_the_table()
+    {
+        respond = request => QueryHelpers.ParseQuery(request.RequestUri!.Query)["pageSize"] == "100"
+            ? Json(HttpStatusCode.InternalServerError, "{}")
+            : Json(HttpStatusCode.OK, Positions(totalCount: "101"));
+
+        var page = RenderPositionsPage();
+
+        Assert.NotNull(page.Find(".positions-map-card .api-error-state"));
+        Assert.Empty(page.FindAll(".positions-map"));
+        Assert.Equal(3, page.FindAll(".positions-table tbody tr").Count);
+    }
+
+    [Fact]
+    public void Missing_map_library_offers_a_retry_and_keeps_position_data_available()
+    {
+        var page = RenderPositionsPage();
+        JSInterop.Setup<bool>("fleetPositionsMap.render", _ => true).SetResult(false);
+        page.Find(".positions-refresh").Click();
+
+        page.WaitForAssertion(() => Assert.Contains("The map is unavailable", page.Find(".positions-map-card").TextContent, StringComparison.Ordinal));
+        Assert.NotNull(page.Find(".positions-table"));
+        JSInterop.Setup<bool>("fleetPositionsMap.render", _ => true).SetResult(true);
+        page.Find(".positions-map-card button").Click();
+        page.WaitForAssertion(() => Assert.NotNull(page.Find(".positions-map")));
+    }
+
+    [Fact]
     public void Every_vessel_is_listed_in_the_table()
     {
         var page = RenderPositionsPage();
@@ -693,6 +762,9 @@ public sealed class VesselPositionsPageTests : BunitContext
 
     private IRenderedComponent<VesselPositions> RenderPositionsPage(params string[] permissions)
     {
+        JSInterop.Mode = JSRuntimeMode.Loose;
+        JSInterop.Setup<bool>("fleetPositionsMap.render", _ => true).SetResult(true);
+
         var httpClient = new HttpClient(new StubHttpMessageHandler((request, token) =>
         {
             requests.Add(request);
@@ -741,7 +813,7 @@ public sealed class VesselPositionsPageTests : BunitContext
 
     private int PositionReadCount() => PositionRequests().Count;
 
-    private string LastPositionsQuery() => PositionRequests()[^1].RequestUri!.Query;
+    private string LastPositionsQuery() => PositionRequests().Last(request => QueryHelpers.ParseQuery(request.RequestUri!.Query)["pageSize"] == "50").RequestUri!.Query;
 
     private static CurrentUserAuthorizationState CreateAuthorizationState(IEnumerable<string> permissions)
     {
@@ -781,7 +853,8 @@ public sealed class VesselPositionsPageTests : BunitContext
         string? items = null,
         string totalCount = "3",
         string staleAfterHours = "12",
-        string pageNumber = "1")
+        string pageNumber = "1",
+        string pageSize = "50")
     {
         items ??= string.Join(
             ',',
@@ -806,7 +879,7 @@ public sealed class VesselPositionsPageTests : BunitContext
                 fleetName: "\"Adriatic Fleet\""));
 
         return $$"""
-            {"items":[{{items}}],"pageNumber":{{pageNumber}},"pageSize":50,"totalCount":{{totalCount}},
+            {"items":[{{items}}],"pageNumber":{{pageNumber}},"pageSize":{{pageSize}},"totalCount":{{totalCount}},
             "staleAfterHours":{{staleAfterHours}},"evaluatedAtUtc":"2026-08-26T12:00:00Z"}
             """;
     }
