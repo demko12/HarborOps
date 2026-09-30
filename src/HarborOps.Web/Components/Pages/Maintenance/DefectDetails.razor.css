@@ -4,28 +4,42 @@
    component's markup, so their scoped selectors never match it. It repeats
    the exact classes/values this page already uses, sourced from wherever
    each is really defined today: the work-order-* page shell from
-   MaintenanceWorkOrderDetails.razor.css, the maintenance-modal-*/form-*
-   classes from Maintenance.razor.css, and the documents-* reject-panel
-   classes from Documents.razor.css. Same approach as RegisterDefect.razor.css. */
-
-.work-order-details-page {
-    --card-shadow: 0 18px 40px rgba(0, 0, 0, .38), inset 0 1px 0 rgba(255, 255, 255, .045);
+   MaintenanceWorkOrderDetails.razor.css, the maintenance-modal-*/
+form-* classes from Maintenance.razor.css,
+and
+    the
+    documents-*
+    reject-panel
+    classes
+    from
+    Documents.razor.css.
+    Same
+    approach
+    as
+    RegisterDefect.razor.css.
+    */
+    .work-order-details-page {
+    --card-shadow:
+        0 18px 40px rgba(0, 0, 0, 0.38),
+        inset 0 1px 0 rgba(255, 255, 255, 0.045);
     --control-surface: #131c2b;
-    --border-strong-hover: rgba(255, 255, 255, .22);
+    --border-strong-hover: rgba(255, 255, 255, 0.22);
     --button-surface: #1e2a3d;
     --button-surface-hover: #26354b;
-    --button-border: rgba(255, 255, 255, .14);
+    --button-border: rgba(255, 255, 255, 0.14);
     max-width: var(--page-max-width);
     margin: 0 auto;
     padding: var(--page-padding);
 }
 
 html[data-theme="light"] .work-order-details-page {
-    --card-shadow: 0 14px 34px rgba(15, 23, 42, .1), inset 0 1px 0 rgba(255, 255, 255, .9);
+    --card-shadow:
+        0 14px 34px rgba(15, 23, 42, 0.1),
+        inset 0 1px 0 rgba(255, 255, 255, 0.9);
     --control-surface: #ffffff;
-    --border-strong-hover: rgba(15, 23, 42, .28);
-    --button-surface: rgba(15, 23, 42, .05);
-    --button-surface-hover: rgba(15, 23, 42, .09);
+    --border-strong-hover: rgba(15, 23, 42, 0.28);
+    --button-surface: rgba(15, 23, 42, 0.05);
+    --button-surface-hover: rgba(15, 23, 42, 0.09);
     --button-border: var(--border-medium);
 }
 
@@ -40,22 +54,22 @@ html[data-theme="light"] .work-order-details-page {
 }
 
 .work-order-details-eyebrow {
-    margin: .6rem 0 .4rem;
+    margin: 0.6rem 0 0.4rem;
     color: var(--accent);
-    font-size: .72rem;
+    font-size: 0.72rem;
     font-weight: 700;
-    letter-spacing: .14em;
+    letter-spacing: 0.14em;
     text-transform: uppercase;
 }
 
 .work-order-details-header h1 {
     margin: 0;
     font-size: clamp(1.75rem, 3vw, 2.25rem);
-    letter-spacing: -.04em;
+    letter-spacing: -0.04em;
 }
 
 .work-order-details-vessel {
-    margin: .4rem 0 0;
+    margin: 0.4rem 0 0;
     color: var(--text-secondary);
 }
 
@@ -64,7 +78,7 @@ html[data-theme="light"] .work-order-details-page {
     flex: 0 0 auto;
     flex-direction: column;
     align-items: flex-end;
-    gap: .45rem;
+    gap: 0.45rem;
 }
 
 /* Status and severity chips. The defect lifecycle (Reported/Triaged/
@@ -79,94 +93,94 @@ html[data-theme="light"] .work-order-details-page {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    gap: .25rem;
+    gap: 0.25rem;
     min-width: 7rem;
-    padding: .24rem .75rem;
+    padding: 0.24rem 0.75rem;
     border: 1px solid color-mix(in srgb, currentColor 28%, transparent);
     border-radius: var(--radius-pill);
-    font-size: .78rem;
+    font-size: 0.78rem;
     font-weight: 600;
     white-space: nowrap;
 }
 
 .work-order-status.reported {
     color: var(--status-info);
-    background: rgba(96, 165, 250, .14);
+    background: rgba(96, 165, 250, 0.14);
 }
 
 .work-order-status.triaged {
     color: var(--status-warning);
-    background: rgba(251, 191, 36, .14);
+    background: rgba(251, 191, 36, 0.14);
 }
 
 .work-order-status.converted {
     color: #5eead4;
-    background: rgba(45, 212, 191, .14);
+    background: rgba(45, 212, 191, 0.14);
 }
 
 .work-order-status.rejected {
     color: var(--status-danger);
-    background: rgba(248, 113, 113, .14);
+    background: rgba(248, 113, 113, 0.14);
 }
 
 .work-order-priority.low {
     color: #94a3b8;
-    background: rgba(148, 163, 184, .12);
+    background: rgba(148, 163, 184, 0.12);
 }
 
 .work-order-priority.medium {
     color: var(--status-info);
-    background: rgba(96, 165, 250, .14);
+    background: rgba(96, 165, 250, 0.14);
 }
 
 .work-order-priority.high {
     color: var(--status-warning);
-    background: rgba(251, 191, 36, .14);
+    background: rgba(251, 191, 36, 0.14);
 }
 
 .work-order-priority.critical {
     color: var(--status-danger);
-    background: rgba(248, 113, 113, .14);
+    background: rgba(248, 113, 113, 0.14);
 }
 
 html[data-theme="light"] .work-order-status.reported {
     color: var(--status-info-strong);
-    background: rgba(37, 99, 235, .12);
+    background: rgba(37, 99, 235, 0.12);
 }
 
 html[data-theme="light"] .work-order-status.triaged {
     color: var(--status-warning-strong);
-    background: rgba(180, 83, 9, .12);
+    background: rgba(180, 83, 9, 0.12);
 }
 
 html[data-theme="light"] .work-order-status.converted {
     color: var(--status-success-strong);
-    background: rgba(15, 118, 110, .12);
+    background: rgba(15, 118, 110, 0.12);
 }
 
 html[data-theme="light"] .work-order-status.rejected {
     color: var(--status-danger-strong);
-    background: rgba(185, 28, 28, .1);
+    background: rgba(185, 28, 28, 0.1);
 }
 
 html[data-theme="light"] .work-order-priority.low {
     color: #475569;
-    background: rgba(71, 85, 105, .12);
+    background: rgba(71, 85, 105, 0.12);
 }
 
 html[data-theme="light"] .work-order-priority.medium {
     color: var(--status-info-strong);
-    background: rgba(37, 99, 235, .12);
+    background: rgba(37, 99, 235, 0.12);
 }
 
 html[data-theme="light"] .work-order-priority.high {
     color: var(--status-warning-strong);
-    background: rgba(180, 83, 9, .12);
+    background: rgba(180, 83, 9, 0.12);
 }
 
 html[data-theme="light"] .work-order-priority.critical {
     color: var(--status-danger-strong);
-    background: rgba(185, 28, 28, .1);
+    background: rgba(185, 28, 28, 0.1);
 }
 
 /* Success banner */
@@ -177,18 +191,18 @@ html[data-theme="light"] .work-order-priority.critical {
     justify-content: space-between;
     gap: 1rem;
     margin-bottom: 1rem;
-    padding: .8rem 1.05rem;
+    padding: 0.8rem 1.05rem;
     color: #5eead4;
-    border: 1px solid rgba(45, 212, 191, .3);
+    border: 1px solid rgba(45, 212, 191, 0.3);
     border-radius: var(--radius-card);
-    background: rgba(45, 212, 191, .12);
-    font-size: .88rem;
+    background: rgba(45, 212, 191, 0.12);
+    font-size: 0.88rem;
 }
 
 html[data-theme="light"] .work-order-details-success {
     color: var(--status-success-strong);
-    border-color: rgba(15, 118, 110, .3);
-    background: rgba(15, 118, 110, .1);
+    border-color: rgba(15, 118, 110, 0.3);
+    background: rgba(15, 118, 110, 0.1);
 }
 
 .work-order-details-success button {
@@ -208,7 +222,11 @@ html[data-theme="light"] .work-order-details-success {
     padding: 1.35rem;
     border: 1px solid var(--border-medium);
     border-radius: var(--radius-card);
-    background: linear-gradient(145deg, var(--bg-surface-strong), var(--bg-surface));
+    background: linear-gradient(
+        145deg,
+        var(--bg-surface-strong),
+        var(--bg-surface)
+    );
     box-shadow: var(--card-shadow);
 }
 
@@ -226,9 +244,9 @@ html[data-theme="light"] .work-order-details-success {
 }
 
 .work-order-card-heading p {
-    margin: .25rem 0 0;
+    margin: 0.25rem 0 0;
     color: var(--text-secondary);
-    font-size: .82rem;
+    font-size: 0.82rem;
 }
 
 .work-order-card-icon {
@@ -241,7 +259,7 @@ html[data-theme="light"] .work-order-details-success {
     border: 1px solid var(--accent-border);
     border-radius: var(--radius-control);
     background: var(--accent-bg);
-    font-size: .9rem;
+    font-size: 0.9rem;
 }
 
 /* The description, triage notes, and rejection reason are free text, so
@@ -251,7 +269,7 @@ html[data-theme="light"] .work-order-details-success {
 .work-order-details-notes {
     margin: 0 0 1.1rem;
     color: var(--text-primary);
-    font-size: .9rem;
+    font-size: 0.9rem;
     line-height: 1.6;
     white-space: pre-wrap;
     overflow-wrap: anywhere;
@@ -265,7 +283,7 @@ html[data-theme="light"] .work-order-details-success {
 .work-order-details-facts {
     display: flex;
     flex-direction: column;
-    gap: .7rem;
+    gap: 0.7rem;
     margin: 0;
 }
 
@@ -278,16 +296,16 @@ html[data-theme="light"] .work-order-details-success {
 
 .work-order-details-facts dt {
     color: var(--text-muted);
-    font-size: .7rem;
+    font-size: 0.7rem;
     font-weight: 700;
-    letter-spacing: .07em;
+    letter-spacing: 0.07em;
     text-transform: uppercase;
 }
 
 .work-order-details-facts dd {
     margin: 0;
     color: var(--text-primary);
-    font-size: .88rem;
+    font-size: 0.88rem;
     text-align: right;
     overflow-wrap: anywhere;
 }
@@ -306,14 +324,14 @@ html[data-theme="light"] .work-order-details-success {
 .work-order-details-actions {
     display: flex;
     flex-direction: column;
-    gap: .85rem;
+    gap: 0.85rem;
 }
 
 .work-order-action {
     display: flex;
     align-items: center;
     flex-wrap: wrap;
-    gap: .3rem .95rem;
+    gap: 0.3rem 0.95rem;
 }
 
 .work-order-action > button {
@@ -325,19 +343,19 @@ html[data-theme="light"] .work-order-details-success {
     flex: 1 1 20rem;
     margin: 0;
     color: var(--text-secondary);
-    font-size: .82rem;
+    font-size: 0.82rem;
     line-height: 1.5;
 }
 
 .work-order-details-note {
     margin: 0;
     color: var(--text-secondary);
-    font-size: .88rem;
+    font-size: 0.88rem;
 }
 
 .work-order-details-readonly,
 .work-order-details-closed {
-    padding: .8rem 1rem;
+    padding: 0.8rem 1rem;
     border: 1px solid var(--border-medium);
     border-radius: var(--radius-control);
     background: var(--bg-surface);
@@ -351,10 +369,12 @@ html[data-theme="light"] .work-order-details-success {
     border-radius: var(--radius-button);
     background: var(--button-surface);
     font: inherit;
-    font-size: .92rem;
+    font-size: 0.92rem;
     font-weight: 600;
     cursor: pointer;
-    transition: background .15s ease, border-color .15s ease;
+    transition:
+        background 0.15s ease,
+        border-color 0.15s ease;
 }
 
 .work-order-button:hover:not(:disabled) {
@@ -364,21 +384,23 @@ html[data-theme="light"] .work-order-details-success {
 
 .work-order-button:disabled {
     cursor: not-allowed;
-    opacity: .5;
+    opacity: 0.5;
 }
 
 .work-order-quiet-button {
     height: var(--control-height);
-    padding: 0 .9rem;
+    padding: 0 0.9rem;
     color: var(--accent);
     border: 1px solid transparent;
     border-radius: var(--radius-button);
     background: none;
     font: inherit;
-    font-size: .92rem;
+    font-size: 0.92rem;
     font-weight: 600;
     cursor: pointer;
-    transition: background .15s ease, border-color .15s ease;
+    transition:
+        background 0.15s ease,
+        border-color 0.15s ease;
 }
 
 .work-order-quiet-button:hover:not(:disabled) {
@@ -388,7 +410,7 @@ html[data-theme="light"] .work-order-details-success {
 
 .work-order-quiet-button:disabled {
     cursor: not-allowed;
-    opacity: .45;
+    opacity: 0.45;
 }
 
 .work-order-button:focus-visible,
@@ -404,7 +426,7 @@ html[data-theme="light"] .work-order-details-success {
     margin: 0 0 1rem;
     padding: 1rem;
     border: 1px solid var(--border-subtle);
-    border-radius: .8rem;
+    border-radius: 0.8rem;
     background: var(--control-surface);
 }
 
@@ -421,10 +443,13 @@ html[data-theme="light"] .work-order-details-success {
     border-radius: var(--radius-button);
     background: var(--apply-surface);
     font: inherit;
-    font-size: .88rem;
+    font-size: 0.88rem;
     font-weight: 600;
     cursor: pointer;
-    transition: border-color .16s ease, background .16s ease, transform .16s ease;
+    transition:
+        border-color 0.16s ease,
+        background 0.16s ease,
+        transform 0.16s ease;
 }
 
 .documents-search-button:hover:not(:disabled) {
@@ -435,13 +460,13 @@ html[data-theme="light"] .work-order-details-success {
 
 .documents-search-button:disabled {
     cursor: not-allowed;
-    opacity: .5;
+    opacity: 0.5;
 }
 
 .documents-search-button:focus-visible {
     outline: 2px solid var(--accent);
     outline-offset: 2px;
-    border-radius: .4rem;
+    border-radius: 0.4rem;
 }
 
 .documents-modal-cancel {
@@ -452,10 +477,13 @@ html[data-theme="light"] .work-order-details-success {
     border-radius: var(--radius-button);
     background: var(--bg-surface);
     font: inherit;
-    font-size: .88rem;
+    font-size: 0.88rem;
     font-weight: 600;
     cursor: pointer;
-    transition: transform .16s ease, border-color .16s ease, background .16s ease;
+    transition:
+        transform 0.16s ease,
+        border-color 0.16s ease,
+        background 0.16s ease;
 }
 
 .documents-modal-cancel:hover:not(:disabled) {
@@ -467,7 +495,7 @@ html[data-theme="light"] .work-order-details-success {
 
 .documents-modal-cancel:disabled {
     cursor: not-allowed;
-    opacity: .5;
+    opacity: 0.5;
 }
 
 /* Triage / Convert dialogs (Maintenance workspace's own modal + form language) */
@@ -480,13 +508,13 @@ html[data-theme="light"] .work-order-details-success {
     place-items: center;
     padding: 4.75rem 1.25rem 1.5rem;
     overflow-y: auto;
-    background: rgba(2, 6, 23, .48);
+    background: rgba(2, 6, 23, 0.48);
     backdrop-filter: blur(3px);
     -webkit-backdrop-filter: blur(3px);
 }
 
 html[data-theme="light"] .maintenance-modal-backdrop {
-    background: rgba(15, 23, 42, .24);
+    background: rgba(15, 23, 42, 0.24);
 }
 
 .maintenance-form-card {
@@ -497,16 +525,20 @@ html[data-theme="light"] .maintenance-modal-backdrop {
     overflow-y: auto;
     margin: 0;
     padding: 1.35rem;
-    border: 1px solid rgba(148, 163, 184, .25);
+    border: 1px solid rgba(148, 163, 184, 0.25);
     border-radius: var(--radius-card);
     background: #172033;
-    box-shadow: 0 28px 70px rgba(0, 0, 0, .45), 0 0 0 1px rgba(255, 255, 255, .06) inset;
+    box-shadow:
+        0 28px 70px rgba(0, 0, 0, 0.45),
+        0 0 0 1px rgba(255, 255, 255, 0.06) inset;
 }
 
 html[data-theme="light"] .maintenance-form-card {
-    border-color: rgba(148, 163, 184, .42);
+    border-color: rgba(148, 163, 184, 0.42);
     background: #f8fafc;
-    box-shadow: 0 28px 70px rgba(15, 23, 42, .24), 0 0 0 1px rgba(255, 255, 255, .7) inset;
+    box-shadow:
+        0 28px 70px rgba(15, 23, 42, 0.24),
+        0 0 0 1px rgba(255, 255, 255, 0.7) inset;
 }
 
 .maintenance-form-card h2 {
@@ -552,7 +584,7 @@ html[data-theme="light"] .maintenance-form-card {
 .filter-field {
     display: flex;
     flex-direction: column;
-    gap: .4rem;
+    gap: 0.4rem;
 }
 
 .filter-field-wide {
@@ -562,9 +594,9 @@ html[data-theme="light"] .maintenance-form-card {
 
 .filter-field label {
     color: var(--text-muted);
-    font-size: .7rem;
+    font-size: 0.7rem;
     font-weight: 700;
-    letter-spacing: .1em;
+    letter-spacing: 0.1em;
     text-transform: uppercase;
 }
 
@@ -577,14 +609,16 @@ html[data-theme="light"] .maintenance-form-card {
 .maintenance-form-grid select,
 .maintenance-form-grid textarea {
     width: 100%;
-    padding: .7rem .85rem;
+    padding: 0.7rem 0.85rem;
     color: var(--text-primary);
     border: 1px solid var(--border-medium);
     border-radius: var(--radius-control);
     background: var(--control-surface);
     font: inherit;
-    font-size: .88rem;
-    transition: border-color .16s ease, box-shadow .16s ease;
+    font-size: 0.88rem;
+    transition:
+        border-color 0.16s ease,
+        box-shadow 0.16s ease;
 }
 
 .maintenance-form-grid input,
@@ -597,7 +631,7 @@ html[data-theme="light"] .maintenance-form-card {
     padding-right: 2.5rem;
     background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 16 16' fill='none'%3E%3Cpath d='m4 6 4 4 4-4' stroke='%2394a3b8' stroke-width='1.7' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
     background-repeat: no-repeat;
-    background-position: right .72rem center;
+    background-position: right 0.72rem center;
     background-size: 1rem;
     cursor: pointer;
 }
@@ -642,12 +676,15 @@ html[data-theme="light"] .maintenance-form-grid select {
     border-radius: var(--radius-button);
     background: var(--apply-surface);
     font: inherit;
-    font-size: .88rem;
+    font-size: 0.88rem;
     font-weight: 600;
     text-decoration: none;
     cursor: pointer;
     box-shadow: var(--button-shadow);
-    transition: border-color .16s ease, background .16s ease, transform .16s ease;
+    transition:
+        border-color 0.16s ease,
+        background 0.16s ease,
+        transform 0.16s ease;
 }
 
 .maintenance-button:hover:not(:disabled) {
@@ -658,7 +695,7 @@ html[data-theme="light"] .maintenance-form-grid select {
 
 .maintenance-button:disabled {
     cursor: not-allowed;
-    opacity: .5;
+    opacity: 0.5;
     box-shadow: none;
 }
 
@@ -667,17 +704,19 @@ html[data-theme="light"] .maintenance-form-grid select {
     align-items: center;
     justify-content: center;
     height: var(--control-height);
-    padding: 0 .9rem;
+    padding: 0 0.9rem;
     color: var(--accent);
     border: 1px solid transparent;
     border-radius: var(--radius-button);
     background: none;
     font: inherit;
-    font-size: .88rem;
+    font-size: 0.88rem;
     font-weight: 600;
     text-decoration: none;
     cursor: pointer;
-    transition: background .15s ease, border-color .15s ease;
+    transition:
+        background 0.15s ease,
+        border-color 0.15s ease;
 }
 
 .maintenance-reset:hover:not(:disabled) {
@@ -689,53 +728,53 @@ html[data-theme="light"] .maintenance-form-grid select {
 .maintenance-reset:focus-visible {
     outline: 2px solid var(--accent);
     outline-offset: 2px;
-    border-radius: .4rem;
+    border-radius: 0.4rem;
 }
 
 .maintenance-form-actions {
     display: flex;
-    gap: .5rem;
+    gap: 0.5rem;
 }
 
 .maintenance-field-errors {
     margin-bottom: 1rem;
-    padding: .9rem 1.1rem;
-    border: 1px solid rgba(248, 113, 113, .35);
-    border-radius: .75rem;
-    background: rgba(127, 29, 29, .18);
+    padding: 0.9rem 1.1rem;
+    border: 1px solid rgba(248, 113, 113, 0.35);
+    border-radius: 0.75rem;
+    background: rgba(127, 29, 29, 0.18);
 }
 
 .maintenance-field-errors strong {
     display: block;
-    margin-bottom: .5rem;
+    margin-bottom: 0.5rem;
     color: #fca5a5;
-    font-size: .84rem;
+    font-size: 0.84rem;
 }
 
 .maintenance-field-errors ul {
     display: flex;
     flex-direction: column;
-    gap: .3rem;
-    margin: .4rem 0 0;
+    gap: 0.3rem;
+    margin: 0.4rem 0 0;
     padding: 0;
     list-style: none;
     color: var(--text-secondary);
-    font-size: .85rem;
+    font-size: 0.85rem;
 }
 
 .maintenance-field-errors li {
     display: flex;
     align-items: baseline;
-    gap: .55rem;
+    gap: 0.55rem;
 }
 
 .maintenance-error-field {
     flex: 0 0 auto;
     min-width: 8.5rem;
     color: var(--text-muted);
-    font-size: .7rem;
+    font-size: 0.7rem;
     font-weight: 700;
-    letter-spacing: .1em;
+    letter-spacing: 0.1em;
     text-transform: uppercase;
 }
 
@@ -745,8 +784,8 @@ html[data-theme="light"] .maintenance-form-grid select {
 }
 
 html[data-theme="light"] .maintenance-field-errors {
-    border-color: rgba(185, 28, 28, .3);
-    background: rgba(185, 28, 28, .08);
+    border-color: rgba(185, 28, 28, 0.3);
+    background: rgba(185, 28, 28, 0.08);
 }
 
 html[data-theme="light"] .maintenance-inline-error {

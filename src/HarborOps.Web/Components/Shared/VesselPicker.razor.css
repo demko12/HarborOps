@@ -8,23 +8,26 @@
     box-sizing: border-box;
     width: 100%;
     height: var(--control-height);
-    padding: 0 .85rem 0 2.55rem;
+    padding: 0 0.85rem 0 2.55rem;
     color: var(--text-primary);
     border: 1px solid var(--border-medium);
     border-radius: var(--radius-control);
     outline: 0;
     background: var(--control-surface);
-    font-size: .88rem;
-    transition: border-color .15s ease, box-shadow .15s ease, background .15s ease;
+    font-size: 0.88rem;
+    transition:
+        border-color 0.15s ease,
+        box-shadow 0.15s ease,
+        background 0.15s ease;
 }
 
 .vessel-picker-search-icon {
     position: absolute;
     z-index: 1;
     top: 50%;
-    left: .85rem;
+    left: 0.85rem;
     color: var(--text-muted);
-    font-size: .9rem;
+    font-size: 0.9rem;
     pointer-events: none;
     transform: translateY(-50%);
 }
@@ -48,7 +51,7 @@
     right: 0;
     max-height: 13.5rem;
     margin: 0;
-    padding: .35rem;
+    padding: 0.35rem;
     overflow-y: auto;
     list-style: none;
     border: 1px solid var(--border-medium);
@@ -61,7 +64,7 @@
     display: grid;
     width: 100%;
     gap: 0.14rem;
-    padding: .62rem .7rem;
+    padding: 0.62rem 0.7rem;
     border: 1px solid transparent;
     border-radius: var(--radius-option);
     color: var(--text-primary);
@@ -69,15 +72,19 @@
     font: inherit;
     text-align: left;
     cursor: pointer;
-    transition: background .15s ease, border-color .15s ease;
+    transition:
+        background 0.15s ease,
+        border-color 0.15s ease;
 }
 
-.vessel-picker-option strong { font-size: .88rem; }
+.vessel-picker-option strong {
+    font-size: 0.88rem;
+}
 
 .vessel-picker-option:hover,
 .vessel-picker-option:focus {
-    border-color: rgba(37, 99, 235, .18);
-    background: rgba(37, 99, 235, .08);
+    border-color: rgba(37, 99, 235, 0.18);
+    background: rgba(37, 99, 235, 0.08);
 }
 
 .vessel-picker-imo {

@@ -1,4 +1,39 @@
-.voyages-tabs { display: flex; flex-wrap: nowrap; overflow-x: auto; gap: .35rem; padding: .2rem .2rem .8rem; margin-bottom: 1.5rem; border-bottom: 1px solid var(--border-subtle); }
-.voyages-tabs ::deep .workspace-tab { width: auto; height: auto; min-height: 2.65rem; justify-content: flex-start; font-family: inherit; font-weight: 400; line-height: inherit; letter-spacing: normal; display: flex; align-items: center; flex: 0 0 auto; gap: .55rem; padding: .65rem .85rem; border: 1px solid transparent; border-radius: .65rem; background: transparent; color: var(--text-secondary); font-size: .8rem; }
-.voyages-tabs ::deep .workspace-tab.active { color: var(--text-primary); border-color: var(--accent-border); background: var(--accent-bg); box-shadow: none; }
-.voyages-tabs ::deep .workspace-tab:hover { transform: none; background: var(--bg-surface-strong); }
+.voyages-tabs {
+    display: flex;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    gap: 0.35rem;
+    padding: 0.2rem 0.2rem 0.8rem;
+    margin-bottom: 1.5rem;
+    border-bottom: 1px solid var(--border-subtle);
+}
+.voyages-tabs ::deep .workspace-tab {
+    width: auto;
+    height: auto;
+    min-height: 2.65rem;
+    justify-content: flex-start;
+    font-family: inherit;
+    font-weight: 400;
+    line-height: inherit;
+    letter-spacing: normal;
+    display: flex;
+    align-items: center;
+    flex: 0 0 auto;
+    gap: 0.55rem;
+    padding: 0.65rem 0.85rem;
+    border: 1px solid transparent;
+    border-radius: 0.65rem;
+    background: transparent;
+    color: var(--text-secondary);
+    font-size: 0.8rem;
+}
+.voyages-tabs ::deep .workspace-tab.active {
+    color: var(--text-primary);
+    border-color: var(--accent-border);
+    background: var(--accent-bg);
+    box-shadow: none;
+}
+.voyages-tabs ::deep .workspace-tab:hover {
+    transform: none;
+    background: var(--bg-surface-strong);
+}

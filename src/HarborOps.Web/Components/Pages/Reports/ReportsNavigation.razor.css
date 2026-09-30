@@ -1,4 +1,37 @@
-.reports-tabs { display: flex; flex-wrap: nowrap; overflow-x: auto; gap: .35rem; padding: .2rem .2rem .8rem; margin-bottom: 1.5rem; border-bottom: 1px solid var(--border-subtle); }
-.reports-tabs ::deep .workspace-tab { display: inline-flex; width: auto; height: auto; flex: 0 0 auto; align-items: center; justify-content: flex-start; gap: .55rem; padding: .65rem .85rem; border: 1px solid transparent; border-radius: .65rem; background: transparent; color: var(--text-secondary); font: inherit; font-size: .8rem; font-weight: 400; letter-spacing: normal; white-space: nowrap; }
-.reports-tabs ::deep .workspace-tab.active { color: var(--text-primary); border-color: var(--accent-border); background: var(--accent-bg); }
-.reports-tabs ::deep .workspace-tab:hover { transform: none; background: var(--bg-surface-strong); }
+.reports-tabs {
+    display: flex;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    gap: 0.35rem;
+    padding: 0.2rem 0.2rem 0.8rem;
+    margin-bottom: 1.5rem;
+    border-bottom: 1px solid var(--border-subtle);
+}
+.reports-tabs ::deep .workspace-tab {
+    display: inline-flex;
+    width: auto;
+    height: auto;
+    flex: 0 0 auto;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 0.55rem;
+    padding: 0.65rem 0.85rem;
+    border: 1px solid transparent;
+    border-radius: 0.65rem;
+    background: transparent;
+    color: var(--text-secondary);
+    font: inherit;
+    font-size: 0.8rem;
+    font-weight: 400;
+    letter-spacing: normal;
+    white-space: nowrap;
+}
+.reports-tabs ::deep .workspace-tab.active {
+    color: var(--text-primary);
+    border-color: var(--accent-border);
+    background: var(--accent-bg);
+}
+.reports-tabs ::deep .workspace-tab:hover {
+    transform: none;
+    background: var(--bg-surface-strong);
+}

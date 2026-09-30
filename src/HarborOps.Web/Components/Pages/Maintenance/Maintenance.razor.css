@@ -1,7 +1,7 @@
 .maintenance-page {
     --accent: #e05260;
-    --accent-bg: rgba(224, 82, 96, .12);
-    --accent-border: rgba(224, 82, 96, .3);
+    --accent-bg: rgba(224, 82, 96, 0.12);
+    --accent-border: rgba(224, 82, 96, 0.3);
     max-width: var(--page-max-width);
     margin: 0 auto;
     padding: var(--page-padding);
@@ -9,8 +9,8 @@
 
 html:not([data-theme="light"]) .maintenance-page {
     --accent: #d98a93;
-    --accent-bg: rgba(217, 138, 147, .1);
-    --accent-border: rgba(217, 138, 147, .24);
+    --accent-bg: rgba(217, 138, 147, 0.1);
+    --accent-border: rgba(217, 138, 147, 0.24);
 }
 
 /* Header */
@@ -24,35 +24,35 @@ html:not([data-theme="light"]) .maintenance-page {
 }
 
 .maintenance-eyebrow {
-    margin: 0 0 .4rem;
+    margin: 0 0 0.4rem;
     color: var(--accent);
-    font-size: .72rem;
+    font-size: 0.72rem;
     font-weight: 700;
-    letter-spacing: .14em;
+    letter-spacing: 0.14em;
     text-transform: uppercase;
 }
 
 .maintenance-header h1 {
     margin: 0;
     font-size: clamp(1.75rem, 3vw, 2.25rem);
-    letter-spacing: -.04em;
+    letter-spacing: -0.04em;
 }
 
 .maintenance-header p:last-child {
-    margin: .4rem 0 0;
+    margin: 0.4rem 0 0;
     color: var(--text-secondary);
 }
 
 .maintenance-utc {
     flex: 0 0 auto;
-    padding: .42rem .9rem;
+    padding: 0.42rem 0.9rem;
     color: var(--text-secondary);
     border: 1px solid var(--border-medium);
     border-radius: var(--radius-pill);
     background: var(--bg-surface);
-    font-size: .78rem;
+    font-size: 0.78rem;
     font-weight: 700;
-    letter-spacing: .16em;
+    letter-spacing: 0.16em;
 }
 
 /* Summary */
@@ -73,27 +73,31 @@ html:not([data-theme="light"]) .maintenance-page {
     padding: 1.15rem 1.35rem;
     border: 1px solid var(--border-medium);
     border-radius: var(--radius-card);
-    background: linear-gradient(145deg, var(--bg-surface-strong), var(--bg-surface));
+    background: linear-gradient(
+        145deg,
+        var(--bg-surface-strong),
+        var(--bg-surface)
+    );
     box-shadow: var(--card-shadow);
 }
 
-    .maintenance-summary-card strong {
-        display: block;
-        margin: .3rem 0 0;
-        font-size: 2.1rem;
-        font-weight: 650;
-        line-height: 1.1;
-        font-variant-numeric: tabular-nums;
-    }
+.maintenance-summary-card strong {
+    display: block;
+    margin: 0.3rem 0 0;
+    font-size: 2.1rem;
+    font-weight: 650;
+    line-height: 1.1;
+    font-variant-numeric: tabular-nums;
+}
 
-    .maintenance-summary-card small {
-        margin: 0;
-        color: var(--text-muted);
-        font-size: .72rem;
-        font-weight: 700;
-        letter-spacing: .1em;
-        text-transform: uppercase;
-    }
+.maintenance-summary-card small {
+    margin: 0;
+    color: var(--text-muted);
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+}
 
 .summary-icon {
     display: grid;
@@ -105,7 +109,7 @@ html:not([data-theme="light"]) .maintenance-page {
     border: 1px solid var(--accent-border);
     border-radius: var(--radius-control);
     background: var(--accent-bg);
-    font-size: .9rem;
+    font-size: 0.9rem;
 }
 
 .summary-icon-blue {
@@ -115,8 +119,8 @@ html:not([data-theme="light"]) .maintenance-page {
 
 .summary-icon-amber {
     color: var(--status-warning);
-    border-color: rgba(251, 191, 36, .25);
-    background: rgba(251, 191, 36, .14);
+    border-color: rgba(251, 191, 36, 0.25);
+    background: rgba(251, 191, 36, 0.14);
 }
 
 /* Filters */
@@ -127,19 +131,23 @@ html:not([data-theme="light"]) .maintenance-page {
     display: flex;
     align-items: flex-end;
     flex-wrap: wrap;
-    gap: .75rem;
+    gap: 0.75rem;
     margin-bottom: 1rem;
     padding: 1.1rem 1.25rem;
     border: 1px solid var(--border-medium);
     border-radius: var(--radius-card);
-    background: linear-gradient(145deg, var(--bg-surface-strong), var(--bg-surface));
+    background: linear-gradient(
+        145deg,
+        var(--bg-surface-strong),
+        var(--bg-surface)
+    );
     box-shadow: var(--card-shadow);
 }
 
 .filter-field {
     display: flex;
     flex-direction: column;
-    gap: .4rem;
+    gap: 0.4rem;
 }
 
 .filter-field-wide {
@@ -153,9 +161,9 @@ html:not([data-theme="light"]) .maintenance-page {
 
 .filter-field label {
     color: var(--text-muted);
-    font-size: .7rem;
+    font-size: 0.7rem;
     font-weight: 700;
-    letter-spacing: .1em;
+    letter-spacing: 0.1em;
     text-transform: uppercase;
 }
 
@@ -163,48 +171,51 @@ html:not([data-theme="light"]) .maintenance-page {
 .filter-field > select {
     min-width: 9.5rem;
     height: var(--control-height);
-    padding: 0 .85rem;
+    padding: 0 0.85rem;
     color: var(--text-primary);
     border: 1px solid var(--border-medium);
     border-radius: var(--radius-control);
     background-color: var(--control-surface);
     font: inherit;
-    font-size: .88rem;
+    font-size: 0.88rem;
     color-scheme: dark;
-    transition: border-color .16s ease, box-shadow .16s ease, background-color .16s ease;
+    transition:
+        border-color 0.16s ease,
+        box-shadow 0.16s ease,
+        background-color 0.16s ease;
 }
 
-    .filter-field > input:hover,
-    .filter-field > select:hover {
-        border-color: var(--border-strong-hover);
-    }
+.filter-field > input:hover,
+.filter-field > select:hover {
+    border-color: var(--border-strong-hover);
+}
 
-    .filter-field > input:focus,
-    .filter-field > select:focus {
-        border-color: var(--accent);
-        outline: 0;
-        box-shadow: var(--focus-ring);
-    }
+.filter-field > input:focus,
+.filter-field > select:focus {
+    border-color: var(--accent);
+    outline: 0;
+    box-shadow: var(--focus-ring);
+}
 
 .filter-field > select {
     appearance: none;
     padding-right: 2.5rem;
     background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 16 16' fill='none'%3E%3Cpath d='m4 6 4 4 4-4' stroke='%2394a3b8' stroke-width='1.7' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
     background-repeat: no-repeat;
-    background-position: right .72rem center;
+    background-position: right 0.72rem center;
     background-size: 1rem;
     cursor: pointer;
 }
 
-    .filter-field > select option {
-        color: var(--text-primary);
-        background-color: var(--control-popup);
-    }
+.filter-field > select option {
+    color: var(--text-primary);
+    background-color: var(--control-popup);
+}
 
 .filter-field > input::-webkit-calendar-picker-indicator {
     cursor: pointer;
-    opacity: .55;
-    transition: opacity .16s ease;
+    opacity: 0.55;
+    transition: opacity 0.16s ease;
 }
 
 .filter-field > input:hover::-webkit-calendar-picker-indicator {
@@ -221,91 +232,96 @@ html:not([data-theme="light"]) .maintenance-page {
     border-radius: var(--radius-button);
     background: var(--apply-surface);
     font: inherit;
-    font-size: .88rem;
+    font-size: 0.88rem;
     font-weight: 600;
     cursor: pointer;
     box-shadow: var(--button-shadow);
-    transition: border-color .16s ease, background .16s ease, transform .16s ease;
+    transition:
+        border-color 0.16s ease,
+        background 0.16s ease,
+        transform 0.16s ease;
 }
 
-    .maintenance-button:hover:not(:disabled) {
-        background: var(--apply-surface-hover);
-        border-color: var(--apply-border-hover);
-        transform: translateY(-1px);
-    }
+.maintenance-button:hover:not(:disabled) {
+    background: var(--apply-surface-hover);
+    border-color: var(--apply-border-hover);
+    transform: translateY(-1px);
+}
 
-    .maintenance-button:disabled {
-        cursor: not-allowed;
-        opacity: .5;
-        box-shadow: none;
-    }
+.maintenance-button:disabled {
+    cursor: not-allowed;
+    opacity: 0.5;
+    box-shadow: none;
+}
 
 .maintenance-reset {
     height: var(--control-height);
-    padding: 0 .9rem;
+    padding: 0 0.9rem;
     color: var(--accent);
     border: 1px solid transparent;
     border-radius: var(--radius-button);
     background: none;
     font: inherit;
-    font-size: .88rem;
+    font-size: 0.88rem;
     font-weight: 600;
     cursor: pointer;
-    transition: background .15s ease, border-color .15s ease;
+    transition:
+        background 0.15s ease,
+        border-color 0.15s ease;
 }
 
-    .maintenance-reset:hover:not(:disabled) {
-        background: var(--accent-bg);
-        border-color: var(--accent-border);
-    }
+.maintenance-reset:hover:not(:disabled) {
+    background: var(--accent-bg);
+    border-color: var(--accent-border);
+}
 
-    .maintenance-reset:disabled {
-        cursor: not-allowed;
-        opacity: .45;
-    }
+.maintenance-reset:disabled {
+    cursor: not-allowed;
+    opacity: 0.45;
+}
 
-    .maintenance-button:focus-visible,
-    .maintenance-reset:focus-visible,
-    .maintenance-pagination button:focus-visible {
-        outline: 2px solid var(--accent);
-        outline-offset: 2px;
-        border-radius: .4rem;
-    }
+.maintenance-button:focus-visible,
+.maintenance-reset:focus-visible,
+.maintenance-pagination button:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+    border-radius: 0.4rem;
+}
 
 /* Validation / Success / Conflict */
 
 .maintenance-validation,
 .maintenance-field-errors {
     margin-bottom: 1rem;
-    padding: .9rem 1.1rem;
-    border: 1px solid rgba(248, 113, 113, .35);
-    border-radius: .75rem;
-    background: rgba(127, 29, 29, .18);
+    padding: 0.9rem 1.1rem;
+    border: 1px solid rgba(248, 113, 113, 0.35);
+    border-radius: 0.75rem;
+    background: rgba(127, 29, 29, 0.18);
 }
 
-    .maintenance-validation ul,
-    .maintenance-field-errors ul {
-        margin: .4rem 0 0;
-        padding-left: 1.1rem;
-        color: var(--text-secondary);
-        font-size: .85rem;
-    }
+.maintenance-validation ul,
+.maintenance-field-errors ul {
+    margin: 0.4rem 0 0;
+    padding-left: 1.1rem;
+    color: var(--text-secondary);
+    font-size: 0.85rem;
+}
 
 .maintenance-success {
     margin-bottom: 1rem;
-    padding: .9rem 1.1rem;
-    border: 1px solid rgba(52, 211, 153, .25);
-    border-radius: .75rem;
-    background: rgba(6, 78, 59, .15);
+    padding: 0.9rem 1.1rem;
+    border: 1px solid rgba(52, 211, 153, 0.25);
+    border-radius: 0.75rem;
+    background: rgba(6, 78, 59, 0.15);
     color: var(--text-primary);
 }
 
 .maintenance-conflict {
     margin-bottom: 1rem;
-    padding: .9rem 1.1rem;
-    border: 1px solid rgba(251, 191, 36, .3);
-    border-radius: .75rem;
-    background: rgba(120, 53, 15, .15);
+    padding: 0.9rem 1.1rem;
+    border: 1px solid rgba(251, 191, 36, 0.3);
+    border-radius: 0.75rem;
+    background: rgba(120, 53, 15, 0.15);
     color: var(--text-primary);
 }
 
@@ -315,7 +331,11 @@ html:not([data-theme="light"]) .maintenance-page {
     padding: 1.35rem;
     border: 1px solid var(--border-medium);
     border-radius: var(--radius-card);
-    background: linear-gradient(145deg, var(--bg-surface-strong), var(--bg-surface));
+    background: linear-gradient(
+        145deg,
+        var(--bg-surface-strong),
+        var(--bg-surface)
+    );
     box-shadow: var(--card-shadow);
 }
 
@@ -327,16 +347,16 @@ html:not([data-theme="light"]) .maintenance-page {
     margin-bottom: 1.15rem;
 }
 
-    .maintenance-card-heading h2 {
-        margin: 0;
-        font-size: 1.05rem;
-    }
+.maintenance-card-heading h2 {
+    margin: 0;
+    font-size: 1.05rem;
+}
 
-    .maintenance-card-heading p {
-        margin: .4rem 0 0;
-        color: var(--text-secondary);
-        font-size: .85rem;
-    }
+.maintenance-card-heading p {
+    margin: 0.4rem 0 0;
+    color: var(--text-secondary);
+    font-size: 0.85rem;
+}
 
 /* Table */
 
@@ -350,95 +370,97 @@ html:not([data-theme="light"]) .maintenance-page {
     border-collapse: collapse;
 }
 
-    .maintenance-table .col-title {
-        width: 16%;
-    }
+.maintenance-table .col-title {
+    width: 16%;
+}
 
-    .maintenance-table .col-vessel {
-        width: 11%;
-    }
+.maintenance-table .col-vessel {
+    width: 11%;
+}
 
-    .maintenance-table .col-priority {
-        width: 9%;
-    }
+.maintenance-table .col-priority {
+    width: 9%;
+}
 
-    .maintenance-table .col-status {
-        width: 10%;
-    }
+.maintenance-table .col-status {
+    width: 10%;
+}
 
-    .maintenance-table .col-due {
-        width: 13%;
-    }
+.maintenance-table .col-due {
+    width: 13%;
+}
 
-    .maintenance-table .col-assigned {
-        width: 11%;
-    }
+.maintenance-table .col-assigned {
+    width: 11%;
+}
 
-    .maintenance-table .col-created {
-        width: 8%;
-    }
+.maintenance-table .col-created {
+    width: 8%;
+}
 
-    .maintenance-table .col-completed {
-        width: 9%;
-    }
+.maintenance-table .col-completed {
+    width: 9%;
+}
 
-    .maintenance-table .col-actions {
-        width: 13%;
-        text-align: center;
-        white-space: normal;
-        vertical-align: top;
-        padding-top: .85rem;
-    }
+.maintenance-table .col-actions {
+    width: 13%;
+    text-align: center;
+    white-space: normal;
+    vertical-align: top;
+    padding-top: 0.85rem;
+}
 
-        .maintenance-table .col-actions button {
-            display: block;
-            width: 100%;
-            margin: 0 0 .35rem;
-        }
+.maintenance-table .col-actions button {
+    display: block;
+    width: 100%;
+    margin: 0 0 0.35rem;
+}
 
-            .maintenance-table .col-actions button:last-of-type {
-                margin-bottom: 0;
-            }
+.maintenance-table .col-actions button:last-of-type {
+    margin-bottom: 0;
+}
 
 .col-actions button {
     margin-bottom: 0.3rem;
 }
 
-    .maintenance-table th {
-        padding: .55rem .8rem;
-        color: var(--text-muted);
-        text-align: left;
-        white-space: normal;
-        overflow-wrap: anywhere;
-        vertical-align: bottom;
-        border-bottom: 1px solid var(--border-medium);
-        font-size: .7rem;
-        font-weight: 700;
-        letter-spacing: .1em;
-        text-transform: uppercase;
-    }
+.maintenance-table th {
+    padding: 0.55rem 0.8rem;
+    color: var(--text-muted);
+    text-align: left;
+    white-space: normal;
+    overflow-wrap: anywhere;
+    vertical-align: bottom;
+    border-bottom: 1px solid var(--border-medium);
+    font-size: 0.7rem;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+}
 
-    .maintenance-table td {
-        padding: .85rem .8rem;
-        vertical-align: middle;
-        border-bottom: 1px solid var(--border-subtle);
-        font-size: .88rem;
-        font-variant-numeric: tabular-nums;
-        overflow: hidden;
-    }
+.maintenance-table td {
+    padding: 0.85rem 0.8rem;
+    vertical-align: middle;
+    border-bottom: 1px solid var(--border-subtle);
+    font-size: 0.88rem;
+    font-variant-numeric: tabular-nums;
+    overflow: hidden;
+}
 
-    .maintenance-table tbody tr:last-child td {
-        border-bottom: 0;
-    }
+.maintenance-table tbody tr:last-child td {
+    border-bottom: 0;
+}
 
-    .maintenance-table tbody tr {
-        transition: background .15s ease, transform .15s ease;
-    }
+.maintenance-table tbody tr {
+    transition:
+        background 0.15s ease,
+        transform 0.15s ease;
+}
 
-        .maintenance-table tbody tr:hover {
-            background: var(--bg-surface);
-            transform: translateX(2px);
-        }
+.maintenance-table tbody tr:hover {
+    background: var(--bg-surface);
+    transform: translateX(2px);
+}
 
 .maintenance-overdue-row {
     background: color-mix(in srgb, var(--status-danger) 5%, transparent);
@@ -457,7 +479,7 @@ html:not([data-theme="light"]) .maintenance-page {
     max-width: 100%;
     overflow: hidden;
     color: var(--text-muted);
-    font-size: .8rem;
+    font-size: 0.8rem;
     text-overflow: ellipsis;
     white-space: nowrap;
 }
@@ -477,9 +499,9 @@ html:not([data-theme="light"]) .maintenance-page {
 
 .maintenance-row-chevron {
     display: inline-block;
-    margin-left: .55rem;
+    margin-left: 0.55rem;
     color: var(--text-muted);
-    font-size: .76rem;
+    font-size: 0.76rem;
 }
 
 /* Priority / Status */
@@ -490,87 +512,90 @@ html:not([data-theme="light"]) .maintenance-page {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    gap: .25rem;
-    padding: .18rem .65rem;
+    gap: 0.25rem;
+    padding: 0.18rem 0.65rem;
     border: 1px solid color-mix(in srgb, currentColor 28%, transparent);
     border-radius: var(--radius-pill);
-    font-size: .76rem;
+    font-size: 0.76rem;
     font-weight: 550;
     white-space: nowrap;
 }
 
 .priority-critical {
     color: var(--status-danger);
-    background: rgba(248, 113, 113, .14);
+    background: rgba(248, 113, 113, 0.14);
 }
 
 .priority-low {
     color: #94a3b8;
-    background: rgba(148, 163, 184, .12);
+    background: rgba(148, 163, 184, 0.12);
 }
 
 .priority-medium {
     color: var(--status-info);
-    background: rgba(96, 165, 250, .14);
+    background: rgba(96, 165, 250, 0.14);
 }
 
 .priority-high {
     color: var(--status-warning);
-    background: rgba(251, 191, 36, .14);
+    background: rgba(251, 191, 36, 0.14);
 }
 
 .maintenance-overdue-badge {
-    margin-left: .5rem;
+    margin-left: 0.5rem;
     color: var(--status-danger);
-    background: rgba(248, 113, 113, .14);
+    background: rgba(248, 113, 113, 0.14);
 }
 
 /* Status variants */
 
 .maintenance-status.open {
     color: var(--status-info);
-    background: rgba(96, 165, 250, .14);
+    background: rgba(96, 165, 250, 0.14);
 }
 
 .maintenance-status.in-progress {
     color: var(--status-warning);
-    background: rgba(251, 191, 36, .14);
+    background: rgba(251, 191, 36, 0.14);
 }
 
 .maintenance-status.completed {
     color: #5eead4;
-    background: rgba(45, 212, 191, .14);
+    background: rgba(45, 212, 191, 0.14);
 }
 
 .maintenance-status.canceled {
     color: var(--status-danger);
-    background: rgba(248, 113, 113, .14);
+    background: rgba(248, 113, 113, 0.14);
 }
 
 /* Complete button */
 
 .maintenance-complete-button {
-    padding: .4rem .8rem;
+    padding: 0.4rem 0.8rem;
     color: var(--text-primary);
     border: 1px solid var(--border-medium);
     border-radius: var(--radius-button);
     background: var(--bg-surface);
     font: inherit;
-    font-size: .8rem;
+    font-size: 0.8rem;
     cursor: pointer;
-    transition: background .15s ease, color .15s ease, border-color .15s ease;
+    transition:
+        background 0.15s ease,
+        color 0.15s ease,
+        border-color 0.15s ease;
 }
 
-    .maintenance-complete-button:hover:not(:disabled) {
-        color: var(--accent);
-        border-color: var(--accent-border);
-        background: var(--accent-bg);
-    }
+.maintenance-complete-button:hover:not(:disabled) {
+    color: var(--accent);
+    border-color: var(--accent-border);
+    background: var(--accent-bg);
+}
 
-    .maintenance-complete-button:disabled {
-        cursor: not-allowed;
-        opacity: .45;
-    }
+.maintenance-complete-button:disabled {
+    cursor: not-allowed;
+    opacity: 0.45;
+}
 
 /* Pagination */
 
@@ -579,49 +604,50 @@ html:not([data-theme="light"]) .maintenance-page {
     align-items: center;
     justify-content: space-between;
     flex-wrap: wrap;
-    gap: .75rem;
+    gap: 0.75rem;
     padding-top: 1rem;
     color: var(--text-muted);
-    font-size: .8rem;
+    font-size: 0.8rem;
 }
 
 .maintenance-pages {
     display: flex;
     align-items: center;
-    gap: .5rem;
+    gap: 0.5rem;
 }
 
 .maintenance-pagination button {
     height: 2.45rem;
-    padding: 0 .8rem;
+    padding: 0 0.8rem;
     color: var(--text-primary);
     border: 1px solid var(--border-medium);
-    border-radius: .55rem;
+    border-radius: 0.55rem;
     background: var(--bg-surface-strong);
     font: inherit;
-    font-size: .82rem;
+    font-size: 0.82rem;
     font-weight: 600;
     cursor: pointer;
-    transition: border-color .16s ease, background .16s ease;
+    transition:
+        border-color 0.16s ease,
+        background 0.16s ease;
 }
 
-    .maintenance-pagination button:hover:not(:disabled) {
-        border-color: var(--accent-border);
-        background: var(--accent-bg);
-    }
+.maintenance-pagination button:hover:not(:disabled) {
+    border-color: var(--accent-border);
+    background: var(--accent-bg);
+}
 
-    .maintenance-pagination button:disabled {
-        cursor: not-allowed;
-        opacity: .45;
-    }
+.maintenance-pagination button:disabled {
+    cursor: not-allowed;
+    opacity: 0.45;
+}
 
 /* Forms */
 
-
-    .maintenance-form-card h2 {
-        margin: 0;
-        font-size: 1.05rem;
-    }
+.maintenance-form-card h2 {
+    margin: 0;
+    font-size: 1.05rem;
+}
 
 .maintenance-form-grid {
     display: grid;
@@ -631,43 +657,45 @@ html:not([data-theme="light"]) .maintenance-page {
     margin-bottom: 1rem;
 }
 
-    .maintenance-form-grid input,
-    .maintenance-form-grid select,
-    .maintenance-form-grid textarea {
-        width: 100%;
-        padding: .7rem .85rem;
-        color: var(--text-primary);
-        border: 1px solid var(--border-medium);
-        border-radius: var(--radius-control);
-        background: var(--control-surface);
-        font: inherit;
-        font-size: .88rem;
-        transition: border-color .16s ease, box-shadow .16s ease;
-    }
+.maintenance-form-grid input,
+.maintenance-form-grid select,
+.maintenance-form-grid textarea {
+    width: 100%;
+    padding: 0.7rem 0.85rem;
+    color: var(--text-primary);
+    border: 1px solid var(--border-medium);
+    border-radius: var(--radius-control);
+    background: var(--control-surface);
+    font: inherit;
+    font-size: 0.88rem;
+    transition:
+        border-color 0.16s ease,
+        box-shadow 0.16s ease;
+}
 
-    .maintenance-form-grid input,
-    .maintenance-form-grid select {
-        height: var(--control-height);
-    }
+.maintenance-form-grid input,
+.maintenance-form-grid select {
+    height: var(--control-height);
+}
 
-    .maintenance-form-grid textarea {
-        min-height: 7rem;
-        resize: vertical;
-    }
+.maintenance-form-grid textarea {
+    min-height: 7rem;
+    resize: vertical;
+}
 
-        .maintenance-form-grid input:hover,
-        .maintenance-form-grid select:hover,
-        .maintenance-form-grid textarea:hover {
-            border-color: var(--border-strong-hover);
-        }
+.maintenance-form-grid input:hover,
+.maintenance-form-grid select:hover,
+.maintenance-form-grid textarea:hover {
+    border-color: var(--border-strong-hover);
+}
 
-        .maintenance-form-grid input:focus,
-        .maintenance-form-grid select:focus,
-        .maintenance-form-grid textarea:focus {
-            border-color: var(--accent);
-            outline: 0;
-            box-shadow: var(--focus-ring);
-        }
+.maintenance-form-grid input:focus,
+.maintenance-form-grid select:focus,
+.maintenance-form-grid textarea:focus {
+    border-color: var(--accent);
+    outline: 0;
+    box-shadow: var(--focus-ring);
+}
 
 .maintenance-inline-error {
     margin-bottom: 1rem;
@@ -676,56 +704,56 @@ html:not([data-theme="light"]) .maintenance-page {
 
 .maintenance-form-actions {
     display: flex;
-    gap: .5rem;
+    gap: 0.5rem;
 }
 
 /* Light theme */
 
 html[data-theme="light"] .maintenance-status.open {
     color: var(--status-info-strong);
-    background: rgba(37, 99, 235, .12);
+    background: rgba(37, 99, 235, 0.12);
 }
 
 html[data-theme="light"] .maintenance-status.in-progress {
     color: var(--status-warning-strong);
-    background: rgba(180, 83, 9, .14);
+    background: rgba(180, 83, 9, 0.14);
 }
 
 html[data-theme="light"] .maintenance-status.completed {
     color: var(--status-success-strong);
-    background: rgba(15, 118, 110, .14);
+    background: rgba(15, 118, 110, 0.14);
 }
 
 html[data-theme="light"] .maintenance-status.canceled {
     color: var(--status-danger-strong);
-    background: rgba(185, 28, 28, .1);
+    background: rgba(185, 28, 28, 0.1);
 }
 
 html[data-theme="light"] .priority-low {
     color: #475569;
-    background: rgba(71, 85, 105, .1);
+    background: rgba(71, 85, 105, 0.1);
 }
 
 html[data-theme="light"] .priority-medium {
     color: var(--status-info-strong);
-    background: rgba(37, 99, 235, .12);
+    background: rgba(37, 99, 235, 0.12);
 }
 
 html[data-theme="light"] .priority-high {
     color: var(--status-warning-strong);
-    background: rgba(180, 83, 9, .12);
+    background: rgba(180, 83, 9, 0.12);
 }
 
 html[data-theme="light"] .priority-critical,
 html[data-theme="light"] .maintenance-overdue-badge {
     color: var(--status-danger-strong);
-    background: rgba(185, 28, 28, .1);
+    background: rgba(185, 28, 28, 0.1);
 }
 
 html[data-theme="light"] .maintenance-validation,
 html[data-theme="light"] .maintenance-field-errors {
-    border-color: rgba(185, 28, 28, .3);
-    background: rgba(185, 28, 28, .08);
+    border-color: rgba(185, 28, 28, 0.3);
+    background: rgba(185, 28, 28, 0.08);
 }
 
 html[data-theme="light"] .filter-field > input,
@@ -735,7 +763,6 @@ html[data-theme="light"] .maintenance-form-grid select,
 html[data-theme="light"] .maintenance-form-grid textarea {
     color-scheme: light;
 }
-
 
 /* Reduced motion */
 
@@ -752,9 +779,9 @@ html[data-theme="light"] .maintenance-form-grid textarea {
         transition: none;
     }
 
-        .maintenance-table tbody tr:hover {
-            transform: none;
-        }
+    .maintenance-table tbody tr:hover {
+        transform: none;
+    }
 }
 
 /* Responsive */
@@ -798,19 +825,26 @@ html[data-theme="light"] .maintenance-form-grid textarea {
     }
 
     .maintenance-table th,
-    .maintenance-table td { padding: .7rem .45rem; }
+    .maintenance-table td {
+        padding: 0.7rem 0.45rem;
+    }
 
-    .maintenance-table .col-vessel { display: none; }
+    .maintenance-table .col-vessel {
+        display: none;
+    }
 
-    .maintenance-table .col-title { width: 30%; }
+    .maintenance-table .col-title {
+        width: 30%;
+    }
 
-    .maintenance-description { max-width: 100%; }
+    .maintenance-description {
+        max-width: 100%;
+    }
 
     .maintenance-pagination {
         align-items: flex-start;
         flex-direction: column;
     }
-    
 }
 .maintenance-form-card {
     width: fit-content;
@@ -823,7 +857,11 @@ html[data-theme="light"] .maintenance-form-grid textarea {
     padding: 1.35rem;
     border: 1px solid var(--border-medium);
     border-radius: var(--radius-card);
-    background: linear-gradient(145deg, var(--bg-surface-strong), var(--bg-surface));
+    background: linear-gradient(
+        145deg,
+        var(--bg-surface-strong),
+        var(--bg-surface)
+    );
     box-shadow: var(--card-shadow);
 }
 .maintenance-modal-backdrop {
@@ -834,19 +872,19 @@ html[data-theme="light"] .maintenance-form-grid textarea {
     place-items: center;
     padding: 4.75rem 1.25rem 1.5rem;
     overflow-y: auto;
-    background: rgba(2, 6, 23, .48);
+    background: rgba(2, 6, 23, 0.48);
     backdrop-filter: blur(3px);
     -webkit-backdrop-filter: blur(3px);
 }
 
 html[data-theme="light"] .maintenance-modal-backdrop {
-    background: rgba(15, 23, 42, .24);
+    background: rgba(15, 23, 42, 0.24);
 }
 
 .maintenance-tabs {
     display: flex;
     flex-wrap: wrap;
-    gap: .6rem;
+    gap: 0.6rem;
     margin-bottom: 1rem;
 }
 
@@ -856,18 +894,21 @@ html[data-theme="light"] .maintenance-modal-backdrop {
     min-height: 2.65rem;
     align-items: center;
     justify-content: center;
-    padding: .6rem .9rem;
+    padding: 0.6rem 0.9rem;
     color: var(--apply-text);
     border: 1px solid var(--apply-border);
     border-radius: var(--radius-button);
     background: var(--apply-surface);
     box-shadow: none;
     font: inherit;
-    font-size: .86rem;
+    font-size: 0.86rem;
     font-weight: 600;
-    letter-spacing: .01em;
+    letter-spacing: 0.01em;
     cursor: pointer;
-    transition: border-color .16s ease, background .16s ease, color .16s ease;
+    transition:
+        border-color 0.16s ease,
+        background 0.16s ease,
+        color 0.16s ease;
 }
 
 .maintenance-tab:hover {
@@ -885,16 +926,16 @@ html[data-theme="light"] .maintenance-modal-backdrop {
     color: var(--accent);
     border-color: var(--accent);
     background: var(--accent-bg);
-    box-shadow: 0 0 0 .18rem var(--accent-bg);
+    box-shadow: 0 0 0 0.18rem var(--accent-bg);
 }
 
 .maintenance-checkbox {
     display: inline-flex;
     align-items: center;
-    gap: .55rem;
+    gap: 0.55rem;
     height: var(--control-height);
     color: var(--text-secondary);
-    font-size: .88rem;
+    font-size: 0.88rem;
     font-weight: 500;
     letter-spacing: normal;
     text-transform: none;
@@ -907,7 +948,7 @@ html[data-theme="light"] .maintenance-modal-backdrop {
     height: 1.1rem;
     padding: 0;
     border: 1px solid var(--border-medium);
-    border-radius: .3rem;
+    border-radius: 0.3rem;
     background-color: var(--control-surface);
     accent-color: var(--accent);
     box-shadow: none;
@@ -915,7 +956,7 @@ html[data-theme="light"] .maintenance-modal-backdrop {
 }
 
 .filter-field .maintenance-checkbox input[type="checkbox"]:focus {
-    box-shadow: 0 0 0 .18rem var(--accent-bg);
+    box-shadow: 0 0 0 0.18rem var(--accent-bg);
 }
 .maintenance-selected-row {
     background: var(--maintenance-selected-bg, #eff6ff);
@@ -929,27 +970,30 @@ html[data-theme="light"] .maintenance-modal-backdrop {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    padding: .4rem .8rem;
+    padding: 0.4rem 0.8rem;
     color: var(--text-primary);
     border: 1px solid var(--border-medium);
     border-radius: var(--radius-button);
     background: var(--bg-surface);
     font: inherit;
-    font-size: .8rem;
+    font-size: 0.8rem;
     cursor: pointer;
-    transition: background .15s ease, color .15s ease, border-color .15s ease;
+    transition:
+        background 0.15s ease,
+        color 0.15s ease,
+        border-color 0.15s ease;
 }
 
-    .maintenance-usage-button:hover:not(:disabled) {
-        color: var(--accent);
-        border-color: var(--accent-border);
-        background: var(--accent-bg);
-    }
+.maintenance-usage-button:hover:not(:disabled) {
+    color: var(--accent);
+    border-color: var(--accent-border);
+    background: var(--accent-bg);
+}
 
-    .maintenance-usage-button:disabled {
-        cursor: not-allowed;
-        opacity: .45;
-    }
+.maintenance-usage-button:disabled {
+    cursor: not-allowed;
+    opacity: 0.45;
+}
 
 .maintenance-low-stock-badge {
     margin-left: 0.5rem;
@@ -962,15 +1006,19 @@ html[data-theme="light"] .maintenance-modal-backdrop {
 }
 
 .maintenance-modal-backdrop .maintenance-form-card {
-    border: 1px solid rgba(148, 163, 184, .25);
+    border: 1px solid rgba(148, 163, 184, 0.25);
     background: #172033;
-    box-shadow: 0 28px 70px rgba(0, 0, 0, .45), 0 0 0 1px rgba(255, 255, 255, .06) inset;
+    box-shadow:
+        0 28px 70px rgba(0, 0, 0, 0.45),
+        0 0 0 1px rgba(255, 255, 255, 0.06) inset;
 }
 
 html[data-theme="light"] .maintenance-modal-backdrop .maintenance-form-card {
-    border-color: rgba(148, 163, 184, .42);
+    border-color: rgba(148, 163, 184, 0.42);
     background: #f8fafc;
-    box-shadow: 0 28px 70px rgba(15, 23, 42, .24), 0 0 0 1px rgba(255, 255, 255, .7) inset;
+    box-shadow:
+        0 28px 70px rgba(15, 23, 42, 0.24),
+        0 0 0 1px rgba(255, 255, 255, 0.7) inset;
 }
 .maintenance-header-actions {
     display: flex;
@@ -1000,13 +1048,17 @@ html[data-theme="light"] .maintenance-modal-backdrop .maintenance-form-card {
     padding: 1.15rem 1.35rem;
     border: 1px solid var(--border-medium);
     border-radius: var(--radius-card);
-    background: linear-gradient(145deg, var(--bg-surface-strong), var(--bg-surface));
+    background: linear-gradient(
+        145deg,
+        var(--bg-surface-strong),
+        var(--bg-surface)
+    );
     box-shadow: var(--card-shadow);
 }
 
 .maintenance-page ::deep .maintenance-summary-card strong {
     display: block;
-    margin: .3rem 0 0;
+    margin: 0.3rem 0 0;
     font-size: 2.1rem;
     font-weight: 650;
     line-height: 1.1;
@@ -1016,9 +1068,9 @@ html[data-theme="light"] .maintenance-modal-backdrop .maintenance-form-card {
 .maintenance-page ::deep .maintenance-summary-card small {
     margin: 0;
     color: var(--text-muted);
-    font-size: .72rem;
+    font-size: 0.72rem;
     font-weight: 700;
-    letter-spacing: .1em;
+    letter-spacing: 0.1em;
     text-transform: uppercase;
 }
 
@@ -1032,7 +1084,7 @@ html[data-theme="light"] .maintenance-modal-backdrop .maintenance-form-card {
     border: 1px solid var(--accent-border);
     border-radius: var(--radius-control);
     background: var(--accent-bg);
-    font-size: .9rem;
+    font-size: 0.9rem;
 }
 
 .maintenance-page ::deep .summary-icon-blue {
@@ -1042,8 +1094,8 @@ html[data-theme="light"] .maintenance-modal-backdrop .maintenance-form-card {
 
 .maintenance-page ::deep .summary-icon-amber {
     color: var(--status-warning);
-    border-color: rgba(251, 191, 36, .25);
-    background: rgba(251, 191, 36, .14);
+    border-color: rgba(251, 191, 36, 0.25);
+    background: rgba(251, 191, 36, 0.14);
 }
 
 .maintenance-page ::deep .maintenance-filters {
@@ -1052,19 +1104,23 @@ html[data-theme="light"] .maintenance-modal-backdrop .maintenance-form-card {
     display: flex;
     align-items: flex-end;
     flex-wrap: wrap;
-    gap: .75rem;
+    gap: 0.75rem;
     margin-bottom: 1rem;
     padding: 1.1rem 1.25rem;
     border: 1px solid var(--border-medium);
     border-radius: var(--radius-card);
-    background: linear-gradient(145deg, var(--bg-surface-strong), var(--bg-surface));
+    background: linear-gradient(
+        145deg,
+        var(--bg-surface-strong),
+        var(--bg-surface)
+    );
     box-shadow: var(--card-shadow);
 }
 
 .maintenance-page ::deep .filter-field {
     display: flex;
     flex-direction: column;
-    gap: .4rem;
+    gap: 0.4rem;
 }
 
 .maintenance-page ::deep .filter-field-wide {
@@ -1082,9 +1138,9 @@ html[data-theme="light"] .maintenance-modal-backdrop .maintenance-form-card {
 
 .maintenance-page ::deep .filter-field label {
     color: var(--text-muted);
-    font-size: .7rem;
+    font-size: 0.7rem;
     font-weight: 700;
-    letter-spacing: .1em;
+    letter-spacing: 0.1em;
     text-transform: uppercase;
 }
 
@@ -1094,15 +1150,18 @@ html[data-theme="light"] .maintenance-modal-backdrop .maintenance-form-card {
 .maintenance-page ::deep .procurement-line-table select {
     min-width: 9.5rem;
     height: var(--control-height);
-    padding: 0 .85rem;
+    padding: 0 0.85rem;
     color: var(--text-primary);
     border: 1px solid var(--border-medium);
     border-radius: var(--radius-control);
     background-color: var(--control-surface);
     font: inherit;
-    font-size: .88rem;
+    font-size: 0.88rem;
     color-scheme: dark;
-    transition: border-color .16s ease, box-shadow .16s ease, background-color .16s ease;
+    transition:
+        border-color 0.16s ease,
+        box-shadow 0.16s ease,
+        background-color 0.16s ease;
 }
 
 .maintenance-page ::deep .filter-field > select,
@@ -1111,18 +1170,24 @@ html[data-theme="light"] .maintenance-modal-backdrop .maintenance-form-card {
     padding-right: 2.5rem;
     background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 16 16' fill='none'%3E%3Cpath d='m4 6 4 4 4-4' stroke='%2394a3b8' stroke-width='1.7' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
     background-repeat: no-repeat;
-    background-position: right .72rem center;
+    background-position: right 0.72rem center;
     background-size: 1rem;
     cursor: pointer;
 }
 
-.maintenance-page ::deep .filter-field > input::-webkit-calendar-picker-indicator {
+.maintenance-page
+    ::deep
+    .filter-field
+    > input::-webkit-calendar-picker-indicator {
     cursor: pointer;
-    opacity: .55;
-    transition: opacity .16s ease;
+    opacity: 0.55;
+    transition: opacity 0.16s ease;
 }
 
-.maintenance-page ::deep .filter-field > input:hover::-webkit-calendar-picker-indicator {
+.maintenance-page
+    ::deep
+    .filter-field
+    > input:hover::-webkit-calendar-picker-indicator {
     opacity: 1;
 }
 
@@ -1137,12 +1202,15 @@ html[data-theme="light"] .maintenance-modal-backdrop .maintenance-form-card {
     border-radius: var(--radius-button);
     background: var(--apply-surface);
     font: inherit;
-    font-size: .88rem;
+    font-size: 0.88rem;
     font-weight: 600;
     text-decoration: none;
     cursor: pointer;
     box-shadow: var(--button-shadow);
-    transition: border-color .16s ease, background .16s ease, transform .16s ease;
+    transition:
+        border-color 0.16s ease,
+        background 0.16s ease,
+        transform 0.16s ease;
 }
 
 .maintenance-page ::deep .maintenance-button:hover:not(:disabled) {
@@ -1153,7 +1221,7 @@ html[data-theme="light"] .maintenance-modal-backdrop .maintenance-form-card {
 
 .maintenance-page ::deep .maintenance-button:disabled {
     cursor: not-allowed;
-    opacity: .5;
+    opacity: 0.5;
     box-shadow: none;
 }
 
@@ -1162,17 +1230,19 @@ html[data-theme="light"] .maintenance-modal-backdrop .maintenance-form-card {
     align-items: center;
     justify-content: center;
     height: var(--control-height);
-    padding: 0 .9rem;
+    padding: 0 0.9rem;
     color: var(--accent);
     border: 1px solid transparent;
     border-radius: var(--radius-button);
     background: none;
     font: inherit;
-    font-size: .88rem;
+    font-size: 0.88rem;
     font-weight: 600;
     text-decoration: none;
     cursor: pointer;
-    transition: background .15s ease, border-color .15s ease;
+    transition:
+        background 0.15s ease,
+        border-color 0.15s ease;
 }
 
 .maintenance-page ::deep .maintenance-reset:hover:not(:disabled) {
@@ -1182,7 +1252,7 @@ html[data-theme="light"] .maintenance-modal-backdrop .maintenance-form-card {
 
 .maintenance-page ::deep .maintenance-reset:disabled {
     cursor: not-allowed;
-    opacity: .45;
+    opacity: 0.45;
 }
 
 .maintenance-page ::deep .maintenance-button:focus-visible,
@@ -1190,15 +1260,15 @@ html[data-theme="light"] .maintenance-modal-backdrop .maintenance-form-card {
 .maintenance-page ::deep .maintenance-pagination button:focus-visible {
     outline: 2px solid var(--accent);
     outline-offset: 2px;
-    border-radius: .4rem;
+    border-radius: 0.4rem;
 }
 
 .maintenance-page ::deep .maintenance-field-errors {
     margin-bottom: 1rem;
-    padding: .9rem 1.1rem;
-    border: 1px solid rgba(248, 113, 113, .35);
-    border-radius: .75rem;
-    background: rgba(127, 29, 29, .18);
+    padding: 0.9rem 1.1rem;
+    border: 1px solid rgba(248, 113, 113, 0.35);
+    border-radius: 0.75rem;
+    background: rgba(127, 29, 29, 0.18);
 }
 
 .maintenance-page ::deep .maintenance-inline-error {
@@ -1208,18 +1278,22 @@ html[data-theme="light"] .maintenance-modal-backdrop .maintenance-form-card {
 
 .maintenance-page ::deep .maintenance-success {
     margin-bottom: 1rem;
-    padding: .9rem 1.1rem;
+    padding: 0.9rem 1.1rem;
     color: var(--text-primary);
-    border: 1px solid rgba(52, 211, 153, .25);
-    border-radius: .75rem;
-    background: rgba(6, 78, 59, .15);
+    border: 1px solid rgba(52, 211, 153, 0.25);
+    border-radius: 0.75rem;
+    background: rgba(6, 78, 59, 0.15);
 }
 
 .maintenance-page ::deep .maintenance-card {
     padding: 1.35rem;
     border: 1px solid var(--border-medium);
     border-radius: var(--radius-card);
-    background: linear-gradient(145deg, var(--bg-surface-strong), var(--bg-surface));
+    background: linear-gradient(
+        145deg,
+        var(--bg-surface-strong),
+        var(--bg-surface)
+    );
     box-shadow: var(--card-shadow);
 }
 
@@ -1237,9 +1311,9 @@ html[data-theme="light"] .maintenance-modal-backdrop .maintenance-form-card {
 }
 
 .maintenance-page ::deep .maintenance-card-heading p {
-    margin: .4rem 0 0;
+    margin: 0.4rem 0 0;
     color: var(--text-secondary);
-    font-size: .85rem;
+    font-size: 0.85rem;
 }
 
 .maintenance-page ::deep .maintenance-card-heading-actions {
@@ -1259,24 +1333,24 @@ html[data-theme="light"] .maintenance-modal-backdrop .maintenance-form-card {
 }
 
 .maintenance-page ::deep .maintenance-table th {
-    padding: .55rem .8rem;
+    padding: 0.55rem 0.8rem;
     color: var(--text-muted);
     text-align: left;
     white-space: normal;
     overflow-wrap: anywhere;
     vertical-align: bottom;
     border-bottom: 1px solid var(--border-medium);
-    font-size: .7rem;
+    font-size: 0.7rem;
     font-weight: 700;
-    letter-spacing: .1em;
+    letter-spacing: 0.1em;
     text-transform: uppercase;
 }
 
 .maintenance-page ::deep .maintenance-table td {
-    padding: .85rem .8rem;
+    padding: 0.85rem 0.8rem;
     vertical-align: middle;
     border-bottom: 1px solid var(--border-subtle);
-    font-size: .88rem;
+    font-size: 0.88rem;
     font-variant-numeric: tabular-nums;
     overflow: hidden;
 }
@@ -1286,7 +1360,9 @@ html[data-theme="light"] .maintenance-modal-backdrop .maintenance-form-card {
 }
 
 .maintenance-page ::deep .maintenance-table tbody tr {
-    transition: background .15s ease, transform .15s ease;
+    transition:
+        background 0.15s ease,
+        transform 0.15s ease;
 }
 
 .maintenance-page ::deep .maintenance-table tbody tr:hover {
@@ -1345,15 +1421,18 @@ html[data-theme="light"] .maintenance-modal-backdrop .maintenance-form-card {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    padding: .4rem .8rem;
+    padding: 0.4rem 0.8rem;
     color: var(--text-primary);
     border: 1px solid var(--border-medium);
     border-radius: var(--radius-button);
     background: var(--bg-surface);
     font: inherit;
-    font-size: .8rem;
+    font-size: 0.8rem;
     cursor: pointer;
-    transition: background .15s ease, color .15s ease, border-color .15s ease;
+    transition:
+        background 0.15s ease,
+        color 0.15s ease,
+        border-color 0.15s ease;
 }
 
 .maintenance-page ::deep .maintenance-usage-button:hover:not(:disabled) {
@@ -1367,30 +1446,32 @@ html[data-theme="light"] .maintenance-modal-backdrop .maintenance-form-card {
     align-items: center;
     justify-content: space-between;
     flex-wrap: wrap;
-    gap: .75rem;
+    gap: 0.75rem;
     padding-top: 1rem;
     color: var(--text-muted);
-    font-size: .8rem;
+    font-size: 0.8rem;
 }
 
 .maintenance-page ::deep .maintenance-pages {
     display: flex;
     align-items: center;
-    gap: .5rem;
+    gap: 0.5rem;
 }
 
 .maintenance-page ::deep .maintenance-pagination button {
     height: 2.45rem;
-    padding: 0 .8rem;
+    padding: 0 0.8rem;
     color: var(--text-primary);
     border: 1px solid var(--border-medium);
-    border-radius: .55rem;
+    border-radius: 0.55rem;
     background: var(--bg-surface-strong);
     font: inherit;
-    font-size: .82rem;
+    font-size: 0.82rem;
     font-weight: 600;
     cursor: pointer;
-    transition: border-color .16s ease, background .16s ease;
+    transition:
+        border-color 0.16s ease,
+        background 0.16s ease;
 }
 
 .maintenance-page ::deep .maintenance-pagination button:hover:not(:disabled) {
@@ -1400,7 +1481,7 @@ html[data-theme="light"] .maintenance-modal-backdrop .maintenance-form-card {
 
 .maintenance-page ::deep .maintenance-pagination button:disabled {
     cursor: not-allowed;
-    opacity: .45;
+    opacity: 0.45;
 }
 
 .maintenance-page ::deep .maintenance-modal-backdrop {
@@ -1411,7 +1492,7 @@ html[data-theme="light"] .maintenance-modal-backdrop .maintenance-form-card {
     place-items: center;
     padding: 4.75rem 1.25rem 1.5rem;
     overflow-y: auto;
-    background: rgba(2, 6, 23, .48);
+    background: rgba(2, 6, 23, 0.48);
     backdrop-filter: blur(3px);
     -webkit-backdrop-filter: blur(3px);
 }
@@ -1423,10 +1504,12 @@ html[data-theme="light"] .maintenance-modal-backdrop .maintenance-form-card {
     max-height: calc(100vh - 7rem);
     overflow-y: auto;
     padding: 1.4rem;
-    border: 1px solid rgba(148, 163, 184, .25);
+    border: 1px solid rgba(148, 163, 184, 0.25);
     border-radius: var(--radius-card);
     background: #172033;
-    box-shadow: 0 28px 70px rgba(0, 0, 0, .45), 0 0 0 1px rgba(255, 255, 255, .06) inset;
+    box-shadow:
+        0 28px 70px rgba(0, 0, 0, 0.45),
+        0 0 0 1px rgba(255, 255, 255, 0.06) inset;
 }
 
 .maintenance-page ::deep .maintenance-form-card h2 {
@@ -1471,24 +1554,24 @@ html[data-theme="light"] .maintenance-modal-backdrop .maintenance-form-card {
 
 .maintenance-page ::deep .maintenance-form-actions {
     display: flex;
-    gap: .5rem;
+    gap: 0.5rem;
 }
 
 .maintenance-page ::deep .schedules-due-badge {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    padding: .18rem .65rem;
+    padding: 0.18rem 0.65rem;
     border: 1px solid color-mix(in srgb, currentColor 28%, transparent);
     border-radius: var(--radius-pill);
-    font-size: .76rem;
+    font-size: 0.76rem;
     font-weight: 550;
     white-space: nowrap;
 }
 
 .maintenance-page ::deep .schedules-due-overdue {
     color: var(--status-danger);
-    background: rgba(248, 113, 113, .14);
+    background: rgba(248, 113, 113, 0.14);
 }
 
 .maintenance-page ::deep .schedules-due-scheduled {
@@ -1498,37 +1581,37 @@ html[data-theme="light"] .maintenance-modal-backdrop .maintenance-form-card {
 
 .maintenance-page ::deep .schedules-due-hours {
     color: var(--text-muted);
-    background: rgba(148, 163, 184, .14);
+    background: rgba(148, 163, 184, 0.14);
 }
 
 .maintenance-page ::deep .schedules-equipment-picker {
     margin-bottom: 1rem;
-    padding: .9rem 1.1rem;
+    padding: 0.9rem 1.1rem;
     border: 1px solid var(--border-medium);
-    border-radius: .75rem;
+    border-radius: 0.75rem;
     background: var(--bg-surface);
 }
 
 .maintenance-page ::deep .schedules-equipment-label {
     display: block;
-    margin-bottom: .5rem;
+    margin-bottom: 0.5rem;
     color: var(--text-muted);
-    font-size: .7rem;
+    font-size: 0.7rem;
     font-weight: 700;
-    letter-spacing: .1em;
+    letter-spacing: 0.1em;
     text-transform: uppercase;
 }
 
 .maintenance-page ::deep .schedules-equipment-hint {
     margin: 0;
     color: var(--text-muted);
-    font-size: .85rem;
+    font-size: 0.85rem;
 }
 
 .maintenance-page ::deep .schedules-equipment-options {
     display: flex;
     flex-direction: column;
-    gap: .4rem;
+    gap: 0.4rem;
     max-height: 12rem;
     margin: 0;
     padding: 0;
@@ -1539,8 +1622,8 @@ html[data-theme="light"] .maintenance-modal-backdrop .maintenance-form-card {
 .maintenance-page ::deep .schedules-equipment-option label {
     display: flex;
     align-items: center;
-    gap: .5rem;
-    font-size: .88rem;
+    gap: 0.5rem;
+    font-size: 0.88rem;
     cursor: pointer;
     color: var(--text-primary);
     letter-spacing: normal;
@@ -1550,27 +1633,27 @@ html[data-theme="light"] .maintenance-modal-backdrop .maintenance-form-card {
 
 .maintenance-page ::deep .schedules-equipment-category {
     color: var(--text-muted);
-    font-size: .8rem;
+    font-size: 0.8rem;
 }
 
 .maintenance-page ::deep .schedules-details-summary {
     display: grid;
     grid-template-columns: auto 1fr;
-    gap: .45rem 1rem;
+    gap: 0.45rem 1rem;
     margin: 1.15rem 0;
 }
 
 .maintenance-page ::deep .schedules-details-summary dt {
     color: var(--text-muted);
-    font-size: .72rem;
+    font-size: 0.72rem;
     font-weight: 700;
-    letter-spacing: .1em;
+    letter-spacing: 0.1em;
     text-transform: uppercase;
 }
 
 .maintenance-page ::deep .schedules-details-summary dd {
     margin: 0;
-    font-size: .9rem;
+    font-size: 0.9rem;
 }
 
 .maintenance-page ::deep .schedules-completion-form {
@@ -1582,9 +1665,9 @@ html[data-theme="light"] .maintenance-modal-backdrop .maintenance-form-card {
 .maintenance-page ::deep .schedules-completion-title {
     margin: 0;
     color: var(--text-secondary);
-    font-size: .78rem;
+    font-size: 0.78rem;
     font-weight: 700;
-    letter-spacing: .1em;
+    letter-spacing: 0.1em;
     text-transform: uppercase;
 }
 
@@ -1592,15 +1675,23 @@ html[data-theme="light"] .maintenance-modal-backdrop .maintenance-form-card {
     cursor: pointer;
 }
 
-.maintenance-board-card .maintenance-table-scroll { overflow-x: auto; }
-.maintenance-board-card .maintenance-table { min-width: 76rem; }
-.maintenance-board-card .maintenance-table .col-actions { width: 11.5rem; padding-right: .75rem; text-align: right; }
+.maintenance-board-card .maintenance-table-scroll {
+    overflow-x: auto;
+}
+.maintenance-board-card .maintenance-table {
+    min-width: 76rem;
+}
+.maintenance-board-card .maintenance-table .col-actions {
+    width: 11.5rem;
+    padding-right: 0.75rem;
+    text-align: right;
+}
 
 .maintenance-row-actions {
     display: flex;
     align-items: center;
     justify-content: flex-end;
-    gap: .6rem;
+    gap: 0.6rem;
     min-height: 2.4rem;
 }
 
@@ -1608,7 +1699,7 @@ html[data-theme="light"] .maintenance-modal-backdrop .maintenance-form-card {
     display: flex;
     flex-direction: column;
     align-items: stretch;
-    gap: .35rem;
+    gap: 0.35rem;
 }
 
 .maintenance-row-actions .maintenance-complete-button,
@@ -1618,16 +1709,14 @@ html[data-theme="light"] .maintenance-modal-backdrop .maintenance-form-card {
     white-space: nowrap;
 }
 
-.maintenance-row-actions .maintenance-row-chevron { margin-left: 0; }
+.maintenance-row-actions .maintenance-row-chevron {
+    margin-left: 0;
+}
 
 .maintenance-work-order-row:hover {
     background: color-mix(in srgb, var(--accent) 8%, var(--bg-surface));
     transform: none;
 }
-
-
-
-
 
 .maintenance-usage-modal {
     width: min(100%, 50rem);
@@ -1636,7 +1725,7 @@ html[data-theme="light"] .maintenance-modal-backdrop .maintenance-form-card {
 }
 
 .maintenance-usage-modal > h2 {
-    padding-bottom: .9rem;
+    padding-bottom: 0.9rem;
     border-bottom: 1px solid var(--border-subtle);
     font-size: 1.15rem;
 }
@@ -1645,20 +1734,29 @@ html[data-theme="light"] .maintenance-modal-backdrop .maintenance-form-card {
     display: grid;
     grid-template-columns: minmax(15rem, 1fr) auto auto;
     align-items: end;
-    gap: .75rem;
+    gap: 0.75rem;
     margin: 1rem 0;
-    padding: .95rem 1rem;
+    padding: 0.95rem 1rem;
     border: 1px solid var(--border-subtle);
     border-radius: var(--radius-control);
     background: color-mix(in srgb, var(--bg-surface-strong) 78%, transparent);
     box-shadow: none;
 }
 
-.maintenance-usage-search .filter-field-check { min-width: max-content; }
-.maintenance-usage-search .maintenance-button { min-width: 6.3rem; }
+.maintenance-usage-search .filter-field-check {
+    min-width: max-content;
+}
+.maintenance-usage-search .maintenance-button {
+    min-width: 6.3rem;
+}
 
-.maintenance-usage-table th { padding-top: .55rem; }
-.maintenance-usage-table td { padding-top: .7rem; padding-bottom: .7rem; }
+.maintenance-usage-table th {
+    padding-top: 0.55rem;
+}
+.maintenance-usage-table td {
+    padding-top: 0.7rem;
+    padding-bottom: 0.7rem;
+}
 
 .maintenance-usage-entry {
     margin-top: 1rem;
@@ -1669,7 +1767,7 @@ html[data-theme="light"] .maintenance-modal-backdrop .maintenance-form-card {
 }
 
 .maintenance-usage-entry .maintenance-form-grid {
-    grid-template-columns: minmax(0, 1fr) minmax(10rem, .45fr);
+    grid-template-columns: minmax(0, 1fr) minmax(10rem, 0.45fr);
     gap: 1rem;
 }
 
@@ -1677,11 +1775,11 @@ html[data-theme="light"] .maintenance-modal-backdrop .maintenance-form-card {
     display: flex;
     align-items: center;
     min-height: var(--control-height);
-    padding: 0 .85rem;
+    padding: 0 0.85rem;
     border: 1px solid var(--border-medium);
     border-radius: var(--radius-control);
     background: var(--control-surface);
-    font-size: .88rem;
+    font-size: 0.88rem;
 }
 
 .maintenance-usage-history {
@@ -1691,34 +1789,39 @@ html[data-theme="light"] .maintenance-modal-backdrop .maintenance-form-card {
 }
 
 .maintenance-usage-history h3 {
-    margin: 0 0 .7rem;
+    margin: 0 0 0.7rem;
     color: var(--text-secondary);
-    font-size: .74rem;
+    font-size: 0.74rem;
     font-weight: 700;
-    letter-spacing: .1em;
+    letter-spacing: 0.1em;
     text-transform: uppercase;
 }
 
-.maintenance-usage-close-actions { margin-top: 1.1rem; }
-
-@media (max-width: 760px) {
-    .maintenance-usage-modal { min-width: 0; }
-    .maintenance-usage-search,
-    .maintenance-usage-entry .maintenance-form-grid { grid-template-columns: minmax(0, 1fr); }
+.maintenance-usage-close-actions {
+    margin-top: 1.1rem;
 }
 
-
-    .maintenance-work-order-row:focus-visible {
-        outline: 2px solid var(--accent);
-        outline-offset: -2px;
+@media (max-width: 760px) {
+    .maintenance-usage-modal {
+        min-width: 0;
     }
-
-    .maintenance-work-order-row:hover .maintenance-row-chevron {
-        color: var(--accent);
+    .maintenance-usage-search,
+    .maintenance-usage-entry .maintenance-form-grid {
+        grid-template-columns: minmax(0, 1fr);
     }
+}
+
+.maintenance-work-order-row:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: -2px;
+}
+
+.maintenance-work-order-row:hover .maintenance-row-chevron {
+    color: var(--accent);
+}
 
 html[data-theme="light"] .maintenance-page ::deep .maintenance-modal-backdrop {
-    background: rgba(15, 23, 42, .24);
+    background: rgba(15, 23, 42, 0.24);
 }
 
 html[data-theme="light"] .maintenance-page ::deep .filter-field > input,
@@ -1727,9 +1830,11 @@ html[data-theme="light"] .maintenance-page ::deep .filter-field > select {
 }
 
 html[data-theme="light"] .maintenance-page ::deep .maintenance-form-card {
-    border-color: rgba(148, 163, 184, .42);
+    border-color: rgba(148, 163, 184, 0.42);
     background: #f8fafc;
-    box-shadow: 0 28px 70px rgba(15, 23, 42, .24), 0 0 0 1px rgba(255, 255, 255, .7) inset;
+    box-shadow:
+        0 28px 70px rgba(15, 23, 42, 0.24),
+        0 0 0 1px rgba(255, 255, 255, 0.7) inset;
 }
 
 @media (max-width: 900px) {
@@ -1777,7 +1882,7 @@ html[data-theme="light"] .maintenance-page ::deep .maintenance-form-card {
     height: 1.1rem;
     padding: 0;
     border: 1px solid var(--border-medium);
-    border-radius: .3rem;
+    border-radius: 0.3rem;
     background-color: var(--control-surface);
     accent-color: var(--accent);
     box-shadow: none;
@@ -1805,17 +1910,17 @@ html[data-theme="light"] .maintenance-page ::deep .maintenance-form-card {
 .maintenance-page ::deep .maintenance-toast {
     display: flex;
     align-items: center;
-    gap: .65rem;
+    gap: 0.65rem;
     margin-bottom: 1rem;
-    padding: .85rem 1.15rem;
+    padding: 0.85rem 1.15rem;
     color: var(--text-primary);
-    border: 1px solid rgba(52, 211, 153, .38);
+    border: 1px solid rgba(52, 211, 153, 0.38);
     border-radius: var(--radius-row);
-    background: rgba(6, 78, 59, .22);
+    background: rgba(6, 78, 59, 0.22);
     box-shadow: var(--card-shadow);
-    font-size: .9rem;
+    font-size: 0.9rem;
     font-weight: 550;
-    animation: maintenance-toast-in .18s ease-out;
+    animation: maintenance-toast-in 0.18s ease-out;
 }
 
 .maintenance-page ::deep .maintenance-toast .bi {
@@ -1824,14 +1929,14 @@ html[data-theme="light"] .maintenance-page ::deep .maintenance-form-card {
 }
 
 html[data-theme="light"] .maintenance-page ::deep .maintenance-toast {
-    border-color: rgba(5, 150, 105, .32);
-    background: rgba(209, 250, 229, .85);
+    border-color: rgba(5, 150, 105, 0.32);
+    background: rgba(209, 250, 229, 0.85);
 }
 
 @keyframes maintenance-toast-in {
     from {
         opacity: 0;
-        transform: translateY(-.35rem);
+        transform: translateY(-0.35rem);
     }
 
     to {
@@ -1842,15 +1947,15 @@ html[data-theme="light"] .maintenance-page ::deep .maintenance-toast {
 
 .maintenance-page ::deep .maintenance-field-errors strong {
     display: block;
-    margin-bottom: .5rem;
+    margin-bottom: 0.5rem;
     color: #fca5a5;
-    font-size: .84rem;
+    font-size: 0.84rem;
 }
 
 .maintenance-page ::deep .maintenance-field-errors ul {
     display: flex;
     flex-direction: column;
-    gap: .3rem;
+    gap: 0.3rem;
     margin: 0;
     padding: 0;
     list-style: none;
@@ -1859,17 +1964,17 @@ html[data-theme="light"] .maintenance-page ::deep .maintenance-toast {
 .maintenance-page ::deep .maintenance-field-errors li {
     display: flex;
     align-items: baseline;
-    gap: .55rem;
-    font-size: .86rem;
+    gap: 0.55rem;
+    font-size: 0.86rem;
 }
 
 .maintenance-page ::deep .maintenance-error-field {
     flex: 0 0 auto;
     min-width: 8.5rem;
     color: var(--text-muted);
-    font-size: .7rem;
+    font-size: 0.7rem;
     font-weight: 700;
-    letter-spacing: .1em;
+    letter-spacing: 0.1em;
     text-transform: uppercase;
 }
 
@@ -1894,7 +1999,7 @@ html[data-theme="light"] .maintenance-page ::deep .maintenance-toast {
     border: 1px solid var(--accent-border);
     border-radius: var(--radius-control);
     background: var(--accent-bg);
-    font-size: .9rem;
+    font-size: 0.9rem;
 }
 
 .maintenance-page ::deep .maintenance-page-indicator {
@@ -1908,11 +2013,11 @@ html[data-theme="light"] .maintenance-page ::deep .maintenance-toast {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    gap: .25rem;
-    padding: .18rem .65rem;
+    gap: 0.25rem;
+    padding: 0.18rem 0.65rem;
     border: 1px solid color-mix(in srgb, currentColor 28%, transparent);
     border-radius: var(--radius-pill);
-    font-size: .76rem;
+    font-size: 0.76rem;
     font-weight: 550;
     white-space: nowrap;
 }
@@ -1935,17 +2040,20 @@ html[data-theme="light"] .maintenance-page ::deep .maintenance-toast {
 .maintenance-page ::deep .filter-toggle {
     display: inline-flex;
     align-items: center;
-    gap: .5rem;
+    gap: 0.5rem;
     height: var(--control-height);
-    padding: 0 .95rem;
+    padding: 0 0.95rem;
     color: var(--text-secondary);
     border: 1px solid var(--border-medium);
     border-radius: var(--radius-control);
     background-color: var(--control-surface);
-    font-size: .84rem;
+    font-size: 0.84rem;
     white-space: nowrap;
     cursor: pointer;
-    transition: border-color .16s ease, color .16s ease, background-color .16s ease;
+    transition:
+        border-color 0.16s ease,
+        color 0.16s ease,
+        background-color 0.16s ease;
 }
 
 .maintenance-page ::deep .filter-toggle:hover {
@@ -1976,42 +2084,45 @@ html[data-theme="light"] .maintenance-page ::deep .maintenance-toast {
 
 .maintenance-page ::deep .maintenance-status.reported {
     color: var(--status-info);
-    background: rgba(96, 165, 250, .14);
+    background: rgba(96, 165, 250, 0.14);
 }
 
 .maintenance-page ::deep .maintenance-status.triaged {
     color: var(--status-warning);
-    background: rgba(251, 191, 36, .14);
+    background: rgba(251, 191, 36, 0.14);
 }
 
 .maintenance-page ::deep .maintenance-status.converted {
     color: #5eead4;
-    background: rgba(45, 212, 191, .14);
+    background: rgba(45, 212, 191, 0.14);
 }
 
 .maintenance-page ::deep .maintenance-status.rejected {
     color: var(--status-danger);
-    background: rgba(248, 113, 113, .14);
+    background: rgba(248, 113, 113, 0.14);
 }
 
 html[data-theme="light"] .maintenance-page ::deep .maintenance-status.reported {
     color: var(--status-info-strong);
-    background: rgba(37, 99, 235, .12);
+    background: rgba(37, 99, 235, 0.12);
 }
 
 html[data-theme="light"] .maintenance-page ::deep .maintenance-status.triaged {
     color: var(--status-warning-strong);
-    background: rgba(180, 83, 9, .12);
+    background: rgba(180, 83, 9, 0.12);
 }
 
-html[data-theme="light"] .maintenance-page ::deep .maintenance-status.converted {
+html[data-theme="light"]
+    .maintenance-page
+    ::deep
+    .maintenance-status.converted {
     color: var(--status-success-strong);
-    background: rgba(15, 118, 110, .12);
+    background: rgba(15, 118, 110, 0.12);
 }
 
 html[data-theme="light"] .maintenance-page ::deep .maintenance-status.rejected {
     color: var(--status-danger-strong);
-    background: rgba(185, 28, 28, .1);
+    background: rgba(185, 28, 28, 0.1);
 }
 
 /* The severity badge on the defect intake board reuses the priority pill
@@ -2021,84 +2132,87 @@ html[data-theme="light"] .maintenance-page ::deep .maintenance-status.rejected {
 
 .maintenance-page ::deep .priority-critical {
     color: var(--status-danger);
-    background: rgba(248, 113, 113, .14);
+    background: rgba(248, 113, 113, 0.14);
 }
 
 .maintenance-page ::deep .priority-low {
     color: #94a3b8;
-    background: rgba(148, 163, 184, .12);
+    background: rgba(148, 163, 184, 0.12);
 }
 
 .maintenance-page ::deep .priority-medium {
     color: var(--status-info);
-    background: rgba(96, 165, 250, .14);
+    background: rgba(96, 165, 250, 0.14);
 }
 
 .maintenance-page ::deep .priority-high {
     color: var(--status-warning);
-    background: rgba(251, 191, 36, .14);
+    background: rgba(251, 191, 36, 0.14);
 }
 
 html[data-theme="light"] .maintenance-page ::deep .priority-low {
     color: #475569;
-    background: rgba(71, 85, 105, .1);
+    background: rgba(71, 85, 105, 0.1);
 }
 
 html[data-theme="light"] .maintenance-page ::deep .priority-medium {
     color: var(--status-info-strong);
-    background: rgba(37, 99, 235, .12);
+    background: rgba(37, 99, 235, 0.12);
 }
 
 html[data-theme="light"] .maintenance-page ::deep .priority-high {
     color: var(--status-warning-strong);
-    background: rgba(180, 83, 9, .12);
+    background: rgba(180, 83, 9, 0.12);
 }
 
 html[data-theme="light"] .maintenance-page ::deep .priority-critical {
     color: var(--status-danger-strong);
-    background: rgba(185, 28, 28, .1);
+    background: rgba(185, 28, 28, 0.1);
 }
 
 /* ---------- Dry docks ---------- */
 
 .maintenance-page ::deep .maintenance-status.pending {
     color: #94a3b8;
-    background: rgba(148, 163, 184, .14);
+    background: rgba(148, 163, 184, 0.14);
 }
 
 .maintenance-page ::deep .maintenance-status.active {
     color: var(--status-warning);
-    background: rgba(251, 191, 36, .14);
+    background: rgba(251, 191, 36, 0.14);
 }
 
 .maintenance-page ::deep .maintenance-status.done {
     color: #5eead4;
-    background: rgba(45, 212, 191, .14);
+    background: rgba(45, 212, 191, 0.14);
 }
 
 .maintenance-page ::deep .maintenance-status.cancelled {
     color: var(--status-danger);
-    background: rgba(248, 113, 113, .14);
+    background: rgba(248, 113, 113, 0.14);
 }
 
 html[data-theme="light"] .maintenance-page ::deep .maintenance-status.pending {
     color: #475569;
-    background: rgba(71, 85, 105, .12);
+    background: rgba(71, 85, 105, 0.12);
 }
 
 html[data-theme="light"] .maintenance-page ::deep .maintenance-status.active {
     color: var(--status-warning-strong);
-    background: rgba(180, 83, 9, .12);
+    background: rgba(180, 83, 9, 0.12);
 }
 
 html[data-theme="light"] .maintenance-page ::deep .maintenance-status.done {
     color: var(--status-success-strong);
-    background: rgba(15, 118, 110, .12);
+    background: rgba(15, 118, 110, 0.12);
 }
 
-html[data-theme="light"] .maintenance-page ::deep .maintenance-status.cancelled {
+html[data-theme="light"]
+    .maintenance-page
+    ::deep
+    .maintenance-status.cancelled {
     color: var(--status-danger-strong);
-    background: rgba(185, 28, 28, .1);
+    background: rgba(185, 28, 28, 0.1);
 }
 
 .maintenance-page ::deep .dry-dock-table .maintenance-status {
@@ -2125,8 +2239,8 @@ html[data-theme="light"] .maintenance-page ::deep .maintenance-status.cancelled 
 
 .maintenance-page ::deep .dry-dock-timing {
     display: block;
-    margin-top: .2rem;
-    font-size: .74rem;
+    margin-top: 0.2rem;
+    font-size: 0.74rem;
 }
 
 .maintenance-page ::deep .dry-dock-timing.overdue {
@@ -2173,15 +2287,17 @@ html[data-theme="light"] .maintenance-page ::deep .dry-dock-timing.overdue {
 .maintenance-page ::deep .maintenance-form-grid textarea {
     width: 100%;
     min-height: 7rem;
-    padding: .7rem .85rem;
+    padding: 0.7rem 0.85rem;
     color: var(--text-primary);
     border: 1px solid var(--border-medium);
     border-radius: var(--radius-control);
     background: var(--control-surface);
     font: inherit;
-    font-size: .88rem;
+    font-size: 0.88rem;
     resize: vertical;
-    transition: border-color .16s ease, box-shadow .16s ease;
+    transition:
+        border-color 0.16s ease,
+        box-shadow 0.16s ease;
 }
 
 .maintenance-page ::deep .maintenance-form-grid textarea:hover {
@@ -2208,37 +2324,37 @@ html[data-theme="light"] .maintenance-page ::deep .dry-dock-timing.overdue {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    padding: .18rem .65rem;
+    padding: 0.18rem 0.65rem;
     border: 1px solid color-mix(in srgb, currentColor 28%, transparent);
     border-radius: var(--radius-pill);
-    font-size: .76rem;
+    font-size: 0.76rem;
     font-weight: 550;
     white-space: nowrap;
 }
 
 .maintenance-page ::deep .procurement-status-draft {
     color: #94a3b8;
-    background: rgba(148, 163, 184, .14);
+    background: rgba(148, 163, 184, 0.14);
 }
 
 .maintenance-page ::deep .procurement-status-ordered {
     color: var(--status-info);
-    background: rgba(96, 165, 250, .14);
+    background: rgba(96, 165, 250, 0.14);
 }
 
 .maintenance-page ::deep .procurement-status-received {
     color: #5eead4;
-    background: rgba(45, 212, 191, .14);
+    background: rgba(45, 212, 191, 0.14);
 }
 
 .maintenance-page ::deep .procurement-status-cancelled {
     color: var(--status-danger);
-    background: rgba(248, 113, 113, .14);
+    background: rgba(248, 113, 113, 0.14);
 }
 
 .maintenance-page ::deep .procurement-delivery-overdue {
     color: var(--status-danger);
-    background: rgba(248, 113, 113, .14);
+    background: rgba(248, 113, 113, 0.14);
 }
 
 .maintenance-page ::deep .procurement-delivery-scheduled {
@@ -2248,7 +2364,7 @@ html[data-theme="light"] .maintenance-page ::deep .dry-dock-timing.overdue {
 
 .maintenance-page ::deep .procurement-delivery-none {
     color: var(--text-muted);
-    background: rgba(148, 163, 184, .14);
+    background: rgba(148, 163, 184, 0.14);
 }
 
 .maintenance-page ::deep .procurement-total {
@@ -2264,9 +2380,9 @@ html[data-theme="light"] .maintenance-page ::deep .dry-dock-timing.overdue {
 
 .maintenance-page ::deep .procurement-line-editor {
     margin-bottom: 1rem;
-    padding: .9rem 1.1rem;
+    padding: 0.9rem 1.1rem;
     border: 1px solid var(--border-medium);
-    border-radius: .75rem;
+    border-radius: 0.75rem;
     background: var(--bg-surface);
 }
 
@@ -2274,15 +2390,15 @@ html[data-theme="light"] .maintenance-page ::deep .dry-dock-timing.overdue {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    gap: .75rem;
-    margin-bottom: .6rem;
+    gap: 0.75rem;
+    margin-bottom: 0.6rem;
 }
 
 .maintenance-page ::deep .procurement-line-editor-label {
     color: var(--text-muted);
-    font-size: .7rem;
+    font-size: 0.7rem;
     font-weight: 700;
-    letter-spacing: .12em;
+    letter-spacing: 0.12em;
     text-transform: uppercase;
 }
 
@@ -2292,62 +2408,62 @@ html[data-theme="light"] .maintenance-page ::deep .dry-dock-timing.overdue {
 }
 
 .maintenance-page ::deep .procurement-duplicate-row {
-    background: rgba(248, 113, 113, .08);
+    background: rgba(248, 113, 113, 0.08);
 }
 
 .maintenance-page ::deep .procurement-hint {
-    margin: .4rem 0 0;
+    margin: 0.4rem 0 0;
     color: var(--text-muted);
-    font-size: .85rem;
+    font-size: 0.85rem;
 }
 
 .maintenance-page ::deep .procurement-status-actions {
     display: flex;
     flex-wrap: wrap;
-    gap: .6rem;
+    gap: 0.6rem;
     margin-top: 1rem;
 }
 
 .maintenance-page ::deep .procurement-confirm {
     flex: 1 1 100%;
-    padding: .85rem 1rem;
+    padding: 0.85rem 1rem;
     border: 1px solid var(--border-medium);
-    border-radius: .75rem;
+    border-radius: 0.75rem;
     background: var(--bg-surface);
 }
 
-    .maintenance-page ::deep .procurement-confirm p {
-        margin: 0 0 .7rem;
-        font-size: .9rem;
-    }
+.maintenance-page ::deep .procurement-confirm p {
+    margin: 0 0 0.7rem;
+    font-size: 0.9rem;
+}
 
 .maintenance-page ::deep .procurement-transition-danger {
     color: var(--status-danger);
     border-color: color-mix(in srgb, var(--status-danger) 35%, transparent);
-    background: rgba(248, 113, 113, .12);
+    background: rgba(248, 113, 113, 0.12);
 }
 
 .maintenance-page ::deep .procurement-details-summary {
     display: grid;
     grid-template-columns: minmax(9rem, auto) 1fr;
-    gap: .35rem .9rem;
+    gap: 0.35rem 0.9rem;
     margin: 0 0 1rem;
-    font-size: .9rem;
+    font-size: 0.9rem;
 }
 
-    .maintenance-page ::deep .procurement-details-summary dt {
-        color: var(--text-muted);
-        font-size: .7rem;
-        font-weight: 700;
-        letter-spacing: .1em;
-        text-transform: uppercase;
-        align-self: center;
-    }
+.maintenance-page ::deep .procurement-details-summary dt {
+    color: var(--text-muted);
+    font-size: 0.7rem;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    align-self: center;
+}
 
-    .maintenance-page ::deep .procurement-details-summary dd {
-        margin: 0;
-        color: var(--text-primary);
-    }
+.maintenance-page ::deep .procurement-details-summary dd {
+    margin: 0;
+    color: var(--text-primary);
+}
 
 /* Procurement - table columns under table-layout: fixed */
 
@@ -2407,15 +2523,15 @@ html[data-theme="light"] .maintenance-page ::deep .dry-dock-timing.overdue {
     display: flex;
     flex-direction: column;
     align-items: flex-start;
-    gap: .25rem;
+    gap: 0.25rem;
 }
 
 .maintenance-page ::deep .procurement-table .procurement-status,
 .maintenance-page ::deep .procurement-table .procurement-delivery-badge,
 .maintenance-page ::deep .procurement-table .maintenance-overdue-badge {
     max-width: 100%;
-    padding: .18rem .55rem;
-    font-size: .72rem;
+    padding: 0.18rem 0.55rem;
+    font-size: 0.72rem;
     overflow: hidden;
     text-overflow: ellipsis;
 }
@@ -2447,7 +2563,7 @@ html[data-theme="light"] .maintenance-page ::deep .dry-dock-timing.overdue {
 
 .maintenance-page ::deep .procurement-line-table th,
 .maintenance-page ::deep .procurement-line-table td {
-    padding: .5rem .45rem;
+    padding: 0.5rem 0.45rem;
 }
 
 .maintenance-page ::deep .procurement-form .procurement-line-editor {
@@ -2461,57 +2577,113 @@ html[data-theme="light"] .maintenance-page ::deep .dry-dock-timing.overdue {
     border-spacing: 0;
 }
 
-.maintenance-page ::deep .procurement-form .procurement-line-table .col-line-item {
+.maintenance-page
+    ::deep
+    .procurement-form
+    .procurement-line-table
+    .col-line-item {
     width: 42%;
 }
 
-.maintenance-page ::deep .procurement-form .procurement-line-table .col-line-quantity,
-.maintenance-page ::deep .procurement-form .procurement-line-table .col-line-cost {
+.maintenance-page
+    ::deep
+    .procurement-form
+    .procurement-line-table
+    .col-line-quantity,
+.maintenance-page
+    ::deep
+    .procurement-form
+    .procurement-line-table
+    .col-line-cost {
     width: 15%;
 }
 
-.maintenance-page ::deep .procurement-form .procurement-line-table .col-line-total {
+.maintenance-page
+    ::deep
+    .procurement-form
+    .procurement-line-table
+    .col-line-total {
     width: 15%;
 }
 
-.maintenance-page ::deep .procurement-form .procurement-line-table .col-actions {
+.maintenance-page
+    ::deep
+    .procurement-form
+    .procurement-line-table
+    .col-actions {
     width: 13%;
 }
 
-.maintenance-page ::deep .procurement-details-card .procurement-line-table .col-line-item {
+.maintenance-page
+    ::deep
+    .procurement-details-card
+    .procurement-line-table
+    .col-line-item {
     width: 34%;
 }
 
-.maintenance-page ::deep .procurement-details-card .procurement-line-table .col-line-part {
+.maintenance-page
+    ::deep
+    .procurement-details-card
+    .procurement-line-table
+    .col-line-part {
     width: 18%;
 }
 
-.maintenance-page ::deep .procurement-details-card .procurement-line-table .col-line-quantity {
+.maintenance-page
+    ::deep
+    .procurement-details-card
+    .procurement-line-table
+    .col-line-quantity {
     width: 14%;
 }
 
-.maintenance-page ::deep .procurement-details-card .procurement-line-table .col-line-cost,
-.maintenance-page ::deep .procurement-details-card .procurement-line-table .col-line-total {
+.maintenance-page
+    ::deep
+    .procurement-details-card
+    .procurement-line-table
+    .col-line-cost,
+.maintenance-page
+    ::deep
+    .procurement-details-card
+    .procurement-line-table
+    .col-line-total {
     width: 17%;
 }
 
 .maintenance-page ::deep .maintenance-form-card .procurement-line-table tr td,
-.maintenance-page ::deep .maintenance-form-card .procurement-line-table tr:hover td,
-.maintenance-page ::deep .maintenance-form-card .procurement-line-table tr:focus-within td {
-    padding: .5rem .45rem;
+.maintenance-page
+    ::deep
+    .maintenance-form-card
+    .procurement-line-table
+    tr:hover
+    td,
+.maintenance-page
+    ::deep
+    .maintenance-form-card
+    .procurement-line-table
+    tr:focus-within
+    td {
+    padding: 0.5rem 0.45rem;
     border: 0;
     border-radius: 0;
     background: transparent;
 }
 
-.maintenance-page ::deep .maintenance-form-card .procurement-line-table tbody tr td {
+.maintenance-page
+    ::deep
+    .maintenance-form-card
+    .procurement-line-table
+    tbody
+    tr
+    td {
     border-bottom: 1px solid var(--border-subtle);
 }
 
 .maintenance-page ::deep .procurement-line-table td .maintenance-inline-error {
     display: block;
-    margin-top: .3rem;
-    font-size: .78rem;
+    margin-top: 0.3rem;
+    font-size: 0.78rem;
 }
 
 @media (max-width: 1100px) {
@@ -2536,15 +2708,18 @@ html[data-theme="light"] .maintenance-page ::deep .dry-dock-timing.overdue {
 /* Procurement - controls rendered inside the panel component */
 
 .maintenance-page ::deep .maintenance-complete-button {
-    padding: .4rem .8rem;
+    padding: 0.4rem 0.8rem;
     color: var(--text-primary);
     border: 1px solid var(--border-medium);
     border-radius: var(--radius-button);
     background: var(--bg-surface);
     font: inherit;
-    font-size: .8rem;
+    font-size: 0.8rem;
     cursor: pointer;
-    transition: background .15s ease, color .15s ease, border-color .15s ease;
+    transition:
+        background 0.15s ease,
+        color 0.15s ease,
+        border-color 0.15s ease;
 }
 
 .maintenance-page ::deep .maintenance-complete-button:hover:not(:disabled) {
@@ -2555,7 +2730,7 @@ html[data-theme="light"] .maintenance-page ::deep .dry-dock-timing.overdue {
 
 .maintenance-page ::deep .maintenance-complete-button:disabled {
     cursor: not-allowed;
-    opacity: .45;
+    opacity: 0.45;
 }
 
 .maintenance-page ::deep .procurement-add-line {
@@ -2568,14 +2743,14 @@ html[data-theme="light"] .maintenance-page ::deep .dry-dock-timing.overdue {
     width: 100%;
     min-width: 0;
     height: 2.4rem;
-    padding: 0 .55rem;
-    font-size: .85rem;
+    padding: 0 0.55rem;
+    font-size: 0.85rem;
 }
 
 .maintenance-page ::deep .procurement-line-table select {
     padding-right: 1.9rem;
-    background-position: right .5rem center;
-    background-size: .9rem;
+    background-position: right 0.5rem center;
+    background-size: 0.9rem;
 }
 
 /* The page carries a light theme, so the procurement badges and the line editor
@@ -2583,46 +2758,59 @@ html[data-theme="light"] .maintenance-page ::deep .dry-dock-timing.overdue {
 
 html[data-theme="light"] .maintenance-page ::deep .procurement-status-draft {
     color: #475569;
-    background: rgba(71, 85, 105, .12);
+    background: rgba(71, 85, 105, 0.12);
 }
 
 html[data-theme="light"] .maintenance-page ::deep .procurement-status-ordered {
     color: var(--status-info-strong);
-    background: rgba(29, 78, 216, .12);
+    background: rgba(29, 78, 216, 0.12);
 }
 
 html[data-theme="light"] .maintenance-page ::deep .procurement-status-received {
     color: var(--status-success-strong);
-    background: rgba(15, 118, 110, .12);
+    background: rgba(15, 118, 110, 0.12);
 }
 
-html[data-theme="light"] .maintenance-page ::deep .procurement-status-cancelled {
+html[data-theme="light"]
+    .maintenance-page
+    ::deep
+    .procurement-status-cancelled {
     color: var(--status-danger-strong);
-    background: rgba(185, 28, 28, .1);
+    background: rgba(185, 28, 28, 0.1);
 }
 
-html[data-theme="light"] .maintenance-page ::deep .procurement-delivery-overdue {
+html[data-theme="light"]
+    .maintenance-page
+    ::deep
+    .procurement-delivery-overdue {
     color: var(--status-danger-strong);
-    background: rgba(185, 28, 28, .1);
+    background: rgba(185, 28, 28, 0.1);
 }
 
 html[data-theme="light"] .maintenance-page ::deep .procurement-delivery-none {
     color: #475569;
-    background: rgba(71, 85, 105, .12);
+    background: rgba(71, 85, 105, 0.12);
 }
 
 html[data-theme="light"] .maintenance-page ::deep .procurement-duplicate-row {
-    background: rgba(185, 28, 28, .08);
+    background: rgba(185, 28, 28, 0.08);
 }
 
-html[data-theme="light"] .maintenance-page ::deep .procurement-transition-danger {
+html[data-theme="light"]
+    .maintenance-page
+    ::deep
+    .procurement-transition-danger {
     color: var(--status-danger-strong);
-    border-color: rgba(185, 28, 28, .35);
-    background: rgba(185, 28, 28, .1);
+    border-color: rgba(185, 28, 28, 0.35);
+    background: rgba(185, 28, 28, 0.1);
 }
 
 html[data-theme="light"] .maintenance-page ::deep .procurement-line-table input,
-html[data-theme="light"] .maintenance-page ::deep .procurement-line-table select {
+html[data-theme="light"]
+    .maintenance-page
+    ::deep
+    .procurement-line-table
+    select {
     color-scheme: light;
 }
 
@@ -2630,14 +2818,14 @@ html[data-theme="light"] .maintenance-page ::deep .procurement-line-table select
 
 .maintenance-page ::deep .summary-icon-red {
     color: var(--status-danger);
-    border-color: rgba(248, 113, 113, .25);
-    background: rgba(248, 113, 113, .14);
+    border-color: rgba(248, 113, 113, 0.25);
+    background: rgba(248, 113, 113, 0.14);
 }
 
 .maintenance-page ::deep .summary-icon-green {
     color: var(--status-success);
-    border-color: rgba(52, 211, 153, .25);
-    background: rgba(52, 211, 153, .14);
+    border-color: rgba(52, 211, 153, 0.25);
+    background: rgba(52, 211, 153, 0.14);
 }
 
 .maintenance-page ::deep .replenishment-table-scroll {
@@ -2648,137 +2836,140 @@ html[data-theme="light"] .maintenance-page ::deep .procurement-line-table select
     min-width: 82rem;
 }
 
-    /* The shared header rule breaks words anywhere, which mangles short numeric labels. */
-    .maintenance-page ::deep .replenishment-table th {
-        white-space: nowrap;
-        overflow-wrap: normal;
-        overflow: hidden;
-        text-overflow: ellipsis;
-    }
+/* The shared header rule breaks words anywhere, which mangles short numeric labels. */
+.maintenance-page ::deep .replenishment-table th {
+    white-space: nowrap;
+    overflow-wrap: normal;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
 
-    .maintenance-page ::deep .replenishment-table .col-part {
-        width: 12rem;
-    }
+.maintenance-page ::deep .replenishment-table .col-part {
+    width: 12rem;
+}
 
-    .maintenance-page ::deep .replenishment-table .col-part-number {
-        width: 8.5rem;
-    }
+.maintenance-page ::deep .replenishment-table .col-part-number {
+    width: 8.5rem;
+}
 
-    .maintenance-page ::deep .replenishment-table .col-supplier {
-        width: 10rem;
-    }
+.maintenance-page ::deep .replenishment-table .col-supplier {
+    width: 10rem;
+}
 
-    .maintenance-page ::deep .replenishment-table .col-stock {
-        width: 4.5rem;
-    }
+.maintenance-page ::deep .replenishment-table .col-stock {
+    width: 4.5rem;
+}
 
-    .maintenance-page ::deep .replenishment-table .col-reserved,
-    .maintenance-page ::deep .replenishment-table .col-available,
-    .maintenance-page ::deep .replenishment-table .col-shortage,
-    .maintenance-page ::deep .replenishment-table .col-on-order {
-        width: 6rem;
-    }
+.maintenance-page ::deep .replenishment-table .col-reserved,
+.maintenance-page ::deep .replenishment-table .col-available,
+.maintenance-page ::deep .replenishment-table .col-shortage,
+.maintenance-page ::deep .replenishment-table .col-on-order {
+    width: 6rem;
+}
 
-    .maintenance-page ::deep .replenishment-table .col-reorder {
-        width: 6.5rem;
-    }
+.maintenance-page ::deep .replenishment-table .col-reorder {
+    width: 6.5rem;
+}
 
-    .maintenance-page ::deep .replenishment-table .col-state {
-        width: 9.5rem;
-    }
+.maintenance-page ::deep .replenishment-table .col-state {
+    width: 9.5rem;
+}
 
-    .maintenance-page ::deep .replenishment-table .col-order {
-        width: 5.5rem;
-    }
+.maintenance-page ::deep .replenishment-table .col-order {
+    width: 5.5rem;
+}
 
 .maintenance-page ::deep .replenishment-order {
-    padding: .3rem .7rem;
-    font-size: .8rem;
+    padding: 0.3rem 0.7rem;
+    font-size: 0.8rem;
     white-space: nowrap;
 }
 
 .maintenance-page ::deep .replenishment-state {
     display: inline-flex;
     align-items: center;
-    padding: .18rem .55rem;
+    padding: 0.18rem 0.55rem;
     border-radius: var(--radius-pill);
-    font-size: .78rem;
+    font-size: 0.78rem;
     font-weight: 600;
     white-space: nowrap;
 }
 
-    .maintenance-page ::deep .replenishment-state.critical {
-        color: var(--status-danger);
-        background: rgba(248, 113, 113, .14);
-    }
+.maintenance-page ::deep .replenishment-state.critical {
+    color: var(--status-danger);
+    background: rgba(248, 113, 113, 0.14);
+}
 
-    .maintenance-page ::deep .replenishment-state.low {
-        color: var(--status-warning);
-        background: rgba(251, 191, 36, .14);
-    }
+.maintenance-page ::deep .replenishment-state.low {
+    color: var(--status-warning);
+    background: rgba(251, 191, 36, 0.14);
+}
 
-    .maintenance-page ::deep .replenishment-state.covered {
-        color: var(--status-success);
-        background: rgba(52, 211, 153, .14);
-    }
+.maintenance-page ::deep .replenishment-state.covered {
+    color: var(--status-success);
+    background: rgba(52, 211, 153, 0.14);
+}
 
-html[data-theme="light"] .maintenance-page ::deep .replenishment-state.critical {
+html[data-theme="light"]
+    .maintenance-page
+    ::deep
+    .replenishment-state.critical {
     color: var(--status-danger-strong);
-    background: rgba(185, 28, 28, .1);
+    background: rgba(185, 28, 28, 0.1);
 }
 
 html[data-theme="light"] .maintenance-page ::deep .replenishment-state.low {
     color: var(--status-warning-strong);
-    background: rgba(180, 83, 9, .12);
+    background: rgba(180, 83, 9, 0.12);
 }
 
 html[data-theme="light"] .maintenance-page ::deep .replenishment-state.covered {
     color: var(--status-success-strong);
-    background: rgba(15, 118, 110, .12);
+    background: rgba(15, 118, 110, 0.12);
 }
 
 .maintenance-page ::deep .preventive-state {
     display: inline-flex;
     align-items: center;
-    padding: .18rem .55rem;
+    padding: 0.18rem 0.55rem;
     border-radius: var(--radius-pill);
-    font-size: .78rem;
+    font-size: 0.78rem;
     font-weight: 600;
     white-space: nowrap;
 }
 
-    .maintenance-page ::deep .preventive-state.pending {
-        color: var(--accent);
-        background: var(--accent-bg);
-    }
+.maintenance-page ::deep .preventive-state.pending {
+    color: var(--accent);
+    background: var(--accent-bg);
+}
 
-    .maintenance-page ::deep .preventive-state.generated {
-        color: var(--status-warning);
-        background: rgba(251, 191, 36, .14);
-    }
+.maintenance-page ::deep .preventive-state.generated {
+    color: var(--status-warning);
+    background: rgba(251, 191, 36, 0.14);
+}
 
-    .maintenance-page ::deep .preventive-state.completed {
-        color: var(--status-success);
-        background: rgba(52, 211, 153, .14);
-    }
+.maintenance-page ::deep .preventive-state.completed {
+    color: var(--status-success);
+    background: rgba(52, 211, 153, 0.14);
+}
 
-    .maintenance-page ::deep .preventive-state.cancelled {
-        color: var(--text-muted);
-        background: rgba(148, 163, 184, .14);
-    }
+.maintenance-page ::deep .preventive-state.cancelled {
+    color: var(--text-muted);
+    background: rgba(148, 163, 184, 0.14);
+}
 
 html[data-theme="light"] .maintenance-page ::deep .preventive-state.generated {
     color: var(--status-warning-strong);
-    background: rgba(180, 83, 9, .12);
+    background: rgba(180, 83, 9, 0.12);
 }
 
 html[data-theme="light"] .maintenance-page ::deep .preventive-state.completed {
     color: var(--status-success-strong);
-    background: rgba(15, 118, 110, .12);
+    background: rgba(15, 118, 110, 0.12);
 }
 
 .maintenance-page ::deep .preventive-row .schedules-due-badge {
-    margin-left: .35rem;
+    margin-left: 0.35rem;
 }
 
 .maintenance-page ::deep .preventive-generate-card {
@@ -2790,12 +2981,12 @@ html[data-theme="light"] .maintenance-page ::deep .preventive-state.completed {
 }
 
 .maintenance-page ::deep .preventive-generate-hint {
-    margin: .25rem 0 1rem;
-    font-size: .82rem;
+    margin: 0.25rem 0 1rem;
+    font-size: 0.82rem;
 }
 
 .maintenance-page ::deep .preventive-retry {
-    margin: .5rem 0 1rem;
+    margin: 0.5rem 0 1rem;
 }
 
 .maintenance-page ::deep .preventive-preview,
@@ -2808,29 +2999,29 @@ html[data-theme="light"] .maintenance-page ::deep .preventive-state.completed {
 .maintenance-page ::deep .preventive-preview-totals {
     display: flex;
     flex-wrap: wrap;
-    gap: .75rem;
-    margin-bottom: .9rem;
+    gap: 0.75rem;
+    margin-bottom: 0.9rem;
 }
 
 .maintenance-page ::deep .preventive-total {
     display: flex;
     flex-direction: column;
     min-width: 9rem;
-    padding: .6rem .9rem;
+    padding: 0.6rem 0.9rem;
     border: 1px solid var(--border-medium);
     border-radius: var(--radius-control);
     background: var(--bg-surface);
 }
 
-    .maintenance-page ::deep .preventive-total strong {
-        font-size: 1.3rem;
-        line-height: 1.2;
-    }
+.maintenance-page ::deep .preventive-total strong {
+    font-size: 1.3rem;
+    line-height: 1.2;
+}
 
-    .maintenance-page ::deep .preventive-total span {
-        color: var(--text-muted);
-        font-size: .78rem;
-    }
+.maintenance-page ::deep .preventive-total span {
+    color: var(--text-muted);
+    font-size: 0.78rem;
+}
 
 .maintenance-page ::deep .preventive-preview-table-scroll {
     max-height: 18rem;
@@ -2838,7 +3029,7 @@ html[data-theme="light"] .maintenance-page ::deep .preventive-state.completed {
 }
 
 .maintenance-page ::deep .preventive-toast a {
-    margin-left: .5rem;
+    margin-left: 0.5rem;
     color: inherit;
     font-weight: 600;
 }
@@ -2848,96 +3039,96 @@ html[data-theme="light"] .maintenance-page ::deep .preventive-state.completed {
 }
 
 .maintenance-page ::deep .schedules-occurrences-title {
-    margin: 0 0 .75rem;
+    margin: 0 0 0.75rem;
     font-size: 1rem;
 }
 
 .maintenance-page ::deep .schedules-occurrences-table .work-order-status {
-    margin-left: .4rem;
+    margin-left: 0.4rem;
 }
 
 .maintenance-page ::deep .preventive-confirm-inline {
-    margin-top: .75rem;
-    padding: .75rem 1rem;
+    margin-top: 0.75rem;
+    padding: 0.75rem 1rem;
     border: 1px solid var(--border-medium);
     border-radius: var(--radius-control);
     background: var(--bg-surface);
 }
 
-    .maintenance-page ::deep .preventive-confirm-inline p {
-        margin: 0 0 .5rem;
-    }
+.maintenance-page ::deep .preventive-confirm-inline p {
+    margin: 0 0 0.5rem;
+}
 
 .maintenance-page ::deep .stocktake-status {
     display: inline-flex;
     align-items: center;
-    padding: .18rem .55rem;
+    padding: 0.18rem 0.55rem;
     border-radius: var(--radius-pill);
-    font-size: .78rem;
+    font-size: 0.78rem;
     font-weight: 600;
     white-space: nowrap;
 }
 
-    .maintenance-page ::deep .stocktake-status.pending {
-        color: var(--status-warning);
-        background: rgba(251, 191, 36, .14);
-    }
+.maintenance-page ::deep .stocktake-status.pending {
+    color: var(--status-warning);
+    background: rgba(251, 191, 36, 0.14);
+}
 
-    .maintenance-page ::deep .stocktake-status.done {
-        color: var(--status-success);
-        background: rgba(52, 211, 153, .14);
-    }
+.maintenance-page ::deep .stocktake-status.done {
+    color: var(--status-success);
+    background: rgba(52, 211, 153, 0.14);
+}
 
-    .maintenance-page ::deep .stocktake-status.cancelled {
-        color: var(--text-muted);
-        background: var(--bg-surface-strong);
-    }
+.maintenance-page ::deep .stocktake-status.cancelled {
+    color: var(--text-muted);
+    background: var(--bg-surface-strong);
+}
 
 .maintenance-page ::deep .stocktake-variance {
     font-variant-numeric: tabular-nums;
     font-weight: 600;
 }
 
-    .maintenance-page ::deep .stocktake-variance.surplus {
-        color: var(--status-success);
-    }
-
-    .maintenance-page ::deep .stocktake-variance.shortage {
-        color: var(--status-danger);
-    }
-
-    .maintenance-page ::deep .stocktake-variance.match,
-    .maintenance-page ::deep .stocktake-variance.missing {
-        color: var(--text-muted);
-    }
-
-.maintenance-page ::deep .stocktake-blockers {
-    margin: .75rem 0;
-    padding: .75rem 1rem;
-    border: 1px solid var(--status-danger);
-    border-radius: var(--radius-control);
-    background: rgba(248, 113, 113, .08);
+.maintenance-page ::deep .stocktake-variance.surplus {
+    color: var(--status-success);
 }
 
-    .maintenance-page ::deep .stocktake-blockers h3 {
-        margin: 0 0 .5rem;
-        font-size: .95rem;
-    }
+.maintenance-page ::deep .stocktake-variance.shortage {
+    color: var(--status-danger);
+}
 
-    .maintenance-page ::deep .stocktake-blockers ul {
-        display: grid;
-        gap: .45rem;
-        margin: 0;
-        padding-left: 1.1rem;
-    }
+.maintenance-page ::deep .stocktake-variance.match,
+.maintenance-page ::deep .stocktake-variance.missing {
+    color: var(--text-muted);
+}
+
+.maintenance-page ::deep .stocktake-blockers {
+    margin: 0.75rem 0;
+    padding: 0.75rem 1rem;
+    border: 1px solid var(--status-danger);
+    border-radius: var(--radius-control);
+    background: rgba(248, 113, 113, 0.08);
+}
+
+.maintenance-page ::deep .stocktake-blockers h3 {
+    margin: 0 0 0.5rem;
+    font-size: 0.95rem;
+}
+
+.maintenance-page ::deep .stocktake-blockers ul {
+    display: grid;
+    gap: 0.45rem;
+    margin: 0;
+    padding-left: 1.1rem;
+}
 
 .maintenance-page ::deep .stocktake-blocker-code {
-    margin-right: .4rem;
+    margin-right: 0.4rem;
     font-weight: 600;
 }
 
 .maintenance-page ::deep .stocktake-line-stale {
-    background: rgba(251, 191, 36, .08);
+    background: rgba(251, 191, 36, 0.08);
 }
 
 .maintenance-page ::deep .stocktake-lines-table input[type="number"],
@@ -2945,7 +3136,7 @@ html[data-theme="light"] .maintenance-page ::deep .preventive-state.completed {
     width: 100%;
     min-width: 6rem;
     height: var(--control-height);
-    padding: 0 .5rem;
+    padding: 0 0.5rem;
     border: 1px solid var(--border-medium);
     border-radius: var(--radius-control);
     background: var(--control-surface);
@@ -2955,7 +3146,7 @@ html[data-theme="light"] .maintenance-page ::deep .preventive-state.completed {
 .maintenance-page ::deep .stocktake-part-options {
     display: flex;
     flex-wrap: wrap;
-    gap: .4rem;
+    gap: 0.4rem;
     margin: 0;
     padding: 0;
     list-style: none;
@@ -2965,74 +3156,74 @@ html[data-theme="light"] .maintenance-page ::deep .preventive-state.completed {
     display: flex;
     flex-wrap: wrap;
     align-items: center;
-    gap: .4rem;
-    margin: .5rem 0;
+    gap: 0.4rem;
+    margin: 0.5rem 0;
     color: var(--text-secondary);
 }
 
 .maintenance-page ::deep .stocktake-chip {
     display: inline-flex;
     align-items: center;
-    gap: .35rem;
-    padding: .18rem .55rem;
+    gap: 0.35rem;
+    padding: 0.18rem 0.55rem;
     border: 1px solid var(--accent-border);
     border-radius: var(--radius-pill);
     background: var(--accent-bg);
-    font-size: .78rem;
+    font-size: 0.78rem;
 }
 
-    .maintenance-page ::deep .stocktake-chip button {
-        border: 0;
-        background: none;
-        color: inherit;
-        cursor: pointer;
-        font-size: .9rem;
-        line-height: 1;
-    }
+.maintenance-page ::deep .stocktake-chip button {
+    border: 0;
+    background: none;
+    color: inherit;
+    cursor: pointer;
+    font-size: 0.9rem;
+    line-height: 1;
+}
 
 .maintenance-page ::deep .stocktake-actions {
     flex-wrap: wrap;
-    gap: .5rem;
+    gap: 0.5rem;
 }
 
 .maintenance-page ::deep .stocktake-hint {
-    margin: .4rem 0 0;
-    font-size: .82rem;
+    margin: 0.4rem 0 0;
+    font-size: 0.82rem;
 }
 
 .maintenance-page ::deep .stocktake-facts {
     display: grid;
     grid-template-columns: minmax(8rem, max-content) 1fr;
-    gap: .35rem 1rem;
-    margin: .5rem 0 1rem;
+    gap: 0.35rem 1rem;
+    margin: 0.5rem 0 1rem;
 }
 
-    .maintenance-page ::deep .stocktake-facts dt {
-        color: var(--text-muted);
-        font-size: .82rem;
-    }
+.maintenance-page ::deep .stocktake-facts dt {
+    color: var(--text-muted);
+    font-size: 0.82rem;
+}
 
-    .maintenance-page ::deep .stocktake-facts dd {
-        margin: 0;
-        color: var(--text-primary);
-    }
+.maintenance-page ::deep .stocktake-facts dd {
+    margin: 0;
+    color: var(--text-primary);
+}
 
 .maintenance-page ::deep .stocktake-link {
     color: var(--accent);
     text-decoration: none;
 }
 
-    .maintenance-page ::deep .stocktake-link:hover {
-        text-decoration: underline;
-    }
+.maintenance-page ::deep .stocktake-link:hover {
+    text-decoration: underline;
+}
 
 .maintenance-page ::deep .supplier-return-notes {
     max-width: 32rem;
-    margin: .5rem 0 .75rem;
+    margin: 0.5rem 0 0.75rem;
 }
 
 .maintenance-page ::deep .supplier-return-preview-table caption {
-    padding: .5rem 0;
+    padding: 0.5rem 0;
     caption-side: top;
     color: var(--text-secondary);
     font-weight: 600;
@@ -3046,83 +3237,320 @@ html[data-theme="light"] .maintenance-page ::deep .preventive-state.completed {
 
 .maintenance-page ::deep .supplier-return-confirm-items {
     display: grid;
-    gap: .25rem;
+    gap: 0.25rem;
     margin: 0 0 1rem;
     padding-left: 1.1rem;
     font-variant-numeric: tabular-nums;
 }
 
 /* Maintenance workspace follows the Fleet, Crew, and Voyages registers. */
-.maintenance-page { max-width: 1600px; padding: 1.5rem 1rem 3rem; }
-.maintenance-header h1 { font-size: clamp(1.8rem, 3vw, 2.35rem); font-weight: 600; }
-.maintenance-eyebrow { font-size: .65rem; }
-.maintenance-tabs { display: flex; flex-wrap: nowrap; overflow-x: auto; gap: .35rem; padding: .2rem .2rem .8rem; margin-bottom: 1.5rem; border-bottom: 1px solid var(--border-subtle); }
-.maintenance-tabs .workspace-tab { display: inline-flex; width: auto; height: auto; min-height: 2.65rem; flex: 0 0 auto; justify-content: flex-start; gap: .55rem; padding: .65rem .85rem; border: 1px solid transparent; border-radius: .65rem; color: var(--text-secondary); background: transparent; font-family: inherit; font-size: .8rem; font-weight: 400; line-height: inherit; letter-spacing: normal; }
-.maintenance-tabs .workspace-tab.active { color: var(--text-primary); border-color: var(--accent-border); background: var(--accent-bg); }
-.maintenance-tabs .workspace-tab:hover { transform: none; background: var(--bg-surface-strong); }
-.maintenance-page ::deep .maintenance-summary { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: .85rem; margin-bottom: 1.5rem; }
-.maintenance-page ::deep .maintenance-summary-card { min-width: 0; padding: 1.1rem; gap: .8rem; }
-.maintenance-page ::deep .maintenance-summary-card > div > span { color: var(--text-secondary); font-size: .72rem; }
-.maintenance-page ::deep .maintenance-summary-card strong { margin: .5rem 0 .35rem; font-size: 1.9rem; font-weight: 600; letter-spacing: -.04em; }
-.maintenance-page ::deep .maintenance-summary-card small { font-size: .68rem; font-weight: 400; letter-spacing: normal; text-transform: none; }
-.maintenance-page ::deep .maintenance-card { padding: 1.25rem; }
-.maintenance-page ::deep .maintenance-card-heading { align-items: center; flex-wrap: wrap; }
-.maintenance-page ::deep .maintenance-card-heading h2 { font-size: 1.3rem; font-weight: 600; letter-spacing: -.035em; }
-.maintenance-page ::deep .maintenance-card-heading p { font-size: .75rem; color: var(--text-muted); }
-.maintenance-section-label { display: block; margin-bottom: .25rem; font-size: .62rem; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; color: var(--accent); }
-.maintenance-page ::deep .maintenance-card-icon { width: 2.8rem; height: 2.8rem; border-radius: .85rem; color: var(--accent); background: var(--accent-bg); border: 1px solid var(--accent-border); }
-.maintenance-page ::deep .maintenance-filters { padding: 1rem 0; gap: .7rem; border: 0; border-top: 1px solid var(--border-subtle); border-bottom: 1px solid var(--border-subtle); border-radius: 0; background: transparent; box-shadow: none; }
-.maintenance-page ::deep .filter-field label { font-size: .62rem; letter-spacing: .07em; }
-.maintenance-page ::deep .filter-field > select { appearance: none; padding-right: 2.7rem; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 8'%3E%3Cpath d='M1 1.6 6 6.4 11 1.6' fill='none' stroke='%238894a6' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-size: .7rem; background-position: right 1rem center; }
-.maintenance-page ::deep .maintenance-card-heading .maintenance-button { color: var(--text-primary); background: var(--accent-bg); border-color: var(--accent-border); box-shadow: none; font-size: .78rem; }
-.maintenance-page ::deep .maintenance-table-scroll { overflow-x: auto; padding: .15rem; scrollbar-width: thin; }
-.maintenance-page ::deep .maintenance-table { min-width: 1050px; table-layout: fixed; border-collapse: separate; border-spacing: 0 .55rem; }
-.maintenance-page ::deep .maintenance-table th { border: 0; padding: .4rem .75rem; font-size: .6rem; }
+.maintenance-page {
+    max-width: 1600px;
+    padding: 1.5rem 1rem 3rem;
+}
+.maintenance-header h1 {
+    font-size: clamp(1.8rem, 3vw, 2.35rem);
+    font-weight: 600;
+}
+.maintenance-eyebrow {
+    font-size: 0.65rem;
+}
+.maintenance-tabs {
+    display: flex;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    gap: 0.35rem;
+    padding: 0.2rem 0.2rem 0.8rem;
+    margin-bottom: 1.5rem;
+    border-bottom: 1px solid var(--border-subtle);
+}
+.maintenance-tabs .workspace-tab {
+    display: inline-flex;
+    width: auto;
+    height: auto;
+    min-height: 2.65rem;
+    flex: 0 0 auto;
+    justify-content: flex-start;
+    gap: 0.55rem;
+    padding: 0.65rem 0.85rem;
+    border: 1px solid transparent;
+    border-radius: 0.65rem;
+    color: var(--text-secondary);
+    background: transparent;
+    font-family: inherit;
+    font-size: 0.8rem;
+    font-weight: 400;
+    line-height: inherit;
+    letter-spacing: normal;
+}
+.maintenance-tabs .workspace-tab.active {
+    color: var(--text-primary);
+    border-color: var(--accent-border);
+    background: var(--accent-bg);
+}
+.maintenance-tabs .workspace-tab:hover {
+    transform: none;
+    background: var(--bg-surface-strong);
+}
+.maintenance-page ::deep .maintenance-summary {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+    gap: 0.85rem;
+    margin-bottom: 1.5rem;
+}
+.maintenance-page ::deep .maintenance-summary-card {
+    min-width: 0;
+    padding: 1.1rem;
+    gap: 0.8rem;
+}
+.maintenance-page ::deep .maintenance-summary-card > div > span {
+    color: var(--text-secondary);
+    font-size: 0.72rem;
+}
+.maintenance-page ::deep .maintenance-summary-card strong {
+    margin: 0.5rem 0 0.35rem;
+    font-size: 1.9rem;
+    font-weight: 600;
+    letter-spacing: -0.04em;
+}
+.maintenance-page ::deep .maintenance-summary-card small {
+    font-size: 0.68rem;
+    font-weight: 400;
+    letter-spacing: normal;
+    text-transform: none;
+}
+.maintenance-page ::deep .maintenance-card {
+    padding: 1.25rem;
+}
+.maintenance-page ::deep .maintenance-card-heading {
+    align-items: center;
+    flex-wrap: wrap;
+}
+.maintenance-page ::deep .maintenance-card-heading h2 {
+    font-size: 1.3rem;
+    font-weight: 600;
+    letter-spacing: -0.035em;
+}
+.maintenance-page ::deep .maintenance-card-heading p {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+}
+.maintenance-section-label {
+    display: block;
+    margin-bottom: 0.25rem;
+    font-size: 0.62rem;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--accent);
+}
+.maintenance-page ::deep .maintenance-card-icon {
+    width: 2.8rem;
+    height: 2.8rem;
+    border-radius: 0.85rem;
+    color: var(--accent);
+    background: var(--accent-bg);
+    border: 1px solid var(--accent-border);
+}
+.maintenance-page ::deep .maintenance-filters {
+    padding: 1rem 0;
+    gap: 0.7rem;
+    border: 0;
+    border-top: 1px solid var(--border-subtle);
+    border-bottom: 1px solid var(--border-subtle);
+    border-radius: 0;
+    background: transparent;
+    box-shadow: none;
+}
+.maintenance-page ::deep .filter-field label {
+    font-size: 0.62rem;
+    letter-spacing: 0.07em;
+}
+.maintenance-page ::deep .filter-field > select {
+    appearance: none;
+    padding-right: 2.7rem;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 8'%3E%3Cpath d='M1 1.6 6 6.4 11 1.6' fill='none' stroke='%238894a6' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-size: 0.7rem;
+    background-position: right 1rem center;
+}
+.maintenance-page ::deep .maintenance-card-heading .maintenance-button {
+    color: var(--text-primary);
+    background: var(--accent-bg);
+    border-color: var(--accent-border);
+    box-shadow: none;
+    font-size: 0.78rem;
+}
+.maintenance-page ::deep .maintenance-table-scroll {
+    overflow-x: auto;
+    padding: 0.15rem;
+    scrollbar-width: thin;
+}
+.maintenance-page ::deep .maintenance-table {
+    min-width: 1050px;
+    table-layout: fixed;
+    border-collapse: separate;
+    border-spacing: 0 0.55rem;
+}
+.maintenance-page ::deep .maintenance-table th {
+    border: 0;
+    padding: 0.4rem 0.75rem;
+    font-size: 0.6rem;
+}
 .maintenance-page ::deep .maintenance-table tbody tr,
-.maintenance-page ::deep .maintenance-table tbody tr:hover { transform: none; background: transparent; box-shadow: none; }
-.maintenance-page ::deep .maintenance-table tbody tr td { vertical-align: middle; padding: .9rem .75rem; font-size: .78rem; background: var(--bg-surface); border-top: 1px solid var(--border-subtle); border-bottom: 1px solid var(--border-subtle); box-shadow: none; transition: background-color .16s ease; }
-.maintenance-page ::deep .maintenance-table td:first-child { border-left: 3px solid var(--accent-border); border-radius: .75rem 0 0 .75rem; }
-.maintenance-page ::deep .maintenance-table td:last-child { border-right: 1px solid var(--border-subtle); border-radius: 0 .75rem .75rem 0; }
+.maintenance-page ::deep .maintenance-table tbody tr:hover {
+    transform: none;
+    background: transparent;
+    box-shadow: none;
+}
+.maintenance-page ::deep .maintenance-table tbody tr td {
+    vertical-align: middle;
+    padding: 0.9rem 0.75rem;
+    font-size: 0.78rem;
+    background: var(--bg-surface);
+    border-top: 1px solid var(--border-subtle);
+    border-bottom: 1px solid var(--border-subtle);
+    box-shadow: none;
+    transition: background-color 0.16s ease;
+}
+.maintenance-page ::deep .maintenance-table td:first-child {
+    border-left: 3px solid var(--accent-border);
+    border-radius: 0.75rem 0 0 0.75rem;
+}
+.maintenance-page ::deep .maintenance-table td:last-child {
+    border-right: 1px solid var(--border-subtle);
+    border-radius: 0 0.75rem 0.75rem 0;
+}
 .maintenance-page ::deep .maintenance-table tbody tr:hover td,
-.maintenance-page ::deep .maintenance-table tbody tr:focus-within td { background: color-mix(in srgb, var(--accent) 10%, var(--bg-surface-strong)); box-shadow: none; }
-.maintenance-page ::deep .maintenance-table tbody tr:hover td:first-child { border-left-color: var(--accent); }
-.maintenance-page ::deep .maintenance-table .maintenance-overdue-row td:first-child,
-.maintenance-page ::deep .maintenance-table .maintenance-critical-row td:first-child { border-left-color: var(--accent); }
-.maintenance-row-icon { display: inline-grid; vertical-align: middle; place-items: center; width: 1.8rem; height: 1.8rem; margin-right: .5rem; border-radius: .5rem; color: var(--accent); background: var(--accent-bg); }
-.maintenance-critical-row .maintenance-row-icon { color: #fff; background: #b42335; }
-.maintenance-page ::deep .maintenance-title { white-space: normal; min-width: 0; overflow-wrap: anywhere; }
-.maintenance-page ::deep .maintenance-overdue-badge { display: table; margin-top: .3rem; }
+.maintenance-page ::deep .maintenance-table tbody tr:focus-within td {
+    background: color-mix(in srgb, var(--accent) 10%, var(--bg-surface-strong));
+    box-shadow: none;
+}
+.maintenance-page ::deep .maintenance-table tbody tr:hover td:first-child {
+    border-left-color: var(--accent);
+}
+.maintenance-page
+    ::deep
+    .maintenance-table
+    .maintenance-overdue-row
+    td:first-child,
+.maintenance-page
+    ::deep
+    .maintenance-table
+    .maintenance-critical-row
+    td:first-child {
+    border-left-color: var(--accent);
+}
+.maintenance-row-icon {
+    display: inline-grid;
+    vertical-align: middle;
+    place-items: center;
+    width: 1.8rem;
+    height: 1.8rem;
+    margin-right: 0.5rem;
+    border-radius: 0.5rem;
+    color: var(--accent);
+    background: var(--accent-bg);
+}
+.maintenance-critical-row .maintenance-row-icon {
+    color: #fff;
+    background: #b42335;
+}
+.maintenance-page ::deep .maintenance-title {
+    white-space: normal;
+    min-width: 0;
+    overflow-wrap: anywhere;
+}
+.maintenance-page ::deep .maintenance-overdue-badge {
+    display: table;
+    margin-top: 0.3rem;
+}
 @media (max-width: 1050px) {
     .maintenance-page ::deep .maintenance-table .col-assigned,
     .maintenance-page ::deep .maintenance-table .col-created,
     .maintenance-page ::deep .maintenance-table .col-completed,
-    .maintenance-page ::deep .maintenance-table .col-vessel { display: table-cell; }
+    .maintenance-page ::deep .maintenance-table .col-vessel {
+        display: table-cell;
+    }
 }
 @media (max-width: 760px) {
-    .maintenance-page { padding: 1rem .5rem 2rem; }
-    .maintenance-page ::deep .maintenance-card { padding: .85rem; }
-    .maintenance-page ::deep .maintenance-summary { grid-template-columns: 1fr; }
-    .maintenance-page ::deep .maintenance-filters .filter-field { min-width: 0; flex-basis: auto; }
+    .maintenance-page {
+        padding: 1rem 0.5rem 2rem;
+    }
+    .maintenance-page ::deep .maintenance-card {
+        padding: 0.85rem;
+    }
+    .maintenance-page ::deep .maintenance-summary {
+        grid-template-columns: 1fr;
+    }
+    .maintenance-page ::deep .maintenance-filters .filter-field {
+        min-width: 0;
+        flex-basis: auto;
+    }
 }
 @media (prefers-reduced-motion: reduce) {
-    .maintenance-page ::deep .maintenance-table tbody tr td { transition: none; }
+    .maintenance-page ::deep .maintenance-table tbody tr td {
+        transition: none;
+    }
 }
 
-.maintenance-page ::deep .maintenance-register-heading { display: flex; align-items: center; gap: .85rem; }
-.maintenance-page ::deep .maintenance-register-heading .maintenance-card-icon { flex: 0 0 auto; display: grid; place-items: center; }
+.maintenance-page ::deep .maintenance-register-heading {
+    display: flex;
+    align-items: center;
+    gap: 0.85rem;
+}
+.maintenance-page ::deep .maintenance-register-heading .maintenance-card-icon {
+    flex: 0 0 auto;
+    display: grid;
+    place-items: center;
+}
 
 /* Bound text columns so long descriptions cannot push actions out of view. */
-.maintenance-page ::deep .maintenance-description { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; white-space: normal; overflow-wrap: anywhere; overflow: hidden; max-width: 100%; }
-.maintenance-page ::deep .maintenance-table th { height: auto; vertical-align: middle; }
-.maintenance-page ::deep .maintenance-board-card .maintenance-table { min-width: 76rem; }
-.maintenance-page ::deep .maintenance-board-card .col-title { width: 22%; }
-.maintenance-page ::deep .maintenance-board-card .col-vessel { width: 10%; }
-.maintenance-page ::deep .maintenance-board-card .col-priority { width: 8%; }
-.maintenance-page ::deep .maintenance-board-card .col-status { width: 9%; }
-.maintenance-page ::deep .maintenance-board-card .col-due { width: 12%; }
-.maintenance-page ::deep .maintenance-board-card .col-assigned { width: 10%; }
+.maintenance-page ::deep .maintenance-description {
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    line-clamp: 2;
+    white-space: normal;
+    overflow-wrap: anywhere;
+    overflow: hidden;
+    max-width: 100%;
+}
+.maintenance-page ::deep .maintenance-table th {
+    height: auto;
+    vertical-align: middle;
+}
+.maintenance-page ::deep .maintenance-board-card .maintenance-table {
+    min-width: 76rem;
+}
+.maintenance-page ::deep .maintenance-board-card .col-title {
+    width: 22%;
+}
+.maintenance-page ::deep .maintenance-board-card .col-vessel {
+    width: 10%;
+}
+.maintenance-page ::deep .maintenance-board-card .col-priority {
+    width: 8%;
+}
+.maintenance-page ::deep .maintenance-board-card .col-status {
+    width: 9%;
+}
+.maintenance-page ::deep .maintenance-board-card .col-due {
+    width: 12%;
+}
+.maintenance-page ::deep .maintenance-board-card .col-assigned {
+    width: 10%;
+}
 .maintenance-page ::deep .maintenance-board-card .col-created,
-.maintenance-page ::deep .maintenance-board-card .col-completed { width: 8%; }
-.maintenance-page ::deep .maintenance-board-card .col-actions { width: 13%; }
-.maintenance-page ::deep .maintenance-table td.col-actions { overflow: visible; }
-.maintenance-page ::deep .maintenance-table-scroll { margin-top: 0; }
+.maintenance-page ::deep .maintenance-board-card .col-completed {
+    width: 8%;
+}
+.maintenance-page ::deep .maintenance-board-card .col-actions {
+    width: 13%;
+}
+.maintenance-page ::deep .maintenance-table td.col-actions {
+    overflow: visible;
+}
+.maintenance-page ::deep .maintenance-table-scroll {
+    margin-top: 0;
+}

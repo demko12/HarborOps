@@ -1,7 +1,11 @@
 :root,
 [data-theme="dark"] {
     --bg-app: #172033;
-    --module-card-background: linear-gradient(135deg, rgba(30, 41, 59, .4), rgba(15, 23, 42, .14));
+    --module-card-background: linear-gradient(
+        135deg,
+        rgba(30, 41, 59, 0.4),
+        rgba(15, 23, 42, 0.14)
+    );
     --bg-surface: rgba(255, 255, 255, 0.055);
     --bg-surface-strong: rgba(30, 41, 59, 0.43);
     /* opaque surface shared by search and filter controls */
@@ -41,22 +45,25 @@
     --page-padding-compact: 1.25rem 1rem;
     --control-height: 2.8rem;
     --control-height-compact: 2.5rem;
-    --radius-xs: .45rem;
-    --radius-sm: .55rem;
-    --radius-button: .6rem;
-    --radius-control: .65rem;
-    --radius-row: .85rem;
+    --radius-xs: 0.45rem;
+    --radius-sm: 0.55rem;
+    --radius-button: 0.6rem;
+    --radius-control: 0.65rem;
+    --radius-row: 0.85rem;
     --radius-card: 1rem;
     --radius-pill: 999px;
-    --focus-ring: 0 0 0 .22rem var(--accent-bg);
-    --focus-ring-compact: 0 0 0 .2rem var(--accent-bg);
+    --focus-ring: 0 0 0 0.22rem var(--accent-bg);
+    --focus-ring-compact: 0 0 0 0.2rem var(--accent-bg);
     --row-hover-inset: inset 3px 0 0 var(--accent);
-    --popup-surface: rgba(255, 255, 255, .96);
-    --popup-shadow: 0 18px 34px rgba(15, 23, 42, .16), inset 0 1px rgba(255, 255, 255, .85);
-    --popup-surface-dark: rgba(23, 32, 51, .98);
-    --popup-shadow-dark: 0 18px 34px rgba(0, 0, 0, .34), inset 0 1px rgba(255, 255, 255, .07);
-    --radius-popup: .7rem;
-    --radius-option: .52rem;
+    --popup-surface: rgba(255, 255, 255, 0.96);
+    --popup-shadow:
+        0 18px 34px rgba(15, 23, 42, 0.16),
+        inset 0 1px rgba(255, 255, 255, 0.85);
+    --popup-surface-dark: rgba(23, 32, 51, 0.98);
+    --popup-shadow-dark:
+        0 18px 34px rgba(0, 0, 0, 0.34), inset 0 1px rgba(255, 255, 255, 0.07);
+    --radius-popup: 0.7rem;
+    --radius-option: 0.52rem;
     --danger-text: #f87171;
     --status-info: #93c5fd;
     --status-info-strong: #1d4ed8;
@@ -108,28 +115,62 @@ html[data-theme="light"] .logo-light {
     display: block;
 }
 
-html, body {
+html,
+body {
     margin: 0;
     background-color: var(--bg-app);
     color: var(--text-primary);
-    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
-    transition: background-color 0.2s ease, color 0.2s ease;
+    font-family:
+        "Inter",
+        -apple-system,
+        BlinkMacSystemFont,
+        sans-serif;
+    transition:
+        background-color 0.2s ease,
+        color 0.2s ease;
 }
 
 /* Opt-in base classes for new markup. Existing isolated page classes are
    migrated gradually to the same tokens to avoid specificity regressions. */
-.app-page-container { max-width: var(--page-max-width); margin: 0 auto; padding: var(--page-padding); }
-.app-card { border: 1px solid var(--border-medium); border-radius: var(--radius-card); background: linear-gradient(145deg, var(--bg-surface-strong), var(--bg-surface)); box-shadow: var(--card-shadow); }
-.app-control { box-sizing: border-box; min-width: 0; height: var(--control-height); color: var(--text-primary); border: 1px solid var(--border-medium); border-radius: var(--radius-control); outline: 0; background: var(--control-surface); font: inherit; }
-.app-control:focus { border-color: var(--accent); box-shadow: var(--focus-ring); }
-
-@media (max-width: 760px) {
-    .app-page-container { padding: var(--page-padding-compact); }
+.app-page-container {
+    max-width: var(--page-max-width);
+    margin: 0 auto;
+    padding: var(--page-padding);
+}
+.app-card {
+    border: 1px solid var(--border-medium);
+    border-radius: var(--radius-card);
+    background: linear-gradient(
+        145deg,
+        var(--bg-surface-strong),
+        var(--bg-surface)
+    );
+    box-shadow: var(--card-shadow);
+}
+.app-control {
+    box-sizing: border-box;
+    min-width: 0;
+    height: var(--control-height);
+    color: var(--text-primary);
+    border: 1px solid var(--border-medium);
+    border-radius: var(--radius-control);
+    outline: 0;
+    background: var(--control-surface);
+    font: inherit;
+}
+.app-control:focus {
+    border-color: var(--accent);
+    box-shadow: var(--focus-ring);
 }
 
+@media (max-width: 760px) {
+    .app-page-container {
+        padding: var(--page-padding-compact);
+    }
+}
 
-
-a, .btn-link {
+a,
+.btn-link {
     color: #006bb7;
 }
 
@@ -139,15 +180,21 @@ a, .btn-link {
     border-color: #1861ac;
 }
 
-.btn:focus, .btn:active:focus, .btn-link.nav-link:focus, .form-control:focus, .form-check-input:focus {
-  box-shadow: 0 0 0 0.1rem white, 0 0 0 0.25rem #258cfb;
+.btn:focus,
+.btn:active:focus,
+.btn-link.nav-link:focus,
+.form-control:focus,
+.form-check-input:focus {
+    box-shadow:
+        0 0 0 0.1rem white,
+        0 0 0 0.25rem #258cfb;
 }
 
 h1:focus {
     outline: none;
 }
 
-.valid.modified:not([type=checkbox]) {
+.valid.modified:not([type="checkbox"]) {
     outline: 1px solid #26b050;
 }
 
@@ -160,33 +207,43 @@ h1:focus {
 }
 
 .blazor-error-boundary {
-    background: url(data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNTYiIGhlaWdodD0iNDkiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyIgeG1sbnM6eGxpbms9Imh0dHA6Ly93d3cudzMub3JnLzE5OTkveGxpbmsiIG92ZXJmbG93PSJoaWRkZW4iPjxkZWZzPjxjbGlwUGF0aCBpZD0iY2xpcDAiPjxyZWN0IHg9IjIzNSIgeT0iNTEiIHdpZHRoPSI1NiIgaGVpZ2h0PSI0OSIvPjwvY2xpcFBhdGg+PC9kZWZzPjxnIGNsaXAtcGF0aD0idXJsKCNjbGlwMCkiIHRyYW5zZm9ybT0idHJhbnNsYXRlKC0yMzUgLTUxKSI+PHBhdGggZD0iTTI2My41MDYgNTFDMjY0LjcxNyA1MSAyNjUuODEzIDUxLjQ4MzcgMjY2LjYwNiA1Mi4yNjU4TDI2Ny4wNTIgNTIuNzk4NyAyNjcuNTM5IDUzLjYyODMgMjkwLjE4NSA5Mi4xODMxIDI5MC41NDUgOTIuNzk1IDI5MC42NTYgOTIuOTk2QzI5MC44NzcgOTMuNTEzIDI5MSA5NC4wODE1IDI5MSA5NC42NzgyIDI5MSA5Ny4wNjUxIDI4OS4wMzggOTkgMjg2LjYxNyA5OUwyNDAuMzgzIDk5QzIzNy45NjMgOTkgMjM2IDk3LjA2NTEgMjM2IDk0LjY3ODIgMjM2IDk0LjM3OTkgMjM2LjAzMSA5NC4wODg2IDIzNi4wODkgOTMuODA3MkwyMzYuMzM4IDkzLjAxNjIgMjM2Ljg1OCA5Mi4xMzE0IDI1OS40NzMgNTMuNjI5NCAyNTkuOTYxIDUyLjc5ODUgMjYwLjQwNyA1Mi4yNjU4QzI2MS4yIDUxLjQ4MzcgMjYyLjI5NiA1MSAyNjMuNTA2IDUxWk0yNjMuNTg2IDY2LjAxODNDMjYwLjczNyA2Ni4wMTgzIDI1OS4zMTMgNjcuMTI0NSAyNTkuMzEzIDY5LjMzNyAyNTkuMzEzIDY5LjYxMDIgMjU5LjMzMiA2OS44NjA4IDI1OS4zNzEgNzAuMDg4N0wyNjEuNzk1IDg0LjAxNjEgMjY1LjM4IDg0LjAxNjEgMjY3LjgyMSA2OS43NDc1QzI2Ny44NiA2OS43MzA5IDI2Ny44NzkgNjkuNTg3NyAyNjcuODc5IDY5LjMxNzkgMjY3Ljg3OSA2Ny4xMTgyIDI2Ni40NDggNjYuMDE4MyAyNjMuNTg2IDY2LjAxODNaTTI2My41NzYgODYuMDU0N0MyNjEuMDQ5IDg2LjA1NDcgMjU5Ljc4NiA4Ny4zMDA1IDI1OS43ODYgODkuNzkyMSAyNTkuNzg2IDkyLjI4MzcgMjYxLjA0OSA5My41Mjk1IDI2My41NzYgOTMuNTI5NSAyNjYuMTE2IDkzLjUyOTUgMjY3LjM4NyA5Mi4yODM3IDI2Ny4zODcgODkuNzkyMSAyNjcuMzg3IDg3LjMwMDUgMjY2LjExNiA4Ni4wNTQ3IDI2My41NzYgODYuMDU0N1oiIGZpbGw9IiNGRkU1MDAiIGZpbGwtcnVsZT0iZXZlbm9kZCIvPjwvZz48L3N2Zz4=) no-repeat 1rem/1.8rem, #b32121;
+    background:
+        url(data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNTYiIGhlaWdodD0iNDkiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyIgeG1sbnM6eGxpbms9Imh0dHA6Ly93d3cudzMub3JnLzE5OTkveGxpbmsiIG92ZXJmbG93PSJoaWRkZW4iPjxkZWZzPjxjbGlwUGF0aCBpZD0iY2xpcDAiPjxyZWN0IHg9IjIzNSIgeT0iNTEiIHdpZHRoPSI1NiIgaGVpZ2h0PSI0OSIvPjwvY2xpcFBhdGg+PC9kZWZzPjxnIGNsaXAtcGF0aD0idXJsKCNjbGlwMCkiIHRyYW5zZm9ybT0idHJhbnNsYXRlKC0yMzUgLTUxKSI+PHBhdGggZD0iTTI2My41MDYgNTFDMjY0LjcxNyA1MSAyNjUuODEzIDUxLjQ4MzcgMjY2LjYwNiA1Mi4yNjU4TDI2Ny4wNTIgNTIuNzk4NyAyNjcuNTM5IDUzLjYyODMgMjkwLjE4NSA5Mi4xODMxIDI5MC41NDUgOTIuNzk1IDI5MC42NTYgOTIuOTk2QzI5MC44NzcgOTMuNTEzIDI5MSA5NC4wODE1IDI5MSA5NC42NzgyIDI5MSA5Ny4wNjUxIDI4OS4wMzggOTkgMjg2LjYxNyA5OUwyNDAuMzgzIDk5QzIzNy45NjMgOTkgMjM2IDk3LjA2NTEgMjM2IDk0LjY3ODIgMjM2IDk0LjM3OTkgMjM2LjAzMSA5NC4wODg2IDIzNi4wODkgOTMuODA3MkwyMzYuMzM4IDkzLjAxNjIgMjM2Ljg1OCA5Mi4xMzE0IDI1OS40NzMgNTMuNjI5NCAyNTkuOTYxIDUyLjc5ODUgMjYwLjQwNyA1Mi4yNjU4QzI2MS4yIDUxLjQ4MzcgMjYyLjI5NiA1MSAyNjMuNTA2IDUxWk0yNjMuNTg2IDY2LjAxODNDMjYwLjczNyA2Ni4wMTgzIDI1OS4zMTMgNjcuMTI0NSAyNTkuMzEzIDY5LjMzNyAyNTkuMzEzIDY5LjYxMDIgMjU5LjMzMiA2OS44NjA4IDI1OS4zNzEgNzAuMDg4N0wyNjEuNzk1IDg0LjAxNjEgMjY1LjM4IDg0LjAxNjEgMjY3LjgyMSA2OS43NDc1QzI2Ny44NiA2OS43MzA5IDI2Ny44NzkgNjkuNTg3NyAyNjcuODc5IDY5LjMxNzkgMjY3Ljg3OSA2Ny4xMTgyIDI2Ni40NDggNjYuMDE4MyAyNjMuNTg2IDY2LjAxODNaTTI2My41NzYgODYuMDU0N0MyNjEuMDQ5IDg2LjA1NDcgMjU5Ljc4NiA4Ny4zMDA1IDI1OS43ODYgODkuNzkyMSAyNTkuNzg2IDkyLjI4MzcgMjYxLjA0OSA5My41Mjk1IDI2My41NzYgOTMuNTI5NSAyNjYuMTE2IDkzLjUyOTUgMjY3LjM4NyA5Mi4yODM3IDI2Ny4zODcgODkuNzkyMSAyNjcuMzg3IDg3LjMwMDUgMjY2LjExNiA4Ni4wNTQ3IDI2My41NzYgODYuMDU0N1oiIGZpbGw9IiNGRkU1MDAiIGZpbGwtcnVsZT0iZXZlbm9kZCIvPjwvZz48L3N2Zz4=)
+            no-repeat 1rem/1.8rem,
+        #b32121;
     padding: 1rem 1rem 1rem 3.7rem;
     color: white;
 }
 
-    .blazor-error-boundary::after {
-        content: "An error has occurred."
-    }
+.blazor-error-boundary::after {
+    content: "An error has occurred.";
+}
 
 .darker-border-checkbox.form-check-input {
     border-color: #929292;
 }
 
-.form-floating > .form-control-plaintext::placeholder, .form-floating > .form-control::placeholder {
+.form-floating > .form-control-plaintext::placeholder,
+.form-floating > .form-control::placeholder {
     color: var(--bs-secondary-color);
     text-align: end;
 }
 
-.form-floating > .form-control-plaintext:focus::placeholder, .form-floating > .form-control:focus::placeholder {
+.form-floating > .form-control-plaintext:focus::placeholder,
+.form-floating > .form-control:focus::placeholder {
     text-align: start;
 }
 
-
-html, body {
+html,
+body {
     margin: 0;
     background-color: var(--bg-app);
-    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    font-family:
+        "Inter",
+        -apple-system,
+        BlinkMacSystemFont,
+        "Segoe UI",
+        sans-serif;
     color: var(--text-primary);
 }
 
@@ -195,154 +252,164 @@ html, body {
 }
 
 /* Shared clear-glass surfaces for authenticated pages. Login intentionally keeps its dedicated light-only experience. */
-.page:not(.login-layout) :is(
-    .access-denied-card,
-    .administration-card,
-    .administration-denied-card,
-    .booking-card,
-    .booking-kpi,
-    .cargo-card,
-    .cargo-summary-card,
-    .audit-plans-card,
-    .audit-plans-filters,
-    .compliance-card,
-    .compliance-selector,
-    .crew-card,
-    .crew-filters,
-    .crew-insight-card,
-    .crew-profile-card,
-    .crew-profile-summary-card,
-    .crew-summary-card,
-    .crew-metric-card,
-    .crew-profile-highlight,
-    .dashboard-priority-queue,
-    .dashboard-summary-card,
-    .documents-card,
-    .documents-filters:where(:not(.documents-register-filters)),
-    .documents-form-card,
-    .documents-type-form-card,
-    .error-card,
-    .fleet-card,
-    .fleet-directory-summary > article,
-    .fleet-directory-create,
-    .fleet-directory-filter,
-    .fleet-directory-results,
-    .fleet-details-register,
-    .fleet-details-stat,
-    .fleet-filters,
-    .fleet-summary-card,
-    .positions-summary-card,
-    .positions-card,
-    .insurance-card,
-    .insurance-results-card,
-    .maintenance-card,
-    .maintenance-form-card,
-    .maintenance-summary-card,
-    .work-order-card,
-    .work-order-kpi,
-    .nc-card,
-    .nc-filters,
-    .not-found-card,
-    .profile-card,
-    .psc-card,
-    .register-route-card,
-    .reports-card,
-    .schedule-card,
-    .settings-card,
-    .survey-card,
-    .surveys-filters,
-    .timeline-card,
-    .timeline-kpi,
-    .vessel-details-card,
-    .voyages-card,
-    .voyages-filters,
-    .voyages-kpi) {
-    border-color: rgba(148, 163, 184, .24) !important;
-    background: linear-gradient(135deg, rgba(255, 255, 255, .4), rgba(255, 255, 255, .14)) !important;
-    box-shadow: 0 18px 38px rgba(15, 23, 42, .07), inset 0 1px rgba(255, 255, 255, .6) !important;
+.page:not(.login-layout)
+    :is(
+        .access-denied-card,
+        .administration-card,
+        .administration-denied-card,
+        .booking-card,
+        .booking-kpi,
+        .cargo-card,
+        .cargo-summary-card,
+        .audit-plans-card,
+        .audit-plans-filters,
+        .compliance-card,
+        .compliance-selector,
+        .crew-card,
+        .crew-filters,
+        .crew-insight-card,
+        .crew-profile-card,
+        .crew-profile-summary-card,
+        .crew-summary-card,
+        .crew-metric-card,
+        .crew-profile-highlight,
+        .dashboard-priority-queue,
+        .dashboard-summary-card,
+        .documents-card,
+        .documents-filters:where(:not(.documents-register-filters)),
+        .documents-form-card,
+        .documents-type-form-card,
+        .error-card,
+        .fleet-card,
+        .fleet-directory-summary > article,
+        .fleet-directory-create,
+        .fleet-directory-filter,
+        .fleet-directory-results,
+        .fleet-details-register,
+        .fleet-details-stat,
+        .fleet-filters,
+        .fleet-summary-card,
+        .positions-summary-card,
+        .positions-card,
+        .insurance-card,
+        .insurance-results-card,
+        .maintenance-card,
+        .maintenance-form-card,
+        .maintenance-summary-card,
+        .work-order-card,
+        .work-order-kpi,
+        .nc-card,
+        .nc-filters,
+        .not-found-card,
+        .profile-card,
+        .psc-card,
+        .register-route-card,
+        .reports-card,
+        .schedule-card,
+        .settings-card,
+        .survey-card,
+        .surveys-filters,
+        .timeline-card,
+        .timeline-kpi,
+        .vessel-details-card,
+        .voyages-card,
+        .voyages-filters,
+        .voyages-kpi
+    ) {
+    border-color: rgba(148, 163, 184, 0.24) !important;
+    background: linear-gradient(
+        135deg,
+        rgba(255, 255, 255, 0.4),
+        rgba(255, 255, 255, 0.14)
+    ) !important;
+    box-shadow:
+        0 18px 38px rgba(15, 23, 42, 0.07),
+        inset 0 1px rgba(255, 255, 255, 0.6) !important;
     backdrop-filter: blur(26px) saturate(150%);
     -webkit-backdrop-filter: blur(26px) saturate(150%);
 }
 
-
-
-html[data-theme="dark"] .page:not(.login-layout) :is(
-    :where(.documents-summary, .reports-summary, .administration-summary) > article,
-    .requirements-kpi,
-    .requirements-filters,
-    .requirements-card,
-    .readiness-kpi,
-    .readiness-filters,
-    .readiness-card,
-    .access-denied-card,
-    .administration-card,
-    .administration-denied-card,
-    .booking-card,
-    .booking-kpi,
-    .cargo-card,
-    .cargo-summary-card,
-    .audit-plans-card,
-    .audit-plans-filters,
-    .compliance-card,
-    .compliance-selector,
-    .crew-card,
-    .crew-filters,
-    .crew-insight-card,
-    .crew-profile-card,
-    .crew-profile-summary-card,
-    .crew-summary-card,
-    .crew-metric-card,
-    .crew-profile-highlight,
-    .dashboard-priority-queue,
-    .dashboard-summary-card,
-    .documents-card,
-    .documents-filters:where(:not(.documents-register-filters)),
-    .documents-form-card,
-    .documents-type-form-card,
-    .error-card,
-    .fleet-card,
-    .fleet-directory-summary > article,
-    .fleet-directory-create,
-    .fleet-directory-filter,
-    .fleet-directory-results,
-    .fleet-details-register,
-    .fleet-details-stat,
-    .fleet-filters,
-    .fleet-summary-card,
-    .positions-summary-card,
-    .positions-card,
-    .insurance-card,
-    .insurance-results-card,
-    .maintenance-card,
-    .maintenance-form-card,
-    .maintenance-summary-card,
-    .work-order-card,
-    .work-order-kpi,
-    .nc-card,
-    .nc-filters,
-    .not-found-card,
-    .profile-card,
-    .psc-card,
-    .register-route-card,
-    .reports-card,
-    .schedule-card,
-    .settings-card,
-    .survey-card,
-    .surveys-filters,
-    .timeline-card,
-    .timeline-kpi,
-    .vessel-details-card,
-    .voyages-card,
-    .voyages-filters,
-    .voyages-kpi) {
-    border-color: rgba(191, 219, 254, .15) !important;
+html[data-theme="dark"]
+    .page:not(.login-layout)
+    :is(
+        :where(.documents-summary, .reports-summary, .administration-summary)
+            > article,
+        .requirements-kpi,
+        .requirements-filters,
+        .requirements-card,
+        .readiness-kpi,
+        .readiness-filters,
+        .readiness-card,
+        .access-denied-card,
+        .administration-card,
+        .administration-denied-card,
+        .booking-card,
+        .booking-kpi,
+        .cargo-card,
+        .cargo-summary-card,
+        .audit-plans-card,
+        .audit-plans-filters,
+        .compliance-card,
+        .compliance-selector,
+        .crew-card,
+        .crew-filters,
+        .crew-insight-card,
+        .crew-profile-card,
+        .crew-profile-summary-card,
+        .crew-summary-card,
+        .crew-metric-card,
+        .crew-profile-highlight,
+        .dashboard-priority-queue,
+        .dashboard-summary-card,
+        .documents-card,
+        .documents-filters:where(:not(.documents-register-filters)),
+        .documents-form-card,
+        .documents-type-form-card,
+        .error-card,
+        .fleet-card,
+        .fleet-directory-summary > article,
+        .fleet-directory-create,
+        .fleet-directory-filter,
+        .fleet-directory-results,
+        .fleet-details-register,
+        .fleet-details-stat,
+        .fleet-filters,
+        .fleet-summary-card,
+        .positions-summary-card,
+        .positions-card,
+        .insurance-card,
+        .insurance-results-card,
+        .maintenance-card,
+        .maintenance-form-card,
+        .maintenance-summary-card,
+        .work-order-card,
+        .work-order-kpi,
+        .nc-card,
+        .nc-filters,
+        .not-found-card,
+        .profile-card,
+        .psc-card,
+        .register-route-card,
+        .reports-card,
+        .schedule-card,
+        .settings-card,
+        .survey-card,
+        .surveys-filters,
+        .timeline-card,
+        .timeline-kpi,
+        .vessel-details-card,
+        .voyages-card,
+        .voyages-filters,
+        .voyages-kpi
+    ) {
+    border-color: rgba(191, 219, 254, 0.15) !important;
     background: var(--module-card-background) !important;
     backdrop-filter: blur(26px) saturate(150%);
     -webkit-backdrop-filter: blur(26px) saturate(150%);
-    box-shadow: 0 18px 38px rgba(0, 0, 0, .16), inset 0 1px rgba(255, 255, 255, .09) !important;
+    box-shadow:
+        0 18px 38px rgba(0, 0, 0, 0.16),
+        inset 0 1px rgba(255, 255, 255, 0.09) !important;
 }
-
-
 
 /* Registration modals use the same solid surface as the Survey registration form.
    Only the page behind them is blurred; the form itself must stay fully legible. */
@@ -350,43 +417,61 @@ html[data-theme="dark"] .page:not(.login-layout) :is(
     width: min(100%, 56rem);
     border-color: #c7d1df !important;
     background: #f8fafc !important;
-    box-shadow: 0 28px 70px rgba(15, 23, 42, .28), 0 0 0 1px rgba(255, 255, 255, .7) inset !important;
+    box-shadow:
+        0 28px 70px rgba(15, 23, 42, 0.28),
+        0 0 0 1px rgba(255, 255, 255, 0.7) inset !important;
     backdrop-filter: none !important;
     -webkit-backdrop-filter: none !important;
 }
 
-.page:not(.login-layout) :is(
-    .administration-modal,
-    .cargo-modal,
-    .crew-assignment-modal,
-    .logout-modal,
-    .survey-registration-modal,
-    .voyages-modal),
+.page:not(.login-layout)
+    :is(
+        .administration-modal,
+        .cargo-modal,
+        .crew-assignment-modal,
+        .logout-modal,
+        .survey-registration-modal,
+        .voyages-modal
+    ),
 .page:not(.login-layout) .maintenance-modal-backdrop .maintenance-form-card {
     border-color: #c7d1df !important;
     background: #f8fafc !important;
-    box-shadow: 0 28px 70px rgba(15, 23, 42, .28), 0 0 0 1px rgba(255, 255, 255, .7) inset !important;
+    box-shadow:
+        0 28px 70px rgba(15, 23, 42, 0.28),
+        0 0 0 1px rgba(255, 255, 255, 0.7) inset !important;
     backdrop-filter: none !important;
     -webkit-backdrop-filter: none !important;
 }
 
-html[data-theme="dark"] .page:not(.login-layout) .compliance-registration-modal {
-    border-color: rgba(148, 163, 184, .28) !important;
+html[data-theme="dark"]
+    .page:not(.login-layout)
+    .compliance-registration-modal {
+    border-color: rgba(148, 163, 184, 0.28) !important;
     background: #172033 !important;
-    box-shadow: 0 28px 70px rgba(0, 0, 0, .5), 0 0 0 1px rgba(255, 255, 255, .06) inset !important;
+    box-shadow:
+        0 28px 70px rgba(0, 0, 0, 0.5),
+        0 0 0 1px rgba(255, 255, 255, 0.06) inset !important;
 }
 
-html[data-theme="dark"] .page:not(.login-layout) :is(
-    .administration-modal,
-    .cargo-modal,
-    .crew-assignment-modal,
-    .logout-modal,
-    .survey-registration-modal,
-    .voyages-modal),
-html[data-theme="dark"] .page:not(.login-layout) .maintenance-modal-backdrop .maintenance-form-card {
-    border-color: rgba(148, 163, 184, .28) !important;
+html[data-theme="dark"]
+    .page:not(.login-layout)
+    :is(
+        .administration-modal,
+        .cargo-modal,
+        .crew-assignment-modal,
+        .logout-modal,
+        .survey-registration-modal,
+        .voyages-modal
+    ),
+html[data-theme="dark"]
+    .page:not(.login-layout)
+    .maintenance-modal-backdrop
+    .maintenance-form-card {
+    border-color: rgba(148, 163, 184, 0.28) !important;
     background: #172033 !important;
-    box-shadow: 0 28px 70px rgba(0, 0, 0, .5), 0 0 0 1px rgba(255, 255, 255, .06) inset !important;
+    box-shadow:
+        0 28px 70px rgba(0, 0, 0, 0.5),
+        0 0 0 1px rgba(255, 255, 255, 0.06) inset !important;
 }
 
 /* ---------- Form controls inside dialogs ----------
@@ -395,78 +480,119 @@ html[data-theme="dark"] .page:not(.login-layout) .maintenance-modal-backdrop .ma
    radius, .88rem inherited type, accent focus ring. Declared once here and
    scoped to the dialog surfaces so a page cannot drift on its own. The two
    picker inputs are excluded because they carry their own icon padding. */
-.page:not(.login-layout) :is(
-    .administration-modal,
-    .cargo-modal,
-    .compliance-registration-modal,
-    .crew-assignment-modal,
-    .survey-registration-modal,
-    .voyages-modal) :is(input:not([type="checkbox"]):not([type="radio"]), select, textarea):not(.vessel-picker-input):not(.port-picker-input):not(.route-picker-input):not(.berth-picker-input):not(.document-picker-input):not(.survey-vessel-search),
-.page:not(.login-layout) .maintenance-modal-backdrop :is(input:not([type="checkbox"]):not([type="radio"]), select, textarea):not(.vessel-picker-input):not(.port-picker-input):not(.route-picker-input):not(.berth-picker-input):not(.document-picker-input):not(.survey-vessel-search) {
+.page:not(.login-layout)
+    :is(
+        .administration-modal,
+        .cargo-modal,
+        .compliance-registration-modal,
+        .crew-assignment-modal,
+        .survey-registration-modal,
+        .voyages-modal
+    )
+    :is(input:not([type="checkbox"]):not([type="radio"]), select, textarea):not(
+        .vessel-picker-input
+    ):not(.port-picker-input):not(.route-picker-input):not(
+        .berth-picker-input
+    ):not(.document-picker-input):not(.survey-vessel-search),
+.page:not(.login-layout)
+    .maintenance-modal-backdrop
+    :is(input:not([type="checkbox"]):not([type="radio"]), select, textarea):not(
+        .vessel-picker-input
+    ):not(.port-picker-input):not(.route-picker-input):not(
+        .berth-picker-input
+    ):not(.document-picker-input):not(.survey-vessel-search) {
     box-sizing: border-box;
     width: 100%;
     min-height: 2.8rem;
-    padding: 0 .85rem;
+    padding: 0 0.85rem;
     color: var(--text-primary);
     border: 1px solid var(--border-medium);
-    border-radius: .65rem;
+    border-radius: 0.65rem;
     outline: 0;
     background: var(--control-surface);
     font: inherit;
-    font-size: .88rem;
+    font-size: 0.88rem;
     color-scheme: light;
-    transition: border-color .16s ease, box-shadow .16s ease;
+    transition:
+        border-color 0.16s ease,
+        box-shadow 0.16s ease;
 }
 
-html[data-theme="dark"] .page:not(.login-layout) :is(
-    .administration-modal,
-    .cargo-modal,
-    .compliance-registration-modal,
-    .crew-assignment-modal,
-    .survey-registration-modal,
-    .voyages-modal) :is(input:not([type="checkbox"]):not([type="radio"]), select, textarea):not(.vessel-picker-input):not(.port-picker-input):not(.route-picker-input):not(.berth-picker-input):not(.document-picker-input):not(.survey-vessel-search),
-html[data-theme="dark"] .page:not(.login-layout) .maintenance-modal-backdrop :is(input:not([type="checkbox"]):not([type="radio"]), select, textarea):not(.vessel-picker-input):not(.port-picker-input):not(.route-picker-input):not(.berth-picker-input):not(.document-picker-input):not(.survey-vessel-search) {
+html[data-theme="dark"]
+    .page:not(.login-layout)
+    :is(
+        .administration-modal,
+        .cargo-modal,
+        .compliance-registration-modal,
+        .crew-assignment-modal,
+        .survey-registration-modal,
+        .voyages-modal
+    )
+    :is(input:not([type="checkbox"]):not([type="radio"]), select, textarea):not(
+        .vessel-picker-input
+    ):not(.port-picker-input):not(.route-picker-input):not(
+        .berth-picker-input
+    ):not(.document-picker-input):not(.survey-vessel-search),
+html[data-theme="dark"]
+    .page:not(.login-layout)
+    .maintenance-modal-backdrop
+    :is(input:not([type="checkbox"]):not([type="radio"]), select, textarea):not(
+        .vessel-picker-input
+    ):not(.port-picker-input):not(.route-picker-input):not(
+        .berth-picker-input
+    ):not(.document-picker-input):not(.survey-vessel-search) {
     color-scheme: dark;
 }
 
-.page:not(.login-layout) :is(
-    .administration-modal,
-    .cargo-modal,
-    .compliance-registration-modal,
-    .crew-assignment-modal,
-    .survey-registration-modal,
-    .voyages-modal) :is(input, select, textarea):focus,
-.page:not(.login-layout) .maintenance-modal-backdrop :is(input, select, textarea):focus {
+.page:not(.login-layout)
+    :is(
+        .administration-modal,
+        .cargo-modal,
+        .compliance-registration-modal,
+        .crew-assignment-modal,
+        .survey-registration-modal,
+        .voyages-modal
+    )
+    :is(input, select, textarea):focus,
+.page:not(.login-layout)
+    .maintenance-modal-backdrop
+    :is(input, select, textarea):focus {
     border-color: var(--accent);
-    box-shadow: 0 0 0 .22rem var(--accent-bg);
+    box-shadow: 0 0 0 0.22rem var(--accent-bg);
 }
 
-.page:not(.login-layout) :is(
-    .administration-modal,
-    .cargo-modal,
-    .compliance-registration-modal,
-    .crew-assignment-modal,
-    .survey-registration-modal,
-    .voyages-modal) textarea,
+.page:not(.login-layout)
+    :is(
+        .administration-modal,
+        .cargo-modal,
+        .compliance-registration-modal,
+        .crew-assignment-modal,
+        .survey-registration-modal,
+        .voyages-modal
+    )
+    textarea,
 .page:not(.login-layout) .maintenance-modal-backdrop textarea {
     min-height: 7.5rem;
-    padding: .75rem .85rem;
+    padding: 0.75rem 0.85rem;
     line-height: 1.5;
     resize: vertical;
 }
 
-.page:not(.login-layout) :is(
-    .administration-modal,
-    .cargo-modal,
-    .compliance-registration-modal,
-    .crew-assignment-modal,
-    .survey-registration-modal,
-    .voyages-modal) label,
+.page:not(.login-layout)
+    :is(
+        .administration-modal,
+        .cargo-modal,
+        .compliance-registration-modal,
+        .crew-assignment-modal,
+        .survey-registration-modal,
+        .voyages-modal
+    )
+    label,
 .page:not(.login-layout) .maintenance-modal-backdrop label {
     color: var(--text-muted);
-    font-size: .7rem;
+    font-size: 0.7rem;
     font-weight: 700;
-    letter-spacing: .1em;
+    letter-spacing: 0.1em;
     text-transform: uppercase;
 }
 
@@ -475,21 +601,26 @@ html[data-theme="dark"] .page:not(.login-layout) .maintenance-modal-backdrop :is
 .page:not(.login-layout) .administration-modal .input-shell input {
     min-height: 0 !important;
     height: 100% !important;
-    padding: 0 .75rem 0 0 !important;
+    padding: 0 0.75rem 0 0 !important;
     border: 0 !important;
     border-radius: 0 !important;
     background: transparent !important;
     box-shadow: none !important;
 }
 
-.page:not(.login-layout) :is(
-    .administration-modal,
-    .cargo-modal,
-    .compliance-registration-modal,
-    .crew-assignment-modal,
-    .survey-registration-modal,
-    .voyages-modal) :is(input[type="checkbox"], input[type="radio"]),
-.page:not(.login-layout) .maintenance-modal-backdrop :is(input[type="checkbox"], input[type="radio"]) {
+.page:not(.login-layout)
+    :is(
+        .administration-modal,
+        .cargo-modal,
+        .compliance-registration-modal,
+        .crew-assignment-modal,
+        .survey-registration-modal,
+        .voyages-modal
+    )
+    :is(input[type="checkbox"], input[type="radio"]),
+.page:not(.login-layout)
+    .maintenance-modal-backdrop
+    :is(input[type="checkbox"], input[type="radio"]) {
     width: 1rem;
     height: 1rem;
     min-height: 0;
@@ -498,24 +629,28 @@ html[data-theme="dark"] .page:not(.login-layout) .maintenance-modal-backdrop :is
 }
 
 /* A label that wraps a checkbox or radio is a choice, not a field caption. */
-.page:not(.login-layout) :is(
-    .administration-modal,
-    .cargo-modal,
-    .compliance-registration-modal,
-    .crew-assignment-modal,
-    .survey-registration-modal,
-    .voyages-modal) label:has(input[type="checkbox"], input[type="radio"]),
-.page:not(.login-layout) .maintenance-modal-backdrop label:has(input[type="checkbox"], input[type="radio"]) {
+.page:not(.login-layout)
+    :is(
+        .administration-modal,
+        .cargo-modal,
+        .compliance-registration-modal,
+        .crew-assignment-modal,
+        .survey-registration-modal,
+        .voyages-modal
+    )
+    label:has(input[type="checkbox"], input[type="radio"]),
+.page:not(.login-layout)
+    .maintenance-modal-backdrop
+    label:has(input[type="checkbox"], input[type="radio"]) {
     display: inline-flex;
     align-items: center;
-    gap: .45rem;
+    gap: 0.45rem;
     color: var(--text-secondary);
-    font-size: .88rem;
+    font-size: 0.88rem;
     font-weight: 400;
     letter-spacing: 0;
     text-transform: none;
 }
-
 
 /* ---------- Printing ----------
    Shared rules every printable page relies on: the themed dark surface is
@@ -544,7 +679,8 @@ html[data-theme="dark"] .page:not(.login-layout) .maintenance-modal-backdrop :is
         color-scheme: light;
     }
 
-    html, body {
+    html,
+    body {
         background: #ffffff !important;
         color: #1a1a1a !important;
     }
@@ -580,7 +716,11 @@ html[data-theme="dark"] .page:not(.login-layout) .maintenance-modal-backdrop :is
         padding: 0 !important;
     }
 
-    h1, h2, h3, strong, dt {
+    h1,
+    h2,
+    h3,
+    strong,
+    dt {
         color: #1a1a1a !important;
     }
 
@@ -592,14 +732,16 @@ html[data-theme="dark"] .page:not(.login-layout) .maintenance-modal-backdrop :is
     /* The clear-glass treatment is a screen effect: on paper the gradient and
        blur only muddy the text, so the printable cards go back to plain paper.
        Selector shape matches the rules above so this override wins on order. */
-    .page:not(.login-layout) :is(
-        .crew-card,
-        .crew-insight-card,
-        .crew-summary-card,
-        .crew-metric-card,
-        .crew-profile-highlight,
-        .fleet-card,
-        .fleet-summary-card) {
+    .page:not(.login-layout)
+        :is(
+            .crew-card,
+            .crew-insight-card,
+            .crew-summary-card,
+            .crew-metric-card,
+            .crew-profile-highlight,
+            .fleet-card,
+            .fleet-summary-card
+        ) {
         border-color: #999999 !important;
         background: none !important;
         box-shadow: none !important;
@@ -611,26 +753,26 @@ html[data-theme="dark"] .page:not(.login-layout) .maintenance-modal-backdrop :is
        which subset of the register it shows. */
     .print-summary {
         margin: 0 0 1rem;
-        padding: 0 0 .6rem;
+        padding: 0 0 0.6rem;
         border-bottom: 1px solid #999999;
     }
 
     .print-summary h2 {
-        margin: 0 0 .45rem;
+        margin: 0 0 0.45rem;
         font-size: 1rem;
     }
 
     .print-summary dl {
         display: flex;
         flex-wrap: wrap;
-        gap: .25rem 1.4rem;
+        gap: 0.25rem 1.4rem;
         margin: 0;
     }
 
     .print-summary dl > div {
         display: flex;
-        gap: .35rem;
-        font-size: .78rem;
+        gap: 0.35rem;
+        font-size: 0.78rem;
     }
 
     .print-summary dt {
@@ -652,8 +794,8 @@ html[data-theme="dark"] .page:not(.login-layout) .maintenance-modal-backdrop :is
    than in either page's scoped stylesheet. Hazard is always carried by text and the placard
    shape as well as colour. */
 .cargo-placard {
-    width: .6rem;
-    height: .6rem;
+    width: 0.6rem;
+    height: 0.6rem;
     flex: 0 0 auto;
     border: 1.5px solid currentColor;
     border-radius: 1px;
@@ -664,53 +806,91 @@ html[data-theme="dark"] .page:not(.login-layout) .maintenance-modal-backdrop :is
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    gap: .5rem;
+    gap: 0.5rem;
     min-width: 6.2rem;
-    padding: .18rem .65rem;
+    padding: 0.18rem 0.65rem;
     color: var(--hazard);
     border: 1px solid color-mix(in srgb, currentColor 28%, transparent);
     border-radius: 999px;
     background: var(--hazard-bg);
-    font-size: .76rem;
+    font-size: 0.76rem;
     font-weight: 600;
     white-space: nowrap;
 }
 
-.cargo-no-hazard { color: var(--text-muted); }
+.cargo-no-hazard {
+    color: var(--text-muted);
+}
 
 .cargo-status {
     display: inline-flex;
     justify-content: center;
     min-width: 6.2rem;
-    padding: .18rem .65rem;
+    padding: 0.18rem 0.65rem;
     border: 1px solid color-mix(in srgb, currentColor 28%, transparent);
     border-radius: 999px;
-    font-size: .76rem;
+    font-size: 0.76rem;
     font-weight: 550;
     white-space: nowrap;
 }
 
-.cargo-track { display: flex; gap: .2rem; margin-top: .5rem; }
-.cargo-track i { width: .85rem; height: 2px; border-radius: 999px; background: var(--border-medium); }
-.cargo-track i.on { background: currentColor; }
+.cargo-track {
+    display: flex;
+    gap: 0.2rem;
+    margin-top: 0.5rem;
+}
+.cargo-track i {
+    width: 0.85rem;
+    height: 2px;
+    border-radius: 999px;
+    background: var(--border-medium);
+}
+.cargo-track i.on {
+    background: currentColor;
+}
 
-.cargo-status.pending { color: var(--text-secondary); background: var(--bg-surface-strong); }
-.cargo-status.active { color: #93c5fd; background: rgba(96, 165, 250, .14); }
-.cargo-status.done { color: #5eead4; background: rgba(45, 212, 191, .14); }
-.cargo-track.pending { color: var(--text-secondary); }
-.cargo-track.active { color: #93c5fd; }
-.cargo-track.done { color: #5eead4; }
+.cargo-status.pending {
+    color: var(--text-secondary);
+    background: var(--bg-surface-strong);
+}
+.cargo-status.active {
+    color: #93c5fd;
+    background: rgba(96, 165, 250, 0.14);
+}
+.cargo-status.done {
+    color: #5eead4;
+    background: rgba(45, 212, 191, 0.14);
+}
+.cargo-track.pending {
+    color: var(--text-secondary);
+}
+.cargo-track.active {
+    color: #93c5fd;
+}
+.cargo-track.done {
+    color: #5eead4;
+}
 
-html[data-theme="light"] .cargo-status.active { color: #1d4ed8; background: rgba(37, 99, 235, .12); }
-html[data-theme="light"] .cargo-status.done { color: #0f766e; background: rgba(15, 118, 110, .14); }
-html[data-theme="light"] .cargo-track.active { color: #1d4ed8; }
-html[data-theme="light"] .cargo-track.done { color: #0f766e; }
+html[data-theme="light"] .cargo-status.active {
+    color: #1d4ed8;
+    background: rgba(37, 99, 235, 0.12);
+}
+html[data-theme="light"] .cargo-status.done {
+    color: #0f766e;
+    background: rgba(15, 118, 110, 0.14);
+}
+html[data-theme="light"] .cargo-track.active {
+    color: #1d4ed8;
+}
+html[data-theme="light"] .cargo-track.done {
+    color: #0f766e;
+}
 
 /* Shared workspace navigation: Documents, Maintenance, and Compliance use this exact control. */
 .workspace-tabs {
     display: flex;
     flex-wrap: wrap;
-    gap: .6rem;
+    gap: 0.6rem;
     margin-bottom: 1rem;
 }
 
@@ -720,21 +900,24 @@ html[data-theme="light"] .cargo-track.done { color: #0f766e; }
     height: 2.75rem;
     align-items: center;
     justify-content: center;
-    padding: .6rem;
+    padding: 0.6rem;
     color: var(--text-primary);
     border: 1px solid var(--border-medium);
-    border-radius: .6rem;
+    border-radius: 0.6rem;
     background: var(--bg-surface-strong);
     box-shadow: none;
     font: inherit;
-    font-size: .86rem;
+    font-size: 0.86rem;
     font-weight: 600;
-    letter-spacing: .01em;
+    letter-spacing: 0.01em;
     text-align: center;
     text-decoration: none;
     white-space: nowrap;
     cursor: pointer;
-    transition: border-color .16s ease, background .16s ease, color .16s ease;
+    transition:
+        border-color 0.16s ease,
+        background 0.16s ease,
+        color 0.16s ease;
 }
 
 .workspace-tab:hover {
@@ -752,21 +935,22 @@ html[data-theme="light"] .cargo-track.done { color: #0f766e; }
     color: var(--accent);
     border-color: var(--accent);
     background: var(--accent-bg);
-   
 }
 
 .workspace-filter-reset {
     height: 2.8rem;
-    padding: 0 .9rem;
+    padding: 0 0.9rem;
     color: var(--accent);
     border: 1px solid transparent;
-    border-radius: .6rem;
+    border-radius: 0.6rem;
     background: none;
     font: inherit;
-    font-size: .88rem;
+    font-size: 0.88rem;
     font-weight: 600;
     cursor: pointer;
-    transition: background .15s ease, border-color .15s ease;
+    transition:
+        background 0.15s ease,
+        border-color 0.15s ease;
 }
 
 .workspace-filter-reset:hover:not(:disabled) {
@@ -776,19 +960,19 @@ html[data-theme="light"] .cargo-track.done { color: #0f766e; }
 
 .workspace-filter-reset:disabled {
     cursor: not-allowed;
-    opacity: .45;
+    opacity: 0.45;
 }
 
 .page-breadcrumb {
     display: flex;
     align-items: center;
     flex-wrap: wrap;
-    gap: .4rem;
-    margin: 0 0 .4rem;
+    gap: 0.4rem;
+    margin: 0 0 0.4rem;
     color: var(--accent);
-    font-size: .72rem;
+    font-size: 0.72rem;
     font-weight: 700;
-    letter-spacing: .14em;
+    letter-spacing: 0.14em;
     text-transform: uppercase;
 }
 
@@ -800,7 +984,7 @@ html[data-theme="light"] .cargo-track.done { color: #0f766e; }
 .page-breadcrumb a:hover,
 .page-breadcrumb a:focus-visible {
     text-decoration: underline;
-    text-underline-offset: .18rem;
+    text-underline-offset: 0.18rem;
 }
 
 .page-breadcrumb span:last-child {
@@ -827,45 +1011,118 @@ html[data-theme="light"] .cargo-track.done { color: #0f766e; }
     width: 32px;
     height: 32px;
     color: #1e3150;
-    font: 700 13px Inter, sans-serif;
+    font:
+        700 13px Inter,
+        sans-serif;
     border: 3px solid #2763e8;
     border-radius: 50%;
     background: #fff;
-    box-shadow: 0 2px 9px rgba(22, 48, 88, .25);
+    box-shadow: 0 2px 9px rgba(22, 48, 88, 0.25);
 }
 
 html[data-theme="dark"] .timeline-map .leaflet-tile {
-    filter: grayscale(1) invert(1) sepia(.2) hue-rotate(170deg) saturate(1.4) brightness(.8) contrast(.9);
+    filter: grayscale(1) invert(1) sepia(0.2) hue-rotate(170deg) saturate(1.4)
+        brightness(0.8) contrast(0.9);
 }
 
 html[data-theme="dark"] .timeline-map .leaflet-control-attribution,
 html[data-theme="dark"] .timeline-map .leaflet-control-zoom a {
     color: #cbd5e1;
-    border-color: rgba(148, 163, 184, .35);
+    border-color: rgba(148, 163, 184, 0.35);
     background: #172033;
 }
 
 /* Leaflet creates these elements outside Blazor CSS isolation. */
-.voyage-map-marker { border-width: 2px; box-shadow: 0 0 0 5px rgba(66,133,228,.12), 0 3px 10px rgba(22,48,88,.18); }
-.voyage-map-marker.arrived { border-color: #168071; color: #11695e; box-shadow: 0 0 0 5px rgba(22,128,113,.12), 0 3px 10px rgba(22,48,88,.18); }
-.voyage-map-marker.departed { border-color: #7b879b; color: #64748b; box-shadow: 0 0 0 5px rgba(123,135,155,.12), 0 3px 10px rgba(22,48,88,.18); }
-.voyage-map-marker:focus-visible { outline: 3px solid #60a5fa; outline-offset: 5px; }
-.voyage-map-flow { animation: voyage-route-flow 2.5s linear infinite; }
-.timeline-map { z-index: 0; font-family: Inter, sans-serif; }
-.timeline-map .leaflet-tile { filter: saturate(.45); }
-.timeline-map .leaflet-control-zoom { border: 1px solid var(--border-subtle); border-radius: .6rem; overflow: hidden; box-shadow: 0 4px 15px rgba(22,48,88,.1); }
-.timeline-map .leaflet-control-zoom a { color: var(--text-primary); background: var(--bg-surface); border-color: var(--border-subtle); }
-.timeline-map .leaflet-popup-content-wrapper, .timeline-map .leaflet-popup-tip,
-.timeline-map .voyage-map-tooltip { color: var(--text-primary); background: var(--bg-surface-strong); }
-.timeline-map .voyage-map-tooltip { border: 1px solid var(--border-subtle); border-radius: .4rem; padding: .4rem .65rem; box-shadow: 0 3px 12px rgba(22,48,88,.12); font-size: .75rem; }
-.voyage-map-popup { display: grid; gap: .35rem; min-width: 9rem; }
-.voyage-map-popup small { color: var(--accent); font-size: .6rem; font-weight: 700; letter-spacing: .12em; }
-.voyage-map-popup strong { font-size: .9rem; }
-.voyage-map-popup span { color: var(--text-muted); font-size: .75rem; }
-@keyframes voyage-route-flow { to { stroke-dashoffset: -29; } }
-@media (prefers-reduced-motion: reduce) { .voyage-map-flow { animation: none; } }
+.voyage-map-marker {
+    border-width: 2px;
+    box-shadow:
+        0 0 0 5px rgba(66, 133, 228, 0.12),
+        0 3px 10px rgba(22, 48, 88, 0.18);
+}
+.voyage-map-marker.arrived {
+    border-color: #168071;
+    color: #11695e;
+    box-shadow:
+        0 0 0 5px rgba(22, 128, 113, 0.12),
+        0 3px 10px rgba(22, 48, 88, 0.18);
+}
+.voyage-map-marker.departed {
+    border-color: #7b879b;
+    color: #64748b;
+    box-shadow:
+        0 0 0 5px rgba(123, 135, 155, 0.12),
+        0 3px 10px rgba(22, 48, 88, 0.18);
+}
+.voyage-map-marker:focus-visible {
+    outline: 3px solid #60a5fa;
+    outline-offset: 5px;
+}
+.voyage-map-flow {
+    animation: voyage-route-flow 2.5s linear infinite;
+}
+.timeline-map {
+    z-index: 0;
+    font-family: Inter, sans-serif;
+}
+.timeline-map .leaflet-tile {
+    filter: saturate(0.45);
+}
+.timeline-map .leaflet-control-zoom {
+    border: 1px solid var(--border-subtle);
+    border-radius: 0.6rem;
+    overflow: hidden;
+    box-shadow: 0 4px 15px rgba(22, 48, 88, 0.1);
+}
+.timeline-map .leaflet-control-zoom a {
+    color: var(--text-primary);
+    background: var(--bg-surface);
+    border-color: var(--border-subtle);
+}
+.timeline-map .leaflet-popup-content-wrapper,
+.timeline-map .leaflet-popup-tip,
+.timeline-map .voyage-map-tooltip {
+    color: var(--text-primary);
+    background: var(--bg-surface-strong);
+}
+.timeline-map .voyage-map-tooltip {
+    border: 1px solid var(--border-subtle);
+    border-radius: 0.4rem;
+    padding: 0.4rem 0.65rem;
+    box-shadow: 0 3px 12px rgba(22, 48, 88, 0.12);
+    font-size: 0.75rem;
+}
+.voyage-map-popup {
+    display: grid;
+    gap: 0.35rem;
+    min-width: 9rem;
+}
+.voyage-map-popup small {
+    color: var(--accent);
+    font-size: 0.6rem;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+}
+.voyage-map-popup strong {
+    font-size: 0.9rem;
+}
+.voyage-map-popup span {
+    color: var(--text-muted);
+    font-size: 0.75rem;
+}
+@keyframes voyage-route-flow {
+    to {
+        stroke-dashoffset: -29;
+    }
+}
+@media (prefers-reduced-motion: reduce) {
+    .voyage-map-flow {
+        animation: none;
+    }
+}
 
-html[data-theme="dark"] .timeline-map { background: #131e2c; }
+html[data-theme="dark"] .timeline-map {
+    background: #131e2c;
+}
 html[data-theme="dark"] .voyage-map-marker,
 html[data-theme="dark"] .timeline-map-legend-marker {
     color: #dbeafe;
@@ -873,165 +1130,299 @@ html[data-theme="dark"] .timeline-map-legend-marker {
     background: #17283f;
 }
 html[data-theme="dark"] .voyage-map-marker.arrived,
-html[data-theme="dark"] .timeline-map-legend-marker.arrived { color: #99f6e4; border-color: #4ccbb4; background: #15332f; }
+html[data-theme="dark"] .timeline-map-legend-marker.arrived {
+    color: #99f6e4;
+    border-color: #4ccbb4;
+    background: #15332f;
+}
 html[data-theme="dark"] .voyage-map-marker.departed,
-html[data-theme="dark"] .timeline-map-legend-marker.departed { color: #d0daea; border-color: #8a9bb3; background: #253145; }
+html[data-theme="dark"] .timeline-map-legend-marker.departed {
+    color: #d0daea;
+    border-color: #8a9bb3;
+    background: #253145;
+}
 html[data-theme="dark"] .timeline-map .leaflet-popup-content-wrapper,
 html[data-theme="dark"] .timeline-map .leaflet-popup-tip,
-html[data-theme="dark"] .timeline-map .voyage-map-tooltip { color: #e2e8f0; background: #19283c; }
-html[data-theme="dark"] .timeline-map .leaflet-tooltip-top::before { border-top-color: #19283c; }
-html[data-theme="dark"] .timeline-map .leaflet-popup-close-button { color: #b6c6dc; }
-html[data-theme="dark"] .timeline-map .leaflet-control-attribution a { color: #93c5fd; }
-html[data-theme="dark"] .timeline-map .leaflet-control-zoom a:hover { background: #263952; color: #f1f5f9; }
-html[data-theme="dark"] .timeline-map .voyage-map-flow { opacity: .7; }
-html[data-theme="dark"] .timeline-route-map .timeline-eyebrow { color: var(--accent); }
-html[data-theme="dark"] .timeline-map-status-key i.planned { background: #70aaff; }
-html[data-theme="dark"] .timeline-map-status-key i.arrived { background: #4ccbb4; }
-html[data-theme="dark"] .timeline-map-status-key i.departed { background: #8a9bb3; }
+html[data-theme="dark"] .timeline-map .voyage-map-tooltip {
+    color: #e2e8f0;
+    background: #19283c;
+}
+html[data-theme="dark"] .timeline-map .leaflet-tooltip-top::before {
+    border-top-color: #19283c;
+}
+html[data-theme="dark"] .timeline-map .leaflet-popup-close-button {
+    color: #b6c6dc;
+}
+html[data-theme="dark"] .timeline-map .leaflet-control-attribution a {
+    color: #93c5fd;
+}
+html[data-theme="dark"] .timeline-map .leaflet-control-zoom a:hover {
+    background: #263952;
+    color: #f1f5f9;
+}
+html[data-theme="dark"] .timeline-map .voyage-map-flow {
+    opacity: 0.7;
+}
+html[data-theme="dark"] .timeline-route-map .timeline-eyebrow {
+    color: var(--accent);
+}
+html[data-theme="dark"] .timeline-map-status-key i.planned {
+    background: #70aaff;
+}
+html[data-theme="dark"] .timeline-map-status-key i.arrived {
+    background: #4ccbb4;
+}
+html[data-theme="dark"] .timeline-map-status-key i.departed {
+    background: #8a9bb3;
+}
 
 /* Summary values and supporting labels need explicit contrast in dark mode. */
-html[data-theme="dark"] :is(.documents-summary, .reports-summary, .administration-summary) article { color: var(--text-primary); }
-html[data-theme="dark"] :is(.documents-summary, .reports-summary, .administration-summary) article strong { color: var(--text-primary); }
-html[data-theme="dark"] :is(.documents-summary, .reports-summary, .administration-summary) article small { color: var(--text-secondary); }
+html[data-theme="dark"]
+    :is(.documents-summary, .reports-summary, .administration-summary)
+    article {
+    color: var(--text-primary);
+}
+html[data-theme="dark"]
+    :is(.documents-summary, .reports-summary, .administration-summary)
+    article
+    strong {
+    color: var(--text-primary);
+}
+html[data-theme="dark"]
+    :is(.documents-summary, .reports-summary, .administration-summary)
+    article
+    small {
+    color: var(--text-secondary);
+}
 
 /* Use the Fleet card surface for the lower registers as well. Paint table rows
    once, rather than restarting the translucent gradient in every cell. */
-html[data-theme="dark"] .page :is(.documents-table, .requirements-table, .readiness-table, .reports-table) tbody tr,
-html[data-theme="dark"] .page .administration-page :is(.user-row, .role-row, .editor-note, fieldset, .account-lifecycle) {
+html[data-theme="dark"]
+    .page
+    :is(.documents-table, .requirements-table, .readiness-table, .reports-table)
+    tbody
+    tr,
+html[data-theme="dark"]
+    .page
+    .administration-page
+    :is(.user-row, .role-row, .editor-note, fieldset, .account-lifecycle) {
     background: var(--module-card-background);
 }
 
-html[data-theme="dark"] .page :is(.documents-table, .requirements-table, .readiness-table, .reports-table) tbody tr td {
+html[data-theme="dark"]
+    .page
+    :is(.documents-table, .requirements-table, .readiness-table, .reports-table)
+    tbody
+    tr
+    td {
     background: transparent;
 }
 
-html[data-theme="dark"] .page :is(.documents-table, .requirements-table, .readiness-table, .reports-table) tbody tr:is(:hover, :focus-within),
-html[data-theme="dark"] .page .administration-page :is(.user-row, .role-row):hover {
+html[data-theme="dark"]
+    .page
+    :is(.documents-table, .requirements-table, .readiness-table, .reports-table)
+    tbody
+    tr:is(:hover, :focus-within),
+html[data-theme="dark"]
+    .page
+    .administration-page
+    :is(.user-row, .role-row):hover {
     background: var(--bg-surface-strong);
 }
 
-html[data-theme="dark"] .page .administration-page :is(.user-row, .role-row).selected {
+html[data-theme="dark"]
+    .page
+    .administration-page
+    :is(.user-row, .role-row).selected {
     background: var(--accent-bg);
 }
 
 /* Keep vessel picker popups above the following glass card. */
-html[data-theme="dark"] .documents-page :is(.requirements-filters, .readiness-filters) {
+html[data-theme="dark"]
+    .documents-page
+    :is(.requirements-filters, .readiness-filters) {
     position: relative;
     z-index: 2;
 }
 
-html[data-theme="dark"] .fleet-page .fleet-vessel-row:is(:hover, :focus-visible) {
+html[data-theme="dark"]
+    .fleet-page
+    .fleet-vessel-row:is(:hover, :focus-visible) {
     background: var(--bg-surface-strong);
 }
 
-html[data-theme="dark"] .fleet-details-page .fleet-details-vessels a:is(:hover, :focus-visible) {
+html[data-theme="dark"]
+    .fleet-details-page
+    .fleet-details-vessels
+    a:is(:hover, :focus-visible) {
     background: var(--bg-surface-strong);
 }
 
-.voyage-card-map.leaflet-container { cursor: pointer; font-family: Inter, sans-serif; }
-.voyage-card-map .leaflet-tile { filter: saturate(.45); }
-.voyage-card-map .leaflet-control-attribution { padding: 0 .3rem; font-size: .5rem; line-height: 1.5; }
-.voyage-map-marker.voyage-map-marker-mini { font-size: 9px; border-width: 2px; box-shadow: 0 1px 4px rgba(22, 48, 88, .3); }
+.voyage-card-map.leaflet-container {
+    cursor: pointer;
+    font-family: Inter, sans-serif;
+}
+.voyage-card-map .leaflet-tile {
+    filter: saturate(0.45);
+}
+.voyage-card-map .leaflet-control-attribution {
+    padding: 0 0.3rem;
+    font-size: 0.5rem;
+    line-height: 1.5;
+}
+.voyage-map-marker.voyage-map-marker-mini {
+    font-size: 9px;
+    border-width: 2px;
+    box-shadow: 0 1px 4px rgba(22, 48, 88, 0.3);
+}
 html[data-theme="dark"] .voyage-card-map .leaflet-tile {
-    filter: grayscale(1) invert(1) sepia(.2) hue-rotate(170deg) saturate(1.4) brightness(.8) contrast(.9);
+    filter: grayscale(1) invert(1) sepia(0.2) hue-rotate(170deg) saturate(1.4)
+        brightness(0.8) contrast(0.9);
 }
-html[data-theme="dark"] .voyage-card-map .leaflet-control-attribution { color: #cbd5e1; background: rgba(23, 32, 51, .75); }
+html[data-theme="dark"] .voyage-card-map .leaflet-control-attribution {
+    color: #cbd5e1;
+    background: rgba(23, 32, 51, 0.75);
+}
 
-html[data-theme="dark"] .timeline-page .timeline-table > tbody > tr:not(.timeline-clearance-row) {
+html[data-theme="dark"]
+    .timeline-page
+    .timeline-table
+    > tbody
+    > tr:not(.timeline-clearance-row) {
     background: var(--module-card-background);
 }
-html[data-theme="dark"] .timeline-page .timeline-table > tbody > tr:not(.timeline-clearance-row) > td {
+html[data-theme="dark"]
+    .timeline-page
+    .timeline-table
+    > tbody
+    > tr:not(.timeline-clearance-row)
+    > td {
     background: transparent;
 }
-html[data-theme="dark"] .timeline-page .timeline-table > tbody > tr:not(.timeline-clearance-row):is(:hover, :focus-within) {
+html[data-theme="dark"]
+    .timeline-page
+    .timeline-table
+    > tbody
+    > tr:not(.timeline-clearance-row):is(:hover, :focus-within) {
     background: var(--bg-surface-strong);
 }
 
 /* Cargo booking details: shared module surfaces in both themes. */
-html[data-theme="dark"] .booking-page .booking-table td { background: var(--module-card-background); }
-html[data-theme="dark"] .booking-page .booking-table tr:is(:hover, :focus-within) td { background: var(--bg-surface-strong); }
-html[data-theme="light"] .booking-page .booking-field :is(input, select, textarea) { color-scheme: light; }
-html[data-theme="light"] .booking-page .operation-state.active { color: #1d4ed8; }
+html[data-theme="dark"] .booking-page .booking-table td {
+    background: var(--module-card-background);
+}
+html[data-theme="dark"]
+    .booking-page
+    .booking-table
+    tr:is(:hover, :focus-within)
+    td {
+    background: var(--bg-surface-strong);
+}
+html[data-theme="light"]
+    .booking-page
+    .booking-field
+    :is(input, select, textarea) {
+    color-scheme: light;
+}
+html[data-theme="light"] .booking-page .operation-state.active {
+    color: #1d4ed8;
+}
 html[data-theme="light"] .booking-page .operation-state.done,
-html[data-theme="light"] .booking-page .booking-complete-icon { color: #0f766e; }
-html[data-theme="light"] .booking-page .kpi-icon-hazard { color: #b45309; }
+html[data-theme="light"] .booking-page .booking-complete-icon {
+    color: #0f766e;
+}
+html[data-theme="light"] .booking-page .kpi-icon-hazard {
+    color: #b45309;
+}
 
 /* Work order details theme overrides live outside CSS isolation. */
 html[data-theme="light"] .work-order-status.open {
     color: var(--status-info-strong);
-    background: rgba(37, 99, 235, .12);
+    background: rgba(37, 99, 235, 0.12);
 }
 html[data-theme="light"] .work-order-status.in-progress {
     color: var(--status-warning-strong);
-    background: rgba(180, 83, 9, .12);
+    background: rgba(180, 83, 9, 0.12);
 }
 html[data-theme="light"] .work-order-status.completed {
     color: var(--status-success-strong);
-    background: rgba(15, 118, 110, .12);
+    background: rgba(15, 118, 110, 0.12);
 }
 html[data-theme="light"] .work-order-status.canceled {
     color: var(--status-danger-strong);
-    background: rgba(185, 28, 28, .1);
+    background: rgba(185, 28, 28, 0.1);
 }
 html[data-theme="light"] .work-order-priority.low {
     color: #475569;
-    background: rgba(71, 85, 105, .12);
+    background: rgba(71, 85, 105, 0.12);
 }
 html[data-theme="light"] .work-order-priority.medium {
     color: var(--status-info-strong);
-    background: rgba(37, 99, 235, .12);
+    background: rgba(37, 99, 235, 0.12);
 }
 html[data-theme="light"] .work-order-priority.high {
     color: var(--status-warning-strong);
-    background: rgba(180, 83, 9, .12);
+    background: rgba(180, 83, 9, 0.12);
 }
 html[data-theme="light"] .work-order-priority.critical,
 html[data-theme="light"] .work-order-overdue-badge {
     color: var(--status-danger-strong);
-    background: rgba(185, 28, 28, .1);
+    background: rgba(185, 28, 28, 0.1);
 }
 html[data-theme="light"] .work-order-details-success {
     color: var(--status-success-strong);
-    border-color: rgba(15, 118, 110, .3);
-    background: rgba(15, 118, 110, .1);
+    border-color: rgba(15, 118, 110, 0.3);
+    background: rgba(15, 118, 110, 0.1);
 }
 html[data-theme="light"] .work-order-cancel {
     color: var(--status-danger-strong);
 }
 html[data-theme="light"] .work-order-cancel:hover:not(:disabled) {
-        border-color: rgba(185, 28, 28, .3);
-        background: rgba(185, 28, 28, .08);
-    }
+    border-color: rgba(185, 28, 28, 0.3);
+    background: rgba(185, 28, 28, 0.08);
+}
 html[data-theme="light"] .work-order-field-errors {
-    border-color: rgba(185, 28, 28, .3);
-    background: rgba(185, 28, 28, .08);
+    border-color: rgba(185, 28, 28, 0.3);
+    background: rgba(185, 28, 28, 0.08);
 }
 html[data-theme="light"] .work-order-details-error {
     color: var(--status-danger-strong);
 }
 html[data-theme="light"] .work-order-details-warning {
     color: var(--status-warning-strong);
-    border-color: rgba(180, 83, 9, .3);
-    background: rgba(180, 83, 9, .1);
+    border-color: rgba(180, 83, 9, 0.3);
+    background: rgba(180, 83, 9, 0.1);
 }
 html[data-theme="light"] .work-order-reservation-state.reserved {
     color: var(--status-info-strong);
-    background: rgba(37, 99, 235, .12);
+    background: rgba(37, 99, 235, 0.12);
 }
 html[data-theme="light"] .work-order-reservation-state.short {
     color: var(--status-danger-strong);
-    background: rgba(185, 28, 28, .1);
+    background: rgba(185, 28, 28, 0.1);
 }
 html[data-theme="light"] .work-order-reservation-duplicate {
     color: var(--status-danger-strong);
 }
-html[data-theme="dark"] .work-order-details-page .work-order-table td { background: var(--module-card-background); }
-html[data-theme="dark"] .work-order-details-page .work-order-table tr:is(:hover, :focus-within) td { background: var(--bg-surface-strong); }
+html[data-theme="dark"] .work-order-details-page .work-order-table td {
+    background: var(--module-card-background);
+}
+html[data-theme="dark"]
+    .work-order-details-page
+    .work-order-table
+    tr:is(:hover, :focus-within)
+    td {
+    background: var(--bg-surface-strong);
+}
 
 /* Sign-in uses the same surfaces as the workspace, including the saved theme. */
 html[data-theme="light"] .login-page {
     --login-color-scheme: light;
-    --login-card-surface: linear-gradient(135deg, rgba(255, 255, 255, .4), rgba(255, 255, 255, .14));
+    --login-card-surface: linear-gradient(
+        135deg,
+        rgba(255, 255, 255, 0.4),
+        rgba(255, 255, 255, 0.14)
+    );
 }
 html[data-theme="dark"] .login-page {
     --login-color-scheme: dark;

@@ -15,7 +15,10 @@
     outline: 0;
     background: var(--control-surface);
     font-size: 0.92rem;
-    transition: border-color 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
+    transition:
+        border-color 0.15s ease,
+        box-shadow 0.15s ease,
+        background 0.15s ease;
 }
 
 .voyage-picker-input:focus {
@@ -52,7 +55,9 @@
     color: var(--text-primary);
     font-size: 0.86rem;
     cursor: pointer;
-    transition: background 0.15s ease, color 0.15s ease;
+    transition:
+        background 0.15s ease,
+        color 0.15s ease;
 }
 
 .voyage-picker-option:hover,
