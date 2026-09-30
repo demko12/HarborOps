@@ -62,6 +62,25 @@ public sealed class HomePageTests : BunitContext
     }
 
     [Fact]
+    public void Home_links_maintenance_priority_and_preview_items_to_the_specific_work_order()
+    {
+        var workOrderId = "6c376ddd-cac5-4f68-85c0-5d798cf2a2ed";
+        var detailsLink = $"/maintenance/work-orders/{workOrderId}";
+        ConfigureClients($$"""
+            {"asOf":"2026-08-17","sections":[{"capability":"maintenance","title":"Maintenance","summaryLabel":"Overdue or critical open work orders","count":1,"link":"/maintenance?overdue=true","items":[{"title":"Inspect engine","detail":"Critical · Open","dueLabel":"2026-08-16","severity":"critical","link":"{{detailsLink}}"}],"isUnavailable":false}],"priorityItems":[{"capability":"maintenance","capabilityTitle":"Maintenance","title":"Inspect engine","detail":"Critical · Open","dueLabel":"2026-08-16","severity":"critical","link":"{{detailsLink}}"}]}
+            """);
+
+        var page = Render<Home>();
+
+        page.WaitForAssertion(() =>
+        {
+            Assert.Equal(detailsLink, page.Find(".dashboard-priority-item").GetAttribute("href"));
+            Assert.Equal(detailsLink, page.Find(".workspace-item").GetAttribute("href"));
+            Assert.Equal("/maintenance?overdue=true", page.Find(".dashboard-summary-card").GetAttribute("href"));
+        });
+    }
+
+    [Fact]
     public void Home_shows_an_empty_state_when_the_session_has_no_module_permissions()
     {
         ConfigureClients("""{"asOf":"2026-08-17","sections":[],"priorityItems":[]}""");
