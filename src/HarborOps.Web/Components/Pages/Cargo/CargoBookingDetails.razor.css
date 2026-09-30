@@ -2,9 +2,9 @@
     --accent: #f57c00;
     --accent-bg: rgba(245, 124, 0, .1);
     --accent-border: rgba(245, 124, 0, .3);
-    max-width: var(--page-max-width);
+    max-width: 1600px;
     margin: 0 auto;
-    padding: var(--page-padding);
+    padding: 1.5rem 1rem 3rem;
 }
 
 .booking-header {

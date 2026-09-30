@@ -4,24 +4,15 @@
    same visual language. */
 
 .work-order-details-page {
-    --card-shadow: 0 18px 40px rgba(0, 0, 0, .38), inset 0 1px 0 rgba(255, 255, 255, .045);
-    --control-surface: #131c2b;
-    --border-strong-hover: rgba(255, 255, 255, .22);
-    --button-surface: #1e2a3d;
-    --button-surface-hover: #26354b;
-    --button-border: rgba(255, 255, 255, .14);
-    max-width: var(--page-max-width);
+    --accent: #e05260;
+    --accent-bg: rgba(224, 82, 96, .1);
+    --accent-border: rgba(224, 82, 96, .28);
+    --button-surface: var(--accent-bg);
+    --button-surface-hover: rgba(224, 82, 96, .16);
+    --button-border: var(--accent-border);
+    max-width: 1600px;
     margin: 0 auto;
-    padding: var(--page-padding);
-}
-
-html[data-theme="light"] .work-order-details-page {
-    --card-shadow: 0 14px 34px rgba(15, 23, 42, .1), inset 0 1px 0 rgba(255, 255, 255, .9);
-    --control-surface: #ffffff;
-    --border-strong-hover: rgba(15, 23, 42, .28);
-    --button-surface: rgba(15, 23, 42, .05);
-    --button-surface-hover: rgba(15, 23, 42, .09);
-    --button-border: var(--border-medium);
+    padding: 1.5rem 1rem 3rem;
 }
 
 /* Header */
@@ -126,47 +117,6 @@ html[data-theme="light"] .work-order-details-page {
     background: rgba(248, 113, 113, .14);
 }
 
-html[data-theme="light"] .work-order-status.open {
-    color: var(--status-info-strong);
-    background: rgba(37, 99, 235, .12);
-}
-
-html[data-theme="light"] .work-order-status.in-progress {
-    color: var(--status-warning-strong);
-    background: rgba(180, 83, 9, .12);
-}
-
-html[data-theme="light"] .work-order-status.completed {
-    color: var(--status-success-strong);
-    background: rgba(15, 118, 110, .12);
-}
-
-html[data-theme="light"] .work-order-status.canceled {
-    color: var(--status-danger-strong);
-    background: rgba(185, 28, 28, .1);
-}
-
-html[data-theme="light"] .work-order-priority.low {
-    color: #475569;
-    background: rgba(71, 85, 105, .12);
-}
-
-html[data-theme="light"] .work-order-priority.medium {
-    color: var(--status-info-strong);
-    background: rgba(37, 99, 235, .12);
-}
-
-html[data-theme="light"] .work-order-priority.high {
-    color: var(--status-warning-strong);
-    background: rgba(180, 83, 9, .12);
-}
-
-html[data-theme="light"] .work-order-priority.critical,
-html[data-theme="light"] .work-order-overdue-badge {
-    color: var(--status-danger-strong);
-    background: rgba(185, 28, 28, .1);
-}
-
 /* Success banner */
 
 .work-order-details-success {
@@ -181,12 +131,6 @@ html[data-theme="light"] .work-order-overdue-badge {
     border-radius: var(--radius-card);
     background: rgba(45, 212, 191, .12);
     font-size: .88rem;
-}
-
-html[data-theme="light"] .work-order-details-success {
-    color: var(--status-success-strong);
-    border-color: rgba(15, 118, 110, .3);
-    background: rgba(15, 118, 110, .1);
 }
 
 .work-order-details-success button {
@@ -277,24 +221,6 @@ html[data-theme="light"] .work-order-details-success {
         border-color: rgba(45, 212, 191, .28);
         background: rgba(45, 212, 191, .14);
     }
-
-html[data-theme="light"] .work-order-kpi-icon.kpi-icon-due {
-    color: var(--status-info-strong);
-    border-color: rgba(37, 99, 235, .3);
-    background: rgba(37, 99, 235, .12);
-}
-
-html[data-theme="light"] .work-order-kpi-icon.kpi-icon-engineer {
-    color: #6d28d9;
-    border-color: rgba(109, 40, 217, .3);
-    background: rgba(109, 40, 217, .12);
-}
-
-html[data-theme="light"] .work-order-kpi-icon.kpi-icon-completed {
-    color: var(--status-success-strong);
-    border-color: rgba(15, 118, 110, .3);
-    background: rgba(15, 118, 110, .12);
-}
 
 /* Cards */
 
@@ -576,15 +502,6 @@ html[data-theme="light"] .work-order-kpi-icon.kpi-icon-completed {
         background: rgba(248, 113, 113, .12);
     }
 
-html[data-theme="light"] .work-order-cancel {
-    color: var(--status-danger-strong);
-}
-
-    html[data-theme="light"] .work-order-cancel:hover:not(:disabled) {
-        border-color: rgba(185, 28, 28, .3);
-        background: rgba(185, 28, 28, .08);
-    }
-
 .work-order-button:focus-visible,
 .work-order-quiet-button:focus-visible,
 .work-order-modal-close:focus-visible,
@@ -602,11 +519,6 @@ html[data-theme="light"] .work-order-cancel {
     border-radius: .75rem;
     background: rgba(127, 29, 29, .18);
     font-size: .85rem;
-}
-
-html[data-theme="light"] .work-order-field-errors {
-    border-color: rgba(185, 28, 28, .3);
-    background: rgba(185, 28, 28, .08);
 }
 
 .work-order-field-errors strong {
@@ -642,10 +554,6 @@ html[data-theme="light"] .work-order-field-errors {
     margin-bottom: 1rem;
     color: var(--status-danger);
     font-size: .88rem;
-}
-
-html[data-theme="light"] .work-order-details-error {
-    color: var(--status-danger-strong);
 }
 
 /* Dialogs */
@@ -838,12 +746,6 @@ html[data-theme="light"] .work-order-details-error {
         white-space: nowrap;
     }
 
-html[data-theme="light"] .work-order-details-warning {
-    color: var(--status-warning-strong);
-    border-color: rgba(180, 83, 9, .3);
-    background: rgba(180, 83, 9, .1);
-}
-
 .work-order-reservation-state {
     display: inline-flex;
     align-items: center;
@@ -868,16 +770,6 @@ html[data-theme="light"] .work-order-details-warning {
         color: var(--text-secondary);
         background: rgba(148, 163, 184, .14);
     }
-
-html[data-theme="light"] .work-order-reservation-state.reserved {
-    color: var(--status-info-strong);
-    background: rgba(37, 99, 235, .12);
-}
-
-html[data-theme="light"] .work-order-reservation-state.short {
-    color: var(--status-danger-strong);
-    background: rgba(185, 28, 28, .1);
-}
 
 /* Reservation editor */
 
@@ -958,10 +850,6 @@ html[data-theme="light"] .work-order-reservation-state.short {
     font-size: .8rem;
 }
 
-html[data-theme="light"] .work-order-reservation-duplicate {
-    color: var(--status-danger-strong);
-}
-
 .work-order-reservation-add {
     margin-top: .65rem;
 }
@@ -975,3 +863,55 @@ html[data-theme="light"] .work-order-reservation-duplicate {
         text-align: left;
     }
 }
+
+/* Maintenance detail layout */
+.work-order-details-header { margin-bottom: 1.25rem; }
+.work-order-details-header > div:first-child { min-width: 0; }
+.work-order-details-header h1 { overflow-wrap: anywhere; }
+.work-order-details-vessel { display: flex; align-items: center; gap: .5rem; font-size: .88rem; }
+.work-order-details-vessel a { color: inherit; text-decoration: none; }
+.work-order-details-vessel a:hover { color: var(--accent); text-decoration: underline; }
+.work-order-details-state { flex-direction: row; flex-wrap: wrap; justify-content: flex-end; max-width: 24rem; }
+.work-order-timezone { width: 100%; color: var(--text-muted); font-size: .7rem; text-align: right; margin-bottom: .2rem; }
+.work-order-status, .work-order-priority, .work-order-overdue-badge { min-width: 0; font-size: .73rem; }
+.work-order-section-nav { display: flex; flex-wrap: wrap; gap: .3rem; padding-bottom: .8rem; margin-bottom: 1.25rem; border-bottom: 1px solid var(--border-subtle); }
+.work-order-section-nav a { display: inline-flex; align-items: center; gap: .5rem; padding: .6rem .8rem; border: 1px solid transparent; border-radius: .65rem; color: var(--text-secondary); font-size: .8rem; text-decoration: none; }
+.work-order-section-nav a:hover { color: var(--accent); border-color: var(--accent-border); background: var(--accent-bg); }
+.work-order-section-nav a:focus-visible, .work-order-details-vessel a:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+.work-order-card h2 { scroll-margin-top: 6rem; }
+.work-order-summary { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.work-order-kpi { min-height: 7rem; padding: 1rem; gap: .65rem; }
+.work-order-kpi-value { font-size: clamp(1.05rem, 1.5vw, 1.6rem); line-height: 1.3; }
+.work-order-kpi-note { line-height: 1.5; }
+.work-order-details-page .work-order-kpi-icon { color: var(--accent); border-color: var(--accent-border); background: var(--accent-bg); }
+.work-order-card { min-width: 0; padding: 1.25rem; }
+.work-order-card-heading { align-items: center; flex-wrap: wrap; gap: .75rem; }
+.work-order-card-heading .work-order-section-eyebrow { margin: 0 0 .3rem; color: var(--accent); font-size: .62rem; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; }
+.work-order-card-heading h2 { font-size: 1.05rem; letter-spacing: -.02em; }
+.work-order-card-heading-actions { flex-wrap: wrap; }
+.work-order-details-grid { align-items: start; }
+.work-order-details-description { font-size: .85rem; line-height: 1.7; }
+.work-order-details-facts { gap: 0; }
+.work-order-details-facts > div { padding: .65rem 0; border-top: 1px solid var(--border-subtle); }
+.work-order-equipment-list > li { border-left: 2px solid var(--accent-border); padding: .75rem .85rem; }
+.work-order-equipment-list > li:hover { background: var(--bg-surface-strong); border-left-color: var(--accent); }
+.work-order-execution-card .work-order-details-actions { display: grid; grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr)); gap: .75rem; }
+.work-order-action { align-items: flex-start; flex-direction: column; padding: .85rem; border: 1px solid var(--border-subtle); border-radius: .75rem; background: var(--bg-surface); }
+.work-order-action-note { flex: auto; font-size: .78rem; }
+.work-order-action > button { min-width: 0; }
+.work-order-button, .work-order-quiet-button { height: auto; min-height: 2.4rem; padding: .55rem .85rem; font-size: .8rem; }
+.work-order-table { border-collapse: separate; border-spacing: 0 .45rem; }
+.work-order-table th { padding: .55rem .8rem; border: 0; font-size: .62rem; white-space: nowrap; }
+.work-order-table td, .work-order-table tbody tr:last-child td { padding: .8rem; vertical-align: middle; border-top: 1px solid var(--border-subtle); border-bottom: 1px solid var(--border-subtle); background: var(--bg-surface); transition: background .15s ease; }
+.work-order-table td:first-child { border-left: 2px solid var(--accent-border); border-radius: .7rem 0 0 .7rem; font-weight: 600; }
+.work-order-table td:last-child { border-right: 1px solid var(--border-subtle); border-radius: 0 .7rem .7rem 0; }
+.work-order-table tbody tr:is(:hover, :focus-within) td { background: var(--bg-surface-strong); }
+.work-order-table tbody tr:is(:hover, :focus-within) td:first-child { border-left-color: var(--accent); }
+.work-order-table-scroll { scrollbar-width: thin; scrollbar-color: var(--border-medium) transparent; }
+.work-order-reservations-table { min-width: 760px; }
+.work-order-details-warning { flex-wrap: wrap; font-size: .82rem; }
+.work-order-form-actions { flex-wrap: wrap; }
+@media (max-width: 1100px) { .work-order-summary { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 760px) { .work-order-details-state { justify-content: flex-start; max-width: none; } .work-order-timezone { text-align: left; } .work-order-card { padding: 1rem; } .work-order-details-facts > div { flex-wrap: wrap; gap: .4rem; } .work-order-details-facts dd { text-align: left; } }
+@media (max-width: 480px) { .work-order-summary { grid-template-columns: minmax(0, 1fr); } }
+@media (prefers-reduced-motion: reduce) { .work-order-table td { transition: none; } }
