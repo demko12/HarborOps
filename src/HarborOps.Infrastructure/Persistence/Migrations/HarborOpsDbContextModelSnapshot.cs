@@ -3138,6 +3138,12 @@ namespace HarborOps.Infrastructure.Persistence.Migrations
                     b.Property<Guid>("InventoryItemId")
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<Guid?>("PurchaseOrderReceiptId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid?>("PurchaseOrderReceiptLineId")
+                        .HasColumnType("uniqueidentifier");
+
                     b.Property<decimal>("QuantityAfter")
                         .HasColumnType("decimal(18,3)")
                         .HasColumnName("CountedQuantity");
@@ -3163,6 +3169,12 @@ namespace HarborOps.Infrastructure.Persistence.Migrations
                         .HasColumnType("uniqueidentifier");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("PurchaseOrderReceiptId");
+
+                    b.HasIndex("PurchaseOrderReceiptLineId")
+                        .IsUnique()
+                        .HasFilter("[PurchaseOrderReceiptLineId] IS NOT NULL");
 
                     b.HasIndex("SupplierReturnId");
 
@@ -3433,6 +3445,12 @@ namespace HarborOps.Infrastructure.Persistence.Migrations
                     b.Property<Guid>("Id")
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<Guid>("ConcurrencyToken")
+                        .IsConcurrencyToken()
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier")
+                        .HasDefaultValueSql("NEWID()");
+
                     b.Property<DateOnly?>("ExpectedDelivery")
                         .HasColumnType("date");
 
@@ -3480,6 +3498,9 @@ namespace HarborOps.Infrastructure.Persistence.Migrations
                     b.Property<Guid>("Id")
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<decimal>("LegacyReceivedQuantity")
+                        .HasColumnType("decimal(18,3)");
+
                     b.Property<Guid>("PartId")
                         .HasColumnType("uniqueidentifier");
 
@@ -3487,6 +3508,9 @@ namespace HarborOps.Infrastructure.Persistence.Migrations
                         .HasColumnType("uniqueidentifier");
 
                     b.Property<decimal>("QuantityOrdered")
+                        .HasColumnType("decimal(18,3)");
+
+                    b.Property<decimal>("ReceivedQuantity")
                         .HasColumnType("decimal(18,3)");
 
                     b.Property<decimal>("UnitCost")
@@ -3499,6 +3523,93 @@ namespace HarborOps.Infrastructure.Persistence.Migrations
                     b.HasIndex("PurchaseOrderId");
 
                     b.ToTable("PurchaseOrderLines", "maintenance");
+                });
+
+            modelBuilder.Entity("HarborOps.Modules.Maintenance.Domain.PurchaseOrderReceipt", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("ClientRequestId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("DeliveryReference")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<string>("Notes")
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
+
+                    b.Property<string>("OrderStatusAfter")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<string>("OrderStatusBefore")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<Guid>("PurchaseOrderId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("ReceivedUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid>("RecordedByUserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("RecordedUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("RequestHash")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .IsUnicode(false)
+                        .HasColumnType("char(64)")
+                        .IsFixedLength();
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ClientRequestId")
+                        .IsUnique();
+
+                    b.HasIndex("PurchaseOrderId", "ReceivedUtc", "RecordedUtc");
+
+                    b.ToTable("PurchaseOrderReceipts", "maintenance");
+                });
+
+            modelBuilder.Entity("HarborOps.Modules.Maintenance.Domain.PurchaseOrderReceiptLine", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("InventoryItemId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<decimal>("LineReceivedQuantityAfter")
+                        .HasColumnType("decimal(18,3)");
+
+                    b.Property<Guid>("PurchaseOrderLineId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("PurchaseOrderReceiptId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<decimal>("Quantity")
+                        .HasColumnType("decimal(18,3)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("InventoryItemId");
+
+                    b.HasIndex("PurchaseOrderLineId");
+
+                    b.HasIndex("PurchaseOrderReceiptId", "PurchaseOrderLineId")
+                        .IsUnique();
+
+                    b.ToTable("PurchaseOrderReceiptLines", "maintenance");
                 });
 
             modelBuilder.Entity("HarborOps.Modules.Maintenance.Domain.ScheduleEquipment", b =>
@@ -5664,6 +5775,16 @@ namespace HarborOps.Infrastructure.Persistence.Migrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
+                    b.HasOne("HarborOps.Modules.Maintenance.Domain.PurchaseOrderReceipt", null)
+                        .WithMany()
+                        .HasForeignKey("PurchaseOrderReceiptId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("HarborOps.Modules.Maintenance.Domain.PurchaseOrderReceiptLine", null)
+                        .WithMany()
+                        .HasForeignKey("PurchaseOrderReceiptLineId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
                     b.HasOne("HarborOps.Modules.Maintenance.Domain.Stocktake", null)
                         .WithMany()
                         .HasForeignKey("StocktakeId")
@@ -5758,6 +5879,36 @@ namespace HarborOps.Infrastructure.Persistence.Migrations
                     b.HasOne("HarborOps.Modules.Maintenance.Domain.PurchaseOrder", null)
                         .WithMany()
                         .HasForeignKey("PurchaseOrderId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("HarborOps.Modules.Maintenance.Domain.PurchaseOrderReceipt", b =>
+                {
+                    b.HasOne("HarborOps.Modules.Maintenance.Domain.PurchaseOrder", null)
+                        .WithMany()
+                        .HasForeignKey("PurchaseOrderId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("HarborOps.Modules.Maintenance.Domain.PurchaseOrderReceiptLine", b =>
+                {
+                    b.HasOne("HarborOps.Modules.Maintenance.Domain.InventoryItem", null)
+                        .WithMany()
+                        .HasForeignKey("InventoryItemId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("HarborOps.Modules.Maintenance.Domain.PurchaseOrderLine", null)
+                        .WithMany()
+                        .HasForeignKey("PurchaseOrderLineId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("HarborOps.Modules.Maintenance.Domain.PurchaseOrderReceipt", null)
+                        .WithMany()
+                        .HasForeignKey("PurchaseOrderReceiptId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
                 });

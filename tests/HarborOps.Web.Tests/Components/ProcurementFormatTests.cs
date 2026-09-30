@@ -124,4 +124,77 @@ public sealed class ProcurementFormatTests
     {
         Assert.Equal("somethingElse", ProcurementFormat.FieldLabel("somethingElse"));
     }
+
+    [Theory]
+    [InlineData("receivedUtc", "Received at")]
+    [InlineData("deliveryReference", "Delivery reference")]
+    [InlineData("notes", "Notes")]
+    [InlineData("clientRequestId", "Request")]
+    [InlineData("expectedConcurrencyToken", "Purchase order version")]
+    [InlineData("previewToken", "Receipt check")]
+    [InlineData("lines[0].purchaseOrderLineId", "Line 1 order line")]
+    [InlineData("lines[1].quantity", "Line 2 quantity")]
+    public void Receipt_fields_get_readable_labels(string field, string expected)
+    {
+        Assert.Equal(expected, ProcurementFormat.FieldLabel(field));
+    }
+
+    [Theory]
+    [InlineData(ProcurementFormat.PartiallyReceivedStatus, "Partially received")]
+    [InlineData(ProcurementFormat.OrderedStatus, "Ordered")]
+    [InlineData(ProcurementFormat.ReceivedStatus, "Received")]
+    public void Statuses_get_readable_labels(string status, string expected)
+    {
+        Assert.Equal(expected, ProcurementFormat.StatusLabel(status));
+    }
+
+    [Fact]
+    public void Partially_received_orders_are_offered_as_a_status_filter()
+    {
+        Assert.Contains(ProcurementFormat.PartiallyReceivedStatus, ProcurementFormat.Statuses);
+        Assert.Equal("partiallyreceived", ProcurementFormat.StatusModifier(ProcurementFormat.PartiallyReceivedStatus));
+    }
+
+    [Theory]
+    [InlineData(ProcurementFormat.OrderedStatus, 0, 10, "0 / 10")]
+    [InlineData(ProcurementFormat.PartiallyReceivedStatus, 4, 10, "4 / 10")]
+    [InlineData(ProcurementFormat.ReceivedStatus, 2.5, 2.5, "2.5 / 2.5")]
+    [InlineData(ProcurementFormat.DraftStatus, 0, 10, ProcurementFormat.MissingValue)]
+    [InlineData(ProcurementFormat.CancelledStatus, 0, 10, ProcurementFormat.MissingValue)]
+    public void Received_progress_is_shown_only_for_orders_that_can_receive_goods(
+        string status,
+        double received,
+        double ordered,
+        string expected)
+    {
+        Assert.Equal(expected, ProcurementFormat.ReceivedProgress(status, (decimal)received, (decimal)ordered));
+    }
+
+    [Theory]
+    [InlineData(0, "0 deliveries")]
+    [InlineData(1, "1 delivery")]
+    [InlineData(12, "12 deliveries")]
+    public void Delivery_counts_are_pluralised(int count, string expected)
+    {
+        Assert.Equal(expected, ProcurementFormat.DeliveryCount(count));
+    }
+
+    [Theory]
+    [InlineData(ProcurementFormat.ReceivePartialAction, "Receive delivery")]
+    [InlineData(ProcurementFormat.ReceiveRemainingAction, "Receive remaining")]
+    [InlineData("SomethingNew", "SomethingNew")]
+    public void Receipt_actions_have_readable_labels(string action, string expected)
+    {
+        Assert.Equal(expected, ProcurementFormat.ReceiptActionLabel(action));
+    }
+
+    [Theory]
+    [InlineData("OrderNotReceivable", "Order not receivable")]
+    [InlineData("NothingOutstanding", "Nothing outstanding")]
+    [InlineData("ExceedsOutstanding", "Above outstanding")]
+    [InlineData("SomethingNew", "SomethingNew")]
+    public void Receipt_blockers_have_readable_labels(string code, string expected)
+    {
+        Assert.Equal(expected, ProcurementFormat.ReceiptBlockerLabel(code));
+    }
 }

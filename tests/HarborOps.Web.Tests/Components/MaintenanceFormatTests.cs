@@ -107,6 +107,18 @@ public sealed class MaintenanceFormatTests
         Assert.Equal(expected, MaintenanceFormat.SupplierReturnBlockerLabel(code));
     }
 
+    [Theory]
+    [InlineData("Received", true)]
+    [InlineData("PartiallyReceived", true)]
+    [InlineData("Ordered", false)]
+    [InlineData("Draft", false)]
+    [InlineData("Cancelled", false)]
+    [InlineData(null, false)]
+    public void Only_orders_with_received_goods_can_carry_supplier_returns(string? status, bool expected)
+    {
+        Assert.Equal(expected, MaintenanceFormat.CanReturnPurchaseOrder(status));
+    }
+
     [Fact]
     public void A_purchase_order_is_referenced_by_its_short_id()
     {

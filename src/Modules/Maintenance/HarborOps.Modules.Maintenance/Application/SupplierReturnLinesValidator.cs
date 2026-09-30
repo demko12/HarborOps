@@ -100,7 +100,8 @@ internal static class SupplierReturnLinesValidator
                 continue;
             }
 
-            var remaining = purchaseOrderLine.QuantityOrdered
+            // The ceiling is what was actually received (including any legacy balance), not what was ordered.
+            var remaining = purchaseOrderLine.ReceivedQuantity
                 - postedQuantities.GetValueOrDefault(purchaseOrderLine.Id);
 
             if (entry.Quantity!.Value > remaining)

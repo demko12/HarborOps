@@ -33,6 +33,13 @@ public sealed class PurchaseOrderDomainTests
     [InlineData(PurchaseOrderStatus.Ordered, PurchaseOrderStatus.Ordered, false)]
     [InlineData(PurchaseOrderStatus.Ordered, PurchaseOrderStatus.Received, true)]
     [InlineData(PurchaseOrderStatus.Ordered, PurchaseOrderStatus.Cancelled, true)]
+    [InlineData(PurchaseOrderStatus.Ordered, PurchaseOrderStatus.PartiallyReceived, false)]
+    [InlineData(PurchaseOrderStatus.PartiallyReceived, PurchaseOrderStatus.Draft, false)]
+    [InlineData(PurchaseOrderStatus.PartiallyReceived, PurchaseOrderStatus.Ordered, false)]
+    [InlineData(PurchaseOrderStatus.PartiallyReceived, PurchaseOrderStatus.PartiallyReceived, false)]
+    [InlineData(PurchaseOrderStatus.PartiallyReceived, PurchaseOrderStatus.Received, true)]
+    [InlineData(PurchaseOrderStatus.PartiallyReceived, PurchaseOrderStatus.Cancelled, false)]
+    [InlineData(PurchaseOrderStatus.Received, PurchaseOrderStatus.PartiallyReceived, false)]
     [InlineData(PurchaseOrderStatus.Received, PurchaseOrderStatus.Draft, false)]
     [InlineData(PurchaseOrderStatus.Received, PurchaseOrderStatus.Ordered, false)]
     [InlineData(PurchaseOrderStatus.Received, PurchaseOrderStatus.Received, false)]
@@ -60,20 +67,160 @@ public sealed class PurchaseOrderDomainTests
             [PurchaseOrderStatus.Received, PurchaseOrderStatus.Cancelled],
             PurchaseOrder.AllowedTransitions(PurchaseOrderStatus.Ordered));
 
+        Assert.Equal(
+            [PurchaseOrderStatus.Received],
+            PurchaseOrder.AllowedTransitions(PurchaseOrderStatus.PartiallyReceived));
+
         Assert.Empty(PurchaseOrder.AllowedTransitions(PurchaseOrderStatus.Received));
         Assert.Empty(PurchaseOrder.AllowedTransitions(PurchaseOrderStatus.Cancelled));
     }
 
     [Fact]
-    public void ChangeStatusTo_walks_draft_to_ordered_to_received()
+    public void Status_values_keep_their_persisted_numbers()
+    {
+        Assert.Equal(0, (int)PurchaseOrderStatus.Draft);
+        Assert.Equal(1, (int)PurchaseOrderStatus.Ordered);
+        Assert.Equal(2, (int)PurchaseOrderStatus.Received);
+        Assert.Equal(3, (int)PurchaseOrderStatus.Cancelled);
+        Assert.Equal(4, (int)PurchaseOrderStatus.PartiallyReceived);
+    }
+
+    [Theory]
+    [InlineData(PurchaseOrderStatus.Draft, false, false)]
+    [InlineData(PurchaseOrderStatus.Ordered, true, false)]
+    [InlineData(PurchaseOrderStatus.PartiallyReceived, true, true)]
+    [InlineData(PurchaseOrderStatus.Received, false, true)]
+    [InlineData(PurchaseOrderStatus.Cancelled, false, false)]
+    public void CanReceive_and_CanReturn_follow_the_status(
+        PurchaseOrderStatus status,
+        bool canReceive,
+        bool canReturn)
+    {
+        Assert.Equal(canReceive, PurchaseOrder.CanReceive(status));
+        Assert.Equal(canReturn, PurchaseOrder.CanReturn(status));
+    }
+
+    [Fact]
+    public void ChangeStatusTo_moves_draft_to_ordered_and_rotates_the_token()
     {
         var order = PurchaseOrder.Create(Guid.NewGuid(), Today, null);
+        var token = order.ConcurrencyToken;
 
         order.ChangeStatusTo(PurchaseOrderStatus.Ordered);
-        Assert.Equal(PurchaseOrderStatus.Ordered, order.Status);
 
-        order.ChangeStatusTo(PurchaseOrderStatus.Received);
+        Assert.Equal(PurchaseOrderStatus.Ordered, order.Status);
+        Assert.NotEqual(Guid.Empty, token);
+        Assert.NotEqual(token, order.ConcurrencyToken);
+    }
+
+    [Theory]
+    [InlineData(PurchaseOrderStatus.Received)]
+    [InlineData(PurchaseOrderStatus.PartiallyReceived)]
+    public void ChangeStatusTo_never_receives_without_a_receipt(PurchaseOrderStatus target)
+    {
+        var order = PurchaseOrder.Create(Guid.NewGuid(), Today, null);
+        order.ChangeStatusTo(PurchaseOrderStatus.Ordered);
+        var token = order.ConcurrencyToken;
+
+        var exception = Assert.Throws<PurchaseOrderTransitionException>(() => order.ChangeStatusTo(target));
+
+        Assert.Equal(target, exception.TargetStatus);
+        Assert.Equal(PurchaseOrderStatus.Ordered, order.Status);
+        Assert.Equal(token, order.ConcurrencyToken);
+    }
+
+    [Fact]
+    public void RecordReceipt_keeps_the_order_partially_received_while_quantity_remains()
+    {
+        var (order, lines) = CreateOrderedOrder(10m, 2m);
+        var token = order.ConcurrencyToken;
+
+        lines[0].Receive(4m);
+        order.RecordReceipt(lines);
+
+        Assert.Equal(PurchaseOrderStatus.PartiallyReceived, order.Status);
+        Assert.NotEqual(token, order.ConcurrencyToken);
+        Assert.Equal(4m, lines[0].ReceivedQuantity);
+        Assert.Equal(6m, lines[0].OutstandingQuantity);
+        Assert.False(lines[0].IsFulfilled);
+        Assert.Equal(0m, lines[1].ReceivedQuantity);
+    }
+
+    [Fact]
+    public void RecordReceipt_closes_the_order_only_when_every_line_is_fulfilled()
+    {
+        var (order, lines) = CreateOrderedOrder(10m, 2m);
+
+        lines[0].Receive(10m);
+        order.RecordReceipt(lines);
+        Assert.Equal(PurchaseOrderStatus.PartiallyReceived, order.Status);
+
+        lines[1].Receive(2m);
+        order.RecordReceipt(lines);
+
         Assert.Equal(PurchaseOrderStatus.Received, order.Status);
+        Assert.All(lines, line => Assert.True(line.IsFulfilled));
+        Assert.All(lines, line => Assert.Equal(0m, line.OutstandingQuantity));
+    }
+
+    [Theory]
+    [InlineData(PurchaseOrderStatus.Draft)]
+    [InlineData(PurchaseOrderStatus.Received)]
+    [InlineData(PurchaseOrderStatus.Cancelled)]
+    public void RecordReceipt_rejects_orders_that_cannot_be_received(PurchaseOrderStatus status)
+    {
+        var order = PurchaseOrder.Create(Guid.NewGuid(), Today, null);
+        var line = PurchaseOrderLine.Create(order.Id, Guid.NewGuid(), 5m, 1m);
+        PurchaseOrderTestData.ApplyStatus(order, status, [line]);
+
+        Assert.Throws<PurchaseOrderReceiptInvariantException>(() => order.RecordReceipt([line]));
+
+        Assert.Equal(status, order.Status);
+    }
+
+    [Fact]
+    public void RecordReceipt_rejects_lines_of_another_order()
+    {
+        var (order, _) = CreateOrderedOrder(5m);
+        var foreignLine = PurchaseOrderLine.Create(Guid.NewGuid(), Guid.NewGuid(), 5m, 1m);
+
+        Assert.Throws<PurchaseOrderReceiptInvariantException>(() => order.RecordReceipt([foreignLine]));
+        Assert.Throws<PurchaseOrderReceiptInvariantException>(() => order.RecordReceipt([]));
+        Assert.Equal(PurchaseOrderStatus.Ordered, order.Status);
+    }
+
+    [Fact]
+    public void Receive_accumulates_across_deliveries()
+    {
+        var line = PurchaseOrderLine.Create(Guid.NewGuid(), Guid.NewGuid(), 10m, 1m);
+
+        line.Receive(4m);
+        line.Receive(2.5m);
+
+        Assert.Equal(6.5m, line.ReceivedQuantity);
+        Assert.Equal(3.5m, line.OutstandingQuantity);
+        Assert.Equal(0m, line.LegacyReceivedQuantity);
+    }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(-1)]
+    public void Receive_rejects_a_non_positive_quantity(decimal quantity)
+    {
+        var line = PurchaseOrderLine.Create(Guid.NewGuid(), Guid.NewGuid(), 10m, 1m);
+
+        Assert.Throws<PurchaseOrderReceiptInvariantException>(() => line.Receive(quantity));
+        Assert.Equal(0m, line.ReceivedQuantity);
+    }
+
+    [Fact]
+    public void Receive_rejects_cumulative_over_receipt()
+    {
+        var line = PurchaseOrderLine.Create(Guid.NewGuid(), Guid.NewGuid(), 10m, 1m);
+        line.Receive(4m);
+
+        Assert.Throws<PurchaseOrderReceiptInvariantException>(() => line.Receive(6.001m));
+        Assert.Equal(4m, line.ReceivedQuantity);
     }
 
     [Fact]
@@ -90,30 +237,18 @@ public sealed class PurchaseOrderDomainTests
         Assert.Equal(PurchaseOrderStatus.Draft, order.Status);
     }
 
-    [Fact]
-    public void ChangeStatusTo_rejects_a_second_receipt()
+    [Theory]
+    [InlineData(PurchaseOrderStatus.PartiallyReceived)]
+    [InlineData(PurchaseOrderStatus.Received)]
+    public void ChangeStatusTo_rejects_cancelling_once_goods_were_received(PurchaseOrderStatus status)
     {
         var order = PurchaseOrder.Create(Guid.NewGuid(), Today, null);
-        order.ChangeStatusTo(PurchaseOrderStatus.Ordered);
-        order.ChangeStatusTo(PurchaseOrderStatus.Received);
-
-        Assert.Throws<PurchaseOrderTransitionException>(
-            () => order.ChangeStatusTo(PurchaseOrderStatus.Received));
-
-        Assert.Equal(PurchaseOrderStatus.Received, order.Status);
-    }
-
-    [Fact]
-    public void ChangeStatusTo_rejects_cancelling_a_received_order()
-    {
-        var order = PurchaseOrder.Create(Guid.NewGuid(), Today, null);
-        order.ChangeStatusTo(PurchaseOrderStatus.Ordered);
-        order.ChangeStatusTo(PurchaseOrderStatus.Received);
+        PurchaseOrderTestData.ApplyStatus(order, status, [PurchaseOrderLine.Create(order.Id, Guid.NewGuid(), 4m, 1m)]);
 
         Assert.Throws<PurchaseOrderTransitionException>(
             () => order.ChangeStatusTo(PurchaseOrderStatus.Cancelled));
 
-        Assert.Equal(PurchaseOrderStatus.Received, order.Status);
+        Assert.Equal(status, order.Status);
     }
 
     [Theory]
@@ -121,6 +256,8 @@ public sealed class PurchaseOrderDomainTests
     [InlineData(PurchaseOrderStatus.Ordered, -1, true)]
     [InlineData(PurchaseOrderStatus.Ordered, 0, false)]
     [InlineData(PurchaseOrderStatus.Ordered, 1, false)]
+    [InlineData(PurchaseOrderStatus.PartiallyReceived, -1, true)]
+    [InlineData(PurchaseOrderStatus.PartiallyReceived, 0, false)]
     [InlineData(PurchaseOrderStatus.Received, -1, false)]
     [InlineData(PurchaseOrderStatus.Cancelled, -1, false)]
     public void IsOverdue_only_flags_open_orders_past_their_delivery_date(
@@ -212,6 +349,19 @@ public sealed class PurchaseOrderDomainTests
 
         Assert.Throws<ArgumentOutOfRangeException>(() => item.IncreaseStock(quantityReceived));
         Assert.Equal(4m, item.Quantity);
+    }
+
+    private static (PurchaseOrder Order, IReadOnlyList<PurchaseOrderLine> Lines) CreateOrderedOrder(
+        params decimal[] quantities)
+    {
+        var order = PurchaseOrder.Create(Guid.NewGuid(), Today, null);
+        order.ChangeStatusTo(PurchaseOrderStatus.Ordered);
+
+        var lines = quantities
+            .Select(quantity => PurchaseOrderLine.Create(order.Id, Guid.NewGuid(), quantity, 1m))
+            .ToList();
+
+        return (order, lines);
     }
 
     private static InventoryItem CreateInventoryItem(decimal quantity)

@@ -28,6 +28,7 @@ internal static class MaintenanceFormat
     internal const string DraftSupplierReturn = "Draft";
     internal const string PostedSupplierReturn = "Posted";
     internal const string ReceivedPurchaseOrder = "Received";
+    internal const string PartiallyReceivedPurchaseOrder = "PartiallyReceived";
     internal const string PurchaseOrderNotReceivedBlocker = "PurchaseOrderNotReceived";
     internal const string NoLinesBlocker = "NoLines";
     internal const string ExceedsReturnableBlocker = "ExceedsReturnable";
@@ -444,6 +445,12 @@ internal static class MaintenanceFormat
             ReservedStockBlocker => "Reserved for maintenance",
             _ => code,
         };
+    }
+
+    // Goods can go back to the supplier once any of them were received.
+    internal static bool CanReturnPurchaseOrder(string? status)
+    {
+        return status is ReceivedPurchaseOrder or PartiallyReceivedPurchaseOrder;
     }
 
     internal static string PurchaseOrderReference(Guid purchaseOrderId)

@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Net;
 using System.Security.Claims;
 using System.Text;
@@ -16,6 +17,10 @@ public sealed class MaintenancePurchaseOrdersPanelTests : BunitContext
     private const string OrderId = "b0000000-0000-0000-0000-00000000000b";
     private const string FilterItemId = "c0000000-0000-0000-0000-00000000000c";
     private const string ImpellerItemId = "e0000000-0000-0000-0000-00000000000e";
+    private const string FilterLineId = "f0000000-0000-0000-0000-00000000000f";
+    private const string ImpellerLineId = "f1000000-0000-0000-0000-00000000001f";
+    private const string ReceiptId = "d0000000-0000-0000-0000-00000000000d";
+    private const string ConcurrencyToken = "a3000000-0000-0000-0000-00000000003a";
 
     private const string OrdersPath = "/api/maintenance/purchase-orders";
     private const string SuppliersPath = "/api/maintenance/suppliers";
@@ -53,6 +58,46 @@ public sealed class MaintenancePurchaseOrdersPanelTests : BunitContext
         Assert.Single(panel.FindAll(".procurement-row.maintenance-overdue-row"));
         Assert.Equal("Overdue", panel.Find(".maintenance-overdue-badge").TextContent.Trim());
         Assert.Equal("Overdue", panel.Find(".procurement-delivery-badge").TextContent.Trim());
+    }
+
+    [Fact]
+    public void A_partially_received_order_is_labelled_in_words_and_shows_its_progress()
+    {
+        respond = request => request.RequestUri!.AbsolutePath == OrdersPath
+            ? Json(HttpStatusCode.OK, OrdersPage(Order(status: "PartiallyReceived", quantityReceived: "4")))
+            : Default(request);
+
+        var panel = RenderPanel();
+
+        Assert.Equal("Partially received", panel.Find(".procurement-row .procurement-status").TextContent.Trim());
+        Assert.Contains("procurement-status-partiallyreceived", panel.Find(".procurement-row .procurement-status").ClassName, StringComparison.Ordinal);
+        Assert.Equal("4 / 6", panel.Find(".procurement-row .col-po-received").TextContent.Trim());
+    }
+
+    [Fact]
+    public void A_draft_order_shows_no_received_progress()
+    {
+        var panel = RenderPanel();
+
+        Assert.Equal("—", panel.Find(".procurement-row .col-po-received").TextContent.Trim());
+    }
+
+    [Fact]
+    public void Partially_received_orders_can_be_filtered_by_status()
+    {
+        var panel = RenderPanel();
+
+        var option = panel.Find("#po-status").QuerySelectorAll("option")
+            .Single(candidate => candidate.GetAttribute("value") == "PartiallyReceived");
+
+        Assert.Equal("Partially received", option.TextContent);
+
+        panel.Find("#po-status").Change("PartiallyReceived");
+
+        panel.WaitForAssertion(() => Assert.Contains(
+            "status=PartiallyReceived",
+            requestedUris.Last(uri => uri.AbsolutePath == OrdersPath).Query,
+            StringComparison.Ordinal));
     }
 
     [Fact]
@@ -256,9 +301,138 @@ public sealed class MaintenancePurchaseOrdersPanelTests : BunitContext
             Assert.Contains("PN-1", card.TextContent, StringComparison.Ordinal);
             Assert.Equal("302.00", panel.Find(".procurement-details-card .procurement-grand-total").TextContent.Trim());
 
+            var receiptActions = panel.FindAll(".procurement-receipt-action").Select(button => button.TextContent.Trim()).ToList();
             var transitions = panel.FindAll(".procurement-transition").Select(button => button.TextContent.Trim()).ToList();
 
-            Assert.Equal(["Receive stock", "Cancel order"], transitions);
+            Assert.Equal(["Receive delivery", "Receive remaining"], receiptActions);
+            Assert.Equal(["Cancel order"], transitions);
+        });
+    }
+
+    [Fact]
+    public void Details_show_received_returned_and_outstanding_quantities_per_line()
+    {
+        respond = request => request.RequestUri!.AbsolutePath == $"{OrdersPath}/{OrderId}"
+            ? Json(
+                HttpStatusCode.OK,
+                OrderDetails(
+                    status: "PartiallyReceived",
+                    transitions: "\"Received\"",
+                    actions: "\"ReceivePartial\",\"ReceiveRemaining\",\"CreateReturn\"",
+                    filterReceived: 3m,
+                    filterReturned: 1m,
+                    receiptCount: 2))
+            : Default(request);
+
+        var panel = RenderPanel();
+
+        panel.Find(".procurement-details").Click();
+
+        panel.WaitForAssertion(() =>
+        {
+            var filterLine = panel.FindAll(".procurement-details-card .procurement-line-table tbody tr")[0];
+
+            Assert.Equal("3", filterLine.QuerySelector(".col-line-received")!.TextContent.Trim());
+            Assert.Equal("1", filterLine.QuerySelector(".col-line-returned")!.TextContent.Trim());
+            Assert.Equal("1", filterLine.QuerySelector(".col-line-outstanding")!.TextContent.Trim());
+            Assert.Equal("Partially received", panel.Find(".procurement-details-summary .procurement-status").TextContent.Trim());
+
+            var received = panel.Find(".procurement-received-summary").TextContent;
+
+            Assert.Contains("3 of 6 unit(s)", received, StringComparison.Ordinal);
+            Assert.Contains("3 outstanding", received, StringComparison.Ordinal);
+            Assert.Contains("2 deliveries", received, StringComparison.Ordinal);
+            Assert.Contains("1 returned", received, StringComparison.Ordinal);
+        });
+    }
+
+    [Fact]
+    public void A_legacy_balance_is_marked_on_the_line_and_explained_in_the_history()
+    {
+        respond = request => request.RequestUri!.AbsolutePath switch
+        {
+            var path when path == $"{OrdersPath}/{OrderId}" => Json(
+                HttpStatusCode.OK,
+                OrderDetails(status: "Received", transitions: "", actions: "\"CreateReturn\"", filterReceived: 4m, filterLegacy: 4m)),
+            var path when path == $"{OrdersPath}/{OrderId}/receipts" => Json(HttpStatusCode.OK, ReceiptsPage()),
+            _ => Default(request),
+        };
+
+        var panel = RenderPanel();
+
+        panel.Find(".procurement-details").Click();
+
+        panel.WaitForAssertion(() =>
+        {
+            Assert.Contains("incl. 4 earlier", panel.Find(".procurement-legacy-note").TextContent, StringComparison.Ordinal);
+            Assert.Contains(
+                "received before deliveries were tracked",
+                panel.Find(".receipt-history").TextContent,
+                StringComparison.Ordinal);
+        });
+    }
+
+    [Fact]
+    public void The_delivery_history_is_listed_when_the_order_has_deliveries()
+    {
+        respond = request => request.RequestUri!.AbsolutePath == $"{OrdersPath}/{OrderId}"
+            ? Json(
+                HttpStatusCode.OK,
+                OrderDetails(
+                    status: "PartiallyReceived",
+                    transitions: "\"Received\"",
+                    actions: "\"ReceivePartial\",\"ReceiveRemaining\",\"CreateReturn\"",
+                    filterReceived: 3m,
+                    receiptCount: 1))
+            : Default(request);
+
+        var panel = RenderPanel();
+
+        panel.Find(".procurement-details").Click();
+
+        panel.WaitForAssertion(() =>
+        {
+            Assert.Contains("DN-4471", panel.Find(".receipt-history-table").TextContent, StringComparison.Ordinal);
+            Assert.Contains(requestedUris, uri => uri.AbsolutePath == $"{OrdersPath}/{OrderId}/receipts");
+        });
+    }
+
+    [Fact]
+    public void An_order_without_deliveries_does_not_load_a_history()
+    {
+        var panel = RenderPanel();
+
+        panel.Find(".procurement-details").Click();
+        panel.WaitForElement(".procurement-details-summary");
+
+        Assert.Empty(panel.FindAll(".receipt-history"));
+        Assert.DoesNotContain(requestedUris, uri => uri.AbsolutePath == $"{OrdersPath}/{OrderId}/receipts");
+    }
+
+    [Fact]
+    public void A_partially_received_order_can_receive_the_rest_and_return_goods_but_not_be_cancelled()
+    {
+        respond = request => request.RequestUri!.AbsolutePath == $"{OrdersPath}/{OrderId}"
+            ? Json(
+                HttpStatusCode.OK,
+                OrderDetails(
+                    status: "PartiallyReceived",
+                    transitions: "\"Received\"",
+                    actions: "\"ReceivePartial\",\"ReceiveRemaining\",\"CreateReturn\"",
+                    filterReceived: 3m,
+                    receiptCount: 1))
+            : Default(request);
+
+        var panel = RenderPanel(parameters => parameters.Add(component => component.OnReturnsRequested, (Guid _) => { }));
+
+        panel.Find(".procurement-details").Click();
+
+        panel.WaitForAssertion(() =>
+        {
+            Assert.Equal(2, panel.FindAll(".procurement-receipt-action").Count);
+            Assert.Empty(panel.FindAll(".procurement-transition"));
+            Assert.NotEmpty(panel.FindAll(".procurement-returns"));
+            Assert.Empty(panel.FindAll(".procurement-details-card .procurement-hint"));
         });
     }
 
@@ -266,7 +440,7 @@ public sealed class MaintenancePurchaseOrdersPanelTests : BunitContext
     public void A_final_order_offers_no_status_actions()
     {
         respond = request => request.RequestUri!.AbsolutePath == $"{OrdersPath}/{OrderId}"
-            ? Json(HttpStatusCode.OK, OrderDetails(status: "Received", transitions: ""))
+            ? Json(HttpStatusCode.OK, OrderDetails(status: "Received", transitions: "", actions: "\"CreateReturn\"", filterReceived: 4m, receiptCount: 1))
             : Default(request);
 
         var panel = RenderPanel();
@@ -276,9 +450,10 @@ public sealed class MaintenancePurchaseOrdersPanelTests : BunitContext
         panel.WaitForAssertion(() =>
         {
             Assert.Empty(panel.FindAll(".procurement-transition"));
+            Assert.Empty(panel.FindAll(".procurement-receipt-action"));
             Assert.Contains(
                 "can no longer change status",
-                panel.Find(".procurement-details-card .procurement-hint").TextContent,
+                panel.Find(".procurement-details-card > .procurement-hint").TextContent,
                 StringComparison.Ordinal);
         });
     }
@@ -294,16 +469,16 @@ public sealed class MaintenancePurchaseOrdersPanelTests : BunitContext
         panel.Find(".procurement-transition").Click();
 
         Assert.Contains(
-            "Inventory quantities will be increased",
+            "Inventory quantities stay unchanged",
             panel.Find(".procurement-confirm").TextContent,
             StringComparison.Ordinal);
-        Assert.DoesNotContain(requestedUris, uri => uri.AbsolutePath.EndsWith("/receive", StringComparison.Ordinal));
+        Assert.DoesNotContain(requestedUris, uri => uri.AbsolutePath.EndsWith("/cancel", StringComparison.Ordinal));
 
         panel.Find(".procurement-confirm .maintenance-button").Click();
 
         panel.WaitForAssertion(() => Assert.Contains(
             requestedUris,
-            uri => uri.AbsolutePath == $"{OrdersPath}/{OrderId}/receive"));
+            uri => uri.AbsolutePath == $"{OrdersPath}/{OrderId}/cancel"));
     }
 
     [Fact]
@@ -318,32 +493,93 @@ public sealed class MaintenancePurchaseOrdersPanelTests : BunitContext
         panel.Find(".procurement-confirm .maintenance-reset").Click();
 
         Assert.Empty(panel.FindAll(".procurement-confirm"));
-        Assert.DoesNotContain(requestedUris, uri => uri.AbsolutePath.EndsWith("/receive", StringComparison.Ordinal));
+        Assert.DoesNotContain(requestedUris, uri => uri.AbsolutePath.EndsWith("/cancel", StringComparison.Ordinal));
         Assert.NotEmpty(panel.FindAll(".procurement-transition"));
     }
 
     [Fact]
-    public void Receiving_reports_the_stock_adjustments_and_reloads_the_board()
+    public void Receiving_a_delivery_opens_the_receipt_form_in_place_of_the_details()
+    {
+        var panel = RenderPanel();
+
+        panel.Find(".procurement-details").Click();
+        panel.WaitForElement(".procurement-receipt-action");
+
+        panel.Find(".procurement-receipt-action").Click();
+
+        panel.WaitForAssertion(() =>
+        {
+            Assert.Equal("Receive a delivery", panel.Find("#receipt-form-title").TextContent.Trim());
+            Assert.Empty(panel.FindAll(".procurement-details-summary"));
+            Assert.Equal(2, panel.FindAll(".receipt-lines-table input[type=number]").Count);
+        });
+    }
+
+    [Fact]
+    public void Receiving_the_remaining_quantities_opens_the_remaining_form()
+    {
+        var panel = RenderPanel();
+
+        panel.Find(".procurement-details").Click();
+        panel.WaitForElement(".procurement-receipt-action");
+
+        panel.FindAll(".procurement-receipt-action")[1].Click();
+
+        panel.WaitForAssertion(() =>
+        {
+            Assert.Equal("Receive remaining quantities", panel.Find("#receipt-form-title").TextContent.Trim());
+            Assert.Empty(panel.FindAll(".receipt-lines-table input[type=number]"));
+        });
+    }
+
+    [Fact]
+    public void Posting_a_delivery_reports_it_and_reloads_the_order_the_history_and_the_board()
     {
         var panel = RenderPanel();
 
         var ordersRequestsBefore = requestedUris.Count(uri => uri.AbsolutePath == OrdersPath);
 
         panel.Find(".procurement-details").Click();
-        panel.WaitForElement(".procurement-transition");
+        panel.WaitForElement(".procurement-receipt-action");
+        panel.Find(".procurement-receipt-action").Click();
+        panel.WaitForElement(".receipt-lines-table input[type=number]");
 
-        panel.Find(".procurement-transition").Click();
-        panel.Find(".procurement-confirm .maintenance-button").Click();
+        panel.FindAll(".receipt-lines-table input[type=number]")[0].Change("3");
+        panel.Find(".receipt-form .maintenance-button").Click();
+        panel.WaitForAssertion(() => Assert.False(panel.Find(".receipt-form .stocktake-post").HasAttribute("disabled")));
+
+        panel.Find(".receipt-form .stocktake-post").Click();
+        panel.Find(".receipt-form .procurement-confirm .maintenance-button").Click();
 
         panel.WaitForAssertion(() =>
         {
-            Assert.Contains(
-                "2 inventory quantities were increased",
-                panel.Find(".procurement-success").TextContent,
-                StringComparison.Ordinal);
-
+            Assert.Contains("Receipt posted.", panel.Find(".procurement-success").TextContent, StringComparison.Ordinal);
+            Assert.Empty(panel.FindAll(".receipt-form"));
+            Assert.NotEmpty(panel.FindAll(".procurement-details-summary"));
+            Assert.Contains(requestedUris, uri => uri.AbsolutePath == $"{OrdersPath}/{OrderId}/receipts");
             Assert.True(requestedUris.Count(uri => uri.AbsolutePath == OrdersPath) > ordersRequestsBefore);
-            Assert.True(requestedUris.Count(uri => uri.AbsolutePath == $"{OrdersPath}/{OrderId}") >= 2);
+        });
+    }
+
+    [Fact]
+    public void Leaving_the_receipt_form_returns_to_freshly_loaded_details()
+    {
+        var panel = RenderPanel();
+
+        panel.Find(".procurement-details").Click();
+        panel.WaitForElement(".procurement-receipt-action");
+        panel.Find(".procurement-receipt-action").Click();
+        panel.WaitForElement(".receipt-lines-table");
+
+        var detailRequestsBefore = requestedUris.Count(uri => uri.AbsolutePath == $"{OrdersPath}/{OrderId}");
+
+        panel.FindAll(".receipt-form .maintenance-reset").Last().Click();
+
+        panel.WaitForAssertion(() =>
+        {
+            Assert.Empty(panel.FindAll(".receipt-form"));
+            Assert.NotEmpty(panel.FindAll(".procurement-details-summary"));
+            Assert.True(requestedUris.Count(uri => uri.AbsolutePath == $"{OrdersPath}/{OrderId}") > detailRequestsBefore);
         });
     }
 
@@ -355,7 +591,7 @@ public sealed class MaintenancePurchaseOrdersPanelTests : BunitContext
         panel.Find(".procurement-details").Click();
         panel.WaitForElement(".procurement-transition");
 
-        panel.FindAll(".procurement-transition")[1].Click();
+        panel.Find(".procurement-transition").Click();
         panel.Find(".procurement-confirm .maintenance-button").Click();
 
         panel.WaitForAssertion(() => Assert.Contains(
@@ -428,6 +664,7 @@ public sealed class MaintenancePurchaseOrdersPanelTests : BunitContext
         {
             Assert.NotNull(panel.Find(".procurement-details-summary"));
             Assert.Empty(panel.FindAll(".procurement-transition"));
+            Assert.Empty(panel.FindAll(".procurement-receipt-action"));
         });
     }
 
@@ -547,7 +784,7 @@ public sealed class MaintenancePurchaseOrdersPanelTests : BunitContext
     {
         Guid? requestedOrderId = null;
         respond = request => request.RequestUri!.AbsolutePath == $"{OrdersPath}/{OrderId}"
-            ? Json(HttpStatusCode.OK, OrderDetails(status: "Received", transitions: ""))
+            ? Json(HttpStatusCode.OK, OrderDetails(status: "Received", transitions: "", actions: "\"CreateReturn\"", filterReceived: 4m))
             : Default(request);
 
         var panel = RenderPanel(parameters => parameters.Add(
@@ -583,7 +820,7 @@ public sealed class MaintenancePurchaseOrdersPanelTests : BunitContext
     public void Supplier_returns_are_offered_to_readers_too()
     {
         respond = request => request.RequestUri!.AbsolutePath == $"{OrdersPath}/{OrderId}"
-            ? Json(HttpStatusCode.OK, OrderDetails(status: "Received", transitions: ""))
+            ? Json(HttpStatusCode.OK, OrderDetails(status: "Received", transitions: "", actions: "\"CreateReturn\"", filterReceived: 4m))
             : Default(request);
 
         var panel = RenderPanel(
@@ -669,19 +906,26 @@ public sealed class MaintenancePurchaseOrdersPanelTests : BunitContext
             return Json(HttpStatusCode.OK, OrderDetails());
         }
 
-        if (path == $"{OrdersPath}/{OrderId}/receive")
+        if (path == $"{OrdersPath}/{OrderId}/receipts/preview" || path == $"{OrdersPath}/{OrderId}/receive/preview")
         {
-            return Json(HttpStatusCode.OK, StatusResult("Ordered", "Received", withAdjustments: true));
+            return Json(HttpStatusCode.OK, ReceiptPreview());
+        }
+
+        if (path == $"{OrdersPath}/{OrderId}/receipts")
+        {
+            return request.Method == HttpMethod.Post
+                ? Json(HttpStatusCode.OK, PostedReceipt())
+                : Json(HttpStatusCode.OK, ReceiptsPage(Receipt()));
         }
 
         if (path == $"{OrdersPath}/{OrderId}/order")
         {
-            return Json(HttpStatusCode.OK, StatusResult("Draft", "Ordered", withAdjustments: false));
+            return Json(HttpStatusCode.OK, StatusResult("Draft", "Ordered"));
         }
 
         if (path == $"{OrdersPath}/{OrderId}/cancel")
         {
-            return Json(HttpStatusCode.OK, StatusResult("Ordered", "Cancelled", withAdjustments: false));
+            return Json(HttpStatusCode.OK, StatusResult("Ordered", "Cancelled"));
         }
 
         return Json(HttpStatusCode.OK, OrdersPage(Order()));
@@ -703,13 +947,16 @@ public sealed class MaintenancePurchaseOrdersPanelTests : BunitContext
     private static string Order(
         string status = "Draft",
         string isOverdue = "false",
-        string daysUntilDelivery = "6")
+        string daysUntilDelivery = "6",
+        string quantityReceived = "0")
     {
         return $$"""
             {"purchaseOrderId":"{{OrderId}}","supplierId":"{{SupplierId}}",
             "supplierName":"Baltic Marine Parts","orderDate":"2026-08-20","expectedDelivery":"2026-09-01",
             "status":"{{status}}","lineCount":2,"totalCost":302.00,
-            "isOverdue":{{isOverdue}},"daysUntilDelivery":{{daysUntilDelivery}}}
+            "isOverdue":{{isOverdue}},"daysUntilDelivery":{{daysUntilDelivery}},
+            "quantityOrdered":6,"quantityReceived":{{quantityReceived}},
+            "quantityOutstanding":{{6 - decimal.Parse(quantityReceived, CultureInfo.InvariantCulture)}}}
             """;
     }
 
@@ -722,8 +969,15 @@ public sealed class MaintenancePurchaseOrdersPanelTests : BunitContext
 
     private static string OrderDetails(
         string status = "Ordered",
-        string transitions = "\"Received\",\"Cancelled\"")
+        string transitions = "\"Received\",\"Cancelled\"",
+        string actions = "\"ReceivePartial\",\"ReceiveRemaining\",\"Cancel\"",
+        decimal filterReceived = 0m,
+        decimal filterLegacy = 0m,
+        decimal filterReturned = 0m,
+        int receiptCount = 0)
     {
+        var filterOutstanding = 4m - filterReceived;
+
         return $$"""
             {"purchaseOrderId":"{{OrderId}}","supplierId":"{{SupplierId}}",
             "supplierName":"Baltic Marine Parts","supplierContactPerson":"Ana Ilic",
@@ -731,27 +985,71 @@ public sealed class MaintenancePurchaseOrdersPanelTests : BunitContext
             "expectedDelivery":"2026-09-01","status":"{{status}}","isOverdue":false,
             "daysUntilDelivery":6,"totalCost":302.00,"allowedTransitions":[{{transitions}}],
             "lines":[
-            {"lineId":"f0000000-0000-0000-0000-00000000000f","inventoryItemId":"{{FilterItemId}}",
+            {"lineId":"{{FilterLineId}}","inventoryItemId":"{{FilterItemId}}",
             "inventoryItemName":"Fuel filter","partNumber":"PN-1","quantityOrdered":4,
-            "unitCost":25.50,"lineTotal":102.00},
-            {"lineId":"f1000000-0000-0000-0000-00000000001f","inventoryItemId":"{{ImpellerItemId}}",
+            "unitCost":25.50,"lineTotal":102.00,"receivedQuantity":{{filterReceived}},
+            "legacyReceivedQuantity":{{filterLegacy}},"returnedQuantity":{{filterReturned}},
+            "outstandingQuantity":{{filterOutstanding}},"returnableQuantity":{{filterReceived - filterReturned}}},
+            {"lineId":"{{ImpellerLineId}}","inventoryItemId":"{{ImpellerItemId}}",
             "inventoryItemName":"Impeller","partNumber":"PN-2","quantityOrdered":2,
-            "unitCost":100.00,"lineTotal":200.00}]}
+            "unitCost":100.00,"lineTotal":200.00,"receivedQuantity":0,"legacyReceivedQuantity":0,
+            "returnedQuantity":0,"outstandingQuantity":2,"returnableQuantity":0}],
+            "concurrencyToken":"{{ConcurrencyToken}}","totalQuantityOrdered":6,
+            "totalQuantityReceived":{{filterReceived}},"totalQuantityReturned":{{filterReturned}},
+            "totalQuantityOutstanding":{{filterOutstanding + 2m}},"receiptCount":{{receiptCount}},
+            "allowedActions":[{{actions}}]}
             """;
     }
 
-    private static string StatusResult(string previousStatus, string status, bool withAdjustments)
+    private static string StatusResult(string previousStatus, string status)
     {
-        var adjustments = withAdjustments
-            ? $$"""
-                {"inventoryItemId":"{{FilterItemId}}","quantityReceived":4,"quantityOnHand":14},
-                {"inventoryItemId":"{{ImpellerItemId}}","quantityReceived":2,"quantityOnHand":5}
-                """
-            : string.Empty;
-
         return $$"""
             {"purchaseOrderId":"{{OrderId}}","previousStatus":"{{previousStatus}}","status":"{{status}}",
-            "allowedTransitions":[],"stockAdjustments":[{{adjustments}}]}
+            "allowedTransitions":[],"stockAdjustments":[],"receipt":null,"alreadyPosted":false}
+            """;
+    }
+
+    private static string ReceiptPreview(string resultingStatus = "PartiallyReceived")
+    {
+        return $$"""
+            {"purchaseOrderId":"{{OrderId}}","orderStatus":"Ordered","concurrencyToken":"{{ConcurrencyToken}}",
+            "previewToken":"PREVIEW-1","canPost":true,"resultingOrderStatus":"{{resultingStatus}}",
+            "lines":[{"purchaseOrderLineId":"{{FilterLineId}}","inventoryItemId":"{{FilterItemId}}",
+            "name":"Fuel filter","partNumber":"PN-1","unitAbbreviation":"pcs","quantityOrdered":4,
+            "receivedQuantity":0,"outstandingQuantity":4,"quantityToReceive":3,"outstandingQuantityAfter":1,
+            "onHandQuantity":10,"onHandQuantityAfter":13}],
+            "blockers":[],"generatedUtc":"2026-09-01T08:00:00Z"}
+            """;
+    }
+
+    private static string Receipt()
+    {
+        return $$"""
+            {"receiptId":"{{ReceiptId}}","purchaseOrderId":"{{OrderId}}",
+            "clientRequestId":"a1000000-0000-0000-0000-00000000001a","receivedUtc":"2026-09-01T06:00:00Z",
+            "deliveryReference":"DN-4471","notes":null,"recordedByUserId":"a2000000-0000-0000-0000-00000000002a",
+            "recordedUtc":"2026-09-01T08:00:00Z","orderStatusBefore":"Ordered","orderStatusAfter":"PartiallyReceived",
+            "totalQuantity":3,
+            "lines":[{"receiptLineId":"a4000000-0000-0000-0000-00000000004a","purchaseOrderLineId":"{{FilterLineId}}",
+            "inventoryItemId":"{{FilterItemId}}","name":"Fuel filter","partNumber":"PN-1","unitAbbreviation":"pcs",
+            "quantity":3,"lineReceivedQuantityAfter":3,"outstandingQuantityAfter":1}],
+            "movements":[]}
+            """;
+    }
+
+    private static string ReceiptsPage(params string[] items)
+    {
+        return $$"""
+            {"items":[{{string.Join(',', items)}}],"pageNumber":1,"pageSize":5,"totalCount":{{items.Length}}}
+            """;
+    }
+
+    private static string PostedReceipt()
+    {
+        return $$"""
+            {"receipt":{{Receipt()}},"alreadyPosted":false,"orderStatus":"PartiallyReceived",
+            "concurrencyToken":"a5000000-0000-0000-0000-00000000005a",
+            "allowedActions":["ReceivePartial","ReceiveRemaining","CreateReturn"]}
             """;
     }
 

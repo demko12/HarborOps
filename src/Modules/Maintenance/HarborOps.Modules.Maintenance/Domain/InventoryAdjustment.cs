@@ -16,6 +16,8 @@ internal sealed class InventoryAdjustment
         Guid? stocktakeId,
         Guid? supplierReturnId,
         Guid? supplierReturnLineId,
+        Guid? purchaseOrderReceiptId,
+        Guid? purchaseOrderReceiptLineId,
         decimal quantityBefore,
         decimal quantityAfter,
         string reason,
@@ -27,6 +29,8 @@ internal sealed class InventoryAdjustment
         StocktakeId = stocktakeId;
         SupplierReturnId = supplierReturnId;
         SupplierReturnLineId = supplierReturnLineId;
+        PurchaseOrderReceiptId = purchaseOrderReceiptId;
+        PurchaseOrderReceiptLineId = purchaseOrderReceiptLineId;
         QuantityBefore = quantityBefore;
         QuantityAfter = quantityAfter;
         QuantityDelta = quantityAfter - quantityBefore;
@@ -39,12 +43,17 @@ internal sealed class InventoryAdjustment
 
     public Guid InventoryItemId { get; private set; }
 
-    // Exactly one source is set: the stocktake or the supplier return (with its line) that moved the stock.
+    // Exactly one source is set: the stocktake, the supplier return (with its line), or the purchase-order
+    // receipt (with its line) that moved the stock.
     public Guid? StocktakeId { get; private set; }
 
     public Guid? SupplierReturnId { get; private set; }
 
     public Guid? SupplierReturnLineId { get; private set; }
+
+    public Guid? PurchaseOrderReceiptId { get; private set; }
+
+    public Guid? PurchaseOrderReceiptLineId { get; private set; }
 
     public decimal QuantityBefore { get; private set; }
 
@@ -73,6 +82,8 @@ internal sealed class InventoryAdjustment
             stocktakeId,
             null,
             null,
+            null,
+            null,
             quantityBefore,
             countedQuantity,
             reason,
@@ -98,9 +109,39 @@ internal sealed class InventoryAdjustment
             null,
             line.SupplierReturnId,
             line.Id,
+            null,
+            null,
             quantityBefore,
             quantityBefore - line.Quantity,
             line.Reason,
+            actorUserId,
+            adjustedUtc);
+    }
+
+    internal static InventoryAdjustment CreateFromPurchaseOrderReceipt(
+        PurchaseOrderReceipt receipt,
+        PurchaseOrderReceiptLine line,
+        decimal quantityBefore,
+        Guid actorUserId,
+        DateTime adjustedUtc)
+    {
+        if (line.PurchaseOrderReceiptId != receipt.Id)
+        {
+            throw new PurchaseOrderReceiptInvariantException(
+                $"Receipt line '{line.Id}' does not belong to receipt '{receipt.Id}'.");
+        }
+
+        return new InventoryAdjustment(
+            Guid.NewGuid(),
+            line.InventoryItemId,
+            null,
+            null,
+            null,
+            receipt.Id,
+            line.Id,
+            quantityBefore,
+            quantityBefore + line.Quantity,
+            receipt.MovementReason(),
             actorUserId,
             adjustedUtc);
     }

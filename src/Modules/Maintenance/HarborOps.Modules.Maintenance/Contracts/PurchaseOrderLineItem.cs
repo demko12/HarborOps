@@ -11,4 +11,10 @@ public sealed record PurchaseOrderLineItem(
     string PartNumber,
     decimal QuantityOrdered,
     decimal UnitCost,
-    decimal LineTotal);
+    decimal LineTotal,
+    decimal ReceivedQuantity,
+    // Part of ReceivedQuantity recorded before receipts were tracked; it has no receipt behind it.
+    decimal LegacyReceivedQuantity,
+    decimal ReturnedQuantity,
+    decimal OutstandingQuantity,
+    decimal ReturnableQuantity);

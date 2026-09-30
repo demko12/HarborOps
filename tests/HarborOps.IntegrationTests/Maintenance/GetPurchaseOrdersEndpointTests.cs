@@ -170,33 +170,17 @@ public sealed class GetPurchaseOrdersEndpointTests : IntegrationTestBase
         params (Guid ItemId, decimal Quantity, decimal UnitCost)[] lines)
     {
         var order = PurchaseOrder.Create(supplierId, orderDate, expectedDelivery);
+        var orderLines = lines
+            .Select(line => PurchaseOrderLine.Create(order.Id, line.ItemId, line.Quantity, line.UnitCost))
+            .ToList();
 
-        if (status is PurchaseOrderStatus.Ordered or PurchaseOrderStatus.Received)
-        {
-            order.ChangeStatusTo(PurchaseOrderStatus.Ordered);
-        }
-
-        if (status == PurchaseOrderStatus.Received)
-        {
-            order.ChangeStatusTo(PurchaseOrderStatus.Received);
-        }
-
-        if (status == PurchaseOrderStatus.Cancelled)
-        {
-            order.ChangeStatusTo(PurchaseOrderStatus.Cancelled);
-        }
+        PurchaseOrderSeedData.ApplyStatus(order, status, orderLines);
 
         await using var scope = _application.Services.CreateAsyncScope();
         var dbContext = scope.ServiceProvider.GetRequiredService<HarborOpsDbContext>();
 
         await dbContext.Set<PurchaseOrder>().AddAsync(order);
-
-        foreach (var line in lines)
-        {
-            await dbContext.Set<PurchaseOrderLine>().AddAsync(
-                PurchaseOrderLine.Create(order.Id, line.ItemId, line.Quantity, line.UnitCost));
-        }
-
+        await dbContext.Set<PurchaseOrderLine>().AddRangeAsync(orderLines);
         await dbContext.SaveChangesAsync(CancellationToken.None);
 
         return order;

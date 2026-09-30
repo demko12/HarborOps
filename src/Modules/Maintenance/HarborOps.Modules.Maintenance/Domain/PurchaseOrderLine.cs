@@ -34,6 +34,16 @@ internal sealed class PurchaseOrderLine
 
     public decimal UnitCost { get; private set; }
 
+    // Cumulative quantity received against this line, including any legacy opening balance.
+    public decimal ReceivedQuantity { get; private set; }
+
+    // Quantity recorded as received before receipts were tracked; it has no receipt, date, or actor.
+    public decimal LegacyReceivedQuantity { get; private set; }
+
+    internal decimal OutstandingQuantity => QuantityOrdered - ReceivedQuantity;
+
+    internal bool IsFulfilled => ReceivedQuantity >= QuantityOrdered;
+
     internal static PurchaseOrderLine Create(
         Guid purchaseOrderId,
         Guid partId,
@@ -59,6 +69,23 @@ internal sealed class PurchaseOrderLine
             partId,
             quantityOrdered,
             unitCost);
+    }
+
+    internal void Receive(decimal quantity)
+    {
+        if (quantity <= 0)
+        {
+            throw new PurchaseOrderReceiptInvariantException(
+                $"Received quantity for purchase order line '{Id}' must be greater than zero.");
+        }
+
+        if (quantity > OutstandingQuantity)
+        {
+            throw new PurchaseOrderReceiptInvariantException(
+                $"Receiving {quantity} on purchase order line '{Id}' exceeds the outstanding quantity {OutstandingQuantity}.");
+        }
+
+        ReceivedQuantity += quantity;
     }
 
     internal decimal LineTotal()

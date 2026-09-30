@@ -55,6 +55,13 @@ internal sealed class InventoryAdjustmentConfiguration : IEntityTypeConfiguratio
 
         builder.HasIndex(adjustment => adjustment.SupplierReturnId);
 
+        // A receipt line moves stock at most once, even when a post is retried.
+        builder.HasIndex(adjustment => adjustment.PurchaseOrderReceiptLineId)
+            .IsUnique()
+            .HasFilter("[PurchaseOrderReceiptLineId] IS NOT NULL");
+
+        builder.HasIndex(adjustment => adjustment.PurchaseOrderReceiptId);
+
         builder.HasIndex(adjustment => new
         {
             adjustment.InventoryItemId,
@@ -79,6 +86,16 @@ internal sealed class InventoryAdjustmentConfiguration : IEntityTypeConfiguratio
         builder.HasOne<SupplierReturnLine>()
             .WithMany()
             .HasForeignKey(adjustment => adjustment.SupplierReturnLineId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        builder.HasOne<PurchaseOrderReceipt>()
+            .WithMany()
+            .HasForeignKey(adjustment => adjustment.PurchaseOrderReceiptId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        builder.HasOne<PurchaseOrderReceiptLine>()
+            .WithMany()
+            .HasForeignKey(adjustment => adjustment.PurchaseOrderReceiptLineId)
             .OnDelete(DeleteBehavior.Restrict);
     }
 }

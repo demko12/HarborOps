@@ -6,12 +6,19 @@ internal static class ProcurementFormat
 {
     internal const string DraftStatus = "Draft";
     internal const string OrderedStatus = "Ordered";
+    internal const string PartiallyReceivedStatus = "PartiallyReceived";
     internal const string ReceivedStatus = "Received";
     internal const string CancelledStatus = "Cancelled";
     internal const string MissingValue = "—";
+    internal const string ReceivePartialAction = "ReceivePartial";
+    internal const string ReceiveRemainingAction = "ReceiveRemaining";
+    internal const string CreateReturnAction = "CreateReturn";
+    internal const string OrderNotReceivableBlocker = "OrderNotReceivable";
+    internal const string NothingOutstandingBlocker = "NothingOutstanding";
+    internal const string ExceedsOutstandingBlocker = "ExceedsOutstanding";
 
     internal static readonly IReadOnlyList<string> Statuses =
-        [DraftStatus, OrderedStatus, ReceivedStatus, CancelledStatus];
+        [DraftStatus, OrderedStatus, PartiallyReceivedStatus, ReceivedStatus, CancelledStatus];
 
     internal static string Money(decimal value)
     {
@@ -38,6 +45,51 @@ internal static class ProcurementFormat
     internal static string StatusModifier(string status)
     {
         return status.ToLowerInvariant();
+    }
+
+    internal static string StatusLabel(string status)
+    {
+        return status switch
+        {
+            PartiallyReceivedStatus => "Partially received",
+            _ => status,
+        };
+    }
+
+    // Received against ordered, such as "4 / 10". Drafts and cancelled orders never receive goods.
+    internal static string ReceivedProgress(string status, decimal received, decimal ordered)
+    {
+        return status is DraftStatus or CancelledStatus
+            ? MissingValue
+            : $"{Quantity(received)} / {Quantity(ordered)}";
+    }
+
+    internal static string DeliveryCount(int count)
+    {
+        return count == 1
+            ? "1 delivery"
+            : $"{count.ToString(CultureInfo.InvariantCulture)} deliveries";
+    }
+
+    internal static string ReceiptActionLabel(string action)
+    {
+        return action switch
+        {
+            ReceivePartialAction => "Receive delivery",
+            ReceiveRemainingAction => "Receive remaining",
+            _ => action,
+        };
+    }
+
+    internal static string ReceiptBlockerLabel(string code)
+    {
+        return code switch
+        {
+            OrderNotReceivableBlocker => "Order not receivable",
+            NothingOutstandingBlocker => "Nothing outstanding",
+            ExceedsOutstandingBlocker => "Above outstanding",
+            _ => code,
+        };
     }
 
     internal static string DeliveryState(bool isOverdue, int? daysUntilDelivery)
@@ -139,6 +191,12 @@ internal static class ProcurementFormat
             "search" => "Search",
             "pageNumber" => "Page number",
             "pageSize" => "Page size",
+            "receivedUtc" => "Received at",
+            "deliveryReference" => "Delivery reference",
+            "notes" => "Notes",
+            "clientRequestId" => "Request",
+            "expectedConcurrencyToken" => "Purchase order version",
+            "previewToken" => "Receipt check",
             _ => field,
         };
     }
@@ -150,6 +208,8 @@ internal static class ProcurementFormat
             "inventoryItemId" => "item",
             "quantityOrdered" => "quantity",
             "unitCost" => "unit cost",
+            "purchaseOrderLineId" => "order line",
+            "quantity" => "quantity",
             _ => field,
         };
     }

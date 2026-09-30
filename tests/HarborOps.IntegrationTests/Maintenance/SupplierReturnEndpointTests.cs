@@ -628,14 +628,9 @@ public sealed class SupplierReturnEndpointTests : IntegrationTestBase
             minimumQuantity: 2m,
             unitCost: 150m);
         var order = PurchaseOrder.Create(supplier.Id, new DateOnly(2026, 9, 1), null);
-        order.ChangeStatusTo(PurchaseOrderStatus.Ordered);
-
-        if (status == PurchaseOrderStatus.Received)
-        {
-            order.ChangeStatusTo(PurchaseOrderStatus.Received);
-        }
-
         var line = PurchaseOrderLine.Create(order.Id, item.Id, quantityOrdered, 150m);
+
+        PurchaseOrderSeedData.ApplyStatus(order, status, [line]);
 
         await dbContext.AddRangeAsync(supplier, unit, item, order, line);
         await dbContext.SaveChangesAsync(CancellationToken.None);

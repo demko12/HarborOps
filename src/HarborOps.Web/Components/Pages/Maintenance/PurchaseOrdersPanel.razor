@@ -85,7 +85,7 @@
 					<option value="">All statuses</option>
 					@foreach (var option in ProcurementFormat.Statuses)
 					{
-						<option value="@option">@option</option>
+						<option value="@option">@ProcurementFormat.StatusLabel(option)</option>
 					}
 				</select>
 			</div>
@@ -149,6 +149,7 @@
 							<th scope="col" class="col-po-delivery">Expected delivery</th>
 							<th scope="col" class="col-po-status">Status</th>
 							<th scope="col" class="col-po-lines">Lines</th>
+							<th scope="col" class="col-po-received">Received</th>
 							<th scope="col" class="col-po-total">Total</th>
 							<th scope="col" class="col-po-delivery-state">Delivery status</th>
 							<th scope="col" class="col-actions"></th>
@@ -170,9 +171,10 @@
 									</span>
 								</td>
 								<td class="col-po-status">
-									<span class="procurement-status procurement-status-@ProcurementFormat.StatusModifier(row.Status)">@row.Status</span>
+									<span class="procurement-status procurement-status-@ProcurementFormat.StatusModifier(row.Status)">@ProcurementFormat.StatusLabel(row.Status)</span>
 								</td>
 								<td class="col-po-lines maintenance-muted">@row.LineCount</td>
+								<td class="col-po-received procurement-received">@ProcurementFormat.ReceivedProgress(row.Status, row.QuantityReceived, row.QuantityOrdered)</td>
 								<td class="col-po-total procurement-total">@ProcurementFormat.Money(row.TotalCost)</td>
 								<td class="col-po-delivery-state">
 									<span class="procurement-delivery-badge procurement-delivery-@ProcurementFormat.DeliveryStateModifier(row.IsOverdue, row.DaysUntilDelivery)">
@@ -383,6 +385,13 @@
 								   Message="@detailsFailure.Message"
 								   OnRetry="@(() => LoadDetailsAsync(detailsPurchaseOrderId!.Value))" />
 				}
+				else if (details is not null && isReceiptFormOpen)
+				{
+					<PurchaseOrderReceiptForm PurchaseOrderId="details.PurchaseOrderId"
+											  ReceiveRemaining="receiveRemaining"
+											  OnPosted="ReceiptPostedAsync"
+											  OnClosed="CloseReceiptFormAsync" />
+				}
 				else if (details is not null)
 				{
 					<dl class="procurement-details-summary">
@@ -398,12 +407,24 @@
 						<dd>@ProcurementFormat.DeliveryDate(details.ExpectedDelivery)</dd>
 						<dt>Status</dt>
 						<dd>
-							<span class="procurement-status procurement-status-@ProcurementFormat.StatusModifier(details.Status)">@details.Status</span>
+							<span class="procurement-status procurement-status-@ProcurementFormat.StatusModifier(details.Status)">@ProcurementFormat.StatusLabel(details.Status)</span>
 						</dd>
 						<dt>Delivery status</dt>
 						<dd>
 							<span class="procurement-delivery-badge procurement-delivery-@ProcurementFormat.DeliveryStateModifier(details.IsOverdue, details.DaysUntilDelivery)">
 								@ProcurementFormat.DeliveryState(details.IsOverdue, details.DaysUntilDelivery)
+							</span>
+						</dd>
+						<dt>Received</dt>
+						<dd class="procurement-received-summary">
+							@ProcurementFormat.Quantity(details.TotalQuantityReceived) of @ProcurementFormat.Quantity(details.TotalQuantityOrdered) unit(s)
+							<span class="maintenance-muted">
+								&middot; @ProcurementFormat.Quantity(details.TotalQuantityOutstanding) outstanding
+								&middot; @ProcurementFormat.DeliveryCount(details.ReceiptCount)
+								@if (details.TotalQuantityReturned > 0)
+								{
+									<text>&middot; @ProcurementFormat.Quantity(details.TotalQuantityReturned) returned</text>
+								}
 							</span>
 						</dd>
 						<dt>Order total</dt>
@@ -417,7 +438,10 @@
 								<tr>
 									<th scope="col" class="col-line-item">Item</th>
 									<th scope="col" class="col-line-part">Part number</th>
-									<th scope="col" class="col-line-quantity">Quantity</th>
+									<th scope="col" class="col-line-quantity">Ordered</th>
+									<th scope="col" class="col-line-received">Received</th>
+									<th scope="col" class="col-line-returned">Returned</th>
+									<th scope="col" class="col-line-outstanding">Outstanding</th>
 									<th scope="col" class="col-line-cost">Unit cost</th>
 									<th scope="col" class="col-line-total">Line total</th>
 								</tr>
@@ -429,6 +453,15 @@
 										<td class="col-line-item"><span class="maintenance-title">@line.InventoryItemName</span></td>
 										<td class="col-line-part maintenance-muted">@line.PartNumber</td>
 										<td class="col-line-quantity procurement-total">@ProcurementFormat.Quantity(line.QuantityOrdered)</td>
+										<td class="col-line-received procurement-total">
+											@ProcurementFormat.Quantity(line.ReceivedQuantity)
+											@if (line.LegacyReceivedQuantity > 0)
+											{
+												<span class="maintenance-muted procurement-legacy-note" title="Received before deliveries were tracked">incl. @ProcurementFormat.Quantity(line.LegacyReceivedQuantity) earlier</span>
+											}
+										</td>
+										<td class="col-line-returned procurement-total">@ProcurementFormat.Quantity(line.ReturnedQuantity)</td>
+										<td class="col-line-outstanding procurement-total">@ProcurementFormat.Quantity(line.OutstandingQuantity)</td>
 										<td class="col-line-cost procurement-total">@ProcurementFormat.Money(line.UnitCost)</td>
 										<td class="col-line-total procurement-total">@ProcurementFormat.Money(line.LineTotal)</td>
 									</tr>
@@ -436,6 +469,13 @@
 							</tbody>
 						</table>
 					</div>
+
+					@if (details.ReceiptCount > 0 || LegacyReceivedQuantity > 0)
+					{
+						<PurchaseOrderReceiptHistory PurchaseOrderId="details.PurchaseOrderId"
+													 LegacyReceivedQuantity="LegacyReceivedQuantity"
+													 RefreshKey="historyRefreshKey" />
+					}
 
 					@if (statusFailure is { IsConflict: true } or { IsNotFound: true })
 					{
@@ -446,12 +486,21 @@
 						<div class="maintenance-inline-error procurement-inline-error" role="alert">@statusFailure.Message</div>
 					}
 
-					@if (CanManage && details.AllowedTransitions.Count > 0)
+					@if (CanManage && (StatusTransitions.Count > 0 || ReceiptActions.Count > 0))
 					{
 						<div class="procurement-status-actions">
 							@if (pendingTransition is null)
 							{
-								@foreach (var transition in details.AllowedTransitions)
+								@foreach (var action in ReceiptActions)
+								{
+									<button type="button"
+											class="maintenance-button procurement-receipt-action"
+											disabled="@isChangingStatus"
+											@onclick="() => OpenReceiptForm(action)">
+										@ProcurementFormat.ReceiptActionLabel(action)
+									</button>
+								}
+								@foreach (var transition in StatusTransitions)
 								{
 									<button type="button"
 											class="maintenance-button procurement-transition procurement-transition-@ProcurementFormat.TransitionModifier(transition)"
@@ -475,7 +524,7 @@
 							}
 						</div>
 					}
-					else if (details.AllowedTransitions.Count == 0)
+					else if (StatusTransitions.Count == 0 && ReceiptActions.Count == 0)
 					{
 						<p class="procurement-hint">This purchase order is final and can no longer change status.</p>
 					}

@@ -335,27 +335,9 @@ public sealed class InventoryReplenishmentEndpointTests : IntegrationTestBase
 
         var today = DateOnly.FromDateTime(DateTime.UtcNow);
         var purchaseOrder = PurchaseOrder.Create(supplierId, today, today.AddDays(14));
-
-        switch (status)
-        {
-            case PurchaseOrderStatus.Ordered:
-                purchaseOrder.ChangeStatusTo(PurchaseOrderStatus.Ordered);
-                break;
-
-            case PurchaseOrderStatus.Received:
-                purchaseOrder.ChangeStatusTo(PurchaseOrderStatus.Ordered);
-                purchaseOrder.ChangeStatusTo(PurchaseOrderStatus.Received);
-                break;
-
-            case PurchaseOrderStatus.Cancelled:
-                purchaseOrder.ChangeStatusTo(PurchaseOrderStatus.Cancelled);
-                break;
-
-            default:
-                break;
-        }
-
         var line = PurchaseOrderLine.Create(purchaseOrder.Id, inventoryItemId, quantity, 100m);
+
+        PurchaseOrderSeedData.ApplyStatus(purchaseOrder, status, [line]);
 
         await dbContext.Set<PurchaseOrder>().AddAsync(purchaseOrder, CancellationToken.None);
         await dbContext.Set<PurchaseOrderLine>().AddAsync(line, CancellationToken.None);

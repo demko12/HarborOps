@@ -43,8 +43,9 @@ public sealed class GetInventoryReplenishmentQuery(DbContext dbContext)
                 .Where(line => line.PartId == item.Id
                     && purchaseOrders.Any(order => order.Id == line.PurchaseOrderId
                         && (order.Status == PurchaseOrderStatus.Draft
-                            || order.Status == PurchaseOrderStatus.Ordered)))
-                .Sum(line => line.QuantityOrdered)
+                            || order.Status == PurchaseOrderStatus.Ordered
+                            || order.Status == PurchaseOrderStatus.PartiallyReceived)))
+                .Sum(line => line.QuantityOrdered - line.ReceivedQuantity)
             where item.Quantity - reservedQuantity < item.MinimumQuantity
             select new
             {

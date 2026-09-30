@@ -1,4 +1,5 @@
 using HarborOps.Infrastructure.Persistence;
+using HarborOps.IntegrationTests.Maintenance;
 using HarborOps.Modules.Maintenance.Application;
 using HarborOps.Modules.Maintenance.Contracts;
 using HarborOps.Modules.Maintenance.Domain;
@@ -203,6 +204,147 @@ public sealed class SupplierReturnConcurrencyRelationalTests : IAsyncLifetime
         }
     }
 
+    [RelationalFact]
+    public async Task Competing_returns_on_a_partially_received_order_never_exceed_what_arrived()
+    {
+        for (var round = 0; round < Rounds; round++)
+        {
+            var itemId = await SeedItemAsync(quantity: 20m);
+            var order = await SeedPartiallyReceivedOrderAsync((itemId, 10m, 4m));
+
+            // The ceiling is the 4 units that arrived, not the 10 that were ordered.
+            await Assert.ThrowsAsync<CreateSupplierReturnValidationException>(
+                () => CreateReturnAsync(order.Id, (order.LineIds[0], 5m)));
+
+            var firstReturnId = await CreateReturnAsync(order.Id, (order.LineIds[0], 3m));
+            var secondReturnId = await CreateReturnAsync(order.Id, (order.LineIds[0], 3m));
+            var firstPreview = await PreviewAsync(firstReturnId);
+            var secondPreview = await PreviewAsync(secondReturnId);
+
+            var (first, second) = await RaceAsync(
+                () => PostAsync(firstPreview),
+                () => PostAsync(secondPreview));
+
+            AssertExpectedConflicts(first, second);
+
+            var postedCount = new[] { first, second }.Count(outcome => outcome is null);
+
+            Assert.True(postedCount <= 1, $"Round {round}: both returns posted 6 of 4 received.");
+            Assert.Equal(24m - (3m * postedCount), await StoredQuantityAsync(itemId));
+
+            await AssertTheOtherReturnExceedsWhatWasReceivedAsync(
+                (firstReturnId, first),
+                (secondReturnId, second));
+
+            Assert.True(await PostedQuantityAsync(order.LineIds[0]) <= 4m);
+
+            // Returns never reduce the gross received quantity or change the order's receiving status.
+            Assert.Equal(4m, await ReceivedQuantityAsync(order.LineIds[0]));
+            Assert.Equal(PurchaseOrderStatus.PartiallyReceived, await StoredOrderStatusAsync(order.Id));
+        }
+    }
+
+    [RelationalFact]
+    public async Task Posting_a_return_and_receiving_the_rest_of_the_order_never_lose_an_update()
+    {
+        for (var round = 0; round < Rounds; round++)
+        {
+            var itemId = await SeedItemAsync(quantity: 10m);
+            var order = await SeedPartiallyReceivedOrderAsync((itemId, 10m, 4m));
+            var supplierReturnId = await CreateReturnAsync(order.Id, (order.LineIds[0], 3m));
+            var preview = await PreviewAsync(supplierReturnId);
+
+            var (post, receipt) = await RaceAsync(
+                () => PostAsync(preview),
+                () => ReceiveAsync(order.Id));
+
+            AssertExpectedConflicts(post, receipt);
+
+            Assert.Equal(
+                14m - (post is null ? 3m : 0m) + (receipt is null ? 6m : 0m),
+                await StoredQuantityAsync(itemId));
+            Assert.Equal(post is null ? 1 : 0, await MovementCountAsync(supplierReturnId));
+
+            // A posted return does not reopen or reduce what was received; only the receipt moves the line.
+            Assert.Equal(receipt is null ? 10m : 4m, await ReceivedQuantityAsync(order.LineIds[0]));
+            Assert.Equal(
+                receipt is null ? PurchaseOrderStatus.Received : PurchaseOrderStatus.PartiallyReceived,
+                await StoredOrderStatusAsync(order.Id));
+        }
+    }
+
+    [RelationalFact]
+    public async Task Competing_returns_of_a_part_repeated_across_partially_received_lines_respect_each_line()
+    {
+        for (var round = 0; round < Rounds; round++)
+        {
+            var itemId = await SeedItemAsync(quantity: 10m);
+            var order = await SeedPartiallyReceivedOrderAsync((itemId, 6m, 4m), (itemId, 6m, 2m));
+            var firstReturnId = await CreateReturnAsync(
+                order.Id,
+                (order.LineIds[0], 3m),
+                (order.LineIds[1], 2m));
+            var secondReturnId = await CreateReturnAsync(
+                order.Id,
+                (order.LineIds[0], 2m),
+                (order.LineIds[1], 1m));
+            var firstPreview = await PreviewAsync(firstReturnId);
+            var secondPreview = await PreviewAsync(secondReturnId);
+
+            var (first, second) = await RaceAsync(
+                () => PostAsync(firstPreview),
+                () => PostAsync(secondPreview));
+
+            AssertExpectedConflicts(first, second);
+
+            Assert.False(
+                first is null && second is null,
+                $"Round {round}: both returns posted above a line's receipts.");
+            Assert.Equal(
+                16m - (first is null ? 5m : 0m) - (second is null ? 3m : 0m),
+                await StoredQuantityAsync(itemId));
+
+            // Stock alone would cover both returns; the per-line receipts must keep the other one out.
+            await AssertTheOtherReturnExceedsWhatWasReceivedAsync(
+                (firstReturnId, first),
+                (secondReturnId, second));
+
+            Assert.True(await PostedQuantityAsync(order.LineIds[0]) <= 4m);
+            Assert.True(await PostedQuantityAsync(order.LineIds[1]) <= 2m);
+        }
+    }
+
+    [RelationalFact]
+    public async Task Returning_a_repeated_part_and_part_usage_never_overdraw_partially_received_stock()
+    {
+        for (var round = 0; round < Rounds; round++)
+        {
+            var itemId = await SeedItemAsync(quantity: 0m);
+            var workOrderId = await SeedWorkOrderAsync();
+            var order = await SeedPartiallyReceivedOrderAsync((itemId, 5m, 3m), (itemId, 5m, 2m));
+            var supplierReturnId = await CreateReturnAsync(
+                order.Id,
+                (order.LineIds[0], 3m),
+                (order.LineIds[1], 2m));
+            var preview = await PreviewAsync(supplierReturnId);
+
+            var (post, usage) = await RaceAsync(
+                () => PostAsync(preview),
+                () => RecordUsageAsync(workOrderId, itemId, 1m));
+
+            AssertExpectedConflicts(post, usage);
+
+            var quantity = await StoredQuantityAsync(itemId);
+
+            Assert.False(
+                post is null && usage is null,
+                $"Round {round}: return and usage both drew on 5 received units.");
+            Assert.Equal(5m - (post is null ? 5m : 0m) - (usage is null ? 1m : 0m), quantity);
+            Assert.True(quantity >= 0m, $"Round {round}: stock went negative ({quantity}).");
+            Assert.Equal(post is null ? 2 : 0, await MovementCountAsync(supplierReturnId));
+        }
+    }
+
     private static async Task<(Exception? First, Exception? Second)> RaceAsync(
         Func<Task> first,
         Func<Task> second)
@@ -232,6 +374,27 @@ public sealed class SupplierReturnConcurrencyRelationalTests : IAsyncLifetime
         return (await firstTask, await secondTask);
     }
 
+    // The race loser usually fails on a stale preview, which says nothing about the received-quantity ceiling.
+    // A fresh preview of it, taken once the other return has posted, must be blocked by that ceiling alone.
+    private async Task AssertTheOtherReturnExceedsWhatWasReceivedAsync(
+        (Guid ReturnId, Exception? Outcome) first,
+        (Guid ReturnId, Exception? Outcome) second)
+    {
+        var otherReturnId = first.Outcome is null ? second.ReturnId : first.ReturnId;
+
+        if (first.Outcome is not null && second.Outcome is not null)
+        {
+            await PostAsync(await PreviewAsync(first.ReturnId));
+            otherReturnId = second.ReturnId;
+        }
+
+        var preview = await PreviewAsync(otherReturnId);
+
+        Assert.False(preview.CanPost);
+        Assert.Contains(preview.Blockers, blocker => blocker.Code == SupplierReturnBlockerCodes.ExceedsReturnable);
+        Assert.DoesNotContain(preview.Blockers, blocker => blocker.Code == SupplierReturnBlockerCodes.InsufficientStock);
+    }
+
     private static void AssertExpectedConflicts(params Exception?[] outcomes)
     {
         foreach (var outcome in outcomes.Where(outcome => outcome is not null))
@@ -252,6 +415,8 @@ public sealed class SupplierReturnConcurrencyRelationalTests : IAsyncLifetime
             or StocktakePostingBlockedException
             or RecordInventoryItemUsageConflictException
             or PurchaseOrderConflictException
+            or PurchaseOrderReceiptPostingBlockedException
+            or PurchaseOrderReceiptConcurrencyException
             or WorkOrderPartReservationConflictException
             or DbUpdateConcurrencyException
             || IsDeadlockVictim(exception);
@@ -333,8 +498,8 @@ public sealed class SupplierReturnConcurrencyRelationalTests : IAsyncLifetime
     {
         await using var dbContext = CreateDbContext();
 
-        await new ChangePurchaseOrderStatusService(dbContext)
-            .ReceiveAsync(purchaseOrderId, CancellationToken.None);
+        await new PostPurchaseOrderReceiptService(dbContext, TimeProvider.System)
+            .ReceiveRemainingAsync(purchaseOrderId, null, ActorUserId, CancellationToken.None);
     }
 
     private async Task ReserveAsync(Guid workOrderId, Guid inventoryItemId, decimal quantity)
@@ -462,11 +627,10 @@ public sealed class SupplierReturnConcurrencyRelationalTests : IAsyncLifetime
             .SingleAsync();
         var orderDate = DateOnly.FromDateTime(UtcNow);
         var order = PurchaseOrder.Create(supplierId, orderDate, orderDate.AddDays(7));
-        order.ChangeStatusTo(PurchaseOrderStatus.Ordered);
-        order.ChangeStatusTo(PurchaseOrderStatus.Received);
         var orderLines = lines
             .Select(line => PurchaseOrderLine.Create(order.Id, line.InventoryItemId, line.Quantity, 25m))
             .ToList();
+        PurchaseOrderSeedData.ApplyStatus(order, PurchaseOrderStatus.Received, orderLines);
 
         await dbContext.Set<PurchaseOrder>().AddAsync(order);
         await dbContext.Set<PurchaseOrderLine>().AddRangeAsync(orderLines);
@@ -493,6 +657,95 @@ public sealed class SupplierReturnConcurrencyRelationalTests : IAsyncLifetime
         await dbContext.SaveChangesAsync();
 
         return order.Id;
+    }
+
+    // Orders the lines and posts one real receipt for the given quantities, so the stock increase, receipt
+    // evidence, and PartiallyReceived status all come from the receipt service instead of seeded values.
+    private async Task<(Guid Id, IReadOnlyList<Guid> LineIds)> SeedPartiallyReceivedOrderAsync(
+        params (Guid InventoryItemId, decimal Ordered, decimal Received)[] lines)
+    {
+        Guid orderId;
+        List<Guid> lineIds;
+
+        await using (var dbContext = CreateDbContext())
+        {
+            var supplierId = await dbContext.Set<InventoryItem>()
+                .Where(item => item.Id == lines[0].InventoryItemId)
+                .Select(item => item.SupplierId)
+                .SingleAsync();
+            var orderDate = DateOnly.FromDateTime(UtcNow);
+            var order = PurchaseOrder.Create(supplierId, orderDate, orderDate.AddDays(7));
+            order.ChangeStatusTo(PurchaseOrderStatus.Ordered);
+            var orderLines = lines
+                .Select(line => PurchaseOrderLine.Create(order.Id, line.InventoryItemId, line.Ordered, 25m))
+                .ToList();
+
+            await dbContext.Set<PurchaseOrder>().AddAsync(order);
+            await dbContext.Set<PurchaseOrderLine>().AddRangeAsync(orderLines);
+            await dbContext.SaveChangesAsync();
+
+            orderId = order.Id;
+            lineIds = orderLines.Select(line => line.Id).ToList();
+        }
+
+        var entries = lines
+            .Select((line, index) => new PurchaseOrderReceiptLineEntry
+            {
+                PurchaseOrderLineId = lineIds[index],
+                Quantity = line.Received,
+            })
+            .ToList();
+
+        PurchaseOrderReceiptPostingPreview preview;
+
+        await using (var dbContext = CreateDbContext())
+        {
+            preview = await new GetPurchaseOrderReceiptPostingPreviewQuery(dbContext, TimeProvider.System)
+                .GetPreviewAsync(
+                    orderId,
+                    new PreviewPurchaseOrderReceiptRequest { ReceivedUtc = UtcNow, Lines = entries },
+                    CancellationToken.None);
+        }
+
+        await using (var dbContext = CreateDbContext())
+        {
+            await new PostPurchaseOrderReceiptService(dbContext, TimeProvider.System).PostAsync(
+                orderId,
+                new PostPurchaseOrderReceiptRequest
+                {
+                    ClientRequestId = Guid.NewGuid(),
+                    ExpectedConcurrencyToken = preview.ConcurrencyToken,
+                    PreviewToken = preview.PreviewToken,
+                    ReceivedUtc = UtcNow,
+                    Lines = entries,
+                },
+                ActorUserId,
+                CancellationToken.None);
+        }
+
+        return (orderId, lineIds);
+    }
+
+    private async Task<decimal> ReceivedQuantityAsync(Guid purchaseOrderLineId)
+    {
+        await using var dbContext = CreateDbContext();
+
+        return await dbContext.Set<PurchaseOrderLine>()
+            .AsNoTracking()
+            .Where(line => line.Id == purchaseOrderLineId)
+            .Select(line => line.ReceivedQuantity)
+            .SingleAsync();
+    }
+
+    private async Task<PurchaseOrderStatus> StoredOrderStatusAsync(Guid purchaseOrderId)
+    {
+        await using var dbContext = CreateDbContext();
+
+        return await dbContext.Set<PurchaseOrder>()
+            .AsNoTracking()
+            .Where(order => order.Id == purchaseOrderId)
+            .Select(order => order.Status)
+            .SingleAsync();
     }
 
     private async Task<decimal> StoredQuantityAsync(Guid inventoryItemId)

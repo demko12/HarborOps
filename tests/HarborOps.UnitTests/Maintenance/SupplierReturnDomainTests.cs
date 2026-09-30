@@ -36,6 +36,17 @@ public sealed class SupplierReturnDomainTests
     }
 
     [Fact]
+    public void Create_accepts_a_partially_received_order()
+    {
+        var order = CreateOrder(PurchaseOrderStatus.PartiallyReceived);
+
+        var supplierReturn = SupplierReturn.Create(order, null, ActorUserId, UtcNow);
+
+        Assert.Equal(SupplierReturnStatus.Draft, supplierReturn.Status);
+        Assert.Equal(order.Id, supplierReturn.PurchaseOrderId);
+    }
+
+    [Fact]
     public void Line_copies_the_part_from_the_purchase_order_line_and_trims_the_reason()
     {
         var order = CreateOrder(PurchaseOrderStatus.Received);
@@ -223,15 +234,10 @@ public sealed class SupplierReturnDomainTests
     {
         var order = PurchaseOrder.Create(Guid.NewGuid(), new DateOnly(2026, 8, 1), null);
 
-        if (status is PurchaseOrderStatus.Ordered or PurchaseOrderStatus.Received)
-        {
-            order.ChangeStatusTo(PurchaseOrderStatus.Ordered);
-        }
-
-        if (status is PurchaseOrderStatus.Received or PurchaseOrderStatus.Cancelled)
-        {
-            order.ChangeStatusTo(status);
-        }
+        PurchaseOrderTestData.ApplyStatus(
+            order,
+            status,
+            [PurchaseOrderLine.Create(order.Id, Guid.NewGuid(), 10m, 5m)]);
 
         return order;
     }

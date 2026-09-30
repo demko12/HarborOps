@@ -24,7 +24,7 @@ internal static class GetPurchaseOrdersValidator
 
         if (!string.IsNullOrWhiteSpace(request.Status) && !TryParseStatus(request.Status, out _))
         {
-            errors[StatusField] = ["Status must be Draft, Ordered, Received, or Cancelled."];
+            errors[StatusField] = ["Status must be Draft, Ordered, PartiallyReceived, Received, or Cancelled."];
         }
 
         if (request.OrderDateFrom is { } orderDateFrom

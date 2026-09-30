@@ -1,5 +1,6 @@
 using HarborOps.Infrastructure.Persistence;
 using HarborOps.Modules.Maintenance.Application;
+using HarborOps.Modules.Maintenance.Contracts;
 using HarborOps.Modules.Maintenance.Domain;
 using Microsoft.EntityFrameworkCore;
 
@@ -50,6 +51,7 @@ public sealed class GetPurchaseOrderDetailsQueryTests
     [Theory]
     [InlineData(PurchaseOrderStatus.Draft, new[] { "Ordered", "Cancelled" })]
     [InlineData(PurchaseOrderStatus.Ordered, new[] { "Received", "Cancelled" })]
+    [InlineData(PurchaseOrderStatus.PartiallyReceived, new[] { "Received" })]
     [InlineData(PurchaseOrderStatus.Received, new string[0])]
     [InlineData(PurchaseOrderStatus.Cancelled, new string[0])]
     public async Task GetDetailsAsync_derives_the_allowed_transitions(
@@ -64,6 +66,82 @@ public sealed class GetPurchaseOrderDetailsQueryTests
         var response = await CreateQuery(dbContext).GetDetailsAsync(order.Id, CancellationToken.None);
 
         Assert.Equal(expectedTransitions, response.AllowedTransitions);
+    }
+
+    [Theory]
+    [InlineData(PurchaseOrderStatus.Draft, new[] { "MarkOrdered", "Cancel" })]
+    [InlineData(PurchaseOrderStatus.Ordered, new[] { "ReceivePartial", "ReceiveRemaining", "Cancel" })]
+    [InlineData(PurchaseOrderStatus.PartiallyReceived, new[] { "ReceivePartial", "ReceiveRemaining", "CreateReturn" })]
+    [InlineData(PurchaseOrderStatus.Received, new[] { "CreateReturn" })]
+    [InlineData(PurchaseOrderStatus.Cancelled, new string[0])]
+    public async Task GetDetailsAsync_derives_the_allowed_actions(
+        PurchaseOrderStatus status,
+        string[] expectedActions)
+    {
+        await using var dbContext = CreateDbContext();
+        var supplier = await SeedSupplierAsync(dbContext);
+        var item = await SeedInventoryItemAsync(dbContext, supplier.Id, "Fuel filter", "PN-1");
+        var order = await SeedOrderAsync(dbContext, supplier.Id, status, null, (item.Id, 2m, 10m));
+
+        var response = await CreateQuery(dbContext).GetDetailsAsync(order.Id, CancellationToken.None);
+
+        Assert.Equal(expectedActions, response.AllowedActions);
+        Assert.Equal(order.ConcurrencyToken, response.ConcurrencyToken);
+    }
+
+    [Fact]
+    public async Task GetDetailsAsync_reports_ordered_received_returned_and_outstanding_quantities()
+    {
+        await using var dbContext = SupplierReturnTestData.CreateDbContext();
+        var filter = await SupplierReturnTestData.SeedItemAsync(dbContext, quantity: 0m, name: "Fuel filter");
+        var impeller = await SupplierReturnTestData.SeedItemAsync(dbContext, quantity: 0m, name: "Impeller");
+        var (order, lines) = await SupplierReturnTestData.SeedOrderAsync(
+            dbContext,
+            PurchaseOrderStatus.Ordered,
+            (filter, 10m),
+            (impeller, 2m));
+        await PurchaseOrderReceiptTestData.ReceiveAsync(dbContext, order.Id, (lines[0], 4m));
+        await SupplierReturnTestData.SeedPostedReturnAsync(dbContext, order, (lines[0], 1m));
+
+        var response = await CreateQuery(dbContext).GetDetailsAsync(order.Id, CancellationToken.None);
+
+        var filterLine = response.Lines.Single(line => line.LineId == lines[0].Id);
+        var impellerLine = response.Lines.Single(line => line.LineId == lines[1].Id);
+
+        Assert.Equal(nameof(PurchaseOrderStatus.PartiallyReceived), response.Status);
+        Assert.Equal(120m, response.TotalCost);
+        Assert.Equal(1, response.ReceiptCount);
+        Assert.Equal(12m, response.TotalQuantityOrdered);
+        Assert.Equal(4m, response.TotalQuantityReceived);
+        Assert.Equal(1m, response.TotalQuantityReturned);
+        Assert.Equal(8m, response.TotalQuantityOutstanding);
+        Assert.Equal(4m, filterLine.ReceivedQuantity);
+        Assert.Equal(0m, filterLine.LegacyReceivedQuantity);
+        Assert.Equal(1m, filterLine.ReturnedQuantity);
+        Assert.Equal(6m, filterLine.OutstandingQuantity);
+        Assert.Equal(3m, filterLine.ReturnableQuantity);
+        Assert.Equal(100m, filterLine.LineTotal);
+        Assert.Equal(0m, impellerLine.ReceivedQuantity);
+        Assert.Equal(2m, impellerLine.OutstandingQuantity);
+        Assert.Equal(0m, impellerLine.ReturnableQuantity);
+    }
+
+    [Fact]
+    public async Task GetDetailsAsync_flags_an_overdue_partially_received_delivery()
+    {
+        await using var dbContext = CreateDbContext();
+        var supplier = await SeedSupplierAsync(dbContext);
+        var item = await SeedInventoryItemAsync(dbContext, supplier.Id, "Fuel filter", "PN-1");
+        var order = await SeedOrderAsync(
+            dbContext,
+            supplier.Id,
+            PurchaseOrderStatus.PartiallyReceived,
+            Today.AddDays(-1),
+            (item.Id, 4m, 10m));
+
+        var response = await CreateQuery(dbContext).GetDetailsAsync(order.Id, CancellationToken.None);
+
+        Assert.True(response.IsOverdue);
     }
 
     [Fact]
@@ -147,30 +225,14 @@ public sealed class GetPurchaseOrderDetailsQueryTests
         params (Guid ItemId, decimal Quantity, decimal UnitCost)[] lines)
     {
         var order = PurchaseOrder.Create(supplierId, Today, expectedDelivery);
+        var orderLines = lines
+            .Select(line => PurchaseOrderLine.Create(order.Id, line.ItemId, line.Quantity, line.UnitCost))
+            .ToList();
 
-        if (status is PurchaseOrderStatus.Ordered or PurchaseOrderStatus.Received)
-        {
-            order.ChangeStatusTo(PurchaseOrderStatus.Ordered);
-        }
-
-        if (status == PurchaseOrderStatus.Received)
-        {
-            order.ChangeStatusTo(PurchaseOrderStatus.Received);
-        }
-
-        if (status == PurchaseOrderStatus.Cancelled)
-        {
-            order.ChangeStatusTo(PurchaseOrderStatus.Cancelled);
-        }
+        PurchaseOrderTestData.ApplyStatus(order, status, orderLines);
 
         await dbContext.Set<PurchaseOrder>().AddAsync(order);
-
-        foreach (var line in lines)
-        {
-            await dbContext.Set<PurchaseOrderLine>().AddAsync(
-                PurchaseOrderLine.Create(order.Id, line.ItemId, line.Quantity, line.UnitCost));
-        }
-
+        await dbContext.Set<PurchaseOrderLine>().AddRangeAsync(orderLines);
         await dbContext.SaveChangesAsync();
 
         return order;

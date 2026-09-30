@@ -9,4 +9,7 @@ public sealed record ChangePurchaseOrderStatusResponse(
     string PreviousStatus,
     string Status,
     IReadOnlyList<string> AllowedTransitions,
-    IReadOnlyList<PurchaseOrderStockAdjustment> StockAdjustments);
+    IReadOnlyList<PurchaseOrderStockAdjustment> StockAdjustments,
+    // Set only when the change received goods; a replayed client request id reports AlreadyPosted.
+    PurchaseOrderReceiptDetails? Receipt,
+    bool AlreadyPosted);

@@ -2226,6 +2226,11 @@ html[data-theme="light"] .maintenance-page ::deep .dry-dock-timing.overdue {
     background: rgba(96, 165, 250, .14);
 }
 
+.maintenance-page ::deep .procurement-status-partiallyreceived {
+    color: var(--status-warning);
+    background: rgba(251, 191, 36, .14);
+}
+
 .maintenance-page ::deep .procurement-status-received {
     color: #5eead4;
     background: rgba(45, 212, 191, .14);
@@ -2352,35 +2357,39 @@ html[data-theme="light"] .maintenance-page ::deep .dry-dock-timing.overdue {
 /* Procurement - table columns under table-layout: fixed */
 
 .maintenance-page ::deep .procurement-table .col-po-supplier {
-    width: 18%;
+    width: 16%;
 }
 
 .maintenance-page ::deep .procurement-table .col-po-ordered {
-    width: 11%;
+    width: 10%;
 }
 
 .maintenance-page ::deep .procurement-table .col-po-delivery {
-    width: 14%;
+    width: 13%;
 }
 
 .maintenance-page ::deep .procurement-table .col-po-status {
-    width: 11%;
+    width: 12%;
 }
 
 .maintenance-page ::deep .procurement-table .col-po-lines {
-    width: 7%;
+    width: 6%;
+}
+
+.maintenance-page ::deep .procurement-table .col-po-received {
+    width: 9%;
 }
 
 .maintenance-page ::deep .procurement-table .col-po-total {
-    width: 12%;
+    width: 11%;
 }
 
 .maintenance-page ::deep .procurement-table .col-po-delivery-state {
-    width: 15%;
+    width: 13%;
 }
 
 .maintenance-page ::deep .procurement-table .col-actions {
-    width: 12%;
+    width: 10%;
     text-align: center;
 }
 
@@ -2392,10 +2401,17 @@ html[data-theme="light"] .maintenance-page ::deep .dry-dock-timing.overdue {
 
 .maintenance-page ::deep .procurement-table .col-po-ordered,
 .maintenance-page ::deep .procurement-table .col-po-lines,
+.maintenance-page ::deep .procurement-table .col-po-received,
 .maintenance-page ::deep .procurement-table .col-po-total {
     white-space: nowrap;
 }
 
+.maintenance-page ::deep .procurement-received {
+    font-variant-numeric: tabular-nums;
+    text-align: right;
+}
+
+.maintenance-page ::deep .procurement-table th.col-po-received,
 .maintenance-page ::deep .procurement-table th.col-po-total,
 .maintenance-page ::deep .procurement-line-table th.col-line-quantity,
 .maintenance-page ::deep .procurement-line-table th.col-line-cost,
@@ -2479,20 +2495,35 @@ html[data-theme="light"] .maintenance-page ::deep .dry-dock-timing.overdue {
 }
 
 .maintenance-page ::deep .procurement-details-card .procurement-line-table .col-line-item {
-    width: 34%;
+    width: 22%;
 }
 
 .maintenance-page ::deep .procurement-details-card .procurement-line-table .col-line-part {
-    width: 18%;
+    width: 14%;
 }
 
-.maintenance-page ::deep .procurement-details-card .procurement-line-table .col-line-quantity {
-    width: 14%;
+.maintenance-page ::deep .procurement-details-card .procurement-line-table .col-line-quantity,
+.maintenance-page ::deep .procurement-details-card .procurement-line-table .col-line-received,
+.maintenance-page ::deep .procurement-details-card .procurement-line-table .col-line-returned,
+.maintenance-page ::deep .procurement-details-card .procurement-line-table .col-line-outstanding {
+    width: 10%;
 }
 
 .maintenance-page ::deep .procurement-details-card .procurement-line-table .col-line-cost,
 .maintenance-page ::deep .procurement-details-card .procurement-line-table .col-line-total {
-    width: 17%;
+    width: 12%;
+}
+
+.maintenance-page ::deep .procurement-line-table th.col-line-received,
+.maintenance-page ::deep .procurement-line-table th.col-line-returned,
+.maintenance-page ::deep .procurement-line-table th.col-line-outstanding {
+    text-align: right;
+}
+
+.maintenance-page ::deep .procurement-legacy-note {
+    display: block;
+    font-size: .72rem;
+    white-space: normal;
 }
 
 .maintenance-page ::deep .maintenance-form-card .procurement-line-table tr td,
@@ -2516,6 +2547,7 @@ html[data-theme="light"] .maintenance-page ::deep .dry-dock-timing.overdue {
 
 @media (max-width: 1100px) {
     .maintenance-page ::deep .procurement-table .col-po-lines,
+    .maintenance-page ::deep .procurement-table .col-po-received,
     .maintenance-page ::deep .procurement-table .col-po-delivery-state {
         display: none;
     }
@@ -2589,6 +2621,11 @@ html[data-theme="light"] .maintenance-page ::deep .procurement-status-draft {
 html[data-theme="light"] .maintenance-page ::deep .procurement-status-ordered {
     color: var(--status-info-strong);
     background: rgba(29, 78, 216, .12);
+}
+
+html[data-theme="light"] .maintenance-page ::deep .procurement-status-partiallyreceived {
+    color: var(--status-warning-strong);
+    background: rgba(180, 83, 9, .12);
 }
 
 html[data-theme="light"] .maintenance-page ::deep .procurement-status-received {
@@ -3050,6 +3087,68 @@ html[data-theme="light"] .maintenance-page ::deep .preventive-state.completed {
     margin: 0 0 1rem;
     padding-left: 1.1rem;
     font-variant-numeric: tabular-nums;
+}
+
+/* Purchase order receipts - delivery form and history inside the order details */
+
+.maintenance-page ::deep .receipt-form-heading h3,
+.maintenance-page ::deep .receipt-history h3 {
+    margin: 0 0 .25rem;
+    font-size: 1rem;
+}
+
+.maintenance-page ::deep .receipt-form-heading p {
+    margin: 0 0 .75rem;
+    font-size: .82rem;
+}
+
+.maintenance-page ::deep .receipt-form .maintenance-form-grid {
+    margin-bottom: .75rem;
+}
+
+.maintenance-page ::deep .receipt-notes {
+    grid-column: 1 / -1;
+}
+
+.maintenance-page ::deep .receipt-lines-table .numeric,
+.maintenance-page ::deep .receipt-preview-table .numeric,
+.maintenance-page ::deep .receipt-history-table .numeric {
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+}
+
+.maintenance-page ::deep .receipt-lines-table input[type="number"] {
+    max-width: 8rem;
+    margin-left: auto;
+    text-align: right;
+}
+
+.maintenance-page ::deep .receipt-preview-table caption {
+    padding: .5rem 0;
+    caption-side: top;
+    color: var(--text-secondary);
+    font-weight: 600;
+    text-align: left;
+}
+
+.maintenance-page ::deep .receipt-history {
+    margin-top: 1rem;
+    padding-top: .75rem;
+    border-top: 1px solid var(--border-subtle);
+}
+
+.maintenance-page ::deep .receipt-history-lines {
+    display: grid;
+    gap: .15rem;
+    margin: 0;
+    padding-left: 1rem;
+}
+
+.maintenance-page ::deep .receipt-history-notes {
+    display: block;
+    font-size: .75rem;
+    overflow-wrap: anywhere;
 }
 
 /* Maintenance workspace follows the Fleet, Crew, and Voyages registers. */

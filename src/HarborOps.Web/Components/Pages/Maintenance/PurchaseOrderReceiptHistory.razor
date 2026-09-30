@@ -1,0 +1,87 @@
+@using HarborOps.Web.Api.Maintenance
+@implements IDisposable
+@inject MaintenanceApiClient MaintenanceApi
+
+<section class="receipt-history" aria-labelledby="receipt-history-title">
+	<h3 id="receipt-history-title">Delivery history</h3>
+
+	@if (LegacyReceivedQuantity > 0)
+	{
+		<p class="procurement-hint">
+			@ProcurementFormat.Quantity(LegacyReceivedQuantity) unit(s) were received before deliveries were tracked,
+			so they have no delivery date or recorder.
+		</p>
+	}
+
+	@if (isLoading)
+	{
+		<LoadingState Message="Loading deliveries..." />
+	}
+	else if (failure is not null)
+	{
+		<ApiErrorState Title="@failure.Title" Message="@failure.Message" OnRetry="LoadAsync" />
+	}
+	else if (receipts.Count == 0)
+	{
+		<p class="procurement-hint">No deliveries have been posted for this purchase order yet.</p>
+	}
+	else
+	{
+		<div class="maintenance-table-scroll">
+			<table class="maintenance-table procurement-line-table receipt-history-table">
+				<caption class="visually-hidden">Posted deliveries, latest first</caption>
+				<thead>
+					<tr>
+						<th scope="col">Received (UTC)</th>
+						<th scope="col">Delivery reference</th>
+						<th scope="col">Parts</th>
+						<th scope="col" class="numeric">Quantity</th>
+						<th scope="col">Order status</th>
+						<th scope="col">Recorded (UTC)</th>
+					</tr>
+				</thead>
+				<tbody>
+					@foreach (var receipt in receipts)
+					{
+						<tr @key="receipt.ReceiptId">
+							<td>@MaintenanceFormat.CountedUtc(receipt.ReceivedUtc)</td>
+							<td>
+								@MaintenanceFormat.OptionalText(receipt.DeliveryReference)
+								@if (!string.IsNullOrWhiteSpace(receipt.Notes))
+								{
+									<span class="maintenance-muted receipt-history-notes">@receipt.Notes</span>
+								}
+							</td>
+							<td>
+								<ul class="receipt-history-lines">
+									@foreach (var line in receipt.Lines)
+									{
+										<li @key="line.ReceiptLineId">
+											@line.PartNumber: @ProcurementFormat.Quantity(line.Quantity) @line.UnitAbbreviation
+											<span class="maintenance-muted">(@ProcurementFormat.Quantity(line.OutstandingQuantityAfter) outstanding after)</span>
+										</li>
+									}
+								</ul>
+							</td>
+							<td class="numeric procurement-total">@ProcurementFormat.Quantity(receipt.TotalQuantity)</td>
+							<td>@StatusChange(receipt)</td>
+							<td class="maintenance-muted">@MaintenanceFormat.CountedUtc(receipt.RecordedUtc)</td>
+						</tr>
+					}
+				</tbody>
+			</table>
+		</div>
+
+		@if (TotalPages > 1)
+		{
+			<div class="maintenance-pagination">
+				<span>@totalCount deliveries</span>
+				<div class="maintenance-pages">
+					<button type="button" @onclick="PreviousPageAsync" disabled="@(pageNumber <= 1)">Previous</button>
+					<span class="maintenance-page-indicator">Page @pageNumber of @TotalPages</span>
+					<button type="button" @onclick="NextPageAsync" disabled="@(pageNumber >= TotalPages)">Next</button>
+				</div>
+			</div>
+		}
+	}
+</section>

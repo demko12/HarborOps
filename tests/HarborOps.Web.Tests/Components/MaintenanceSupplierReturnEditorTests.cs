@@ -88,6 +88,21 @@ public sealed class MaintenanceSupplierReturnEditorTests : BunitContext
     }
 
     [Fact]
+    public void A_partially_received_order_offers_only_what_was_actually_received()
+    {
+        orderJson = Order(status: "PartiallyReceived", gasketReceived: 3);
+
+        var editor = RenderNewEditor();
+
+        var gasket = editor.FindAll(".supplier-return-lines-table tbody tr")[1].QuerySelectorAll("td");
+
+        Assert.Equal("GASKET-22", gasket[1].TextContent.Trim());
+        Assert.Contains("3", gasket[2].TextContent, StringComparison.Ordinal);
+        Assert.DoesNotContain("5", gasket[2].TextContent, StringComparison.Ordinal);
+        Assert.Equal(["Create draft"], editor.FindAll(".stocktake-actions button").Select(action => action.TextContent.Trim()));
+    }
+
+    [Fact]
     public void A_new_return_for_an_order_that_was_not_received_is_explained()
     {
         orderJson = Order(status: "Ordered");
@@ -504,7 +519,7 @@ public sealed class MaintenanceSupplierReturnEditorTests : BunitContext
         return Json(HttpStatusCode.OK, detailsJson);
     }
 
-    private static string Order(string status = "Received")
+    private static string Order(string status = "Received", int gasketReceived = 5)
     {
         return $$"""
             {"purchaseOrderId":"{{OrderId}}","supplierId":"{{FilterId}}",
@@ -515,10 +530,10 @@ public sealed class MaintenanceSupplierReturnEditorTests : BunitContext
             "lines":[
             {"lineId":"{{FilterLineId}}","inventoryItemId":"{{FilterId}}",
             "inventoryItemName":"Main engine air filter","partNumber":"FILTER-AIR-110",
-            "quantityOrdered":10,"unitCost":20.00,"lineTotal":200.00},
+            "quantityOrdered":10,"unitCost":20.00,"lineTotal":200.00,"receivedQuantity":10},
             {"lineId":"{{GasketLineId}}","inventoryItemId":"{{GasketId}}",
             "inventoryItemName":"Cylinder head gasket","partNumber":"GASKET-22",
-            "quantityOrdered":5,"unitCost":10.00,"lineTotal":50.00}]}
+            "quantityOrdered":5,"unitCost":10.00,"lineTotal":50.00,"receivedQuantity":{{gasketReceived}} }]}
             """;
     }
 

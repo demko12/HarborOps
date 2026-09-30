@@ -48,10 +48,8 @@ public partial class SupplierReturnEditor : IDisposable
 
     private bool CanEdit => CanManage && IsDraft;
 
-    private bool IsOrderReceived => string.Equals(
-        purchaseOrder?.Status ?? details?.PurchaseOrderStatus,
-        MaintenanceFormat.ReceivedPurchaseOrder,
-        StringComparison.Ordinal);
+    private bool IsOrderReceived =>
+        MaintenanceFormat.CanReturnPurchaseOrder(purchaseOrder?.Status ?? details?.PurchaseOrderStatus);
 
     private IReadOnlyList<SupplierReturnPostingBlockerRow> Blockers =>
         preview?.Blockers ?? details?.Blockers ?? [];
@@ -147,7 +145,7 @@ public partial class SupplierReturnEditor : IDisposable
                             orderLine.InventoryItemName,
                             orderLine.PartNumber,
                             null,
-                            orderLine.QuantityOrdered,
+                            orderLine.ReceivedQuantity,
                             null,
                             null,
                             null,

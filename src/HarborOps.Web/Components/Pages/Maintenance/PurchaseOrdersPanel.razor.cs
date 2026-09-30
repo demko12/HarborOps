@@ -67,13 +67,28 @@ public partial class PurchaseOrdersPanel : IDisposable
     private MaintenanceApiFailure? statusFailure;
     private string? statusSuccessMessage;
 
+    private bool isReceiptFormOpen;
+    private bool receiveRemaining;
+    private int historyRefreshKey;
+
     private CancellationTokenSource? toastCancellation;
 
     private bool CanManage => AuthorizationState.HasPermission("maintenance.manage");
 
-    // Only received orders can carry supplier returns, and only a host that handles the request shows the entry.
+    // Orders with received goods can carry supplier returns, and only a host that handles the request shows the entry.
     private bool CanOpenReturns => OnReturnsRequested.HasDelegate
-        && string.Equals(details?.Status, MaintenanceFormat.ReceivedPurchaseOrder, StringComparison.Ordinal);
+        && details?.AllowedActions.Contains(ProcurementFormat.CreateReturnAction, StringComparer.Ordinal) == true;
+
+    // Receiving goes through a receipt form, so the plain "Received" transition is not offered as a status button.
+    private IReadOnlyList<string> StatusTransitions => details?.AllowedTransitions
+        .Where(transition => !string.Equals(transition, ProcurementFormat.ReceivedStatus, StringComparison.Ordinal))
+        .ToList() ?? [];
+
+    private IReadOnlyList<string> ReceiptActions => details?.AllowedActions
+        .Where(action => action is ProcurementFormat.ReceivePartialAction or ProcurementFormat.ReceiveRemainingAction)
+        .ToList() ?? [];
+
+    private decimal LegacyReceivedQuantity => details?.Lines.Sum(line => line.LegacyReceivedQuantity) ?? 0m;
 
     private int TotalPages => totalCount == 0 ? 1 : (totalCount + pageSize - 1) / pageSize;
 
@@ -382,6 +397,7 @@ public partial class PurchaseOrdersPanel : IDisposable
         detailsFailure = null;
         statusFailure = null;
         pendingTransition = null;
+        isReceiptFormOpen = false;
 
         await LoadDetailsAsync(purchaseOrderId);
     }
@@ -422,6 +438,40 @@ public partial class PurchaseOrdersPanel : IDisposable
         detailsFailure = null;
         statusFailure = null;
         pendingTransition = null;
+        isReceiptFormOpen = false;
+    }
+
+    private void OpenReceiptForm(string action)
+    {
+        receiveRemaining = string.Equals(action, ProcurementFormat.ReceiveRemainingAction, StringComparison.Ordinal);
+        statusFailure = null;
+        isReceiptFormOpen = true;
+    }
+
+    // Someone else may have received or cancelled the order while the form was open, so the details reload.
+    private async Task CloseReceiptFormAsync()
+    {
+        isReceiptFormOpen = false;
+
+        if (detailsPurchaseOrderId is { } purchaseOrderId)
+        {
+            await LoadDetailsAsync(purchaseOrderId);
+        }
+    }
+
+    private async Task ReceiptPostedAsync(string message)
+    {
+        isReceiptFormOpen = false;
+        historyRefreshKey++;
+
+        ShowToast(message, value => statusSuccessMessage = value);
+
+        if (detailsPurchaseOrderId is { } purchaseOrderId)
+        {
+            await LoadDetailsAsync(purchaseOrderId);
+        }
+
+        await LoadAsync();
     }
 
     private Task OpenReturnsAsync()
@@ -467,10 +517,6 @@ public partial class PurchaseOrdersPanel : IDisposable
             if (string.Equals(transition, ProcurementFormat.OrderedStatus, StringComparison.Ordinal))
             {
                 result = await MaintenanceApi.MarkPurchaseOrderOrderedAsync(purchaseOrderId, disposeCancellation.Token);
-            }
-            else if (string.Equals(transition, ProcurementFormat.ReceivedStatus, StringComparison.Ordinal))
-            {
-                result = await MaintenanceApi.ReceivePurchaseOrderAsync(purchaseOrderId, disposeCancellation.Token);
             }
             else if (string.Equals(transition, ProcurementFormat.CancelledStatus, StringComparison.Ordinal))
             {

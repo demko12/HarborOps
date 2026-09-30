@@ -36,6 +36,7 @@ public sealed class GetPurchaseOrderDetailsQuery(DbContext dbContext, TimeProvid
                 candidate.OrderDate,
                 candidate.ExpectedDelivery,
                 candidate.Status,
+                candidate.ConcurrencyToken,
             })
             .FirstOrDefaultAsync(cancellationToken);
 
@@ -59,18 +60,41 @@ public sealed class GetPurchaseOrderDetailsQuery(DbContext dbContext, TimeProvid
                     .FirstOrDefault(),
                 line.QuantityOrdered,
                 line.UnitCost,
+                line.ReceivedQuantity,
+                line.LegacyReceivedQuantity,
             })
             .ToListAsync(cancellationToken);
 
+        // Posted returns never reduce the gross received quantity or reopen outstanding quantity.
+        var returnedQuantities = await SupplierReturnReader.ReadPostedQuantitiesAsync(
+            dbContext,
+            lines.Select(line => line.Id).ToList(),
+            null,
+            cancellationToken);
+
+        var receiptCount = await dbContext.Set<PurchaseOrderReceipt>()
+            .AsNoTracking()
+            .CountAsync(receipt => receipt.PurchaseOrderId == purchaseOrderId, cancellationToken);
+
         var lineItems = lines
-            .Select(line => new PurchaseOrderLineItem(
-                line.Id,
-                line.PartId,
-                line.Item?.Name ?? string.Empty,
-                line.Item?.PartNumber ?? string.Empty,
-                line.QuantityOrdered,
-                line.UnitCost,
-                line.QuantityOrdered * line.UnitCost))
+            .Select(line =>
+            {
+                var returned = returnedQuantities.GetValueOrDefault(line.Id);
+
+                return new PurchaseOrderLineItem(
+                    line.Id,
+                    line.PartId,
+                    line.Item?.Name ?? string.Empty,
+                    line.Item?.PartNumber ?? string.Empty,
+                    line.QuantityOrdered,
+                    line.UnitCost,
+                    line.QuantityOrdered * line.UnitCost,
+                    line.ReceivedQuantity,
+                    line.LegacyReceivedQuantity,
+                    returned,
+                    line.QuantityOrdered - line.ReceivedQuantity,
+                    line.ReceivedQuantity - returned);
+            })
             .OrderBy(line => line.InventoryItemName, StringComparer.Ordinal)
             .ThenBy(line => line.LineId)
             .ToList();
@@ -92,6 +116,13 @@ public sealed class GetPurchaseOrderDetailsQuery(DbContext dbContext, TimeProvid
             GetPurchaseOrdersQuery.DaysUntilDelivery(order.ExpectedDelivery, today),
             lineItems.Sum(line => line.LineTotal),
             allowedTransitions,
-            lineItems);
+            lineItems,
+            order.ConcurrencyToken,
+            lineItems.Sum(line => line.QuantityOrdered),
+            lineItems.Sum(line => line.ReceivedQuantity),
+            lineItems.Sum(line => line.ReturnedQuantity),
+            lineItems.Sum(line => line.OutstandingQuantity),
+            receiptCount,
+            PurchaseOrderReceiptReader.AllowedActions(order.Status));
     }
 }

@@ -17,4 +17,11 @@ public sealed record GetPurchaseOrderDetailsResponse(
     int? DaysUntilDelivery,
     decimal TotalCost,
     IReadOnlyList<string> AllowedTransitions,
-    IReadOnlyList<PurchaseOrderLineItem> Lines);
+    IReadOnlyList<PurchaseOrderLineItem> Lines,
+    Guid ConcurrencyToken,
+    decimal TotalQuantityOrdered,
+    decimal TotalQuantityReceived,
+    decimal TotalQuantityReturned,
+    decimal TotalQuantityOutstanding,
+    int ReceiptCount,
+    IReadOnlyList<string> AllowedActions);

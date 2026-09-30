@@ -1,4 +1,5 @@
 using HarborOps.Infrastructure.Persistence;
+using HarborOps.IntegrationTests.Maintenance;
 using HarborOps.Modules.Maintenance.Domain;
 using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
@@ -252,11 +253,10 @@ public sealed class SupplierReturnPersistenceRelationalTests : IAsyncLifetime
             minimumQuantity: 1m,
             unitCost: 25m);
         var order = PurchaseOrder.Create(supplier.Id, DateOnly.FromDateTime(UtcNow), null);
-        order.ChangeStatusTo(PurchaseOrderStatus.Ordered);
-        order.ChangeStatusTo(PurchaseOrderStatus.Received);
         var lines = Enumerable.Range(0, lineCount)
             .Select(_ => PurchaseOrderLine.Create(order.Id, item.Id, quantityOrdered, 25m))
             .ToList();
+        PurchaseOrderSeedData.ApplyStatus(order, PurchaseOrderStatus.Received, lines);
 
         await dbContext.AddRangeAsync(category, unit, supplier, item, order);
         await dbContext.AddRangeAsync(lines);

@@ -34,6 +34,10 @@ internal sealed class PurchaseOrderConfiguration : IEntityTypeConfiguration<Purc
             .HasMaxLength(20)
             .IsRequired();
 
+        builder.Property(purchaseOrder => purchaseOrder.ConcurrencyToken)
+            .IsConcurrencyToken()
+            .HasDefaultValueSql("NEWID()");
+
         builder.HasOne<Supplier>()
             .WithMany()
             .HasForeignKey(purchaseOrder => purchaseOrder.SupplierId)

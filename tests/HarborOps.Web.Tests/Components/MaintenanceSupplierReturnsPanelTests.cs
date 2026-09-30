@@ -232,10 +232,32 @@ public sealed class MaintenanceSupplierReturnsPanelTests : BunitContext
 
         panel.Find(".supplier-return-new").Click();
 
-        panel.WaitForAssertion(() => Assert.Contains(
-            "No received purchase orders",
-            panel.Find(".supplier-return-order-picker").TextContent,
-            StringComparison.Ordinal));
+        panel.WaitForAssertion(() =>
+        {
+            var picker = panel.Find(".supplier-return-order-picker").TextContent;
+
+            Assert.Contains("No purchase orders with this status", picker, StringComparison.Ordinal);
+            Assert.Contains("Only parts that were actually received can be returned", picker, StringComparison.Ordinal);
+        });
+    }
+
+    [Fact]
+    public void Partially_received_orders_can_be_picked_for_a_return()
+    {
+        var panel = RenderManagerPanel();
+
+        panel.Find(".supplier-return-new").Click();
+        panel.WaitForAssertion(() => Assert.NotEmpty(panel.FindAll(".supplier-return-order-picker tbody button")));
+
+        panel.Find("#supplier-return-order-status").Change("PartiallyReceived");
+
+        panel.WaitForAssertion(() =>
+        {
+            var query = requestedUris.Last(uri => uri.AbsolutePath == OrdersPath).Query;
+
+            Assert.Contains("status=PartiallyReceived", query, StringComparison.Ordinal);
+            Assert.Contains("pageNumber=1", query, StringComparison.Ordinal);
+        });
     }
 
     [Fact]

@@ -44,7 +44,7 @@ internal sealed class SupplierReturnNotFoundException(Guid supplierReturnId)
 }
 
 internal sealed class SupplierReturnPurchaseOrderNotReceivedException(Guid purchaseOrderId, string currentStatus)
-    : Exception($"Purchase order '{purchaseOrderId}' is {currentStatus}; only received orders can be returned.")
+    : Exception($"Purchase order '{purchaseOrderId}' is {currentStatus}; only partially or fully received orders can be returned.")
 {
     internal Guid PurchaseOrderId { get; } = purchaseOrderId;
 }

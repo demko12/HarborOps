@@ -30,7 +30,7 @@ public sealed class CreateSupplierReturnService(DbContext dbContext, TimeProvide
             throw new PurchaseOrderNotFoundException(purchaseOrderId);
         }
 
-        if (purchaseOrder.Status != PurchaseOrderStatus.Received)
+        if (!PurchaseOrder.CanReturn(purchaseOrder.Status))
         {
             throw new SupplierReturnPurchaseOrderNotReceivedException(purchaseOrderId, purchaseOrder.Status.ToString());
         }

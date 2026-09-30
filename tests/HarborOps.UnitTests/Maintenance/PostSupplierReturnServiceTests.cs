@@ -212,7 +212,8 @@ public sealed class PostSupplierReturnServiceTests
         var supplierReturn = await SeedReturnAsync(dbContext, order, (lines[0], 2m));
         var preview = await PreviewAsync(dbContext, supplierReturn.Id);
 
-        await new ChangePurchaseOrderStatusService(dbContext).ReceiveAsync(nextOrder.Id, CancellationToken.None);
+        await new PostPurchaseOrderReceiptService(dbContext, Clock)
+            .ReceiveRemainingAsync(nextOrder.Id, null, ActorUserId, CancellationToken.None);
 
         await Assert.ThrowsAsync<SupplierReturnStalePreviewException>(() => PostAsync(dbContext, preview));
 

@@ -346,7 +346,10 @@ internal sealed record PurchaseOrderListItem(
     int LineCount,
     decimal TotalCost,
     bool IsOverdue,
-    int? DaysUntilDelivery);
+    int? DaysUntilDelivery,
+    decimal QuantityOrdered,
+    decimal QuantityReceived,
+    decimal QuantityOutstanding);
 
 internal sealed record PurchaseOrdersPage(
     IReadOnlyList<PurchaseOrderListItem> Items,
@@ -398,7 +401,12 @@ internal sealed record PurchaseOrderLineItem(
     string PartNumber,
     decimal QuantityOrdered,
     decimal UnitCost,
-    decimal LineTotal);
+    decimal LineTotal,
+    decimal ReceivedQuantity,
+    decimal LegacyReceivedQuantity,
+    decimal ReturnedQuantity,
+    decimal OutstandingQuantity,
+    decimal ReturnableQuantity);
 
 internal sealed record PurchaseOrderDetails(
     Guid PurchaseOrderId,
@@ -413,7 +421,14 @@ internal sealed record PurchaseOrderDetails(
     int? DaysUntilDelivery,
     decimal TotalCost,
     IReadOnlyList<string> AllowedTransitions,
-    IReadOnlyList<PurchaseOrderLineItem> Lines);
+    IReadOnlyList<PurchaseOrderLineItem> Lines,
+    Guid ConcurrencyToken,
+    decimal TotalQuantityOrdered,
+    decimal TotalQuantityReceived,
+    decimal TotalQuantityReturned,
+    decimal TotalQuantityOutstanding,
+    int ReceiptCount,
+    IReadOnlyList<string> AllowedActions);
 
 internal sealed record PurchaseOrderStockAdjustment(
     Guid InventoryItemId,
@@ -425,7 +440,136 @@ internal sealed record ChangePurchaseOrderStatusResult(
     string PreviousStatus,
     string Status,
     IReadOnlyList<string> AllowedTransitions,
-    IReadOnlyList<PurchaseOrderStockAdjustment> StockAdjustments);
+    IReadOnlyList<PurchaseOrderStockAdjustment> StockAdjustments,
+    PurchaseOrderReceiptModel? Receipt,
+    bool AlreadyPosted);
+
+internal sealed record PurchaseOrderReceiptLineEntry
+{
+    public Guid? PurchaseOrderLineId { get; init; }
+
+    public decimal? Quantity { get; init; }
+}
+
+internal sealed record PreviewPurchaseOrderReceiptRequest
+{
+    public DateTime? ReceivedUtc { get; init; }
+
+    public IReadOnlyList<PurchaseOrderReceiptLineEntry>? Lines { get; init; }
+}
+
+internal sealed record PostPurchaseOrderReceiptRequest
+{
+    public Guid? ClientRequestId { get; init; }
+
+    public Guid? ExpectedConcurrencyToken { get; init; }
+
+    public string? PreviewToken { get; init; }
+
+    public DateTime? ReceivedUtc { get; init; }
+
+    public string? DeliveryReference { get; init; }
+
+    public string? Notes { get; init; }
+
+    public IReadOnlyList<PurchaseOrderReceiptLineEntry>? Lines { get; init; }
+}
+
+internal sealed record ReceiveRemainingPurchaseOrderRequest
+{
+    public Guid? ClientRequestId { get; init; }
+
+    public Guid? ExpectedConcurrencyToken { get; init; }
+
+    public string? PreviewToken { get; init; }
+
+    public DateTime? ReceivedUtc { get; init; }
+
+    public string? DeliveryReference { get; init; }
+
+    public string? Notes { get; init; }
+}
+
+internal sealed record PurchaseOrderReceiptPreviewLineRow(
+    Guid PurchaseOrderLineId,
+    Guid InventoryItemId,
+    string Name,
+    string PartNumber,
+    string UnitAbbreviation,
+    decimal QuantityOrdered,
+    decimal ReceivedQuantity,
+    decimal OutstandingQuantity,
+    decimal QuantityToReceive,
+    decimal OutstandingQuantityAfter,
+    decimal OnHandQuantity,
+    decimal OnHandQuantityAfter);
+
+internal sealed record PurchaseOrderReceiptPostingBlockerRow(
+    Guid? PurchaseOrderLineId,
+    string Code,
+    string Message);
+
+internal sealed record PurchaseOrderReceiptPostingPreviewModel(
+    Guid PurchaseOrderId,
+    string OrderStatus,
+    Guid ConcurrencyToken,
+    string PreviewToken,
+    bool CanPost,
+    string ResultingOrderStatus,
+    IReadOnlyList<PurchaseOrderReceiptPreviewLineRow> Lines,
+    IReadOnlyList<PurchaseOrderReceiptPostingBlockerRow> Blockers,
+    DateTime GeneratedUtc);
+
+internal sealed record PurchaseOrderReceiptLineRow(
+    Guid ReceiptLineId,
+    Guid PurchaseOrderLineId,
+    Guid InventoryItemId,
+    string Name,
+    string PartNumber,
+    string UnitAbbreviation,
+    decimal Quantity,
+    decimal LineReceivedQuantityAfter,
+    decimal OutstandingQuantityAfter);
+
+internal sealed record PurchaseOrderReceiptMovementRow(
+    Guid MovementId,
+    Guid InventoryItemId,
+    Guid PurchaseOrderReceiptId,
+    Guid PurchaseOrderReceiptLineId,
+    decimal QuantityBefore,
+    decimal QuantityAfter,
+    decimal QuantityDelta,
+    string Reason,
+    Guid ActorUserId,
+    DateTime MovedUtc);
+
+internal sealed record PurchaseOrderReceiptModel(
+    Guid ReceiptId,
+    Guid PurchaseOrderId,
+    Guid ClientRequestId,
+    DateTime ReceivedUtc,
+    string? DeliveryReference,
+    string? Notes,
+    Guid RecordedByUserId,
+    DateTime RecordedUtc,
+    string OrderStatusBefore,
+    string OrderStatusAfter,
+    decimal TotalQuantity,
+    IReadOnlyList<PurchaseOrderReceiptLineRow> Lines,
+    IReadOnlyList<PurchaseOrderReceiptMovementRow> Movements);
+
+internal sealed record PostPurchaseOrderReceiptResult(
+    PurchaseOrderReceiptModel Receipt,
+    bool AlreadyPosted,
+    string OrderStatus,
+    Guid ConcurrencyToken,
+    IReadOnlyList<string> AllowedActions);
+
+internal sealed record PurchaseOrderReceiptsPage(
+    IReadOnlyList<PurchaseOrderReceiptModel> Items,
+    int PageNumber,
+    int PageSize,
+    int TotalCount);
 
 internal sealed record WorkOrderEquipmentItem(
     Guid EquipmentId,

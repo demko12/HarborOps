@@ -1315,54 +1315,80 @@ public sealed class MaintenanceApiClientTests
     }
 
     [Fact]
-    public async Task ReceivePurchaseOrderAsync_posts_to_the_receive_action()
+    public async Task ReceivePurchaseOrderAsync_posts_the_confirmation_to_the_receive_action()
     {
         HttpRequestMessage? captured = null;
-        using var httpClient = CreateHttpClient((request, _) =>
+        string? body = null;
+        using var httpClient = CreateHttpClient(async (request, token) =>
         {
             captured = request;
+            body = await request.Content!.ReadAsStringAsync(token);
 
-            return Json(
+            return await Json(
                 HttpStatusCode.OK,
                 """
                 {"purchaseOrderId":"b0000000-0000-0000-0000-00000000000b","previousStatus":"Ordered",
                 "status":"Received","allowedTransitions":[],
                 "stockAdjustments":[{"inventoryItemId":"c0000000-0000-0000-0000-00000000000c",
-                "quantityReceived":4,"quantityOnHand":14}]}
+                "quantityReceived":4,"quantityOnHand":14}],
+                "receipt":{"receiptId":"d0000000-0000-0000-0000-00000000000d",
+                "purchaseOrderId":"b0000000-0000-0000-0000-00000000000b",
+                "clientRequestId":"a1000000-0000-0000-0000-00000000001a","receivedUtc":"2026-09-01T06:00:00Z",
+                "deliveryReference":"DN-9","notes":null,"recordedByUserId":"a2000000-0000-0000-0000-00000000002a",
+                "recordedUtc":"2026-09-01T08:00:00Z","orderStatusBefore":"Ordered","orderStatusAfter":"Received",
+                "totalQuantity":4,"lines":[],"movements":[]},
+                "alreadyPosted":false}
                 """);
         });
 
         var purchaseOrderId = Guid.Parse("b0000000-0000-0000-0000-00000000000b");
+        var clientRequestId = Guid.Parse("a1000000-0000-0000-0000-00000000001a");
 
         var result = await CreateClient(httpClient).ReceivePurchaseOrderAsync(
             purchaseOrderId,
+            new ReceiveRemainingPurchaseOrderRequest
+            {
+                ClientRequestId = clientRequestId,
+                ExpectedConcurrencyToken = Guid.Parse("a3000000-0000-0000-0000-00000000003a"),
+                PreviewToken = "ABC123",
+                ReceivedUtc = new DateTime(2026, 9, 1, 6, 0, 0, DateTimeKind.Utc),
+                DeliveryReference = "DN-9",
+            },
             CancellationToken.None);
 
         Assert.True(result.IsSuccess);
         Assert.Equal(HttpMethod.Post, captured!.Method);
         Assert.Equal($"/api/maintenance/purchase-orders/{purchaseOrderId}/receive", captured.RequestUri!.AbsolutePath);
+        Assert.Contains($"\"clientRequestId\":\"{clientRequestId}\"", body, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("\"previewToken\":\"ABC123\"", body, StringComparison.Ordinal);
+        Assert.Contains("\"receivedUtc\":\"2026-09-01T06:00:00Z\"", body, StringComparison.Ordinal);
+        Assert.Contains("\"deliveryReference\":\"DN-9\"", body, StringComparison.Ordinal);
         Assert.Equal("Received", result.Value!.Status);
         Assert.Equal(14m, Assert.Single(result.Value.StockAdjustments).QuantityOnHand);
         Assert.Empty(result.Value.AllowedTransitions);
+        Assert.Equal("DN-9", result.Value.Receipt!.DeliveryReference);
+        Assert.False(result.Value.AlreadyPosted);
     }
 
     [Fact]
-    public async Task A_rejected_transition_is_reported_as_a_conflict()
+    public async Task A_blocked_receipt_is_reported_as_a_conflict()
     {
         using var httpClient = CreateHttpClient((_, _) => Json(
             HttpStatusCode.Conflict,
             """
-            {"title":"Purchase order state conflict.",
-            "detail":"Purchase order cannot move from status 'Received' to 'Received'."}
+            {"title":"Purchase order receipt has posting blockers.",
+            "detail":"Purchase order 'b0000000' is Received; only ordered or partially received orders can be received."}
             """));
 
         var result = await CreateClient(httpClient).ReceivePurchaseOrderAsync(
             Guid.NewGuid(),
+            new ReceiveRemainingPurchaseOrderRequest(),
             CancellationToken.None);
 
         Assert.False(result.IsSuccess);
         Assert.True(result.Failure!.IsConflict);
-        Assert.Contains("cannot move from status", result.Failure.Message, StringComparison.Ordinal);
+        Assert.Equal("Purchase order receipt has posting blockers.", result.Failure.Title);
+        Assert.Contains("only ordered or partially received", result.Failure.Message, StringComparison.Ordinal);
     }
 
     [Fact]

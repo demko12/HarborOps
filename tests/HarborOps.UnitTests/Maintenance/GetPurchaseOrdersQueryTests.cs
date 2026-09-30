@@ -77,6 +77,67 @@ public sealed class GetPurchaseOrdersQueryTests
     }
 
     [Fact]
+    public async Task GetPurchaseOrdersAsync_filters_partially_received_orders_and_reports_their_quantities()
+    {
+        await using var dbContext = CreateDbContext();
+        var supplier = await SeedSupplierAsync(dbContext, "Baltic Marine Parts");
+        await SeedOrderAsync(dbContext, supplier.Id, Today, null, PurchaseOrderStatus.Ordered, (Guid.NewGuid(), 4m, 1m));
+        var partial = await SeedOrderAsync(
+            dbContext,
+            supplier.Id,
+            Today,
+            null,
+            PurchaseOrderStatus.PartiallyReceived,
+            (Guid.NewGuid(), 10m, 2m),
+            (Guid.NewGuid(), 3m, 1m));
+
+        var response = await CreateQuery(dbContext).GetPurchaseOrdersAsync(
+            new GetPurchaseOrdersRequest { Status = "partiallyreceived" },
+            CancellationToken.None);
+
+        var item = Assert.Single(response.Items);
+
+        Assert.Equal(partial.Id, item.PurchaseOrderId);
+        Assert.Equal(nameof(PurchaseOrderStatus.PartiallyReceived), item.Status);
+        Assert.Equal(23m, item.TotalCost);
+        Assert.Equal(13m, item.QuantityOrdered);
+        Assert.Equal(5m, item.QuantityReceived);
+        Assert.Equal(8m, item.QuantityOutstanding);
+    }
+
+    [Fact]
+    public async Task GetPurchaseOrdersAsync_counts_partially_received_orders_as_overdue()
+    {
+        await using var dbContext = CreateDbContext();
+        var supplier = await SeedSupplierAsync(dbContext, "Baltic Marine Parts");
+        var late = await SeedOrderAsync(
+            dbContext,
+            supplier.Id,
+            Today.AddDays(-20),
+            Today.AddDays(-2),
+            PurchaseOrderStatus.PartiallyReceived,
+            (Guid.NewGuid(), 4m, 1m));
+        var onTime = await SeedOrderAsync(
+            dbContext,
+            supplier.Id,
+            Today.AddDays(-20),
+            Today.AddDays(2),
+            PurchaseOrderStatus.PartiallyReceived,
+            (Guid.NewGuid(), 4m, 1m));
+
+        var overdueOnly = await CreateQuery(dbContext).GetPurchaseOrdersAsync(
+            new GetPurchaseOrdersRequest { Overdue = true },
+            CancellationToken.None);
+        var notOverdue = await CreateQuery(dbContext).GetPurchaseOrdersAsync(
+            new GetPurchaseOrdersRequest { Overdue = false },
+            CancellationToken.None);
+
+        Assert.Equal(late.Id, Assert.Single(overdueOnly.Items).PurchaseOrderId);
+        Assert.True(overdueOnly.Items[0].IsOverdue);
+        Assert.Equal(onTime.Id, Assert.Single(notOverdue.Items).PurchaseOrderId);
+    }
+
+    [Fact]
     public async Task GetPurchaseOrdersAsync_filters_by_order_date_range()
     {
         await using var dbContext = CreateDbContext();
@@ -127,7 +188,12 @@ public sealed class GetPurchaseOrdersQueryTests
         var dueToday = await SeedOrderAsync(
             dbContext, supplier.Id, Today.AddDays(-10), Today, PurchaseOrderStatus.Ordered);
         var lateButReceived = await SeedOrderAsync(
-            dbContext, supplier.Id, Today.AddDays(-20), Today.AddDays(-2), PurchaseOrderStatus.Received);
+            dbContext,
+            supplier.Id,
+            Today.AddDays(-20),
+            Today.AddDays(-2),
+            PurchaseOrderStatus.Received,
+            (Guid.NewGuid(), 1m, 1m));
 
         var all = await CreateQuery(dbContext).GetPurchaseOrdersAsync(
             new GetPurchaseOrdersRequest(),
@@ -274,30 +340,14 @@ public sealed class GetPurchaseOrdersQueryTests
         params (Guid ItemId, decimal Quantity, decimal UnitCost)[] lines)
     {
         var order = PurchaseOrder.Create(supplierId, orderDate, expectedDelivery);
+        var orderLines = lines
+            .Select(line => PurchaseOrderLine.Create(order.Id, line.ItemId, line.Quantity, line.UnitCost))
+            .ToList();
 
-        if (status is PurchaseOrderStatus.Ordered or PurchaseOrderStatus.Received)
-        {
-            order.ChangeStatusTo(PurchaseOrderStatus.Ordered);
-        }
-
-        if (status == PurchaseOrderStatus.Received)
-        {
-            order.ChangeStatusTo(PurchaseOrderStatus.Received);
-        }
-
-        if (status == PurchaseOrderStatus.Cancelled)
-        {
-            order.ChangeStatusTo(PurchaseOrderStatus.Cancelled);
-        }
+        PurchaseOrderTestData.ApplyStatus(order, status, orderLines);
 
         await dbContext.Set<PurchaseOrder>().AddAsync(order);
-
-        foreach (var line in lines)
-        {
-            await dbContext.Set<PurchaseOrderLine>().AddAsync(
-                PurchaseOrderLine.Create(order.Id, line.ItemId, line.Quantity, line.UnitCost));
-        }
-
+        await dbContext.Set<PurchaseOrderLine>().AddRangeAsync(orderLines);
         await dbContext.SaveChangesAsync();
 
         return order;

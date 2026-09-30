@@ -249,6 +249,8 @@ public sealed class StocktakeConcurrencyRelationalTests : IAsyncLifetime
             or StocktakePostingBlockedException
             or RecordInventoryItemUsageConflictException
             or PurchaseOrderConflictException
+            or PurchaseOrderReceiptPostingBlockedException
+            or PurchaseOrderReceiptConcurrencyException
             or WorkOrderPartReservationConflictException
             or DbUpdateConcurrencyException
             || IsDeadlockVictim(exception);
@@ -299,8 +301,8 @@ public sealed class StocktakeConcurrencyRelationalTests : IAsyncLifetime
     {
         await using var dbContext = CreateDbContext();
 
-        await new ChangePurchaseOrderStatusService(dbContext)
-            .ReceiveAsync(purchaseOrderId, CancellationToken.None);
+        await new PostPurchaseOrderReceiptService(dbContext, TimeProvider.System)
+            .ReceiveRemainingAsync(purchaseOrderId, null, ActorUserId, CancellationToken.None);
     }
 
     private async Task ReserveAsync(Guid workOrderId, Guid inventoryItemId, decimal quantity)

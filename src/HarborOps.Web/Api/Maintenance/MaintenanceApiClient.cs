@@ -959,12 +959,195 @@ internal sealed class MaintenanceApiClient(HttpClient httpClient)
             purchaseOrderId, "order", "Unable to mark the purchase order as ordered", cancellationToken);
     }
 
-    internal Task<MaintenanceApiResult<ChangePurchaseOrderStatusResult>> ReceivePurchaseOrderAsync(
+    internal async Task<MaintenanceApiResult<ChangePurchaseOrderStatusResult>> ReceivePurchaseOrderAsync(
+        Guid purchaseOrderId,
+        ReceiveRemainingPurchaseOrderRequest request,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+
+        try
+        {
+            using var response = await httpClient.PostAsJsonAsync(
+                $"{PurchaseOrdersPath}/{purchaseOrderId}/receive",
+                request,
+                cancellationToken);
+
+            if (!response.IsSuccessStatusCode)
+            {
+                return new MaintenanceApiResult<ChangePurchaseOrderStatusResult>(
+                    null, await ReadFailureAsync(response, "Unable to receive the purchase order", cancellationToken));
+            }
+
+            var result = await response.Content
+                .ReadFromJsonAsync<ChangePurchaseOrderStatusResult>(cancellationToken);
+
+            return new MaintenanceApiResult<ChangePurchaseOrderStatusResult>(result, null);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (HttpRequestException)
+        {
+            return new MaintenanceApiResult<ChangePurchaseOrderStatusResult>(null, Unavailable());
+        }
+        catch (TaskCanceledException) when (!cancellationToken.IsCancellationRequested)
+        {
+            return new MaintenanceApiResult<ChangePurchaseOrderStatusResult>(null, Unavailable());
+        }
+    }
+
+    internal async Task<MaintenanceApiResult<PurchaseOrderReceiptPostingPreviewModel>> GetPurchaseOrderReceiptPreviewAsync(
+        Guid purchaseOrderId,
+        PreviewPurchaseOrderReceiptRequest request,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+
+        try
+        {
+            using var response = await httpClient.PostAsJsonAsync(
+                $"{PurchaseOrdersPath}/{purchaseOrderId}/receipts/preview",
+                request,
+                cancellationToken);
+
+            if (!response.IsSuccessStatusCode)
+            {
+                return new MaintenanceApiResult<PurchaseOrderReceiptPostingPreviewModel>(
+                    null, await ReadFailureAsync(response, "Unable to check the receipt", cancellationToken));
+            }
+
+            var preview = await response.Content
+                .ReadFromJsonAsync<PurchaseOrderReceiptPostingPreviewModel>(cancellationToken);
+
+            return new MaintenanceApiResult<PurchaseOrderReceiptPostingPreviewModel>(preview, null);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (HttpRequestException)
+        {
+            return new MaintenanceApiResult<PurchaseOrderReceiptPostingPreviewModel>(null, Unavailable());
+        }
+        catch (TaskCanceledException) when (!cancellationToken.IsCancellationRequested)
+        {
+            return new MaintenanceApiResult<PurchaseOrderReceiptPostingPreviewModel>(null, Unavailable());
+        }
+    }
+
+    internal async Task<MaintenanceApiResult<PurchaseOrderReceiptPostingPreviewModel>> GetRemainingReceiptPreviewAsync(
         Guid purchaseOrderId,
         CancellationToken cancellationToken)
     {
-        return ChangePurchaseOrderStatusAsync(
-            purchaseOrderId, "receive", "Unable to receive the purchase order", cancellationToken);
+        try
+        {
+            using var response = await httpClient.GetAsync(
+                $"{PurchaseOrdersPath}/{purchaseOrderId}/receive/preview",
+                HttpCompletionOption.ResponseHeadersRead,
+                cancellationToken);
+
+            if (!response.IsSuccessStatusCode)
+            {
+                return new MaintenanceApiResult<PurchaseOrderReceiptPostingPreviewModel>(
+                    null, await ReadFailureAsync(response, "Unable to check the remaining quantities", cancellationToken));
+            }
+
+            var preview = await response.Content
+                .ReadFromJsonAsync<PurchaseOrderReceiptPostingPreviewModel>(cancellationToken);
+
+            return new MaintenanceApiResult<PurchaseOrderReceiptPostingPreviewModel>(preview, null);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (HttpRequestException)
+        {
+            return new MaintenanceApiResult<PurchaseOrderReceiptPostingPreviewModel>(null, Unavailable());
+        }
+        catch (TaskCanceledException) when (!cancellationToken.IsCancellationRequested)
+        {
+            return new MaintenanceApiResult<PurchaseOrderReceiptPostingPreviewModel>(null, Unavailable());
+        }
+    }
+
+    internal async Task<MaintenanceApiResult<PostPurchaseOrderReceiptResult>> PostPurchaseOrderReceiptAsync(
+        Guid purchaseOrderId,
+        PostPurchaseOrderReceiptRequest request,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+
+        try
+        {
+            using var response = await httpClient.PostAsJsonAsync(
+                $"{PurchaseOrdersPath}/{purchaseOrderId}/receipts",
+                request,
+                cancellationToken);
+
+            if (!response.IsSuccessStatusCode)
+            {
+                return new MaintenanceApiResult<PostPurchaseOrderReceiptResult>(
+                    null, await ReadFailureAsync(response, "Unable to post the receipt", cancellationToken));
+            }
+
+            var result = await response.Content.ReadFromJsonAsync<PostPurchaseOrderReceiptResult>(cancellationToken);
+
+            return new MaintenanceApiResult<PostPurchaseOrderReceiptResult>(result, null);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (HttpRequestException)
+        {
+            return new MaintenanceApiResult<PostPurchaseOrderReceiptResult>(null, Unavailable());
+        }
+        catch (TaskCanceledException) when (!cancellationToken.IsCancellationRequested)
+        {
+            return new MaintenanceApiResult<PostPurchaseOrderReceiptResult>(null, Unavailable());
+        }
+    }
+
+    internal async Task<MaintenanceApiResult<PurchaseOrderReceiptsPage>> GetPurchaseOrderReceiptsAsync(
+        Guid purchaseOrderId,
+        int pageNumber,
+        int pageSize,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            using var response = await httpClient.GetAsync(
+                $"{PurchaseOrdersPath}/{purchaseOrderId}/receipts"
+                    + $"?pageNumber={pageNumber.ToString(CultureInfo.InvariantCulture)}"
+                    + $"&pageSize={pageSize.ToString(CultureInfo.InvariantCulture)}",
+                HttpCompletionOption.ResponseHeadersRead,
+                cancellationToken);
+
+            if (!response.IsSuccessStatusCode)
+            {
+                return new MaintenanceApiResult<PurchaseOrderReceiptsPage>(
+                    null, await ReadFailureAsync(response, "Unable to load the delivery history", cancellationToken));
+            }
+
+            var page = await response.Content.ReadFromJsonAsync<PurchaseOrderReceiptsPage>(cancellationToken);
+
+            return new MaintenanceApiResult<PurchaseOrderReceiptsPage>(page, null);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (HttpRequestException)
+        {
+            return new MaintenanceApiResult<PurchaseOrderReceiptsPage>(null, Unavailable());
+        }
+        catch (TaskCanceledException) when (!cancellationToken.IsCancellationRequested)
+        {
+            return new MaintenanceApiResult<PurchaseOrderReceiptsPage>(null, Unavailable());
+        }
     }
 
     internal Task<MaintenanceApiResult<ChangePurchaseOrderStatusResult>> CancelPurchaseOrderAsync(

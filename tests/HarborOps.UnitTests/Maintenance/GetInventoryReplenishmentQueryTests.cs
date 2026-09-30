@@ -149,9 +149,10 @@ public sealed class GetInventoryReplenishmentQueryTests
     [Theory]
     [InlineData(PurchaseOrderStatus.Draft, 12)]
     [InlineData(PurchaseOrderStatus.Ordered, 12)]
+    [InlineData(PurchaseOrderStatus.PartiallyReceived, 6)]
     [InlineData(PurchaseOrderStatus.Received, 0)]
     [InlineData(PurchaseOrderStatus.Cancelled, 0)]
-    public async Task Open_purchase_orders_count_only_draft_and_ordered_lines(
+    public async Task Open_purchase_orders_count_only_the_outstanding_quantity_of_open_lines(
         PurchaseOrderStatus status,
         int expectedIncoming)
     {
@@ -450,27 +451,9 @@ public sealed class GetInventoryReplenishmentQueryTests
         PurchaseOrderStatus status)
     {
         var purchaseOrder = PurchaseOrder.Create(supplierId, Today, Today.AddDays(14));
-
-        switch (status)
-        {
-            case PurchaseOrderStatus.Ordered:
-                purchaseOrder.ChangeStatusTo(PurchaseOrderStatus.Ordered);
-                break;
-
-            case PurchaseOrderStatus.Received:
-                purchaseOrder.ChangeStatusTo(PurchaseOrderStatus.Ordered);
-                purchaseOrder.ChangeStatusTo(PurchaseOrderStatus.Received);
-                break;
-
-            case PurchaseOrderStatus.Cancelled:
-                purchaseOrder.ChangeStatusTo(PurchaseOrderStatus.Cancelled);
-                break;
-
-            default:
-                break;
-        }
-
         var line = PurchaseOrderLine.Create(purchaseOrder.Id, inventoryItemId, quantity, 100m);
+
+        PurchaseOrderTestData.ApplyStatus(purchaseOrder, status, [line]);
 
         await dbContext.Set<PurchaseOrder>().AddAsync(purchaseOrder);
         await dbContext.Set<PurchaseOrderLine>().AddAsync(line);

@@ -14,4 +14,7 @@ public sealed record PurchaseOrderListItem(
     int LineCount,
     decimal TotalCost,
     bool IsOverdue,
-    int? DaysUntilDelivery);
+    int? DaysUntilDelivery,
+    decimal QuantityOrdered,
+    decimal QuantityReceived,
+    decimal QuantityOutstanding);

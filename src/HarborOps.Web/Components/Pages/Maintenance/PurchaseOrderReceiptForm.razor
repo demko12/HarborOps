@@ -1,0 +1,243 @@
+@using HarborOps.Web.Api.Maintenance
+@implements IDisposable
+@inject MaintenanceApiClient MaintenanceApi
+
+<section class="receipt-form" aria-labelledby="receipt-form-title">
+	<div class="receipt-form-heading">
+		<h3 id="receipt-form-title">@(ReceiveRemaining ? "Receive remaining quantities" : "Receive a delivery")</h3>
+		<p class="maintenance-muted">
+			@MaintenanceFormat.PurchaseOrderReference(PurchaseOrderId)
+			@if (purchaseOrder is { } order)
+			{
+				<text>&middot; @order.SupplierName &middot; @ProcurementFormat.Quantity(order.TotalQuantityOutstanding) unit(s) outstanding</text>
+			}
+		</p>
+	</div>
+
+	@if (purchaseOrder is null)
+	{
+		@if (loadFailure is not null)
+		{
+			<ApiErrorState Title="@loadFailure.Title" Message="@loadFailure.Message" OnRetry="LoadOrderAsync" />
+		}
+		else
+		{
+			<LoadingState Message="Loading the purchase order..." />
+		}
+
+		<div class="maintenance-form-actions">
+			<button type="button" class="maintenance-reset" @onclick="CloseAsync">Back to order</button>
+		</div>
+	}
+	else
+	{
+		@if (ValidationMessages.Count > 0)
+		{
+			<div class="stocktake-blockers stocktake-validation" role="alert">
+				<h3>Fix before continuing</h3>
+				<ul>
+					@foreach (var error in ValidationMessages)
+					{
+						<li @key="error">
+							<span class="stocktake-blocker-code">@error.Label</span>
+							<span>@error.Message</span>
+						</li>
+					}
+				</ul>
+			</div>
+		}
+		else if (failure is { IsConflict: true } or { IsNotFound: true })
+		{
+			<div class="maintenance-conflict" role="alert">
+				<strong>@failure.Title</strong> @failure.Message
+				The order was reloaded with the latest quantities. Check the receipt again before posting.
+			</div>
+		}
+		else if (failure is { StatusCode: 0 } && preview is not null)
+		{
+			<div class="maintenance-inline-error procurement-inline-error" role="alert">
+				<strong>@failure.Title</strong> @failure.Message
+				Posting again is safe: the same delivery will not be received twice.
+			</div>
+		}
+		else if (failure is not null)
+		{
+			<div class="maintenance-inline-error procurement-inline-error" role="alert">
+				<strong>@failure.Title</strong> @failure.Message
+			</div>
+		}
+
+		<div class="maintenance-form-grid">
+			<div class="filter-field">
+				<label for="receipt-received-utc">Received (UTC) <span class="required-marker" aria-hidden="true">*</span></label>
+				<input id="receipt-received-utc" type="datetime-local" @bind="receivedUtcLocal" disabled="@IsBusy" />
+			</div>
+			<div class="filter-field">
+				<label for="receipt-delivery-reference">Delivery reference</label>
+				<input id="receipt-delivery-reference"
+					   type="text"
+					   maxlength="100"
+					   placeholder="Delivery note or waybill number"
+					   @bind="deliveryReference"
+					   disabled="@IsBusy" />
+			</div>
+			<div class="filter-field receipt-notes">
+				<label for="receipt-notes">Notes</label>
+				<input id="receipt-notes" type="text" maxlength="1000" @bind="notes" disabled="@IsBusy" />
+			</div>
+		</div>
+
+		<div class="maintenance-table-scroll">
+			<table class="maintenance-table procurement-line-table receipt-lines-table">
+				<caption class="visually-hidden">Purchase order lines to receive</caption>
+				<thead>
+					<tr>
+						<th scope="col" class="col-line-item">Part</th>
+						<th scope="col" class="col-line-part">Part number</th>
+						<th scope="col" class="numeric">Ordered</th>
+						<th scope="col" class="numeric">Received</th>
+						<th scope="col" class="numeric">Outstanding</th>
+						<th scope="col" class="numeric">@(ReceiveRemaining ? "To receive" : "Receive now")</th>
+					</tr>
+				</thead>
+				<tbody>
+					@foreach (var line in ReceiveRemaining ? OutstandingLines : Order.Lines)
+					{
+						var editable = EditorFor(line.LineId);
+
+						<tr @key="line.LineId" class="@(IsBlocked(line.LineId) ? "stocktake-line-stale" : null)">
+							<td class="col-line-item"><span class="maintenance-title">@line.InventoryItemName</span></td>
+							<td class="col-line-part maintenance-muted">@line.PartNumber</td>
+							<td class="numeric">@ProcurementFormat.Quantity(line.QuantityOrdered)</td>
+							<td class="numeric">@ProcurementFormat.Quantity(line.ReceivedQuantity)</td>
+							<td class="numeric">@ProcurementFormat.Quantity(line.OutstandingQuantity)</td>
+							<td class="numeric">
+								@if (ReceiveRemaining)
+								{
+									@ProcurementFormat.Quantity(line.OutstandingQuantity)
+								}
+								else if (line.OutstandingQuantity > 0)
+								{
+									<input type="number"
+										   step="0.001"
+										   min="0.001"
+										   max="@line.OutstandingQuantity"
+										   inputmode="decimal"
+										   placeholder="Not delivered"
+										   aria-label="@($"Quantity received now for {line.InventoryItemName}")"
+										   @bind="editable.Quantity"
+										   disabled="@IsBusy" />
+								}
+								else
+								{
+									<span class="maintenance-muted">Fulfilled</span>
+								}
+								@if (lineErrors.TryGetValue(line.LineId, out var lineError))
+								{
+									<span class="maintenance-inline-error">@lineError</span>
+								}
+							</td>
+						</tr>
+					}
+				</tbody>
+			</table>
+		</div>
+
+		@if (preview is { } checkedPreview)
+		{
+			@if (checkedPreview.Blockers.Count > 0)
+			{
+				<div class="stocktake-blockers" role="status" aria-live="polite">
+					<h3>Resolve before posting</h3>
+					<ul>
+						@foreach (var blocker in checkedPreview.Blockers)
+						{
+							<li @key="blocker">
+								<span class="stocktake-blocker-code">@ProcurementFormat.ReceiptBlockerLabel(blocker.Code)</span>
+								<span>@blocker.Message</span>
+							</li>
+						}
+					</ul>
+				</div>
+			}
+			else
+			{
+				<div class="maintenance-table-scroll">
+					<table class="maintenance-table procurement-line-table receipt-preview-table">
+						<caption>After posting</caption>
+						<thead>
+							<tr>
+								<th scope="col" class="col-line-item">Part</th>
+								<th scope="col" class="numeric">Receive</th>
+								<th scope="col" class="numeric">Outstanding after</th>
+								<th scope="col" class="numeric">On hand</th>
+								<th scope="col" class="numeric">On hand after</th>
+							</tr>
+						</thead>
+						<tbody>
+							@foreach (var line in checkedPreview.Lines)
+							{
+								<tr @key="line.PurchaseOrderLineId">
+									<td class="col-line-item"><span class="maintenance-title">@line.Name</span> <span class="maintenance-muted">@line.PartNumber</span></td>
+									<td class="numeric">@ProcurementFormat.Quantity(line.QuantityToReceive) @line.UnitAbbreviation</td>
+									<td class="numeric">@ProcurementFormat.Quantity(line.OutstandingQuantityAfter)</td>
+									<td class="numeric">@ProcurementFormat.Quantity(line.OnHandQuantity)</td>
+									<td class="numeric">@ProcurementFormat.Quantity(line.OnHandQuantityAfter)</td>
+								</tr>
+							}
+						</tbody>
+					</table>
+				</div>
+				<p class="procurement-hint">
+					After posting, the order becomes
+					<span class="procurement-status procurement-status-@ProcurementFormat.StatusModifier(checkedPreview.ResultingOrderStatus)">@ProcurementFormat.StatusLabel(checkedPreview.ResultingOrderStatus)</span>.
+				</p>
+			}
+		}
+
+		@if (isConfirmOpen && preview is { } confirm)
+		{
+			<div class="procurement-confirm" role="alertdialog" aria-live="assertive" aria-labelledby="receipt-confirm-text">
+				<p id="receipt-confirm-text">
+					Post this receipt? Stock on hand increases by @ProcurementFormat.Quantity(ReceiveTotal) unit(s) across
+					@ReceivePartCount part@(ReceivePartCount == 1 ? null : "s"), and the order becomes
+					@ProcurementFormat.StatusLabel(confirm.ResultingOrderStatus).ToLowerInvariant(). A posted receipt cannot be
+					edited or reversed.
+				</p>
+				<div class="maintenance-form-actions">
+					<button type="button" class="maintenance-button" disabled="@isPosting" @onclick="PostAsync">
+						@(isPosting ? "Posting..." : "Yes, post receipt")
+					</button>
+					<button type="button" class="maintenance-reset" disabled="@isPosting" @onclick="DismissConfirmation">Back</button>
+				</div>
+			</div>
+		}
+		else
+		{
+			<div class="maintenance-form-actions stocktake-actions">
+				<button type="button" class="maintenance-button" disabled="@IsBusy" @onclick="CheckAsync">
+					@(isChecking ? "Checking..." : "Check receipt")
+				</button>
+				<button type="button" class="maintenance-button stocktake-post" disabled="@(!CanPost)" @onclick="AskToPost">
+					Post receipt
+				</button>
+				<button type="button" class="maintenance-reset" disabled="@IsBusy" @onclick="CloseAsync">Back to order</button>
+			</div>
+			<p class="maintenance-muted stocktake-hint">
+				@if (ReceiveRemaining)
+				{
+					<text>Every outstanding quantity is received as one delivery.</text>
+				}
+				else
+				{
+					<text>Leave the quantity empty for parts that did not arrive in this delivery.</text>
+				}
+				Checking shows the stock and order status after posting without changing anything.
+				@if (IsDirty)
+				{
+					<strong>The receipt changed since it was checked. Check it again before posting.</strong>
+				}
+			</p>
+		}
+	}
+</section>

@@ -70,12 +70,14 @@ public sealed class GetPurchaseOrdersQuery(DbContext dbContext, TimeProvider tim
                     order.ExpectedDelivery != null
                     && order.ExpectedDelivery < today
                     && (order.Status == PurchaseOrderStatus.Draft
-                        || order.Status == PurchaseOrderStatus.Ordered))
+                        || order.Status == PurchaseOrderStatus.Ordered
+                        || order.Status == PurchaseOrderStatus.PartiallyReceived))
                 : purchaseOrders.Where(order =>
                     order.ExpectedDelivery == null
                     || order.ExpectedDelivery >= today
                     || (order.Status != PurchaseOrderStatus.Draft
-                        && order.Status != PurchaseOrderStatus.Ordered));
+                        && order.Status != PurchaseOrderStatus.Ordered
+                        && order.Status != PurchaseOrderStatus.PartiallyReceived));
         }
 
         var totalCount = await purchaseOrders.CountAsync(cancellationToken);
@@ -100,6 +102,12 @@ public sealed class GetPurchaseOrdersQuery(DbContext dbContext, TimeProvider tim
                 TotalCost = lines
                     .Where(line => line.PurchaseOrderId == order.Id)
                     .Sum(line => line.QuantityOrdered * line.UnitCost),
+                QuantityOrdered = lines
+                    .Where(line => line.PurchaseOrderId == order.Id)
+                    .Sum(line => line.QuantityOrdered),
+                QuantityReceived = lines
+                    .Where(line => line.PurchaseOrderId == order.Id)
+                    .Sum(line => line.ReceivedQuantity),
             })
             .ToListAsync(cancellationToken);
 
@@ -114,7 +122,10 @@ public sealed class GetPurchaseOrdersQuery(DbContext dbContext, TimeProvider tim
                 row.LineCount,
                 row.TotalCost,
                 PurchaseOrder.IsOverdue(row.ExpectedDelivery, row.Status, today),
-                DaysUntilDelivery(row.ExpectedDelivery, today)))
+                DaysUntilDelivery(row.ExpectedDelivery, today),
+                row.QuantityOrdered,
+                row.QuantityReceived,
+                row.QuantityOrdered - row.QuantityReceived))
             .ToList();
 
         return new GetPurchaseOrdersResponse(items, pageNumber, pageSize, totalCount);

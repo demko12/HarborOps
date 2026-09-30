@@ -7,6 +7,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace HarborOps.Modules.Maintenance.Application;
 
+// Receiving is not a plain status change: it posts a receipt through PostPurchaseOrderReceiptService.
 public sealed class ChangePurchaseOrderStatusService(DbContext dbContext)
 {
     public Task<ChangePurchaseOrderStatusResponse> MarkOrderedAsync(
@@ -14,13 +15,6 @@ public sealed class ChangePurchaseOrderStatusService(DbContext dbContext)
         CancellationToken cancellationToken)
     {
         return ChangeStatusAsync(purchaseOrderId, PurchaseOrderStatus.Ordered, cancellationToken);
-    }
-
-    public Task<ChangePurchaseOrderStatusResponse> ReceiveAsync(
-        Guid purchaseOrderId,
-        CancellationToken cancellationToken)
-    {
-        return ChangeStatusAsync(purchaseOrderId, PurchaseOrderStatus.Received, cancellationToken);
     }
 
     public Task<ChangePurchaseOrderStatusResponse> CancelAsync(
@@ -45,19 +39,16 @@ public sealed class ChangePurchaseOrderStatusService(DbContext dbContext)
 
         var previousStatus = purchaseOrder.Status;
 
+        // Once any goods have been received the order can no longer be cancelled.
         if (!PurchaseOrder.CanTransition(previousStatus, targetStatus))
         {
             throw new PurchaseOrderConflictException(
                 $"Purchase order '{purchaseOrderId}' cannot move from status '{previousStatus}' to '{targetStatus}'.");
         }
 
-        var stockAdjustments = targetStatus == PurchaseOrderStatus.Received
-            ? await ApplyReceiptAsync(purchaseOrder, cancellationToken)
-            : [];
-
         purchaseOrder.ChangeStatusTo(targetStatus);
 
-        // One SaveChangesAsync: the status change and every stock adjustment commit together.
+        // The order's concurrency token makes a cancellation racing a receipt fail instead of both winning.
         await dbContext.SaveChangesAsync(cancellationToken);
 
         return new ChangePurchaseOrderStatusResponse(
@@ -67,57 +58,8 @@ public sealed class ChangePurchaseOrderStatusService(DbContext dbContext)
             PurchaseOrder.AllowedTransitions(purchaseOrder.Status)
                 .Select(status => status.ToString())
                 .ToList(),
-            stockAdjustments);
-    }
-
-    private async Task<IReadOnlyList<PurchaseOrderStockAdjustment>> ApplyReceiptAsync(
-        PurchaseOrder purchaseOrder,
-        CancellationToken cancellationToken)
-    {
-        var lines = await dbContext.Set<PurchaseOrderLine>()
-            .AsNoTracking()
-            .Where(line => line.PurchaseOrderId == purchaseOrder.Id)
-            .ToListAsync(cancellationToken);
-
-        if (lines.Count == 0)
-        {
-            throw new PurchaseOrderConflictException(
-                $"Purchase order '{purchaseOrder.Id}' has no lines to receive.");
-        }
-
-        var quantitiesByItem = lines
-            .GroupBy(line => line.PartId)
-            .ToDictionary(group => group.Key, group => group.Sum(line => line.QuantityOrdered));
-
-        var itemIds = quantitiesByItem.Keys.ToList();
-
-        var inventoryItems = await dbContext.Set<InventoryItem>()
-            .Where(item => itemIds.Contains(item.Id))
-            .ToListAsync(cancellationToken);
-
-        var missingItemIds = itemIds
-            .Where(itemId => inventoryItems.TrueForAll(item => item.Id != itemId))
-            .ToList();
-
-        if (missingItemIds.Count > 0)
-        {
-            throw new PurchaseOrderItemsNotFoundException(missingItemIds);
-        }
-
-        var adjustments = new List<PurchaseOrderStockAdjustment>(inventoryItems.Count);
-
-        foreach (var inventoryItem in inventoryItems.OrderBy(item => item.Id))
-        {
-            var quantityReceived = quantitiesByItem[inventoryItem.Id];
-
-            inventoryItem.IncreaseStock(quantityReceived);
-
-            adjustments.Add(new PurchaseOrderStockAdjustment(
-                inventoryItem.Id,
-                quantityReceived,
-                inventoryItem.Quantity));
-        }
-
-        return adjustments;
+            [],
+            null,
+            false);
     }
 }

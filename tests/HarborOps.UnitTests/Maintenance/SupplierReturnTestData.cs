@@ -83,23 +83,38 @@ internal static class SupplierReturnTestData
     {
         var order = PurchaseOrder.Create(supplier.Id, new DateOnly(2026, 8, 1), null);
 
-        switch (status)
-        {
-            case PurchaseOrderStatus.Ordered:
-                order.ChangeStatusTo(PurchaseOrderStatus.Ordered);
-                break;
-            case PurchaseOrderStatus.Received:
-                order.ChangeStatusTo(PurchaseOrderStatus.Ordered);
-                order.ChangeStatusTo(PurchaseOrderStatus.Received);
-                break;
-            case PurchaseOrderStatus.Cancelled:
-                order.ChangeStatusTo(PurchaseOrderStatus.Cancelled);
-                break;
-        }
+        var orderLines = lines
+            .Select(line => PurchaseOrderLine.Create(order.Id, line.Item.Id, line.Ordered, 10m))
+            .ToList();
+
+        PurchaseOrderTestData.ApplyStatus(order, status, orderLines);
+
+        await dbContext.Set<PurchaseOrder>().AddAsync(order);
+        await dbContext.Set<PurchaseOrderLine>().AddRangeAsync(orderLines);
+        await dbContext.SaveChangesAsync();
+
+        return (order, orderLines);
+    }
+
+    internal static async Task<(PurchaseOrder Order, IReadOnlyList<PurchaseOrderLine> Lines)> SeedPartiallyReceivedOrderAsync(
+        HarborOpsDbContext dbContext,
+        params (InventoryItem Item, decimal Ordered, decimal Received)[] lines)
+    {
+        var supplier = await SeedSupplierAsync(dbContext);
+        var order = PurchaseOrder.Create(supplier.Id, new DateOnly(2026, 8, 1), null);
+        order.ChangeStatusTo(PurchaseOrderStatus.Ordered);
 
         var orderLines = lines
             .Select(line => PurchaseOrderLine.Create(order.Id, line.Item.Id, line.Ordered, 10m))
             .ToList();
+
+        PurchaseOrderTestData.ReceivePartially(
+            order,
+            orderLines,
+            orderLines
+                .Select((line, index) => (line.Id, lines[index].Received))
+                .Where(entry => entry.Received > 0)
+                .ToDictionary(entry => entry.Id, entry => entry.Received));
 
         await dbContext.Set<PurchaseOrder>().AddAsync(order);
         await dbContext.Set<PurchaseOrderLine>().AddRangeAsync(orderLines);

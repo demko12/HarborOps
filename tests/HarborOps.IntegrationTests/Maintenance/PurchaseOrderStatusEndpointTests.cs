@@ -161,14 +161,16 @@ public sealed class PurchaseOrderStatusEndpointTests : IntegrationTestBase
         Assert.Equal(10m, await GetQuantityAsync(item.Id));
     }
 
-    [Fact]
-    public async Task Cancel_a_received_order_returns_409()
+    [Theory]
+    [InlineData(PurchaseOrderStatus.PartiallyReceived)]
+    [InlineData(PurchaseOrderStatus.Received)]
+    public async Task Cancel_an_order_with_received_goods_returns_409(PurchaseOrderStatus status)
     {
         using var client = await _application.CreateAuthenticatedClientWithPermissionsAsync(
             Permissions.Maintenance.Manage);
         var supplier = await SeedSupplierAsync();
         var item = await SeedInventoryItemAsync(supplier.Id, 10m);
-        var order = await SeedOrderAsync(supplier.Id, PurchaseOrderStatus.Received, (item.Id, 4m, 25m));
+        var order = await SeedOrderAsync(supplier.Id, status, (item.Id, 4m, 25m));
 
         using var response = await client.PostAsync(
             new Uri($"/api/maintenance/purchase-orders/{order.Id}/cancel", UriKind.Relative),
@@ -176,7 +178,33 @@ public sealed class PurchaseOrderStatusEndpointTests : IntegrationTestBase
             CancellationToken.None);
 
         Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
-        Assert.Equal(PurchaseOrderStatus.Received, await GetStatusAsync(order.Id));
+        Assert.Equal(status, await GetStatusAsync(order.Id));
+    }
+
+    [Fact]
+    public async Task Receive_posts_only_the_outstanding_quantity_of_a_partially_received_order()
+    {
+        using var client = await _application.CreateAuthenticatedClientWithPermissionsAsync(
+            Permissions.Maintenance.Manage);
+        var supplier = await SeedSupplierAsync();
+        var item = await SeedInventoryItemAsync(supplier.Id, 10m);
+        var order = await SeedOrderAsync(supplier.Id, PurchaseOrderStatus.PartiallyReceived, (item.Id, 4m, 25m));
+
+        using var response = await client.PostAsync(
+            new Uri($"/api/maintenance/purchase-orders/{order.Id}/receive", UriKind.Relative),
+            content: null,
+            CancellationToken.None);
+        var result = await response.Content
+            .ReadFromJsonAsync<ChangePurchaseOrderStatusResponse>(CancellationToken.None);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.NotNull(result);
+        Assert.Equal(nameof(PurchaseOrderStatus.PartiallyReceived), result.PreviousStatus);
+        Assert.Equal(nameof(PurchaseOrderStatus.Received), result.Status);
+        Assert.Equal(2m, Assert.Single(result.StockAdjustments).QuantityReceived);
+        Assert.NotNull(result.Receipt);
+        Assert.False(result.AlreadyPosted);
+        Assert.Equal(12m, await GetQuantityAsync(item.Id));
     }
 
     [Fact]
@@ -287,28 +315,17 @@ public sealed class PurchaseOrderStatusEndpointTests : IntegrationTestBase
         params (Guid ItemId, decimal Quantity, decimal UnitCost)[] lines)
     {
         var order = PurchaseOrder.Create(supplierId, Today, Today.AddDays(7));
+        var orderLines = lines
+            .Select(line => PurchaseOrderLine.Create(order.Id, line.ItemId, line.Quantity, line.UnitCost))
+            .ToList();
 
-        if (status is PurchaseOrderStatus.Ordered or PurchaseOrderStatus.Received)
-        {
-            order.ChangeStatusTo(PurchaseOrderStatus.Ordered);
-        }
-
-        if (status == PurchaseOrderStatus.Received)
-        {
-            order.ChangeStatusTo(PurchaseOrderStatus.Received);
-        }
+        PurchaseOrderSeedData.ApplyStatus(order, status, orderLines);
 
         await using var scope = _application.Services.CreateAsyncScope();
         var dbContext = scope.ServiceProvider.GetRequiredService<HarborOpsDbContext>();
 
         await dbContext.Set<PurchaseOrder>().AddAsync(order);
-
-        foreach (var line in lines)
-        {
-            await dbContext.Set<PurchaseOrderLine>().AddAsync(
-                PurchaseOrderLine.Create(order.Id, line.ItemId, line.Quantity, line.UnitCost));
-        }
-
+        await dbContext.Set<PurchaseOrderLine>().AddRangeAsync(orderLines);
         await dbContext.SaveChangesAsync(CancellationToken.None);
 
         return order;

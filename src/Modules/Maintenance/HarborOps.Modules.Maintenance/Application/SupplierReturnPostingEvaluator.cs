@@ -29,7 +29,7 @@ internal static class SupplierReturnPostingEvaluator
         var receivedQuantities = await dbContext.Set<PurchaseOrderLine>()
             .AsNoTracking()
             .Where(line => purchaseOrderLineIds.Contains(line.Id))
-            .ToDictionaryAsync(line => line.Id, line => line.QuantityOrdered, cancellationToken);
+            .ToDictionaryAsync(line => line.Id, line => line.ReceivedQuantity, cancellationToken);
 
         var postedQuantities = await SupplierReturnReader.ReadPostedQuantitiesAsync(
             dbContext,
@@ -76,13 +76,14 @@ internal static class SupplierReturnPostingEvaluator
             .Append('|')
             .Append(purchaseOrderStatus);
 
-        if (isDraft && purchaseOrderStatus != PurchaseOrderStatus.Received)
+        if (isDraft && !PurchaseOrder.CanReturn(purchaseOrderStatus))
         {
             blockers.Add(new SupplierReturnPostingBlocker(
                 null,
                 null,
                 SupplierReturnBlockerCodes.PurchaseOrderNotReceived,
-                $"Purchase order '{supplierReturn.PurchaseOrderId}' is {purchaseOrderStatus}; only received orders can be returned.",
+                $"Purchase order '{supplierReturn.PurchaseOrderId}' is {purchaseOrderStatus}; only partially or fully "
+                    + "received orders can be returned.",
                 []));
         }
 

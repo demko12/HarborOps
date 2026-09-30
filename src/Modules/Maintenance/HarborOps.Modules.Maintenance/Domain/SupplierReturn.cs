@@ -86,10 +86,11 @@ internal sealed class SupplierReturn
 
     internal static void EnsureReceived(PurchaseOrder purchaseOrder)
     {
-        if (purchaseOrder.Status != PurchaseOrderStatus.Received)
+        if (!PurchaseOrder.CanReturn(purchaseOrder.Status))
         {
             throw new SupplierReturnInvariantException(
-                $"Purchase order '{purchaseOrder.Id}' is {purchaseOrder.Status}; only received orders can be returned.");
+                $"Purchase order '{purchaseOrder.Id}' is {purchaseOrder.Status}; only partially or fully received "
+                    + "orders can be returned.");
         }
     }
 

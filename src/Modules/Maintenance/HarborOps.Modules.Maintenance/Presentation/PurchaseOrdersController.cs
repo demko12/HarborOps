@@ -1,11 +1,13 @@
 using System;
 using System.Collections.Generic;
+using System.Security.Claims;
 using System.Text;
 using HarborOps.Modules.Maintenance.Application;
 using HarborOps.Modules.Maintenance.Contracts;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc.ModelBinding;
 using Microsoft.EntityFrameworkCore;
 
 namespace HarborOps.Modules.Maintenance.Presentation;
@@ -16,7 +18,8 @@ public sealed class PurchaseOrdersController(
     CreatePurchaseOrderService createPurchaseOrderService,
     GetPurchaseOrdersQuery getPurchaseOrdersQuery,
     GetPurchaseOrderDetailsQuery getPurchaseOrderDetailsQuery,
-    ChangePurchaseOrderStatusService changePurchaseOrderStatusService)
+    ChangePurchaseOrderStatusService changePurchaseOrderStatusService,
+    PostPurchaseOrderReceiptService postPurchaseOrderReceiptService)
     : ControllerBase
 {
     [HttpPost]
@@ -137,17 +140,106 @@ public sealed class PurchaseOrdersController(
             () => changePurchaseOrderStatusService.MarkOrderedAsync(purchaseOrderId, cancellationToken));
     }
 
+    // Receives exactly the quantities still outstanding, through the same posting rules as a partial receipt.
     [HttpPost("{purchaseOrderId:guid}/receive")]
     [Authorize("maintenance.manage")]
     [ProducesResponseType<ChangePurchaseOrderStatusResponse>(StatusCodes.Status200OK)]
+    [ProducesResponseType<HttpValidationProblemDetails>(StatusCodes.Status400BadRequest)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]
-    public Task<ActionResult<ChangePurchaseOrderStatusResponse>> Receive(
+    public async Task<ActionResult<ChangePurchaseOrderStatusResponse>> Receive(
         Guid purchaseOrderId,
+        [FromBody(EmptyBodyBehavior = EmptyBodyBehavior.Allow)] ReceiveRemainingPurchaseOrderRequest? request,
         CancellationToken cancellationToken)
     {
-        return ExecuteStatusChangeAsync(
-            () => changePurchaseOrderStatusService.ReceiveAsync(purchaseOrderId, cancellationToken));
+        if (!Guid.TryParse(User.FindFirstValue(ClaimTypes.NameIdentifier), out var actorUserId))
+        {
+            return Unauthorized();
+        }
+
+        try
+        {
+            var response = await postPurchaseOrderReceiptService.ReceiveRemainingAsync(
+                purchaseOrderId,
+                request,
+                actorUserId,
+                cancellationToken);
+
+            return Ok(PostPurchaseOrderReceiptService.ToStatusChangeResponse(response));
+        }
+        catch (ReceiveRemainingPurchaseOrderValidationException exception)
+        {
+            return BadRequest(
+                new HttpValidationProblemDetails(
+                    exception.Errors.ToDictionary(
+                        error => error.Key,
+                        error => error.Value,
+                        StringComparer.Ordinal))
+                {
+                    Status = StatusCodes.Status400BadRequest,
+                    Title = "One or more validation errors occurred.",
+                });
+        }
+        catch (PurchaseOrderNotFoundException exception)
+        {
+            return NotFound(
+                new ProblemDetails
+                {
+                    Status = StatusCodes.Status404NotFound,
+                    Title = "Purchase order not found.",
+                    Detail = exception.Message,
+                });
+        }
+        catch (PurchaseOrderItemsNotFoundException exception)
+        {
+            return NotFound(
+                new ProblemDetails
+                {
+                    Status = StatusCodes.Status404NotFound,
+                    Title = "Inventory item not found.",
+                    Detail = exception.Message,
+                });
+        }
+        catch (PurchaseOrderReceiptRequestConflictException exception)
+        {
+            return Conflict(
+                new ProblemDetails
+                {
+                    Status = StatusCodes.Status409Conflict,
+                    Title = "Client request id was already used.",
+                    Detail = exception.Message,
+                });
+        }
+        catch (PurchaseOrderReceiptConcurrencyException exception)
+        {
+            return Conflict(
+                new ProblemDetails
+                {
+                    Status = StatusCodes.Status409Conflict,
+                    Title = "Purchase order was modified concurrently.",
+                    Detail = exception.Message,
+                });
+        }
+        catch (PurchaseOrderReceiptStalePreviewException exception)
+        {
+            return Conflict(
+                new ProblemDetails
+                {
+                    Status = StatusCodes.Status409Conflict,
+                    Title = "Purchase order receipt preview is out of date.",
+                    Detail = exception.Message,
+                });
+        }
+        catch (PurchaseOrderReceiptPostingBlockedException exception)
+        {
+            return Conflict(
+                new ProblemDetails
+                {
+                    Status = StatusCodes.Status409Conflict,
+                    Title = "Purchase order receipt has posting blockers.",
+                    Detail = exception.Message,
+                });
+        }
     }
 
     [HttpPost("{purchaseOrderId:guid}/cancel")]
@@ -180,16 +272,6 @@ public sealed class PurchaseOrdersController(
                     Detail = exception.Message,
                 });
         }
-        catch (PurchaseOrderItemsNotFoundException exception)
-        {
-            return NotFound(
-                new ProblemDetails
-                {
-                    Status = StatusCodes.Status404NotFound,
-                    Title = "Inventory item not found.",
-                    Detail = exception.Message,
-                });
-        }
         catch (PurchaseOrderConflictException exception)
         {
             return Conflict(
@@ -206,8 +288,8 @@ public sealed class PurchaseOrdersController(
                 new ProblemDetails
                 {
                     Status = StatusCodes.Status409Conflict,
-                    Title = "Inventory item was modified concurrently.",
-                    Detail = "An inventory item on the purchase order was changed by another request. Reload and try again.",
+                    Title = "Purchase order was modified concurrently.",
+                    Detail = "The purchase order was changed by another request, for example by a receipt. Reload and try again.",
                 });
         }
     }

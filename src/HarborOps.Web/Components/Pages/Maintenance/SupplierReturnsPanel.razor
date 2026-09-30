@@ -81,15 +81,25 @@
 			<section class="maintenance-card supplier-return-order-picker" aria-labelledby="supplier-return-picker-title">
 				<div class="maintenance-card-heading">
 					<div>
-						<h2 id="supplier-return-picker-title">Pick a received purchase order</h2>
+						<h2 id="supplier-return-picker-title">Pick a purchase order with received goods</h2>
 						<p>A return always goes back to the supplier of the order it came from.</p>
 					</div>
 					<span class="maintenance-card-icon" aria-hidden="true"><span class="bi bi-receipt"></span></span>
 				</div>
 
+				<div class="maintenance-filters">
+					<div class="filter-field">
+						<label for="supplier-return-order-status">Order status</label>
+						<select id="supplier-return-order-status" @bind="orderStatusFilter" @bind:after="ApplyOrderStatusAsync">
+							<option value="@MaintenanceFormat.ReceivedPurchaseOrder">Received</option>
+							<option value="@MaintenanceFormat.PartiallyReceivedPurchaseOrder">Partially received</option>
+						</select>
+					</div>
+				</div>
+
 				@if (isOrdersLoading)
 				{
-					<LoadingState Message="Loading received purchase orders..." />
+					<LoadingState Message="Loading purchase orders..." />
 				}
 				else if (ordersFailure is not null)
 				{
@@ -97,14 +107,14 @@
 				}
 				else if (orderOptions.Count == 0)
 				{
-					<EmptyState Title="No received purchase orders"
-								Message="Only parts from a received purchase order can be returned to the supplier." />
+					<EmptyState Title="No purchase orders with this status"
+								Message="Only parts that were actually received can be returned to the supplier." />
 				}
 				else
 				{
 					<div class="maintenance-table-scroll">
 						<table class="maintenance-table">
-							<caption class="visually-hidden">Received purchase orders</caption>
+							<caption class="visually-hidden">Purchase orders with received goods</caption>
 							<thead>
 								<tr>
 									<th scope="col">Order</th>

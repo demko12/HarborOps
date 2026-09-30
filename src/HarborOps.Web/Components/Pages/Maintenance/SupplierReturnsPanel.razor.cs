@@ -37,6 +37,7 @@ public partial class SupplierReturnsPanel : IDisposable
     private bool isOrdersLoading;
     private MaintenanceApiFailure? ordersFailure;
     private int orderPageNumber = 1;
+    private string orderStatusFilter = MaintenanceFormat.ReceivedPurchaseOrder;
     private int orderTotalCount;
 
     private bool CanManage => AuthorizationState.HasPermission("maintenance.manage");
@@ -198,6 +199,13 @@ public partial class SupplierReturnsPanel : IDisposable
         return LoadOrdersAsync();
     }
 
+    private Task ApplyOrderStatusAsync()
+    {
+        orderPageNumber = 1;
+
+        return LoadOrdersAsync();
+    }
+
     private async Task LoadOrdersAsync()
     {
         var requestVersion = ++ordersVersion;
@@ -211,7 +219,7 @@ public partial class SupplierReturnsPanel : IDisposable
             result = await MaintenanceApi.GetPurchaseOrdersAsync(
                 new PurchaseOrderFilter(
                     null,
-                    MaintenanceFormat.ReceivedPurchaseOrder,
+                    orderStatusFilter,
                     null,
                     null,
                     null,
