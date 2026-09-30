@@ -9,7 +9,7 @@ namespace HarborOps.Modules.Cargo.Application;
 public sealed class GetCargoManifestExportQuery(DbContext dbContext, TimeProvider timeProvider)
 {
     internal const int MaximumRows = 10_000;
-    internal const int MaximumReadAttempts = 3;
+    internal const int MaximumReadAttempts = 8;
 
     private const int DeadlockVictimErrorNumber = 1205;
 
@@ -45,6 +45,9 @@ public sealed class GetCargoManifestExportQuery(DbContext dbContext, TimeProvide
             }
             catch (SqlException exception) when (exception.Number == DeadlockVictimErrorNumber && attempt < MaximumReadAttempts)
             {
+                // Serializable reads protect the manifest snapshot while containers are
+                // being changed. Yield before retrying so a competing writer can commit.
+                await Task.Delay(TimeSpan.FromMilliseconds(25 * attempt), cancellationToken);
             }
         }
     }

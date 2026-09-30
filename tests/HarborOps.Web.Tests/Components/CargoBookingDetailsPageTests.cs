@@ -95,8 +95,8 @@ public sealed class CargoBookingDetailsPageTests : BunitContext
 
         var page = RenderDetailsPage();
 
-        Assert.Equal(7, page.FindAll(".cargo-track i").Count);
-        Assert.Equal(4, page.FindAll(".cargo-track i.on").Count);
+        Assert.Equal(7, page.FindAll(".booking-lifecycle li").Count);
+        Assert.Equal(4, page.FindAll(".booking-lifecycle li.is-reached").Count);
     }
 
     [Fact]
