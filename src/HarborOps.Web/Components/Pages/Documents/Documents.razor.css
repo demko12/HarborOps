@@ -1624,7 +1624,8 @@ html[data-theme="light"] .documents-file-replace-confirm {
 html[data-theme="light"] .documents-expiry-bar.warning .documents-expiry-bar-fill { background: var(--status-warning-strong); }
 
 .documents-table .col-days { width: 10%; }
-.documents-days-left { display: inline-block; max-width: 100%; padding: .15rem .45rem; border-radius: .4rem; font-size: .72rem; font-weight: 650; line-height: 1.3; text-align: center; font-variant-numeric: tabular-nums; }
+.documents-table td.col-days, .documents-table td.col-file { overflow: visible; text-overflow: clip; }
+.documents-days-left { display: inline-block; max-width: 100%; white-space: normal; padding: .15rem .45rem; border-radius: .4rem; font-size: .72rem; font-weight: 650; line-height: 1.3; text-align: center; font-variant-numeric: tabular-nums; }
 .documents-days-left.success { color: var(--status-success); background: rgba(52, 211, 153, .12); }
 .documents-days-left.warning { color: var(--status-warning); background: rgba(251, 191, 36, .14); }
 .documents-days-left.danger { color: var(--status-danger); background: rgba(248, 113, 113, .14); }
