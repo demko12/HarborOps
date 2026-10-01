@@ -10,4 +10,5 @@ public sealed record VesselPositionsResponse(
     int PageSize,
     int TotalCount,
     double StaleAfterHours,
-    DateTime EvaluatedAtUtc);
+    DateTime EvaluatedAtUtc,
+    AisTrackingStatus? AisTracking = null);

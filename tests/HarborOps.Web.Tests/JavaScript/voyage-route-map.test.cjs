@@ -163,12 +163,20 @@ test('fleet map preserves the viewport on rerender, replaces markers and cleans 
     assert.equal(state.markers.length, 2);
     state.fleet.render('fleet', element, [{ ...vessels[0], latitude: 40 }]);
     assert.equal(state.removed.length, 1);
+    assert.equal(state.fits(), 1);
     state.fleet.fit('fleet');
-    assert.equal(state.fits(), 3);
+    assert.equal(state.fits(), 2);
     state.fleet.dispose('fleet');
     assert.equal(state.disposed(), true);
     state.fleet.render('fleet', {}, [vessels[0]]);
-    assert.equal(state.fits(), 4);
+    assert.equal(state.fits(), 3);
+});
+
+test('fleet map identifies AIS observations in the popup', () => {
+    const state = setup();
+    state.fleet.render('fleet', {}, [{ ...vessels[0], positionSource: 'AISStream', mmsi: '227441980' }]);
+    assert.ok(state.markers[0].popup.includes('Source: AISStream'));
+    assert.ok(state.markers[0].popup.includes('MMSI 227441980'));
 });
 
 test('fleet map rejects invalid positions and handles missing Leaflet', () => {

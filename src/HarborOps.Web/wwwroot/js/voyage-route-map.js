@@ -252,6 +252,7 @@ window.fleetPositionsMap = (() => {
                     }
                 }
                 if (state.layer) state.map.removeLayer(state.layer);
+                const firstPositions = !state.signature;
                 state.layer = L.featureGroup().addTo(state.map);
                 vessels.forEach(vessel => {
                     const freshness = vessel.isPositionStale ? "stale" : "current";
@@ -269,12 +270,15 @@ window.fleetPositionsMap = (() => {
                         { direction: "top", offset: [0, -20], className: "voyage-map-tooltip", permanent: true })
                         .bindPopup('<div class="voyage-map-popup"><small>' + freshness.toUpperCase() + ' POSITION</small><strong>'
                             + escapeHtml(vessel.name) + '</strong><span>IMO ' + escapeHtml(vessel.imoNumber)
-                            + '</span><span>' + escapeHtml(vessel.fleetName ?? 'Unassigned') + ' · ' + escapeHtml(vessel.currentStatus)
+                            + '</span>' + (vessel.mmsi ? '<span>MMSI ' + escapeHtml(vessel.mmsi) + '</span>' : '')
+                            + '<span>' + escapeHtml(vessel.fleetName ?? 'Unassigned') + ' · ' + escapeHtml(vessel.currentStatus)
                             + '</span><span>' + vessel.latitude.toFixed(4) + '°, ' + vessel.longitude.toFixed(4)
-                            + '°</span><span>' + escapeHtml(timestamp) + '</span>' + details + '</div>').addTo(state.layer);
+                            + '°</span><span>' + escapeHtml(timestamp) + '</span><span>'
+                            + escapeHtml(vessel.positionSource === 'AISStream' ? 'Source: AISStream' : 'Reported position')
+                            + '</span>' + details + '</div>').addTo(state.layer);
                 });
                 state.signature = signature;
-                fit(id);
+                if (firstPositions) fit(id);
                 cancelAnimationFrame(state.frame);
                 state.frame = requestAnimationFrame(() => state.map.invalidateSize());
                 return true;

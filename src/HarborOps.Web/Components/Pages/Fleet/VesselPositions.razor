@@ -24,6 +24,26 @@
 
 	<FleetNavigation />
 
+    <div class="positions-tracking" aria-label="Live tracking status">
+        <div>
+            <strong>@AisStatusLabel</strong>
+            <p>AIS positions are matched to your vessels by MMSI. Refresh checks saved positions; new reports depend on receiver coverage.</p>
+            @if (positions?.AisTracking?.LastPositionReceivedAtUtc is { } lastReceived)
+            {
+                <small>Latest AIS observation: @FormatTimestamp(lastReceived)</small>
+            }
+            else if (positions?.AisTracking?.ConnectionState == "Connected")
+            {
+                <small>No AIS position reports received for registered vessels in this connection yet.</small>
+            }
+            @if (positions is not null)
+            {
+                <small class="positions-refresh-status">Last data check: @positions.EvaluatedAtUtc.ToString("dd MMM yyyy, HH:mm:ss 'UTC'", System.Globalization.CultureInfo.InvariantCulture) @(checkingPositions ? "· Checking…" : "")</small>
+            }
+        </div>
+        <label><input type="checkbox" @bind="autoRefresh" /> Auto-refresh every 15 seconds</label>
+    </div>
+
 
 	@if (positions is not null)
 	{
@@ -50,16 +70,23 @@
                 <h2>Position reporting coverage</h2>
                 <p>@CurrentCount of @positions.Items.Count vessels on this page have a current report</p>
             </div>
-            <div class="positions-coverage-track" aria-hidden="true">
-                <span class="positions-coverage-current" style="flex-grow: @CurrentCount"></span>
-                <span class="positions-coverage-stale" style="flex-grow: @StaleCount"></span>
-                <span class="positions-coverage-missing" style="flex-grow: @MissingCount"></span>
-            </div>
-            <div class="positions-coverage-legend">
-                <span><i class="positions-coverage-current" aria-hidden="true"></i>@CurrentCount current</span>
-                <span><i class="positions-coverage-stale" aria-hidden="true"></i>@StaleCount stale</span>
-                <span><i class="positions-coverage-missing" aria-hidden="true"></i>@MissingCount missing</span>
-            </div>
+            <ul class="positions-coverage-chart">
+                <li class="positions-coverage-row positions-coverage-current">
+                    <span class="positions-coverage-label"><i aria-hidden="true"></i>Current <strong>@CurrentCount</strong></span>
+                    <div class="positions-coverage-track" aria-hidden="true"><span style="width: @CoveragePercent(CurrentCount)%"></span></div>
+                    <span class="positions-coverage-percent">@CoveragePercent(CurrentCount)%</span>
+                </li>
+                <li class="positions-coverage-row positions-coverage-stale">
+                    <span class="positions-coverage-label"><i aria-hidden="true"></i>Stale <strong>@StaleCount</strong></span>
+                    <div class="positions-coverage-track" aria-hidden="true"><span style="width: @CoveragePercent(StaleCount)%"></span></div>
+                    <span class="positions-coverage-percent">@CoveragePercent(StaleCount)%</span>
+                </li>
+                <li class="positions-coverage-row positions-coverage-missing">
+                    <span class="positions-coverage-label"><i aria-hidden="true"></i>Missing <strong>@MissingCount</strong></span>
+                    <div class="positions-coverage-track" aria-hidden="true"><span style="width: @CoveragePercent(MissingCount)%"></span></div>
+                    <span class="positions-coverage-percent">@CoveragePercent(MissingCount)%</span>
+                </li>
+            </ul>
         </section>
     }
 
@@ -81,7 +108,7 @@
 	<div class="positions-filters">
 		<div class="positions-field positions-search-field">
 			<label for="positions-search">Search</label>
-			<input id="positions-search" type="search" placeholder="Vessel name or IMO" @bind="search" @bind:event="oninput" @bind:after="ScheduleSearchAsync" />
+			<input id="positions-search" type="search" placeholder="Vessel name, MMSI or IMO" @bind="search" @bind:event="oninput" @bind:after="ScheduleSearchAsync" />
 		</div>
 		<div class="positions-field">
 			<label for="positions-fleet">Fleet</label>
@@ -273,12 +300,22 @@
 								<th scope="row">
 									<strong>@vessel.Name</strong>
 									<span class="positions-imo">IMO @vessel.ImoNumber</span>
+                                    @if (!string.IsNullOrWhiteSpace(vessel.Mmsi))
+                                    {
+                                        <span class="positions-imo">MMSI @vessel.Mmsi</span>
+                                    }
 								</th>
 								<td>@vessel.CurrentStatus</td>
 								<td>@(vessel.FleetName ?? "Unassigned")</td>
 								<td class="positions-coordinate">@FormatLatitude(vessel.CurrentLatitude)</td>
 								<td class="positions-coordinate">@FormatLongitude(vessel.CurrentLongitude)</td>
-								<td>@FormatTimestamp(vessel.LastPositionReportedAtUtc)</td>
+                                <td>
+                                    @FormatTimestamp(vessel.LastPositionReportedAtUtc)
+                                    @if (vessel.PositionSource == "AISStream")
+                                    {
+                                        <span class="positions-imo">AISStream</span>
+                                    }
+                                </td>
 								<td>
 									<span class="@($"positions-badge {FreshnessClass(vessel)}")">@FreshnessLabel(vessel)</span>
 								</td>

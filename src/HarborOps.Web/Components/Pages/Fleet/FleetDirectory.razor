@@ -12,16 +12,55 @@
     @if (directory is not null && !isLoading && failure is null)
     {
         <section class="fleet-directory-summary" aria-label="Fleet structure overview">
-            <article><div><span>Matching fleets</span><strong>@directory.TotalCount</strong><small>Across the current search</small></div><span class="bi bi-diagram-3" aria-hidden="true"></span></article>
-            <article><div><span>Active vessels</span><strong>@directory.Items.Sum(fleet => fleet.ActiveVesselCount)</strong><small>Across the fleets shown below</small></div><span class="fleet-directory-summary-vessel" aria-hidden="true"><VesselIcon /></span></article>
-            <article><div><span>Fleets without active vessels</span><strong>@directory.Items.Count(fleet => fleet.ActiveVesselCount == 0)</strong><small>Among the fleets shown below</small></div><span class="bi bi-inbox" aria-hidden="true"></span></article>
+            <article class="fleet-summary-card"><div><span>Matching fleets</span><strong>@directory.TotalCount</strong><small>Across the current search</small></div><span class="bi bi-diagram-3" aria-hidden="true"></span></article>
+            <article class="fleet-summary-card"><div><span>Active vessels</span><strong>@directory.Items.Sum(fleet => fleet.ActiveVesselCount)</strong><small>Across the fleets shown below</small></div><span class="fleet-directory-summary-vessel" aria-hidden="true"><VesselIcon /></span></article>
+            <article class="fleet-summary-card"><div><span>Fleets without active vessels</span><strong>@directory.Items.Count(fleet => fleet.ActiveVesselCount == 0)</strong><small>Among the fleets shown below</small></div><span class="bi bi-inbox" aria-hidden="true"></span></article>
         </section>
     }
 
-    @if (CanManage) { <section class="fleet-directory-create"><div class="fleet-directory-section-heading"><div><p class="fleet-directory-eyebrow">Fleet management</p><h2>Create a fleet</h2></div><span class="fleet-directory-icon bi bi-diagram-3" aria-hidden="true"></span></div><form @onsubmit="CreateAsync" @onsubmit:preventDefault="true"><div class="fleet-directory-field"><label for="fleet-name">Name</label><input id="fleet-name" @bind="newFleetName" maxlength="200" placeholder="e.g. Atlantic Operations Fleet" /></div><div class="fleet-directory-field"><label for="fleet-description">Description</label><input id="fleet-description" @bind="newFleetDescription" maxlength="1000" placeholder="Describe this fleet's operating scope" /></div><button type="submit" disabled="@isCreating">@(isCreating ? "Creating..." : "Create fleet")</button></form>@if (createFailure is not null) { <p class="fleet-directory-error" role="alert">@createFailure.Message</p> }</section> }
-    <section class="fleet-directory-filter"><div class="fleet-directory-field"><label for="fleet-directory-search">Search</label><div class="fleet-directory-search-input"><span class="bi bi-search" aria-hidden="true"></span><input id="fleet-directory-search" @bind="search" @bind:after="SearchAsync" placeholder="Search fleets by name or description" /></div></div><button type="button" @onclick="ResetAsync" disabled="@isLoading">Reset</button></section>
-    @if (isLoading) { <LoadingState Message="Loading fleets..." /> }
-    else if (failure is not null) { <ApiErrorState Title="@failure.Title" Message="@failure.Message" OnRetry="LoadAsync" /> }
-    else if (directory is null || directory.Items.Count == 0) { <EmptyState Title="No fleets found" Message="Create a fleet or search with another term." /> }
-    else { <section class="fleet-directory-results"><div class="fleet-directory-results-heading"><div><p class="fleet-directory-eyebrow">Fleet overview</p><h2>Fleet register</h2><p>@directory.TotalCount fleet@(directory.TotalCount == 1 ? string.Empty : "s") found</p></div></div><div class="fleet-directory-grid">@foreach (var fleet in directory.Items) { <a class="fleet-directory-card" href="@($"/fleet/fleets/{fleet.FleetId}")"><span class="fleet-directory-card-icon bi bi-diagram-3" aria-hidden="true"></span><div><h2>@fleet.Name</h2><p>@fleet.Description</p></div><dl><div><dt>Active vessels</dt><dd>@fleet.ActiveVesselCount</dd></div><div><dt>Created</dt><dd>@fleet.CreatedAtUtc.ToLocalTime().ToString("dd MMM yyyy")</dd></div></dl><span class="bi bi-chevron-right" aria-hidden="true"></span></a> }</div></section> }
+    <div class="fleet-directory-workspace @(CanManage ? "" : "fleet-directory-readonly")">
+    <section class="fleet-card fleet-directory-results @(cardView ? "fleet-directory-card-view" : "fleet-directory-list-view")" aria-labelledby="fleet-register-title" aria-busy="@isLoading.ToString().ToLowerInvariant()">
+        <div class="fleet-directory-results-heading">
+            <div class="fleet-directory-register-title"><span class="fleet-directory-icon bi bi-diagram-3" aria-hidden="true"></span><div><h2 id="fleet-register-title">Fleet register</h2><p>@(isLoading ? "Updating fleet register…" : failure is not null ? "Unable to load register" : $"{directory?.TotalCount ?? 0} fleets found")</p></div></div>
+            <div class="fleet-directory-view-switch" role="group" aria-label="Fleet display">
+                <button type="button" aria-label="List view" aria-pressed="@((!cardView).ToString().ToLowerInvariant())" @onclick="() => cardView = false"><span class="bi bi-list-ul" aria-hidden="true"></span> List</button>
+                <button type="button" aria-label="Card view" aria-pressed="@cardView.ToString().ToLowerInvariant()" @onclick="() => cardView = true"><span class="bi bi-grid" aria-hidden="true"></span> Cards</button>
+            </div>
+        </div>
+        <div class="fleet-directory-filter"><div class="fleet-directory-field"><label for="fleet-directory-search">Search fleets</label><div class="fleet-directory-search-input"><span class="bi bi-search" aria-hidden="true"></span><input id="fleet-directory-search" type="search" @bind="search" @bind:after="SearchAsync" placeholder="Search fleets by name or description" /></div></div><button type="button" @onclick="ResetAsync" disabled="@isLoading">Reset</button></div>
+        @if (isLoading) { <LoadingState Message="Loading fleets..." /> }
+        else if (failure is not null) { <ApiErrorState Title="@failure.Title" Message="@failure.Message" OnRetry="LoadAsync" /> }
+        else if (directory is null || directory.Items.Count == 0) { <EmptyState Title="No fleets found" Message="@(CanManage ? "Create a fleet or search with another term." : "Try another search term.")" /> }
+        else
+        {
+            <div class="fleet-directory-row-labels" aria-hidden="true"><span></span><span>Fleet</span><span>Active vessels</span><span>Created</span><span></span></div>
+            <div class="fleet-directory-grid">
+                @foreach (var fleet in directory.Items)
+                {
+                    <a @key="fleet.FleetId" class="fleet-directory-card" href="@($"/fleet/fleets/{fleet.FleetId}")" aria-label="@($"Open {fleet.Name} fleet")">
+                        <span class="fleet-directory-card-icon bi bi-diagram-3" aria-hidden="true"></span>
+                        <div class="fleet-directory-primary"><h3>@fleet.Name</h3><p>@(string.IsNullOrWhiteSpace(fleet.Description) ? "No description added" : fleet.Description)</p></div>
+                        <div class="fleet-directory-vessels"><span>Active vessels</span><strong>@fleet.ActiveVesselCount</strong></div>
+                        <div class="fleet-directory-date"><span>Created</span><time datetime="@fleet.CreatedAtUtc.ToString("O")">@fleet.CreatedAtUtc.ToLocalTime().ToString("dd MMM yyyy")</time></div>
+                        <span class="bi bi-chevron-right" aria-hidden="true"></span>
+                    </a>
+                }
+            </div>
+        }
+    </section>
+    @if (CanManage)
+    {
+        <aside class="fleet-card fleet-directory-create" aria-labelledby="fleet-create-title">
+            <div class="fleet-directory-create-title"><span class="bi bi-plus-circle" aria-hidden="true"></span><h2 id="fleet-create-title">Create a fleet</h2></div>
+            <p class="fleet-directory-create-intro">Group vessels by region, service, or operating team.</p>
+            <form @onsubmit="CreateAsync" @onsubmit:preventDefault="true">
+                <div class="fleet-directory-field"><label for="fleet-name">Fleet name</label><input id="fleet-name" @bind="newFleetName" maxlength="200" required placeholder="e.g. Atlantic Operations" disabled="@isCreating" /></div>
+                <div class="fleet-directory-field"><label for="fleet-description">Description <span>Optional</span></label><textarea id="fleet-description" @bind="newFleetDescription" maxlength="1000" rows="4" placeholder="Describe the operating scope" disabled="@isCreating"></textarea></div>
+                @if (createFailure is not null) { <p class="fleet-directory-error" role="alert">@createFailure.Message</p> }
+                <button type="submit" disabled="@isCreating"><span class="bi bi-plus-lg" aria-hidden="true"></span> @(isCreating ? "Creating..." : "Create fleet")</button>
+            </form>
+            <div class="fleet-directory-create-note"><span class="bi bi-info-circle" aria-hidden="true"></span><p>Assign vessels from their details pages in the <a href="/fleet">vessel register</a>.</p></div>
+        </aside>
+    }
+    </div>
 </section>

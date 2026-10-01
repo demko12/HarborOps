@@ -1,6 +1,7 @@
 using System.Reflection;
 using HarborOps.Modules.Fleet.Application;
 using HarborOps.Modules.Fleet.Contracts;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 
@@ -15,6 +16,10 @@ public static class FleetModule
     public static IServiceCollection AddFleetModule(this IServiceCollection services)
     {
         services.TryAddSingleton(TimeProvider.System);
+        services.AddOptions<AisStreamOptions>()
+            .Configure<IConfiguration>((options, configuration) => configuration.GetSection("Fleet:AisStream").Bind(options));
+        services.AddSingleton<AisTrackingState>();
+        services.AddHostedService<AisStreamHostedService>();
         services.AddScoped<RegisterVesselService>();
         services.AddScoped<ISearchVesselsQuery, SearchVesselsQuery>();
         services.AddScoped<IOperationsDashboardFleetQuery, OperationsDashboardFleetQuery>();
@@ -28,6 +33,7 @@ public static class FleetModule
         services.AddScoped<FleetManagementService>();
         services.AddScoped<IVesselPositionsQuery, VesselPositionsQuery>();
         services.AddScoped<RecordVesselPositionService>();
+        services.AddScoped<RecordAisPositionService>();
         services.AddScoped<IVesselPositionHistoryQuery, VesselPositionHistoryQuery>();
         services.AddControllers()
             .AddApplicationPart(Assembly);

@@ -709,3 +709,4 @@
         color: #111;
     }
 }
+.vessel-position { color: var(--text-secondary); font-size: 0.68rem; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }

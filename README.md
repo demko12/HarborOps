@@ -46,6 +46,8 @@ dotnet tool run dotnet-ef migrations add <MigrationName> `
 
 ## Local validation
 
+See [AIS tracking setup](docs/ais-tracking.md) to enable the free AISStream feed on Vessel Positions.
+
 ```powershell
 dotnet restore HarborOps.slnx
 dotnet build HarborOps.slnx --no-restore

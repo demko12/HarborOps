@@ -15,7 +15,9 @@ public sealed record VesselPositionListItem(
     decimal? CurrentLatitude,
     decimal? CurrentLongitude,
     DateTime? LastPositionReportedAtUtc,
-    bool IsPositionStale)
+    bool IsPositionStale,
+    string? PositionSource = null,
+    string? Mmsi = null)
 {
     [JsonIgnore]
     public Guid Id => VesselId;
