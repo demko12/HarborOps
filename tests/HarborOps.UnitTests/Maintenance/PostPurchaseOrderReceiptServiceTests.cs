@@ -29,7 +29,12 @@ public sealed class PostPurchaseOrderReceiptServiceTests
         Assert.Equal(nameof(PurchaseOrderStatus.PartiallyReceived), response.OrderStatus);
         Assert.NotEqual(tokenBefore, response.ConcurrencyToken);
         Assert.Equal(
-            [PurchaseOrderActions.ReceivePartial, PurchaseOrderActions.ReceiveRemaining, PurchaseOrderActions.CreateReturn],
+            [
+                PurchaseOrderActions.ReceivePartial,
+                PurchaseOrderActions.ReceiveRemaining,
+                PurchaseOrderActions.CloseRemaining,
+                PurchaseOrderActions.CreateReturn,
+            ],
             response.AllowedActions);
         Assert.Equal(request.ClientRequestId, response.Receipt.ClientRequestId);
         Assert.Equal(ReceivedUtc, response.Receipt.ReceivedUtc);

@@ -36,7 +36,7 @@ internal sealed class PurchaseOrder
 
     public PurchaseOrderStatus Status { get; private set; }
 
-    // Replaced on every status change and receipt, so competing receipts and cancellations conflict.
+    // Replaced on every status change, receipt, and closure, so competing order mutations conflict.
     public Guid ConcurrencyToken { get; private set; }
 
     internal static PurchaseOrder Create(
@@ -79,10 +79,19 @@ internal sealed class PurchaseOrder
         return status is PurchaseOrderStatus.Ordered or PurchaseOrderStatus.PartiallyReceived;
     }
 
-    // Goods can only be returned once something has actually been received.
+    // Goods can only be returned once something has actually been received. Closing the undelivered
+    // balance short keeps the received goods returnable.
     internal static bool CanReturn(PurchaseOrderStatus status)
     {
-        return status is PurchaseOrderStatus.PartiallyReceived or PurchaseOrderStatus.Received;
+        return status is PurchaseOrderStatus.PartiallyReceived
+            or PurchaseOrderStatus.Received
+            or PurchaseOrderStatus.ClosedShort;
+    }
+
+    // Only a partially received order closes short; an order with nothing received is cancelled instead.
+    internal static bool CanClose(PurchaseOrderStatus status)
+    {
+        return status is PurchaseOrderStatus.PartiallyReceived;
     }
 
     internal static bool IsOverdue(
@@ -97,8 +106,11 @@ internal sealed class PurchaseOrder
 
     internal void ChangeStatusTo(PurchaseOrderStatus target)
     {
-        // Receiving moves stock, so it must go through RecordReceipt with the posted quantities.
-        if (target is PurchaseOrderStatus.Received or PurchaseOrderStatus.PartiallyReceived
+        // Receiving moves stock, so it must go through RecordReceipt with the posted quantities; closing short
+        // must go through RecordClosure with the closed quantities.
+        if (target is PurchaseOrderStatus.Received
+                or PurchaseOrderStatus.PartiallyReceived
+                or PurchaseOrderStatus.ClosedShort
             || !CanTransition(Status, target))
         {
             throw new PurchaseOrderTransitionException(Id, Status, target);
@@ -128,6 +140,33 @@ internal sealed class PurchaseOrder
         Status = lines.All(line => line.IsFulfilled)
             ? PurchaseOrderStatus.Received
             : PurchaseOrderStatus.PartiallyReceived;
+        ConcurrencyToken = Guid.NewGuid();
+    }
+
+    // Called after every line has closed its outstanding quantity; ClosedShort is terminal.
+    internal void RecordClosure(IReadOnlyCollection<PurchaseOrderLine> lines)
+    {
+        ArgumentNullException.ThrowIfNull(lines);
+
+        if (!CanClose(Status))
+        {
+            throw new PurchaseOrderClosureInvariantException(
+                $"Purchase order '{Id}' is {Status}; only partially received orders can be closed short.");
+        }
+
+        if (lines.Count == 0 || lines.Any(line => line.PurchaseOrderId != Id))
+        {
+            throw new PurchaseOrderClosureInvariantException(
+                $"Purchase order '{Id}' can only be closed against its own lines.");
+        }
+
+        if (lines.Any(line => line.OutstandingQuantity != 0))
+        {
+            throw new PurchaseOrderClosureInvariantException(
+                $"Purchase order '{Id}' still has open outstanding quantity after closing.");
+        }
+
+        Status = PurchaseOrderStatus.ClosedShort;
         ConcurrencyToken = Guid.NewGuid();
     }
 }

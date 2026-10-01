@@ -11,4 +11,5 @@ public static class PurchaseOrderActions
     public const string ReceivePartial = "ReceivePartial";
     public const string ReceiveRemaining = "ReceiveRemaining";
     public const string CreateReturn = "CreateReturn";
+    public const string CloseRemaining = "CloseRemaining";
 }

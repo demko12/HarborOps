@@ -62,10 +62,11 @@ public sealed class GetPurchaseOrderDetailsQuery(DbContext dbContext, TimeProvid
                 line.UnitCost,
                 line.ReceivedQuantity,
                 line.LegacyReceivedQuantity,
+                line.ClosedQuantity,
             })
             .ToListAsync(cancellationToken);
 
-        // Posted returns never reduce the gross received quantity or reopen outstanding quantity.
+        // Posted returns never reduce the gross received quantity or reopen outstanding or closed quantity.
         var returnedQuantities = await SupplierReturnReader.ReadPostedQuantitiesAsync(
             dbContext,
             lines.Select(line => line.Id).ToList(),
@@ -92,7 +93,8 @@ public sealed class GetPurchaseOrderDetailsQuery(DbContext dbContext, TimeProvid
                     line.ReceivedQuantity,
                     line.LegacyReceivedQuantity,
                     returned,
-                    line.QuantityOrdered - line.ReceivedQuantity,
+                    line.ClosedQuantity,
+                    line.QuantityOrdered - line.ReceivedQuantity - line.ClosedQuantity,
                     line.ReceivedQuantity - returned);
             })
             .OrderBy(line => line.InventoryItemName, StringComparer.Ordinal)
@@ -121,6 +123,7 @@ public sealed class GetPurchaseOrderDetailsQuery(DbContext dbContext, TimeProvid
             lineItems.Sum(line => line.QuantityOrdered),
             lineItems.Sum(line => line.ReceivedQuantity),
             lineItems.Sum(line => line.ReturnedQuantity),
+            lineItems.Sum(line => line.ClosedQuantity),
             lineItems.Sum(line => line.OutstandingQuantity),
             receiptCount,
             PurchaseOrderReceiptReader.AllowedActions(order.Status));

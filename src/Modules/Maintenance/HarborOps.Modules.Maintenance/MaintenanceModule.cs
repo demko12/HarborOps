@@ -44,6 +44,9 @@ public static class MaintenanceModule
         services.AddScoped<GetPurchaseOrderReceiptPostingPreviewQuery>();
         services.AddScoped<GetPurchaseOrderReceiptsQuery>();
         services.AddScoped<PostPurchaseOrderReceiptService>();
+        services.AddScoped<GetPurchaseOrderClosurePreviewQuery>();
+        services.AddScoped<GetPurchaseOrderClosureQuery>();
+        services.AddScoped<ClosePurchaseOrderService>();
         services.AddScoped<GetMaintenanceWorkOrderDetailsQuery>();
         services.AddScoped<ReplaceWorkOrderEquipmentService>();
         services.AddScoped<StartMaintenanceWorkOrderService>();

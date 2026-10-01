@@ -11,4 +11,5 @@ public enum PurchaseOrderStatus
     Received = 2,
     Cancelled = 3,
     PartiallyReceived = 4,
+    ClosedShort = 5,
 }
