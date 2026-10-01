@@ -82,6 +82,9 @@
     --status-warning-strong: #b45309;
     --status-danger: #f87171;
     --status-danger-strong: #b91c1c;
+    --position-coverage-current: #7399c6;
+    --position-coverage-stale: #b49a70;
+    --position-coverage-missing: #536175;
 }
 
 [data-theme="light"] {
@@ -106,6 +109,9 @@
     /* Light-theme values for the shared control vocabulary. The --apply-* tokens
        resolve through --bg-surface-strong and --accent-*, so they need no override. */
     --control-popup: #ffffff;
+    --position-coverage-current: var(--accent);
+    --position-coverage-stale: var(--status-warning);
+    --position-coverage-missing: var(--text-muted);
     --border-strong-hover: rgba(15, 23, 42, 0.28);
     --card-shadow: 0 18px 40px rgba(15, 23, 42, 0.1);
     --action-icon: #2563eb;

@@ -25,8 +25,9 @@
 	<FleetNavigation />
 
     <div class="positions-tracking" aria-label="Live tracking status">
-        <div>
-            <strong>@AisStatusLabel</strong>
+        <details class="positions-tracking-details">
+            <summary><span class="positions-feed-indicator @(positions?.AisTracking?.ConnectionState == "Connected" ? "is-connected" : "")" aria-hidden="true"></span><span>@AisStatusLabel</span><span class="bi bi-chevron-down" aria-hidden="true"></span></summary>
+            <div class="positions-tracking-info">
             <p>AIS positions are matched to your vessels by MMSI. Refresh checks saved positions; new reports depend on receiver coverage.</p>
             @if (positions?.AisTracking?.LastPositionReceivedAtUtc is { } lastReceived)
             {
@@ -36,12 +37,15 @@
             {
                 <small>No AIS position reports received for registered vessels in this connection yet.</small>
             }
+            </div>
+        </details>
+        <div class="positions-tracking-controls">
             @if (positions is not null)
             {
-                <small class="positions-refresh-status">Last data check: @positions.EvaluatedAtUtc.ToString("dd MMM yyyy, HH:mm:ss 'UTC'", System.Globalization.CultureInfo.InvariantCulture) @(checkingPositions ? "· Checking…" : "")</small>
+                <small class="positions-refresh-status" title="Last successful data check">@(checkingPositions ? "Checking…" : $"Checked {positions.EvaluatedAtUtc.ToString("HH:mm:ss 'UTC'", System.Globalization.CultureInfo.InvariantCulture)}")</small>
             }
+            <label><input type="checkbox" @bind="autoRefresh" /> Auto-refresh <span class="positions-refresh-interval">15s</span></label>
         </div>
-        <label><input type="checkbox" @bind="autoRefresh" /> Auto-refresh every 15 seconds</label>
     </div>
 
 
@@ -70,23 +74,25 @@
                 <h2>Position reporting coverage</h2>
                 <p>@CurrentCount of @positions.Items.Count vessels on this page have a current report</p>
             </div>
-            <ul class="positions-coverage-chart">
-                <li class="positions-coverage-row positions-coverage-current">
-                    <span class="positions-coverage-label"><i aria-hidden="true"></i>Current <strong>@CurrentCount</strong></span>
-                    <div class="positions-coverage-track" aria-hidden="true"><span style="width: @CoveragePercent(CurrentCount)%"></span></div>
-                    <span class="positions-coverage-percent">@CoveragePercent(CurrentCount)%</span>
-                </li>
-                <li class="positions-coverage-row positions-coverage-stale">
-                    <span class="positions-coverage-label"><i aria-hidden="true"></i>Stale <strong>@StaleCount</strong></span>
-                    <div class="positions-coverage-track" aria-hidden="true"><span style="width: @CoveragePercent(StaleCount)%"></span></div>
-                    <span class="positions-coverage-percent">@CoveragePercent(StaleCount)%</span>
-                </li>
-                <li class="positions-coverage-row positions-coverage-missing">
-                    <span class="positions-coverage-label"><i aria-hidden="true"></i>Missing <strong>@MissingCount</strong></span>
-                    <div class="positions-coverage-track" aria-hidden="true"><span style="width: @CoveragePercent(MissingCount)%"></span></div>
-                    <span class="positions-coverage-percent">@CoveragePercent(MissingCount)%</span>
-                </li>
-            </ul>
+            <div class="positions-coverage-chart">
+                <div class="positions-coverage-ring" style="--coverage-current-end: @CoveragePercent(CurrentCount)%; --coverage-stale-end: @CoveragePercent(CurrentCount + StaleCount)%" aria-hidden="true">
+                    <div class="positions-coverage-ring-center"><strong>@CoveragePercent(CurrentCount)<span>%</span></strong><small>Current</small></div>
+                </div>
+                <ul class="positions-coverage-legend">
+                    <li class="positions-coverage-row positions-coverage-current">
+                        <span class="positions-coverage-label"><i aria-hidden="true"></i>Current <strong>@CurrentCount</strong></span>
+                        <span class="positions-coverage-percent">@CoveragePercent(CurrentCount)%</span>
+                    </li>
+                    <li class="positions-coverage-row positions-coverage-stale">
+                        <span class="positions-coverage-label"><i aria-hidden="true"></i>Stale <strong>@StaleCount</strong></span>
+                        <span class="positions-coverage-percent">@CoveragePercent(StaleCount)%</span>
+                    </li>
+                    <li class="positions-coverage-row positions-coverage-missing">
+                        <span class="positions-coverage-label"><i aria-hidden="true"></i>Missing <strong>@MissingCount</strong></span>
+                        <span class="positions-coverage-percent">@CoveragePercent(MissingCount)%</span>
+                    </li>
+                </ul>
+            </div>
         </section>
     }
 
