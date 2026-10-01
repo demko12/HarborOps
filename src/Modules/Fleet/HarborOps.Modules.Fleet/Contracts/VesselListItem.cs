@@ -15,7 +15,10 @@ public sealed record VesselListItem(
     DateTime UpdatedAtUtc,
     string? LifecycleStage,
     Guid? FleetId,
-    string? FleetName)
+    string? FleetName,
+    decimal? CurrentLatitude = null,
+    decimal? CurrentLongitude = null,
+    DateTime? LastPositionReportedAtUtc = null)
 {
     [JsonIgnore]
     public Guid Id => VesselId;

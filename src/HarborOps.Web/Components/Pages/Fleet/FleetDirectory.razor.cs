@@ -14,6 +14,7 @@ public partial class FleetDirectory : IDisposable
     private string newFleetDescription = string.Empty;
     private bool isLoading = true;
     private bool isCreating;
+    private bool cardView;
     private bool CanManage => AuthorizationState.HasPermission(CurrentUserAuthorizationState.FleetManagePermission);
     protected override async Task OnInitializedAsync() => await LoadAsync();
     private async Task SearchAsync() => await LoadAsync();
