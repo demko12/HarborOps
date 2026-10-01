@@ -23,6 +23,10 @@ public partial class CargoBookings
     private int totalCount;
     private int hazardousCount;
     private bool isLoading = true;
+    private bool cardView;
+
+    [SupplyParameterFromQuery(Name = ViewQueryKey)]
+    public string? ViewFromQuery { get; set; }
 
     [SupplyParameterFromQuery(Name = SearchQueryKey)]
     public string? SearchFromQuery { get; set; }
@@ -44,12 +48,14 @@ public partial class CargoBookings
     private const string HazardousQueryKey = "hazardous";
     private const string PageQueryKey = "page";
     private const string SizeQueryKey = "size";
+    private const string ViewQueryKey = "view";
 
     private string BoardQuery
     {
         get
         {
             var parts = new List<string>();
+            if (cardView) parts.Add($"{ViewQueryKey}=cards");
 
             if (!string.IsNullOrWhiteSpace(search))
             {
@@ -94,6 +100,12 @@ public partial class CargoBookings
         Navigation.NavigateTo(DetailsHref(cargoBookingId));
     }
 
+    private void SetView(bool cards)
+    {
+        cardView = cards;
+        SyncBoardAddress();
+    }
+
     private void HandleBookingRowKeyDown(KeyboardEventArgs args, Guid cargoBookingId)
     {
         if (args.Key is "Enter" or " ")
@@ -134,6 +146,7 @@ public partial class CargoBookings
 
     private void ApplyAddressToFilters()
     {
+        cardView = string.Equals(ViewFromQuery, "cards", StringComparison.Ordinal);
         search = string.IsNullOrWhiteSpace(SearchFromQuery) ? null : SearchFromQuery;
         status = StatusFromQuery ?? string.Empty;
         hazardousOnly = HazardousFromQuery == true;

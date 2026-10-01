@@ -80,6 +80,10 @@
                 </div>
             </div>
             <div class="cargo-card-tools">
+                <div class="cargo-view-switch" role="group" aria-label="Cargo display">
+                    <button type="button" aria-label="List view" aria-pressed="@((!cardView).ToString().ToLowerInvariant())" @onclick="() => SetView(false)"><span class="bi bi-list-ul" aria-hidden="true"></span> List</button>
+                    <button type="button" aria-label="Card view" aria-pressed="@cardView.ToString().ToLowerInvariant()" @onclick="() => SetView(true)"><span class="bi bi-grid" aria-hidden="true"></span> Cards</button>
+                </div>
                 @if (AuthorizationState.CanManageCargo)
                 {
                     <button id="cargo-register-toggle"
@@ -146,6 +150,54 @@
         }
         else
         {
+            @if (cardView)
+            {
+                <div class="cargo-booking-grid" role="list" aria-label="Cargo bookings">
+                    @foreach (var row in rows)
+                    {
+                        <article @key="row.CargoBookingId" role="listitem">
+                            <a class="cargo-booking-card @(row.IsHazardous ? "cargo-hazard-card" : null)"
+                               href="@DetailsHref(row.CargoBookingId)" aria-label="@($"Open {row.BookingNumber} booking details")">
+                                <div class="cargo-booking-card-head">
+                                    <span class="cargo-row-icon bi @(row.IsHazardous ? "bi-exclamation-triangle-fill" : "bi-box-seam")" aria-hidden="true"></span>
+                                    <div>
+                                        <strong class="cargo-booking-no">@row.BookingNumber</strong>
+                                        <span class="cargo-voyage">Voyage @CargoBookingFormat.ShortVoyage(row.VoyageId)</span>
+                                    </div>
+                                </div>
+                                <div class="cargo-booking-card-status">
+                                    <span class="cargo-status @CargoBookingFormat.StatusModifier(row.Status)">@row.Status</span>
+                                    @if (row.IsHazardous)
+                                    {
+                                        <span class="cargo-hazard-chip"><span class="cargo-placard" aria-hidden="true"></span>@CargoBookingFormat.HazardousLabel</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="cargo-muted">@CargoBookingFormat.NotHazardousLabel</span>
+                                    }
+                                </div>
+                                <p class="cargo-booking-card-description">@row.Description</p>
+                                <dl class="cargo-booking-card-facts">
+                                    <div><dt>Cargo type</dt><dd>@row.CargoType</dd></div>
+                                    <div><dt>Weight (kg)</dt><dd>@CargoBookingFormat.WeightKg(row.WeightKg)</dd></div>
+                                    <div><dt>Packages</dt><dd>@CargoBookingFormat.PackageCount(row.PackageCount)</dd></div>
+                                    <div><dt>Created (UTC)</dt><dd>@CargoBookingFormat.CreatedUtcDate(row.CreatedUtc) <span>@CargoBookingFormat.CreatedUtcTime(row.CreatedUtc)</span></dd></div>
+                                </dl>
+                                <span class="cargo-track @CargoBookingFormat.StatusModifier(row.Status)" role="img"
+                                      aria-label="@($"Step {CargoBookingFormat.LifecycleStep(row.Status)} of {CargoBookingFormat.Statuses.Count}")">
+                                    @for (var step = 1; step <= CargoBookingFormat.Statuses.Count; step++)
+                                    {
+                                        <i class="@(step <= CargoBookingFormat.LifecycleStep(row.Status) ? "on" : null)"></i>
+                                    }
+                                </span>
+                                <span class="cargo-booking-card-link">View booking <span class="bi bi-arrow-up-right" aria-hidden="true"></span></span>
+                            </a>
+                        </article>
+                    }
+                </div>
+            }
+            else
+            {
             <div class="cargo-table-scroll">
                 <table class="cargo-table">
                     <caption class="visually-hidden">Registered cargo bookings, newest first</caption>
@@ -224,6 +276,7 @@
                     </tbody>
                 </table>
             </div>
+            }
 
             <div class="cargo-pagination">
                 <span>Showing @FirstRowNumber&ndash;@LastRowNumber of @totalCount bookings</span>

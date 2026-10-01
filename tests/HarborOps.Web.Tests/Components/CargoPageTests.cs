@@ -31,6 +31,61 @@ public sealed class CargoPageTests : BunitContext
         _ => Json(HttpStatusCode.OK, VoyagePage(Voyage("VOY-2026-014")));
 
     [Fact]
+    public void List_is_the_default_and_switching_views_does_not_reload_bookings()
+    {
+        respond = _ => Json(HttpStatusCode.OK, Page(Row("BK-0001")));
+        var page = RenderCargoPage(CurrentUserAuthorizationState.CargoReadPermission);
+        Assert.Equal("true", page.Find("button[aria-label='List view']").GetAttribute("aria-pressed"));
+        Assert.Single(page.FindAll(".cargo-table"));
+        var requestCount = requestedUris.Count;
+
+        page.Find("button[aria-label='Card view']").Click();
+        Assert.Equal("true", page.Find("button[aria-label='Card view']").GetAttribute("aria-pressed"));
+        Assert.Single(page.FindAll(".cargo-booking-card"));
+        Assert.Empty(page.FindAll(".cargo-table"));
+        Assert.Equal(requestCount, requestedUris.Count);
+
+        page.Find("button[aria-label='List view']").Click();
+        Assert.Single(page.FindAll(".cargo-table"));
+        Assert.Empty(page.FindAll(".cargo-booking-card"));
+        Assert.Equal(requestCount, requestedUris.Count);
+    }
+
+    [Fact]
+    public void Cards_show_booking_details_hazard_labels_and_lifecycle_progress()
+    {
+        respond = _ => Json(HttpStatusCode.OK, Page(Row("BK-0001", isHazardous: true, weightKg: 24000.5m, status: "Loaded")));
+        var page = RenderCargoPageAt("/cargo?view=cards&status=Loaded");
+        var card = page.Find("a.cargo-booking-card");
+        Assert.Contains("Steel coils", card.TextContent, StringComparison.Ordinal);
+        Assert.Contains("General Cargo", card.TextContent, StringComparison.Ordinal);
+        Assert.Contains("24,000.500", card.TextContent, StringComparison.Ordinal);
+        Assert.Contains("10", card.QuerySelector("dl")!.TextContent, StringComparison.Ordinal);
+        Assert.Contains("Loaded", card.TextContent, StringComparison.Ordinal);
+        Assert.Contains("UTC", card.TextContent, StringComparison.Ordinal);
+        Assert.Contains("Hazardous", card.QuerySelector(".cargo-hazard-chip")!.TextContent, StringComparison.Ordinal);
+        Assert.Single(card.QuerySelectorAll(".cargo-placard"));
+        Assert.Equal("Step 3 of 7", card.QuerySelector(".cargo-track")!.GetAttribute("aria-label"));
+        var returnQuery = Uri.UnescapeDataString(card.GetAttribute("href")!.Split("from=", StringSplitOptions.None)[1]);
+        Assert.Contains("view=cards", returnQuery, StringComparison.Ordinal);
+        Assert.Contains("status=Loaded", returnQuery, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Cards_preserve_filtering_and_pagination()
+    {
+        respond = _ => Json(HttpStatusCode.OK, Page(1, 30, Row("BK-0001")));
+        var page = RenderCargoPageAt("/cargo?view=cards");
+        page.Find("#cargo-status").Change("InTransit");
+        page.WaitForAssertion(() => Assert.Contains("status=InTransit", requestedUris[^1].Query, StringComparison.Ordinal));
+        page.Find(".cargo-pages button:last-child").Click();
+        page.WaitForAssertion(() => Assert.Contains("pageNumber=2", requestedUris[^1].Query, StringComparison.Ordinal));
+        Assert.Single(page.FindAll(".cargo-booking-card"));
+        Assert.Equal("true", page.Find("button[aria-label='Card view']").GetAttribute("aria-pressed"));
+        Assert.Contains("Not hazardous", page.Find(".cargo-booking-card").TextContent, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void Hazardous_summary_card_reports_the_filtered_total_not_the_rendered_rows()
     {
         respond = _ => Json(HttpStatusCode.OK, Page(

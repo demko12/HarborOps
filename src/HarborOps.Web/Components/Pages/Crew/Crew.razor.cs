@@ -14,7 +14,7 @@ public partial class Crew
     private string? search;
     private string? employmentStatus;
     private bool isLoading = true;
-    private bool cardView = true;
+    private bool cardView = false;
 
     private int TotalPages => roster is null || roster.TotalCount == 0 ? 1 : (int)Math.Ceiling((double)roster.TotalCount / roster.PageSize);
     private int FirstRowNumber => roster is null || roster.TotalCount == 0 ? 0 : ((roster.PageNumber - 1) * roster.PageSize) + 1;
