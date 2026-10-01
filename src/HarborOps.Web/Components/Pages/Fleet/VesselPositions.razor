@@ -56,24 +56,33 @@
 				<div><span>Vessels</span><strong>@positions.TotalCount</strong><small>Matching the filters</small></div>
 			</article>
 			<article class="positions-summary-card">
-				<div><span>Missing position</span><strong>@MissingCount</strong><small>No coordinates on this page</small></div>
+				<div><span>Missing position</span><strong>@(mapFailure is null ? MissingCount.ToString() : "—")</strong><small>Across all matching vessels</small></div>
 			</article>
 			<article class="positions-summary-card">
-				<div><span>Stale position</span><strong>@StaleCount</strong><small>Older than @StaleAfterLabel</small></div>
+				<div><span>Stale position</span><strong>@(mapFailure is null ? StaleCount.ToString() : "—")</strong><small>Older than @StaleAfterLabel</small></div>
 			</article>
 			<article class="positions-summary-card">
-				<div><span>Current position</span><strong>@CurrentCount</strong><small>Reported recently</small></div>
+				<div><span>Current position</span><strong>@(mapFailure is null ? CurrentCount.ToString() : "—")</strong><small>Reported recently</small></div>
 			</article>
 		</section>
 	}
 
-    @if (positions is { Items.Count: > 0 })
+    @if (!isLoading && failure is null && positions is { TotalCount: > 0 })
     {
-        <section class="positions-coverage" aria-label="Position reporting coverage on this page">
+        <section class="positions-coverage" aria-label="Position reporting coverage across all matching vessels">
             <div class="positions-coverage-heading">
                 <h2>Position reporting coverage</h2>
-                <p>@CurrentCount of @positions.Items.Count vessels on this page have a current report</p>
+                @if (mapFailure is null)
+                {
+                    <p>@CurrentCount of @mapVessels.Count matching vessels have a current report</p>
+                }
             </div>
+            @if (mapFailure is not null)
+            {
+                <p class="positions-coverage-unavailable" role="status">Coverage is unavailable because all matching vessel positions could not be loaded. Retry using Refresh.</p>
+            }
+            else
+            {
             <div class="positions-coverage-chart">
                 <div class="positions-coverage-ring" style="--coverage-current-end: @CoveragePercent(CurrentCount)%; --coverage-stale-end: @CoveragePercent(CurrentCount + StaleCount)%" aria-hidden="true">
                     <div class="positions-coverage-ring-center"><strong>@CoveragePercent(CurrentCount)<span>%</span></strong><small>Current</small></div>
@@ -93,6 +102,7 @@
                     </li>
                 </ul>
             </div>
+            }
         </section>
     }
 

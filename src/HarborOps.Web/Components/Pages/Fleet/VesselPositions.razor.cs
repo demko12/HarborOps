@@ -51,14 +51,14 @@ public partial class VesselPositions : IDisposable, IAsyncDisposable
     // by maintenance.manage, independent of the Fleet-specific CanManageFleet permission.
     private bool CanReportDefects => AuthorizationState.HasPermission("maintenance.manage");
 
-    private int MissingCount => positions?.Items.Count(vessel => !vessel.HasPosition) ?? 0;
+    private int MissingCount => mapVessels.Count(vessel => !vessel.HasPosition);
 
-    private int StaleCount => positions?.Items.Count(vessel => vessel.HasPosition && vessel.IsPositionStale) ?? 0;
+    private int StaleCount => mapVessels.Count(vessel => vessel.HasPosition && vessel.IsPositionStale);
 
-    private int CurrentCount => positions?.Items.Count(vessel => !vessel.IsPositionStale) ?? 0;
+    private int CurrentCount => mapVessels.Count(vessel => vessel.HasPosition && !vessel.IsPositionStale);
 
-    private string CoveragePercent(int count) => positions is { Items.Count: > 0 }
-        ? (100m * count / positions.Items.Count).ToString("0.#", CultureInfo.InvariantCulture)
+    private string CoveragePercent(int count) => mapVessels.Count > 0
+        ? (100m * count / mapVessels.Count).ToString("0.#", CultureInfo.InvariantCulture)
         : "0";
 
     private IReadOnlyList<VesselPositionWebModel> AttentionVessels =>

@@ -995,6 +995,7 @@ html[data-theme="light"] .positions-report-modal {
     color: var(--text-secondary);
     font-size: 0.78rem;
 }
+.positions-coverage-unavailable { margin: 0; color: var(--text-secondary); font-size: .8rem; }
 .positions-coverage-chart {
     display: grid;
     grid-template-columns: 7rem minmax(0, 1fr);
