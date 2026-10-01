@@ -19,37 +19,50 @@
     </header>
 
     <section class="cargo-summary" aria-label="Booking summary">
-        <article class="cargo-summary-card">
+        <button type="button"
+                class="cargo-summary-card cargo-kpi-filter cargo-kpi-total @(HasFilters ? null : "selected")"
+                aria-pressed="@(HasFilters ? "false" : "true")"
+                aria-label="Show every booking"
+                disabled="@isLoading"
+                @onclick="ClearFiltersAsync">
             <div>
                 <span>Total bookings</span>
                 <strong>@totalCount</strong>
-                <small>Matching the current filters</small>
+                <small>@(HasFilters ? "Matching the current filters · click to show all" : "Every booking")</small>
             </div>
             <span class="summary-icon summary-icon-orange" aria-hidden="true"><span class="bi bi-box-seam-fill"></span></span>
-        </article>
-        <article class="cargo-summary-card">
+        </button>
+        <button type="button"
+                class="cargo-summary-card cargo-kpi-filter @(hazardousOnly ? "selected" : null)"
+                aria-pressed="@(hazardousOnly ? "true" : "false")"
+                aria-label="@(hazardousOnly ? "Show all bookings again" : "Show only hazardous bookings")"
+                @onclick="ToggleHazardousKpiAsync">
             <div>
                 <span>Hazardous bookings</span>
                 <strong>@hazardousCount</strong>
-                <small>Matching the current filters</small>
+                <small>@(hazardousOnly ? "Filter applied · click to clear" : "Click to show only these")</small>
             </div>
             <span class="summary-icon summary-icon-amber" aria-hidden="true"><span class="bi bi-exclamation-triangle-fill"></span></span>
-        </article>
+        </button>
+        <button type="button"
+                class="cargo-summary-card cargo-kpi-filter cargo-kpi-discrepancies @(openDiscrepanciesOnly ? "selected" : null) @(openDiscrepancyBookingCount > 0 ? "has-open" : null)"
+                aria-pressed="@(openDiscrepanciesOnly ? "true" : "false")"
+                aria-label="@(openDiscrepanciesOnly ? "Show all bookings again" : "Show only bookings with open discrepancies")"
+                @onclick="ToggleOpenDiscrepanciesKpiAsync">
+            <div>
+                <span>Open discrepancies</span>
+                <strong>@openDiscrepancyBookingCount</strong>
+                <small>@(openDiscrepanciesOnly ? "Filter applied · click to clear" : "Bookings that cannot complete yet")</small>
+            </div>
+            <span class="summary-icon summary-icon-red" aria-hidden="true"><span class="bi bi-clipboard2-x"></span></span>
+        </button>
         <article class="cargo-summary-card">
             <div>
                 <span>Cargo weight</span>
                 <strong>@((rows.Sum(row => row.WeightKg) / 1000m).ToString("N1", System.Globalization.CultureInfo.InvariantCulture)) <em>t</em></strong>
-                <small>On this page · @rows.Count bookings</small>
+                <small>On this page · @rows.Count bookings · @(rows.Sum(row => (long)row.PackageCount).ToString("N0", System.Globalization.CultureInfo.InvariantCulture)) packages</small>
             </div>
             <span class="summary-icon summary-icon-neutral" aria-hidden="true"><span class="bi bi-speedometer2"></span></span>
-        </article>
-        <article class="cargo-summary-card">
-            <div>
-                <span>Packages</span>
-                <strong>@(rows.Sum(row => (long)row.PackageCount).ToString("N0", System.Globalization.CultureInfo.InvariantCulture))</strong>
-                <small>On this page · @rows.Count bookings</small>
-            </div>
-            <span class="summary-icon summary-icon-neutral" aria-hidden="true"><span class="bi bi-boxes"></span></span>
         </article>
     </section>
 
@@ -80,9 +93,19 @@
                 </div>
             </div>
             <div class="cargo-card-tools">
-                <div class="cargo-view-switch" role="group" aria-label="Cargo display">
-                    <button type="button" aria-label="List view" aria-pressed="@((!cardView).ToString().ToLowerInvariant())" @onclick="() => SetView(false)"><span class="bi bi-list-ul" aria-hidden="true"></span> List</button>
-                    <button type="button" aria-label="Card view" aria-pressed="@cardView.ToString().ToLowerInvariant()" @onclick="() => SetView(true)"><span class="bi bi-grid" aria-hidden="true"></span> Cards</button>
+                <div class="cargo-view-switch" role="group" aria-label="Booking display">
+                    <button type="button"
+                            class="@(!cardView ? "selected" : null)"
+                            aria-pressed="@(!cardView ? "true" : "false")"
+                            @onclick="() => SetView(cards: false)">
+                        <span class="bi bi-list-ul" aria-hidden="true"></span> List
+                    </button>
+                    <button type="button"
+                            class="@(cardView ? "selected" : null)"
+                            aria-pressed="@(cardView ? "true" : "false")"
+                            @onclick="() => SetView(cards: true)">
+                        <span class="bi bi-grid" aria-hidden="true"></span> Cards
+                    </button>
                 </div>
                 @if (AuthorizationState.CanManageCargo)
                 {
@@ -132,6 +155,12 @@
                 Hazardous only
             </label>
 
+            <label class="cargo-discrepancy-toggle" for="cargo-open-discrepancies">
+                <input type="checkbox" id="cargo-open-discrepancies" @bind="openDiscrepanciesOnly" @bind:after="ApplyFiltersAsync" />
+                <span class="bi bi-clipboard2-x" aria-hidden="true"></span>
+                Open discrepancies
+            </label>
+
             <button class="cargo-reset" type="button" @onclick="ClearFiltersAsync" disabled="@isLoading">Reset</button>
         </div>
 
@@ -148,56 +177,84 @@
             <EmptyState Title="No bookings match your filters"
                         Message="Clear the search or choose a different status." />
         }
+        else if (cardView)
+        {
+            <ul class="cargo-card-grid" aria-label="Registered cargo bookings">
+                @foreach (var row in rows)
+                {
+                    <li @key="row.CargoBookingId"
+                        class="cargo-booking-card @CargoBookingFormat.StatusModifier(row.Status) @(row.IsHazardous ? "is-hazardous" : null) @(row.OpenDiscrepancyCount > 0 ? "has-discrepancies" : null)"
+                        role="link"
+                        tabindex="0"
+                        aria-label="@($"Open {row.BookingNumber} booking details")"
+                        @onclick="() => OpenBookingDetails(row.CargoBookingId)"
+                        @onkeydown="(args) => HandleBookingRowKeyDown(args, row.CargoBookingId)">
+                        <div class="cargo-booking-card-head">
+                            <span class="cargo-row-icon bi @(row.IsHazardous ? "bi-exclamation-triangle-fill" : "bi-box-seam")" aria-hidden="true"></span>
+                            <div class="cargo-booking-card-identity">
+                                <a class="cargo-booking-no" href="@DetailsHref(row.CargoBookingId)" @onclick:stopPropagation="true">@row.BookingNumber</a>
+                                <span class="cargo-voyage">Voyage @CargoBookingFormat.ShortVoyage(row.VoyageId)</span>
+                            </div>
+                            <span class="cargo-status @CargoBookingFormat.StatusModifier(row.Status)">@row.Status</span>
+                        </div>
+
+                        <p class="cargo-booking-card-description" title="@row.Description">@row.Description</p>
+
+                        <span class="cargo-track @CargoBookingFormat.StatusModifier(row.Status)"
+                              role="img"
+                              aria-label="@($"Step {CargoBookingFormat.LifecycleStep(row.Status)} of {CargoBookingFormat.Statuses.Count}")">
+                            @for (var step = 1; step <= CargoBookingFormat.Statuses.Count; step++)
+                            {
+                                <i class="@(step <= CargoBookingFormat.LifecycleStep(row.Status) ? "on" : null)"></i>
+                            }
+                        </span>
+
+                        <dl class="cargo-booking-card-facts">
+                            <div>
+                                <dt>Cargo type</dt>
+                                <dd>@row.CargoType</dd>
+                            </div>
+                            <div>
+                                <dt>Weight</dt>
+                                <dd>@CargoBookingFormat.WeightKg(row.WeightKg) kg</dd>
+                            </div>
+                            <div>
+                                <dt>Packages</dt>
+                                <dd>@CargoBookingFormat.PackageCount(row.PackageCount)</dd>
+                            </div>
+                            <div>
+                                <dt>Created (UTC)</dt>
+                                <dd>@CargoBookingFormat.CreatedUtcDate(row.CreatedUtc)</dd>
+                            </div>
+                        </dl>
+
+                        @if (row.IsHazardous || row.OpenDiscrepancyCount > 0)
+                        {
+                            <div class="cargo-booking-card-flags">
+                                @if (row.IsHazardous)
+                                {
+                                    <span class="cargo-hazard-chip">
+                                        <span class="cargo-placard" aria-hidden="true"></span>
+                                        @CargoBookingFormat.HazardousLabel
+                                    </span>
+                                }
+                                @if (row.OpenDiscrepancyCount > 0)
+                                {
+                                    <span class="cargo-discrepancy-flag" title="Reported or under investigation; blocks completion">
+                                        <span class="bi bi-clipboard2-x" aria-hidden="true"></span>
+                                        @CargoDiscrepanciesPanel.Count(row.OpenDiscrepancyCount, "open discrepancy", "open discrepancies")
+                                    </span>
+                                }
+                            </div>
+                        }
+                    </li>
+                }
+            </ul>
+
+            @Pagination
+        }
         else
         {
-            @if (cardView)
-            {
-                <div class="cargo-booking-grid" role="list" aria-label="Cargo bookings">
-                    @foreach (var row in rows)
-                    {
-                        <article @key="row.CargoBookingId" role="listitem">
-                            <a class="cargo-booking-card @(row.IsHazardous ? "cargo-hazard-card" : null)"
-                               href="@DetailsHref(row.CargoBookingId)" aria-label="@($"Open {row.BookingNumber} booking details")">
-                                <div class="cargo-booking-card-head">
-                                    <span class="cargo-row-icon bi @(row.IsHazardous ? "bi-exclamation-triangle-fill" : "bi-box-seam")" aria-hidden="true"></span>
-                                    <div>
-                                        <strong class="cargo-booking-no">@row.BookingNumber</strong>
-                                        <span class="cargo-voyage">Voyage @CargoBookingFormat.ShortVoyage(row.VoyageId)</span>
-                                    </div>
-                                </div>
-                                <div class="cargo-booking-card-status">
-                                    <span class="cargo-status @CargoBookingFormat.StatusModifier(row.Status)">@row.Status</span>
-                                    @if (row.IsHazardous)
-                                    {
-                                        <span class="cargo-hazard-chip"><span class="cargo-placard" aria-hidden="true"></span>@CargoBookingFormat.HazardousLabel</span>
-                                    }
-                                    else
-                                    {
-                                        <span class="cargo-muted">@CargoBookingFormat.NotHazardousLabel</span>
-                                    }
-                                </div>
-                                <p class="cargo-booking-card-description">@row.Description</p>
-                                <dl class="cargo-booking-card-facts">
-                                    <div><dt>Cargo type</dt><dd>@row.CargoType</dd></div>
-                                    <div><dt>Weight (kg)</dt><dd>@CargoBookingFormat.WeightKg(row.WeightKg)</dd></div>
-                                    <div><dt>Packages</dt><dd>@CargoBookingFormat.PackageCount(row.PackageCount)</dd></div>
-                                    <div><dt>Created (UTC)</dt><dd>@CargoBookingFormat.CreatedUtcDate(row.CreatedUtc) <span>@CargoBookingFormat.CreatedUtcTime(row.CreatedUtc)</span></dd></div>
-                                </dl>
-                                <span class="cargo-track @CargoBookingFormat.StatusModifier(row.Status)" role="img"
-                                      aria-label="@($"Step {CargoBookingFormat.LifecycleStep(row.Status)} of {CargoBookingFormat.Statuses.Count}")">
-                                    @for (var step = 1; step <= CargoBookingFormat.Statuses.Count; step++)
-                                    {
-                                        <i class="@(step <= CargoBookingFormat.LifecycleStep(row.Status) ? "on" : null)"></i>
-                                    }
-                                </span>
-                                <span class="cargo-booking-card-link">View booking <span class="bi bi-arrow-up-right" aria-hidden="true"></span></span>
-                            </a>
-                        </article>
-                    }
-                </div>
-            }
-            else
-            {
             <div class="cargo-table-scroll">
                 <table class="cargo-table">
                     <caption class="visually-hidden">Registered cargo bookings, newest first</caption>
@@ -229,9 +286,12 @@
                                         <div>
                                             <a class="cargo-booking-no" href="@DetailsHref(row.CargoBookingId)">@row.BookingNumber</a>
                                             <span class="cargo-voyage">Voyage @CargoBookingFormat.ShortVoyage(row.VoyageId)</span>
-                                            @if (row.IsHazardous)
+                                            @if (row.OpenDiscrepancyCount > 0)
                                             {
-                                                <span class="cargo-hazard-flag">Hazardous cargo</span>
+                                                <span class="cargo-discrepancy-flag" title="Reported or under investigation; blocks completion">
+                                                    <span class="bi bi-clipboard2-x" aria-hidden="true"></span>
+                                                    @CargoDiscrepanciesPanel.Count(row.OpenDiscrepancyCount, "open discrepancy", "open discrepancies")
+                                                </span>
                                             }
                                         </div>
                                     </div>
@@ -276,16 +336,8 @@
                     </tbody>
                 </table>
             </div>
-            }
 
-            <div class="cargo-pagination">
-                <span>Showing @FirstRowNumber&ndash;@LastRowNumber of @totalCount bookings</span>
-                <div class="cargo-pages">
-                    <button type="button" @onclick="PreviousPageAsync" disabled="@(pageNumber <= 1)">Previous</button>
-                    <span class="cargo-page-indicator">Page @pageNumber of @TotalPages</span>
-                    <button type="button" @onclick="NextPageAsync" disabled="@(pageNumber >= TotalPages)">Next</button>
-                </div>
-            </div>
+            @Pagination
         }
     </section>
 
@@ -379,3 +431,14 @@
         </div>
     }
 </section>
+
+@code {
+    private RenderFragment Pagination => @<div class="cargo-pagination">
+        <span>Showing @FirstRowNumber&ndash;@LastRowNumber of @totalCount bookings</span>
+        <div class="cargo-pages">
+            <button type="button" @onclick="PreviousPageAsync" disabled="@(pageNumber <= 1)">Previous</button>
+            <span class="cargo-page-indicator">Page @pageNumber of @TotalPages</span>
+            <button type="button" @onclick="NextPageAsync" disabled="@(pageNumber >= TotalPages)">Next</button>
+        </div>
+    </div>;
+}

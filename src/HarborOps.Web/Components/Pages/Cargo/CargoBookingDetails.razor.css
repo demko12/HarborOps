@@ -15,14 +15,6 @@
     margin-bottom: 1.75rem;
 }
 
-.booking-eyebrow {
-    margin: 0.55rem 0 0.4rem;
-    color: var(--accent);
-    font-size: 0.72rem;
-    font-weight: 700;
-    letter-spacing: 0.14em;
-    text-transform: uppercase;
-}
 .booking-header h1 {
     margin: 0;
     font-size: clamp(1.75rem, 3vw, 2.25rem);
@@ -1624,4 +1616,54 @@ html[data-theme="light"] .manifest-filter-hint {
     font-size: 0.8rem;
     font-weight: 600;
     cursor: pointer;
+}
+
+.completion-blockers {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    margin-bottom: 0.9rem;
+    padding: 0.85rem 1rem;
+    border: 1px solid rgba(251, 191, 36, 0.45);
+    border-radius: var(--radius-control);
+    background: rgba(251, 191, 36, 0.08);
+}
+.completion-blockers p {
+    margin: 0;
+    color: var(--text-primary);
+    font-size: 0.88rem;
+}
+.completion-blockers ul {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+.completion-blockers li {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.8rem;
+}
+.completion-blocker-open {
+    padding: 0;
+    color: var(--accent);
+    border: 0;
+    background: transparent;
+    font: inherit;
+    font-size: 0.86rem;
+    font-weight: 600;
+    text-align: left;
+    text-decoration: underline;
+    text-underline-offset: 2px;
+    cursor: pointer;
+}
+.completion-blocker-status {
+    color: var(--text-secondary);
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
 }

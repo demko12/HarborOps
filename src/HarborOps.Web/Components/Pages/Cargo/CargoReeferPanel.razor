@@ -330,6 +330,48 @@
                                     </div>
                                 </EditForm>
                             }
+
+                            @if (CanManage
+                                 && OnDiscrepancyOpened.HasDelegate
+                                 && resolvingExcursionId != excursion.Id
+                                 && excursion.Status != SupersededExcursionStatus)
+                            {
+                                @if (discrepancyExcursionId == excursion.Id)
+                                {
+                                    <div class="reefer-form reefer-discrepancy-form">
+                                        <div class="reefer-form-row">
+                                            <label class="form-label" for="reefer-discrepancy-severity">Discrepancy severity</label>
+                                            <select id="reefer-discrepancy-severity" class="form-select" @bind="discrepancySeverity">
+                                                @foreach (var severity in CargoDiscrepanciesPanel.Severities)
+                                                {
+                                                    <option value="@severity">@severity</option>
+                                                }
+                                            </select>
+                                        </div>
+                                        <div class="reefer-form-row">
+                                            <label class="form-label" for="reefer-discrepancy-description">Description</label>
+                                            <textarea id="reefer-discrepancy-description" class="form-control" rows="2" maxlength="1000" @bind="discrepancyDescription"></textarea>
+                                        </div>
+                                        <p class="booking-note">If this excursion already has a discrepancy, it is opened instead of creating a second one.</p>
+                                        @if (discrepancyError is not null)
+                                        {
+                                            <p class="reefer-form-error" role="alert">@discrepancyError</p>
+                                        }
+                                        <div class="reefer-form-actions">
+                                            <button type="button" class="booking-submit reefer-discrepancy-submit" disabled="@isOpeningDiscrepancy" @onclick="SubmitDiscrepancyAsync">
+                                                @(isOpeningDiscrepancy ? "Opening..." : "Create or open discrepancy")
+                                            </button>
+                                            <button type="button" class="reefer-secondary" disabled="@isOpeningDiscrepancy" @onclick="CancelDiscrepancy">Cancel</button>
+                                        </div>
+                                    </div>
+                                }
+                                else
+                                {
+                                    <button type="button" class="reefer-secondary reefer-discrepancy-open" @onclick="() => StartDiscrepancy(excursion)">
+                                        Discrepancy...
+                                    </button>
+                                }
+                            }
                         </li>
                     }
                 </ul>

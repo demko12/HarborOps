@@ -18,6 +18,8 @@ public static class CargoModule
         services.AddScoped<ContainerManifestImportService>();
         services.AddScoped<AssignContainerSealService>();
         services.AddScoped<BreakContainerSealService>();
+        services.AddScoped<CargoCompletionBlockersQuery>();
+        services.AddScoped<CargoDiscrepancyWorkflowService>();
         services.AddScoped<CorrectReeferTemperatureReadingService>();
         services.AddScoped<CreateBillOfLadingDraftService>();
         services.AddScoped<ExecuteCargoOperationService>();
@@ -26,6 +28,7 @@ public static class CargoModule
         services.AddScoped<GetBillsOfLadingQuery>();
         services.AddScoped<GetCargoBookingDetailsQuery>();
         services.AddScoped<GetCargoContainersQuery>();
+        services.AddScoped<GetCargoDiscrepanciesQuery>();
         services.AddScoped<GetCargoManifestExportQuery>();
         services.AddScoped<GetCargoOperationsQuery>();
         services.AddScoped<GetCargoSafetyInformationQuery>();
@@ -35,11 +38,13 @@ public static class CargoModule
         services.AddScoped<GetReeferTemperatureReadingsQuery>();
         services.AddScoped<HoldContainerService>();
         services.AddScoped<IssueBillOfLadingService>();
+        services.AddScoped<OpenExcursionDiscrepancyService>();
         services.AddScoped<PlanCargoOperationService>();
         services.AddScoped<RecordCargoTrackingEventService>();
         services.AddScoped<RecordContainerInspectionService>();
         services.AddScoped<RecordReeferTemperatureReadingService>();
         services.AddScoped<RegisterCargoBookingService>();
+        services.AddScoped<RegisterCargoDiscrepancyService>();
         services.AddScoped<ReleaseContainerService>();
         services.AddScoped<ResolveReeferExcursionService>();
         services.AddScoped<ReviewCargoSafetyInfoService>();

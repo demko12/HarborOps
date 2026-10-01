@@ -55,6 +55,13 @@ public sealed class CargoBookingDetailsPageTests : BunitContext
 
     private Func<HttpRequestMessage, CancellationToken, Task<HttpResponseMessage>>? respondWithToken;
 
+    private const string NoDiscrepancies = """
+        {"items":[],"pageNumber":1,"pageSize":10,"totalCount":0,"summary":{"reportedCount":0,"investigatingCount":0,"resolvedCount":0,"voidedCount":0,"openCount":0}}
+        """;
+
+    private Func<HttpRequestMessage, Task<HttpResponseMessage>> respondToDiscrepancies =
+        _ => Json(HttpStatusCode.OK, NoDiscrepancies);
+
     public CargoBookingDetailsPageTests()
     {
         JSInterop.Mode = JSRuntimeMode.Loose;
@@ -1262,6 +1269,167 @@ public sealed class CargoBookingDetailsPageTests : BunitContext
     }
 
     [Fact]
+    public void A_blocked_completion_lists_the_unresolved_discrepancies_and_opens_them()
+    {
+        const string blockingDiscrepancyId = "d0000000-0000-0000-0000-000000000001";
+        respond = request => request.Method == HttpMethod.Post
+            ? Json(
+                HttpStatusCode.Conflict,
+                """
+                {"title":"Cargo booking has unresolved discrepancies.","status":409,"detail":"Cargo booking cannot be completed while 2 discrepancies are reported or under investigation.","completionBlockers":{"cargoBookingId":"20000000-0000-0000-0000-000000000001","openCount":2,"reportedCount":1,"investigatingCount":1,"discrepancies":[{"discrepancyId":"d0000000-0000-0000-0000-000000000001","type":"SealMismatch","severity":"High","status":"Reported","containerId":"70000000-0000-0000-0000-000000000006","containerNumber":"MSKU1234567"},{"discrepancyId":"d0000000-0000-0000-0000-000000000002","type":"Shortage","severity":"Low","status":"Investigating","containerId":null,"containerNumber":null}]}}
+                """)
+            : Json(HttpStatusCode.OK, Details(status: "Unloaded", nextStatus: "Completed"));
+        respondToDiscrepancies = request => request.RequestUri!.AbsolutePath.EndsWith(blockingDiscrepancyId, StringComparison.Ordinal)
+            ? Json(
+                HttpStatusCode.OK,
+                """
+                {"discrepancy":{"id":"d0000000-0000-0000-0000-000000000001","cargoBookingId":"20000000-0000-0000-0000-000000000001","containerId":"70000000-0000-0000-0000-000000000006","containerNumber":"MSKU1234567","type":"SealMismatch","severity":"High","description":"Seal differs","observedAtUtc":"2026-09-29T07:30:00Z","reportedByUserId":"50000000-0000-0000-0000-000000000005","reportedAtUtc":"2026-09-29T08:00:00Z","status":"Reported","disposition":null,"resolvedByUserId":null,"resolvedAtUtc":null,"voidedByUserId":null,"voidedAtUtc":null,"sourceExcursionId":null},"bookingNumber":"BK-2026-0145","bookingStatus":"Unloaded","source":null,"investigationNoteCount":0,"resolutionBlocker":"Start the investigation before resolving the discrepancy.","history":[]}
+                """)
+            : Json(HttpStatusCode.OK, NoDiscrepancies);
+
+        var page = RenderDetailsPage();
+        page.Find("#tracking-location").Change("Gate 2");
+        page.Find(".tracking-submit").Click();
+
+        page.WaitForAssertion(() => Assert.Equal(2, page.FindAll(".completion-blockers li").Count));
+        Assert.Contains("(1 reported, 1 under investigation)", page.Find(".completion-blockers p").TextContent, StringComparison.Ordinal);
+        Assert.Contains("Seal mismatch on MSKU1234567", page.FindAll(".completion-blocker-open")[0].TextContent, StringComparison.Ordinal);
+        Assert.Contains("Shortage on the whole booking", page.FindAll(".completion-blocker-open")[1].TextContent, StringComparison.Ordinal);
+        Assert.Equal("Cargo booking has unresolved discrepancies. Cargo booking cannot be completed while 2 discrepancies are reported or under investigation.", page.Find(".booking-tracking-card .booking-form-error").TextContent);
+
+        page.FindAll(".completion-blocker-open")[0].Click();
+
+        page.WaitForAssertion(() => Assert.Contains("Seal differs", page.Find(".discrepancy-modal").TextContent, StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void Open_discrepancies_block_completion_before_it_is_attempted()
+    {
+        var blockersReturned = false;
+        respond = _ => Json(HttpStatusCode.OK, Details(status: "Unloaded", nextStatus: "Completed"));
+        respondToDiscrepancies = request =>
+        {
+            if (!request.RequestUri!.AbsolutePath.EndsWith("/completion-blockers", StringComparison.Ordinal))
+            {
+                return Json(HttpStatusCode.OK, NoDiscrepancies);
+            }
+
+            blockersReturned = true;
+
+            return Json(
+                HttpStatusCode.OK,
+                """
+                {"cargoBookingId":"20000000-0000-0000-0000-000000000001","openCount":1,"reportedCount":1,"investigatingCount":0,"discrepancies":[{"discrepancyId":"d0000000-0000-0000-0000-000000000001","type":"Damage","severity":"High","status":"Reported","containerId":null,"containerNumber":null}]}
+                """);
+        };
+
+        var page = RenderDetailsPage();
+
+        page.WaitForAssertion(() => Assert.Single(page.FindAll(".completion-blockers li")));
+        Assert.True(blockersReturned);
+        Assert.Contains("Damage on the whole booking", page.Find(".completion-blocker-open").TextContent, StringComparison.Ordinal);
+        Assert.True(page.Find(".tracking-submit").HasAttribute("disabled"));
+        Assert.DoesNotContain(requestedUris, uri => uri.AbsolutePath.EndsWith("/tracking-events", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void Completion_blockers_are_not_requested_for_an_earlier_step()
+    {
+        respond = _ => Json(HttpStatusCode.OK, Details(status: "Arrived", nextStatus: "Unloaded"));
+
+        var manager = RenderDetailsPage();
+
+        manager.WaitForAssertion(() => Assert.False(manager.Find(".tracking-submit").HasAttribute("disabled")));
+        Assert.DoesNotContain(requestedUris, uri => uri.AbsolutePath.EndsWith("/completion-blockers", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void The_reefer_log_opens_from_a_discrepancy_even_when_its_container_is_not_on_the_manifest_page()
+    {
+        const string discrepancyId = "d0000000-0000-0000-0000-000000000001";
+        respond = request =>
+        {
+            var path = request.RequestUri!.AbsolutePath;
+
+            if (path.EndsWith("/control", StringComparison.Ordinal))
+            {
+                return Json(
+                    HttpStatusCode.OK,
+                    $$"""{"control":{{ContainerControlJson(ContainerId, "Pending", isReefer: true)}},"history":[]}""");
+            }
+
+            if (path.EndsWith("/reefer/profile", StringComparison.Ordinal))
+            {
+                return Json(
+                    HttpStatusCode.OK,
+                    $$"""{"containerId":"{{ContainerId}}","containerNumber":"MSKU1234567","profile":null,"changes":[],"openExcursionCount":1}""");
+            }
+
+            if (path.EndsWith("/reefer/excursions", StringComparison.Ordinal))
+            {
+                return Json(HttpStatusCode.OK, """{"items":[],"openCount":0}""");
+            }
+
+            if (path.EndsWith("/reefer/readings", StringComparison.Ordinal))
+            {
+                return Json(HttpStatusCode.OK, """{"items":[],"pageNumber":1,"pageSize":10,"totalCount":0}""");
+            }
+
+            return SectionResponse(
+                request,
+                Items(ContainerJson(SecondContainerId, "TGHU0000001")),
+                EmptyItems,
+                Details(
+                    status: "Arrived",
+                    nextStatus: "Unloaded",
+                    containerControls:
+                    [
+                        ContainerControlJson(SecondContainerId, "Pending", "TGHU0000001"),
+                        ContainerControlJson(ContainerId, "Pending", "MSKU1234567", isReefer: true),
+                    ]));
+        };
+        respondToDiscrepancies = request => request.RequestUri!.AbsolutePath.EndsWith(discrepancyId, StringComparison.Ordinal)
+            ? Json(
+                HttpStatusCode.OK,
+                """
+                {"discrepancy":{"id":"d0000000-0000-0000-0000-000000000001","cargoBookingId":"20000000-0000-0000-0000-000000000001","containerId":"70000000-0000-0000-0000-000000000006","containerNumber":"MSKU1234567","type":"TemperatureRelated","severity":"High","description":"Warm cargo","observedAtUtc":"2026-09-29T07:30:00Z","reportedByUserId":"50000000-0000-0000-0000-000000000005","reportedAtUtc":"2026-09-29T08:00:00Z","status":"Investigating","disposition":null,"resolvedByUserId":null,"resolvedAtUtc":null,"voidedByUserId":null,"voidedAtUtc":null,"sourceExcursionId":"90000000-0000-0000-0000-000000000001"},"bookingNumber":"BK-2026-0145","bookingStatus":"Arrived","source":{"excursionId":"90000000-0000-0000-0000-000000000001","containerId":"70000000-0000-0000-0000-000000000006","direction":"Above","temperatureCelsius":7.5,"thresholdMinimumCelsius":-2,"thresholdMaximumCelsius":4,"measuredAtUtc":"2026-09-29T07:30:00Z","detectedAtUtc":"2026-09-29T07:35:00Z","currentStatus":"Open","currentDisposition":null,"supersededByExcursionId":null,"blocksResolution":true},"investigationNoteCount":1,"resolutionBlocker":"The linked temperature excursion is still open. Resolve it or correct its reading first.","history":[]}
+                """)
+            : Json(
+                HttpStatusCode.OK,
+                """
+                {"items":[{"id":"d0000000-0000-0000-0000-000000000001","cargoBookingId":"20000000-0000-0000-0000-000000000001","containerId":"70000000-0000-0000-0000-000000000006","containerNumber":"MSKU1234567","type":"TemperatureRelated","severity":"High","description":"Warm cargo","observedAtUtc":"2026-09-29T07:30:00Z","reportedByUserId":"50000000-0000-0000-0000-000000000005","reportedAtUtc":"2026-09-29T08:00:00Z","status":"Investigating","disposition":null,"resolvedByUserId":null,"resolvedAtUtc":null,"voidedByUserId":null,"voidedAtUtc":null,"sourceExcursionId":"90000000-0000-0000-0000-000000000001"}],"pageNumber":1,"pageSize":10,"totalCount":1,"summary":{"reportedCount":0,"investigatingCount":1,"resolvedCount":0,"voidedCount":0,"openCount":1}}
+                """);
+
+        var page = RenderDetailsPage();
+        page.WaitForAssertion(() => Assert.Single(page.FindAll(".discrepancy-row")));
+
+        Assert.DoesNotContain("MSKU1234567", page.Find(".manifest-table").TextContent, StringComparison.Ordinal);
+
+        page.Find(".discrepancy-open").Click();
+        page.WaitForAssertion(() => Assert.NotNull(page.Find(".discrepancy-source-link")));
+        page.Find(".discrepancy-source-link").Click();
+
+        page.WaitForAssertion(() => Assert.Equal(
+            "Control for MSKU1234567",
+            page.Find("#container-control-modal-title").TextContent));
+        Assert.Empty(page.FindAll(".discrepancy-modal"));
+        page.WaitForAssertion(() => Assert.Contains(
+            $"/api/cargo/containers/{ContainerId}/reefer/excursions",
+            requestedUris.Select(uri => uri.AbsolutePath)));
+    }
+
+    [Fact]
+    public void The_booking_page_hosts_the_discrepancy_panel()
+    {
+        respond = _ => Json(HttpStatusCode.OK, Details(status: "Arrived", nextStatus: "Unloaded"));
+
+        var page = RenderDetailsPage();
+
+        page.WaitForAssertion(() => Assert.NotNull(page.Find(".booking-discrepancies-card.discrepancies-panel")));
+        Assert.Contains(requestedUris, uri => uri.AbsolutePath == $"/api/cargo/bookings/{BookingId}/discrepancies");
+    }
+
+    [Fact]
     public void A_recorded_event_reloads_the_booking_and_offers_the_following_step()
     {
         var recorded = false;
@@ -1521,6 +1689,12 @@ public sealed class CargoBookingDetailsPageTests : BunitContext
         var httpClient = new HttpClient(new StubHttpMessageHandler((request, token) =>
         {
             requestedUris.Add(request.RequestUri!);
+
+            if (request.Method == HttpMethod.Get
+                && request.RequestUri!.AbsolutePath.Contains("/discrepancies", StringComparison.Ordinal))
+            {
+                return respondToDiscrepancies(request);
+            }
 
             return respondWithToken is null ? respond(request) : respondWithToken(request, token);
         }))
@@ -3131,12 +3305,14 @@ public sealed class CargoBookingDetailsPageTests : BunitContext
         string containerId,
         string state,
         string containerNumber = "MSKU1234567",
-        string? releaseBlockedReason = "it has no intact seal")
+        string? releaseBlockedReason = "it has no intact seal",
+        bool isReefer = false)
     {
         var blockedReason = releaseBlockedReason is null ? "null" : $"\"{releaseBlockedReason}\"";
+        var reefer = isReefer ? "true" : "false";
 
         return $$"""
-            {"containerId":"{{containerId}}","containerNumber":"{{containerNumber}}","containerType":"20GP","isReefer":false,"sealNumber":null,"sealStatus":"None","state":"{{state}}","latestInspectionResult":null,"latestInspectionNotes":null,"latestInspectionTemperatureCelsius":null,"latestInspectedAtUtc":null,"latestInspectedByUserId":null,"stateReason":null,"stateChangedByUserId":null,"stateChangedAtUtc":null,"canRelease":false,"releaseBlockedReason":{{blockedReason}}}
+            {"containerId":"{{containerId}}","containerNumber":"{{containerNumber}}","containerType":"20GP","isReefer":{{reefer}},"sealNumber":null,"sealStatus":"None","state":"{{state}}","latestInspectionResult":null,"latestInspectionNotes":null,"latestInspectionTemperatureCelsius":null,"latestInspectedAtUtc":null,"latestInspectedByUserId":null,"stateReason":null,"stateChangedByUserId":null,"stateChangedAtUtc":null,"canRelease":false,"releaseBlockedReason":{{blockedReason}}}
             """;
     }
 

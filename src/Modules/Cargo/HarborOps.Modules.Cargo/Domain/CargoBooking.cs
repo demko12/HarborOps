@@ -35,6 +35,7 @@ internal sealed class CargoBooking
         IsHazardous = isHazardous;
         Status = status;
         CreatedUtc = createdUtc;
+        ConcurrencyToken = Guid.NewGuid();
     }
 
     public Guid Id { get; private set; }
@@ -57,7 +58,19 @@ internal sealed class CargoBooking
 
     public DateTime CreatedUtc { get; private set; }
 
+    public Guid ConcurrencyToken { get; private set; }
+
     internal CargoStatus? NextStatus => NextStatusFor(Status);
+
+    internal bool AcceptsDiscrepancies => AcceptsDiscrepanciesAt(Status);
+
+    internal static bool AcceptsDiscrepanciesAt(CargoStatus status)
+    {
+        return status is CargoStatus.Loaded
+            or CargoStatus.InTransit
+            or CargoStatus.Arrived
+            or CargoStatus.Unloaded;
+    }
 
     internal static CargoStatus? NextStatusFor(CargoStatus status)
     {
@@ -72,6 +85,12 @@ internal sealed class CargoBooking
         }
 
         Status = requestedStatus;
+        Touch();
+    }
+
+    internal void Touch()
+    {
+        ConcurrencyToken = Guid.NewGuid();
     }
 
     internal static CargoBooking Register(

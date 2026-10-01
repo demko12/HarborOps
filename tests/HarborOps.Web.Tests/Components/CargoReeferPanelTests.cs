@@ -471,8 +471,62 @@ public sealed class CargoReeferPanelTests : BunitContext
         Assert.Contains("\"temperatureCelsius\":-1.5", requestBodies[index], StringComparison.Ordinal);
     }
 
+    private const string OpenedDiscrepancy = """
+        {"details":{"discrepancy":{"id":"d0000000-0000-0000-0000-000000000001","cargoBookingId":"20000000-0000-0000-0000-000000000001","containerId":"70000000-0000-0000-0000-000000000006","containerNumber":"MSKU1234567","type":"TemperatureRelated","severity":"Critical","description":"Warm cargo","observedAtUtc":"2026-09-19T07:45:00Z","reportedByUserId":"50000000-0000-0000-0000-000000000005","reportedAtUtc":"2026-09-19T08:10:00Z","status":"Reported","disposition":null,"resolvedByUserId":null,"resolvedAtUtc":null,"voidedByUserId":null,"voidedAtUtc":null,"sourceExcursionId":"90000000-0000-0000-0000-000000000001"},"bookingNumber":"BK-1","bookingStatus":"InTransit","source":null,"investigationNoteCount":0,"resolutionBlocker":null,"history":[]},"created":true}
+        """;
+
+    [Fact]
+    public void An_excursion_creates_or_opens_its_discrepancy()
+    {
+        excursionResponse = OpenExcursion;
+        Guid? opened = null;
+        var panel = RenderPanel(onDiscrepancyOpened: id => opened = id);
+
+        panel.Find(".reefer-discrepancy-open").Click();
+
+        Assert.Contains("6.5 °C was above", panel.Find("#reefer-discrepancy-description").GetAttribute("value"), StringComparison.Ordinal);
+
+        panel.Find("#reefer-discrepancy-severity").Change("Critical");
+        panel.Find("#reefer-discrepancy-description").Change("Warm cargo");
+        panel.Find(".reefer-discrepancy-submit").Click();
+
+        panel.WaitForAssertion(() => Assert.Equal(Guid.Parse("d0000000-0000-0000-0000-000000000001"), opened));
+        var index = requests.FindIndex(request => request.RequestUri!.AbsolutePath.EndsWith(
+            $"/excursions/{ExcursionId}/discrepancy",
+            StringComparison.Ordinal));
+        Assert.True(index >= 0);
+        Assert.Equal(HttpMethod.Post, requests[index].Method);
+        Assert.Contains("\"severity\":\"Critical\"", requestBodies[index], StringComparison.Ordinal);
+        Assert.Contains("\"description\":\"Warm cargo\"", requestBodies[index], StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void The_discrepancy_action_is_only_offered_to_managers_on_the_booking_page()
+    {
+        excursionResponse = OpenExcursion;
+
+        var standalone = RenderPanel();
+
+        Assert.Empty(standalone.FindAll(".reefer-discrepancy-open"));
+    }
+
+    [Fact]
+    public void A_superseded_excursion_offers_no_discrepancy_action()
+    {
+        excursionResponse = OpenExcursion
+            .Replace("\"status\":\"Open\"", "\"status\":\"Superseded\"", StringComparison.Ordinal)
+            .Replace("\"supersededAtUtc\":null", "\"supersededAtUtc\":\"2026-09-19T16:00:00Z\"", StringComparison.Ordinal)
+            .Replace("\"openCount\":1", "\"openCount\":0", StringComparison.Ordinal);
+
+        var panel = RenderPanel(onDiscrepancyOpened: _ => { });
+
+        panel.WaitForAssertion(() => Assert.Contains("Superseded by a corrected reading", panel.Markup, StringComparison.Ordinal));
+        Assert.Empty(panel.FindAll(".reefer-discrepancy-open"));
+    }
+
     private IRenderedComponent<CargoReeferPanel> RenderPanel(
         bool isReefer = true,
+        Action<Guid>? onDiscrepancyOpened = null,
         params string[] permissions)
     {
         var httpClient = new HttpClient(new StubHttpMessageHandler(async (request, _) =>
@@ -483,6 +537,11 @@ public sealed class CargoReeferPanelTests : BunitContext
                 : await request.Content.ReadAsStringAsync(CancellationToken.None));
 
             var path = request.RequestUri!.AbsolutePath;
+
+            if (path.EndsWith("/discrepancy", StringComparison.Ordinal))
+            {
+                return await Json(HttpStatusCode.OK, OpenedDiscrepancy);
+            }
 
             if (path.EndsWith("/resolve", StringComparison.Ordinal))
             {
@@ -515,7 +574,10 @@ public sealed class CargoReeferPanelTests : BunitContext
         var panel = Render<CargoReeferPanel>(parameters => parameters
             .Add(component => component.ContainerId, Guid.Parse(ContainerId))
             .Add(component => component.ContainerNumber, "MSKU1234567")
-            .Add(component => component.IsReefer, isReefer));
+            .Add(component => component.IsReefer, isReefer)
+            .Add(component => component.OnDiscrepancyOpened, onDiscrepancyOpened is null
+                ? default
+                : Microsoft.AspNetCore.Components.EventCallback.Factory.Create<Guid>(this, onDiscrepancyOpened)));
 
         if (isReefer)
         {
