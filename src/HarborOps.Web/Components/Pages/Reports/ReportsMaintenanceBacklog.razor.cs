@@ -7,6 +7,21 @@ public partial class ReportsMaintenanceBacklog : IDisposable
     private static readonly string[] MaintenancePriorities = ["Low", "Medium", "High", "Critical"];
     private static readonly string[] MaintenanceStatuses = ["Open", "InProgress", "Completed", "Canceled"];
 
+    private const string OpenStatus = "Open";
+    private const string InProgressStatus = "InProgress";
+    private const string CriticalPriority = "Critical";
+    internal const int OverdueSampleSize = 100;
+
+    private MaintenanceBacklogOverview? overview;
+
+    internal sealed record MaintenanceBacklogOverview(
+        int Open,
+        int Overdue,
+        int Critical,
+        int CriticalOverdue,
+        int? AverageOverdueDays,
+        bool AverageIsSampled);
+
     private readonly CancellationTokenSource disposeCancellation = new();
     private int loadVersion;
 
@@ -147,6 +162,10 @@ public partial class ReportsMaintenanceBacklog : IDisposable
             asOfFilter, vesselIdFilter, maintenancePriorityFilter, maintenanceStatusFilter,
             MaintenanceOverdueFilter, maintenanceDueFromFilter, maintenanceDueToFilter, pageNumber, Reports.PageSize);
 
+        var overviewTask = LoadOverviewAsync(
+            query with { Priority = null, Status = null, Overdue = null, PageNumber = 1, PageSize = 1 },
+            cancellationToken);
+
         ReportsApiResult<MaintenanceBacklogReportPage> result;
 
         try
@@ -170,6 +189,7 @@ public partial class ReportsMaintenanceBacklog : IDisposable
             failure = result.Failure;
             maintenanceRows = [];
             totalCount = 0;
+            overview = null;
 
             return;
         }
@@ -180,8 +200,69 @@ public partial class ReportsMaintenanceBacklog : IDisposable
         totalCount = page.TotalCount;
         maintenanceRows = page.Items;
 
+        MaintenanceBacklogOverview? loadedOverview;
+
+        try
+        {
+            loadedOverview = await overviewTask;
+        }
+        catch (OperationCanceledException) when (disposeCancellation.IsCancellationRequested)
+        {
+            return;
+        }
+
+        if (disposeCancellation.IsCancellationRequested || requestVersion != loadVersion)
+        {
+            return;
+        }
+
+        overview = loadedOverview;
+
         await ResolveVesselNamesAsync(page.Items.Select(item => item.VesselId), cancellationToken, requestVersion);
     }
+
+    private async Task<MaintenanceBacklogOverview?> LoadOverviewAsync(
+        MaintenanceBacklogReportQuery baseQuery, CancellationToken cancellationToken)
+    {
+        Task<ReportsApiResult<MaintenanceBacklogReportPage>> Fetch(MaintenanceBacklogReportQuery query) =>
+            ReportsApi.GetMaintenanceBacklogAsync(query, cancellationToken);
+
+        var openTask = Fetch(baseQuery with { Status = OpenStatus });
+        var inProgressTask = Fetch(baseQuery with { Status = InProgressStatus });
+        var overdueTask = Fetch(baseQuery with { Overdue = true, PageSize = OverdueSampleSize });
+        var criticalOpenTask = Fetch(baseQuery with { Priority = CriticalPriority, Status = OpenStatus });
+        var criticalInProgressTask = Fetch(baseQuery with { Priority = CriticalPriority, Status = InProgressStatus });
+        var criticalOverdueTask = Fetch(baseQuery with { Priority = CriticalPriority, Overdue = true });
+
+        var open = await openTask;
+        var inProgress = await inProgressTask;
+        var overdue = await overdueTask;
+        var criticalOpen = await criticalOpenTask;
+        var criticalInProgress = await criticalInProgressTask;
+        var criticalOverdue = await criticalOverdueTask;
+
+        if (!open.IsSuccess || !inProgress.IsSuccess || !overdue.IsSuccess
+            || !criticalOpen.IsSuccess || !criticalInProgress.IsSuccess || !criticalOverdue.IsSuccess)
+        {
+            return null;
+        }
+
+        var overduePage = overdue.Value!;
+        var asOf = overduePage.AsOf;
+
+        return new MaintenanceBacklogOverview(
+            open.Value!.TotalCount + inProgress.Value!.TotalCount,
+            overduePage.TotalCount,
+            criticalOpen.Value!.TotalCount + criticalInProgress.Value!.TotalCount,
+            criticalOverdue.Value!.TotalCount,
+            AverageOverdueDays(overduePage.Items, asOf),
+            overduePage.TotalCount > overduePage.Items.Count);
+    }
+
+    internal static int? AverageOverdueDays(IReadOnlyList<MaintenanceBacklogReportRow> overdueRows, DateOnly asOf) =>
+        overdueRows.Count == 0
+            ? null
+            : (int)Math.Round(overdueRows.Average(row => asOf.DayNumber - DateOnly.FromDateTime(row.DueUtc).DayNumber));
 
     private async Task ResolveVesselNamesAsync(
         IEnumerable<Guid> ids, CancellationToken cancellationToken, int requestVersion)

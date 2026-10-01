@@ -468,6 +468,67 @@ public partial class ReportsPortCallPerformance : IDisposable
     private static string MeanLabel(PortCallPerformanceReportMetricSummary metric) =>
         metric.MeanHours is { } hours ? FormatHours(hours) : "—";
 
+    internal const int PortTurnaroundBarLimit = 8;
+
+    private IReadOnlyList<PortTurnaroundBar> PortTurnaroundBars
+    {
+        get
+        {
+            var ports = portCallPorts
+                .Where(port => port.Summary.Turnaround.MeanHours is > 0)
+                .OrderByDescending(port => port.Summary.Turnaround.MeanHours)
+                .ThenBy(port => port.PortName, StringComparer.OrdinalIgnoreCase)
+                .Take(PortTurnaroundBarLimit)
+                .ToList();
+
+            if (ports.Count == 0)
+            {
+                return [];
+            }
+
+            var longest = ports.Max(port => port.Summary.Turnaround.MeanHours!.Value);
+
+            return ports.Select(port => BuildTurnaroundBar(port, longest)).ToList();
+        }
+    }
+
+    internal static PortTurnaroundBar BuildTurnaroundBar(PortCallPerformanceReportPortSummary port, decimal longest)
+    {
+        var summary = port.Summary;
+        var turnaround = summary.Turnaround.MeanHours!.Value;
+        var allFast = summary.ArrivalToAllFast.MeanHours ?? 0m;
+        var cargo = summary.CargoElapsed.MeanHours ?? 0m;
+        var departure = summary.CargoCompletedToDeparture.MeanHours ?? 0m;
+        var other = Math.Max(0m, turnaround - allFast - cargo - departure);
+        var scale = Math.Max(turnaround, allFast + cargo + departure);
+
+        decimal Width(decimal hours) => scale <= 0 ? 0 : hours / scale * (turnaround / longest) * 100m;
+
+        return new PortTurnaroundBar(
+            port.PortName,
+            summary.StopCount == 1 ? "1 stop" : $"{summary.StopCount} stops",
+            turnaround,
+            $"{port.PortName}: arrival → all fast {FormatHours(allFast)}, cargo {FormatHours(cargo)}, cargo done → departure {FormatHours(departure)}, other {FormatHours(other)}",
+            [
+                new PortTurnaroundSegment("phase-all-fast", Width(allFast)),
+                new PortTurnaroundSegment("phase-cargo", Width(cargo)),
+                new PortTurnaroundSegment("phase-departure", Width(departure)),
+                new PortTurnaroundSegment("phase-other", Width(other)),
+            ]);
+    }
+
+    internal static int FinalizedPercent(PortCallPerformanceReportSummary summary) =>
+        summary.StopCount == 0 ? 0 : (int)Math.Round(summary.FinalizedCount * 100d / summary.StopCount);
+
+    internal sealed record PortTurnaroundBar(
+        string PortName,
+        string StopLabel,
+        decimal TurnaroundHours,
+        string Title,
+        IReadOnlyList<PortTurnaroundSegment> Segments);
+
+    internal sealed record PortTurnaroundSegment(string CssClass, decimal WidthPercent);
+
     private static string SampleLabel(
         PortCallPerformanceReportSummary summary,
         PortCallPerformanceReportMetricSummary metric,

@@ -322,6 +322,7 @@ body {
         .psc-card,
         .register-route-card,
         .reports-card,
+        .reports-kpi,
         .schedule-card,
         .settings-card,
         .survey-card,
@@ -415,6 +416,7 @@ html[data-theme="dark"]
         .psc-card,
         .register-route-card,
         .reports-card,
+        .reports-kpi,
         .schedule-card,
         .settings-card,
         .survey-card,
@@ -437,8 +439,8 @@ html[data-theme="dark"]
 
 html
     .page:not(.login-layout)
-    :is(.documents-summary, .nc-summary)
-    :is(.documents-kpi-filter, .nc-kpi-filter).selected {
+    :is(.documents-summary, .nc-summary, .reports-kpis)
+    :is(.documents-kpi-filter, .nc-kpi-filter, .reports-kpi-filter).selected {
     border-color: var(--accent) !important;
     box-shadow:
         inset 0 0 0 1px var(--accent),
