@@ -2,10 +2,11 @@ using System.Globalization;
 using HarborOps.Web.Api;
 using HarborOps.Web.Api.Fleet;
 using Microsoft.AspNetCore.Components;
+using Microsoft.JSInterop;
 
 namespace HarborOps.Web.Components.Pages.Fleet;
 
-public partial class VesselDetails : IDisposable
+public partial class VesselDetails : IAsyncDisposable
 {
 
     private readonly CancellationTokenSource pageCancellation = new();
@@ -28,6 +29,11 @@ public partial class VesselDetails : IDisposable
     private DateTime? positionHistoryFromUtc;
     private DateTime? positionHistoryToUtc;
     private int positionHistoryPage = 1;
+    private int positionHistoryLoadVersion;
+    private readonly string positionHistoryMapId = $"vessel-position-map-{Guid.NewGuid():N}";
+    private ElementReference positionHistoryMapElement;
+    private bool positionMapInitialized;
+    private bool positionMapUnavailable;
     private Guid? selectedFleetId;
     private bool isAssigning;
     private FleetApiFailure? assignmentFailure;
@@ -125,7 +131,10 @@ public partial class VesselDetails : IDisposable
 
     private async Task LoadPositionHistoryAsync()
     {
+        var requestVersion = ++positionHistoryLoadVersion;
         var result = await FleetApi.GetVesselPositionHistoryAsync(VesselId, positionHistoryFromUtc, positionHistoryToUtc, positionHistoryPage, pageCancellation.Token);
+        if (pageCancellation.IsCancellationRequested || requestVersion != positionHistoryLoadVersion) return;
+        positionMapUnavailable = false;
         if (result.IsSuccess && result.Value is { } history)
         {
             // A partially populated successful payload must render as an empty
@@ -146,6 +155,47 @@ public partial class VesselDetails : IDisposable
     private async Task PreviousPositionHistoryPageAsync() { if (positionHistoryPage > 1) { positionHistoryPage--; await LoadPositionHistoryAsync(); } }
     private async Task NextPositionHistoryPageAsync() { if (positionHistory is { } history && history.PageNumber * history.PageSize < history.TotalCount) { positionHistoryPage++; await LoadPositionHistoryAsync(); } }
     private static string FormatCoordinate(decimal value, bool latitude) => $"{Math.Abs(value).ToString("0.0000", CultureInfo.InvariantCulture)}° {(latitude ? value < 0 ? "S" : "N" : value < 0 ? "W" : "E")}";
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (pageCancellation.IsCancellationRequested) return;
+        try
+        {
+            if (isLoading || positionHistoryFailure is not null || positionHistory?.Items.Count is not > 0)
+            {
+                if (positionMapInitialized)
+                {
+                    await JS.InvokeVoidAsync("vesselPositionMap.dispose", positionHistoryMapId);
+                    positionMapInitialized = false;
+                }
+                return;
+            }
+
+            if (positionMapUnavailable) return;
+            positionMapInitialized = await JS.InvokeAsync<bool>(
+                "vesselPositionMap.render", positionHistoryMapId, positionHistoryMapElement, positionHistory.Items);
+            if (!positionMapInitialized)
+            {
+                positionMapUnavailable = true;
+                await InvokeAsync(StateHasChanged);
+            }
+        }
+        catch (JSDisconnectedException) { }
+        catch (JSException)
+        {
+            positionMapUnavailable = true;
+            await InvokeAsync(StateHasChanged);
+        }
+    }
+
+    private async Task FitPositionMapAsync()
+    {
+        try { await JS.InvokeVoidAsync("vesselPositionMap.fit", positionHistoryMapId); }
+        catch (JSDisconnectedException) { }
+        catch (JSException) { positionMapUnavailable = true; }
+    }
+
+    private void RetryPositionMap() => positionMapUnavailable = false;
 
     private async Task LoadAssignmentsAsync()
     {
@@ -445,10 +495,17 @@ public partial class VesselDetails : IDisposable
     private static string FormatTimestamp(DateTime timestamp) =>
         timestamp.ToLocalTime().ToString("dd MMM yyyy, HH:mm", CultureInfo.InvariantCulture);
 
-    public void Dispose()
+    public async ValueTask DisposeAsync()
     {
         pageCancellation.Cancel();
-        pageCancellation.Dispose();
+        try
+        {
+            if (positionMapInitialized)
+                await JS.InvokeVoidAsync("vesselPositionMap.dispose", positionHistoryMapId);
+        }
+        catch (JSDisconnectedException) { }
+        catch (JSException) { }
+        finally { pageCancellation.Dispose(); }
     }
 
     private sealed class RegistryFormModel

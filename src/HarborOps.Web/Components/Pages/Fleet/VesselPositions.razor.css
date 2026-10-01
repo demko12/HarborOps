@@ -962,3 +962,49 @@ html[data-theme="dark"] .positions-overview-card {
     height: 0.4rem;
     border-radius: 50%;
 }
+
+.positions-map-card {
+    margin-bottom: 1.5rem;
+    padding: 1rem;
+    border: 1px solid var(--border-subtle);
+    border-radius: 0.85rem;
+    background: var(--bg-surface);
+}
+.positions-map {
+    position: relative;
+    z-index: 0;
+    height: clamp(320px, 52vh, 580px);
+    border: 1px solid var(--border-medium);
+    border-radius: 0.75rem;
+    background: var(--bg-surface);
+}
+.positions-map-legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.6rem 1.2rem;
+    margin-top: 0.8rem;
+    color: var(--text-secondary);
+    font-size: 0.75rem;
+}
+.positions-map-legend span {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+}
+.positions-map-legend i {
+    width: 0.5rem;
+    height: 0.5rem;
+    border-radius: 50%;
+}
+.positions-map-current { background: #16a34a; }
+.positions-map-stale { background: #f59e0b; }
+.positions-map-note, .positions-map-missing {
+    color: var(--text-secondary);
+    font-size: 0.8rem;
+}
+.positions-map-missing { margin-top: 0.8rem; }
+.positions-map-missing a { color: var(--accent); }
+.positions-map-missing span { margin-left: 0.5rem; }
+@media (max-width: 720px) {
+    .positions-map-card .positions-card-heading { flex-direction: column; }
+}

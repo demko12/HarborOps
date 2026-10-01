@@ -151,7 +151,12 @@ public sealed class OperationsDashboardService(
         {
             var result = await maintenanceQuery.GetAttentionWorkOrdersAsync(asOfUtc, MaximumItemsPerSection, cancellationToken);
             return Section("maintenance", "Maintenance", "Overdue or critical open work orders", result.AttentionWorkOrderCount, "/maintenance?overdue=true",
-                result.Items.Select(item => Item(item.Title, $"{item.Priority} · {item.Status}", item.DueUtc.ToString("yyyy-MM-dd"), item.IsOverdue || item.Priority == "Critical" ? "critical" : "warning")));
+                result.Items.Select(item => Item(
+                    item.Title,
+                    $"{item.Priority} · {item.Status}",
+                    item.DueUtc.ToString("yyyy-MM-dd"),
+                    item.IsOverdue || item.Priority == "Critical" ? "critical" : "warning",
+                    $"/maintenance/work-orders/{item.WorkOrderId}")));
         }
         catch (Exception exception) when (IsSectionFailure(exception, cancellationToken))
         {

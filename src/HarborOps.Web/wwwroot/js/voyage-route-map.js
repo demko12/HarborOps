@@ -5,7 +5,7 @@ window.voyageRouteMap = {
         if (element._harborOpsSignature === signature && element._harborOpsMap) return;
         const mappedStops = unwrapLongitudes(stops);
         const coordinates = curvedRoute(mappedStops);
-        const map = element._harborOpsMap ?? L.map(element, { zoomControl: true, scrollWheelZoom: false });
+        const map = element._harborOpsMap ?? L.map(element, { zoomControl: true, scrollWheelZoom: true });
         if (!element._harborOpsMap) {
             L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
                 maxZoom: 18,
@@ -133,3 +133,157 @@ function curvedRoute(stops) {
 function escapeHtml(value) {
     return String(value).replace(/[&<>'"]/g, character => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", "'": "&#39;", '"': "&quot;" })[character]);
 }
+
+// Recorded positions use straight segments, ordered by report time.
+window.vesselPositionMap = (() => {
+    const maps = new Map();
+    function dispose(id) {
+        const state = maps.get(id);
+        if (!state) return;
+        cancelAnimationFrame(state.frame);
+        state.observer?.disconnect();
+        state.map.remove();
+        maps.delete(id);
+    }
+    function fit(id) {
+        const state = maps.get(id);
+        if (state?.layer) {
+            state.map.invalidateSize();
+            state.map.fitBounds(state.layer.getBounds(), { padding: [44, 44], maxZoom: 12, animate: false });
+        }
+    }
+    return {
+        render(id, element, reports) {
+            if (!element || !window.L || !Array.isArray(reports) || !reports.length) return false;
+            if (reports.some(report => !Number.isFinite(report.latitude) || Math.abs(report.latitude) > 90
+                || !Number.isFinite(report.longitude) || Math.abs(report.longitude) > 180
+                || !Number.isFinite(Date.parse(report.reportedAtUtc)))) return false;
+            const ordered = [...reports].sort((a, b) => Date.parse(a.reportedAtUtc) - Date.parse(b.reportedAtUtc)
+                || String(a.id).localeCompare(String(b.id)));
+            const signature = JSON.stringify(ordered);
+            let state = maps.get(id);
+            if (state && state.element !== element) { dispose(id); state = null; }
+            if (state?.signature === signature) return true;
+            try {
+                if (!state) {
+                    state = { element, map: L.map(element, { zoomControl: true, scrollWheelZoom: true }) };
+                    maps.set(id, state);
+                    L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
+                        maxZoom: 18, attribution: "&copy; OpenStreetMap contributors"
+                    }).addTo(state.map);
+                    if (typeof ResizeObserver !== "undefined") {
+                        state.observer = new ResizeObserver(() => state.map.invalidateSize());
+                        state.observer.observe(element);
+                    }
+                }
+                if (state.layer) state.map.removeLayer(state.layer);
+                state.layer = L.featureGroup().addTo(state.map);
+                const positions = unwrapLongitudes(ordered);
+                if (positions.length > 1) {
+                    L.polyline(positions.map(report => [report.latitude, report.longitude]), {
+                        color: "#4285e4", weight: 2.5, opacity: 0.8, interactive: false
+                    }).addTo(state.layer);
+                }
+                positions.forEach((report, index) => {
+                    const original = ordered[index];
+                    const timestamp = new Date(report.reportedAtUtc).toISOString().replace("T", " ").replace(/\.\d{3}Z$/, " UTC");
+                    const latest = index === positions.length - 1;
+                    L.marker([report.latitude, report.longitude], {
+                        title: `Position ${index + 1}, ${timestamp}${latest ? ", latest report on this page" : ""}`,
+                        alt: `Position report ${index + 1}`,
+                        icon: L.divIcon({ className: `voyage-map-marker ${latest ? "arrived" : "planned"}`,
+                            html: `<span>${index + 1}</span>`, iconSize: [32, 32], iconAnchor: [16, 16] })
+                    }).bindTooltip(escapeHtml(timestamp), { direction: "top", offset: [0, -18], className: "voyage-map-tooltip" })
+                        .bindPopup(`<div class="voyage-map-popup"><small>POSITION ${index + 1}${latest ? " · LATEST ON THIS PAGE" : ""}</small><strong>${escapeHtml(timestamp)}</strong><span>${original.latitude.toFixed(4)}°, ${original.longitude.toFixed(4)}°</span><span>${escapeHtml(report.reportedByDisplayName ?? report.reportedByUserId ?? "Unknown reporter")}</span></div>`)
+                        .addTo(state.layer);
+                });
+                state.signature = signature;
+                fit(id);
+                cancelAnimationFrame(state.frame);
+                state.frame = requestAnimationFrame(() => state.map.invalidateSize());
+                return true;
+            } catch {
+                dispose(id);
+                return false;
+            }
+        },
+        fit,
+        dispose
+    };
+})();
+
+// Fleet overview shows independent latest positions, without route segments.
+window.fleetPositionsMap = (() => {
+    const maps = new Map();
+    function dispose(id) {
+        const state = maps.get(id);
+        if (!state) return;
+        cancelAnimationFrame(state.frame);
+        state.observer?.disconnect();
+        state.map.remove();
+        maps.delete(id);
+    }
+    function fit(id) {
+        const state = maps.get(id);
+        if (!state?.layer) return;
+        state.map.invalidateSize();
+        state.map.fitBounds(state.layer.getBounds(), { padding: [60, 60], maxZoom: 10, animate: false });
+    }
+    const ship = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v3m-5 5V6h10v5M4 13l8-3 8 3-3 6H7l-3-6Zm8-3v9M3 21c2 0 2-1 4-1s3 1 5 1 3-1 5-1 2 1 4 1" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+    return {
+        render(id, element, vessels) {
+            if (!element || !window.L || !Array.isArray(vessels) || !vessels.length) return false;
+            if (vessels.some(vessel => !Number.isFinite(vessel.latitude) || Math.abs(vessel.latitude) > 90
+                || !Number.isFinite(vessel.longitude) || Math.abs(vessel.longitude) > 180)) return false;
+            const signature = JSON.stringify(vessels);
+            let state = maps.get(id);
+            if (state && state.element !== element) { dispose(id); state = null; }
+            if (state?.signature === signature) return true;
+            try {
+                if (!state) {
+                    state = { element, map: L.map(element, { zoomControl: true, scrollWheelZoom: true }) };
+                    maps.set(id, state);
+                    L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
+                        maxZoom: 18, attribution: "&copy; OpenStreetMap contributors"
+                    }).addTo(state.map);
+                    if (typeof ResizeObserver !== "undefined") {
+                        state.observer = new ResizeObserver(() => state.map.invalidateSize());
+                        state.observer.observe(element);
+                    }
+                }
+                if (state.layer) state.map.removeLayer(state.layer);
+                state.layer = L.featureGroup().addTo(state.map);
+                vessels.forEach(vessel => {
+                    const freshness = vessel.isPositionStale ? "stale" : "current";
+                    const timestamp = vessel.lastPositionReportedAtUtc && Number.isFinite(Date.parse(vessel.lastPositionReportedAtUtc))
+                        ? new Date(vessel.lastPositionReportedAtUtc).toISOString().replace("T", " ").replace(/\.\d{3}Z$/, " UTC")
+                        : "Report time unknown";
+                    const validId = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(vessel.vesselId);
+                    const details = validId ? '<a href="/fleet/' + vessel.vesselId + '?returnTo=%2Ffleet%2Fpositions">View vessel details</a>' : '';
+                    L.marker([vessel.latitude, vessel.longitude], {
+                        title: vessel.name + ' · IMO ' + vessel.imoNumber,
+                        alt: vessel.name + ', IMO ' + vessel.imoNumber,
+                        icon: L.divIcon({ className: 'fleet-map-ship ' + freshness, html: ship,
+                            iconSize: [36, 36], iconAnchor: [18, 18], popupAnchor: [0, -18] })
+                    }).bindTooltip('<strong>' + escapeHtml(vessel.name) + '</strong><br>IMO ' + escapeHtml(vessel.imoNumber),
+                        { direction: "top", offset: [0, -20], className: "voyage-map-tooltip", permanent: true })
+                        .bindPopup('<div class="voyage-map-popup"><small>' + freshness.toUpperCase() + ' POSITION</small><strong>'
+                            + escapeHtml(vessel.name) + '</strong><span>IMO ' + escapeHtml(vessel.imoNumber)
+                            + '</span><span>' + escapeHtml(vessel.fleetName ?? 'Unassigned') + ' · ' + escapeHtml(vessel.currentStatus)
+                            + '</span><span>' + vessel.latitude.toFixed(4) + '°, ' + vessel.longitude.toFixed(4)
+                            + '°</span><span>' + escapeHtml(timestamp) + '</span>' + details + '</div>').addTo(state.layer);
+                });
+                state.signature = signature;
+                fit(id);
+                cancelAnimationFrame(state.frame);
+                state.frame = requestAnimationFrame(() => state.map.invalidateSize());
+                return true;
+            } catch {
+                dispose(id);
+                return false;
+            }
+        },
+        fit,
+        dispose
+    };
+})();
