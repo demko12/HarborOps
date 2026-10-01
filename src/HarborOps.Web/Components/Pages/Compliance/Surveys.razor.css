@@ -180,7 +180,7 @@ html[data-theme="dark"] .survey-registration-modal {
     :is(input, select, textarea):not(.survey-vessel-search):not(
         .document-picker-input
     ):hover {
-    border-color: rgba(96, 165, 250, 0.42);
+    border-color: var(--accent-border);
 }
 .survey-field
     ::deep
@@ -428,10 +428,10 @@ html[data-theme="light"] .survey-hint-error {
     height: 2.5rem;
     flex: 0 0 auto;
     place-items: center;
-    color: #2563eb;
-    border: 1px solid rgba(37, 99, 235, 0.22);
+    color: var(--accent);
+    border: 1px solid var(--accent-border);
     border-radius: 0.75rem;
-    background: rgba(37, 99, 235, 0.1);
+    background: var(--accent-bg);
     font-size: 1rem;
 }
 
@@ -493,7 +493,7 @@ html[data-theme="light"] .survey-hint-error {
     .compliance-field
     ::deep
     :is(input:not([type="checkbox"]), select, textarea):hover {
-    border-color: rgba(96, 165, 250, 0.42);
+    border-color: var(--accent-border);
 }
 
 .survey-page
@@ -625,8 +625,8 @@ html[data-theme="dark"] .survey-form-vessel-picker .survey-vessel-results {
 
 .survey-vessel-filter .survey-vessel-results button:hover,
 .survey-form-vessel-picker .survey-vessel-results button:hover {
-    border-color: rgba(37, 99, 235, 0.18);
-    background: rgba(37, 99, 235, 0.08);
+    border-color: var(--accent-border);
+    background: var(--accent-bg);
 }
 .survey-vessel-filter .survey-vessel-results strong,
 .survey-form-vessel-picker .survey-vessel-results strong {
@@ -734,9 +734,9 @@ html[data-theme="dark"] .survey-form-vessel-picker .survey-vessel-results {
     width: 2.3rem;
     height: 2.3rem;
     place-items: center;
-    color: #2563eb;
+    color: var(--accent);
     border-radius: var(--radius-control);
-    background: rgba(37, 99, 235, 0.1);
+    background: var(--accent-bg);
     content: "\F4AD";
     font-family: bootstrap-icons;
     font-size: 0.9rem;
@@ -1006,4 +1006,9 @@ html[data-theme="dark"] .survey-form-vessel-picker .survey-vessel-results {
     .survey-page {
         padding: 1rem 0.5rem 2rem;
     }
+}
+
+.survey-register-action {
+    border-color: var(--accent-border);
+    background: var(--accent-bg);
 }

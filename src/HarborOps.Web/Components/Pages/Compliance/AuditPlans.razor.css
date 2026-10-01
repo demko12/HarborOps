@@ -815,3 +815,9 @@ html[data-theme="light"]
         padding: 1rem 0.5rem 2rem;
     }
 }
+
+.audit-plans-add-button {
+    color: var(--text-primary);
+    border-color: var(--accent-border);
+    background: var(--accent-bg);
+}

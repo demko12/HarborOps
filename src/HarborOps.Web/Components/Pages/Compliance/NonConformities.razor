@@ -38,7 +38,7 @@
                     <span class="nc-kpi-value">@FormatCount(kpi.Count(summary))</span>
                     <span class="nc-kpi-note">Unresolved findings</span>
                 </span>
-                <span class="nc-kpi-icon @kpi.Tone" aria-hidden="true"><span class="bi @kpi.Icon"></span></span>
+                <span class="nc-kpi-icon" aria-hidden="true"><span class="bi @kpi.Icon"></span></span>
             </button>
         }
         <button type="button"
@@ -51,7 +51,7 @@
                 <span class="nc-kpi-value">@FormatCount(summary?.OverdueCount)</span>
                 <span class="nc-kpi-note">Corrective action deadline passed</span>
             </span>
-            <span class="nc-kpi-icon danger" aria-hidden="true"><span class="bi bi-alarm"></span></span>
+            <span class="nc-kpi-icon" aria-hidden="true"><span class="bi bi-alarm"></span></span>
         </button>
     </section>
 
@@ -359,9 +359,9 @@
 
     private static readonly SeverityKpi[] SeverityKpis =
     [
-        new("Critical", "danger", "bi-exclamation-octagon", summary => summary?.UnresolvedCriticalCount),
-        new("Major", "warning", "bi-exclamation-triangle", summary => summary?.UnresolvedMajorCount),
-        new("Minor", "info", "bi-info-circle", summary => summary?.UnresolvedMinorCount),
+        new("Critical", "bi-exclamation-octagon", summary => summary?.UnresolvedCriticalCount),
+        new("Major", "bi-exclamation-triangle", summary => summary?.UnresolvedMajorCount),
+        new("Minor", "bi-info-circle", summary => summary?.UnresolvedMinorCount),
     ];
 
     private string? search;
@@ -832,7 +832,7 @@
         Unavailable,
     }
 
-    private sealed record SeverityKpi(string Severity, string Tone, string Icon, Func<NonConformitiesSummary?, int?> Count);
+    private sealed record SeverityKpi(string Severity, string Icon, Func<NonConformitiesSummary?, int?> Count);
 
     private sealed record NonConformityRow(
         int Id,

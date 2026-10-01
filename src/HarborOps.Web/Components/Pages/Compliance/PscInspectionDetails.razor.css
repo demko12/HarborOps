@@ -731,3 +731,17 @@ html[data-theme="light"] .psc-danger-button {
 .page-breadcrumb a {
     color: #059669;
 }
+
+.psc-detail-page {
+    --accent: #059669;
+    --accent-bg: rgba(5, 150, 105, 0.12);
+    --accent-border: rgba(5, 150, 105, 0.3);
+    max-width: 1600px;
+    padding: 1.5rem 1rem 3rem;
+}
+.psc-deficiency-row {
+    background: var(--bg-surface);
+}
+.psc-primary-button:hover:not(:disabled) {
+    background: rgba(5, 150, 105, 0.2);
+}

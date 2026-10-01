@@ -159,10 +159,10 @@ html[data-theme="dark"] .nc-select-shell select {
     height: 2.5rem;
     flex: 0 0 auto;
     place-items: center;
-    color: #2563eb;
-    border: 1px solid rgba(37, 99, 235, 0.22);
+    color: var(--accent);
+    border: 1px solid var(--accent-border);
     border-radius: 0.75rem;
-    background: rgba(37, 99, 235, 0.1);
+    background: var(--accent-bg);
     font-size: 1rem;
 }
 
@@ -204,9 +204,9 @@ html[data-theme="dark"] .nc-select-shell select {
     height: 2.3rem;
     flex: 0 0 auto;
     place-items: center;
-    color: #2563eb;
+    color: var(--accent);
     border-radius: var(--radius-control);
-    background: rgba(37, 99, 235, 0.1);
+    background: var(--accent-bg);
     font-size: 0.9rem;
 }
 
@@ -873,42 +873,11 @@ html[data-theme="light"] .nc-button-danger:hover:not(:disabled) {
     width: 2rem;
     height: 2rem;
     place-items: center;
-    border: 1px solid transparent;
+    color: var(--accent);
+    border: 1px solid var(--accent-border);
     border-radius: var(--radius-control);
+    background: var(--accent-bg);
     font-size: 0.9rem;
-}
-.nc-kpi-icon.danger {
-    color: var(--status-danger);
-    border-color: rgba(248, 113, 113, 0.28);
-    background: rgba(248, 113, 113, 0.14);
-}
-.nc-kpi-icon.warning {
-    color: var(--status-warning);
-    border-color: rgba(251, 191, 36, 0.28);
-    background: rgba(251, 191, 36, 0.14);
-}
-.nc-kpi-icon.info {
-    color: var(--status-info);
-    border-color: rgba(96, 165, 250, 0.28);
-    background: rgba(96, 165, 250, 0.14);
-}
-html[data-theme="light"] .nc-kpi {
-    background: #edf2fa;
-}
-html[data-theme="light"] .nc-kpi-icon.danger {
-    color: var(--status-danger-strong);
-    border-color: rgba(185, 28, 28, 0.3);
-    background: rgba(185, 28, 28, 0.12);
-}
-html[data-theme="light"] .nc-kpi-icon.warning {
-    color: var(--status-warning-strong);
-    border-color: rgba(180, 83, 9, 0.3);
-    background: rgba(180, 83, 9, 0.12);
-}
-html[data-theme="light"] .nc-kpi-icon.info {
-    color: var(--status-info-strong);
-    border-color: rgba(37, 99, 235, 0.3);
-    background: rgba(37, 99, 235, 0.12);
 }
 @media (max-width: 900px) {
     .nc-summary {
@@ -922,4 +891,9 @@ html[data-theme="light"] .nc-kpi-icon.info {
     .nc-kpi-filter:hover {
         transform: none;
     }
+}
+
+.nc-button:not(.nc-button-secondary):not(.nc-button-danger) {
+    border-color: var(--accent-border);
+    background: var(--accent-bg);
 }
