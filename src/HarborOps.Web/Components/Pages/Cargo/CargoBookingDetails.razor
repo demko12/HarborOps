@@ -567,6 +567,12 @@
                                      OnChanged="RefreshAfterControlChangeAsync" />
         </section>
 
+        <CargoDiscrepanciesPanel @ref="discrepanciesPanel"
+                                 BookingId="BookingId"
+                                 BookingStatus="@details.Status"
+                                 OnOpenContainer="OpenDiscrepancyContainer"
+                                 OnChanged="HandleDiscrepanciesChanged" />
+
         <section class="booking-card booking-operations-card" aria-labelledby="booking-operations-title">
             <div class="booking-card-heading">
                 <div><p class="booking-section-eyebrow">Cargo execution</p><h2 id="booking-operations-title">Load and unload operations</h2></div>
@@ -787,6 +793,30 @@
                             <div class="booking-form-error" role="alert">@trackingError</div>
                         }
 
+                        @if (IsCompletionBlocked && completionBlockers is { } blockers)
+                        {
+                            <div class="completion-blockers" role="status">
+                                <p>
+                                    @blockers.OpenCount unresolved @(blockers.OpenCount == 1 ? "discrepancy blocks" : "discrepancies block") completion
+                                    (@blockers.ReportedCount reported, @blockers.InvestigatingCount under investigation).
+                                    Resolve or void @(blockers.OpenCount == 1 ? "it" : "them") before recording Completed.
+                                </p>
+                                <ul>
+                                    @foreach (var blocker in blockers.Discrepancies)
+                                    {
+                                        <li @key="blocker.DiscrepancyId">
+                                            <button type="button"
+                                                    class="completion-blocker-open"
+                                                    @onclick="() => OpenBlockingDiscrepancyAsync(blocker.DiscrepancyId)">
+                                                @BlockerLabel(blocker)
+                                            </button>
+                                            <span class="completion-blocker-status">@blocker.Status</span>
+                                        </li>
+                                    }
+                                </ul>
+                            </div>
+                        }
+
                         <p class="booking-note">Next step for this booking is <strong>@nextStatus</strong>.</p>
 
                         <div class="booking-form-grid">
@@ -806,7 +836,7 @@
                         </div>
 
                         <div class="booking-form-actions">
-                            <button class="booking-submit tracking-submit" type="submit" disabled="@isRecordingTrackingEvent">
+                            <button class="booking-submit tracking-submit" type="submit" disabled="@(isRecordingTrackingEvent || IsCompletionBlocked)">
                                 @(isRecordingTrackingEvent ? "Recording..." : $"Record {nextStatus}")
                             </button>
                         </div>
@@ -908,7 +938,8 @@
                 <CargoReeferPanel ContainerId="selectedContainer.ContainerId"
                                   ContainerNumber="@selectedContainer.ContainerNumber"
                                   IsReefer="true"
-                                  OnChanged="RefreshAfterControlChangeAsync" />
+                                  OnChanged="RefreshAfterControlChangeAsync"
+                                  OnDiscrepancyOpened="OpenDiscrepancyFromExcursionAsync" />
             }
         </section>
     </div>

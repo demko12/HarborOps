@@ -22,6 +22,11 @@ public sealed class SearchCargoBookingsQuery(DbContext dbContext)
         var pageSize = request.PageSize ?? SearchCargoBookingsValidator.DefaultPageSize;
 
         var bookings = dbContext.Set<CargoBooking>().AsNoTracking();
+        var openDiscrepancies = dbContext
+            .Set<CargoDiscrepancy>()
+            .AsNoTracking()
+            .Where(discrepancy => discrepancy.Status == CargoDiscrepancyStatus.Reported
+                || discrepancy.Status == CargoDiscrepancyStatus.Investigating);
 
         if (!string.IsNullOrWhiteSpace(request.Search))
         {
@@ -42,6 +47,12 @@ public sealed class SearchCargoBookingsQuery(DbContext dbContext)
             bookings = bookings.Where(booking => booking.IsHazardous == isHazardous);
         }
 
+        if (request.HasOpenDiscrepancies is { } hasOpenDiscrepancies)
+        {
+            bookings = bookings.Where(booking =>
+                openDiscrepancies.Any(discrepancy => discrepancy.CargoBookingId == booking.Id) == hasOpenDiscrepancies);
+        }
+
         var counts = await bookings
             .GroupBy(_ => 1)
             .Select(group => new
@@ -53,6 +64,11 @@ public sealed class SearchCargoBookingsQuery(DbContext dbContext)
 
         var totalCount = counts?.TotalCount ?? 0;
         var hazardousCount = counts?.HazardousCount ?? 0;
+        var openDiscrepancyBookingCount = totalCount == 0
+            ? 0
+            : await bookings.CountAsync(
+                booking => openDiscrepancies.Any(discrepancy => discrepancy.CargoBookingId == booking.Id),
+                cancellationToken);
 
         var items = await bookings
             .OrderBy(booking => booking.Status == CargoStatus.InTransit
@@ -84,7 +100,8 @@ public sealed class SearchCargoBookingsQuery(DbContext dbContext)
                 booking.PackageCount,
                 booking.IsHazardous,
                 booking.Status.ToString(),
-                booking.CreatedUtc))
+                booking.CreatedUtc,
+                openDiscrepancies.Count(discrepancy => discrepancy.CargoBookingId == booking.Id)))
             .ToListAsync(cancellationToken);
 
         return new SearchCargoBookingsResponse(
@@ -92,6 +109,7 @@ public sealed class SearchCargoBookingsQuery(DbContext dbContext)
             pageNumber,
             pageSize,
             totalCount,
-            hazardousCount);
+            hazardousCount,
+            openDiscrepancyBookingCount);
     }
 }

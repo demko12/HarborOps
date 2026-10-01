@@ -8,6 +8,8 @@ public sealed record SearchCargoBookingsRequest
 
     public bool? IsHazardous { get; init; }
 
+    public bool? HasOpenDiscrepancies { get; init; }
+
     public int? PageNumber { get; init; }
 
     public int? PageSize { get; init; }

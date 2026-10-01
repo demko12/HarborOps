@@ -485,6 +485,149 @@ internal sealed class CargoBookingsApiClient(HttpClient httpClient)
             cancellationToken);
     }
 
+    internal Task<CargoApiResult<CargoDiscrepancyPage>> GetDiscrepanciesAsync(
+        Guid bookingId,
+        CargoDiscrepancyFilter filter,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(filter);
+
+        var query = new List<string>
+        {
+            $"pageNumber={filter.PageNumber}",
+            $"pageSize={filter.PageSize}",
+        };
+
+        if (!string.IsNullOrWhiteSpace(filter.Status))
+        {
+            query.Insert(0, $"status={Uri.EscapeDataString(filter.Status)}");
+        }
+
+        if (filter.SourceExcursionId is { } sourceExcursionId)
+        {
+            query.Insert(0, $"sourceExcursionId={sourceExcursionId}");
+        }
+
+        if (!string.IsNullOrWhiteSpace(filter.Type))
+        {
+            query.Insert(0, $"type={Uri.EscapeDataString(filter.Type)}");
+        }
+
+        if (!string.IsNullOrWhiteSpace(filter.Severity))
+        {
+            query.Insert(0, $"severity={Uri.EscapeDataString(filter.Severity)}");
+        }
+
+        return GetAsync<CargoDiscrepancyPage>(
+            $"{DiscrepanciesPath(bookingId)}?{string.Join('&', query)}",
+            "Unable to load the discrepancies",
+            ReviewAccessDetail,
+            cancellationToken);
+    }
+
+    internal Task<CargoApiResult<CargoDiscrepancyView>> GetDiscrepancyAsync(
+        Guid bookingId,
+        Guid discrepancyId,
+        CancellationToken cancellationToken)
+    {
+        return GetAsync<CargoDiscrepancyView>(
+            $"{DiscrepanciesPath(bookingId)}/{discrepancyId}",
+            "Unable to load the discrepancy",
+            ReviewAccessDetail,
+            cancellationToken);
+    }
+
+    internal Task<CargoApiResult<CargoCompletionBlockersView>> GetCompletionBlockersAsync(
+        Guid bookingId,
+        CancellationToken cancellationToken)
+    {
+        return GetAsync<CargoCompletionBlockersView>(
+            $"{DiscrepanciesPath(bookingId)}/completion-blockers",
+            "Unable to load the completion blockers",
+            ReviewAccessDetail,
+            cancellationToken);
+    }
+
+    internal Task<CargoApiResult<CargoDiscrepancyView>> RegisterDiscrepancyAsync(
+        Guid bookingId,
+        RegisterCargoDiscrepancyWebRequest request,
+        CancellationToken cancellationToken)
+    {
+        return PostAsync<CargoDiscrepancyView>(
+            DiscrepanciesPath(bookingId),
+            request,
+            "Unable to register the discrepancy",
+            cancellationToken);
+    }
+
+    internal Task<CargoApiResult<CargoDiscrepancyView>> StartDiscrepancyInvestigationAsync(
+        Guid bookingId,
+        Guid discrepancyId,
+        CancellationToken cancellationToken)
+    {
+        return PostAsync<CargoDiscrepancyView>(
+            $"{DiscrepanciesPath(bookingId)}/{discrepancyId}/investigation",
+            "Unable to start the investigation",
+            cancellationToken);
+    }
+
+    internal Task<CargoApiResult<CargoDiscrepancyView>> AddDiscrepancyNoteAsync(
+        Guid bookingId,
+        Guid discrepancyId,
+        AddCargoDiscrepancyNoteWebRequest request,
+        CancellationToken cancellationToken)
+    {
+        return PostAsync<CargoDiscrepancyView>(
+            $"{DiscrepanciesPath(bookingId)}/{discrepancyId}/notes",
+            request,
+            "Unable to add the note",
+            cancellationToken);
+    }
+
+    internal Task<CargoApiResult<CargoDiscrepancyView>> ResolveDiscrepancyAsync(
+        Guid bookingId,
+        Guid discrepancyId,
+        ResolveCargoDiscrepancyWebRequest request,
+        CancellationToken cancellationToken)
+    {
+        return PostAsync<CargoDiscrepancyView>(
+            $"{DiscrepanciesPath(bookingId)}/{discrepancyId}/resolution",
+            request,
+            "Unable to resolve the discrepancy",
+            cancellationToken);
+    }
+
+    internal Task<CargoApiResult<CargoDiscrepancyView>> VoidDiscrepancyAsync(
+        Guid bookingId,
+        Guid discrepancyId,
+        VoidCargoDiscrepancyWebRequest request,
+        CancellationToken cancellationToken)
+    {
+        return PostAsync<CargoDiscrepancyView>(
+            $"{DiscrepanciesPath(bookingId)}/{discrepancyId}/void",
+            request,
+            "Unable to void the discrepancy",
+            cancellationToken);
+    }
+
+    internal Task<CargoApiResult<OpenedExcursionDiscrepancy>> OpenExcursionDiscrepancyAsync(
+        Guid containerId,
+        Guid excursionId,
+        OpenExcursionDiscrepancyWebRequest request,
+        CancellationToken cancellationToken)
+    {
+        return PostAsync<OpenedExcursionDiscrepancy>(
+            $"{ReeferPath(containerId)}/excursions/{excursionId}/discrepancy",
+            request,
+            "Unable to open a discrepancy for the excursion",
+            cancellationToken);
+    }
+
+    private static string DiscrepanciesPath(Guid bookingId)
+    {
+        return $"{BasePath}/{bookingId}/discrepancies";
+    }
+
     private static string BillsForBookingPath(Guid bookingId)
     {
         return $"{BasePath}/{bookingId}/bills-of-lading";
@@ -549,6 +692,11 @@ internal sealed class CargoBookingsApiClient(HttpClient httpClient)
         if (filter.IsHazardous is { } isHazardous)
         {
             query.Add($"isHazardous={(isHazardous ? "true" : "false")}");
+        }
+
+        if (filter.HasOpenDiscrepancies is { } hasOpenDiscrepancies)
+        {
+            query.Add($"hasOpenDiscrepancies={(hasOpenDiscrepancies ? "true" : "false")}");
         }
 
         return $"{BasePath}?{string.Join('&', query)}";
@@ -703,11 +851,11 @@ internal sealed class CargoBookingsApiClient(HttpClient httpClient)
         string failureDetail,
         CancellationToken cancellationToken)
     {
-        ApiProblemDetails? problem = null;
+        CargoApiProblemDetails? problem = null;
 
         try
         {
-            problem = await response.Content.ReadFromJsonAsync<ApiProblemDetails>(cancellationToken);
+            problem = await response.Content.ReadFromJsonAsync<CargoApiProblemDetails>(cancellationToken);
         }
         catch (JsonException)
         {
@@ -718,7 +866,8 @@ internal sealed class CargoBookingsApiClient(HttpClient httpClient)
             (int)response.StatusCode,
             problem?.Title ?? failureTitle,
             problem?.Detail ?? failureDetail,
-            problem?.Errors ?? new Dictionary<string, string[]>(StringComparer.OrdinalIgnoreCase));
+            problem?.Errors ?? new Dictionary<string, string[]>(StringComparer.OrdinalIgnoreCase),
+            problem?.CompletionBlockers);
     }
 
     private static CargoApiFailure Unavailable()

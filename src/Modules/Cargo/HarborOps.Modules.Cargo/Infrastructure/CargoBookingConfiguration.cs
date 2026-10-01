@@ -48,6 +48,10 @@ internal sealed class CargoBookingConfiguration : IEntityTypeConfiguration<Cargo
         builder.Property(booking => booking.CreatedUtc)
             .IsRequired();
 
+        builder.Property(booking => booking.ConcurrencyToken)
+            .IsConcurrencyToken()
+            .HasDefaultValueSql("NEWID()");
+
         builder.HasIndex(booking => booking.BookingNumber)
             .IsUnique();
     }

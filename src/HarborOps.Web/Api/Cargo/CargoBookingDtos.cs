@@ -10,19 +10,22 @@ internal sealed record CargoBookingRow(
     int PackageCount,
     bool IsHazardous,
     string Status,
-    DateTime CreatedUtc);
+    DateTime CreatedUtc,
+    int OpenDiscrepancyCount);
 
 internal sealed record CargoBookingPage(
     IReadOnlyList<CargoBookingRow> Items,
     int PageNumber,
     int PageSize,
     int TotalCount,
-    int HazardousCount);
+    int HazardousCount,
+    int OpenDiscrepancyBookingCount);
 
 internal sealed record CargoBookingFilter(
     string? Search,
     string? Status,
     bool? IsHazardous,
+    bool? HasOpenDiscrepancies,
     int PageNumber,
     int PageSize);
 
@@ -108,7 +111,8 @@ internal sealed record CargoApiFailure(
     int StatusCode,
     string Title,
     string Message,
-    IReadOnlyDictionary<string, string[]> Errors)
+    IReadOnlyDictionary<string, string[]> Errors,
+    CargoCompletionBlockersView? CompletionBlockers = null)
 {
     internal bool IsForbidden => StatusCode == StatusCodes.Status403Forbidden;
 

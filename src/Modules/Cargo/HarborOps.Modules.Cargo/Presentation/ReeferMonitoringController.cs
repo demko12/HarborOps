@@ -20,7 +20,8 @@ public sealed class ReeferMonitoringController(
     CorrectReeferTemperatureReadingService correctReeferTemperatureReadingService,
     VoidReeferTemperatureReadingService voidReeferTemperatureReadingService,
     GetReeferExcursionsQuery getReeferExcursionsQuery,
-    ResolveReeferExcursionService resolveReeferExcursionService)
+    ResolveReeferExcursionService resolveReeferExcursionService,
+    OpenExcursionDiscrepancyService openExcursionDiscrepancyService)
     : ControllerBase
 {
     private const string ManageCargoPolicy = "cargo.manage";
@@ -450,6 +451,90 @@ public sealed class ReeferMonitoringController(
         catch (DbUpdateException exception) when (IsUniqueViolation(exception))
         {
             return ConcurrentChange();
+        }
+    }
+
+    [HttpPost("excursions/{excursionId:guid}/discrepancy")]
+    [Authorize(ManageCargoPolicy)]
+    [ProducesResponseType<OpenExcursionDiscrepancyResponse>(StatusCodes.Status200OK)]
+    [ProducesResponseType<OpenExcursionDiscrepancyResponse>(StatusCodes.Status201Created)]
+    [ProducesResponseType<HttpValidationProblemDetails>(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]
+    public async Task<ActionResult<OpenExcursionDiscrepancyResponse>> OpenExcursionDiscrepancy(
+        Guid containerId,
+        Guid excursionId,
+        [FromBody] OpenExcursionDiscrepancyRequest request,
+        CancellationToken cancellationToken)
+    {
+        if (!CargoDiscrepancyActorClaims.TryRead(User, out var reporter))
+        {
+            return Unauthorized();
+        }
+
+        try
+        {
+            var response = await openExcursionDiscrepancyService.OpenAsync(
+                containerId,
+                excursionId,
+                reporter,
+                request,
+                cancellationToken);
+
+            if (!response.Created)
+            {
+                return Ok(response);
+            }
+
+            var discrepancy = response.Details.Discrepancy;
+
+            return Created(
+                $"/api/cargo/bookings/{discrepancy.CargoBookingId}/discrepancies/{discrepancy.Id}",
+                response);
+        }
+        catch (CargoDiscrepancyValidationException exception)
+        {
+            return ValidationFailed(exception.Errors);
+        }
+        catch (ReeferExcursionNotFoundException exception)
+        {
+            return ExcursionNotFound(exception);
+        }
+        catch (ContainerNotFoundException exception)
+        {
+            return ContainerNotFound(exception);
+        }
+        catch (ContainerIsNotReeferException)
+        {
+            return NotAReefer();
+        }
+        catch (ContainerHasNoBookingException exception)
+        {
+            return ConflictProblem("Container is not on a cargo booking.", exception.Message);
+        }
+        catch (CargoBookingNotFoundException exception)
+        {
+            return ConflictProblem("Container is not on a cargo booking.", exception.Message);
+        }
+        catch (CargoBookingCompletedException exception)
+        {
+            return ConflictProblem("Cargo booking is completed.", exception.Message);
+        }
+        catch (CargoDiscrepancyRegistrationNotAllowedException exception)
+        {
+            return ConflictProblem("Discrepancies cannot be registered yet.", exception.Message);
+        }
+        catch (CargoDiscrepancySourceSupersededException exception)
+        {
+            return ConflictProblem("The temperature excursion was superseded.", exception.Message);
+        }
+        catch (DbUpdateException)
+        {
+            return ConflictProblem(
+                "Cargo discrepancy was modified concurrently.",
+                "The booking was changed by another request. Reload and try again.");
         }
     }
 

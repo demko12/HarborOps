@@ -108,7 +108,7 @@ public sealed class CargoBookingsApiClientTests
             return Json(HttpStatusCode.OK, PageJson);
         });
 
-        var filter = new CargoBookingFilter(" ammonium nitrate ", "InTransit", true, 2, 50);
+        var filter = new CargoBookingFilter(" ammonium nitrate ", "InTransit", true, true, 2, 50);
 
         await CreateClient(httpClient).SearchAsync(filter, CancellationToken.None);
 
@@ -117,6 +117,7 @@ public sealed class CargoBookingsApiClientTests
         Assert.Contains("search=ammonium%20nitrate", query, StringComparison.Ordinal);
         Assert.Contains("status=InTransit", query, StringComparison.Ordinal);
         Assert.Contains("isHazardous=true", query, StringComparison.Ordinal);
+        Assert.Contains("hasOpenDiscrepancies=true", query, StringComparison.Ordinal);
         Assert.Contains("pageNumber=2", query, StringComparison.Ordinal);
         Assert.Contains("pageSize=50", query, StringComparison.Ordinal);
     }
@@ -744,6 +745,93 @@ public sealed class CargoBookingsApiClientTests
     }
 
     [Fact]
+    public async Task GetDiscrepanciesAsync_requests_the_booking_page_with_the_status_and_source_filters()
+    {
+        HttpRequestMessage? captured = null;
+        var excursionId = Guid.Parse("90000000-0000-0000-0000-000000000001");
+        using var httpClient = CreateHttpClient((request, _) =>
+        {
+            captured = request;
+            return Json(
+                HttpStatusCode.OK,
+                """{"items":[],"pageNumber":2,"pageSize":10,"totalCount":11,"summary":{"reportedCount":3,"investigatingCount":1,"resolvedCount":6,"voidedCount":1,"openCount":4}}""");
+        });
+
+        var result = await CreateClient(httpClient).GetDiscrepanciesAsync(
+            BookingId,
+            new CargoDiscrepancyFilter("Reported", excursionId, 2, 10),
+            CancellationToken.None);
+
+        Assert.Equal(
+            $"/api/cargo/bookings/{BookingId}/discrepancies?sourceExcursionId={excursionId}&status=Reported&pageNumber=2&pageSize=10",
+            captured!.RequestUri!.PathAndQuery);
+        Assert.Equal(4, result.Value!.Summary.OpenCount);
+    }
+
+    [Fact]
+    public async Task GetDiscrepanciesAsync_sends_the_type_and_severity_filters()
+    {
+        HttpRequestMessage? captured = null;
+        using var httpClient = CreateHttpClient((request, _) =>
+        {
+            captured = request;
+            return Json(
+                HttpStatusCode.OK,
+                """{"items":[],"pageNumber":1,"pageSize":10,"totalCount":0,"summary":{"reportedCount":0,"investigatingCount":0,"resolvedCount":0,"voidedCount":0,"openCount":0}}""");
+        });
+
+        await CreateClient(httpClient).GetDiscrepanciesAsync(
+            BookingId,
+            new CargoDiscrepancyFilter(Type: "SealMismatch", Severity: "Critical"),
+            CancellationToken.None);
+
+        Assert.Equal(
+            $"/api/cargo/bookings/{BookingId}/discrepancies?severity=Critical&type=SealMismatch&pageNumber=1&pageSize=10",
+            captured!.RequestUri!.PathAndQuery);
+    }
+
+    [Fact]
+    public async Task A_blocked_completion_carries_the_blockers_in_the_failure()
+    {
+        using var httpClient = CreateHttpClient((_, _) => Json(
+            HttpStatusCode.Conflict,
+            """{"title":"Cargo booking has unresolved discrepancies.","status":409,"completionBlockers":{"cargoBookingId":"20000000-0000-0000-0000-000000000001","openCount":1,"reportedCount":1,"investigatingCount":0,"discrepancies":[{"discrepancyId":"d0000000-0000-0000-0000-000000000001","type":"Damage","severity":"High","status":"Reported","containerId":null,"containerNumber":null}]}}"""));
+
+        var result = await CreateClient(httpClient).RecordTrackingEventAsync(
+            BookingId,
+            new RecordCargoTrackingEventWebRequest("Completed", DateTime.UtcNow, "Gate 2"),
+            CancellationToken.None);
+
+        Assert.True(result.Failure!.IsConflict);
+        Assert.Equal(1, result.Failure.CompletionBlockers!.OpenCount);
+        Assert.Equal("Damage", Assert.Single(result.Failure.CompletionBlockers.Discrepancies).Type);
+    }
+
+    [Fact]
+    public async Task OpenExcursionDiscrepancyAsync_posts_to_the_excursion()
+    {
+        HttpRequestMessage? captured = null;
+        var containerId = Guid.Parse("70000000-0000-0000-0000-000000000006");
+        var excursionId = Guid.Parse("90000000-0000-0000-0000-000000000001");
+        using var httpClient = CreateHttpClient((request, _) =>
+        {
+            captured = request;
+            return Json(HttpStatusCode.Conflict, """{"title":"Cargo booking is completed."}""");
+        });
+
+        var result = await CreateClient(httpClient).OpenExcursionDiscrepancyAsync(
+            containerId,
+            excursionId,
+            new OpenExcursionDiscrepancyWebRequest("High", "Warm cargo"),
+            CancellationToken.None);
+
+        Assert.Equal(HttpMethod.Post, captured!.Method);
+        Assert.Equal($"/api/cargo/containers/{containerId}/reefer/excursions/{excursionId}/discrepancy", captured.RequestUri!.PathAndQuery);
+        Assert.Equal("Cargo booking is completed.", result.Failure!.Title);
+        Assert.Null(result.Failure.CompletionBlockers);
+    }
+
+    [Fact]
     public async Task DownloadManifestCsvAsync_requests_the_export_without_a_query_when_unfiltered()
     {
         HttpRequestMessage? captured = null;
@@ -1268,7 +1356,7 @@ public sealed class CargoBookingsApiClientTests
 
     private static CargoBookingFilter Filter()
     {
-        return new CargoBookingFilter(null, null, null, 1, 25);
+        return new CargoBookingFilter(null, null, null, null, 1, 25);
     }
 
     private static CargoBookingsApiClient CreateClient(HttpClient httpClient)

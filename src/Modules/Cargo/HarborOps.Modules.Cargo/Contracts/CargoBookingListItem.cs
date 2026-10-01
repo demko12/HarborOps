@@ -10,4 +10,5 @@ public sealed record CargoBookingListItem(
     int PackageCount,
     bool IsHazardous,
     string Status,
-    DateTime CreatedUtc);
+    DateTime CreatedUtc,
+    int OpenDiscrepancyCount);
