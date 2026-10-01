@@ -5,7 +5,7 @@ window.voyageRouteMap = {
         if (element._harborOpsSignature === signature && element._harborOpsMap) return;
         const mappedStops = unwrapLongitudes(stops);
         const coordinates = curvedRoute(mappedStops);
-        const map = element._harborOpsMap ?? L.map(element, { zoomControl: true, scrollWheelZoom: false });
+        const map = element._harborOpsMap ?? L.map(element, { zoomControl: true, scrollWheelZoom: true });
         if (!element._harborOpsMap) {
             L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
                 maxZoom: 18,
@@ -166,7 +166,7 @@ window.vesselPositionMap = (() => {
             if (state?.signature === signature) return true;
             try {
                 if (!state) {
-                    state = { element, map: L.map(element, { zoomControl: true, scrollWheelZoom: false }) };
+                    state = { element, map: L.map(element, { zoomControl: true, scrollWheelZoom: true }) };
                     maps.set(id, state);
                     L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
                         maxZoom: 18, attribution: "&copy; OpenStreetMap contributors"
@@ -241,7 +241,7 @@ window.fleetPositionsMap = (() => {
             if (state?.signature === signature) return true;
             try {
                 if (!state) {
-                    state = { element, map: L.map(element, { zoomControl: true, scrollWheelZoom: false }) };
+                    state = { element, map: L.map(element, { zoomControl: true, scrollWheelZoom: true }) };
                     maps.set(id, state);
                     L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
                         maxZoom: 18, attribution: "&copy; OpenStreetMap contributors"
