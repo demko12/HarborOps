@@ -1,5 +1,6 @@
 @page "/documents"
 @attribute [Microsoft.AspNetCore.Authorization.Authorize(Policy = "AccessDocuments")]
+@using System.Globalization
 @using HarborOps.Web.Api.Documents
 @using HarborOps.Web.Api.Fleet
 @implements IDisposable
@@ -30,36 +31,82 @@
         <article class="documents-kpi">
             <div>
                 <p class="documents-kpi-label">Matching documents</p>
-                <p class="documents-kpi-value">@totalCount</p>
+                <p class="documents-kpi-value">@FormatCount(summary?.TotalCount)</p>
                 <p class="documents-kpi-note">Across the current filters</p>
             </div>
             <span class="documents-kpi-icon kpi-icon-info" aria-hidden="true"><span class="bi bi-files"></span></span>
         </article>
-        <article class="documents-kpi">
-            <div>
-                <p class="documents-kpi-label">Expired</p>
-                <p class="documents-kpi-value">@rows.Count(row => row.DaysUntilExpiry < 0)</p>
-                <p class="documents-kpi-note">On this page</p>
-            </div>
+        <button type="button"
+                class="documents-kpi documents-kpi-filter @(IsExpiredKpiSelected ? "selected" : null)"
+                aria-pressed="@IsExpiredKpiSelected.ToString().ToLowerInvariant()"
+                aria-label="Show expired documents"
+                @onclick="ToggleExpiredKpiAsync">
+            <span class="documents-kpi-body">
+                <span class="documents-kpi-label">Expired</span>
+                <span class="documents-kpi-value">@FormatCount(summary?.ExpiredCount)</span>
+                <span class="documents-kpi-note">Expiry date already passed</span>
+            </span>
             <span class="documents-kpi-icon kpi-icon-danger" aria-hidden="true"><span class="bi bi-calendar-x"></span></span>
-        </article>
-        <article class="documents-kpi">
-            <div>
-                <p class="documents-kpi-label">Due within 30 days</p>
-                <p class="documents-kpi-value">@rows.Count(row => row.DaysUntilExpiry >= 0 && row.DaysUntilExpiry <= 30)</p>
-                <p class="documents-kpi-note">On this page</p>
-            </div>
+        </button>
+        <button type="button"
+                class="documents-kpi documents-kpi-filter @(IsDueSoonKpiSelected ? "selected" : null)"
+                aria-pressed="@IsDueSoonKpiSelected.ToString().ToLowerInvariant()"
+                aria-label="Show documents due within 30 days"
+                @onclick="ToggleDueSoonKpiAsync">
+            <span class="documents-kpi-body">
+                <span class="documents-kpi-label">Due within 30 days</span>
+                <span class="documents-kpi-value">@FormatCount(summary?.DueWithin30DaysCount)</span>
+                <span class="documents-kpi-note">Renew before they lapse</span>
+            </span>
             <span class="documents-kpi-icon kpi-icon-warning" aria-hidden="true"><span class="bi bi-calendar-event"></span></span>
-        </article>
-        <article class="documents-kpi">
-            <div>
-                <p class="documents-kpi-label">Pending review</p>
-                <p class="documents-kpi-value">@rows.Count(row => row.ReviewStatus == "PendingReview")</p>
-                <p class="documents-kpi-note">On this page</p>
-            </div>
+        </button>
+        <button type="button"
+                class="documents-kpi documents-kpi-filter @(IsPendingReviewKpiSelected ? "selected" : null)"
+                aria-pressed="@IsPendingReviewKpiSelected.ToString().ToLowerInvariant()"
+                aria-label="Show documents pending review"
+                @onclick="TogglePendingReviewKpiAsync">
+            <span class="documents-kpi-body">
+                <span class="documents-kpi-label">Pending review</span>
+                <span class="documents-kpi-value">@FormatCount(summary?.PendingReviewCount)</span>
+                <span class="documents-kpi-note">Waiting for a reviewer</span>
+            </span>
             <span class="documents-kpi-icon kpi-icon-warning" aria-hidden="true"><span class="bi bi-hourglass-split"></span></span>
-        </article>
+        </button>
     </section>
+
+    @if (summary is { Months.Count: > 0 })
+    {
+        var busiestMonth = Math.Max(1, summary.Months.Max(month => month.Count));
+
+        <section class="documents-card documents-expiry-chart" aria-labelledby="documents-expiry-chart-title">
+            <div class="documents-expiry-chart-heading">
+                <div>
+                    <span class="documents-section-label">Next 12 months</span>
+                    <h2 id="documents-expiry-chart-title">Expiries by month</h2>
+                </div>
+                <p>@summary.Months.Sum(month => month.Count) documents expire in the next 12 months. Select a month to list them.</p>
+            </div>
+            <div class="documents-expiry-bars" role="list">
+                @foreach (var month in summary.Months)
+                {
+                    var monthStart = new DateOnly(month.Year, month.Month, 1);
+                    var isSelected = IsMonthSelected(monthStart);
+
+                    <button type="button"
+                            role="listitem"
+                            class="documents-expiry-bar @MonthTone(monthStart) @(isSelected ? "selected" : null)"
+                            aria-pressed="@isSelected.ToString().ToLowerInvariant()"
+                            aria-label="@($"{monthStart.ToString("MMMM yyyy", CultureInfo.InvariantCulture)}: {month.Count} documents")"
+                            title="@($"{month.Count} expiring in {monthStart.ToString("MMMM yyyy", CultureInfo.InvariantCulture)}")"
+                            @onclick="() => ToggleMonthAsync(monthStart)">
+                        <span class="documents-expiry-bar-count">@month.Count</span>
+                        <span class="documents-expiry-bar-track"><span class="documents-expiry-bar-fill" style="height: @(month.Count == 0 ? 0 : Math.Max(6, month.Count * 100 / busiestMonth))%"></span></span>
+                        <span class="documents-expiry-bar-label">@monthStart.ToString("MMM", CultureInfo.InvariantCulture)</span>
+                    </button>
+                }
+            </div>
+        </section>
+    }
 
 
 
@@ -184,7 +231,10 @@
                                     <span class="documents-status @GetDocumentStatusClass(row.Status)">@row.Status</span>
                                     <span class="documents-review-status @GetReviewStatusClass(row.ReviewStatus)">@row.ReviewStatus</span>
                                 </td>
-                                <td class="documents-num col-days">@row.DaysUntilExpiry</td>
+                                <td class="documents-num col-days">
+                                    <span class="documents-days-left @DaysLeftTone(row.DaysUntilExpiry)">@FormatDaysLeft(row.DaysUntilExpiry)</span>
+                                    <span class="documents-validity-bar @DaysLeftTone(row.DaysUntilExpiry)" role="img" aria-label="@($"{ValidityElapsedPercent(row.IssueDate, row.ExpiryDate, row.DaysUntilExpiry)}% of the validity period elapsed")"><span style="width: @(ValidityElapsedPercent(row.IssueDate, row.ExpiryDate, row.DaysUntilExpiry))%"></span></span>
+                                </td>
                                 <td class="col-file">
                                     <button type="button" class="documents-file-toggle"
                                             @onclick="() => OpenFilePanel(row.DocumentId)">
@@ -223,6 +273,7 @@
     <section class="documents-type-form-card documents-modal" role="dialog" aria-modal="true" aria-labelledby="documents-type-form-title" @onclick:stopPropagation="true">
         <div class="documents-inline-form-header">
             <h2 id="documents-type-form-title">Register document type</h2>
+            <button type="button" class="documents-modal-close" aria-label="Close register document type dialog" disabled="@isRegisteringType" @onclick="CloseRegisterTypeForm">&times;</button>
         </div>
 
         @if (registerTypeConflictMessage is not null)

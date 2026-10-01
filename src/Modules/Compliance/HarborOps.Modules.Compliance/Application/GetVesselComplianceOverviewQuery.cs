@@ -77,21 +77,41 @@ internal sealed class GetVesselComplianceOverviewQuery(DbContext dbContext, IDat
             })
             .ToList();
 
-        var pscInspections = await dbContext.Set<PscInspection>()
+        var pscInspectionRows = await dbContext.Set<PscInspection>()
             .AsNoTracking()
             .Where(inspection => inspection.VesselId == request.VesselId)
             .OrderByDescending(inspection => inspection.Date)
             .ThenBy(inspection => inspection.Id)
             .Take(MaxItemsPerCollection)
-            .Select(inspection => new PscInspectionOverviewItem(
+            .Select(inspection => new
+            {
                 inspection.Id,
                 inspection.VesselId,
                 inspection.PortId,
                 inspection.Date,
                 inspection.InspectingAuthority,
                 inspection.DeficiencyCount,
-                inspection.VesselDetained))
+                inspection.VesselDetained,
+                LatestDecision = dbContext.Set<PscDetentionDecision>()
+                    .Where(decision => decision.PscInspectionId == inspection.Id)
+                    .OrderByDescending(decision => decision.OccurredAtUtc)
+                    .ThenByDescending(decision => decision.Id)
+                    .Select(decision => decision.Decision)
+                    .FirstOrDefault(),
+            })
             .ToListAsync(cancellationToken);
+
+        var pscInspections = pscInspectionRows
+            .Select(row => new PscInspectionOverviewItem(
+                row.Id,
+                row.VesselId,
+                row.PortId,
+                row.Date,
+                row.InspectingAuthority,
+                row.DeficiencyCount,
+                row.VesselDetained,
+                PscDetentionState.FromLatestDecision(row.LatestDecision, row.VesselDetained)))
+            .ToList();
 
         var surveyAudits = await dbContext.Set<SurveyAudit>()
             .AsNoTracking()

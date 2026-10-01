@@ -55,6 +55,30 @@ public sealed class GetExpiringDocumentsEndpointTests : IntegrationTestBase
     }
 
     [Fact]
+    public async Task Summary_counts_the_filtered_documents_and_returns_twelve_months()
+    {
+        using var client = await _application.CreateAuthenticatedClientAsync();
+        var vesselId = Guid.NewGuid();
+        var today = DateOnly.FromDateTime(HarborOpsApiFactory.FixedUtcNow);
+        await SeedDocumentAsync(vesselId, today.AddDays(-3));
+        await SeedDocumentAsync(vesselId, today.AddDays(5));
+
+        using var response = await client.GetAsync(
+            new Uri($"/api/documents/expiring/summary?vesselId={vesselId}", UriKind.Relative),
+            CancellationToken.None);
+        var summary = await response.Content.ReadFromJsonAsync<GetExpiringDocumentsSummaryResponse>(
+            CancellationToken.None);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.NotNull(summary);
+        Assert.Equal(2, summary.TotalCount);
+        Assert.Equal(1, summary.ExpiredCount);
+        Assert.Equal(1, summary.DueWithin30DaysCount);
+        Assert.Equal(12, summary.Months.Count);
+        Assert.Equal(1, summary.Months.Sum(month => month.Count));
+    }
+
+    [Fact]
     public async Task Get_returns_empty_items_when_nothing_in_range()
     {
         using var client = await _application.CreateAuthenticatedClientAsync();

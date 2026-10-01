@@ -42,6 +42,29 @@ public sealed class GetNonConformitiesEndpointTests : IClassFixture<HarborOpsApi
     }
 
     [Fact]
+    public async Task Summary_counts_unresolved_findings_by_severity()
+    {
+        using var client = await _application.CreateAuthenticatedClientWithPermissionsAsync(Permissions.Compliance.Read);
+        var before = await client.GetFromJsonAsync<GetNonConformitiesSummaryResponse>("/api/compliance/non-conformities/summary");
+        var pscId = await SeedPscInspectionAsync();
+        var deadline = new DateOnly(2099, 12, 1);
+        await SeedNonConformityAsync(NonConformity.SeverityCritical, NonConformity.ClosureStatusOpen, deadline, pscId);
+        await SeedNonConformityAsync(NonConformity.SeverityMinor, NonConformity.ClosureStatusInProgress, deadline, pscId);
+        await SeedNonConformityAsync(NonConformity.SeverityCritical, NonConformity.ClosureStatusClosed, deadline, pscId);
+
+        using var response = await client.GetAsync("/api/compliance/non-conformities/summary");
+        var after = await response.Content.ReadFromJsonAsync<GetNonConformitiesSummaryResponse>();
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.NotNull(before);
+        Assert.NotNull(after);
+        Assert.Equal(before.UnresolvedCriticalCount + 1, after.UnresolvedCriticalCount);
+        Assert.Equal(before.UnresolvedMajorCount, after.UnresolvedMajorCount);
+        Assert.Equal(before.UnresolvedMinorCount + 1, after.UnresolvedMinorCount);
+        Assert.Equal(before.OverdueCount, after.OverdueCount);
+    }
+
+    [Fact]
     public async Task Get_returns_400_for_an_invalid_page_size()
     {
         using var client = await _application.CreateAuthenticatedClientWithPermissionsAsync(Permissions.Compliance.Read);

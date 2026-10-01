@@ -107,6 +107,16 @@ internal sealed class ComplianceApiClient(HttpClient httpClient)
             "Unable to load non-conformities",
             cancellationToken);
 
+    internal Task<ComplianceApiResult<NonConformitiesSummary>> GetNonConformitiesSummaryAsync(CancellationToken cancellationToken) =>
+        SendAsync<NonConformitiesSummary>(
+            () => httpClient.GetAsync(
+                $"{BasePath}/non-conformities/summary",
+                HttpCompletionOption.ResponseHeadersRead,
+                cancellationToken),
+            HttpStatusCode.OK,
+            "Unable to load the non-conformity summary",
+            cancellationToken);
+
     internal Task<ComplianceApiResult<GetNonConformityDetailResponse>> GetNonConformityDetailAsync(
         int nonConformityId,
         CancellationToken cancellationToken) =>

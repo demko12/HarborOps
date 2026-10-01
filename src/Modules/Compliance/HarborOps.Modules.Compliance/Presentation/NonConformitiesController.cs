@@ -96,6 +96,11 @@ public sealed class NonConformitiesController(
         }
     }
 
+    [HttpGet("summary")]
+    [ProducesResponseType<GetNonConformitiesSummaryResponse>(StatusCodes.Status200OK)]
+    public async Task<ActionResult<GetNonConformitiesSummaryResponse>> GetSummary(CancellationToken cancellationToken) =>
+        Ok(await getNonConformitiesQuery.GetSummaryAsync(cancellationToken));
+
     [HttpGet("{nonConformityId:int}")]
     [ProducesResponseType<GetNonConformityDetailResponse>(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]

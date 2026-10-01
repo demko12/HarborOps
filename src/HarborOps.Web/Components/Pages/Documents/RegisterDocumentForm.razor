@@ -5,6 +5,7 @@
 <section class="documents-form-card documents-modal documents-modal-wide" role="dialog" aria-modal="true" aria-labelledby="documents-form-title" @onclick:stopPropagation="true">
     <div class="documents-inline-form-header">
         <h2 id="documents-form-title">Register document</h2>
+        <button type="button" class="documents-modal-close" aria-label="Close register document dialog" disabled="@isRegisteringDocument" @onclick="OnClose">&times;</button>
     </div>
 
     @if (registerDocumentConflictMessage is not null)

@@ -41,6 +41,7 @@ public partial class Documents
     internal const string RejectedReviewStatus = "Rejected";
 
     internal const int DocumentTypeOptionsPageSize = 100;
+    internal const int DueSoonDays = 30;
 
     // Same known, documented coupling as DocumentsApiClient.MaxUploadSizeBytes - mirrors
     // DocumentFileValidationOptions.MaxSizeBytes (server default, 25 MB), duplicated here
@@ -124,6 +125,17 @@ public partial class Documents
     // a single id is tracked rather than one per document.
     private Guid? expandedDocumentId;
 
+    private ExpiringDocumentsSummary? summary;
+    private int summaryVersion;
+
+    private static DateOnly Today => DateOnly.FromDateTime(DateTime.UtcNow);
+
+    private bool IsExpiredKpiSelected => appliedFrom is null && appliedTo == Today.AddDays(-1);
+
+    private bool IsDueSoonKpiSelected => appliedFrom == Today && appliedTo == Today.AddDays(DueSoonDays);
+
+    private bool IsPendingReviewKpiSelected => appliedReviewStatus == PendingReviewReviewStatus;
+
     private int TotalPages => totalCount == 0 ? 1 : (totalCount + pageSize - 1) / pageSize;
 
     private int FirstRowNumber => rows.Count == 0 ? 0 : ((pageNumber - 1) * pageSize) + 1;
@@ -138,7 +150,7 @@ public partial class Documents
 
     protected override Task OnInitializedAsync()
     {
-        return Task.WhenAll(LoadAsync(), LoadDocumentTypeOptionsAsync());
+        return Task.WhenAll(LoadAsync(), LoadSummaryAsync(), LoadDocumentTypeOptionsAsync());
     }
 
     private Task SelectFilterVesselAsync(Guid? vesselId)
@@ -200,7 +212,7 @@ public partial class Documents
         appliedReviewStatus = string.IsNullOrEmpty(pendingReviewStatus) ? null : pendingReviewStatus;
         pageNumber = 1;
 
-        return LoadAsync();
+        return Task.WhenAll(LoadAsync(), LoadSummaryAsync());
     }
 
     private Task ClearFiltersAsync()
@@ -218,12 +230,112 @@ public partial class Documents
         filterValidationMessage = null;
         pageNumber = 1;
 
-        return LoadAsync();
+        return Task.WhenAll(LoadAsync(), LoadSummaryAsync());
     }
 
     private Task RetryAsync()
     {
-        return LoadAsync();
+        return Task.WhenAll(LoadAsync(), LoadSummaryAsync());
+    }
+
+    private Task ToggleExpiredKpiAsync() =>
+        IsExpiredKpiSelected ? ApplyDateFilterAsync(null, null) : ApplyDateFilterAsync(null, Today.AddDays(-1));
+
+    private Task ToggleDueSoonKpiAsync() =>
+        IsDueSoonKpiSelected ? ApplyDateFilterAsync(null, null) : ApplyDateFilterAsync(Today, Today.AddDays(DueSoonDays));
+
+    private Task TogglePendingReviewKpiAsync()
+    {
+        filterSearchCancellation?.Cancel();
+        pendingReviewStatus = IsPendingReviewKpiSelected ? null : PendingReviewReviewStatus;
+
+        return ApplyFiltersAsync();
+    }
+
+    private Task ToggleMonthAsync(DateOnly monthStart)
+    {
+        if (IsMonthSelected(monthStart))
+        {
+            return ApplyDateFilterAsync(null, null);
+        }
+
+        var (from, to) = MonthRange(monthStart);
+
+        return ApplyDateFilterAsync(from, to);
+    }
+
+    private bool IsMonthSelected(DateOnly monthStart)
+    {
+        var (from, to) = MonthRange(monthStart);
+
+        return appliedFrom == from && appliedTo == to;
+    }
+
+    private static (DateOnly From, DateOnly To) MonthRange(DateOnly monthStart) =>
+        (monthStart < Today ? Today : monthStart, monthStart.AddMonths(1).AddDays(-1));
+
+    private static string? MonthTone(DateOnly monthStart) =>
+        monthStart <= Today.AddDays(DueSoonDays) ? "warning" : null;
+
+    private Task ApplyDateFilterAsync(DateOnly? from, DateOnly? to)
+    {
+        filterSearchCancellation?.Cancel();
+        fromFilter = from;
+        toFilter = to;
+
+        return ApplyFiltersAsync();
+    }
+
+    private async Task LoadSummaryAsync()
+    {
+        var requestVersion = ++summaryVersion;
+        var query = new GetExpiringDocumentsQuery(appliedFrom, appliedTo, appliedVesselId, null, null, appliedReviewStatus);
+
+        DocumentsApiResult<ExpiringDocumentsSummary> result;
+
+        try
+        {
+            result = await DocumentsApi.GetExpiringSummaryAsync(query, disposeCancellation.Token);
+        }
+        catch (OperationCanceledException) when (disposeCancellation.IsCancellationRequested)
+        {
+            return;
+        }
+
+        if (disposeCancellation.IsCancellationRequested || requestVersion != summaryVersion)
+        {
+            return;
+        }
+
+        summary = result.IsSuccess ? result.Value : null;
+    }
+
+    private static string FormatCount(int? count) =>
+        count?.ToString("N0", CultureInfo.InvariantCulture) ?? "—";
+
+    internal static string DaysLeftTone(int daysUntilExpiry) => daysUntilExpiry switch
+    {
+        < 0 => "danger",
+        <= DueSoonDays => "warning",
+        _ => "success",
+    };
+
+    internal static string FormatDaysLeft(int daysUntilExpiry) => daysUntilExpiry switch
+    {
+        < -1 => $"{-daysUntilExpiry} days overdue",
+        -1 => "1 day overdue",
+        0 => "Today",
+        1 => "1 day",
+        _ => $"{daysUntilExpiry} days",
+    };
+
+    internal static int ValidityElapsedPercent(DateOnly issueDate, DateOnly expiryDate, int daysUntilExpiry)
+    {
+        var totalDays = expiryDate.DayNumber - issueDate.DayNumber;
+        var today = expiryDate.AddDays(-daysUntilExpiry);
+        if (totalDays <= 0) return today >= expiryDate ? 100 : 0;
+
+        return Math.Clamp((int)Math.Round((today.DayNumber - issueDate.DayNumber) * 100d / totalDays), 0, 100);
     }
 
     private Task PreviousPageAsync()
@@ -477,7 +589,7 @@ public partial class Documents
     {
         // Refresh the grid so a newly registered document appears immediately if it falls
         // within the currently applied date/vessel filters.
-        await LoadAsync();
+        await Task.WhenAll(LoadAsync(), LoadSummaryAsync());
     }
 
     internal static string ExtractConflictMessage(DocumentsApiFailure failure, string conflictFieldKey)

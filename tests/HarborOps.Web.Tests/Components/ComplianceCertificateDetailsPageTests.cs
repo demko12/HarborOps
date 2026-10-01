@@ -4,6 +4,7 @@ using System.Text;
 using Bunit;
 using HarborOps.Web.Api;
 using HarborOps.Web.Api.Compliance;
+using HarborOps.Web.Api.Fleet;
 using HarborOps.Web.Components.Pages.Compliance;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.DependencyInjection;
@@ -28,6 +29,11 @@ public sealed class ComplianceCertificateDetailsPageTests : BunitContext
     public ComplianceCertificateDetailsPageTests()
     {
         Services.AddSingleton(new ComplianceApiClient(new HttpClient(new AsyncHandler(RespondAsync)) { BaseAddress = new("https://localhost/") }));
+        Services.AddSingleton(new FleetApiClient(new HttpClient(new AsyncHandler(_ => Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
+        {
+            Content = new StringContent("""{"vessels":[{"id":"10000000-0000-0000-0000-000000000001","name":"MV Adriatic Star"}]}""", Encoding.UTF8, "application/json"),
+        })))
+        { BaseAddress = new("https://localhost/") }));
         ConfigureAuthorization(CurrentUserAuthorizationState.ComplianceManagePermission);
     }
 
@@ -48,6 +54,47 @@ public sealed class ComplianceCertificateDetailsPageTests : BunitContext
         Assert.Equal($"/compliance/certificates/{SuccessorId}", chain[1].QuerySelector("a")!.GetAttribute("href"));
         Assert.Contains("Renewed · SMC-2022", page.Find(".certificate-history").TextContent);
         Assert.Contains("Renewed by SMC-2027", page.Find(".certificate-history").TextContent);
+        Assert.Contains("renewed", page.Find(".certificate-history li").ClassList);
+    }
+
+    [Fact]
+    public void The_header_names_the_certificate_and_its_vessel()
+    {
+        var page = RenderPage();
+
+        page.WaitForAssertion(() => Assert.Equal("SMC-2022", page.Find(".certificate-header h1").TextContent));
+        page.WaitForAssertion(() => Assert.Contains("MV Adriatic Star", page.Find(".certificate-identity").TextContent));
+        Assert.Contains("Safety Management Certificate", page.Find(".certificate-identity").TextContent);
+    }
+
+    [Fact]
+    public void The_validity_timeline_places_each_certificate_and_marks_the_coverage_gap()
+    {
+        renewed = true;
+        var page = RenderPage();
+
+        page.WaitForAssertion(() => Assert.Equal(2, page.FindAll(".certificate-chain li").Count));
+        var chain = page.FindAll(".certificate-chain li");
+
+        Assert.NotNull(chain[0].QuerySelector(".certificate-chain-bar"));
+        Assert.Null(chain[0].QuerySelector(".certificate-chain-gap"));
+        Assert.NotNull(chain[1].QuerySelector(".certificate-chain-gap"));
+        Assert.Contains("01 Jan 2022 – 01 Jan 2027", chain[0].QuerySelector(".certificate-chain-dates")!.TextContent);
+    }
+
+    [Theory]
+    [InlineData("2022-01-01", "2027-01-01", "2024-07-02", 50)]
+    [InlineData("2022-01-01", "2027-01-01", "2028-01-01", 0)]
+    [InlineData("2027-01-01", "2032-01-01", "2026-09-30", 100)]
+    public void Validity_percent_counts_the_days_left_in_the_validity_period(string issued, string expires, string today, int expected)
+    {
+        var detail = new ComplianceCertificateDetail(
+            Guid.NewGuid(), Guid.NewGuid(), "SMC", "SMC-1", "Flag State",
+            DateOnly.Parse(issued, System.Globalization.CultureInfo.InvariantCulture),
+            DateOnly.Parse(expires, System.Globalization.CultureInfo.InvariantCulture),
+            "Current", DateTime.UtcNow, null, null, null, null, null, false, false, Guid.NewGuid(), [], []);
+
+        Assert.Equal(expected, ComplianceCertificateDetails.ValidityPercent(detail, DateOnly.Parse(today, System.Globalization.CultureInfo.InvariantCulture)));
     }
 
     [Fact]
@@ -72,8 +119,10 @@ public sealed class ComplianceCertificateDetailsPageTests : BunitContext
         Assert.Equal("Valid", kpis[0].QuerySelector(".certificate-kpi-value")!.TextContent);
         Assert.Equal("01 Jan 2027", kpis[1].QuerySelector(".certificate-kpi-value")!.TextContent);
         Assert.Equal("Issued 01 Jan 2022", kpis[1].QuerySelector(".certificate-kpi-note")!.TextContent);
-        Assert.Equal("2", kpis[2].QuerySelector(".certificate-kpi-value")!.TextContent);
-        Assert.Equal("This is certificate 1 of 2", kpis[2].QuerySelector(".certificate-kpi-note")!.TextContent);
+        Assert.Equal("1 gap", kpis[2].QuerySelector(".certificate-kpi-value")!.TextContent);
+        Assert.Equal("3 days without a valid certificate", kpis[2].QuerySelector(".certificate-kpi-note")!.TextContent);
+        Assert.Contains("attention", kpis[2].ClassList);
+        Assert.Equal("This is certificate 1 of 2", page.Find(".certificate-chain-count").TextContent);
         Assert.Equal("1", kpis[3].QuerySelector(".certificate-kpi-value")!.TextContent);
         Assert.Equal("Last event 28 Sep 2026", kpis[3].QuerySelector(".certificate-kpi-note")!.TextContent);
     }

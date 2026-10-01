@@ -94,7 +94,7 @@
         {
             <div class="compliance-modal-backdrop" role="presentation" @onclick="CloseCertificateForm">
             <section class="compliance-card compliance-form-card compliance-registration-modal" role="dialog" aria-modal="true" aria-labelledby="certificate-form-title" @onclick:stopPropagation="true">
-                <div class="compliance-modal-heading"><div><h2 id="certificate-form-title">Register certificate</h2><p>Add a certificate for the selected vessel.</p></div></div>
+                <div class="compliance-modal-heading"><div><h2 id="certificate-form-title">Register certificate</h2><p>Add a certificate for the selected vessel.</p></div><button type="button" class="compliance-modal-close" aria-label="Close register certificate dialog" disabled="@isSubmittingCertificate" @onclick="CloseCertificateForm">&times;</button></div>
                 @if (certificateSuccess is not null) { <div class="compliance-success" role="status">@certificateSuccess</div> }
                 @if (certificateError is not null) { <div class="compliance-error" role="alert">@certificateError</div> }
                 <EditForm EditContext="certificateEditContext" OnSubmit="SubmitCertificateAsync">
@@ -116,7 +116,7 @@
         {
             <div class="compliance-modal-backdrop" role="presentation" @onclick="ClosePscForm">
             <section class="compliance-card compliance-form-card compliance-registration-modal" role="dialog" aria-modal="true" aria-labelledby="psc-form-title" @onclick:stopPropagation="true">
-                <div class="compliance-modal-heading"><div><h2 id="psc-form-title">Register PSC inspection</h2><p>Record the port state control inspection for the selected vessel.</p></div></div>
+                <div class="compliance-modal-heading"><div><h2 id="psc-form-title">Register PSC inspection</h2><p>Record the port state control inspection for the selected vessel.</p></div><button type="button" class="compliance-modal-close" aria-label="Close register PSC inspection dialog" disabled="@isSubmittingPsc" @onclick="ClosePscForm">&times;</button></div>
                 @if (pscSuccess is not null) { <div class="compliance-success" role="status">@pscSuccess</div> }
                 @if (pscError is not null) { <div class="compliance-error" role="alert">@pscError</div> }
                 <EditForm EditContext="pscEditContext" OnSubmit="SubmitPscAsync">
@@ -138,7 +138,7 @@
         {
             <div class="compliance-modal-backdrop" role="presentation" @onclick="CloseNonConformityForm">
             <section class="compliance-card compliance-form-card compliance-registration-modal" role="dialog" aria-modal="true" aria-labelledby="non-conformity-form-title" @onclick:stopPropagation="true">
-                <div class="compliance-modal-heading"><div><h2 id="non-conformity-form-title">Register non-conformity</h2><p>Record an open compliance issue for the selected vessel.</p></div></div>
+                <div class="compliance-modal-heading"><div><h2 id="non-conformity-form-title">Register non-conformity</h2><p>Record an open compliance issue for the selected vessel.</p></div><button type="button" class="compliance-modal-close" aria-label="Close register non-conformity dialog" disabled="@isSubmittingNonConformity" @onclick="CloseNonConformityForm">&times;</button></div>
                 @if (nonConformitySuccess is not null) { <div class="compliance-success" role="status">@nonConformitySuccess</div> }
                 @if (nonConformityError is not null) { <div class="compliance-error" role="alert">@nonConformityError</div> }
                 <EditForm EditContext="nonConformityEditContext" OnSubmit="SubmitNonConformityAsync">
@@ -208,7 +208,7 @@
         {
             <div class="compliance-modal-backdrop" role="presentation" @onclick="CloseInsurancePolicyForm">
             <section class="compliance-card compliance-form-card compliance-registration-modal" role="dialog" aria-modal="true" aria-labelledby="insurance-policy-form-title" @onclick:stopPropagation="true">
-                <div class="compliance-modal-heading"><div><h2 id="insurance-policy-form-title">Register insurance policy</h2><p>Expiry dates must be today or later.</p></div></div>
+                <div class="compliance-modal-heading"><div><h2 id="insurance-policy-form-title">Register insurance policy</h2><p>Expiry dates must be today or later.</p></div><button type="button" class="compliance-modal-close" aria-label="Close register insurance policy dialog" disabled="@isSubmittingInsurancePolicy" @onclick="CloseInsurancePolicyForm">&times;</button></div>
                 @if (insurancePolicyError is not null) { <div class="compliance-error" role="alert">@insurancePolicyError</div> }
                 <EditForm EditContext="insurancePolicyEditContext" OnSubmit="SubmitInsurancePolicyAsync">
                     <DataAnnotationsValidator />
@@ -346,7 +346,9 @@
         <ComplianceSection Icon="bi-clipboard-check" Title="PSC inspections" EmptyTitle="No PSC inspections recorded" IsEmpty="@(overview.PscInspections.Count == 0)">
             @foreach (var item in overview.PscInspections)
             {
-                <a class="compliance-record inspection-card @(item.VesselDetained ? "is-detained" : null)" href="/compliance/psc-inspections/@item.Id">
+                var detentionState = DetentionState(item);
+
+                <a class="compliance-record inspection-card @(detentionState == DetainedState ? "is-detained" : null)" href="/compliance/psc-inspections/@item.Id">
                     <div class="record-identity">
                         <span class="record-kicker">Inspection</span>
                         <strong>@item.InspectionDate.ToString("dd MMM yyyy")</strong>
@@ -357,7 +359,7 @@
                         <span>@(item.DeficiencyCount == 1 ? "Deficiency" : "Deficiencies")</span>
                     </div>
                     <div class="record-status-block">
-                        <span class="compliance-badge @(item.VesselDetained ? "danger" : "success")">@(item.VesselDetained ? "Detained" : "Clear")</span>
+                        <span class="compliance-badge @DetentionBadgeClass(detentionState)">@DetentionLabel(detentionState)</span>
                     </div>
                     <span class="inspection-open-action">Open PSC follow-up <i class="bi bi-arrow-right" aria-hidden="true"></i></span>
                     <div class="record-metadata"><span>Port</span><strong class="record-reference-name">@PortName(item.PortId)</strong></div>

@@ -26,6 +26,15 @@ internal sealed record ExpiringDocumentsPage(
     int PageSize,
     int TotalCount);
 
+internal sealed record ExpiringDocumentsSummary(
+    int TotalCount,
+    int ExpiredCount,
+    int DueWithin30DaysCount,
+    int PendingReviewCount,
+    IReadOnlyList<ExpiringDocumentsMonthCount> Months);
+
+internal sealed record ExpiringDocumentsMonthCount(int Year, int Month, int Count);
+
 internal sealed record GetDocumentsQuery(Guid? VesselId, string? Search, int? PageNumber, int? PageSize);
 
 internal sealed record DocumentListItem(

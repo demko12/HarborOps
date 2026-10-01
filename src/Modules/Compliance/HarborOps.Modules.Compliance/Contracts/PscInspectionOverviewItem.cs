@@ -7,4 +7,5 @@ public sealed record PscInspectionOverviewItem(
     DateOnly InspectionDate,
     string InspectingAuthority,
     int DeficiencyCount,
-    bool VesselDetained);
+    bool VesselDetained,
+    string DetentionState);

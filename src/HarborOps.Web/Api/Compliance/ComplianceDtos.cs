@@ -36,7 +36,7 @@ internal sealed record RevokeComplianceCertificateRequest(Guid? ExpectedConcurre
 internal sealed record RevokeComplianceCertificateResult(Guid Id, DateTime RevokedAtUtc, Guid RevokedByUserId);
 
 internal sealed record PscInspectionItem(int Id, Guid VesselId, Guid PortId, DateOnly InspectionDate,
-    string InspectingAuthority, int DeficiencyCount, bool VesselDetained);
+    string InspectingAuthority, int DeficiencyCount, bool VesselDetained, string? DetentionState = null);
 
 internal sealed record SurveyAuditItem(int Id, Guid VesselId, DateOnly Date, string Type, string Result);
 
@@ -114,6 +114,12 @@ internal sealed record GetNonConformitiesResponse(
     int TotalCount,
     int PageNumber,
     int PageSize);
+
+internal sealed record NonConformitiesSummary(
+    int UnresolvedCriticalCount,
+    int UnresolvedMajorCount,
+    int UnresolvedMinorCount,
+    int OverdueCount);
 
 internal sealed record CorrectiveActionItem(
     Guid Id,

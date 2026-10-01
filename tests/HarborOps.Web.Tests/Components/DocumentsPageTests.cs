@@ -50,6 +50,88 @@ public sealed class DocumentsPageTests : BunitContext
     // ---- Grid ----
 
     [Fact]
+    public void Kpis_show_the_summary_counts_for_all_matching_documents()
+    {
+        var page = RenderDocumentsPage();
+
+        page.WaitForAssertion(() =>
+        {
+            var values = page.FindAll(".documents-summary .documents-kpi-value").Select(value => value.TextContent).ToList();
+            Assert.Equal(["42", "7", "5", "3"], values);
+        });
+    }
+
+    [Fact]
+    public void Expired_kpi_filters_the_register_to_documents_that_expired_before_today_and_toggles_off()
+    {
+        var page = RenderDocumentsPage();
+        page.WaitForAssertion(() => Assert.Contains(requestedUris, IsExpiringRequest));
+        var yesterday = DateOnly.FromDateTime(DateTime.UtcNow).AddDays(-1);
+
+        page.Find("button[aria-label='Show expired documents']").Click();
+
+        page.WaitForAssertion(() =>
+        {
+            var lastQuery = requestedUris.Last(IsExpiringRequest).Query;
+            Assert.Contains($"to={yesterday:yyyy-MM-dd}", lastQuery, StringComparison.Ordinal);
+            Assert.DoesNotContain("from=", lastQuery, StringComparison.Ordinal);
+            Assert.Equal("true", page.Find("button[aria-label='Show expired documents']").GetAttribute("aria-pressed"));
+        });
+
+        page.Find("button[aria-label='Show expired documents']").Click();
+
+        page.WaitForAssertion(() => Assert.DoesNotContain("to=", requestedUris.Last(IsExpiringRequest).Query, StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void Pending_review_kpi_filters_the_register_by_review_status()
+    {
+        var page = RenderDocumentsPage();
+        page.WaitForAssertion(() => Assert.Contains(requestedUris, IsExpiringRequest));
+
+        page.Find("button[aria-label='Show documents pending review']").Click();
+
+        page.WaitForAssertion(() =>
+            Assert.Contains("reviewStatus=PendingReview", requestedUris.Last(IsExpiringRequest).Query, StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void Month_bar_filters_the_register_to_that_month()
+    {
+        var page = RenderDocumentsPage();
+        page.WaitForAssertion(() => Assert.Equal(12, page.FindAll(".documents-expiry-bar").Count));
+        var month = new DateOnly(DateTime.UtcNow.Year, DateTime.UtcNow.Month, 1).AddMonths(2);
+
+        page.FindAll(".documents-expiry-bar")[2].Click();
+
+        page.WaitForAssertion(() =>
+        {
+            var lastQuery = requestedUris.Last(IsExpiringRequest).Query;
+            Assert.Contains($"from={month:yyyy-MM-dd}", lastQuery, StringComparison.Ordinal);
+            Assert.Contains($"to={month.AddMonths(1).AddDays(-1):yyyy-MM-dd}", lastQuery, StringComparison.Ordinal);
+        });
+    }
+
+    [Theory]
+    [InlineData(-12, "12 days overdue", "danger")]
+    [InlineData(0, "Today", "warning")]
+    [InlineData(30, "30 days", "warning")]
+    [InlineData(31, "31 days", "success")]
+    public void Days_left_is_shown_with_a_tone(int daysUntilExpiry, string label, string tone)
+    {
+        respondToExpiring = _ => Json(HttpStatusCode.OK, Page(Row("10000000-0000-0000-0000-000000000001", daysUntilExpiry: daysUntilExpiry)));
+
+        var page = RenderDocumentsPage();
+
+        page.WaitForAssertion(() =>
+        {
+            var chip = page.Find(".documents-days-left");
+            Assert.Equal(label, chip.TextContent);
+            Assert.Contains(tone, chip.ClassList);
+        });
+    }
+
+    [Fact]
     public void Initial_state_loads_all_documents_without_date_or_vessel_filters()
     {
         var page = RenderDocumentsPage();
@@ -1167,6 +1249,11 @@ public sealed class DocumentsPageTests : BunitContext
             return respondToExpiring(request);
         }
 
+        if (path.EndsWith("/expiring/summary", StringComparison.Ordinal))
+        {
+            return Json(HttpStatusCode.OK, Summary());
+        }
+
         if (path.EndsWith("/types", StringComparison.Ordinal))
         {
             return request.Method == HttpMethod.Get
@@ -1205,6 +1292,18 @@ public sealed class DocumentsPageTests : BunitContext
             "issueDate":"{{issueDate}}","expiryDate":"{{expiryDate}}","issuingAuthority":"{{issuingAuthority}}",
             "status":"{{status}}","reviewStatus":"{{reviewStatus}}","documentTypeName":"{{documentTypeName}}",
             "daysUntilExpiry":{{daysUntilExpiry}}}
+            """;
+    }
+
+    private static string Summary()
+    {
+        var today = DateOnly.FromDateTime(DateTime.UtcNow);
+        var months = Enumerable.Range(0, 12)
+            .Select(offset => new DateOnly(today.Year, today.Month, 1).AddMonths(offset))
+            .Select((month, index) => $$"""{"year":{{month.Year}},"month":{{month.Month}},"count":{{(index == 2 ? 4 : 0)}}}""");
+
+        return $$"""
+            {"totalCount":42,"expiredCount":7,"dueWithin30DaysCount":5,"pendingReviewCount":3,"months":[{{string.Join(',', months)}}]}
             """;
     }
 

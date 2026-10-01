@@ -1,7 +1,11 @@
 @page "/compliance/psc-inspections/{InspectionId:int}"
 @attribute [Microsoft.AspNetCore.Authorization.Authorize(Policy = "AccessCompliance")]
 @using HarborOps.Web.Api.Compliance
+@using HarborOps.Web.Api.Fleet
+@using HarborOps.Web.Api.Voyages
 @inject ComplianceApiClient ComplianceApi
+@inject FleetApiClient FleetApi
+@inject VoyagesApiClient VoyagesApi
 @inject CurrentUserAuthorizationState AuthorizationState
 
 <PageTitle>PSC inspection follow-up | HarborOps</PageTitle>
@@ -10,9 +14,27 @@
     <header class="psc-header">
         <div>
             <nav class="page-breadcrumb" aria-label="Breadcrumb"><a href="/compliance">Compliance operations</a><span aria-hidden="true">/</span><span>PSC follow-up</span></nav>
-            <h1>PSC inspection follow-up</h1>
-            <p>Reconcile every reported deficiency and record detention decisions before vessel release.</p>
+            <h1>PSC inspection #@InspectionId</h1>
+            @if (inspection is not null)
+            {
+                <p class="psc-identity">
+                    <span class="psc-port-chip"><span class="bi bi-geo-alt" aria-hidden="true"></span><strong>@(portName ?? "Unknown port")</strong></span>
+                    <span>@(vesselName ?? "Unknown vessel")</span>
+                    <span aria-hidden="true">·</span>
+                    <span>@inspection.InspectingAuthority</span>
+                    <span aria-hidden="true">·</span>
+                    <span>@inspection.InspectionDate.ToString("dd MMM yyyy")</span>
+                </p>
+            }
+            else
+            {
+                <p>Reconcile every reported deficiency and record detention decisions before vessel release.</p>
+            }
         </div>
+        @if (inspection is not null)
+        {
+            <span class="psc-state @DetentionStateClass(inspection.DetentionState)">@DetentionStateLabel(inspection.DetentionState)</span>
+        }
     </header>
 
     @if (isLoading)
@@ -25,24 +47,72 @@
     }
     else if (inspection is not null)
     {
-        <section class="psc-card psc-overview-card">
-            <div class="psc-section-heading"><div><span class="psc-kicker">Inspection overview</span><h2>@inspection.InspectingAuthority</h2><p>Inspection on @inspection.InspectionDate.ToString("dd MMM yyyy")</p></div><span class="compliance-badge @(inspection.DetentionState == "Detained" ? "danger" : inspection.DetentionState == "Released" ? "success" : "neutral")">@inspection.DetentionState</span></div>
-            <div class="psc-port-reference"><span class="bi bi-geo-alt" aria-hidden="true"></span><span>Port reference</span><code>@inspection.PortId</code></div>
-            <div class="psc-summary-grid">
-                <div><span>Reported deficiencies</span><strong>@inspection.ReportedDeficiencyCount</strong></div>
-                <div><span>Registered</span><strong>@inspection.RegisteredDeficiencyCount</strong></div>
-                <div><span>Open</span><strong>@inspection.OpenDeficiencyCount</strong></div>
-                <div><span>Closed</span><strong>@inspection.ClosedDeficiencyCount</strong></div>
-            </div>
-            @if (inspection.HasDeficiencyCountMismatch)
-            {
-                <p class="psc-blocking-message">Release is blocked: the reported and registered deficiency counts do not match.</p>
-            }
-            @if (inspection.OpenDeficiencyCount > 0)
-            {
-                <p class="psc-blocking-message">Release is blocked: @inspection.OpenDeficiencyCount linked finding(s) still require closure.</p>
-            }
+        var today = DateOnly.FromDateTime(DateTime.UtcNow);
+        var overdueCount = deficiencies.Count(item => IsOverdue(item, today));
+
+        <section class="psc-card psc-steps" aria-label="Path to release">
+            <ol>
+                @foreach (var step in ReleaseSteps(inspection, overdueCount))
+                {
+                    <li class="psc-step @step.State" @key="step.Title">
+                        <span class="psc-step-dot" aria-hidden="true">
+                            @if (step.State == StepDone)
+                            {
+                                <span class="bi bi-check-lg"></span>
+                            }
+                            else
+                            {
+                                @step.Number
+                            }
+                        </span>
+                        <span class="psc-step-text">
+                            <strong>@step.Title</strong>
+                            <small>@step.Note</small>
+                        </span>
+                    </li>
+                }
+            </ol>
         </section>
+
+        <section class="psc-summary" aria-label="Inspection summary">
+            <article class="psc-kpi">
+                <p class="psc-kpi-label">Reported deficiencies</p>
+                <p class="psc-kpi-value">@inspection.ReportedDeficiencyCount</p>
+                <p class="psc-kpi-note">@(inspection.HasDeficiencyCountMismatch ? $"{inspection.RegisteredDeficiencyCount} registered · counts do not match" : $"All {inspection.RegisteredDeficiencyCount} registered")</p>
+            </article>
+            <article class="psc-kpi @(inspection.OpenDeficiencyCount > 0 ? "attention" : null)">
+                <p class="psc-kpi-label">Open</p>
+                <p class="psc-kpi-value">@inspection.OpenDeficiencyCount</p>
+                <p class="psc-kpi-note">@(overdueCount == 0 ? "None past its deadline" : $"{overdueCount} past its deadline")</p>
+            </article>
+            <article class="psc-kpi psc-kpi-closed">
+                <p class="psc-kpi-label">Closed</p>
+                <p class="psc-kpi-value">@inspection.ClosedDeficiencyCount</p>
+                @if (deficiencies.Count > 0)
+                {
+                    <div class="psc-kpi-progress" role="img" aria-label="@($"{inspection.ClosedDeficiencyCount} of {deficiencies.Count} closed")">
+                        @foreach (var item in deficiencies.OrderBy(item => DeficiencyOrder(item, today)))
+                        {
+                            <span class="@DeficiencyStateClass(item, today)" @key="item.NonConformityId"></span>
+                        }
+                    </div>
+                }
+            </article>
+            <article class="psc-kpi">
+                <p class="psc-kpi-label">Detention</p>
+                <p class="psc-kpi-value">@DetentionSummary(inspection, today)</p>
+                <p class="psc-kpi-note">@DetentionNote(inspection)</p>
+            </article>
+        </section>
+
+        @if (inspection.HasDeficiencyCountMismatch)
+        {
+            <p class="psc-blocking-message">Release is blocked: the reported and registered deficiency counts do not match.</p>
+        }
+        @if (inspection.OpenDeficiencyCount > 0)
+        {
+            <p class="psc-blocking-message">Release is blocked: @inspection.OpenDeficiencyCount linked finding(s) still require closure.</p>
+        }
 
         <section class="psc-card">
             <div class="psc-section-heading"><div><span class="psc-kicker">Corrective actions</span><h2>Deficiencies</h2><p>Register each reported finding, then continue its corrective-action workflow.</p></div></div>
@@ -60,16 +130,39 @@
             @if (deficiencies.Count == 0) { <EmptyState Title="No deficiencies registered" Message="Register the reported PSC findings to reconcile this inspection." /> }
             else
             {
+                var axis = DeadlineAxis(inspection.InspectionDate, deficiencies, today);
+                <div class="psc-deadlines" aria-label="Corrective action deadlines">
+                    <div class="psc-deadlines-ticks" aria-hidden="true">
+                        @foreach (var tick in axis.Ticks)
+                        {
+                            <span style="left: @FormatPercent(tick.LeftPercent)">@tick.Label</span>
+                        }
+                    </div>
+                    <div class="psc-deadlines-track" style="--psc-days: @axis.DayCount">
+                        @foreach (var item in deficiencies)
+                        {
+                            <span class="psc-deadline-dot @DeficiencyStateClass(item, today)"
+                                  style="left: @FormatPercent(axis.Percent(item.CorrectiveActionDeadline))"
+                                  title="@($"{item.DeficiencyCode} · {item.CorrectiveActionDeadline:dd MMM yyyy} · {DeficiencyStateLabel(item, today)}")"
+                                  @key="item.NonConformityId"></span>
+                        }
+                        @if (axis.TodayPercent is { } todayPercent)
+                        {
+                            <span class="psc-deadlines-today" style="left: @FormatPercent(todayPercent)" aria-hidden="true"><span>Today</span></span>
+                        }
+                    </div>
+                </div>
+
                 <div class="psc-deficiency-list">
-                    @foreach (var item in deficiencies)
+                    @foreach (var item in deficiencies.OrderBy(item => DeficiencyOrder(item, today)).ThenBy(item => item.CorrectiveActionDeadline))
                     {
-                        <a class="psc-deficiency-row" href="/compliance/non-conformities?selected=@item.NonConformityId">
-                            <span class="psc-deficiency-icon bi bi-exclamation-diamond" aria-hidden="true"></span>
-                            <div><span>Code</span><strong>@item.DeficiencyCode</strong></div>
+                        <a class="psc-deficiency-row @DeficiencyStateClass(item, today)" href="/compliance/non-conformities?selected=@item.NonConformityId" @key="item.NonConformityId">
+                            <span class="psc-deficiency-icon bi @DeficiencyIcon(item, today)" aria-hidden="true"></span>
+                            <div><span>Code</span><strong class="psc-code">@item.DeficiencyCode</strong></div>
                             <div><span>Description</span><strong>@item.Description</strong></div>
-                            <div><span>Severity</span><span class="compliance-badge">@item.Severity</span></div>
-                            <div><span>Corrective action due</span><strong>@item.CorrectiveActionDeadline.ToString("dd MMM yyyy")</strong></div>
-                            <div><span>Status</span><strong>@item.ClosureStatus</strong></div>
+                            <div><span>Severity</span><span class="psc-severity @SeverityClass(item.Severity)">@item.Severity</span></div>
+                            <div><span>Corrective action due</span><strong class="psc-due">@item.CorrectiveActionDeadline.ToString("dd MMM yyyy")<small>@DueLabel(item, today)</small></strong></div>
+                            <div><span>Status</span><span class="psc-status @DeficiencyStateClass(item, today)">@DeficiencyStateLabel(item, today)</span></div>
                             <span class="psc-row-action">Open <i class="bi bi-arrow-right" aria-hidden="true"></i></span>
                         </a>
                     }
@@ -105,7 +198,22 @@
 
         <section class="psc-card"><div class="psc-section-heading"><div><span class="psc-kicker">Audit trail</span><h2>Detention history</h2><p>Newest decision first.</p></div></div>
             @if (inspection.DetentionHistory.Count == 0) { <EmptyState Title="No detention decisions" Message="This inspection has not been detained or released." /> }
-            else { <ol class="psc-history">@foreach (var eventItem in inspection.DetentionHistory) { <li><strong>@eventItem.Decision</strong><span>@eventItem.AuthorityReference · @eventItem.OccurredAtUtc.ToLocalTime().ToString("dd MMM yyyy HH:mm")</span>@if (!string.IsNullOrWhiteSpace(eventItem.Reason)) { <span>@eventItem.Reason</span> }</li> }</ol> }
+            else
+            {
+                <ol class="psc-history">
+                    @foreach (var eventItem in inspection.DetentionHistory)
+                    {
+                        <li class="@(eventItem.Decision == "Released" ? "released" : "detained")" @key="eventItem.Id">
+                            <span class="psc-history-dot bi @(eventItem.Decision == "Released" ? "bi-unlock" : "bi-lock")" aria-hidden="true"></span>
+                            <div>
+                                <strong>@eventItem.Decision</strong>
+                                <span>@eventItem.AuthorityReference · @eventItem.OccurredAtUtc.ToLocalTime().ToString("dd MMM yyyy HH:mm")</span>
+                                @if (!string.IsNullOrWhiteSpace(eventItem.Reason)) { <span class="psc-history-reason">@eventItem.Reason</span> }
+                            </div>
+                        </li>
+                    }
+                </ol>
+            }
         </section>
     }
 </section>
@@ -118,6 +226,8 @@
     private ComplianceApiFailure? actionFailure;
     private bool isLoading = true;
     private bool isSaving;
+    private string? portName;
+    private string? vesselName;
     private string? deficiencyCode, deficiencyDescription, deficiencyEvidenceId, detainAuthorityReference, detainReason, releaseAuthorityReference, releaseDocumentId;
     private string deficiencySeverity = "Minor";
     private DateOnly? deficiencyDeadline, releaseDate;
@@ -133,6 +243,13 @@
             var items = await ComplianceApi.GetPscDeficienciesAsync(InspectionId, CancellationToken.None);
             inspection = detail.Value; deficiencies = items.Value?.Items ?? [];
             failure = detail.Failure ?? items.Failure;
+            if (inspection is not null)
+            {
+                var ports = await VoyagesApi.LookupPortNamesAsync([inspection.PortId], CancellationToken.None);
+                var vessels = await FleetApi.LookupVesselNamesAsync([inspection.VesselId], CancellationToken.None);
+                portName = ports.TryGetValue(inspection.PortId, out var port) ? port : null;
+                vesselName = vessels.TryGetValue(inspection.VesselId, out var vessel) ? vessel : null;
+            }
         }
         finally { isLoading = false; }
     }
