@@ -36,6 +36,55 @@ public sealed class SearchCrewMembersEndpointTests : IntegrationTestBase
     }
 
     [Fact]
+    public async Task Get_filters_roster_by_passport_expiry()
+    {
+        using var client = await _application.CreateAuthenticatedClientWithPermissionsAsync(Permissions.Crew.Read);
+        var today = DateOnly.FromDateTime(HarborOpsApiFactory.FixedUtcNow);
+        await SeedMemberAsync("Passportexpired Crew", "IMO700101", "Active", today.AddDays(-1));
+        await SeedMemberAsync("Passportsoon Crew", "IMO700102", "Active", today.AddDays(30));
+        await SeedMemberAsync("Passportvalid Crew", "IMO700103", "Active", today.AddDays(400));
+
+        var expired = await client.GetFromJsonAsync<SearchCrewMembersResponse>("/api/crew/members?search=Passport&passportExpiry=Expired");
+        var expiringSoon = await client.GetFromJsonAsync<SearchCrewMembersResponse>("/api/crew/members?search=Passport&passportExpiry=ExpiringSoon");
+
+        Assert.Equal("Passportexpired Crew", Assert.Single(expired!.Items).Name);
+        Assert.Equal("Passportsoon Crew", Assert.Single(expiringSoon!.Items).Name);
+    }
+
+    [Fact]
+    public async Task Get_returns_validation_problem_for_unknown_passport_expiry()
+    {
+        using var client = await _application.CreateAuthenticatedClientWithPermissionsAsync(Permissions.Crew.Read);
+        using var response = await client.GetAsync("/api/crew/members?passportExpiry=Soon");
+        var problem = await response.Content.ReadFromJsonAsync<HttpValidationProblemDetails>();
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        Assert.Contains(SearchCrewMembersValidator.PassportExpiryField, problem!.Errors);
+    }
+
+    [Fact]
+    public async Task Summary_counts_active_crew_and_passport_expiry_across_the_roster()
+    {
+        using var client = await _application.CreateAuthenticatedClientWithPermissionsAsync(Permissions.Crew.Read);
+        var today = DateOnly.FromDateTime(HarborOpsApiFactory.FixedUtcNow);
+        var before = await client.GetFromJsonAsync<CrewMembersSummaryResponse>("/api/crew/members/summary");
+        await SeedMemberAsync("Summary Expired", "IMO700201", "Active", today.AddDays(-10));
+        await SeedMemberAsync("Summary Soon", "IMO700202", "OnLeave", today.AddDays(60));
+        await SeedMemberAsync("Summary Valid", "IMO700203", "Active", today.AddDays(500));
+
+        using var response = await client.GetAsync("/api/crew/members/summary");
+        var after = await response.Content.ReadFromJsonAsync<CrewMembersSummaryResponse>();
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.NotNull(before);
+        Assert.NotNull(after);
+        Assert.Equal(before.TotalCount + 3, after.TotalCount);
+        Assert.Equal(before.ActiveCount + 2, after.ActiveCount);
+        Assert.Equal(before.ExpiredPassportCount + 1, after.ExpiredPassportCount);
+        Assert.Equal(before.PassportsExpiringSoonCount + 1, after.PassportsExpiringSoonCount);
+    }
+
+    [Fact]
     public async Task Get_returns_validation_problem_for_invalid_paging()
     {
         using var client = await _application.CreateAuthenticatedClientWithPermissionsAsync(Permissions.Crew.Read);

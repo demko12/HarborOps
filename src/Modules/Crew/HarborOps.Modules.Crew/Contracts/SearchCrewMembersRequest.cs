@@ -6,6 +6,8 @@ public sealed record SearchCrewMembersRequest
 
     public string? EmploymentStatus { get; init; }
 
+    public string? PassportExpiry { get; init; }
+
     public int? PageNumber { get; init; }
 
     public int? PageSize { get; init; }

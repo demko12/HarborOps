@@ -388,8 +388,8 @@ public partial class ReportsDocumentsExpiry : IDisposable
     }
 
     private const double ChartLeft = 40;
-    private const double ChartRight = 750;
-    private const double ChartBottom = 170;
+    private const double ChartRight = 1140;
+    private const double ChartBottom = 205;
     private const double ChartTop = 30;
 
     private static double ChartX(int index) => ChartLeft + (index * (ChartRight - ChartLeft) / (MonthsAhead - 1));

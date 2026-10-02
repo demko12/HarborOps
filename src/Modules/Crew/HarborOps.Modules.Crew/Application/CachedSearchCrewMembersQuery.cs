@@ -20,6 +20,7 @@ internal sealed class CachedSearchCrewMembersQuery(
             "crew-search",
             request.Search?.Trim().ToUpperInvariant() ?? string.Empty,
             request.EmploymentStatus?.Trim() ?? string.Empty,
+            request.PassportExpiry?.Trim() ?? string.Empty,
             request.PageNumber?.ToString() ?? string.Empty,
             request.PageSize?.ToString() ?? string.Empty);
 
@@ -33,4 +34,7 @@ internal sealed class CachedSearchCrewMembersQuery(
 
         return response;
     }
+
+    public Task<CrewMembersSummaryResponse> GetSummaryAsync(CancellationToken cancellationToken) =>
+        inner.GetSummaryAsync(cancellationToken);
 }

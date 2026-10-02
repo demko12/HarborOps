@@ -19,7 +19,7 @@ public sealed class SearchCrewMembersQueryTests
             await SeedCrewMemberAsync(dbContext, rankId, $"Member {index:D2}", $"IMO{index:D5}");
         }
 
-        var query = new SearchCrewMembersQuery(dbContext);
+        var query = new SearchCrewMembersQuery(dbContext, new FakeDateTimeProvider(DateTime.UtcNow));
 
         var response = await query.SearchAsync(
             new SearchCrewMembersRequest(),
@@ -42,7 +42,7 @@ public sealed class SearchCrewMembersQueryTests
         var secondMarko = await SeedCrewMemberAsync(dbContext, rankId, "Marko Petrovic", "IMO00002");
         await SeedCrewMemberAsync(dbContext, rankId, "Nikola Jovanovic", "IMO00003");
 
-        var query = new SearchCrewMembersQuery(dbContext);
+        var query = new SearchCrewMembersQuery(dbContext, new FakeDateTimeProvider(DateTime.UtcNow));
 
         var response = await query.SearchAsync(
             new SearchCrewMembersRequest(),
@@ -67,7 +67,7 @@ public sealed class SearchCrewMembersQueryTests
         await SeedCrewMemberAsync(dbContext, rankId, "Ana Expiring", "IMO00002", passportExpiry: new DateOnly(2026, 9, 1));
         await SeedCrewMemberAsync(dbContext, rankId, "Marko Soon", "IMO00003", passportExpiry: new DateOnly(2027, 1, 1));
 
-        var response = await new SearchCrewMembersQuery(dbContext).SearchAsync(new SearchCrewMembersRequest(), CancellationToken.None);
+        var response = await new SearchCrewMembersQuery(dbContext, new FakeDateTimeProvider(DateTime.UtcNow)).SearchAsync(new SearchCrewMembersRequest(), CancellationToken.None);
 
         Assert.Equal(["Ana Expiring", "Marko Soon", "Zoran Later"], response.Items.Select(item => item.Name));
     }
@@ -80,7 +80,7 @@ public sealed class SearchCrewMembersQueryTests
         await SeedCrewMemberAsync(dbContext, rankId, "Marko Petrovic", "IMO00001");
         await SeedCrewMemberAsync(dbContext, rankId, "Nikola Jovanovic", "IMO00002");
 
-        var query = new SearchCrewMembersQuery(dbContext);
+        var query = new SearchCrewMembersQuery(dbContext, new FakeDateTimeProvider(DateTime.UtcNow));
 
         var response = await query.SearchAsync(
             new SearchCrewMembersRequest { Search = "Petrovic" },
@@ -98,7 +98,7 @@ public sealed class SearchCrewMembersQueryTests
         await SeedCrewMemberAsync(dbContext, rankId, "Marko Petrovic", "IMO00001");
         await SeedCrewMemberAsync(dbContext, rankId, "Nikola Jovanovic", "IMO99999");
 
-        var query = new SearchCrewMembersQuery(dbContext);
+        var query = new SearchCrewMembersQuery(dbContext, new FakeDateTimeProvider(DateTime.UtcNow));
 
         var response = await query.SearchAsync(
             new SearchCrewMembersRequest { Search = "IMO99999" },
@@ -117,7 +117,7 @@ public sealed class SearchCrewMembersQueryTests
         await SeedCrewMemberAsync(dbContext, rankId, "Nikola Jovanovic", "IMO00002", employmentStatus: "Inactive");
         await SeedCrewMemberAsync(dbContext, rankId, "Ana Radovic", "IMO00003", employmentStatus: "Inactive");
 
-        var query = new SearchCrewMembersQuery(dbContext);
+        var query = new SearchCrewMembersQuery(dbContext, new FakeDateTimeProvider(DateTime.UtcNow));
 
         var response = await query.SearchAsync(
             new SearchCrewMembersRequest { EmploymentStatus = "Inactive" },
@@ -135,7 +135,7 @@ public sealed class SearchCrewMembersQueryTests
         await SeedCrewMemberAsync(dbContext, rankId, "Marko Petrovic", "IMO00001", employmentStatus: "Active");
         await SeedCrewMemberAsync(dbContext, rankId, "Marko Radovic", "IMO00002", employmentStatus: "Inactive");
 
-        var query = new SearchCrewMembersQuery(dbContext);
+        var query = new SearchCrewMembersQuery(dbContext, new FakeDateTimeProvider(DateTime.UtcNow));
 
         var response = await query.SearchAsync(
             new SearchCrewMembersRequest { Search = "Marko", EmploymentStatus = "Active" },
@@ -158,7 +158,7 @@ public sealed class SearchCrewMembersQueryTests
             passportExpiry: new DateOnly(2027, 5, 20),
             hireDate: new DateOnly(2021, 3, 1));
 
-        var query = new SearchCrewMembersQuery(dbContext);
+        var query = new SearchCrewMembersQuery(dbContext, new FakeDateTimeProvider(DateTime.UtcNow));
 
         var response = await query.SearchAsync(
             new SearchCrewMembersRequest(),
@@ -186,7 +186,7 @@ public sealed class SearchCrewMembersQueryTests
         await SeedCrewMemberAsync(dbContext, engineerRankId, "Marko Petrovic", "IMO00001");
         await SeedCrewMemberAsync(dbContext, deckRankId, "Nikola Jovanovic", "IMO00002");
 
-        var query = new SearchCrewMembersQuery(dbContext);
+        var query = new SearchCrewMembersQuery(dbContext, new FakeDateTimeProvider(DateTime.UtcNow));
 
         var response = await query.SearchAsync(
             new SearchCrewMembersRequest(),
@@ -204,7 +204,7 @@ public sealed class SearchCrewMembersQueryTests
         await SeedCrewMemberAsync(dbContext, rankId, "Marko Petrovic", "IMO00001");
         await SeedCrewMemberAsync(dbContext, Guid.NewGuid(), "Nikola Jovanovic", "IMO00002");
 
-        var query = new SearchCrewMembersQuery(dbContext);
+        var query = new SearchCrewMembersQuery(dbContext, new FakeDateTimeProvider(DateTime.UtcNow));
 
         var response = await query.SearchAsync(
             new SearchCrewMembersRequest(),
@@ -225,7 +225,7 @@ public sealed class SearchCrewMembersQueryTests
             await SeedCrewMemberAsync(dbContext, rankId, $"Member {index:D2}", $"IMO{index:D5}");
         }
 
-        var query = new SearchCrewMembersQuery(dbContext);
+        var query = new SearchCrewMembersQuery(dbContext, new FakeDateTimeProvider(DateTime.UtcNow));
 
         var response = await query.SearchAsync(
             new SearchCrewMembersRequest { PageNumber = 2, PageSize = 2 },
@@ -244,7 +244,7 @@ public sealed class SearchCrewMembersQueryTests
         var rankId = await SeedCrewPositionAsync(dbContext, "Able Seafarer");
         await SeedCrewMemberAsync(dbContext, rankId, "Marko Petrovic", "IMO00001");
 
-        var query = new SearchCrewMembersQuery(dbContext);
+        var query = new SearchCrewMembersQuery(dbContext, new FakeDateTimeProvider(DateTime.UtcNow));
 
         var response = await query.SearchAsync(
             new SearchCrewMembersRequest { PageNumber = 4, PageSize = 10 },
@@ -261,7 +261,7 @@ public sealed class SearchCrewMembersQueryTests
         var rankId = await SeedCrewPositionAsync(dbContext, "Able Seafarer");
         await SeedCrewMemberAsync(dbContext, rankId, "Marko Petrovic", "IMO00001");
 
-        var query = new SearchCrewMembersQuery(dbContext);
+        var query = new SearchCrewMembersQuery(dbContext, new FakeDateTimeProvider(DateTime.UtcNow));
 
         var response = await query.SearchAsync(
             new SearchCrewMembersRequest { Search = "Nothing matches this" },
@@ -276,7 +276,7 @@ public sealed class SearchCrewMembersQueryTests
     public async Task Search_returns_an_empty_page_when_no_crew_is_registered()
     {
         await using var dbContext = CreateDbContext();
-        var query = new SearchCrewMembersQuery(dbContext);
+        var query = new SearchCrewMembersQuery(dbContext, new FakeDateTimeProvider(DateTime.UtcNow));
 
         var response = await query.SearchAsync(
             new SearchCrewMembersRequest(),
@@ -290,7 +290,7 @@ public sealed class SearchCrewMembersQueryTests
     public async Task Search_rejects_page_number_below_one()
     {
         await using var dbContext = CreateDbContext();
-        var query = new SearchCrewMembersQuery(dbContext);
+        var query = new SearchCrewMembersQuery(dbContext, new FakeDateTimeProvider(DateTime.UtcNow));
 
         var exception = await Assert.ThrowsAsync<SearchCrewMembersValidationException>(
             () => query.SearchAsync(
@@ -304,7 +304,7 @@ public sealed class SearchCrewMembersQueryTests
     public async Task Search_rejects_page_size_below_one()
     {
         await using var dbContext = CreateDbContext();
-        var query = new SearchCrewMembersQuery(dbContext);
+        var query = new SearchCrewMembersQuery(dbContext, new FakeDateTimeProvider(DateTime.UtcNow));
 
         var exception = await Assert.ThrowsAsync<SearchCrewMembersValidationException>(
             () => query.SearchAsync(
@@ -318,7 +318,7 @@ public sealed class SearchCrewMembersQueryTests
     public async Task Search_rejects_page_size_above_maximum()
     {
         await using var dbContext = CreateDbContext();
-        var query = new SearchCrewMembersQuery(dbContext);
+        var query = new SearchCrewMembersQuery(dbContext, new FakeDateTimeProvider(DateTime.UtcNow));
 
         var exception = await Assert.ThrowsAsync<SearchCrewMembersValidationException>(
             () => query.SearchAsync(
@@ -335,7 +335,7 @@ public sealed class SearchCrewMembersQueryTests
         var rankId = await SeedCrewPositionAsync(dbContext, "Able Seafarer");
         await SeedCrewMemberAsync(dbContext, rankId, "Marko Petrovic", "IMO00001");
 
-        var query = new SearchCrewMembersQuery(dbContext);
+        var query = new SearchCrewMembersQuery(dbContext, new FakeDateTimeProvider(DateTime.UtcNow));
 
         var response = await query.SearchAsync(
             new SearchCrewMembersRequest { PageSize = SearchCrewMembersValidator.MaxPageSize },

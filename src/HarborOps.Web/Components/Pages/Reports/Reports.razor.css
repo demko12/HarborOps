@@ -1309,6 +1309,29 @@ html[data-theme="light"] .reports-kpi-icon-purple {
     margin-top: 1.25rem;
     margin-bottom: 0;
 }
+.reports-charts-full {
+    grid-template-columns: minmax(0, 1fr);
+}
+.reports-type-breakdown {
+    display: grid;
+    gap: 0.75rem;
+    padding-top: 1rem;
+    border-top: 1px solid var(--border-subtle);
+}
+.reports-type-breakdown h3 {
+    margin: 0.2rem 0 0;
+    font-size: 0.9rem;
+}
+.reports-type-breakdown .reports-port-bars {
+    gap: 0.5rem;
+}
+.reports-type-breakdown .reports-port-bar {
+    grid-template-columns: minmax(8rem, 14rem) minmax(0, 1fr) 2rem;
+    font-size: 0.76rem;
+}
+.reports-type-breakdown .reports-port-bar-track {
+    height: 0.6rem;
+}
 .mix-expired {
     background: var(--status-danger);
 }

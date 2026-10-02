@@ -59,7 +59,7 @@ public partial class RelievingMemberPicker : IDisposable
 
         try
         {
-            result = await CrewApi.GetMembersAsync(search, "Active", 1, MaxResults, cts.Token);
+            result = await CrewApi.GetMembersAsync(search, "Active", null, 1, MaxResults, cts.Token);
         }
         catch (OperationCanceledException) when (cts.IsCancellationRequested)
         {

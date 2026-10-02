@@ -16,12 +16,13 @@ public sealed class CrewApiClientTests
             return Json(HttpStatusCode.OK, """{"items":[],"pageNumber":2,"pageSize":10,"totalCount":0}""");
         });
 
-        var result = await new CrewApiClient(httpClient).GetMembersAsync("Ana Novak", "Active", 2, 10, CancellationToken.None);
+        var result = await new CrewApiClient(httpClient).GetMembersAsync("Ana Novak", "Active", "Expired", 2, 10, CancellationToken.None);
 
         Assert.True(result.IsSuccess);
         Assert.Equal("/api/crew/members", captured!.RequestUri!.AbsolutePath);
         Assert.Contains("search=Ana%20Novak", captured.RequestUri.Query, StringComparison.Ordinal);
         Assert.Contains("employmentStatus=Active", captured.RequestUri.Query, StringComparison.Ordinal);
+        Assert.Contains("passportExpiry=Expired", captured.RequestUri.Query, StringComparison.Ordinal);
         Assert.Contains("pageNumber=2", captured.RequestUri.Query, StringComparison.Ordinal);
     }
 
@@ -30,7 +31,7 @@ public sealed class CrewApiClientTests
     {
         using var httpClient = CreateHttpClient((_, _) => throw new HttpRequestException());
 
-        var result = await new CrewApiClient(httpClient).GetMembersAsync(null, null, 1, 25, CancellationToken.None);
+        var result = await new CrewApiClient(httpClient).GetMembersAsync(null, null, null, 1, 25, CancellationToken.None);
 
         Assert.False(result.IsSuccess);
         Assert.Equal(0, result.Failure!.StatusCode);

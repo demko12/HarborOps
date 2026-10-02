@@ -102,20 +102,50 @@ public sealed class CrewPageTests : BunitContext
     }
 
     [Fact]
-    public void Summary_cards_count_expired_and_soon_expiring_passports()
+    public void Summary_cards_show_the_roster_wide_counts()
     {
-        respond = _ => Json(HttpStatusCode.OK, Page(
-            Row(name: "Ana", imoSeafarerId: "IMO00001", passportExpiry: "2020-01-01"),
-            Row(name: "Boris", imoSeafarerId: "IMO00002", passportExpiry: "2030-01-01"),
-            Row(name: "Cvijeta", imoSeafarerId: "IMO00003", passportExpiry: "2030-01-01", employmentStatus: "OnLeave")));
+        respond = request => request.RequestUri!.AbsolutePath.EndsWith("/summary", StringComparison.Ordinal)
+            ? Json(HttpStatusCode.OK, """{"totalCount":120,"activeCount":95,"expiredPassportCount":4,"passportsExpiringSoonCount":11}""")
+            : Json(HttpStatusCode.OK, Page(Row()));
 
         var page = RenderCrewPage();
 
-        var values = page.FindAll(".crew-summary-card strong");
+        page.WaitForAssertion(() =>
+        {
+            var values = page.FindAll(".crew-summary-card strong");
+            Assert.Equal("1", values[0].TextContent.Trim());
+            Assert.Equal("95", values[1].TextContent.Trim());
+            Assert.Equal("4", values[2].TextContent.Trim());
+            Assert.Equal("11", values[3].TextContent.Trim());
+        });
+    }
 
-        Assert.Equal("3", values[0].TextContent.Trim());
-        Assert.Equal("2", values[1].TextContent.Trim());
-        Assert.Equal("1", values[2].TextContent.Trim());
+    [Fact]
+    public void Clicking_a_passport_card_filters_the_roster_and_clicking_again_clears_it()
+    {
+        var page = RenderCrewPage();
+        var expiredCard = page.Find("button[aria-label='Show crew with expired passports']");
+
+        expiredCard.Click();
+
+        page.WaitForAssertion(() => Assert.Contains("passportExpiry=Expired", requestedUris[^1].Query, StringComparison.Ordinal));
+        Assert.Equal("true", page.Find("button[aria-label='Show crew with expired passports']").GetAttribute("aria-pressed"));
+
+        page.Find("button[aria-label='Show crew with expired passports']").Click();
+
+        page.WaitForAssertion(() => Assert.Contains("passportExpiry=&", requestedUris[^1].Query, StringComparison.Ordinal));
+        Assert.Equal("false", page.Find("button[aria-label='Show crew with expired passports']").GetAttribute("aria-pressed"));
+    }
+
+    [Fact]
+    public void Clicking_the_active_crew_card_filters_by_the_active_status()
+    {
+        var page = RenderCrewPage();
+
+        page.Find("button[aria-label='Show active crew']").Click();
+
+        page.WaitForAssertion(() => Assert.Contains("employmentStatus=Active", requestedUris[^1].Query, StringComparison.Ordinal));
+        Assert.Equal("true", page.Find("button[aria-label='Show active crew']").GetAttribute("aria-pressed"));
     }
 
     [Fact]
