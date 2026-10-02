@@ -86,6 +86,11 @@ internal static class MaintenanceFormat
 
     internal static string UnknownVessel() => "Unknown vessel";
 
+    internal static string KpiCount(int? count)
+    {
+        return count?.ToString("N0", CultureInfo.InvariantCulture) ?? MissingValue;
+    }
+
     internal static string PriorityModifier(string priority)
     {
         return priority.ToLowerInvariant();

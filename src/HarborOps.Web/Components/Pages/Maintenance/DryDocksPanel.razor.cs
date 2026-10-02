@@ -46,7 +46,7 @@ public partial class DryDocksPanel : IDisposable
 
     private int LastRowNumber => FirstRowNumber + rows.Count - 1;
 
-    private int OverdueCount => rows.Count(row => row.IsOverdue);
+    private int? overdueKpiCount;
 
     protected override async Task OnInitializedAsync()
     {
@@ -221,6 +221,13 @@ public partial class DryDocksPanel : IDisposable
         return string.Join('&', parts);
     }
 
+    private Task ToggleOverdueKpiAsync()
+    {
+        overdueOnlyFilter = !overdueOnlyFilter;
+
+        return ApplyFiltersAsync();
+    }
+
     private Task RetryAsync()
     {
         return LoadAsync();
@@ -265,6 +272,7 @@ public partial class DryDocksPanel : IDisposable
             failure = result.Failure;
             rows = [];
             totalCount = 0;
+            overdueKpiCount = null;
 
             return;
         }
@@ -274,7 +282,31 @@ public partial class DryDocksPanel : IDisposable
         pageSize = page.PageSize;
         totalCount = page.TotalCount;
 
-        await ComposeRowsAsync(page.Items, requestVersion);
+        await Task.WhenAll(
+            ComposeRowsAsync(page.Items, requestVersion),
+            LoadOverdueKpiCountAsync(filter, requestVersion));
+    }
+
+    private async Task LoadOverdueKpiCountAsync(DryDockFilter filter, int requestVersion)
+    {
+        MaintenanceApiResult<DryDocksPage> result;
+        try
+        {
+            result = await MaintenanceApi.GetDryDocksAsync(
+                filter with { Overdue = true, PageNumber = 1, PageSize = 1 },
+                disposeCancellation.Token);
+        }
+        catch (OperationCanceledException) when (disposeCancellation.IsCancellationRequested)
+        {
+            return;
+        }
+
+        if (disposeCancellation.IsCancellationRequested || requestVersion != loadVersion)
+        {
+            return;
+        }
+
+        overdueKpiCount = result.IsSuccess ? result.Value!.TotalCount : null;
     }
 
     private async Task ComposeRowsAsync(IReadOnlyList<DryDockRow> items, int requestVersion)

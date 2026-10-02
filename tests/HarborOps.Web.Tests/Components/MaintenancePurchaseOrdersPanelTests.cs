@@ -47,6 +47,68 @@ public sealed class MaintenancePurchaseOrdersPanelTests : BunitContext
     }
 
     [Fact]
+    public void The_overdue_kpi_counts_every_page_and_filters_the_board()
+    {
+        respond = request => request.RequestUri!.AbsolutePath == OrdersPath && !IsListRequest(request.RequestUri!)
+            ? Json(HttpStatusCode.OK, $$"""{"items":[],"pageNumber":1,"pageSize":1,"totalCount":{{(request.RequestUri!.Query.Contains("overdue=true", StringComparison.Ordinal) ? 9 : 0)}}}""")
+            : Default(request);
+
+        var panel = RenderPanel();
+
+        panel.WaitForAssertion(() =>
+            Assert.Equal("9", panel.Find("[aria-label='Show overdue purchase orders'] strong").TextContent.Trim()));
+
+        panel.Find("[aria-label='Show overdue purchase orders']").Click();
+
+        panel.WaitForAssertion(() =>
+        {
+            Assert.Contains(
+                "overdue=true",
+                requestedUris.Last(uri => uri.AbsolutePath == OrdersPath && IsListRequest(uri)).Query,
+                StringComparison.Ordinal);
+            Assert.Equal("true", panel.Find("[aria-label='Show overdue purchase orders']").GetAttribute("aria-pressed"));
+        });
+    }
+
+    [Fact]
+    public void The_status_chart_shows_each_status_and_filters_the_board_from_its_legend()
+    {
+        respond = request =>
+        {
+            if (request.RequestUri!.AbsolutePath != OrdersPath || IsListRequest(request.RequestUri!))
+            {
+                return Default(request);
+            }
+
+            var query = request.RequestUri.Query;
+            var count = query.Contains("status=Draft", StringComparison.Ordinal) ? 2
+                : query.Contains("status=Ordered", StringComparison.Ordinal) ? 5
+                : 0;
+
+            return Json(HttpStatusCode.OK, $$"""{"items":[],"pageNumber":1,"pageSize":1,"totalCount":{{count}}}""");
+        };
+
+        var panel = RenderPanel();
+
+        panel.WaitForAssertion(() =>
+        {
+            Assert.Equal(2, panel.FindAll(".procurement-status-mix-donut circle[stroke-dasharray]").Count);
+            Assert.Equal("7", panel.Find(".procurement-status-mix-donut text").TextContent.Trim());
+        });
+
+        panel.Find("[aria-label='Show ordered purchase orders']").Click();
+
+        panel.WaitForAssertion(() =>
+        {
+            Assert.Contains(
+                "status=Ordered",
+                requestedUris.Last(uri => uri.AbsolutePath == OrdersPath && IsListRequest(uri)).Query,
+                StringComparison.Ordinal);
+            Assert.Equal("Ordered", panel.Find("#po-status").GetAttribute("value"));
+        });
+    }
+
+    [Fact]
     public void Overdue_orders_are_marked_with_text_not_colour_alone()
     {
         respond = request => request.RequestUri!.AbsolutePath == OrdersPath
@@ -96,7 +158,7 @@ public sealed class MaintenancePurchaseOrdersPanelTests : BunitContext
 
         panel.WaitForAssertion(() => Assert.Contains(
             "status=PartiallyReceived",
-            requestedUris.Last(uri => uri.AbsolutePath == OrdersPath).Query,
+            requestedUris.Last(uri => uri.AbsolutePath == OrdersPath && IsListRequest(uri)).Query,
             StringComparison.Ordinal));
     }
 
@@ -125,7 +187,7 @@ public sealed class MaintenancePurchaseOrdersPanelTests : BunitContext
 
         panel.WaitForAssertion(() =>
         {
-            var query = requestedUris.Last(uri => uri.AbsolutePath == OrdersPath).Query;
+            var query = requestedUris.Last(uri => uri.AbsolutePath == OrdersPath && IsListRequest(uri)).Query;
 
             Assert.Contains($"supplierId={SupplierId}", query, StringComparison.OrdinalIgnoreCase);
             Assert.Contains("status=Ordered", query, StringComparison.Ordinal);
@@ -875,7 +937,7 @@ public sealed class MaintenancePurchaseOrdersPanelTests : BunitContext
 
         panel.WaitForAssertion(() => Assert.Contains(
             "status=ClosedShort",
-            requestedUris.Last(uri => uri.AbsolutePath == OrdersPath).Query,
+            requestedUris.Last(uri => uri.AbsolutePath == OrdersPath && IsListRequest(uri)).Query,
             StringComparison.Ordinal));
     }
 
@@ -1385,6 +1447,11 @@ public sealed class MaintenancePurchaseOrdersPanelTests : BunitContext
             "unitId":"91000000-0000-0000-0000-000000000019","supplierId":"{{SupplierId}}"}],
             "pageNumber":1,"pageSize":100,"totalCount":2}
             """;
+    }
+
+    private static bool IsListRequest(Uri uri)
+    {
+        return !uri.Query.TrimStart('?').Split('&').Contains("pageSize=1");
     }
 
     private static Task<HttpResponseMessage> Json(HttpStatusCode statusCode, string json)

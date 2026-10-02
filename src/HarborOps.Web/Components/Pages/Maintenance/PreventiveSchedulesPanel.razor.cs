@@ -56,7 +56,9 @@ public partial class PreventiveSchedulesPanel : IDisposable
 
     private int LastRowNumber => FirstRowNumber + rows.Count - 1;
 
-    private int OverdueCount => rows.Count(row => row.IsOverdue);
+    private int? overdueKpiCount;
+
+    private bool IsOverdueKpiSelected => overdueFilter == "true";
 
     protected override Task OnInitializedAsync()
     {
@@ -84,6 +86,13 @@ public partial class PreventiveSchedulesPanel : IDisposable
     private Task SelectVesselFilterAsync(Guid? vesselId)
     {
         vesselFilter = vesselId;
+
+        return ApplyFiltersAsync();
+    }
+
+    private Task ToggleOverdueKpiAsync()
+    {
+        overdueFilter = IsOverdueKpiSelected ? string.Empty : "true";
 
         return ApplyFiltersAsync();
     }
@@ -156,6 +165,7 @@ public partial class PreventiveSchedulesPanel : IDisposable
             failure = result.Failure;
             rows = [];
             totalCount = 0;
+            overdueKpiCount = null;
 
             return;
         }
@@ -165,7 +175,33 @@ public partial class PreventiveSchedulesPanel : IDisposable
         pageSize = page.PageSize;
         totalCount = page.TotalCount;
 
-        await ComposeRowsAsync(page.Items, cancellationToken, requestVersion);
+        await Task.WhenAll(
+            ComposeRowsAsync(page.Items, cancellationToken, requestVersion),
+            LoadOverdueKpiCountAsync(filter, cancellationToken, requestVersion));
+    }
+
+    private async Task LoadOverdueKpiCountAsync(
+        MaintenanceScheduleFilter filter,
+        CancellationToken cancellationToken,
+        int requestVersion)
+    {
+        MaintenanceApiResult<MaintenanceSchedulesPage> result;
+
+        try
+        {
+            result = await MaintenanceApi.GetSchedulesAsync(filter with { Overdue = true, PageNumber = 1, PageSize = 1 }, cancellationToken);
+        }
+        catch (OperationCanceledException) when (disposeCancellation.IsCancellationRequested)
+        {
+            return;
+        }
+
+        if (disposeCancellation.IsCancellationRequested || requestVersion != loadVersion)
+        {
+            return;
+        }
+
+        overdueKpiCount = result.IsSuccess ? result.Value!.TotalCount : null;
     }
 
     private async Task ComposeRowsAsync(

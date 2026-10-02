@@ -160,22 +160,30 @@
 					</div>
 					<span class="summary-icon summary-icon-blue" aria-hidden="true"><span class="bi bi-tools"></span></span>
 				</article>
-				<article class="maintenance-summary-card">
+				<button type="button" class="maintenance-summary-card maintenance-kpi-filter @(IsOverdueKpiSelected ? "selected" : null)" aria-pressed="@IsOverdueKpiSelected.ToString().ToLowerInvariant()" aria-label="Show overdue work orders" @onclick="ToggleOverdueKpiAsync">
 					<div>
-						<span>Overdue on this page</span>
-						<strong>@rows.Count(row => MaintenanceFormat.IsOverdue(row.Status, row.DueUtc, DateTime.UtcNow))</strong>
+						<span>Overdue</span>
+						<strong>@MaintenanceFormat.KpiCount(overdueKpiCount)</strong>
 						<small>Past due and still open</small>
 					</div>
 					<span class="summary-icon summary-icon-amber" aria-hidden="true"><span class="bi bi-exclamation-triangle-fill"></span></span>
-				</article>
-                <article class="maintenance-summary-card">
-                    <div><span>Critical on this page</span><strong>@rows.Count(row => MaintenanceFormat.IsCritical(row.Priority) && MaintenanceFormat.CanComplete(row.Status))</strong><small>Open work needing priority</small></div>
-                    <span class="summary-icon" aria-hidden="true"><span class="bi bi-exclamation-octagon"></span></span>
-                </article>
-                <article class="maintenance-summary-card">
-                    <div><span>In progress on this page</span><strong>@rows.Count(row => string.Equals(row.Status, "InProgress", StringComparison.OrdinalIgnoreCase))</strong><small>Work already underway</small></div>
-                    <span class="summary-icon" aria-hidden="true"><span class="bi bi-arrow-repeat"></span></span>
-                </article>
+				</button>
+				<button type="button" class="maintenance-summary-card maintenance-kpi-filter @(IsCriticalKpiSelected ? "selected" : null)" aria-pressed="@IsCriticalKpiSelected.ToString().ToLowerInvariant()" aria-label="Show critical work orders" @onclick="ToggleCriticalKpiAsync">
+					<div>
+						<span>Critical</span>
+						<strong>@MaintenanceFormat.KpiCount(criticalKpiCount)</strong>
+						<small>Critical priority work orders</small>
+					</div>
+					<span class="summary-icon" aria-hidden="true"><span class="bi bi-exclamation-octagon"></span></span>
+				</button>
+				<button type="button" class="maintenance-summary-card maintenance-kpi-filter @(IsInProgressKpiSelected ? "selected" : null)" aria-pressed="@IsInProgressKpiSelected.ToString().ToLowerInvariant()" aria-label="Show work orders in progress" @onclick="ToggleInProgressKpiAsync">
+					<div>
+						<span>In progress</span>
+						<strong>@MaintenanceFormat.KpiCount(inProgressKpiCount)</strong>
+						<small>Work already underway</small>
+					</div>
+					<span class="summary-icon" aria-hidden="true"><span class="bi bi-arrow-repeat"></span></span>
+				</button>
 			</section>
 
 			@if (failure is { IsValidation: true, Errors.Count: > 0 })
@@ -218,6 +226,10 @@
 					    </div>
 					</div>
 					<div class="maintenance-card-heading-actions">
+						<div class="maintenance-view-switch" role="group" aria-label="Work order display">
+							<button type="button" aria-label="List view" aria-pressed="@((!cardView).ToString().ToLowerInvariant())" class="@(!cardView ? "selected" : "")" @onclick="() => cardView = false"><span class="bi bi-list-ul" aria-hidden="true"></span> List</button>
+							<button type="button" aria-label="Card view" aria-pressed="@cardView.ToString().ToLowerInvariant()" class="@(cardView ? "selected" : "")" @onclick="() => cardView = true"><span class="bi bi-grid" aria-hidden="true"></span> Cards</button>
+						</div>
 						<button type="button" class="maintenance-button" @onclick="OpenCreateForm">Create work order</button>
 
 					</div>
@@ -286,6 +298,79 @@
 				}
 				else
 				{
+					@if (cardView)
+					{
+					<div class="maintenance-wo-card-grid">
+						@{
+							var cardUtcNow = DateTime.UtcNow;
+						}
+						@foreach (var row in rows)
+						{
+							var isOverdue = MaintenanceFormat.IsOverdue(row.Status, row.DueUtc, cardUtcNow);
+							var isCritical = MaintenanceFormat.IsCritical(row.Priority);
+
+							<article @key="row.WorkOrderId"
+									 class="maintenance-wo-card status-@MaintenanceFormat.StatusModifier(row.Status) @(isOverdue ? "overdue" : null)"
+									 role="link"
+									 tabindex="0"
+									 aria-label="@($"Open {row.Title} work order details")"
+									 @onclick="() => OpenWorkOrderDetails(row.WorkOrderId)"
+									 @onkeydown="(args) => HandleWorkOrderRowKeyDown(args, row.WorkOrderId)">
+								<div class="maintenance-wo-card-head">
+									<span class="maintenance-row-icon bi @(isCritical ? "bi-exclamation-triangle" : "bi-tools")" aria-hidden="true"></span>
+									<div class="maintenance-wo-card-identity">
+										<a class="maintenance-wo-card-title" href="@DetailsHref(row.WorkOrderId)" @onclick:stopPropagation="true">@row.Title</a>
+										<span class="maintenance-wo-card-vessel">@row.VesselDisplayName</span>
+									</div>
+									<span class="maintenance-status @MaintenanceFormat.StatusModifier(row.Status)">@row.Status</span>
+								</div>
+
+								<p class="maintenance-wo-card-description">@MaintenanceFormat.OptionalText(row.Description)</p>
+
+								<div class="maintenance-wo-card-badges">
+									<span class="maintenance-priority priority-@MaintenanceFormat.PriorityModifier(row.Priority)">
+										@if (isCritical)
+										{
+											<span class="bi bi-exclamation-triangle-fill" aria-hidden="true"></span>
+										}
+										@row.Priority
+									</span>
+									@if (isOverdue)
+									{
+										<span class="maintenance-overdue-badge">Overdue</span>
+									}
+								</div>
+
+								<dl class="maintenance-wo-card-facts">
+									<div><dt>Due</dt><dd>@MaintenanceFormat.DueUtc(row.DueUtc)</dd></div>
+									<div><dt>Assigned engineer</dt><dd>@MaintenanceFormat.AssignedEngineer(row.AssignedEngineerId)</dd></div>
+									<div><dt>Created</dt><dd>@MaintenanceFormat.CreatedUtc(row.CreatedUtc)</dd></div>
+									<div><dt>Completed</dt><dd>@MaintenanceFormat.CompletedUtc(row.CompletedUtc)</dd></div>
+								</dl>
+
+								<div class="maintenance-wo-card-footer">
+									@if (MaintenanceFormat.CanComplete(row.Status))
+									{
+										<div class="maintenance-row-action-buttons" @onclick:stopPropagation="true">
+											<button type="button" class="maintenance-complete-button" @onclick="() => OpenCompletionForm(row.WorkOrderId)">
+												Complete
+											</button>
+											@if (CanRecordUsage)
+											{
+												<button type="button" class="maintenance-usage-button" @onclick="() => OpenUsageForm(row.WorkOrderId)">
+													Record usage
+												</button>
+											}
+										</div>
+									}
+									<a class="maintenance-wo-card-open" href="@DetailsHref(row.WorkOrderId)" @onclick:stopPropagation="true">Details <span class="bi bi-chevron-right" aria-hidden="true"></span></a>
+								</div>
+							</article>
+						}
+					</div>
+					}
+					else
+					{
 					<div class="maintenance-table-scroll">
 						<table class="maintenance-table">
 							<caption class="visually-hidden">Maintenance work orders, ordered by due date</caption>
@@ -373,6 +458,7 @@
 							</tbody>
 						</table>
 					</div>
+					}
 
 					<div class="maintenance-pagination">
 						<span>Showing @FirstRowNumber&ndash;@LastRowNumber of @totalCount work orders</span>
@@ -389,7 +475,14 @@
 			{
 				<div class="maintenance-modal-backdrop" @onclick="CloseCreateForm">
 					<section class="maintenance-form-card" aria-labelledby="maintenance-create-title" @onclick:stopPropagation="true">
-						<h2 id="maintenance-create-title">Create work order</h2>
+						<div class="maintenance-modal-header">
+							<h2 id="maintenance-create-title">Create work order</h2>
+							<button type="button"
+									class="maintenance-modal-close"
+									aria-label="Close create work order dialog"
+									disabled="@isCreating"
+									@onclick="CloseCreateForm">&times;</button>
+						</div>
 						<form class="maintenance-form" @onsubmit="SubmitCreateAsync" @onsubmit:preventDefault="true">
 							<div class="maintenance-form-grid">
 								<div class="filter-field">
@@ -451,7 +544,14 @@
 			{
 				<div class="maintenance-modal-backdrop" @onclick="CloseCompletionForm">
 					<section class="maintenance-form-card" aria-labelledby="maintenance-complete-title" @onclick:stopPropagation="true">
-						<h2 id="maintenance-complete-title">Complete work order</h2>
+						<div class="maintenance-modal-header">
+							<h2 id="maintenance-complete-title">Complete work order</h2>
+							<button type="button"
+									class="maintenance-modal-close"
+									aria-label="Close complete work order dialog"
+									disabled="@isCompleting"
+									@onclick="CloseCompletionForm">&times;</button>
+						</div>
 						<form class="maintenance-form" @onsubmit="SubmitCompletionAsync" @onsubmit:preventDefault="true">
 							<div class="maintenance-form-grid">
 								<div class="filter-field">
@@ -505,7 +605,13 @@
 			{
 				<div class="maintenance-modal-backdrop" @onclick="CloseUsageForm">
 					<section class="maintenance-form-card maintenance-usage-modal" aria-labelledby="maintenance-usage-title" @onclick:stopPropagation="true">
-						<h2 id="maintenance-usage-title">Record part usage</h2>
+						<div class="maintenance-modal-header">
+							<h2 id="maintenance-usage-title">Record part usage</h2>
+							<button type="button"
+									class="maintenance-modal-close"
+									aria-label="Close record usage dialog"
+									@onclick="CloseUsageForm">&times;</button>
+						</div>
 
 						@if (usageSuccessMessage is not null)
 						{

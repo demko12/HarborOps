@@ -133,7 +133,7 @@ public sealed class MaintenancePageTests : BunitContext
 
         page.WaitForAssertion(() =>
         {
-            var lastQuery = requestedUris.Last(uri => uri.AbsolutePath.Contains("work-orders")).Query;
+            var lastQuery = requestedUris.Last(IsBoardRequest).Query;
 
             Assert.Contains("status=Open", lastQuery, StringComparison.Ordinal);
             Assert.Contains("priority=Critical", lastQuery, StringComparison.Ordinal);
@@ -150,8 +150,7 @@ public sealed class MaintenancePageTests : BunitContext
         page.WaitForAssertion(() =>
             Assert.Contains(
                 "overdue=true",
-                requestedUris.Last(uri =>
-                    uri.AbsolutePath.Contains("work-orders")).Query,
+                requestedUris.Last(IsBoardRequest).Query,
                 StringComparison.Ordinal));
     }
 
@@ -161,13 +160,13 @@ public sealed class MaintenancePageTests : BunitContext
         var page = RenderMaintenancePage();
 
         page.Find("#maintenance-status").Change("Open");
-        page.WaitForAssertion(() => Assert.True(requestedUris.Count(uri => uri.AbsolutePath.Contains("work-orders")) >= 2));
+        page.WaitForAssertion(() => Assert.True(requestedUris.Count(IsBoardRequest) >= 2));
 
         page.Find(".maintenance-reset").Click();
 
         page.WaitForAssertion(() =>
         {
-            var lastQuery = requestedUris.Last(uri => uri.AbsolutePath.Contains("work-orders")).Query;
+            var lastQuery = requestedUris.Last(IsBoardRequest).Query;
 
             Assert.DoesNotContain("status=", lastQuery, StringComparison.Ordinal);
             Assert.Contains("pageNumber=1", lastQuery, StringComparison.Ordinal);
@@ -458,6 +457,12 @@ public sealed class MaintenancePageTests : BunitContext
         page.WaitForAssertion(() => Assert.NotEmpty(requestedUris));
 
         return page;
+    }
+
+    private static bool IsBoardRequest(Uri uri)
+    {
+        return uri.AbsolutePath.Contains("work-orders", StringComparison.Ordinal)
+            && !uri.Query.TrimStart('?').Split('&').Contains("pageSize=1");
     }
 
     private static CurrentUserAuthorizationState CreateAuthorizationState(IEnumerable<string> permissions)
@@ -845,5 +850,151 @@ public sealed class MaintenancePageTests : BunitContext
         page.Find(".maintenance-usage-button").Click();
 
         Assert.Equal(before, navigation.Uri);
+    }
+
+    [Fact]
+    public void Kpi_counts_come_from_the_api_across_every_page()
+    {
+        respondToMaintenance = request =>
+        {
+            var query = request.RequestUri!.Query;
+
+            if (!query.TrimStart('?').Split('&').Contains("pageSize=1"))
+            {
+                return Json(HttpStatusCode.OK, Page(Row("00000000-0000-0000-0000-000000000001")));
+            }
+
+            var count = query.Contains("overdue=true", StringComparison.Ordinal) ? 7
+                : query.Contains("priority=Critical", StringComparison.Ordinal) ? 4
+                : query.Contains("status=InProgress", StringComparison.Ordinal) ? 3
+                : 0;
+
+            return Json(HttpStatusCode.OK, Page(1, count));
+        };
+
+        var page = RenderMaintenancePage();
+
+        page.WaitForAssertion(() =>
+        {
+            Assert.Equal("7", page.Find("[aria-label='Show overdue work orders'] strong").TextContent);
+            Assert.Equal("4", page.Find("[aria-label='Show critical work orders'] strong").TextContent);
+            Assert.Equal("3", page.Find("[aria-label='Show work orders in progress'] strong").TextContent);
+        });
+    }
+
+    [Fact]
+    public void Clicking_a_kpi_filters_the_board_and_clicking_it_again_clears_the_filter()
+    {
+        var page = RenderMaintenancePage();
+
+        page.Find("[aria-label='Show overdue work orders']").Click();
+
+        page.WaitForAssertion(() =>
+        {
+            Assert.Contains("overdue=true", requestedUris.Last(IsBoardRequest).Query, StringComparison.Ordinal);
+            Assert.Equal("true", page.Find("[aria-label='Show overdue work orders']").GetAttribute("aria-pressed"));
+            Assert.Equal("true", page.Find("#maintenance-overdue").GetAttribute("value"));
+        });
+
+        page.Find("[aria-label='Show overdue work orders']").Click();
+
+        page.WaitForAssertion(() =>
+        {
+            Assert.DoesNotContain("overdue=", requestedUris.Last(IsBoardRequest).Query, StringComparison.Ordinal);
+            Assert.Equal("false", page.Find("[aria-label='Show overdue work orders']").GetAttribute("aria-pressed"));
+        });
+    }
+
+    [Fact]
+    public void Status_and_priority_kpis_filter_the_board()
+    {
+        var page = RenderMaintenancePage();
+
+        page.Find("[aria-label='Show work orders in progress']").Click();
+        page.WaitForAssertion(() =>
+            Assert.Contains("status=InProgress", requestedUris.Last(IsBoardRequest).Query, StringComparison.Ordinal));
+
+        page.Find("[aria-label='Show critical work orders']").Click();
+        page.WaitForAssertion(() =>
+        {
+            var lastQuery = requestedUris.Last(IsBoardRequest).Query;
+
+            Assert.Contains("status=InProgress", lastQuery, StringComparison.Ordinal);
+            Assert.Contains("priority=Critical", lastQuery, StringComparison.Ordinal);
+        });
+    }
+
+    [Fact]
+    public void Card_view_shows_a_card_per_work_order_that_opens_its_details()
+    {
+        const string workOrderId = "00000000-0000-0000-0000-000000000001";
+        respondToMaintenance = _ => Json(HttpStatusCode.OK, Page(
+            Row(workOrderId, title: "Main engine overhaul", priority: "Critical", status: "Open", dueUtc: "2020-01-01T00:00:00Z"),
+            Row("00000000-0000-0000-0000-000000000002", status: "Completed")));
+
+        var page = RenderMaintenancePage();
+
+        page.Find("[aria-label='Card view']").Click();
+
+        Assert.Empty(page.FindAll(".maintenance-table"));
+        Assert.Equal(2, page.FindAll(".maintenance-wo-card").Count);
+        Assert.Contains("overdue", page.FindAll(".maintenance-wo-card")[0].ClassList);
+        Assert.Single(page.FindAll(".maintenance-wo-card .maintenance-complete-button"));
+
+        page.FindAll(".maintenance-wo-card")[0].Click();
+
+        Assert.Contains(
+            $"/maintenance/work-orders/{workOrderId}",
+            Services.GetRequiredService<NavigationManager>().Uri,
+            StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void The_create_dialog_closes_from_its_header()
+    {
+        var page = RenderMaintenancePage();
+
+        page.Find("button.maintenance-button").Click();
+        Assert.NotNull(page.Find("#maintenance-create-title"));
+
+        page.Find("[aria-label='Close create work order dialog']").Click();
+
+        Assert.Empty(page.FindAll("#maintenance-create-title"));
+    }
+
+    [Fact]
+    public void The_completion_dialog_closes_from_its_header()
+    {
+        respondToMaintenance = _ => Json(
+            HttpStatusCode.OK,
+            Page(Row("00000000-0000-0000-0000-000000000001", status: "Open")));
+
+        var page = RenderMaintenancePage();
+
+        page.Find(".maintenance-complete-button").Click();
+        Assert.NotNull(page.Find("#maintenance-complete-title"));
+
+        page.Find("[aria-label='Close complete work order dialog']").Click();
+
+        Assert.Empty(page.FindAll("#maintenance-complete-title"));
+    }
+
+    [Fact]
+    public void The_record_usage_dialog_closes_from_its_header()
+    {
+        respondToMaintenance = request => request.RequestUri!.AbsolutePath.Contains("inventory-items", StringComparison.Ordinal)
+            ? Json(HttpStatusCode.OK, InventoryPage())
+            : request.RequestUri!.AbsolutePath.Contains("part-usages", StringComparison.Ordinal)
+                ? Json(HttpStatusCode.OK, UsagePage())
+                : Json(HttpStatusCode.OK, Page(Row("00000000-0000-0000-0000-000000000001", status: "Open")));
+
+        var page = RenderMaintenancePage();
+
+        page.Find(".maintenance-usage-button").Click();
+        page.WaitForAssertion(() => Assert.NotNull(page.Find(".maintenance-usage-modal")));
+
+        page.Find(".maintenance-usage-modal .maintenance-modal-close").Click();
+
+        Assert.Empty(page.FindAll(".maintenance-usage-modal"));
     }
 }

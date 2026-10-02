@@ -62,6 +62,12 @@ public partial class PreventiveWorkPanel : IDisposable
 
     private int LastRowNumber => FirstRowNumber + rows.Count - 1;
 
+    private bool IsPendingKpiSelected => stateFilter == MaintenanceFormat.PendingOccurrence;
+
+    private bool IsGeneratedKpiSelected => stateFilter == MaintenanceFormat.GeneratedOccurrence;
+
+    private bool IsOverdueKpiSelected => windowPreset == OverduePreset;
+
     protected override Task OnInitializedAsync()
     {
         SetWindow(windowPreset);
@@ -123,6 +129,28 @@ public partial class PreventiveWorkPanel : IDisposable
         SetWindow(windowPreset);
         vesselFilter = null;
         stateFilter = string.Empty;
+
+        return ApplyFiltersAsync();
+    }
+
+    private Task TogglePendingKpiAsync()
+    {
+        stateFilter = IsPendingKpiSelected ? string.Empty : MaintenanceFormat.PendingOccurrence;
+
+        return ApplyFiltersAsync();
+    }
+
+    private Task ToggleGeneratedKpiAsync()
+    {
+        stateFilter = IsGeneratedKpiSelected ? string.Empty : MaintenanceFormat.GeneratedOccurrence;
+
+        return ApplyFiltersAsync();
+    }
+
+    private Task ToggleOverdueKpiAsync()
+    {
+        windowPreset = IsOverdueKpiSelected ? NextThirtyDaysPreset : OverduePreset;
+        SetWindow(windowPreset);
 
         return ApplyFiltersAsync();
     }

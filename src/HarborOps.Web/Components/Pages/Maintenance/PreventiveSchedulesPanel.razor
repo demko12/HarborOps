@@ -15,14 +15,14 @@
             </div>
             <span class="summary-icon summary-icon-blue" aria-hidden="true"><span class="bi bi-calendar-check"></span></span>
         </article>
-        <article class="maintenance-summary-card">
+        <button type="button" class="maintenance-summary-card maintenance-kpi-filter @(IsOverdueKpiSelected ? "selected" : null)" aria-pressed="@IsOverdueKpiSelected.ToString().ToLowerInvariant()" aria-label="Show overdue preventive schedules" @onclick="ToggleOverdueKpiAsync">
             <div>
-                <span>Overdue on this page</span>
-                <strong>@OverdueCount</strong>
+                <span>Overdue</span>
+                <strong>@MaintenanceFormat.KpiCount(overdueKpiCount)</strong>
                 <small>Past due and still planned</small>
             </div>
             <span class="summary-icon summary-icon-amber" aria-hidden="true"><span class="bi bi-exclamation-triangle-fill"></span></span>
-        </article>
+        </button>
     </section>
 
     @if (registerSuccessMessage is not null)

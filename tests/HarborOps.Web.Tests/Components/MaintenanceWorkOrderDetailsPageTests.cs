@@ -43,7 +43,7 @@ public sealed class MaintenanceWorkOrderDetailsPageTests : BunitContext
         var page = RenderPage();
 
         Assert.Equal("Replace main engine filter", page.Find(".work-order-details-header h1").TextContent.Trim());
-        Assert.Equal("Aurora Borealis", page.Find(".work-order-details-vessel").TextContent.Trim());
+        Assert.Equal("Aurora Borealis", page.Find(".work-order-details-vessel a").TextContent.Trim());
         Assert.Equal("Open", page.Find(".work-order-status").TextContent.Trim());
         Assert.Equal("High", page.Find(".work-order-priority").TextContent.Trim());
         Assert.Contains(

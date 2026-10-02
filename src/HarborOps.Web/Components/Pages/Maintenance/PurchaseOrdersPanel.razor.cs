@@ -104,9 +104,40 @@ public partial class PurchaseOrdersPanel : IDisposable
 
     private int LastRowNumber => FirstRowNumber + rows.Count - 1;
 
-    private int OverdueCount => rows.Count(row => row.IsOverdue);
+    private int? overdueKpiCount;
 
-    private decimal PageTotalCost => rows.Sum(row => row.TotalCost);
+    private IReadOnlyList<PurchaseOrderStatusSlice> statusMix = [];
+
+    private bool IsOverdueKpiSelected => overdueFilter == "true";
+
+    private int StatusMixTotal => statusMix.Sum(slice => slice.Count);
+
+    private IReadOnlyList<PurchaseOrderStatusSegment> StatusMixSegments
+    {
+        get
+        {
+            var total = StatusMixTotal;
+            var visible = statusMix.Where(slice => slice.Count > 0).ToList();
+            var gap = visible.Count > 1 ? 1.5d : 0d;
+            var start = 0d;
+            var segments = new List<PurchaseOrderStatusSegment>(visible.Count);
+
+            foreach (var slice in visible)
+            {
+                var share = slice.Count * 100d / total;
+                var length = Math.Max(share - gap, 0.5d);
+
+                segments.Add(new PurchaseOrderStatusSegment(
+                    slice.Status,
+                    slice.Count,
+                    string.Create(CultureInfo.InvariantCulture, $"{length:0.###} {100d - length:0.###}"),
+                    string.Create(CultureInfo.InvariantCulture, $"{0d - start:0.###}")));
+                start += share;
+            }
+
+            return segments;
+        }
+    }
 
     private decimal CreateTotalCost => createModel.Lines
         .Sum(line => ProcurementFormat.LineTotal(line.QuantityOrdered, line.UnitCost));
@@ -159,6 +190,20 @@ public partial class PurchaseOrdersPanel : IDisposable
         pageNumber = 1;
 
         return LoadAsync();
+    }
+
+    private Task ToggleOverdueKpiAsync()
+    {
+        overdueFilter = IsOverdueKpiSelected ? string.Empty : "true";
+
+        return ApplyFiltersAsync();
+    }
+
+    private Task ToggleStatusSliceAsync(string status)
+    {
+        statusFilter = statusFilter == status ? string.Empty : status;
+
+        return ApplyFiltersAsync();
     }
 
     private Task RetryAsync()
@@ -230,6 +275,8 @@ public partial class PurchaseOrdersPanel : IDisposable
             failure = result.Failure;
             rows = [];
             totalCount = 0;
+            overdueKpiCount = null;
+            statusMix = [];
 
             return;
         }
@@ -239,6 +286,38 @@ public partial class PurchaseOrdersPanel : IDisposable
         pageSize = page.PageSize;
         totalCount = page.TotalCount;
         rows = page.Items;
+
+        await LoadKpiCountsAsync(filter, requestVersion);
+    }
+
+    private async Task LoadKpiCountsAsync(PurchaseOrderFilter filter, int requestVersion)
+    {
+        var countFilter = filter with { PageNumber = 1, PageSize = 1 };
+        var overdueTask = MaintenanceApi.GetPurchaseOrdersAsync(countFilter with { Overdue = true }, disposeCancellation.Token);
+        var statusTasks = ProcurementFormat.Statuses
+            .Select(status => MaintenanceApi.GetPurchaseOrdersAsync(countFilter with { Status = status }, disposeCancellation.Token))
+            .ToArray();
+
+        try
+        {
+            await Task.WhenAll(statusTasks.Append(overdueTask));
+        }
+        catch (OperationCanceledException) when (disposeCancellation.IsCancellationRequested)
+        {
+            return;
+        }
+
+        if (disposeCancellation.IsCancellationRequested || requestVersion != loadVersion)
+        {
+            return;
+        }
+
+        overdueKpiCount = overdueTask.Result.IsSuccess ? overdueTask.Result.Value!.TotalCount : null;
+        statusMix = statusTasks.All(task => task.Result.IsSuccess)
+            ? ProcurementFormat.Statuses
+                .Select((status, index) => new PurchaseOrderStatusSlice(status, statusTasks[index].Result.Value!.TotalCount))
+                .ToList()
+            : [];
     }
 
     private async Task LoadSupplierOptionsAsync()

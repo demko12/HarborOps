@@ -19,14 +19,14 @@
             </div>
             <span class="summary-icon summary-icon-blue" aria-hidden="true"><span class="bi bi-tools"></span></span>
         </article>
-        <article class="maintenance-summary-card">
+        <button type="button" class="maintenance-summary-card maintenance-kpi-filter @(overdueOnlyFilter ? "selected" : null)" aria-pressed="@overdueOnlyFilter.ToString().ToLowerInvariant()" aria-label="Show overdue dry docks" @onclick="ToggleOverdueKpiAsync">
             <div>
-                <span>Overdue on this page</span>
-                <strong>@OverdueCount</strong>
+                <span>Overdue</span>
+                <strong>@MaintenanceFormat.KpiCount(overdueKpiCount)</strong>
                 <small>Planned but past their start date</small>
             </div>
             <span class="summary-icon summary-icon-amber" aria-hidden="true"><span class="bi bi-exclamation-triangle-fill"></span></span>
-        </article>
+        </button>
     </section>
 
     @if (scheduleSuccessMessage is not null)

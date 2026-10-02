@@ -13,21 +13,57 @@
 			</div>
 			<span class="summary-icon summary-icon-blue" aria-hidden="true"><span class="bi bi-receipt"></span></span>
 		</article>
-		<article class="maintenance-summary-card">
+		<button type="button" class="maintenance-summary-card maintenance-kpi-filter @(IsOverdueKpiSelected ? "selected" : null)" aria-pressed="@IsOverdueKpiSelected.ToString().ToLowerInvariant()" aria-label="Show overdue purchase orders" @onclick="ToggleOverdueKpiAsync">
 			<div>
-				<span>Overdue on this page</span>
-				<strong>@OverdueCount</strong>
+				<span>Overdue</span>
+				<strong>@MaintenanceFormat.KpiCount(overdueKpiCount)</strong>
 				<small>Past the expected delivery</small>
 			</div>
 			<span class="summary-icon summary-icon-amber" aria-hidden="true"><span class="bi bi-exclamation-triangle-fill"></span></span>
-		</article>
-		<article class="maintenance-summary-card">
-			<div>
-				<span>Value on this page</span>
-				<strong>@ProcurementFormat.Money(PageTotalCost)</strong>
-				<small>Sum of the listed order totals</small>
+		</button>
+		<article class="maintenance-summary-card procurement-status-mix" aria-labelledby="procurement-status-mix-title">
+			<div class="procurement-status-mix-body">
+				<span id="procurement-status-mix-title">Orders by status</span>
+				@if (StatusMixTotal == 0)
+				{
+					<small>No orders match the current filters</small>
+				}
+				else
+				{
+					<ul class="procurement-status-mix-legend">
+						@foreach (var segment in StatusMixSegments)
+						{
+							<li @key="segment.Status">
+								<button type="button"
+										class="procurement-status-mix-item @(statusFilter == segment.Status ? "selected" : null)"
+										aria-pressed="@((statusFilter == segment.Status).ToString().ToLowerInvariant())"
+										aria-label="@($"Show {ProcurementFormat.StatusLabel(segment.Status).ToLowerInvariant()} purchase orders")"
+										@onclick="() => ToggleStatusSliceAsync(segment.Status)">
+									<i class="procurement-mix-@ProcurementFormat.StatusModifier(segment.Status)" aria-hidden="true"></i>
+									<span>@ProcurementFormat.StatusLabel(segment.Status)</span>
+									<b>@segment.Count</b>
+								</button>
+							</li>
+						}
+					</ul>
+				}
 			</div>
-			<span class="summary-icon summary-icon-blue" aria-hidden="true"><span class="bi bi-cash-stack"></span></span>
+			<svg class="procurement-status-mix-donut" viewBox="0 0 42 42" role="img" aria-label="@($"{StatusMixTotal} purchase orders by status")">
+				<circle class="procurement-status-mix-track" cx="21" cy="21" r="16" pathLength="100" />
+				@foreach (var segment in StatusMixSegments)
+				{
+					<circle @key="segment.Status"
+							class="procurement-mix-@ProcurementFormat.StatusModifier(segment.Status)"
+							cx="21"
+							cy="21"
+							r="16"
+							pathLength="100"
+							stroke-dasharray="@segment.DashArray"
+							stroke-dashoffset="@segment.DashOffset"
+							transform="rotate(-90 21 21)"><title>@($"{ProcurementFormat.StatusLabel(segment.Status)}: {segment.Count}")</title></circle>
+				}
+				<text x="21" y="23.5" text-anchor="middle">@StatusMixTotal</text>
+			</svg>
 		</article>
 	</section>
 

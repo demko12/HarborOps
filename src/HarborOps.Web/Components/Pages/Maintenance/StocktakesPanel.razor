@@ -20,14 +20,14 @@
 				</div>
 				<span class="summary-icon summary-icon-blue" aria-hidden="true"><span class="bi bi-clipboard-check"></span></span>
 			</article>
-			<article class="maintenance-summary-card">
+			<button type="button" class="maintenance-summary-card maintenance-kpi-filter @(IsDraftKpiSelected ? "selected" : null)" aria-pressed="@IsDraftKpiSelected.ToString().ToLowerInvariant()" aria-label="Show open draft stocktakes" @onclick="ToggleDraftKpiAsync">
 				<div>
 					<span>Open drafts</span>
-					<strong>@DraftCount</strong>
-					<small>Counting still in progress on this page</small>
+					<strong>@MaintenanceFormat.KpiCount(draftKpiCount)</strong>
+					<small>Counting still in progress</small>
 				</div>
 				<span class="summary-icon summary-icon-amber" aria-hidden="true"><span class="bi bi-pencil-square"></span></span>
-			</article>
+			</button>
 			<article class="maintenance-summary-card">
 				<div>
 					<span>Lines with a variance</span>

@@ -45,10 +45,9 @@ public partial class StocktakesPanel : IDisposable
 
     private int LastRowNumber => FirstRowNumber + rows.Count - 1;
 
-    private int DraftCount => rows.Count(row => string.Equals(
-        row.Status,
-        MaintenanceFormat.DraftStocktake,
-        StringComparison.Ordinal));
+    private int? draftKpiCount;
+
+    private bool IsDraftKpiSelected => statusFilter == MaintenanceFormat.DraftStocktake;
 
     private int VarianceLineCount => rows.Sum(row => row.VarianceLineCount);
 
@@ -144,6 +143,13 @@ public partial class StocktakesPanel : IDisposable
         pageNumber = 1;
 
         return LoadAsync();
+    }
+
+    private Task ToggleDraftKpiAsync()
+    {
+        statusFilter = IsDraftKpiSelected ? string.Empty : MaintenanceFormat.DraftStocktake;
+
+        return ApplyFiltersAsync();
     }
 
     private Task PreviousPageAsync()
@@ -324,6 +330,7 @@ public partial class StocktakesPanel : IDisposable
             failure = result.Failure;
             rows = [];
             totalCount = 0;
+            draftKpiCount = null;
 
             return;
         }
@@ -333,6 +340,31 @@ public partial class StocktakesPanel : IDisposable
         pageSize = page.PageSize;
         totalCount = page.TotalCount;
         rows = page.Items;
+
+        await LoadDraftKpiCountAsync(requestVersion);
+    }
+
+    private async Task LoadDraftKpiCountAsync(int requestVersion)
+    {
+        MaintenanceApiResult<StocktakesPage> result;
+
+        try
+        {
+            result = await MaintenanceApi.GetStocktakesAsync(
+                new StocktakeFilter(MaintenanceFormat.DraftStocktake, 1, 1),
+                disposeCancellation.Token);
+        }
+        catch (OperationCanceledException) when (disposeCancellation.IsCancellationRequested)
+        {
+            return;
+        }
+
+        if (disposeCancellation.IsCancellationRequested || requestVersion != loadVersion)
+        {
+            return;
+        }
+
+        draftKpiCount = result.IsSuccess ? result.Value!.TotalCount : null;
     }
 
     public void Dispose()
