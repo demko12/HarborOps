@@ -41,6 +41,11 @@ public sealed class CrewMembersController(
         }
     }
 
+    [HttpGet("summary")]
+    [ProducesResponseType<CrewMembersSummaryResponse>(StatusCodes.Status200OK)]
+    public async Task<ActionResult<CrewMembersSummaryResponse>> GetSummary(CancellationToken cancellationToken) =>
+        Ok(await searchCrewMembersQuery.GetSummaryAsync(cancellationToken));
+
     [HttpPost]
     [ProducesResponseType<RegisterCrewMemberResponse>(StatusCodes.Status201Created)]
     [ProducesResponseType<HttpValidationProblemDetails>(StatusCodes.Status400BadRequest)]

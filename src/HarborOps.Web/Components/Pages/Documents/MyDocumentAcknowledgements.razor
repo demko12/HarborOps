@@ -24,21 +24,43 @@
     else if (items.Count == 0) { <section class="documents-card"><EmptyState Title="No document acknowledgements" Message="Documents issued to you will appear here." /></section> }
     else
     {
-        <section class="documents-card acknowledgement-list">
-            <div class="documents-card-heading"><div><h2>Issued documents</h2><p>@totalCount issue(s)</p></div></div>
-            @foreach (var item in items)
-            {
-                <article class="acknowledgement-row">
-                    <div><p class="documents-eyebrow">@item.DocumentType</p><h3>@item.DocumentNumber</h3><p>Due @item.DueDate.ToString("dd MMM yyyy") @if (item.IsOverdue) { <span class="status-badge status-danger">Overdue</span> }</p>@if (!string.IsNullOrWhiteSpace(item.Instruction)) { <p>@item.Instruction</p> } @if (!string.IsNullOrWhiteSpace(item.StateReason)) { <p class="ack-reason">@item.StateReason</p> }</div>
-                    <div class="ack-actions"><span class="status-badge @StateClass(item.State)">@item.State</span><a class="button-secondary" href="/documents">Open document</a>@if (item.State == "Pending") { <button class="button-primary" @onclick="() => confirmIssueId = item.IssueId">Acknowledge</button> }</div>
-                </article>
-            }
+        <section class="acknowledgement-list" aria-labelledby="ack-list-title">
+            <div class="acknowledgement-list-heading"><h2 id="ack-list-title">Issued documents</h2><p>@totalCount issue(s)</p></div>
+            <div class="acknowledgement-grid">
+                @foreach (var item in items)
+                {
+                    <article class="acknowledgement-card">
+                        <div class="ack-card-top">
+                            <p class="documents-eyebrow">@item.DocumentType</p>
+                            <span class="status-badge @StateClass(item.State)">@item.State</span>
+                        </div>
+                        <h3>@item.DocumentNumber</h3>
+                        <p class="ack-due">Due @item.DueDate.ToString("dd MMM yyyy") @if (item.IsOverdue) { <span class="status-badge status-danger">Overdue</span> }</p>
+                        @if (!string.IsNullOrWhiteSpace(item.Instruction)) { <p class="ack-instruction">@item.Instruction</p> }
+                        @if (!string.IsNullOrWhiteSpace(item.StateReason)) { <p class="ack-reason">@item.StateReason</p> }
+                        <div class="ack-actions"><a class="button-secondary" href="/documents">Open document</a>@if (item.State == "Pending") { <button class="button-primary" @onclick="() => confirmIssueId = item.IssueId">Acknowledge</button> }</div>
+                    </article>
+                }
+            </div>
         </section>
     }
 
-    @if (confirmIssueId is not null)
+    @if (confirmIssueId is { } confirmId)
     {
-        <div class="modal-backdrop" role="presentation"><section class="modal-card" role="dialog" aria-modal="true" aria-labelledby="ack-confirm-title"><p class="documents-eyebrow">Acknowledgement</p><h2 id="ack-confirm-title">Confirm acknowledgement</h2><p>You confirm that you reviewed the current issued document. This action is recorded with your account and server time.</p><div class="modal-actions"><button class="button-primary" disabled="@isAcknowledging" @onclick="AcknowledgeAsync">@(isAcknowledging ? "Acknowledging…" : "Confirm acknowledgement")</button><button class="button-secondary" disabled="@isAcknowledging" @onclick="() => confirmIssueId = null">Cancel</button></div></section></div>
+        var confirmItem = items.FirstOrDefault(item => item.IssueId == confirmId);
+        <div class="acknowledgement-modal-backdrop" role="presentation" @onclick="CloseConfirmation">
+            <section class="acknowledgement-modal" role="dialog" aria-modal="true" aria-labelledby="ack-confirm-title" @onclick:stopPropagation="true">
+                <div class="acknowledgement-modal-header">
+                    <div>
+                        <h2 id="ack-confirm-title">Confirm acknowledgement</h2>
+                        @if (confirmItem is not null) { <p>@confirmItem.DocumentNumber — @confirmItem.DocumentType</p> }
+                    </div>
+                    <button type="button" class="acknowledgement-modal-close" aria-label="Close acknowledgement dialog" disabled="@isAcknowledging" @onclick="CloseConfirmation">&times;</button>
+                </div>
+                <p class="acknowledgement-modal-text">You confirm that you reviewed the current issued document. This action is recorded with your account and server time.</p>
+                <div class="modal-actions"><button type="button" class="button-primary" disabled="@isAcknowledging" @onclick="AcknowledgeAsync">@(isAcknowledging ? "Acknowledging…" : "Confirm acknowledgement")</button><button type="button" class="button-secondary" disabled="@isAcknowledging" @onclick="CloseConfirmation">Cancel</button></div>
+            </section>
+        </div>
     }
 </section>
 
@@ -62,6 +84,10 @@
         var result = await DocumentsApi.GetMyAcknowledgementsAsync(new DocumentDistributionInboxQuery(state, overdueOnly ? true : null, 1, 100), CancellationToken.None);
         if (result.IsSuccess && result.Value is not null) { items = result.Value.Items; totalCount = result.Value.TotalCount; } else { items = []; failure = result.Failure; }
         isLoading = false;
+    }
+    private void CloseConfirmation()
+    {
+        if (!isAcknowledging) confirmIssueId = null;
     }
     private async Task AcknowledgeAsync()
     {
