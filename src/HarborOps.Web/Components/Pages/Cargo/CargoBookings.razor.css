@@ -367,6 +367,7 @@ html[data-theme="light"] .cargo-validation {
 }
 
 .cargo-table-scroll {
+    overflow-x: auto;
     scrollbar-width: thin;
     scrollbar-color: var(--border-medium) transparent;
 }
@@ -386,24 +387,6 @@ html[data-theme="light"] .cargo-validation {
     font-weight: 700;
     letter-spacing: 0.1em;
     text-transform: uppercase;
-}
-
-@media (min-width: 1051px) {
-    .cargo-table th {
-        position: sticky;
-        top: 3.75rem;
-        z-index: 2;
-        background:
-            linear-gradient(var(--bg-surface-strong), var(--bg-surface-strong)),
-            var(--bg-app);
-        box-shadow: 0 1px var(--border-medium);
-    }
-}
-
-@media (max-width: 1050px) {
-    .cargo-table-scroll {
-        overflow-x: auto;
-    }
 }
 
 .cargo-table td {

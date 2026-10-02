@@ -1361,7 +1361,7 @@ html[data-theme="light"] .manifest-filter-hint {
     background: var(--accent-bg);
 }
 .booking-grid {
-    grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr);
+    grid-template-columns: minmax(0, 1fr);
     align-items: start;
 }
 .booking-facts > div {
