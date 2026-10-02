@@ -215,6 +215,23 @@ public sealed class DryDocksPanelTests : BunitContext
     }
 
     [Fact]
+    public void The_overdue_kpi_filters_the_board_and_reflects_the_toggle()
+    {
+        var panel = RenderPanel();
+
+        panel.Find("[aria-label='Show overdue dry docks']").Click();
+
+        panel.WaitForAssertion(() =>
+        {
+            Assert.Contains(
+                maintenanceUris,
+                uri => IsListRequest(uri) && uri.Query.Contains("overdue=true", StringComparison.Ordinal));
+            Assert.Equal("true", panel.Find("[aria-label='Show overdue dry docks']").GetAttribute("aria-pressed"));
+            Assert.True(panel.Find(".dry-dock-overdue-toggle input").HasAttribute("checked"));
+        });
+    }
+
+    [Fact]
     public void Resetting_clears_every_filter_from_the_request()
     {
         var panel = RenderPanel();
@@ -229,7 +246,7 @@ public sealed class DryDocksPanelTests : BunitContext
 
         panel.WaitForAssertion(() =>
         {
-            var latest = Assert.Single(maintenanceUris);
+            var latest = Assert.Single(maintenanceUris, IsListRequest);
 
             Assert.DoesNotContain("status=", latest.Query, StringComparison.Ordinal);
             Assert.DoesNotContain("overdue=", latest.Query, StringComparison.Ordinal);
@@ -567,6 +584,11 @@ public sealed class DryDocksPanelTests : BunitContext
         return $$"""
             {"items":[{{string.Join(',', items)}}],"pageNumber":1,"pageSize":25,"totalCount":{{items.Length}}}
             """;
+    }
+
+    private static bool IsListRequest(Uri uri)
+    {
+        return !uri.Query.TrimStart('?').Split('&').Contains("pageSize=1");
     }
 
     private static Task<HttpResponseMessage> Json(HttpStatusCode statusCode, string json)

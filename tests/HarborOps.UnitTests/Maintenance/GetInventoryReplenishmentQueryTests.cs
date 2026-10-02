@@ -152,6 +152,7 @@ public sealed class GetInventoryReplenishmentQueryTests
     [InlineData(PurchaseOrderStatus.PartiallyReceived, 6)]
     [InlineData(PurchaseOrderStatus.Received, 0)]
     [InlineData(PurchaseOrderStatus.Cancelled, 0)]
+    [InlineData(PurchaseOrderStatus.ClosedShort, 0)]
     public async Task Open_purchase_orders_count_only_the_outstanding_quantity_of_open_lines(
         PurchaseOrderStatus status,
         int expectedIncoming)

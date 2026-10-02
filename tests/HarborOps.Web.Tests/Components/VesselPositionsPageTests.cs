@@ -7,9 +7,11 @@ using Bunit;
 using HarborOps.Web.Api;
 using HarborOps.Web.Api.Fleet;
 using HarborOps.Web.Components.Pages.Fleet;
+using Microsoft.AspNetCore.Components.Web;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.WebUtilities;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 
 namespace HarborOps.Web.Tests.Components;
 
@@ -26,6 +28,62 @@ public sealed class VesselPositionsPageTests : BunitContext
 
     private Func<HttpRequestMessage, Task<HttpResponseMessage>> respond =
         _ => Json(HttpStatusCode.OK, Positions());
+
+    [Fact]
+    public async Task Prerendering_and_disposal_do_not_call_javascript()
+    {
+        RenderPositionsPage();
+        var initialCalls = JSInterop.Invocations.Count;
+        await using (var renderer = new HtmlRenderer(Services, Services.GetRequiredService<ILoggerFactory>()))
+        {
+            await renderer.Dispatcher.InvokeAsync(async () =>
+            {
+                var page = await renderer.RenderComponentAsync<VesselPositions>();
+                Assert.Contains("Vessel positions", page.ToHtmlString(), StringComparison.Ordinal);
+            });
+        }
+        Assert.Equal(initialCalls, JSInterop.Invocations.Count);
+    }
+
+    [Fact]
+    public async Task Disposing_an_initialized_map_cleans_it_up_once()
+    {
+        var page = RenderPositionsPage();
+        await page.Instance.DisposeAsync();
+        await page.Instance.DisposeAsync();
+        Assert.Single(JSInterop.Invocations["fleetPositionsMap.dispose"]);
+    }
+
+    [Fact]
+    public void Ais_tracking_status_and_observation_source_are_visible()
+    {
+        respond = _ => Json(HttpStatusCode.OK, Positions().Replace("\"evaluatedAtUtc\":", "\"aisTracking\":{\"connectionState\":\"Connected\",\"lastPositionReceivedAtUtc\":\"2026-10-01T10:00:00Z\"},\"evaluatedAtUtc\":", StringComparison.Ordinal)
+            .Replace("\"isPositionStale\":false", "\"positionSource\":\"AISStream\",\"isPositionStale\":false", StringComparison.Ordinal));
+        var page = RenderPositionsPage();
+        Assert.Contains("AIS feed connected", page.Find(".positions-tracking").TextContent, StringComparison.Ordinal);
+        Assert.Contains("AISStream", page.Find(".positions-table").TextContent, StringComparison.Ordinal);
+        Assert.True(page.Find(".positions-tracking input").HasAttribute("checked"));
+    }
+
+    [Fact]
+    public async Task Automatic_refresh_updates_the_visible_data_check_time()
+    {
+        var evaluatedAt = "2026-08-26T12:00:00Z";
+        respond = _ => Json(HttpStatusCode.OK, Positions().Replace("2026-08-26T12:00:00Z", evaluatedAt, StringComparison.Ordinal));
+        var page = RenderPositionsPage();
+        Assert.Contains("12:00:00 UTC", page.Find(".positions-refresh-status").TextContent, StringComparison.Ordinal);
+        evaluatedAt = "2026-08-26T12:00:15Z";
+        await Task.Delay(TimeSpan.FromSeconds(16));
+        page.WaitForAssertion(() => Assert.Contains("12:00:15 UTC", page.Find(".positions-refresh-status").TextContent, StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void Connected_feed_without_observations_explains_that_no_reports_have_arrived()
+    {
+        respond = _ => Json(HttpStatusCode.OK, Positions().Replace("\"evaluatedAtUtc\":", "\"aisTracking\":{\"connectionState\":\"Connected\"},\"evaluatedAtUtc\":", StringComparison.Ordinal));
+        var page = RenderPositionsPage();
+        Assert.Contains("No AIS position reports received", page.Find(".positions-tracking").TextContent, StringComparison.Ordinal);
+    }
 
     [Fact]
     public void The_map_shows_known_positions_and_lists_vessels_without_coordinates()
@@ -57,6 +115,7 @@ public sealed class VesselPositionsPageTests : BunitContext
         var page = RenderPositionsPage();
 
         Assert.Contains("201 of 201", page.Find(".positions-map-card").TextContent, StringComparison.Ordinal);
+        Assert.Contains("201 of 201 matching vessels", page.Find(".positions-coverage").TextContent, StringComparison.Ordinal);
         Assert.Equal(50, page.FindAll(".positions-table tbody tr").Count);
         Assert.Equal(3, PositionRequests().Count(request => QueryHelpers.ParseQuery(request.RequestUri!.Query)["pageSize"] == "100"));
         var call = JSInterop.Invocations["fleetPositionsMap.render"].Last();
@@ -64,8 +123,38 @@ public sealed class VesselPositionsPageTests : BunitContext
 
         page.Find(".positions-pagination button:last-child").Click();
         Assert.Contains("201 of 201", page.Find(".positions-map-card").TextContent, StringComparison.Ordinal);
+        Assert.Contains("201 of 201 matching vessels", page.Find(".positions-coverage").TextContent, StringComparison.Ordinal);
         Assert.Contains("Vessel 51", page.Find(".positions-table").TextContent, StringComparison.Ordinal);
         Assert.Equal(3, PositionRequests().Count(request => QueryHelpers.ParseQuery(request.RequestUri!.Query)["pageSize"] == "100"));
+    }
+
+    [Fact]
+    public void Coverage_counts_all_205_matching_vessels_including_missing_positions()
+    {
+        respond = request =>
+        {
+            var query = QueryHelpers.ParseQuery(request.RequestUri!.Query);
+            var size = int.Parse(query["pageSize"].ToString());
+            var number = int.Parse(PageNumberFrom(request));
+            var items = string.Join(',', Enumerable.Range((number - 1) * size, Math.Min(size, 205 - (number - 1) * size))
+                .Select(index => Item($"40000000-0000-0000-0000-{index + 1:000000000000}",
+                    $"Vessel {index + 1}", $"{5100000 + index}",
+                    latitude: index < 150 ? "10" : "null", longitude: index < 150 ? "20" : "null",
+                    isPositionStale: index < 50 ? "false" : "true")));
+            return Json(HttpStatusCode.OK, Positions(items, "205", pageNumber: number.ToString(), pageSize: size.ToString()));
+        };
+
+        var page = RenderPositionsPage();
+        Assert.Equal(50, page.FindAll(".positions-table tbody tr").Count);
+        Assert.Contains("50 of 205 matching vessels", page.Find(".positions-coverage-heading").TextContent, StringComparison.Ordinal);
+        var rows = page.FindAll(".positions-coverage-row");
+        Assert.Equal("50", rows[0].QuerySelector("strong")!.TextContent);
+        Assert.Equal("100", rows[1].QuerySelector("strong")!.TextContent);
+        Assert.Equal("55", rows[2].QuerySelector("strong")!.TextContent);
+        Assert.Equal("24.4%", rows[0].QuerySelector(".positions-coverage-percent")!.TextContent);
+        Assert.Equal("48.8%", rows[1].QuerySelector(".positions-coverage-percent")!.TextContent);
+        Assert.Equal("26.8%", rows[2].QuerySelector(".positions-coverage-percent")!.TextContent);
+        Assert.Equal("55", page.FindAll(".positions-summary-card strong")[1].TextContent);
     }
 
     [Fact]
@@ -79,6 +168,8 @@ public sealed class VesselPositionsPageTests : BunitContext
 
         Assert.NotNull(page.Find(".positions-map-card .api-error-state"));
         Assert.Empty(page.FindAll(".positions-map"));
+        Assert.Empty(page.FindAll(".positions-coverage-ring"));
+        Assert.Contains("Coverage is unavailable", page.Find(".positions-coverage").TextContent, StringComparison.Ordinal);
         Assert.Equal(3, page.FindAll(".positions-table tbody tr").Count);
     }
 

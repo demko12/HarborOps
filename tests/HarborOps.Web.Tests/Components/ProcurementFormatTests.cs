@@ -132,6 +132,7 @@ public sealed class ProcurementFormatTests
     [InlineData("clientRequestId", "Request")]
     [InlineData("expectedConcurrencyToken", "Purchase order version")]
     [InlineData("previewToken", "Receipt check")]
+    [InlineData("reason", "Reason")]
     [InlineData("lines[0].purchaseOrderLineId", "Line 1 order line")]
     [InlineData("lines[1].quantity", "Line 2 quantity")]
     public void Receipt_fields_get_readable_labels(string field, string expected)
@@ -143,6 +144,7 @@ public sealed class ProcurementFormatTests
     [InlineData(ProcurementFormat.PartiallyReceivedStatus, "Partially received")]
     [InlineData(ProcurementFormat.OrderedStatus, "Ordered")]
     [InlineData(ProcurementFormat.ReceivedStatus, "Received")]
+    [InlineData(ProcurementFormat.ClosedShortStatus, "Closed short")]
     public void Statuses_get_readable_labels(string status, string expected)
     {
         Assert.Equal(expected, ProcurementFormat.StatusLabel(status));
@@ -159,6 +161,7 @@ public sealed class ProcurementFormatTests
     [InlineData(ProcurementFormat.OrderedStatus, 0, 10, "0 / 10")]
     [InlineData(ProcurementFormat.PartiallyReceivedStatus, 4, 10, "4 / 10")]
     [InlineData(ProcurementFormat.ReceivedStatus, 2.5, 2.5, "2.5 / 2.5")]
+    [InlineData(ProcurementFormat.ClosedShortStatus, 4, 10, "4 / 10")]
     [InlineData(ProcurementFormat.DraftStatus, 0, 10, ProcurementFormat.MissingValue)]
     [InlineData(ProcurementFormat.CancelledStatus, 0, 10, ProcurementFormat.MissingValue)]
     public void Received_progress_is_shown_only_for_orders_that_can_receive_goods(
@@ -196,5 +199,22 @@ public sealed class ProcurementFormatTests
     public void Receipt_blockers_have_readable_labels(string code, string expected)
     {
         Assert.Equal(expected, ProcurementFormat.ReceiptBlockerLabel(code));
+    }
+
+    [Fact]
+    public void Closed_short_orders_are_offered_as_a_status_filter()
+    {
+        Assert.Contains(ProcurementFormat.ClosedShortStatus, ProcurementFormat.Statuses);
+        Assert.Equal("closedshort", ProcurementFormat.StatusModifier(ProcurementFormat.ClosedShortStatus));
+    }
+
+    [Theory]
+    [InlineData("OrderNotClosable", "Order not closable")]
+    [InlineData("NoReceipts", "No delivery recorded")]
+    [InlineData("NothingOutstanding", "Nothing outstanding")]
+    [InlineData("SomethingNew", "SomethingNew")]
+    public void Closure_blockers_have_readable_labels(string code, string expected)
+    {
+        Assert.Equal(expected, ProcurementFormat.ClosureBlockerLabel(code));
     }
 }

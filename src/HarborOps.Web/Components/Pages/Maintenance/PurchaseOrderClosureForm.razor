@@ -1,0 +1,178 @@
+@using HarborOps.Web.Api.Maintenance
+@implements IDisposable
+@inject MaintenanceApiClient MaintenanceApi
+
+<section class="receipt-form closure-form" aria-labelledby="closure-form-title">
+	<div class="receipt-form-heading">
+		<h3 id="closure-form-title">Close remaining quantities</h3>
+		<p class="maintenance-muted">
+			@MaintenanceFormat.PurchaseOrderReference(PurchaseOrderId)
+			&middot; Use this when the rest of the order will not be delivered.
+		</p>
+	</div>
+
+	@if (preview is null)
+	{
+		@if (loadFailure is not null)
+		{
+			<ApiErrorState Title="@loadFailure.Title" Message="@loadFailure.Message" OnRetry="LoadPreviewAsync" />
+		}
+		else
+		{
+			<LoadingState Message="Checking the remaining quantities..." />
+		}
+
+		<div class="maintenance-form-actions">
+			<button type="button" class="maintenance-reset" @onclick="DismissAsync">Back to order</button>
+		</div>
+	}
+	else
+	{
+		@if (formErrors.Count > 0)
+		{
+			<div class="stocktake-blockers stocktake-validation" role="alert">
+				<h3>Fix before continuing</h3>
+				<ul>
+					@foreach (var error in formErrors)
+					{
+						<li @key="error">
+							<span class="stocktake-blocker-code">@error.Label</span>
+							<span>@error.Message</span>
+						</li>
+					}
+				</ul>
+			</div>
+		}
+		else if (failure is { IsConflict: true } or { IsNotFound: true })
+		{
+			<div class="maintenance-conflict" role="alert">
+				<strong>@failure.Title</strong> @failure.Message
+				Review the amounts below before closing.
+			</div>
+		}
+		else if (failure is { StatusCode: 0 })
+		{
+			<div class="maintenance-inline-error procurement-inline-error" role="alert">
+				<strong>@failure.Title</strong> @failure.Message
+				Closing again is safe: the order will not be closed twice.
+			</div>
+		}
+		else if (failure is not null)
+		{
+			<div class="maintenance-inline-error procurement-inline-error" role="alert">
+				<strong>@failure.Title</strong> @failure.Message
+			</div>
+		}
+
+		<dl class="procurement-details-summary closure-totals">
+			<dt>Received</dt>
+			<dd class="procurement-total">@ProcurementFormat.Quantity(Preview.TotalQuantityReceived) unit(s) stay in stock</dd>
+			<dt>Not delivered</dt>
+			<dd class="procurement-total closure-undelivered">@ProcurementFormat.Quantity(Preview.TotalQuantityToClose) unit(s) will be closed without delivery</dd>
+		</dl>
+
+		<div class="maintenance-table-scroll">
+			<table class="maintenance-table procurement-line-table closure-lines-table">
+				<caption class="visually-hidden">Purchase order lines and the quantities that will be closed</caption>
+				<thead>
+					<tr>
+						<th scope="col" class="col-line-item">Part</th>
+						<th scope="col" class="col-line-part">Part number</th>
+						<th scope="col" class="numeric">Ordered</th>
+						<th scope="col" class="numeric">Received</th>
+						<th scope="col" class="numeric">Returned</th>
+						<th scope="col" class="numeric">Close without delivery</th>
+					</tr>
+				</thead>
+				<tbody>
+					@foreach (var line in Preview.Lines)
+					{
+						<tr @key="line.PurchaseOrderLineId">
+							<td class="col-line-item"><span class="maintenance-title">@line.Name</span></td>
+							<td class="col-line-part maintenance-muted">@line.PartNumber</td>
+							<td class="numeric">@ProcurementFormat.Quantity(line.QuantityOrdered)</td>
+							<td class="numeric">@ProcurementFormat.Quantity(line.ReceivedQuantity)</td>
+							<td class="numeric">@ProcurementFormat.Quantity(line.ReturnedQuantity)</td>
+							<td class="numeric">
+								@if (line.QuantityToClose > 0)
+								{
+									<strong>@ProcurementFormat.Quantity(line.QuantityToClose) @line.UnitAbbreviation</strong>
+								}
+								else
+								{
+									<span class="maintenance-muted">Fully received</span>
+								}
+							</td>
+						</tr>
+					}
+				</tbody>
+			</table>
+		</div>
+
+		@if (Preview.Blockers.Count > 0)
+		{
+			<div class="stocktake-blockers" role="status" aria-live="polite">
+				<h3>This order cannot be closed</h3>
+				<ul>
+					@foreach (var blocker in Preview.Blockers)
+					{
+						<li @key="blocker">
+							<span class="stocktake-blocker-code">@ProcurementFormat.ClosureBlockerLabel(blocker.Code)</span>
+							<span>@blocker.Message</span>
+						</li>
+					}
+				</ul>
+			</div>
+		}
+		else
+		{
+			<div class="filter-field closure-reason">
+				<label for="closure-reason">Reason <span class="required-marker" aria-hidden="true">*</span></label>
+				<textarea id="closure-reason"
+						  rows="3"
+						  maxlength="@ProcurementFormat.ClosureReasonMaxLength"
+						  placeholder="Why the remaining goods will not arrive, for example the supplier's confirmation"
+						  aria-describedby="closure-reason-hint"
+						  @bind="reason"
+						  @bind:event="oninput"
+						  disabled="@IsBusy"></textarea>
+				<small id="closure-reason-hint" class="maintenance-muted">
+					@ReasonLength / @ProcurementFormat.ClosureReasonMaxLength characters, at least @ProcurementFormat.ClosureReasonMinLength.
+				</small>
+			</div>
+		}
+
+		@if (isConfirmOpen)
+		{
+			<div class="procurement-confirm" role="alertdialog" aria-live="assertive" aria-labelledby="closure-confirm-text">
+				<p id="closure-confirm-text">
+					Close this order short? @ProcurementFormat.Quantity(Preview.TotalQuantityToClose) undelivered unit(s) are recorded
+					as closed without delivery. The @ProcurementFormat.Quantity(Preview.TotalQuantityReceived) received unit(s), their
+					receipts, and stock on hand do not change, and received goods can still be returned. A closed order cannot be
+					reopened or received again.
+				</p>
+				<div class="maintenance-form-actions">
+					<button type="button" class="maintenance-button procurement-transition-danger" disabled="@isClosing" @onclick="CloseOrderAsync">
+						@(isClosing ? "Closing..." : "Yes, close remaining quantities")
+					</button>
+					<button type="button" class="maintenance-reset" disabled="@isClosing" @onclick="DismissConfirmation">Back</button>
+				</div>
+			</div>
+		}
+		else
+		{
+			<div class="maintenance-form-actions stocktake-actions">
+				<button type="button" class="maintenance-button stocktake-post" disabled="@(!CanClose)" @onclick="AskToClose">
+					Close remaining quantities
+				</button>
+				<button type="button" class="maintenance-button" disabled="@IsBusy" @onclick="RefreshAsync">
+					@(isLoading ? "Refreshing..." : "Refresh amounts")
+				</button>
+				<button type="button" class="maintenance-reset" disabled="@IsBusy" @onclick="DismissAsync">Back to order</button>
+			</div>
+			<p class="maintenance-muted stocktake-hint">
+				Ordered quantities, unit prices, posted receipts, and stock stay as they are; only the undelivered balance is closed.
+			</p>
+		}
+	}
+</section>

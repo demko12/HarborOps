@@ -1,0 +1,59 @@
+@using HarborOps.Web.Api.Maintenance
+@implements IDisposable
+@inject MaintenanceApiClient MaintenanceApi
+
+<section class="receipt-history closure-record" aria-labelledby="closure-record-title">
+	<h3 id="closure-record-title">Closed short</h3>
+
+	@if (isLoading)
+	{
+		<LoadingState Message="Loading the closure..." />
+	}
+	else if (failure is not null)
+	{
+		<ApiErrorState Title="@failure.Title" Message="@failure.Message" OnRetry="LoadAsync" />
+	}
+	else if (closure is { } closed)
+	{
+		<dl class="procurement-details-summary">
+			<dt>Closed (UTC)</dt>
+			<dd>@MaintenanceFormat.CountedUtc(closed.ClosedUtc)</dd>
+			<dt>Closed by</dt>
+			<dd title="@closed.ClosedByUserId">@ActorLabel(closed.ClosedByUserId)</dd>
+			<dt>Reason</dt>
+			<dd class="closure-record-reason">@closed.Reason</dd>
+			<dt>Quantities</dt>
+			<dd>
+				@ProcurementFormat.Quantity(closed.TotalQuantityReceived) unit(s) received,
+				@ProcurementFormat.Quantity(closed.TotalQuantityClosed) unit(s) closed without delivery
+			</dd>
+		</dl>
+
+		<div class="maintenance-table-scroll">
+			<table class="maintenance-table procurement-line-table receipt-history-table">
+				<caption class="visually-hidden">Quantities recorded when the order was closed</caption>
+				<thead>
+					<tr>
+						<th scope="col">Part</th>
+						<th scope="col" class="numeric">Ordered</th>
+						<th scope="col" class="numeric">Received</th>
+						<th scope="col" class="numeric">Returned at closing</th>
+						<th scope="col" class="numeric">Closed</th>
+					</tr>
+				</thead>
+				<tbody>
+					@foreach (var line in closed.Lines)
+					{
+						<tr @key="line.ClosureLineId">
+							<td>@line.PartNumber <span class="maintenance-muted">@line.Name</span></td>
+							<td class="numeric">@ProcurementFormat.Quantity(line.QuantityOrdered)</td>
+							<td class="numeric">@ProcurementFormat.Quantity(line.ReceivedQuantity)</td>
+							<td class="numeric">@ProcurementFormat.Quantity(line.ReturnedQuantity)</td>
+							<td class="numeric procurement-total">@ProcurementFormat.Quantity(line.ClosedQuantity) @line.UnitAbbreviation</td>
+						</tr>
+					}
+				</tbody>
+			</table>
+		</div>
+	}
+</section>

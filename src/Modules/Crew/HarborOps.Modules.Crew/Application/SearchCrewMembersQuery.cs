@@ -1,10 +1,11 @@
 using HarborOps.Modules.Crew.Contracts;
 using HarborOps.Modules.Crew.Domain;
+using HarborOps.SharedKernel;
 using Microsoft.EntityFrameworkCore;
 
 namespace HarborOps.Modules.Crew.Application;
 
-internal sealed class SearchCrewMembersQuery(DbContext dbContext) : ISearchCrewMembersQuery
+internal sealed class SearchCrewMembersQuery(DbContext dbContext, IDateTimeProvider dateTimeProvider) : ISearchCrewMembersQuery
 {
     public async Task<SearchCrewMembersResponse> SearchAsync(
         SearchCrewMembersRequest request,
@@ -42,6 +43,18 @@ internal sealed class SearchCrewMembersQuery(DbContext dbContext) : ISearchCrewM
             rows = rows.Where(row => row.Member.EmploymentStatus == employmentStatus);
         }
 
+        var today = DateOnly.FromDateTime(dateTimeProvider.UtcNow);
+        var expiringSoonLimit = today.AddDays(SearchCrewMembersValidator.PassportExpiringSoonDays);
+        switch (request.PassportExpiry?.Trim())
+        {
+            case SearchCrewMembersValidator.ExpiredPassport:
+                rows = rows.Where(row => row.Member.PassportExpiry < today);
+                break;
+            case SearchCrewMembersValidator.PassportExpiringSoon:
+                rows = rows.Where(row => row.Member.PassportExpiry >= today && row.Member.PassportExpiry <= expiringSoonLimit);
+                break;
+        }
+
         var totalCount = await rows.CountAsync(cancellationToken);
         var items = await rows
             .OrderBy(row => row.Member.PassportExpiry)
@@ -63,5 +76,29 @@ internal sealed class SearchCrewMembersQuery(DbContext dbContext) : ISearchCrewM
             .ToListAsync(cancellationToken);
 
         return new SearchCrewMembersResponse(items, pageNumber, pageSize, totalCount);
+    }
+
+    public async Task<CrewMembersSummaryResponse> GetSummaryAsync(CancellationToken cancellationToken)
+    {
+        var today = DateOnly.FromDateTime(dateTimeProvider.UtcNow);
+        var expiringSoonLimit = today.AddDays(SearchCrewMembersValidator.PassportExpiringSoonDays);
+
+        var counts = await dbContext.Set<CrewMember>()
+            .AsNoTracking()
+            .GroupBy(_ => 1)
+            .Select(group => new
+            {
+                Total = group.Count(),
+                Active = group.Count(member => member.EmploymentStatus == CrewEmploymentStatuses.Active),
+                Expired = group.Count(member => member.PassportExpiry < today),
+                ExpiringSoon = group.Count(member => member.PassportExpiry >= today && member.PassportExpiry <= expiringSoonLimit),
+            })
+            .SingleOrDefaultAsync(cancellationToken);
+
+        return new CrewMembersSummaryResponse(
+            counts?.Total ?? 0,
+            counts?.Active ?? 0,
+            counts?.Expired ?? 0,
+            counts?.ExpiringSoon ?? 0);
     }
 }

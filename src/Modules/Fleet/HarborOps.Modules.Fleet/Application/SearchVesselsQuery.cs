@@ -92,7 +92,10 @@ internal sealed class SearchVesselsQuery(DbContext dbContext) : ISearchVesselsQu
                 row.Vessel.UpdatedAtUtc,
                 row.Vessel.LifecycleStage,
                 row.FleetId,
-                row.FleetName))
+                row.FleetName,
+                row.Vessel.CurrentLatitude,
+                row.Vessel.CurrentLongitude,
+                row.Vessel.LastPositionReportedAtUtc))
             .ToListAsync(cancellationToken);
 
         return new SearchVesselsResponse(items, pageNumber, pageSize, totalCount);

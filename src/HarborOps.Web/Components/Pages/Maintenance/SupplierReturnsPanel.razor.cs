@@ -48,10 +48,11 @@ public partial class SupplierReturnsPanel : IDisposable
 
     private int LastRowNumber => FirstRowNumber + rows.Count - 1;
 
-    private int DraftCount => rows.Count(row => string.Equals(
-        row.Status,
-        MaintenanceFormat.DraftSupplierReturn,
-        StringComparison.Ordinal));
+    private int? draftKpiCount;
+
+    private bool IsDraftKpiSelected => statusFilter == MaintenanceFormat.DraftSupplierReturn;
+
+    private bool IsPostedKpiSelected => statusFilter == MaintenanceFormat.PostedSupplierReturn;
 
     private decimal PostedQuantity => rows
         .Where(row => string.Equals(row.Status, MaintenanceFormat.PostedSupplierReturn, StringComparison.Ordinal))
@@ -149,6 +150,20 @@ public partial class SupplierReturnsPanel : IDisposable
         pageNumber = 1;
 
         return LoadAsync();
+    }
+
+    private Task ToggleDraftKpiAsync()
+    {
+        statusFilter = IsDraftKpiSelected ? string.Empty : MaintenanceFormat.DraftSupplierReturn;
+
+        return ApplyFiltersAsync();
+    }
+
+    private Task TogglePostedKpiAsync()
+    {
+        statusFilter = IsPostedKpiSelected ? string.Empty : MaintenanceFormat.PostedSupplierReturn;
+
+        return ApplyFiltersAsync();
     }
 
     private Task PreviousPageAsync()
@@ -291,6 +306,7 @@ public partial class SupplierReturnsPanel : IDisposable
             failure = result.Failure;
             rows = [];
             totalCount = 0;
+            draftKpiCount = null;
 
             return;
         }
@@ -300,6 +316,31 @@ public partial class SupplierReturnsPanel : IDisposable
         pageSize = page.PageSize;
         totalCount = page.TotalCount;
         rows = page.Items;
+
+        await LoadDraftKpiCountAsync(requestVersion);
+    }
+
+    private async Task LoadDraftKpiCountAsync(int requestVersion)
+    {
+        MaintenanceApiResult<SupplierReturnsPage> result;
+
+        try
+        {
+            result = await MaintenanceApi.GetSupplierReturnsAsync(
+                new SupplierReturnFilter(MaintenanceFormat.DraftSupplierReturn, purchaseOrderFilter, 1, 1),
+                disposeCancellation.Token);
+        }
+        catch (OperationCanceledException) when (disposeCancellation.IsCancellationRequested)
+        {
+            return;
+        }
+
+        if (disposeCancellation.IsCancellationRequested || requestVersion != loadVersion)
+        {
+            return;
+        }
+
+        draftKpiCount = result.IsSuccess ? result.Value!.TotalCount : null;
     }
 
     public void Dispose()

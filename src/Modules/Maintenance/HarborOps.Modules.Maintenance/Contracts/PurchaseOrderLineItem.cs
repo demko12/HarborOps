@@ -16,5 +16,7 @@ public sealed record PurchaseOrderLineItem(
     // Part of ReceivedQuantity recorded before receipts were tracked; it has no receipt behind it.
     decimal LegacyReceivedQuantity,
     decimal ReturnedQuantity,
+    // Undelivered quantity closed when the order was closed short; it is not outstanding.
+    decimal ClosedQuantity,
     decimal OutstandingQuantity,
     decimal ReturnableQuantity);

@@ -24,18 +24,22 @@
         <dl>
             <div><dt>Search</dt><dd>@(string.IsNullOrWhiteSpace(search) ? "All crew members" : search)</dd></div>
             <div><dt>Employment status</dt><dd>@(string.IsNullOrWhiteSpace(employmentStatus) ? "All statuses" : employmentStatus)</dd></div>
+            @if (passportExpiry is not null)
+            {
+                <div><dt>Passport</dt><dd>@(IsExpiredKpiSelected ? "Expired" : "Expiring in 90 days")</dd></div>
+            }
             <div><dt>Page</dt><dd>@(roster?.PageNumber ?? 1) of @TotalPages</dd></div>
             <div><dt>Crew members</dt><dd>@FirstRowNumber&ndash;@LastRowNumber of @(roster?.TotalCount ?? 0)</dd></div>
         </dl>
     </section>
 
-    @if (roster is not null && !isLoading && failure is null)
+    @if (roster is not null && failure is null)
     {
         <section class="crew-summary" aria-label="Crew summary">
             <article class="crew-summary-card"><div><span>Matching crew</span><strong>@(roster.TotalCount)</strong><small>Across the current filters</small></div><span class="crew-summary-icon crew-summary-blue"><span class="bi bi-people"></span></span></article>
-            <article class="crew-summary-card"><div><span>Active crew</span><strong>@ActiveCrew</strong><small>On this page</small></div><span class="crew-summary-icon crew-summary-green"><span class="bi bi-person-check"></span></span></article>
-            <article class="crew-summary-card"><div><span>Expired passports</span><strong>@ExpiredPassports</strong><small>Expired on this page</small></div><span class="crew-summary-icon crew-summary-red"><span class="bi bi-passport"></span></span></article>
-            <article class="crew-summary-card"><div><span>Expiring in 90 days</span><strong>@PassportsExpiringSoon</strong><small>Renewals on this page</small></div><span class="crew-summary-icon crew-summary-amber"><span class="bi bi-calendar-event"></span></span></article>
+            <button type="button" class="crew-summary-card crew-kpi-filter @(IsActiveKpiSelected ? "selected" : null)" aria-pressed="@IsActiveKpiSelected.ToString().ToLowerInvariant()" aria-label="Show active crew" @onclick="ToggleActiveKpiAsync"><div><span>Active crew</span><strong>@FormatCount(summary?.ActiveCount)</strong><small>Across the whole roster</small></div><span class="crew-summary-icon crew-summary-green"><span class="bi bi-person-check"></span></span></button>
+            <button type="button" class="crew-summary-card crew-kpi-filter @(IsExpiredKpiSelected ? "selected" : null)" aria-pressed="@IsExpiredKpiSelected.ToString().ToLowerInvariant()" aria-label="Show crew with expired passports" @onclick="ToggleExpiredKpiAsync"><div><span>Expired passports</span><strong>@FormatCount(summary?.ExpiredPassportCount)</strong><small>Across the whole roster</small></div><span class="crew-summary-icon crew-summary-red"><span class="bi bi-passport"></span></span></button>
+            <button type="button" class="crew-summary-card crew-kpi-filter @(IsExpiringSoonKpiSelected ? "selected" : null)" aria-pressed="@IsExpiringSoonKpiSelected.ToString().ToLowerInvariant()" aria-label="Show crew with passports expiring in 90 days" @onclick="ToggleExpiringSoonKpiAsync"><div><span>Expiring in 90 days</span><strong>@FormatCount(summary?.PassportsExpiringSoonCount)</strong><small>Renewals across the roster</small></div><span class="crew-summary-icon crew-summary-amber"><span class="bi bi-calendar-event"></span></span></button>
         </section>
     }
 

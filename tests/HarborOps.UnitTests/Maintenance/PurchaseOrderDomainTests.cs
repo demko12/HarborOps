@@ -39,6 +39,10 @@ public sealed class PurchaseOrderDomainTests
     [InlineData(PurchaseOrderStatus.PartiallyReceived, PurchaseOrderStatus.PartiallyReceived, false)]
     [InlineData(PurchaseOrderStatus.PartiallyReceived, PurchaseOrderStatus.Received, true)]
     [InlineData(PurchaseOrderStatus.PartiallyReceived, PurchaseOrderStatus.Cancelled, false)]
+    [InlineData(PurchaseOrderStatus.PartiallyReceived, PurchaseOrderStatus.ClosedShort, false)]
+    [InlineData(PurchaseOrderStatus.ClosedShort, PurchaseOrderStatus.PartiallyReceived, false)]
+    [InlineData(PurchaseOrderStatus.ClosedShort, PurchaseOrderStatus.Received, false)]
+    [InlineData(PurchaseOrderStatus.ClosedShort, PurchaseOrderStatus.Cancelled, false)]
     [InlineData(PurchaseOrderStatus.Received, PurchaseOrderStatus.PartiallyReceived, false)]
     [InlineData(PurchaseOrderStatus.Received, PurchaseOrderStatus.Draft, false)]
     [InlineData(PurchaseOrderStatus.Received, PurchaseOrderStatus.Ordered, false)]
@@ -73,6 +77,7 @@ public sealed class PurchaseOrderDomainTests
 
         Assert.Empty(PurchaseOrder.AllowedTransitions(PurchaseOrderStatus.Received));
         Assert.Empty(PurchaseOrder.AllowedTransitions(PurchaseOrderStatus.Cancelled));
+        Assert.Empty(PurchaseOrder.AllowedTransitions(PurchaseOrderStatus.ClosedShort));
     }
 
     [Fact]
@@ -83,21 +88,31 @@ public sealed class PurchaseOrderDomainTests
         Assert.Equal(2, (int)PurchaseOrderStatus.Received);
         Assert.Equal(3, (int)PurchaseOrderStatus.Cancelled);
         Assert.Equal(4, (int)PurchaseOrderStatus.PartiallyReceived);
+        Assert.Equal(5, (int)PurchaseOrderStatus.ClosedShort);
     }
 
     [Theory]
-    [InlineData(PurchaseOrderStatus.Draft, false, false)]
-    [InlineData(PurchaseOrderStatus.Ordered, true, false)]
-    [InlineData(PurchaseOrderStatus.PartiallyReceived, true, true)]
-    [InlineData(PurchaseOrderStatus.Received, false, true)]
-    [InlineData(PurchaseOrderStatus.Cancelled, false, false)]
-    public void CanReceive_and_CanReturn_follow_the_status(
+    [InlineData(PurchaseOrderStatus.Draft, false, false, false)]
+    [InlineData(PurchaseOrderStatus.Ordered, true, false, false)]
+    [InlineData(PurchaseOrderStatus.PartiallyReceived, true, true, true)]
+    [InlineData(PurchaseOrderStatus.Received, false, true, false)]
+    [InlineData(PurchaseOrderStatus.Cancelled, false, false, false)]
+    [InlineData(PurchaseOrderStatus.ClosedShort, false, true, false)]
+    public void CanReceive_CanReturn_and_CanClose_follow_the_status(
         PurchaseOrderStatus status,
         bool canReceive,
-        bool canReturn)
+        bool canReturn,
+        bool canClose)
     {
         Assert.Equal(canReceive, PurchaseOrder.CanReceive(status));
         Assert.Equal(canReturn, PurchaseOrder.CanReturn(status));
+        Assert.Equal(canClose, PurchaseOrder.CanClose(status));
+    }
+
+    [Fact]
+    public void IsOverdue_never_flags_a_closed_short_order()
+    {
+        Assert.False(PurchaseOrder.IsOverdue(Today.AddDays(-5), PurchaseOrderStatus.ClosedShort, Today));
     }
 
     [Fact]
@@ -116,7 +131,8 @@ public sealed class PurchaseOrderDomainTests
     [Theory]
     [InlineData(PurchaseOrderStatus.Received)]
     [InlineData(PurchaseOrderStatus.PartiallyReceived)]
-    public void ChangeStatusTo_never_receives_without_a_receipt(PurchaseOrderStatus target)
+    [InlineData(PurchaseOrderStatus.ClosedShort)]
+    public void ChangeStatusTo_never_receives_or_closes_without_its_record(PurchaseOrderStatus target)
     {
         var order = PurchaseOrder.Create(Guid.NewGuid(), Today, null);
         order.ChangeStatusTo(PurchaseOrderStatus.Ordered);
@@ -167,6 +183,7 @@ public sealed class PurchaseOrderDomainTests
     [InlineData(PurchaseOrderStatus.Draft)]
     [InlineData(PurchaseOrderStatus.Received)]
     [InlineData(PurchaseOrderStatus.Cancelled)]
+    [InlineData(PurchaseOrderStatus.ClosedShort)]
     public void RecordReceipt_rejects_orders_that_cannot_be_received(PurchaseOrderStatus status)
     {
         var order = PurchaseOrder.Create(Guid.NewGuid(), Today, null);

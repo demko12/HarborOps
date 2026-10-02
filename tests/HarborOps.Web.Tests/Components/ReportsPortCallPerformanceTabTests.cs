@@ -201,6 +201,47 @@ public sealed class ReportsPortCallPerformanceTabTests : BunitContext
         Assert.Equal(requestsBeforeSorting, requestedUris.Count(IsPortCallRequest));
     }
 
+    [Fact]
+    public void Port_chart_ranks_ports_by_average_turnaround_and_the_ring_shows_the_finalized_share()
+    {
+        respondToPortCallPerformance = _ => Json(HttpStatusCode.OK, PageWithPorts(
+            PortSummary("50000000-0000-0000-0000-000000000001", "Genoa", stops: 3, turnaroundHours: "30.00", delayMinutes: 90),
+            PortSummary("50000000-0000-0000-0000-000000000002", "Antwerp", stops: 1, turnaroundHours: null, delayMinutes: 0),
+            PortSummary("50000000-0000-0000-0000-000000000003", "Valencia", stops: 2, turnaroundHours: "12.50", delayMinutes: 30)));
+
+        var page = RenderPage();
+
+        page.WaitForAssertion(() =>
+        {
+            var bars = page.FindAll(".reports-port-bar");
+            Assert.Equal(["Genoa", "Valencia"], bars.Select(bar => bar.QuerySelector(".reports-port-bar-name > span")!.TextContent));
+            Assert.Equal(["30.00 h", "12.50 h"], bars.Select(bar => bar.QuerySelector("strong")!.TextContent));
+            Assert.Contains("50%", page.Find(".reports-ring").TextContent, StringComparison.Ordinal);
+        });
+    }
+
+    [Fact]
+    public void Turnaround_bar_splits_the_mean_into_phases_scaled_to_the_longest_port()
+    {
+        var port = new PortCallPerformanceReportPortSummary(
+            Guid.NewGuid(),
+            "Rotterdam",
+            null,
+            new PortCallPerformanceReportSummary(
+                4, 4, 0,
+                new PortCallPerformanceReportMetricSummary(null, 20m, 4, 0, 0, 0),
+                new PortCallPerformanceReportMetricSummary(null, 2m, 4, 0, 0, 0),
+                new PortCallPerformanceReportMetricSummary(null, 12m, 4, 0, 0, 0),
+                new PortCallPerformanceReportMetricSummary(null, 4m, 4, 0, 0, 0),
+                0, 0, 0m));
+
+        var bar = ReportsPortCallPerformance.BuildTurnaroundBar(port, longest: 40m);
+
+        Assert.Equal(["phase-all-fast", "phase-cargo", "phase-departure", "phase-other"], bar.Segments.Select(segment => segment.CssClass));
+        Assert.Equal([5m, 30m, 10m, 5m], bar.Segments.Select(segment => segment.WidthPercent));
+        Assert.Equal("4 stops", bar.StopLabel);
+    }
+
     private static string[] PortNames(IRenderedComponent<ReportsPortCallPerformance> page) =>
         page.FindAll("table.reports-port-table tbody tr")
             .Select(row => row.QuerySelector("td")!.ChildNodes

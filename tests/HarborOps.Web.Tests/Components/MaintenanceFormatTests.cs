@@ -110,6 +110,7 @@ public sealed class MaintenanceFormatTests
     [Theory]
     [InlineData("Received", true)]
     [InlineData("PartiallyReceived", true)]
+    [InlineData("ClosedShort", true)]
     [InlineData("Ordered", false)]
     [InlineData("Draft", false)]
     [InlineData("Cancelled", false)]

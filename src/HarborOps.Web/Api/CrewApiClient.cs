@@ -9,11 +9,12 @@ internal sealed class CrewApiClient(HttpClient httpClient)
     internal async Task<CrewApiResult<CrewMemberPageResponse>> GetMembersAsync(
         string? search,
         string? employmentStatus,
+        string? passportExpiry,
         int pageNumber,
         int pageSize,
         CancellationToken cancellationToken)
     {
-        var path = $"api/crew/members?search={Uri.EscapeDataString(search ?? string.Empty)}&employmentStatus={Uri.EscapeDataString(employmentStatus ?? string.Empty)}&pageNumber={pageNumber}&pageSize={pageSize}";
+        var path = $"api/crew/members?search={Uri.EscapeDataString(search ?? string.Empty)}&employmentStatus={Uri.EscapeDataString(employmentStatus ?? string.Empty)}&passportExpiry={Uri.EscapeDataString(passportExpiry ?? string.Empty)}&pageNumber={pageNumber}&pageSize={pageSize}";
         try
         {
             using var response = await httpClient.GetAsync(path, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
@@ -39,6 +40,9 @@ internal sealed class CrewApiClient(HttpClient httpClient)
             return new CrewApiResult<CrewMemberPageResponse>(null, new CrewApiFailure(0, "HarborOps API is unavailable", "Please try again."));
         }
     }
+
+    internal Task<CrewApiResult<CrewMembersSummaryResponse>> GetMembersSummaryAsync(CancellationToken cancellationToken)
+        => GetJsonAsync<CrewMembersSummaryResponse>("api/crew/members/summary", "Unable to load the crew summary", cancellationToken);
 
     private static async Task<ApiProblemDetails?> TryReadProblemAsync(HttpResponseMessage response, CancellationToken cancellationToken)
     {
@@ -843,6 +847,8 @@ internal sealed class CrewApiClient(HttpClient httpClient)
 }
 
 internal sealed record CrewMemberPageResponse(IReadOnlyList<CrewMemberListItemResponse> Items, int PageNumber, int PageSize, int TotalCount);
+
+internal sealed record CrewMembersSummaryResponse(int TotalCount, int ActiveCount, int ExpiredPassportCount, int PassportsExpiringSoonCount);
 
 internal sealed record CrewMemberListItemResponse(
     Guid CrewMemberId,

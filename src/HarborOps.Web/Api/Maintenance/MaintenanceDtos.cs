@@ -349,6 +349,7 @@ internal sealed record PurchaseOrderListItem(
     int? DaysUntilDelivery,
     decimal QuantityOrdered,
     decimal QuantityReceived,
+    decimal QuantityClosed,
     decimal QuantityOutstanding);
 
 internal sealed record PurchaseOrdersPage(
@@ -405,6 +406,7 @@ internal sealed record PurchaseOrderLineItem(
     decimal ReceivedQuantity,
     decimal LegacyReceivedQuantity,
     decimal ReturnedQuantity,
+    decimal ClosedQuantity,
     decimal OutstandingQuantity,
     decimal ReturnableQuantity);
 
@@ -426,6 +428,7 @@ internal sealed record PurchaseOrderDetails(
     decimal TotalQuantityOrdered,
     decimal TotalQuantityReceived,
     decimal TotalQuantityReturned,
+    decimal TotalQuantityClosed,
     decimal TotalQuantityOutstanding,
     int ReceiptCount,
     IReadOnlyList<string> AllowedActions);
@@ -570,6 +573,87 @@ internal sealed record PurchaseOrderReceiptsPage(
     int PageNumber,
     int PageSize,
     int TotalCount);
+
+internal sealed record ClosePurchaseOrderRequest
+{
+    public Guid? ClientRequestId { get; init; }
+
+    public Guid? ExpectedConcurrencyToken { get; init; }
+
+    public string? PreviewToken { get; init; }
+
+    public string? Reason { get; init; }
+}
+
+internal sealed record PurchaseOrderClosurePreviewLineRow(
+    Guid PurchaseOrderLineId,
+    Guid InventoryItemId,
+    string Name,
+    string PartNumber,
+    string UnitAbbreviation,
+    decimal QuantityOrdered,
+    decimal ReceivedQuantity,
+    decimal ReturnedQuantity,
+    decimal QuantityToClose);
+
+internal sealed record PurchaseOrderClosureBlockerRow(
+    Guid? PurchaseOrderLineId,
+    string Code,
+    string Message);
+
+internal sealed record PurchaseOrderClosurePreviewModel(
+    Guid PurchaseOrderId,
+    string OrderStatus,
+    Guid ConcurrencyToken,
+    string PreviewToken,
+    bool CanClose,
+    string ResultingOrderStatus,
+    decimal TotalQuantityReceived,
+    decimal TotalQuantityToClose,
+    IReadOnlyList<PurchaseOrderClosurePreviewLineRow> Lines,
+    IReadOnlyList<PurchaseOrderClosureBlockerRow> Blockers,
+    DateTime GeneratedUtc);
+
+internal sealed record PurchaseOrderClosureLineRow(
+    Guid ClosureLineId,
+    Guid PurchaseOrderLineId,
+    Guid InventoryItemId,
+    string Name,
+    string PartNumber,
+    string UnitAbbreviation,
+    decimal QuantityOrdered,
+    decimal ReceivedQuantity,
+    decimal ReturnedQuantity,
+    decimal ClosedQuantity);
+
+internal sealed record PurchaseOrderClosureModel(
+    Guid ClosureId,
+    Guid PurchaseOrderId,
+    Guid ClientRequestId,
+    string Reason,
+    Guid ClosedByUserId,
+    DateTime ClosedUtc,
+    string OrderStatusBefore,
+    string OrderStatusAfter,
+    decimal TotalQuantityReceived,
+    decimal TotalQuantityClosed,
+    IReadOnlyList<PurchaseOrderClosureLineRow> Lines);
+
+internal sealed record ClosePurchaseOrderResult(
+    PurchaseOrderClosureModel Closure,
+    bool AlreadyClosed,
+    string OrderStatus,
+    Guid ConcurrencyToken,
+    IReadOnlyList<string> AllowedActions);
+
+// A close conflict carries the server's refreshed preview, so the operator can confirm the current quantities.
+internal sealed record ClosePurchaseOrderApiResult(
+    ClosePurchaseOrderResult? Value,
+    MaintenanceApiFailure? Failure,
+    PurchaseOrderClosurePreviewModel? RefreshedPreview)
+{
+    internal bool IsSuccess => Failure is null;
+}
 
 internal sealed record WorkOrderEquipmentItem(
     Guid EquipmentId,

@@ -5,6 +5,9 @@ namespace HarborOps.Web.Components.Pages.Crew;
 public partial class Crew
 {
     private const int PageSize = 24;
+    private const string ActiveStatus = "Active";
+    private const string ExpiredPassportFilter = "Expired";
+    private const string ExpiringSoonPassportFilter = "ExpiringSoon";
 
     private readonly CancellationTokenSource disposeCancellation = new();
     private int loadVersion;
@@ -13,15 +16,17 @@ public partial class Crew
     private CrewApiFailure? failure;
     private string? search;
     private string? employmentStatus;
+    private string? passportExpiry;
+    private CrewMembersSummaryResponse? summary;
     private bool isLoading = true;
     private bool cardView = false;
 
     private int TotalPages => roster is null || roster.TotalCount == 0 ? 1 : (int)Math.Ceiling((double)roster.TotalCount / roster.PageSize);
     private int FirstRowNumber => roster is null || roster.TotalCount == 0 ? 0 : ((roster.PageNumber - 1) * roster.PageSize) + 1;
     private int LastRowNumber => roster is null ? 0 : Math.Min(roster.PageNumber * roster.PageSize, roster.TotalCount);
-    private int ActiveCrew => roster?.Items.Count(member => string.Equals(member.EmploymentStatus, "Active", StringComparison.OrdinalIgnoreCase)) ?? 0;
-    private int ExpiredPassports => roster?.Items.Count(member => member.PassportExpiry < currentDate) ?? 0;
-    private int PassportsExpiringSoon => roster?.Items.Count(member => member.PassportExpiry >= currentDate && member.PassportExpiry <= currentDate.AddDays(90)) ?? 0;
+    private bool IsActiveKpiSelected => employmentStatus == ActiveStatus;
+    private bool IsExpiredKpiSelected => passportExpiry == ExpiredPassportFilter;
+    private bool IsExpiringSoonKpiSelected => passportExpiry == ExpiringSoonPassportFilter;
     private IReadOnlyList<RankSummary> RankDistribution
     {
         get
@@ -45,7 +50,42 @@ public partial class Crew
         .Take(5)
         .ToList() ?? [];
 
-    protected override async Task OnInitializedAsync() => await LoadRosterAsync();
+    protected override async Task OnInitializedAsync() => await Task.WhenAll(LoadRosterAsync(), LoadSummaryAsync());
+
+    private async Task LoadSummaryAsync()
+    {
+        CrewApiResult<CrewMembersSummaryResponse> result;
+        try
+        {
+            result = await CrewApi.GetMembersSummaryAsync(disposeCancellation.Token);
+        }
+        catch (OperationCanceledException) when (disposeCancellation.IsCancellationRequested)
+        {
+            return;
+        }
+
+        summary = result.IsSuccess ? result.Value : null;
+    }
+
+    private static string FormatCount(int? count) => count?.ToString("N0") ?? "—";
+
+    private async Task ToggleActiveKpiAsync()
+    {
+        employmentStatus = IsActiveKpiSelected ? null : ActiveStatus;
+        await SearchAsync();
+    }
+
+    private async Task ToggleExpiredKpiAsync()
+    {
+        passportExpiry = IsExpiredKpiSelected ? null : ExpiredPassportFilter;
+        await SearchAsync();
+    }
+
+    private async Task ToggleExpiringSoonKpiAsync()
+    {
+        passportExpiry = IsExpiringSoonKpiSelected ? null : ExpiringSoonPassportFilter;
+        await SearchAsync();
+    }
 
     private async Task SearchAsync()
     {
@@ -62,6 +102,7 @@ public partial class Crew
     {
         search = null;
         employmentStatus = null;
+        passportExpiry = null;
         await SearchAsync();
     }
 
@@ -80,7 +121,7 @@ public partial class Crew
         CrewApiResult<CrewMemberPageResponse> result;
         try
         {
-            result = await CrewApi.GetMembersAsync(search, employmentStatus, roster?.PageNumber ?? 1, PageSize, cancellationToken);
+            result = await CrewApi.GetMembersAsync(search, employmentStatus, passportExpiry, roster?.PageNumber ?? 1, PageSize, cancellationToken);
         }
         catch (OperationCanceledException) when (disposeCancellation.IsCancellationRequested)
         {

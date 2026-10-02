@@ -31,6 +31,15 @@ public sealed class FleetPageTests : BunitContext
     }
 
     [Fact]
+    public void Persisted_coordinates_are_visible_in_the_vessel_register()
+    {
+        respond = _ => Json(HttpStatusCode.OK, Page(Row().Replace(
+            "\"updatedAtUtc\"", "\"currentLatitude\":42.123456,\"currentLongitude\":10.654321,\"lastPositionReportedAtUtc\":\"2026-10-01T11:59:00Z\",\"updatedAtUtc\"", StringComparison.Ordinal)));
+        var page = RenderFleetPage();
+        Assert.Contains("42.123456, 10.654321", page.Find(".vessel-position").TextContent, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void Vessels_render_with_their_identity_and_type()
     {
         respond = _ => Json(HttpStatusCode.OK, Page(Row(name: "Northern Star", imoNumber: "5100001")));

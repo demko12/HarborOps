@@ -15,30 +15,30 @@
 			</div>
 			<span class="summary-icon summary-icon-blue" aria-hidden="true"><span class="bi bi-calendar-range"></span></span>
 		</article>
-		<article class="maintenance-summary-card">
+		<button type="button" class="maintenance-summary-card maintenance-kpi-filter @(IsPendingKpiSelected ? "selected" : null)" aria-pressed="@IsPendingKpiSelected.ToString().ToLowerInvariant()" aria-label="Show occurrences not generated yet" @onclick="TogglePendingKpiAsync">
 			<div>
 				<span>Not generated</span>
 				<strong>@pendingCount</strong>
 				<small>Ready to become work orders</small>
 			</div>
 			<span class="summary-icon summary-icon-amber" aria-hidden="true"><span class="bi bi-hourglass-split"></span></span>
-		</article>
-		<article class="maintenance-summary-card">
+		</button>
+		<button type="button" class="maintenance-summary-card maintenance-kpi-filter @(IsGeneratedKpiSelected ? "selected" : null)" aria-pressed="@IsGeneratedKpiSelected.ToString().ToLowerInvariant()" aria-label="Show generated occurrences" @onclick="ToggleGeneratedKpiAsync">
 			<div>
 				<span>Generated</span>
 				<strong>@generatedCount</strong>
 				<small>Linked to an open work order</small>
 			</div>
 			<span class="summary-icon summary-icon-green" aria-hidden="true"><span class="bi bi-link-45deg"></span></span>
-		</article>
-		<article class="maintenance-summary-card">
+		</button>
+		<button type="button" class="maintenance-summary-card maintenance-kpi-filter @(IsOverdueKpiSelected ? "selected" : null)" aria-pressed="@IsOverdueKpiSelected.ToString().ToLowerInvariant()" aria-label="Show overdue occurrences" @onclick="ToggleOverdueKpiAsync">
 			<div>
 				<span>Overdue</span>
 				<strong>@overdueCount</strong>
 				<small>Past due and not completed</small>
 			</div>
 			<span class="summary-icon summary-icon-red" aria-hidden="true"><span class="bi bi-exclamation-triangle-fill"></span></span>
-		</article>
+		</button>
 	</section>
 
 	@if (successMessage is not null)

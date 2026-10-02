@@ -15,8 +15,13 @@ internal static class PurchaseOrderReceiptReader
             PurchaseOrderStatus.Ordered =>
                 [PurchaseOrderActions.ReceivePartial, PurchaseOrderActions.ReceiveRemaining, PurchaseOrderActions.Cancel],
             PurchaseOrderStatus.PartiallyReceived =>
-                [PurchaseOrderActions.ReceivePartial, PurchaseOrderActions.ReceiveRemaining, PurchaseOrderActions.CreateReturn],
-            PurchaseOrderStatus.Received =>
+                [
+                    PurchaseOrderActions.ReceivePartial,
+                    PurchaseOrderActions.ReceiveRemaining,
+                    PurchaseOrderActions.CloseRemaining,
+                    PurchaseOrderActions.CreateReturn,
+                ],
+            PurchaseOrderStatus.Received or PurchaseOrderStatus.ClosedShort =>
                 [PurchaseOrderActions.CreateReturn],
             _ => [],
         };

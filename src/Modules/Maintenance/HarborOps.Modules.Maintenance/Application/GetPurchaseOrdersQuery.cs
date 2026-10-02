@@ -108,6 +108,9 @@ public sealed class GetPurchaseOrdersQuery(DbContext dbContext, TimeProvider tim
                 QuantityReceived = lines
                     .Where(line => line.PurchaseOrderId == order.Id)
                     .Sum(line => line.ReceivedQuantity),
+                QuantityClosed = lines
+                    .Where(line => line.PurchaseOrderId == order.Id)
+                    .Sum(line => line.ClosedQuantity),
             })
             .ToListAsync(cancellationToken);
 
@@ -125,7 +128,8 @@ public sealed class GetPurchaseOrdersQuery(DbContext dbContext, TimeProvider tim
                 DaysUntilDelivery(row.ExpectedDelivery, today),
                 row.QuantityOrdered,
                 row.QuantityReceived,
-                row.QuantityOrdered - row.QuantityReceived))
+                row.QuantityClosed,
+                row.QuantityOrdered - row.QuantityReceived - row.QuantityClosed))
             .ToList();
 
         return new GetPurchaseOrdersResponse(items, pageNumber, pageSize, totalCount);

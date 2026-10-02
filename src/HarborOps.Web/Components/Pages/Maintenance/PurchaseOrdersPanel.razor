@@ -13,21 +13,57 @@
 			</div>
 			<span class="summary-icon summary-icon-blue" aria-hidden="true"><span class="bi bi-receipt"></span></span>
 		</article>
-		<article class="maintenance-summary-card">
+		<button type="button" class="maintenance-summary-card maintenance-kpi-filter @(IsOverdueKpiSelected ? "selected" : null)" aria-pressed="@IsOverdueKpiSelected.ToString().ToLowerInvariant()" aria-label="Show overdue purchase orders" @onclick="ToggleOverdueKpiAsync">
 			<div>
-				<span>Overdue on this page</span>
-				<strong>@OverdueCount</strong>
+				<span>Overdue</span>
+				<strong>@MaintenanceFormat.KpiCount(overdueKpiCount)</strong>
 				<small>Past the expected delivery</small>
 			</div>
 			<span class="summary-icon summary-icon-amber" aria-hidden="true"><span class="bi bi-exclamation-triangle-fill"></span></span>
-		</article>
-		<article class="maintenance-summary-card">
-			<div>
-				<span>Value on this page</span>
-				<strong>@ProcurementFormat.Money(PageTotalCost)</strong>
-				<small>Sum of the listed order totals</small>
+		</button>
+		<article class="maintenance-summary-card procurement-status-mix" aria-labelledby="procurement-status-mix-title">
+			<div class="procurement-status-mix-body">
+				<span id="procurement-status-mix-title">Orders by status</span>
+				@if (StatusMixTotal == 0)
+				{
+					<small>No orders match the current filters</small>
+				}
+				else
+				{
+					<ul class="procurement-status-mix-legend">
+						@foreach (var segment in StatusMixSegments)
+						{
+							<li @key="segment.Status">
+								<button type="button"
+										class="procurement-status-mix-item @(statusFilter == segment.Status ? "selected" : null)"
+										aria-pressed="@((statusFilter == segment.Status).ToString().ToLowerInvariant())"
+										aria-label="@($"Show {ProcurementFormat.StatusLabel(segment.Status).ToLowerInvariant()} purchase orders")"
+										@onclick="() => ToggleStatusSliceAsync(segment.Status)">
+									<i class="procurement-mix-@ProcurementFormat.StatusModifier(segment.Status)" aria-hidden="true"></i>
+									<span>@ProcurementFormat.StatusLabel(segment.Status)</span>
+									<b>@segment.Count</b>
+								</button>
+							</li>
+						}
+					</ul>
+				}
 			</div>
-			<span class="summary-icon summary-icon-blue" aria-hidden="true"><span class="bi bi-cash-stack"></span></span>
+			<svg class="procurement-status-mix-donut" viewBox="0 0 42 42" role="img" aria-label="@($"{StatusMixTotal} purchase orders by status")">
+				<circle class="procurement-status-mix-track" cx="21" cy="21" r="16" pathLength="100" />
+				@foreach (var segment in StatusMixSegments)
+				{
+					<circle @key="segment.Status"
+							class="procurement-mix-@ProcurementFormat.StatusModifier(segment.Status)"
+							cx="21"
+							cy="21"
+							r="16"
+							pathLength="100"
+							stroke-dasharray="@segment.DashArray"
+							stroke-dashoffset="@segment.DashOffset"
+							transform="rotate(-90 21 21)"><title>@($"{ProcurementFormat.StatusLabel(segment.Status)}: {segment.Count}")</title></circle>
+				}
+				<text x="21" y="23.5" text-anchor="middle">@StatusMixTotal</text>
+			</svg>
 		</article>
 	</section>
 
@@ -174,7 +210,13 @@
 									<span class="procurement-status procurement-status-@ProcurementFormat.StatusModifier(row.Status)">@ProcurementFormat.StatusLabel(row.Status)</span>
 								</td>
 								<td class="col-po-lines maintenance-muted">@row.LineCount</td>
-								<td class="col-po-received procurement-received">@ProcurementFormat.ReceivedProgress(row.Status, row.QuantityReceived, row.QuantityOrdered)</td>
+								<td class="col-po-received procurement-received">
+									@ProcurementFormat.ReceivedProgress(row.Status, row.QuantityReceived, row.QuantityOrdered)
+									@if (row.QuantityClosed > 0)
+									{
+										<span class="maintenance-muted procurement-closed-note">@ProcurementFormat.Quantity(row.QuantityClosed) closed</span>
+									}
+								</td>
 								<td class="col-po-total procurement-total">@ProcurementFormat.Money(row.TotalCost)</td>
 								<td class="col-po-delivery-state">
 									<span class="procurement-delivery-badge procurement-delivery-@ProcurementFormat.DeliveryStateModifier(row.IsOverdue, row.DaysUntilDelivery)">
@@ -392,6 +434,12 @@
 											  OnPosted="ReceiptPostedAsync"
 											  OnClosed="CloseReceiptFormAsync" />
 				}
+				else if (details is not null && isClosureFormOpen)
+				{
+					<PurchaseOrderClosureForm PurchaseOrderId="details.PurchaseOrderId"
+											  OnOrderClosed="OrderClosedAsync"
+											  OnDismissed="CloseClosureFormAsync" />
+				}
 				else if (details is not null)
 				{
 					<dl class="procurement-details-summary">
@@ -420,6 +468,10 @@
 							@ProcurementFormat.Quantity(details.TotalQuantityReceived) of @ProcurementFormat.Quantity(details.TotalQuantityOrdered) unit(s)
 							<span class="maintenance-muted">
 								&middot; @ProcurementFormat.Quantity(details.TotalQuantityOutstanding) outstanding
+								@if (details.TotalQuantityClosed > 0)
+								{
+									<text>&middot; @ProcurementFormat.Quantity(details.TotalQuantityClosed) closed without delivery</text>
+								}
 								&middot; @ProcurementFormat.DeliveryCount(details.ReceiptCount)
 								@if (details.TotalQuantityReturned > 0)
 								{
@@ -441,6 +493,7 @@
 									<th scope="col" class="col-line-quantity">Ordered</th>
 									<th scope="col" class="col-line-received">Received</th>
 									<th scope="col" class="col-line-returned">Returned</th>
+									<th scope="col" class="col-line-closed">Closed</th>
 									<th scope="col" class="col-line-outstanding">Outstanding</th>
 									<th scope="col" class="col-line-cost">Unit cost</th>
 									<th scope="col" class="col-line-total">Line total</th>
@@ -461,6 +514,7 @@
 											}
 										</td>
 										<td class="col-line-returned procurement-total">@ProcurementFormat.Quantity(line.ReturnedQuantity)</td>
+										<td class="col-line-closed procurement-total" title="Closed without delivery">@ProcurementFormat.Quantity(line.ClosedQuantity)</td>
 										<td class="col-line-outstanding procurement-total">@ProcurementFormat.Quantity(line.OutstandingQuantity)</td>
 										<td class="col-line-cost procurement-total">@ProcurementFormat.Money(line.UnitCost)</td>
 										<td class="col-line-total procurement-total">@ProcurementFormat.Money(line.LineTotal)</td>
@@ -477,6 +531,11 @@
 													 RefreshKey="historyRefreshKey" />
 					}
 
+					@if (IsClosedShort)
+					{
+						<PurchaseOrderClosureRecord PurchaseOrderId="details.PurchaseOrderId" />
+					}
+
 					@if (statusFailure is { IsConflict: true } or { IsNotFound: true })
 					{
 						<div class="maintenance-conflict" role="alert">@statusFailure.Message</div>
@@ -486,7 +545,7 @@
 						<div class="maintenance-inline-error procurement-inline-error" role="alert">@statusFailure.Message</div>
 					}
 
-					@if (CanManage && (StatusTransitions.Count > 0 || ReceiptActions.Count > 0))
+					@if (CanManage && (StatusTransitions.Count > 0 || ReceiptActions.Count > 0 || CanCloseRemaining))
 					{
 						<div class="procurement-status-actions">
 							@if (pendingTransition is null)
@@ -498,6 +557,15 @@
 											disabled="@isChangingStatus"
 											@onclick="() => OpenReceiptForm(action)">
 										@ProcurementFormat.ReceiptActionLabel(action)
+									</button>
+								}
+								@if (CanCloseRemaining)
+								{
+									<button type="button"
+											class="maintenance-button procurement-transition procurement-transition-danger procurement-close-remaining"
+											disabled="@isChangingStatus"
+											@onclick="OpenClosureForm">
+										Close remaining quantities
 									</button>
 								}
 								@foreach (var transition in StatusTransitions)
@@ -524,7 +592,11 @@
 							}
 						</div>
 					}
-					else if (StatusTransitions.Count == 0 && ReceiptActions.Count == 0)
+					else if (IsClosedShort)
+					{
+						<p class="procurement-hint">This purchase order was closed short. Nothing more will be received, but received goods can still be returned.</p>
+					}
+					else if (StatusTransitions.Count == 0 && ReceiptActions.Count == 0 && !CanCloseRemaining)
 					{
 						<p class="procurement-hint">This purchase order is final and can no longer change status.</p>
 					}

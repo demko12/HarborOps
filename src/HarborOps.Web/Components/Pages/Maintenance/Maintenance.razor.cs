@@ -23,6 +23,17 @@ public partial class Maintenance
     private int pageSize = 25;
     private int totalCount;
     private bool isLoading = true;
+    private bool cardView;
+
+    private int? overdueKpiCount;
+    private int? criticalKpiCount;
+    private int? inProgressKpiCount;
+
+    private bool IsOverdueKpiSelected => overdueFilter == "true";
+
+    private bool IsCriticalKpiSelected => priorityFilter == MaintenanceFormat.CriticalPriority;
+
+    private bool IsInProgressKpiSelected => statusFilter == MaintenanceFormat.InProgressStatus;
 
     private readonly CreateWorkOrderModel createModel = new();
     private bool isCreating;
@@ -152,6 +163,27 @@ public partial class Maintenance
         return LoadAsync();
     }
 
+    private Task ToggleOverdueKpiAsync()
+    {
+        overdueFilter = IsOverdueKpiSelected ? string.Empty : "true";
+
+        return ApplyFiltersAsync();
+    }
+
+    private Task ToggleCriticalKpiAsync()
+    {
+        priorityFilter = IsCriticalKpiSelected ? string.Empty : MaintenanceFormat.CriticalPriority;
+
+        return ApplyFiltersAsync();
+    }
+
+    private Task ToggleInProgressKpiAsync()
+    {
+        statusFilter = IsInProgressKpiSelected ? string.Empty : MaintenanceFormat.InProgressStatus;
+
+        return ApplyFiltersAsync();
+    }
+
     private Task RetryAsync()
     {
         return LoadAsync();
@@ -219,6 +251,9 @@ public partial class Maintenance
             failure = result.Failure;
             rows = [];
             totalCount = 0;
+            overdueKpiCount = null;
+            criticalKpiCount = null;
+            inProgressKpiCount = null;
 
             return;
         }
@@ -228,7 +263,38 @@ public partial class Maintenance
         pageSize = page.PageSize;
         totalCount = page.TotalCount;
 
-        await ComposeRowsAsync(page.Items, cancellationToken, requestVersion);
+        await Task.WhenAll(
+            ComposeRowsAsync(page.Items, cancellationToken, requestVersion),
+            LoadKpiCountsAsync(filter, cancellationToken, requestVersion));
+    }
+
+    private async Task LoadKpiCountsAsync(
+        MaintenanceWorkOrderFilter filter,
+        CancellationToken cancellationToken,
+        int requestVersion)
+    {
+        var countFilter = filter with { PageNumber = 1, PageSize = 1 };
+        var overdueTask = MaintenanceApi.GetWorkOrdersAsync(countFilter with { Overdue = true }, cancellationToken);
+        var criticalTask = MaintenanceApi.GetWorkOrdersAsync(countFilter with { Priority = MaintenanceFormat.CriticalPriority }, cancellationToken);
+        var inProgressTask = MaintenanceApi.GetWorkOrdersAsync(countFilter with { Status = MaintenanceFormat.InProgressStatus }, cancellationToken);
+
+        try
+        {
+            await Task.WhenAll(overdueTask, criticalTask, inProgressTask);
+        }
+        catch (OperationCanceledException) when (disposeCancellation.IsCancellationRequested)
+        {
+            return;
+        }
+
+        if (disposeCancellation.IsCancellationRequested || requestVersion != loadVersion)
+        {
+            return;
+        }
+
+        overdueKpiCount = overdueTask.Result.IsSuccess ? overdueTask.Result.Value!.TotalCount : null;
+        criticalKpiCount = criticalTask.Result.IsSuccess ? criticalTask.Result.Value!.TotalCount : null;
+        inProgressKpiCount = inProgressTask.Result.IsSuccess ? inProgressTask.Result.Value!.TotalCount : null;
     }
 
     private async Task ComposeRowsAsync(

@@ -89,6 +89,21 @@ public partial class MaintenanceWorkOrderDetails : IDisposable
 
     private bool IsClosed => details is { AllowedActions.Count: 0 };
 
+    private string StatusHeadline => details?.Status switch
+    {
+        MaintenanceFormat.InProgressStatus => "In progress",
+        { } status => status,
+        null => string.Empty,
+    };
+
+    private string StatusIcon => details?.Status switch
+    {
+        MaintenanceFormat.InProgressStatus => "bi-arrow-repeat",
+        MaintenanceFormat.CompletedStatus => "bi-check2-circle",
+        MaintenanceFormat.CanceledStatus => "bi-x-circle",
+        _ => "bi-hourglass-split",
+    };
+
     private string StateSummary
     {
         get

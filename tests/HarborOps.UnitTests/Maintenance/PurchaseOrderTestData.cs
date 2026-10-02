@@ -34,7 +34,22 @@ internal static class PurchaseOrderTestData
             case PurchaseOrderStatus.Cancelled:
                 order.ChangeStatusTo(PurchaseOrderStatus.Cancelled);
                 break;
+            case PurchaseOrderStatus.ClosedShort:
+                ApplyStatus(order, PurchaseOrderStatus.PartiallyReceived, lines);
+                CloseShort(order, lines);
+                break;
         }
+    }
+
+    // Closes the open outstanding quantity of every line without a closure row, the way the domain does it.
+    internal static void CloseShort(PurchaseOrder order, IReadOnlyCollection<PurchaseOrderLine> lines)
+    {
+        foreach (var line in lines)
+        {
+            line.CloseOutstanding();
+        }
+
+        order.RecordClosure(lines);
     }
 
     // Mirrors the AddMaintenancePurchaseOrderReceipts migration for an order received before receipts were

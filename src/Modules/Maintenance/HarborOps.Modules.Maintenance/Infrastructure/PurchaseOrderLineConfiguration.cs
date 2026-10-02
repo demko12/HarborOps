@@ -40,6 +40,10 @@ internal sealed class PurchaseOrderLineConfiguration : IEntityTypeConfiguration<
             .HasColumnType("decimal(18,3)")
             .IsRequired();
 
+        builder.Property(line => line.ClosedQuantity)
+            .HasColumnType("decimal(18,3)")
+            .IsRequired();
+
         builder.HasOne<PurchaseOrder>()
             .WithMany()
             .HasForeignKey(line => line.PurchaseOrderId)

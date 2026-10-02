@@ -12,22 +12,22 @@
 			</div>
 			<span class="summary-icon summary-icon-blue" aria-hidden="true"><span class="bi bi-clipboard-data"></span></span>
 		</article>
-		<article class="maintenance-summary-card">
+		<button type="button" class="maintenance-summary-card maintenance-kpi-filter @(classificationFilter == MaintenanceFormat.CriticalReplenishment ? "selected" : null)" aria-pressed="@((classificationFilter == MaintenanceFormat.CriticalReplenishment).ToString().ToLowerInvariant())" aria-label="Show out of stock parts" @onclick="() => ToggleClassificationKpi(MaintenanceFormat.CriticalReplenishment)">
 			<div>
 				<span>Out of stock</span>
 				<strong>@CriticalCount</strong>
 				<small>Nothing available on this page</small>
 			</div>
 			<span class="summary-icon summary-icon-red" aria-hidden="true"><span class="bi bi-exclamation-octagon"></span></span>
-		</article>
-		<article class="maintenance-summary-card">
+		</button>
+		<button type="button" class="maintenance-summary-card maintenance-kpi-filter @(classificationFilter == MaintenanceFormat.CoveredReplenishment ? "selected" : null)" aria-pressed="@((classificationFilter == MaintenanceFormat.CoveredReplenishment).ToString().ToLowerInvariant())" aria-label="Show parts already on order" @onclick="() => ToggleClassificationKpi(MaintenanceFormat.CoveredReplenishment)">
 			<div>
 				<span>Already on order</span>
 				<strong>@CoveredCount</strong>
 				<small>Open purchase orders cover the gap</small>
 			</div>
 			<span class="summary-icon summary-icon-green" aria-hidden="true"><span class="bi bi-truck"></span></span>
-		</article>
+		</button>
 		<article class="maintenance-summary-card">
 			<div>
 				<span>Shortage on this page</span>
@@ -80,6 +80,11 @@
 			<EmptyState Title="Every part is above its reorder level"
 						Message="Nothing needs replenishment right now. Reserving parts for planned work may change that." />
 		}
+		else if (VisibleRows.Count == 0)
+		{
+			<EmptyState Title="No parts in this state on this page"
+						Message="Click the selected summary card again to show every part on this page." />
+		}
 		else
 		{
 			<div class="maintenance-table-scroll replenishment-table-scroll">
@@ -101,7 +106,7 @@
 						</tr>
 					</thead>
 					<tbody>
-						@foreach (var row in rows)
+						@foreach (var row in VisibleRows)
 						{
 							<tr @key="row.InventoryItemId">
 								<td><span class="maintenance-title">@row.Name</span></td>

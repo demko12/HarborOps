@@ -138,6 +138,61 @@ public sealed class GetPurchaseOrdersQueryTests
     }
 
     [Fact]
+    public async Task GetPurchaseOrdersAsync_filters_closed_short_orders_and_reports_no_open_outstanding()
+    {
+        await using var dbContext = CreateDbContext();
+        var supplier = await SeedSupplierAsync(dbContext, "Baltic Marine Parts");
+        await SeedOrderAsync(dbContext, supplier.Id, Today, null, PurchaseOrderStatus.PartiallyReceived, (Guid.NewGuid(), 4m, 1m));
+        var closed = await SeedOrderAsync(
+            dbContext,
+            supplier.Id,
+            Today,
+            null,
+            PurchaseOrderStatus.ClosedShort,
+            (Guid.NewGuid(), 10m, 2m),
+            (Guid.NewGuid(), 3m, 1m));
+
+        var response = await CreateQuery(dbContext).GetPurchaseOrdersAsync(
+            new GetPurchaseOrdersRequest { Status = "closedshort" },
+            CancellationToken.None);
+
+        var item = Assert.Single(response.Items);
+
+        Assert.Equal(closed.Id, item.PurchaseOrderId);
+        Assert.Equal(nameof(PurchaseOrderStatus.ClosedShort), item.Status);
+        Assert.Equal(23m, item.TotalCost);
+        Assert.Equal(13m, item.QuantityOrdered);
+        Assert.Equal(5m, item.QuantityReceived);
+        Assert.Equal(8m, item.QuantityClosed);
+        Assert.Equal(0m, item.QuantityOutstanding);
+    }
+
+    [Fact]
+    public async Task GetPurchaseOrdersAsync_never_counts_a_closed_short_order_as_overdue()
+    {
+        await using var dbContext = CreateDbContext();
+        var supplier = await SeedSupplierAsync(dbContext, "Baltic Marine Parts");
+        var closed = await SeedOrderAsync(
+            dbContext,
+            supplier.Id,
+            Today.AddDays(-20),
+            Today.AddDays(-2),
+            PurchaseOrderStatus.ClosedShort,
+            (Guid.NewGuid(), 4m, 1m));
+
+        var overdueOnly = await CreateQuery(dbContext).GetPurchaseOrdersAsync(
+            new GetPurchaseOrdersRequest { Overdue = true },
+            CancellationToken.None);
+        var notOverdue = await CreateQuery(dbContext).GetPurchaseOrdersAsync(
+            new GetPurchaseOrdersRequest { Overdue = false },
+            CancellationToken.None);
+
+        Assert.Empty(overdueOnly.Items);
+        Assert.Equal(closed.Id, Assert.Single(notOverdue.Items).PurchaseOrderId);
+        Assert.False(notOverdue.Items[0].IsOverdue);
+    }
+
+    [Fact]
     public async Task GetPurchaseOrdersAsync_filters_by_order_date_range()
     {
         await using var dbContext = CreateDbContext();

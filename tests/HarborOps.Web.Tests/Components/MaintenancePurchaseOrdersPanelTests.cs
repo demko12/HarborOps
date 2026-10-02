@@ -47,6 +47,68 @@ public sealed class MaintenancePurchaseOrdersPanelTests : BunitContext
     }
 
     [Fact]
+    public void The_overdue_kpi_counts_every_page_and_filters_the_board()
+    {
+        respond = request => request.RequestUri!.AbsolutePath == OrdersPath && !IsListRequest(request.RequestUri!)
+            ? Json(HttpStatusCode.OK, $$"""{"items":[],"pageNumber":1,"pageSize":1,"totalCount":{{(request.RequestUri!.Query.Contains("overdue=true", StringComparison.Ordinal) ? 9 : 0)}}}""")
+            : Default(request);
+
+        var panel = RenderPanel();
+
+        panel.WaitForAssertion(() =>
+            Assert.Equal("9", panel.Find("[aria-label='Show overdue purchase orders'] strong").TextContent.Trim()));
+
+        panel.Find("[aria-label='Show overdue purchase orders']").Click();
+
+        panel.WaitForAssertion(() =>
+        {
+            Assert.Contains(
+                "overdue=true",
+                requestedUris.Last(uri => uri.AbsolutePath == OrdersPath && IsListRequest(uri)).Query,
+                StringComparison.Ordinal);
+            Assert.Equal("true", panel.Find("[aria-label='Show overdue purchase orders']").GetAttribute("aria-pressed"));
+        });
+    }
+
+    [Fact]
+    public void The_status_chart_shows_each_status_and_filters_the_board_from_its_legend()
+    {
+        respond = request =>
+        {
+            if (request.RequestUri!.AbsolutePath != OrdersPath || IsListRequest(request.RequestUri!))
+            {
+                return Default(request);
+            }
+
+            var query = request.RequestUri.Query;
+            var count = query.Contains("status=Draft", StringComparison.Ordinal) ? 2
+                : query.Contains("status=Ordered", StringComparison.Ordinal) ? 5
+                : 0;
+
+            return Json(HttpStatusCode.OK, $$"""{"items":[],"pageNumber":1,"pageSize":1,"totalCount":{{count}}}""");
+        };
+
+        var panel = RenderPanel();
+
+        panel.WaitForAssertion(() =>
+        {
+            Assert.Equal(2, panel.FindAll(".procurement-status-mix-donut circle[stroke-dasharray]").Count);
+            Assert.Equal("7", panel.Find(".procurement-status-mix-donut text").TextContent.Trim());
+        });
+
+        panel.Find("[aria-label='Show ordered purchase orders']").Click();
+
+        panel.WaitForAssertion(() =>
+        {
+            Assert.Contains(
+                "status=Ordered",
+                requestedUris.Last(uri => uri.AbsolutePath == OrdersPath && IsListRequest(uri)).Query,
+                StringComparison.Ordinal);
+            Assert.Equal("Ordered", panel.Find("#po-status").GetAttribute("value"));
+        });
+    }
+
+    [Fact]
     public void Overdue_orders_are_marked_with_text_not_colour_alone()
     {
         respond = request => request.RequestUri!.AbsolutePath == OrdersPath
@@ -96,7 +158,7 @@ public sealed class MaintenancePurchaseOrdersPanelTests : BunitContext
 
         panel.WaitForAssertion(() => Assert.Contains(
             "status=PartiallyReceived",
-            requestedUris.Last(uri => uri.AbsolutePath == OrdersPath).Query,
+            requestedUris.Last(uri => uri.AbsolutePath == OrdersPath && IsListRequest(uri)).Query,
             StringComparison.Ordinal));
     }
 
@@ -125,7 +187,7 @@ public sealed class MaintenancePurchaseOrdersPanelTests : BunitContext
 
         panel.WaitForAssertion(() =>
         {
-            var query = requestedUris.Last(uri => uri.AbsolutePath == OrdersPath).Query;
+            var query = requestedUris.Last(uri => uri.AbsolutePath == OrdersPath && IsListRequest(uri)).Query;
 
             Assert.Contains($"supplierId={SupplierId}", query, StringComparison.OrdinalIgnoreCase);
             Assert.Contains("status=Ordered", query, StringComparison.Ordinal);
@@ -832,6 +894,234 @@ public sealed class MaintenancePurchaseOrdersPanelTests : BunitContext
         panel.WaitForAssertion(() => Assert.NotEmpty(panel.FindAll(".procurement-returns")));
     }
 
+    [Fact]
+    public void A_closed_short_order_is_labelled_in_words_and_shows_what_was_closed()
+    {
+        respond = request => request.RequestUri!.AbsolutePath == OrdersPath
+            ? Json(HttpStatusCode.OK, OrdersPage(Order(status: "ClosedShort", quantityReceived: "3", quantityClosed: "3")))
+            : Default(request);
+
+        var panel = RenderPanel();
+
+        var received = panel.Find(".procurement-row .col-po-received");
+
+        Assert.Equal("Closed short", panel.Find(".procurement-row .procurement-status").TextContent.Trim());
+        Assert.Contains("procurement-status-closedshort", panel.Find(".procurement-row .procurement-status").ClassName, StringComparison.Ordinal);
+        Assert.Contains("3 / 6", received.TextContent, StringComparison.Ordinal);
+        Assert.Equal("3 closed", received.QuerySelector(".procurement-closed-note")!.TextContent.Trim());
+    }
+
+    [Fact]
+    public void An_order_without_closed_quantity_shows_no_closed_note()
+    {
+        respond = request => request.RequestUri!.AbsolutePath == OrdersPath
+            ? Json(HttpStatusCode.OK, OrdersPage(Order(status: "PartiallyReceived", quantityReceived: "4")))
+            : Default(request);
+
+        var panel = RenderPanel();
+
+        Assert.Empty(panel.FindAll(".procurement-closed-note"));
+    }
+
+    [Fact]
+    public void Closed_short_orders_can_be_filtered_by_status()
+    {
+        var panel = RenderPanel();
+
+        var option = panel.Find("#po-status").QuerySelectorAll("option")
+            .Single(candidate => candidate.GetAttribute("value") == "ClosedShort");
+
+        Assert.Equal("Closed short", option.TextContent);
+
+        panel.Find("#po-status").Change("ClosedShort");
+
+        panel.WaitForAssertion(() => Assert.Contains(
+            "status=ClosedShort",
+            requestedUris.Last(uri => uri.AbsolutePath == OrdersPath && IsListRequest(uri)).Query,
+            StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void A_partially_received_order_offers_closing_the_remaining_quantities()
+    {
+        respond = request => request.RequestUri!.AbsolutePath == $"{OrdersPath}/{OrderId}"
+            ? Json(HttpStatusCode.OK, PartiallyReceivedDetails())
+            : Default(request);
+
+        var panel = RenderPanel();
+
+        panel.Find(".procurement-details").Click();
+
+        panel.WaitForAssertion(() =>
+        {
+            Assert.Equal("Close remaining quantities", panel.Find(".procurement-close-remaining").TextContent.Trim());
+            Assert.Equal(2, panel.FindAll(".procurement-receipt-action").Count);
+            Assert.Empty(panel.FindAll(".procurement-details-card > .procurement-hint"));
+        });
+    }
+
+    [Fact]
+    public void Closing_is_not_offered_to_readers()
+    {
+        respond = request => request.RequestUri!.AbsolutePath == $"{OrdersPath}/{OrderId}"
+            ? Json(HttpStatusCode.OK, PartiallyReceivedDetails())
+            : Default(request);
+
+        var panel = RenderPanel("maintenance.read");
+
+        panel.Find(".procurement-details").Click();
+        panel.WaitForElement(".procurement-details-summary");
+
+        Assert.Empty(panel.FindAll(".procurement-close-remaining"));
+    }
+
+    [Fact]
+    public void Closing_is_not_offered_when_the_api_does_not_allow_it()
+    {
+        var panel = RenderPanel();
+
+        panel.Find(".procurement-details").Click();
+        panel.WaitForElement(".procurement-receipt-action");
+
+        Assert.Empty(panel.FindAll(".procurement-close-remaining"));
+    }
+
+    [Fact]
+    public void Closing_the_remaining_quantities_opens_the_closure_form_in_place_of_the_details()
+    {
+        respond = request => request.RequestUri!.AbsolutePath == $"{OrdersPath}/{OrderId}"
+            ? Json(HttpStatusCode.OK, PartiallyReceivedDetails())
+            : Default(request);
+
+        var panel = RenderPanel();
+
+        panel.Find(".procurement-details").Click();
+        panel.WaitForElement(".procurement-close-remaining");
+
+        panel.Find(".procurement-close-remaining").Click();
+
+        panel.WaitForAssertion(() =>
+        {
+            Assert.Equal("Close remaining quantities", panel.Find("#closure-form-title").TextContent.Trim());
+            Assert.Empty(panel.FindAll(".procurement-received-summary"));
+            Assert.Equal(2, panel.FindAll(".closure-lines-table tbody tr").Count);
+            Assert.Contains(requestedUris, uri => uri.AbsolutePath == $"{OrdersPath}/{OrderId}/close/preview");
+        });
+    }
+
+    [Fact]
+    public void Closing_reports_it_and_reloads_the_order_and_the_board()
+    {
+        var closed = false;
+        respond = request => request.RequestUri!.AbsolutePath switch
+        {
+            var path when path == $"{OrdersPath}/{OrderId}/close" => Respond(() => closed = true, Json(HttpStatusCode.OK, ClosedResult())),
+            var path when path == $"{OrdersPath}/{OrderId}" => Json(HttpStatusCode.OK, closed ? ClosedShortDetails() : PartiallyReceivedDetails()),
+            _ => Default(request),
+        };
+
+        var panel = RenderPanel();
+
+        var ordersRequestsBefore = requestedUris.Count(uri => uri.AbsolutePath == OrdersPath);
+
+        panel.Find(".procurement-details").Click();
+        panel.WaitForElement(".procurement-close-remaining");
+        panel.Find(".procurement-close-remaining").Click();
+        panel.WaitForElement("#closure-reason");
+
+        panel.Find("#closure-reason").Input("Supplier discontinued the part");
+        panel.Find(".closure-form .stocktake-post").Click();
+        panel.Find(".closure-form .procurement-confirm .maintenance-button").Click();
+
+        panel.WaitForAssertion(() =>
+        {
+            Assert.Contains("Order closed short.", panel.Find(".procurement-success").TextContent, StringComparison.Ordinal);
+            Assert.Empty(panel.FindAll(".closure-form"));
+            Assert.Equal("Closed short", panel.Find(".procurement-details-summary .procurement-status").TextContent.Trim());
+            Assert.True(requestedUris.Count(uri => uri.AbsolutePath == OrdersPath) > ordersRequestsBefore);
+            Assert.Contains("\"reason\":\"Supplier discontinued the part\"", requestBodies.Last(), StringComparison.Ordinal);
+        });
+    }
+
+    [Fact]
+    public void Leaving_the_closure_form_returns_to_freshly_loaded_details()
+    {
+        respond = request => request.RequestUri!.AbsolutePath == $"{OrdersPath}/{OrderId}"
+            ? Json(HttpStatusCode.OK, PartiallyReceivedDetails())
+            : Default(request);
+
+        var panel = RenderPanel();
+
+        panel.Find(".procurement-details").Click();
+        panel.WaitForElement(".procurement-close-remaining");
+        panel.Find(".procurement-close-remaining").Click();
+        panel.WaitForElement(".closure-lines-table");
+
+        var detailRequestsBefore = requestedUris.Count(uri => uri.AbsolutePath == $"{OrdersPath}/{OrderId}");
+
+        panel.Find(".closure-form .stocktake-actions .maintenance-reset").Click();
+
+        panel.WaitForAssertion(() =>
+        {
+            Assert.Empty(panel.FindAll(".closure-form"));
+            Assert.NotEmpty(panel.FindAll(".procurement-close-remaining"));
+            Assert.True(requestedUris.Count(uri => uri.AbsolutePath == $"{OrdersPath}/{OrderId}") > detailRequestsBefore);
+            Assert.DoesNotContain(requestedUris, uri => uri.AbsolutePath == $"{OrdersPath}/{OrderId}/close");
+        });
+    }
+
+    [Fact]
+    public void A_closed_short_order_shows_its_closed_quantities_and_closure_and_stays_returnable()
+    {
+        respond = request => request.RequestUri!.AbsolutePath == $"{OrdersPath}/{OrderId}"
+            ? Json(HttpStatusCode.OK, ClosedShortDetails())
+            : Default(request);
+
+        var panel = RenderPanel(parameters => parameters.Add(component => component.OnReturnsRequested, (Guid _) => { }));
+
+        panel.Find(".procurement-details").Click();
+
+        panel.WaitForAssertion(() =>
+        {
+            var filterLine = panel.FindAll(".procurement-details-card .procurement-line-table tbody tr")[0];
+            var received = panel.Find(".procurement-received-summary").TextContent;
+
+            Assert.Equal("1", filterLine.QuerySelector(".col-line-closed")!.TextContent.Trim());
+            Assert.Equal("0", filterLine.QuerySelector(".col-line-outstanding")!.TextContent.Trim());
+            Assert.Contains("0 outstanding", received, StringComparison.Ordinal);
+            Assert.Contains("3 closed without delivery", received, StringComparison.Ordinal);
+            Assert.Contains("Supplier discontinued the part", panel.Find(".closure-record-reason").TextContent, StringComparison.Ordinal);
+            Assert.Contains("closed short", panel.Find(".procurement-details-card > .procurement-hint").TextContent, StringComparison.Ordinal);
+            Assert.Empty(panel.FindAll(".procurement-close-remaining"));
+            Assert.Empty(panel.FindAll(".procurement-receipt-action"));
+            Assert.NotEmpty(panel.FindAll(".procurement-returns"));
+            Assert.Contains(requestedUris, uri => uri.AbsolutePath == $"{OrdersPath}/{OrderId}/closure");
+        });
+    }
+
+    [Fact]
+    public void An_order_that_was_not_closed_does_not_load_a_closure()
+    {
+        respond = request => request.RequestUri!.AbsolutePath == $"{OrdersPath}/{OrderId}"
+            ? Json(HttpStatusCode.OK, PartiallyReceivedDetails())
+            : Default(request);
+
+        var panel = RenderPanel();
+
+        panel.Find(".procurement-details").Click();
+        panel.WaitForElement(".procurement-details-summary");
+
+        Assert.Empty(panel.FindAll(".closure-record"));
+        Assert.DoesNotContain(requestedUris, uri => uri.AbsolutePath == $"{OrdersPath}/{OrderId}/closure");
+    }
+
+    private static Task<HttpResponseMessage> Respond(Action sideEffect, Task<HttpResponseMessage> response)
+    {
+        sideEffect();
+
+        return response;
+    }
+
     private IRenderedComponent<PurchaseOrdersPanel> RenderPanel(
         Action<ComponentParameterCollectionBuilder<PurchaseOrdersPanel>> parameterBuilder,
         params string[] permissions)
@@ -918,6 +1208,21 @@ public sealed class MaintenancePurchaseOrdersPanelTests : BunitContext
                 : Json(HttpStatusCode.OK, ReceiptsPage(Receipt()));
         }
 
+        if (path == $"{OrdersPath}/{OrderId}/close/preview")
+        {
+            return Json(HttpStatusCode.OK, ClosurePreview());
+        }
+
+        if (path == $"{OrdersPath}/{OrderId}/close")
+        {
+            return Json(HttpStatusCode.OK, ClosedResult());
+        }
+
+        if (path == $"{OrdersPath}/{OrderId}/closure")
+        {
+            return Json(HttpStatusCode.OK, Closure());
+        }
+
         if (path == $"{OrdersPath}/{OrderId}/order")
         {
             return Json(HttpStatusCode.OK, StatusResult("Draft", "Ordered"));
@@ -948,15 +1253,16 @@ public sealed class MaintenancePurchaseOrdersPanelTests : BunitContext
         string status = "Draft",
         string isOverdue = "false",
         string daysUntilDelivery = "6",
-        string quantityReceived = "0")
+        string quantityReceived = "0",
+        string quantityClosed = "0")
     {
         return $$"""
             {"purchaseOrderId":"{{OrderId}}","supplierId":"{{SupplierId}}",
             "supplierName":"Baltic Marine Parts","orderDate":"2026-08-20","expectedDelivery":"2026-09-01",
             "status":"{{status}}","lineCount":2,"totalCost":302.00,
             "isOverdue":{{isOverdue}},"daysUntilDelivery":{{daysUntilDelivery}},
-            "quantityOrdered":6,"quantityReceived":{{quantityReceived}},
-            "quantityOutstanding":{{6 - decimal.Parse(quantityReceived, CultureInfo.InvariantCulture)}}}
+            "quantityOrdered":6,"quantityReceived":{{quantityReceived}},"quantityClosed":{{quantityClosed}},
+            "quantityOutstanding":{{6 - decimal.Parse(quantityReceived, CultureInfo.InvariantCulture) - decimal.Parse(quantityClosed, CultureInfo.InvariantCulture)}}}
             """;
     }
 
@@ -974,9 +1280,11 @@ public sealed class MaintenancePurchaseOrdersPanelTests : BunitContext
         decimal filterReceived = 0m,
         decimal filterLegacy = 0m,
         decimal filterReturned = 0m,
-        int receiptCount = 0)
+        int receiptCount = 0,
+        decimal filterClosed = 0m,
+        decimal impellerClosed = 0m)
     {
-        var filterOutstanding = 4m - filterReceived;
+        var filterOutstanding = 4m - filterReceived - filterClosed;
 
         return $$"""
             {"purchaseOrderId":"{{OrderId}}","supplierId":"{{SupplierId}}",
@@ -988,15 +1296,16 @@ public sealed class MaintenancePurchaseOrdersPanelTests : BunitContext
             {"lineId":"{{FilterLineId}}","inventoryItemId":"{{FilterItemId}}",
             "inventoryItemName":"Fuel filter","partNumber":"PN-1","quantityOrdered":4,
             "unitCost":25.50,"lineTotal":102.00,"receivedQuantity":{{filterReceived}},
-            "legacyReceivedQuantity":{{filterLegacy}},"returnedQuantity":{{filterReturned}},
+            "legacyReceivedQuantity":{{filterLegacy}},"returnedQuantity":{{filterReturned}},"closedQuantity":{{filterClosed}},
             "outstandingQuantity":{{filterOutstanding}},"returnableQuantity":{{filterReceived - filterReturned}}},
             {"lineId":"{{ImpellerLineId}}","inventoryItemId":"{{ImpellerItemId}}",
             "inventoryItemName":"Impeller","partNumber":"PN-2","quantityOrdered":2,
             "unitCost":100.00,"lineTotal":200.00,"receivedQuantity":0,"legacyReceivedQuantity":0,
-            "returnedQuantity":0,"outstandingQuantity":2,"returnableQuantity":0}],
+            "returnedQuantity":0,"closedQuantity":{{impellerClosed}},"outstandingQuantity":{{2m - impellerClosed}},"returnableQuantity":0}],
             "concurrencyToken":"{{ConcurrencyToken}}","totalQuantityOrdered":6,
             "totalQuantityReceived":{{filterReceived}},"totalQuantityReturned":{{filterReturned}},
-            "totalQuantityOutstanding":{{filterOutstanding + 2m}},"receiptCount":{{receiptCount}},
+            "totalQuantityClosed":{{filterClosed + impellerClosed}},
+            "totalQuantityOutstanding":{{filterOutstanding + 2m - impellerClosed}},"receiptCount":{{receiptCount}},
             "allowedActions":[{{actions}}]}
             """;
     }
@@ -1007,6 +1316,68 @@ public sealed class MaintenancePurchaseOrdersPanelTests : BunitContext
             {"purchaseOrderId":"{{OrderId}}","previousStatus":"{{previousStatus}}","status":"{{status}}",
             "allowedTransitions":[],"stockAdjustments":[],"receipt":null,"alreadyPosted":false}
             """;
+    }
+
+    private static string ClosurePreview()
+    {
+        return $$"""
+            {"purchaseOrderId":"{{OrderId}}","orderStatus":"PartiallyReceived","concurrencyToken":"{{ConcurrencyToken}}",
+            "previewToken":"CLOSE-1","canClose":true,"resultingOrderStatus":"ClosedShort",
+            "totalQuantityReceived":3,"totalQuantityToClose":3,
+            "lines":[{"purchaseOrderLineId":"{{FilterLineId}}","inventoryItemId":"{{FilterItemId}}",
+            "name":"Fuel filter","partNumber":"PN-1","unitAbbreviation":"pcs","quantityOrdered":4,
+            "receivedQuantity":3,"returnedQuantity":0,"quantityToClose":1},
+            {"purchaseOrderLineId":"{{ImpellerLineId}}","inventoryItemId":"{{ImpellerItemId}}",
+            "name":"Impeller","partNumber":"PN-2","unitAbbreviation":"pcs","quantityOrdered":2,
+            "receivedQuantity":0,"returnedQuantity":0,"quantityToClose":2}],
+            "blockers":[],"generatedUtc":"2026-10-01T08:00:00Z"}
+            """;
+    }
+
+    private static string Closure()
+    {
+        return $$"""
+            {"closureId":"a6000000-0000-0000-0000-00000000006a","purchaseOrderId":"{{OrderId}}",
+            "clientRequestId":"a1000000-0000-0000-0000-00000000001a","reason":"Supplier discontinued the part",
+            "closedByUserId":"a2000000-0000-0000-0000-00000000002a","closedUtc":"2026-10-01T08:00:00Z",
+            "orderStatusBefore":"PartiallyReceived","orderStatusAfter":"ClosedShort",
+            "totalQuantityReceived":3,"totalQuantityClosed":3,
+            "lines":[{"closureLineId":"a7000000-0000-0000-0000-00000000007a","purchaseOrderLineId":"{{FilterLineId}}",
+            "inventoryItemId":"{{FilterItemId}}","name":"Fuel filter","partNumber":"PN-1","unitAbbreviation":"pcs",
+            "quantityOrdered":4,"receivedQuantity":3,"returnedQuantity":0,"closedQuantity":1}]}
+            """;
+    }
+
+    private static string ClosedResult()
+    {
+        return $$"""
+            {"closure":{{Closure()}},"alreadyClosed":false,"orderStatus":"ClosedShort",
+            "concurrencyToken":"a5000000-0000-0000-0000-00000000005a","allowedActions":["CreateReturn"]}
+            """;
+    }
+
+    // Received 3 of the 4 fuel filters and none of the impellers yet.
+    private static string PartiallyReceivedDetails()
+    {
+        return OrderDetails(
+            status: "PartiallyReceived",
+            transitions: "\"Received\"",
+            actions: "\"ReceivePartial\",\"ReceiveRemaining\",\"CloseRemaining\",\"CreateReturn\"",
+            filterReceived: 3m,
+            receiptCount: 1);
+    }
+
+    // The same order after its undelivered balance was closed short.
+    private static string ClosedShortDetails()
+    {
+        return OrderDetails(
+            status: "ClosedShort",
+            transitions: "",
+            actions: "\"CreateReturn\"",
+            filterReceived: 3m,
+            receiptCount: 1,
+            filterClosed: 1m,
+            impellerClosed: 2m);
     }
 
     private static string ReceiptPreview(string resultingStatus = "PartiallyReceived")
@@ -1076,6 +1447,11 @@ public sealed class MaintenancePurchaseOrdersPanelTests : BunitContext
             "unitId":"91000000-0000-0000-0000-000000000019","supplierId":"{{SupplierId}}"}],
             "pageNumber":1,"pageSize":100,"totalCount":2}
             """;
+    }
+
+    private static bool IsListRequest(Uri uri)
+    {
+        return !uri.Query.TrimStart('?').Split('&').Contains("pageSize=1");
     }
 
     private static Task<HttpResponseMessage> Json(HttpStatusCode statusCode, string json)

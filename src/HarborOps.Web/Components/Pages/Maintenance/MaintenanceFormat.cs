@@ -29,6 +29,7 @@ internal static class MaintenanceFormat
     internal const string PostedSupplierReturn = "Posted";
     internal const string ReceivedPurchaseOrder = "Received";
     internal const string PartiallyReceivedPurchaseOrder = "PartiallyReceived";
+    internal const string ClosedShortPurchaseOrder = "ClosedShort";
     internal const string PurchaseOrderNotReceivedBlocker = "PurchaseOrderNotReceived";
     internal const string NoLinesBlocker = "NoLines";
     internal const string ExceedsReturnableBlocker = "ExceedsReturnable";
@@ -84,6 +85,11 @@ internal static class MaintenanceFormat
     }
 
     internal static string UnknownVessel() => "Unknown vessel";
+
+    internal static string KpiCount(int? count)
+    {
+        return count?.ToString("N0", CultureInfo.InvariantCulture) ?? MissingValue;
+    }
 
     internal static string PriorityModifier(string priority)
     {
@@ -447,10 +453,10 @@ internal static class MaintenanceFormat
         };
     }
 
-    // Goods can go back to the supplier once any of them were received.
+    // Goods can go back to the supplier once any of them were received, also after the rest was closed short.
     internal static bool CanReturnPurchaseOrder(string? status)
     {
-        return status is ReceivedPurchaseOrder or PartiallyReceivedPurchaseOrder;
+        return status is ReceivedPurchaseOrder or PartiallyReceivedPurchaseOrder or ClosedShortPurchaseOrder;
     }
 
     internal static string PurchaseOrderReference(Guid purchaseOrderId)

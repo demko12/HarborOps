@@ -40,7 +40,11 @@ internal sealed class PurchaseOrderLine
     // Quantity recorded as received before receipts were tracked; it has no receipt, date, or actor.
     public decimal LegacyReceivedQuantity { get; private set; }
 
-    internal decimal OutstandingQuantity => QuantityOrdered - ReceivedQuantity;
+    // Quantity closed without delivery when the order was closed short; it never reaches stock.
+    public decimal ClosedQuantity { get; private set; }
+
+    // Open outstanding: ordered, less what was received, less what was closed without delivery.
+    internal decimal OutstandingQuantity => QuantityOrdered - ReceivedQuantity - ClosedQuantity;
 
     internal bool IsFulfilled => ReceivedQuantity >= QuantityOrdered;
 
@@ -86,6 +90,21 @@ internal sealed class PurchaseOrderLine
         }
 
         ReceivedQuantity += quantity;
+    }
+
+    // Closes the entire open outstanding quantity without delivery; ordered and received stay untouched.
+    internal decimal CloseOutstanding()
+    {
+        if (ClosedQuantity != 0)
+        {
+            throw new PurchaseOrderClosureInvariantException(
+                $"Purchase order line '{Id}' has already been closed.");
+        }
+
+        var closedQuantity = Math.Max(OutstandingQuantity, 0m);
+        ClosedQuantity = closedQuantity;
+
+        return closedQuantity;
     }
 
     internal decimal LineTotal()

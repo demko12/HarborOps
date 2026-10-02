@@ -22,22 +22,22 @@
 				</div>
 				<span class="summary-icon summary-icon-blue" aria-hidden="true"><span class="bi bi-box-arrow-left"></span></span>
 			</article>
-			<article class="maintenance-summary-card">
+			<button type="button" class="maintenance-summary-card maintenance-kpi-filter @(IsDraftKpiSelected ? "selected" : null)" aria-pressed="@IsDraftKpiSelected.ToString().ToLowerInvariant()" aria-label="Show open draft supplier returns" @onclick="ToggleDraftKpiAsync">
 				<div>
 					<span>Open drafts</span>
-					<strong>@DraftCount</strong>
-					<small>Not posted yet on this page</small>
+					<strong>@MaintenanceFormat.KpiCount(draftKpiCount)</strong>
+					<small>Not posted yet</small>
 				</div>
 				<span class="summary-icon summary-icon-amber" aria-hidden="true"><span class="bi bi-pencil-square"></span></span>
-			</article>
-			<article class="maintenance-summary-card">
+			</button>
+			<button type="button" class="maintenance-summary-card maintenance-kpi-filter @(IsPostedKpiSelected ? "selected" : null)" aria-pressed="@IsPostedKpiSelected.ToString().ToLowerInvariant()" aria-label="Show posted supplier returns" @onclick="TogglePostedKpiAsync">
 				<div>
 					<span>Returned quantity</span>
 					<strong>@MaintenanceFormat.Quantity(PostedQuantity)</strong>
 					<small>Posted returns on this page</small>
 				</div>
 				<span class="summary-icon summary-icon-red" aria-hidden="true"><span class="bi bi-truck"></span></span>
-			</article>
+			</button>
 		</section>
 
 		<section class="maintenance-filters" aria-label="Supplier return filters">
@@ -93,6 +93,7 @@
 						<select id="supplier-return-order-status" @bind="orderStatusFilter" @bind:after="ApplyOrderStatusAsync">
 							<option value="@MaintenanceFormat.ReceivedPurchaseOrder">Received</option>
 							<option value="@MaintenanceFormat.PartiallyReceivedPurchaseOrder">Partially received</option>
+							<option value="@MaintenanceFormat.ClosedShortPurchaseOrder">Closed short</option>
 						</select>
 					</div>
 				</div>

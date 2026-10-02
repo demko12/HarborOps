@@ -54,6 +54,7 @@ public sealed class GetPurchaseOrderDetailsQueryTests
     [InlineData(PurchaseOrderStatus.PartiallyReceived, new[] { "Received" })]
     [InlineData(PurchaseOrderStatus.Received, new string[0])]
     [InlineData(PurchaseOrderStatus.Cancelled, new string[0])]
+    [InlineData(PurchaseOrderStatus.ClosedShort, new string[0])]
     public async Task GetDetailsAsync_derives_the_allowed_transitions(
         PurchaseOrderStatus status,
         string[] expectedTransitions)
@@ -71,8 +72,9 @@ public sealed class GetPurchaseOrderDetailsQueryTests
     [Theory]
     [InlineData(PurchaseOrderStatus.Draft, new[] { "MarkOrdered", "Cancel" })]
     [InlineData(PurchaseOrderStatus.Ordered, new[] { "ReceivePartial", "ReceiveRemaining", "Cancel" })]
-    [InlineData(PurchaseOrderStatus.PartiallyReceived, new[] { "ReceivePartial", "ReceiveRemaining", "CreateReturn" })]
+    [InlineData(PurchaseOrderStatus.PartiallyReceived, new[] { "ReceivePartial", "ReceiveRemaining", "CloseRemaining", "CreateReturn" })]
     [InlineData(PurchaseOrderStatus.Received, new[] { "CreateReturn" })]
+    [InlineData(PurchaseOrderStatus.ClosedShort, new[] { "CreateReturn" })]
     [InlineData(PurchaseOrderStatus.Cancelled, new string[0])]
     public async Task GetDetailsAsync_derives_the_allowed_actions(
         PurchaseOrderStatus status,

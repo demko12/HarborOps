@@ -41,6 +41,17 @@ public partial class ReplenishmentPanel : IDisposable
 
     private decimal PageShortage => rows.Sum(row => row.ShortageQuantity);
 
+    private string? classificationFilter;
+
+    private IReadOnlyList<InventoryReplenishmentRow> VisibleRows => classificationFilter is null
+        ? rows
+        : rows.Where(row => string.Equals(row.Classification, classificationFilter, StringComparison.Ordinal)).ToList();
+
+    private void ToggleClassificationKpi(string classification)
+    {
+        classificationFilter = classificationFilter == classification ? null : classification;
+    }
+
     protected override Task OnInitializedAsync()
     {
         return LoadAsync();

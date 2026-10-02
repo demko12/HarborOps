@@ -38,11 +38,12 @@
             </div>
         }
 
-        <section class="reports-summary" aria-label="Report summary">
-            <article><div><span>Matching records</span><strong>@totalCount</strong><small>Across the current filters</small></div><span class="bi bi-bar-chart" aria-hidden="true"></span></article>
-            <article><div><span>Snapshot date</span><strong class="reports-summary-date">@reportAsOf.ToString("dd MMM yyyy")</strong><small>Report reference date</small></div><span class="bi bi-calendar-check" aria-hidden="true"></span></article>
-            <article><div><span>Records on this page</span><strong>@maintenanceRows.Count</strong><small>Page @pageNumber of @TotalPages</small></div><span class="bi bi-list-ul" aria-hidden="true"></span></article>
-        </section>
+        <div class="reports-kpis" aria-label="Report summary">
+            <div class="reports-kpi"><div><span class="reports-kpi-label">Open work orders</span><strong>@(overview?.Open.ToString() ?? "—")</strong><span class="reports-kpi-note">Open and in progress</span></div><span class="reports-kpi-icon bi bi-tools" aria-hidden="true"></span></div>
+            <div class="reports-kpi"><div><span class="reports-kpi-label">Overdue</span><strong>@(overview?.Overdue.ToString() ?? "—")</strong><span class="reports-kpi-note">Past their due date</span></div><span class="reports-kpi-icon bi bi-alarm" aria-hidden="true"></span></div>
+            <div class="reports-kpi"><div><span class="reports-kpi-label">Critical priority</span><strong>@(overview?.Critical.ToString() ?? "—")</strong><span class="reports-kpi-note">@(overview is { } critical ? $"{critical.CriticalOverdue} of them overdue" : "Open and in progress")</span></div><span class="reports-kpi-icon bi bi-exclamation-octagon" aria-hidden="true"></span></div>
+            <div class="reports-kpi"><div><span class="reports-kpi-label">Average overdue</span><strong>@(overview?.AverageOverdueDays is { } days ? $"{days} d" : "—")</strong><span class="reports-kpi-note">@(overview?.AverageIsSampled == true ? $"Across the {OverdueSampleSize} most overdue" : "Across overdue work orders")</span></div><span class="reports-kpi-icon bi bi-hourglass-split" aria-hidden="true"></span></div>
+        </div>
 
         <section class="reports-card" aria-labelledby="reports-list-title">
             <div class="reports-card-heading">

@@ -28,7 +28,7 @@ public sealed class MaintenanceStocktakesPanelTests : BunitContext
     {
         RenderPanel();
 
-        var query = requestedUris.Last();
+        var query = requestedUris.Last(IsListRequest);
 
         Assert.Equal("/api/maintenance/stocktakes", query.AbsolutePath);
         Assert.Contains("pageNumber=1", query.Query, StringComparison.Ordinal);
@@ -67,18 +67,20 @@ public sealed class MaintenanceStocktakesPanelTests : BunitContext
     [Fact]
     public void The_summary_counts_drafts_and_variance_lines()
     {
-        respond = _ => Json(
-            HttpStatusCode.OK,
-            StocktakesPage(
-                Summary(varianceLineCount: 1),
-                Summary(status: "Posted", varianceLineCount: 2)));
+        respond = request => IsListRequest(request.RequestUri!)
+            ? Json(
+                HttpStatusCode.OK,
+                StocktakesPage(
+                    Summary(varianceLineCount: 1),
+                    Summary(status: "Posted", varianceLineCount: 2)))
+            : Json(HttpStatusCode.OK, Page(1, 1, 5));
 
         var panel = RenderPanel();
 
         var totals = panel.FindAll(".maintenance-summary-card strong");
 
         Assert.Equal("2", totals[0].TextContent.Trim());
-        Assert.Equal("1", totals[1].TextContent.Trim());
+        panel.WaitForAssertion(() => Assert.Equal("5", panel.FindAll(".maintenance-summary-card strong")[1].TextContent.Trim()));
         Assert.Equal("3", totals[2].TextContent.Trim());
     }
 
@@ -131,7 +133,7 @@ public sealed class MaintenanceStocktakesPanelTests : BunitContext
 
         panel.WaitForAssertion(() =>
         {
-            var query = requestedUris.Last().Query;
+            var query = requestedUris.Last(IsListRequest).Query;
 
             Assert.Contains("status=Posted", query, StringComparison.Ordinal);
             Assert.Contains("pageNumber=1", query, StringComparison.Ordinal);
@@ -149,7 +151,7 @@ public sealed class MaintenanceStocktakesPanelTests : BunitContext
 
         panel.WaitForAssertion(() => Assert.Contains(
             "pageNumber=2",
-            requestedUris.Last().Query,
+            requestedUris.Last(IsListRequest).Query,
             StringComparison.Ordinal));
     }
 
@@ -211,7 +213,7 @@ public sealed class MaintenanceStocktakesPanelTests : BunitContext
 
         panel.WaitForAssertion(() => Assert.Contains(
             "pageNumber=2",
-            requestedUris.Last().Query,
+            requestedUris.Last(IsListRequest).Query,
             StringComparison.Ordinal));
     }
 
@@ -242,7 +244,7 @@ public sealed class MaintenanceStocktakesPanelTests : BunitContext
 
         panel.WaitForAssertion(() =>
         {
-            var query = requestedUris.Last().Query;
+            var query = requestedUris.Last(IsListRequest).Query;
 
             Assert.Contains("search=filter", query, StringComparison.Ordinal);
             Assert.Contains("pageNumber=1", query, StringComparison.Ordinal);
@@ -475,6 +477,11 @@ public sealed class MaintenanceStocktakesPanelTests : BunitContext
     private static string StocktakesPage(params string[] items)
     {
         return Page(1, 25, items.Length, items);
+    }
+
+    private static bool IsListRequest(Uri uri)
+    {
+        return !uri.Query.TrimStart('?').Split('&').Contains("pageSize=1");
     }
 
     private static string Page(int pageNumber, int pageSize, int totalCount, params string[] items)

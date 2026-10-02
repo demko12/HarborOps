@@ -17,4 +17,5 @@ public sealed record PurchaseOrderListItem(
     int? DaysUntilDelivery,
     decimal QuantityOrdered,
     decimal QuantityReceived,
+    decimal QuantityClosed,
     decimal QuantityOutstanding);

@@ -68,6 +68,7 @@ public sealed class ChangePurchaseOrderStatusServiceTests
     [Theory]
     [InlineData(PurchaseOrderStatus.PartiallyReceived)]
     [InlineData(PurchaseOrderStatus.Received)]
+    [InlineData(PurchaseOrderStatus.ClosedShort)]
     public async Task CancelAsync_rejects_an_order_with_received_goods(PurchaseOrderStatus status)
     {
         await using var dbContext = CreateDbContext(NewDatabaseName());

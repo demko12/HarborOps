@@ -24,6 +24,30 @@
 
 	<FleetNavigation />
 
+    <div class="positions-tracking" aria-label="Live tracking status">
+        <details class="positions-tracking-details">
+            <summary><span class="positions-feed-indicator @(positions?.AisTracking?.ConnectionState == "Connected" ? "is-connected" : "")" aria-hidden="true"></span><span>@AisStatusLabel</span><span class="bi bi-chevron-down" aria-hidden="true"></span></summary>
+            <div class="positions-tracking-info">
+            <p>AIS positions are matched to your vessels by MMSI. Refresh checks saved positions; new reports depend on receiver coverage.</p>
+            @if (positions?.AisTracking?.LastPositionReceivedAtUtc is { } lastReceived)
+            {
+                <small>Latest AIS observation: @FormatTimestamp(lastReceived)</small>
+            }
+            else if (positions?.AisTracking?.ConnectionState == "Connected")
+            {
+                <small>No AIS position reports received for registered vessels in this connection yet.</small>
+            }
+            </div>
+        </details>
+        <div class="positions-tracking-controls">
+            @if (positions is not null)
+            {
+                <small class="positions-refresh-status" title="Last successful data check">@(checkingPositions ? "Checking…" : $"Checked {positions.EvaluatedAtUtc.ToString("HH:mm:ss 'UTC'", System.Globalization.CultureInfo.InvariantCulture)}")</small>
+            }
+            <label><input type="checkbox" @bind="autoRefresh" /> Auto-refresh <span class="positions-refresh-interval">15s</span></label>
+        </div>
+    </div>
+
 
 	@if (positions is not null)
 	{
@@ -32,34 +56,53 @@
 				<div><span>Vessels</span><strong>@positions.TotalCount</strong><small>Matching the filters</small></div>
 			</article>
 			<article class="positions-summary-card">
-				<div><span>Missing position</span><strong>@MissingCount</strong><small>No coordinates on this page</small></div>
+				<div><span>Missing position</span><strong>@(mapFailure is null ? MissingCount.ToString() : "—")</strong><small>Across all matching vessels</small></div>
 			</article>
 			<article class="positions-summary-card">
-				<div><span>Stale position</span><strong>@StaleCount</strong><small>Older than @StaleAfterLabel</small></div>
+				<div><span>Stale position</span><strong>@(mapFailure is null ? StaleCount.ToString() : "—")</strong><small>Older than @StaleAfterLabel</small></div>
 			</article>
 			<article class="positions-summary-card">
-				<div><span>Current position</span><strong>@CurrentCount</strong><small>Reported recently</small></div>
+				<div><span>Current position</span><strong>@(mapFailure is null ? CurrentCount.ToString() : "—")</strong><small>Reported recently</small></div>
 			</article>
 		</section>
 	}
 
-    @if (positions is { Items.Count: > 0 })
+    @if (!isLoading && failure is null && positions is { TotalCount: > 0 })
     {
-        <section class="positions-coverage" aria-label="Position reporting coverage on this page">
+        <section class="positions-coverage" aria-label="Position reporting coverage across all matching vessels">
             <div class="positions-coverage-heading">
                 <h2>Position reporting coverage</h2>
-                <p>@CurrentCount of @positions.Items.Count vessels on this page have a current report</p>
+                @if (mapFailure is null)
+                {
+                    <p>@CurrentCount of @mapVessels.Count matching vessels have a current report</p>
+                }
             </div>
-            <div class="positions-coverage-track" aria-hidden="true">
-                <span class="positions-coverage-current" style="flex-grow: @CurrentCount"></span>
-                <span class="positions-coverage-stale" style="flex-grow: @StaleCount"></span>
-                <span class="positions-coverage-missing" style="flex-grow: @MissingCount"></span>
+            @if (mapFailure is not null)
+            {
+                <p class="positions-coverage-unavailable" role="status">Coverage is unavailable because all matching vessel positions could not be loaded. Retry using Refresh.</p>
+            }
+            else
+            {
+            <div class="positions-coverage-chart">
+                <div class="positions-coverage-ring" style="--coverage-current-end: @CoveragePercent(CurrentCount)%; --coverage-stale-end: @CoveragePercent(CurrentCount + StaleCount)%" aria-hidden="true">
+                    <div class="positions-coverage-ring-center"><strong>@CoveragePercent(CurrentCount)<span>%</span></strong><small>Current</small></div>
+                </div>
+                <ul class="positions-coverage-legend">
+                    <li class="positions-coverage-row positions-coverage-current">
+                        <span class="positions-coverage-label"><i aria-hidden="true"></i>Current <strong>@CurrentCount</strong></span>
+                        <span class="positions-coverage-percent">@CoveragePercent(CurrentCount)%</span>
+                    </li>
+                    <li class="positions-coverage-row positions-coverage-stale">
+                        <span class="positions-coverage-label"><i aria-hidden="true"></i>Stale <strong>@StaleCount</strong></span>
+                        <span class="positions-coverage-percent">@CoveragePercent(StaleCount)%</span>
+                    </li>
+                    <li class="positions-coverage-row positions-coverage-missing">
+                        <span class="positions-coverage-label"><i aria-hidden="true"></i>Missing <strong>@MissingCount</strong></span>
+                        <span class="positions-coverage-percent">@CoveragePercent(MissingCount)%</span>
+                    </li>
+                </ul>
             </div>
-            <div class="positions-coverage-legend">
-                <span><i class="positions-coverage-current" aria-hidden="true"></i>@CurrentCount current</span>
-                <span><i class="positions-coverage-stale" aria-hidden="true"></i>@StaleCount stale</span>
-                <span><i class="positions-coverage-missing" aria-hidden="true"></i>@MissingCount missing</span>
-            </div>
+            }
         </section>
     }
 
@@ -81,7 +124,7 @@
 	<div class="positions-filters">
 		<div class="positions-field positions-search-field">
 			<label for="positions-search">Search</label>
-			<input id="positions-search" type="search" placeholder="Vessel name or IMO" @bind="search" @bind:event="oninput" @bind:after="ScheduleSearchAsync" />
+			<input id="positions-search" type="search" placeholder="Vessel name, MMSI or IMO" @bind="search" @bind:event="oninput" @bind:after="ScheduleSearchAsync" />
 		</div>
 		<div class="positions-field">
 			<label for="positions-fleet">Fleet</label>
@@ -273,12 +316,22 @@
 								<th scope="row">
 									<strong>@vessel.Name</strong>
 									<span class="positions-imo">IMO @vessel.ImoNumber</span>
+                                    @if (!string.IsNullOrWhiteSpace(vessel.Mmsi))
+                                    {
+                                        <span class="positions-imo">MMSI @vessel.Mmsi</span>
+                                    }
 								</th>
 								<td>@vessel.CurrentStatus</td>
 								<td>@(vessel.FleetName ?? "Unassigned")</td>
 								<td class="positions-coordinate">@FormatLatitude(vessel.CurrentLatitude)</td>
 								<td class="positions-coordinate">@FormatLongitude(vessel.CurrentLongitude)</td>
-								<td>@FormatTimestamp(vessel.LastPositionReportedAtUtc)</td>
+                                <td>
+                                    @FormatTimestamp(vessel.LastPositionReportedAtUtc)
+                                    @if (vessel.PositionSource == "AISStream")
+                                    {
+                                        <span class="positions-imo">AISStream</span>
+                                    }
+                                </td>
 								<td>
 									<span class="@($"positions-badge {FreshnessClass(vessel)}")">@FreshnessLabel(vessel)</span>
 								</td>

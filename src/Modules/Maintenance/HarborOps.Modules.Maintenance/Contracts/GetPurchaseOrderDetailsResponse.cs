@@ -22,6 +22,7 @@ public sealed record GetPurchaseOrderDetailsResponse(
     decimal TotalQuantityOrdered,
     decimal TotalQuantityReceived,
     decimal TotalQuantityReturned,
+    decimal TotalQuantityClosed,
     decimal TotalQuantityOutstanding,
     int ReceiptCount,
     IReadOnlyList<string> AllowedActions);
