@@ -21,7 +21,7 @@
         </div>
         <div class="booking-header-actions">
             <span class="booking-utc" aria-label="All times are shown in UTC">UTC</span>
-            
+
         </div>
     </header>
 
@@ -45,14 +45,6 @@
     }
     else if (details is not null)
     {
-        <nav class="booking-section-nav" aria-label="Booking sections">
-            <a href="@(Navigation.Uri.Split('#')[0] + "#booking-summary-title")"><span class="bi bi-box-seam" aria-hidden="true"></span> Overview</a>
-            <a href="@(Navigation.Uri.Split('#')[0] + "#booking-hazard-title")"><span class="bi bi-shield-check" aria-hidden="true"></span> Safety</a>
-            <a href="@(Navigation.Uri.Split('#')[0] + "#booking-manifest-title")"><span class="bi bi-stack" aria-hidden="true"></span> Manifest</a>
-            <a href="@(Navigation.Uri.Split('#')[0] + "#booking-operations-title")"><span class="bi bi-arrow-down-up" aria-hidden="true"></span> Operations</a>
-            <a href="@(Navigation.Uri.Split('#')[0] + "#booking-tracking-title")"><span class="bi bi-clock-history" aria-hidden="true"></span> Tracking</a>
-        </nav>
-
         <section class="booking-summary" aria-label="Booking summary">
             <article class="booking-kpi">
                 <div>
@@ -96,804 +88,848 @@
             </article>
         </section>
 
-        <section class="booking-grid">
-            <article class="booking-card" aria-labelledby="booking-summary-title">
-                <div class="booking-card-heading">
-                    <div><p class="booking-section-eyebrow">Shipment overview</p><h2 id="booking-summary-title">Booking summary</h2></div>
-                    <span class="cargo-status @CargoBookingFormat.StatusModifier(details.Status)">@details.Status</span>
-                </div>
-
-                <dl class="booking-facts">
-                    <div>
-                        <dt>Voyage</dt>
-                        <dd class="booking-voyage-cell">
-                            <code class="booking-voyage" title="@details.VoyageId">@details.VoyageId</code>
-                            <button type="button"
-                                    class="booking-copy"
-                                    title="@(voyageIdCopied ? "Copied" : "Copy voyage ID")"
-                                    aria-label="Copy voyage ID"
-                                    @onclick="CopyVoyageIdAsync">
-                                <span class="bi @(voyageIdCopied ? "bi-check2" : "bi-clipboard")" aria-hidden="true"></span>
-                            </button>
-                        </dd>
-                    </div>
-                    <div>
-                        <dt>Description</dt>
-                        <dd>@details.Description</dd>
-                    </div>
-                    <div>
-                        <dt>Cargo type</dt>
-                        <dd>@details.CargoType</dd>
-                    </div>
-                    <div>
-                        <dt>Weight (kg)</dt>
-                        <dd class="booking-num">@CargoBookingFormat.WeightKg(details.WeightKg)</dd>
-                    </div>
-                    <div>
-                        <dt>Packages</dt>
-                        <dd class="booking-num">@CargoBookingFormat.PackageCount(details.PackageCount)</dd>
-                    </div>
-                </dl>
-
-                <ol class="booking-lifecycle" aria-label="Shipment progress">
-                    @for (var step = 0; step < CargoBookingFormat.Statuses.Count; step++)
-                    {
-                        var stage = CargoBookingFormat.Statuses[step];
-                        var reached = step < CargoBookingFormat.LifecycleStep(details.Status);
-                        <li class="@(reached ? "is-reached" : null)" aria-current="@(stage == details.Status ? "step" : null)">
-                            <span class="booking-stage-dot" aria-hidden="true">@(step + 1)</span>
-                            <span>@(stage == "InTransit" ? "In transit" : stage)</span>
-                        </li>
-                    }
-                </ol>
-            </article>
-
-            <article class="booking-card" aria-labelledby="booking-hazard-title">
-                <div class="booking-card-heading">
-                    <div><p class="booking-section-eyebrow">Safety & handling</p><h2 id="booking-hazard-title">Hazardous cargo</h2></div>
-                    @if (details.IsHazardous)
-                    {
-                        <span class="cargo-hazard-chip">
-                            <span class="cargo-placard" aria-hidden="true"></span>
-                            @CargoBookingFormat.HazardousLabel
-                        </span>
-                    }
-                    else
-                    {
-                        <span class="booking-no-hazard">@CargoBookingFormat.NotHazardousLabel</span>
-                    }
-                </div>
-
-                <CargoSafetyPanel BookingId="BookingId"
-                                  IsHazardous="details.IsHazardous"
-                                  OnChanged="LoadAsync" />
-            </article>
-        </section>
-
-        <section class="booking-card booking-manifest-card" aria-labelledby="booking-manifest-title">
-            <div class="booking-card-heading">
-                <div><p class="booking-section-eyebrow">Cargo inventory</p><h2 id="booking-manifest-title">Container manifest</h2></div>
-                <span class="booking-count manifest-progress">@LoadedContainerCount of @containerTotalCount loaded</span>
+        <nav class="booking-tabs" aria-label="Booking sections">
+            <div class="booking-tablist" role="tablist" aria-label="Booking sections">
+                @foreach (var tab in BookingTabs)
+                {
+                    <button type="button"
+                            role="tab"
+                            id="@TabButtonId(tab.Id)"
+                            class="booking-tab @(tab.Id == activeTab ? "is-active" : null)"
+                            aria-selected="@(tab.Id == activeTab ? "true" : "false")"
+                            aria-controls="@TabPanelId(tab.Id)"
+                            @onclick="() => SelectTab(tab.Id)">
+                        <span class="bi @tab.Icon" aria-hidden="true"></span>
+                        <span class="booking-tab-label">@tab.Label</span>
+                        @if (tab.Badge is { } badge)
+                        {
+                            <span class="booking-tab-badge booking-tab-badge-@tab.Tone">@badge</span>
+                        }
+                    </button>
+                }
             </div>
-
-            <div class="manifest-bar"
-                 role="img"
-                          aria-label="@($"{LoadedContainerCount} of {containerTotalCount} containers loaded")">
-                <span style="width:@(LoadedPercent)%"></span>
-            </div>
-
-            @if (!hasLoadedContainers && isLoadingContainers)
+            @if (details.NextStatus is { } upcomingStatus)
             {
-                <LoadingState Message="Loading the container manifest..." />
+                <button type="button" class="booking-tabs-next" @onclick="() => SelectTab(TrackingTab)">
+                    Next step <strong>@upcomingStatus</strong>
+                </button>
             }
-            else if (!hasLoadedContainers && containersFailure is { IsValidation: false })
-            {
-                <ApiErrorState Title="@containersFailure.Title"
-                               Message="@containersFailure.Message"
-                               OnRetry="LoadContainersAsync" />
-            }
-            else
-            {
-                @if (IsBookingClosed && CanManageCargo)
-                {
-                    <p class="booking-note booking-note-warning" role="status">
-                        This booking is completed, so its manifest can no longer change.
-                    </p>
-                }
+        </nav>
 
-                @if (hasLoadedContainers && containerTotalCount == 0 && !CanAddContainers)
-                {
-                    <EmptyState Title="No containers on the manifest"
-                                Message="Containers added here are the ones a load or unload operation settles." />
-                }
-                else
-                {
+        <div role="tabpanel" id="@TabPanelId(OverviewTab)" aria-labelledby="@TabButtonId(OverviewTab)" class="booking-tab-panel" hidden="@(activeTab != OverviewTab)">
+            <section class="booking-grid">
+                <article class="booking-card" aria-labelledby="booking-summary-title">
+                    <div class="booking-card-heading">
+                        <div><p class="booking-section-eyebrow">Shipment overview</p><h2 id="booking-summary-title">Booking summary</h2></div>
+                        <span class="cargo-status @CargoBookingFormat.StatusModifier(details.Status)">@details.Status</span>
+                    </div>
 
-                @if (hasLoadedContainers && containerTotalCount == 0)
-                {
-                    <p class="booking-note">No containers yet. Add the first one using the form below.</p>
-                }
-
-                @if (CanAddContainers)
-                {
-                    <section class="manifest-import" aria-label="Import container manifest">
-                        <div class="booking-card-heading">
-                            <h3>Import manifest</h3>
-                            <span class="manifest-template-links">
-                                <a class="manifest-template-link" href="/cargo/container-manifest-template?format=xlsx">
-                                    <span class="bi bi-file-earmark-spreadsheet" aria-hidden="true"></span>Excel template
-                                </a>
-                                <a class="manifest-template-link" href="/cargo/container-manifest-template?format=xml">
-                                    <span class="bi bi-file-earmark-code" aria-hidden="true"></span>XML template
-                                </a>
-                            </span>
-                        </div>
-                        <div class="manifest-file-picker">
-                            <InputFile id="manifest-file-input" class="manifest-file-native-input" OnChange="SelectManifestFile" accept=".xlsx,.xml" />
-                            <label class="manifest-file-picker-button" for="manifest-file-input">
-                                <span class="bi bi-upload" aria-hidden="true"></span>
-                                Choose manifest file
-                            </label>
-                            <span class="manifest-file-picker-name">@(manifestFile?.Name ?? "No file selected — .xlsx or .xml")</span>
-                        </div>
-                        @if (manifestFile is not null)
-                        {
-                            <p class="booking-note">@manifestFile.Name (@manifestFile.Size bytes)</p>
-                            <button class="booking-submit" type="button" @onclick="PreviewManifestAsync" disabled="@isPreviewingManifest">@(isPreviewingManifest ? "Previewing..." : "Preview manifest")</button>
-                        }
-                        @if (manifestImportFailure is not null) { <div class="booking-form-error" role="alert">@manifestImportFailure.Message</div> }
-                        @if (manifestPreview is not null)
-                        {
-                            <p class="booking-note">@manifestPreview.ValidCount valid, @manifestPreview.InvalidCount invalid, @manifestPreview.TotalCount total rows.</p>
-                            @if (manifestPreview.InvalidCount > 0)
-                            {
-                                <ul class="booking-form-error" role="alert">@foreach (var row in manifestPreview.Rows.Where(row => row.Errors.Count > 0)) { <li>Row @row.RowNumber: @string.Join(" ", row.Errors.SelectMany(error => error.Value))</li> }</ul>
-                            }
-                            else { <button class="booking-submit" type="button" @onclick="ImportManifestAsync" disabled="@isImportingManifest">@(isImportingManifest ? "Importing..." : "Confirm import")</button> }
-                        }
-                    </section>
-                    <EditForm class="manifest-add-form" EditContext="containerEditContext" OnValidSubmit="SubmitContainerAsync">
-                        <DataAnnotationsValidator />
-
-                        @if (containerError is not null)
-                        {
-                            <div class="booking-form-error" role="alert">@containerError</div>
-                        }
-
-                        <div class="manifest-add-layout">
-                            <div class="booking-field">
-                                <label for="container-number">Container number</label>
-                                <InputText id="container-number"
-                                           placeholder="MSKU1234567"
-                                           @ref="containerNumberInput"
-                                           @bind-Value="containerModel.ContainerNumber" />
-                                <ValidationMessage For="() => containerModel.ContainerNumber" />
-                            </div>
-
-                            <div class="booking-field">
-                                <label for="container-pol">POL</label>
-                                <InputText id="container-pol" placeholder="NLRTM" @bind-Value="containerModel.PortOfLoadingCode" />
-                                <ValidationMessage For="() => containerModel.PortOfLoadingCode" />
-                            </div>
-
-                            <div class="booking-field">
-                                <label for="container-pod">POD</label>
-                                <InputText id="container-pod" placeholder="USNYC" @bind-Value="containerModel.PortOfDischargeCode" />
-                                <ValidationMessage For="() => containerModel.PortOfDischargeCode" />
-                            </div>
-
-                            <div class="booking-field">
-                                <label for="container-weight">Weight (kg)</label>
-                                <InputNumber id="container-weight" @bind-Value="containerModel.WeightKg" />
-                                <ValidationMessage For="() => containerModel.WeightKg" />
-                            </div>
-
-                            <div class="booking-field">
-                                <label for="container-type">Container type</label>
-                                <InputSelect id="container-type" @bind-Value="containerModel.ContainerType">
-                                    <option value="">Select container type...</option>
-                                    @foreach (var containerType in StandardContainerTypes)
-                                    {
-                                        <option value="@containerType.Code">@containerType.Label</option>
-                                    }
-                                </InputSelect>
-                                <ValidationMessage For="() => containerModel.ContainerType" />
-                            </div>
-
-                            <div class="booking-form-actions manifest-add-action">
-                                <button class="booking-submit container-submit" type="submit" disabled="@isAddingContainer">
-                                    <span class="bi bi-plus-lg" aria-hidden="true"></span>
-                                    @(isAddingContainer ? "Adding..." : "Add container")
+                    <dl class="booking-facts">
+                        <div>
+                            <dt>Voyage</dt>
+                            <dd class="booking-voyage-cell">
+                                <code class="booking-voyage" title="@details.VoyageId">@details.VoyageId</code>
+                                <button type="button"
+                                        class="booking-copy"
+                                        title="@(voyageIdCopied ? "Copied" : "Copy voyage ID")"
+                                        aria-label="Copy voyage ID"
+                                        @onclick="CopyVoyageIdAsync">
+                                    <span class="bi @(voyageIdCopied ? "bi-check2" : "bi-clipboard")" aria-hidden="true"></span>
                                 </button>
-                            </div>
+                            </dd>
                         </div>
-                    </EditForm>
-                }
-
-                @if (containerTotalCount > 0 || IsContainerFilterActive)
-                {
-                <section class="manifest-filters" aria-label="Filter the container manifest">
-                    <div class="manifest-filter-layout">
-                        <div class="booking-field manifest-filter-search">
-                            <label for="manifest-search">Search container number</label>
-                            <input id="manifest-search"
-                                   type="search"
-                                   maxlength="@ContainerSearchMaxLength"
-                                   placeholder="e.g. MSKU123"
-                                   autocomplete="off"
-                                   @bind="containerSearchInput"
-                                   @bind:event="oninput"
-                                   @bind:after="ScheduleContainerSearchAsync" />
+                        <div>
+                            <dt>Description</dt>
+                            <dd>@details.Description</dd>
                         </div>
-
-                        <div class="booking-field">
-                            <label for="manifest-status">Status</label>
-                            <select id="manifest-status" @bind="containerStatusInput" @bind:after="ApplyContainerFiltersNowAsync">
-                                <option value="">All statuses</option>
-                                @foreach (var statusOption in ContainerStatusOptions)
-                                {
-                                    <option value="@statusOption">@statusOption</option>
-                                }
-                            </select>
+                        <div>
+                            <dt>Cargo type</dt>
+                            <dd>@details.CargoType</dd>
                         </div>
-
-                        <div class="booking-field">
-                            <label for="manifest-type">Container type</label>
-                            <select id="manifest-type" @bind="containerTypeInput" @bind:after="ApplyContainerFiltersNowAsync">
-                                <option value="">All types</option>
-                                @foreach (var containerType in FilterContainerTypes)
-                                {
-                                    <option value="@containerType.Code">@containerType.Label</option>
-                                }
-                            </select>
+                        <div>
+                            <dt>Weight (kg)</dt>
+                            <dd class="booking-num">@CargoBookingFormat.WeightKg(details.WeightKg)</dd>
                         </div>
-
-                        <div class="booking-field">
-                            <label for="manifest-pol">POL</label>
-                            <input id="manifest-pol"
-                                   maxlength="@PortCodeLength"
-                                   placeholder="e.g. NLRTM"
-                                   title="Five-character UN/LOCODE, e.g. NLRTM"
-                                   autocomplete="off"
-                                   @bind="containerPolInput"
-                                   @bind:event="oninput"
-                                   @bind:after="ScheduleContainerSearchAsync"
-                                   @onblur="ApplyContainerFiltersNowAsync" />
+                        <div>
+                            <dt>Packages</dt>
+                            <dd class="booking-num">@CargoBookingFormat.PackageCount(details.PackageCount)</dd>
                         </div>
+                    </dl>
 
-                        <div class="booking-field">
-                            <label for="manifest-pod">POD</label>
-                            <input id="manifest-pod"
-                                   maxlength="@PortCodeLength"
-                                   placeholder="e.g. USNYC"
-                                   title="Five-character UN/LOCODE, e.g. USNYC"
-                                   autocomplete="off"
-                                   @bind="containerPodInput"
-                                   @bind:event="oninput"
-                                   @bind:after="ScheduleContainerSearchAsync"
-                                   @onblur="ApplyContainerFiltersNowAsync" />
-                        </div>
-
-                        <div class="manifest-filter-reset">
-                            <button type="button"
-                                    class="manifest-reset"
-                                    disabled="@(!HasContainerFilterInput)"
-                                    @onclick="ResetContainerFiltersAsync">Reset</button>
-                        </div>
-                    </div>
-
-                    @if (containerFilterError is not null)
-                    {
-                        <div class="booking-form-error manifest-filter-error" role="alert">@containerFilterError</div>
-                    }
-
-                    <div class="manifest-filter-summary" role="status" aria-live="polite">
-                        @if (containerFilterHint is not null && containerFilterError is null)
+                    <ol class="booking-lifecycle" aria-label="Shipment progress">
+                        @for (var step = 0; step < CargoBookingFormat.Statuses.Count; step++)
                         {
-                            <span class="manifest-filter-hint">
-                                <span class="bi bi-info-circle" aria-hidden="true"></span>
-                                @containerFilterHint
+                            var stage = CargoBookingFormat.Statuses[step];
+                            var reached = step < CargoBookingFormat.LifecycleStep(details.Status);
+                            <li class="@(reached ? "is-reached" : null)" aria-current="@(stage == details.Status ? "step" : null)">
+                                <span class="booking-stage-dot" aria-hidden="true">@(step + 1)</span>
+                                <span>@(stage == "InTransit" ? "In transit" : stage)</span>
+                            </li>
+                        }
+                    </ol>
+                </article>
+            </section>
+        </div>
+
+        @if (details.IsHazardous)
+        {
+            <div role="tabpanel" id="@TabPanelId(SafetyTab)" aria-labelledby="@TabButtonId(SafetyTab)" class="booking-tab-panel" hidden="@(activeTab != SafetyTab)">
+                <section class="booking-grid">
+                    <article class="booking-card" aria-labelledby="booking-hazard-title">
+                        <div class="booking-card-heading">
+                            <div><p class="booking-section-eyebrow">Safety & handling</p><h2 id="booking-hazard-title">Hazardous cargo</h2></div>
+                            <span class="cargo-hazard-chip">
+                                <span class="cargo-placard" aria-hidden="true"></span>
+                                @CargoBookingFormat.HazardousLabel
                             </span>
-                        }
-                        else if (isLoadingContainers)
-                        {
-                            <span class="manifest-searching">Searching the manifest...</span>
-                        }
-                        else if (IsContainerFilterActive && containersFailure is null)
-                        {
-                            <span class="manifest-results">@containerMatchingCount of @containerTotalCount containers match</span>
-                        }
-
-                        @if (IsContainerFilterActive)
-                        {
-                            <ul class="manifest-active-filters" aria-label="Active filters">
-                                @foreach (var activeFilter in ActiveContainerFilters)
-                                {
-                                    <li class="manifest-active-filter"><span>@activeFilter.Label</span> @activeFilter.Value</li>
-                                }
-                            </ul>
-                        }
-                    </div>
-
-                    <div class="manifest-outputs" aria-label="Export or print the matching containers">
-                        <button type="button"
-                                class="manifest-output-button manifest-export"
-                                disabled="@(!CanProduceManifestOutput || isExportingManifest)"
-                                aria-describedby="@(ManifestOutputExceedsLimit ? "manifest-output-limit" : null)"
-                                @onclick="ExportManifestCsvAsync">
-                            <span class="bi bi-download" aria-hidden="true"></span>
-                            @(isExportingManifest ? "Generating CSV..." : "Export CSV")
-                        </button>
-                        @if (CanProduceManifestOutput)
-                        {
-                            <a class="manifest-output-button manifest-print" href="@ManifestPrintHref">
-                                <span class="bi bi-printer" aria-hidden="true"></span>
-                                Print matching containers
-                            </a>
-                        }
-                        else
-                        {
-                            <button type="button"
-                                    class="manifest-output-button manifest-print"
-                                    disabled
-                                    aria-describedby="@(ManifestOutputExceedsLimit ? "manifest-output-limit" : null)">
-                                <span class="bi bi-printer" aria-hidden="true"></span>
-                                Print matching containers
-                            </button>
-                        }
-                        <span class="manifest-output-scope">
-                            @(IsContainerFilterActive ? "Uses the applied filters, every page." : "Includes the whole manifest.")
-                        </span>
-                    </div>
-
-                    @if (ManifestOutputExceedsLimit)
-                    {
-                        <p class="manifest-output-note" id="manifest-output-limit">
-                            @ManifestOutputLimitMessage
-                        </p>
-                    }
-
-                    @if (manifestExportError is not null)
-                    {
-                        <div class="booking-form-error manifest-output-error" role="alert">
-                            <span>@manifestExportError</span>
-                            <button type="button" class="manifest-output-retry" disabled="@isExportingManifest" @onclick="ExportManifestCsvAsync">Retry</button>
                         </div>
-                    }
-                    else if (manifestExportNotice is not null)
-                    {
-                        <p class="manifest-output-notice" role="status">@manifestExportNotice</p>
-                    }
-                </section>
-                }
 
-                @if (containersFailure is { IsValidation: true } validationFailure)
+                        <CargoSafetyPanel BookingId="BookingId"
+                                          IsHazardous="details.IsHazardous"
+                                          OnChanged="LoadAsync" />
+                    </article>
+                </section>
+            </div>
+        }
+
+        <div role="tabpanel" id="@TabPanelId(ManifestTab)" aria-labelledby="@TabButtonId(ManifestTab)" class="booking-tab-panel" hidden="@(activeTab != ManifestTab)">
+            <section class="booking-card booking-manifest-card" aria-labelledby="booking-manifest-title">
+                <div class="booking-card-heading">
+                    <div><p class="booking-section-eyebrow">Cargo inventory</p><h2 id="booking-manifest-title">Container manifest</h2></div>
+                    <span class="booking-count manifest-progress">@LoadedContainerCount of @containerTotalCount loaded</span>
+                </div>
+
+                <div class="manifest-bar"
+                     role="img"
+                              aria-label="@($"{LoadedContainerCount} of {containerTotalCount} containers loaded")">
+                    <span style="width:@(LoadedPercent)%"></span>
+                </div>
+
+                @if (!hasLoadedContainers && isLoadingContainers)
                 {
-                    <div class="booking-form-error manifest-filter-error" role="alert">
-                        @(validationFailure.Errors.Count > 0
-                            ? string.Join(" ", validationFailure.Errors.SelectMany(error => error.Value))
-                            : validationFailure.Title)
-                    </div>
+                    <LoadingState Message="Loading the container manifest..." />
                 }
-                else if (containersFailure is not null)
+                else if (!hasLoadedContainers && containersFailure is { IsValidation: false })
                 {
                     <ApiErrorState Title="@containersFailure.Title"
                                    Message="@containersFailure.Message"
                                    OnRetry="LoadContainersAsync" />
                 }
-                else if (containerTotalCount > 0 && containerMatchingCount == 0)
+                else
                 {
-                    <div class="manifest-no-match">
-                        <EmptyState Title="No containers match these filters"
-                                    Message="@($"None of the {containerTotalCount} containers on this booking match. Change or reset the filters to see the rest of the manifest.")" />
-                    </div>
-                }
-                else if (containerTotalCount > 0)
-                {
-                <div class="booking-table-scroll" aria-busy="@(isLoadingContainers ? "true" : "false")">
-                    <table class="booking-table manifest-table">
-                        <caption class="visually-hidden">Containers on this booking, ordered by container number</caption>
-                        <thead>
-                            <tr>
-                                <th scope="col">Container</th>
-                                <th scope="col">Type</th>
-                                <th scope="col">POL</th>
-                                <th scope="col">POD</th>
-                                <th scope="col">Weight (kg)</th>
-                                <th scope="col">Status</th>
-                                <th scope="col">Control</th>
-                                <th scope="col">Vessel</th>
-                                <th scope="col"><span class="visually-hidden">Actions</span></th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            @foreach (var container in containers)
+                    @if (IsBookingClosed && CanManageCargo)
+                    {
+                        <p class="booking-note booking-note-warning" role="status">
+                            This booking is completed, so its manifest can no longer change.
+                        </p>
+                    }
+
+                    @if (hasLoadedContainers && containerTotalCount == 0 && !CanAddContainers)
+                    {
+                        <EmptyState Title="No containers on the manifest"
+                                    Message="Containers added here are the ones a load or unload operation settles." />
+                    }
+                    else
+                    {
+
+                    @if (hasLoadedContainers && containerTotalCount == 0)
+                    {
+                        <p class="booking-note">No containers yet. Add the first one using the form below.</p>
+                    }
+
+                    @if (CanAddContainers)
+                    {
+                        <section class="manifest-import" aria-label="Import container manifest">
+                            <div class="booking-card-heading">
+                                <h3>Import manifest</h3>
+                                <span class="manifest-template-links">
+                                    <a class="manifest-template-link" href="/cargo/container-manifest-template?format=xlsx">
+                                        <span class="bi bi-file-earmark-spreadsheet" aria-hidden="true"></span>Excel template
+                                    </a>
+                                    <a class="manifest-template-link" href="/cargo/container-manifest-template?format=xml">
+                                        <span class="bi bi-file-earmark-code" aria-hidden="true"></span>XML template
+                                    </a>
+                                </span>
+                            </div>
+                            <div class="manifest-file-picker">
+                                <InputFile id="manifest-file-input" class="manifest-file-native-input" OnChange="SelectManifestFile" accept=".xlsx,.xml" />
+                                <label class="manifest-file-picker-button" for="manifest-file-input">
+                                    <span class="bi bi-upload" aria-hidden="true"></span>
+                                    Choose manifest file
+                                </label>
+                                <span class="manifest-file-picker-name">@(manifestFile?.Name ?? "No file selected — .xlsx or .xml")</span>
+                            </div>
+                            @if (manifestFile is not null)
                             {
-                                <tr class="manifest-row" @key="container.ContainerId">
-                                    <td><code class="manifest-number">@container.ContainerNumber</code></td>
-                                    <td>@container.ContainerType</td>
-                                    <td>@(container.PortOfLoadingCode ?? "—")</td>
-                                    <td>@(container.PortOfDischargeCode ?? "—")</td>
-                                    <td>@(container.WeightKg?.ToString("N3") ?? "—")</td>
-                                    <td>
-                                        <span class="cargo-status @CargoBookingFormat.StatusModifier(container.Status)">@container.Status</span>
-                                    </td>
-                                    <td class="manifest-control">
-                                        <span class="@CargoBookingFormat.ControlStateClass(ControlStateFor(container.ContainerId))">
-                                            @CargoBookingFormat.ControlStateLabel(ControlStateFor(container.ContainerId))
-                                        </span>
-                                        <button type="button"
-                                                class="manifest-control-open"
-                                                @onclick="() => ToggleControl(container.ContainerId)">
-                                            @(selectedControlContainerId == container.ContainerId ? "Hide control" : "Open control")
-                                        </button>
-                                    </td>
-                                    <td class="manifest-vessel">
-                                        @(container.VesselId is { } vesselId
-                                            ? CargoBookingFormat.ShortVoyage(vesselId)
-                                            : "Not assigned")
-                                    </td>
-                                    <td>
-                                        @if (CanEdit(container))
-                                        {
-                                            <button type="button" class="manifest-control-open" @onclick="() => BeginContainerEdit(container)">Edit</button>
-                                        }
-                                    </td>
-                                </tr>
+                                <p class="booking-note">@manifestFile.Name (@manifestFile.Size bytes)</p>
+                                <button class="booking-submit" type="button" @onclick="PreviewManifestAsync" disabled="@isPreviewingManifest">@(isPreviewingManifest ? "Previewing..." : "Preview manifest")</button>
                             }
-                        </tbody>
-                    </table>
-                </div>
-
-                @if (containerMatchingCount > ContainersPerPage)
-                {
-                    <nav class="manifest-pagination" aria-label="Container manifest pages">
-                        <span>Showing @FirstContainerRowNumber–@LastContainerRowNumber of @containerMatchingCount @(IsContainerFilterActive ? "matching containers" : "containers")</span>
-                        <div>
-                            <button type="button" class="booking-pagination-button" disabled="@(containerPageNumber == 1 || isLoadingContainers)" @onclick="() => ChangeContainerPageAsync(containerPageNumber - 1)">Previous</button>
-                            <span aria-current="page">Page @containerPageNumber of @ContainerPageCount</span>
-                            <button type="button" class="booking-pagination-button" disabled="@(containerPageNumber == ContainerPageCount || isLoadingContainers)" @onclick="() => ChangeContainerPageAsync(containerPageNumber + 1)">Next</button>
-                        </div>
-                    </nav>
-                }
-                }
-
-                }
-            }
-        </section>
-
-        <section class="booking-card booking-bills-card" aria-labelledby="bills-title">
-            <CargoBillsOfLadingPanel BookingId="BookingId"
-                                     OnChanged="RefreshAfterControlChangeAsync" />
-        </section>
-
-        <CargoDiscrepanciesPanel @ref="discrepanciesPanel"
-                                 BookingId="BookingId"
-                                 BookingStatus="@details.Status"
-                                 OnOpenContainer="OpenDiscrepancyContainer"
-                                 OnChanged="HandleDiscrepanciesChanged" />
-
-        <section class="booking-card booking-operations-card" aria-labelledby="booking-operations-title">
-            <div class="booking-card-heading">
-                <div><p class="booking-section-eyebrow">Cargo execution</p><h2 id="booking-operations-title">Load and unload operations</h2></div>
-                <span class="booking-count">@PlannedOperationCount planned</span>
-            </div>
-
-            <p class="booking-note operations-effect @(containerTotalCount == 0 ? "booking-note-warning" : null)" role="status">
-                @(containerTotalCount == 0
-                    ? "Add at least one container to the manifest before an operation can be completed."
-                    : $"Completing an operation settles all {containerTotalCount} containers on this manifest.")
-            </p>
-
-            @if (isLoadingOperations)
-            {
-                <LoadingState Message="Loading the cargo operations..." />
-            }
-            else if (operationsFailure is not null)
-            {
-                <ApiErrorState Title="@operationsFailure.Title"
-                               Message="@operationsFailure.Message"
-                               OnRetry="LoadOperationsAsync" />
-            }
-            else
-            {
-                @if (CanManageCargo && !IsBookingClosed)
-                {
-                    <div class="operations-plan">
-                        <button type="button"
-                                class="booking-submit operations-plan-toggle"
-                                aria-expanded="@(isPlanFormOpen ? "true" : "false")"
-                                @onclick="TogglePlanForm">
-                            <span class="bi @(isPlanFormOpen ? "bi-dash-lg" : "bi-plus-lg")" aria-hidden="true"></span>
-                            @(isPlanFormOpen ? "Cancel" : "Plan operation")
-                        </button>
-
-                        @if (isPlanFormOpen)
-                        {
-                            <EditForm class="operations-plan-form" EditContext="operationEditContext" OnValidSubmit="SubmitOperationAsync">
-                                <DataAnnotationsValidator />
-
-                                @if (operationError is not null)
+                            @if (manifestImportFailure is not null) { <div class="booking-form-error" role="alert">@manifestImportFailure.Message</div> }
+                            @if (manifestPreview is not null)
+                            {
+                                <p class="booking-note">@manifestPreview.ValidCount valid, @manifestPreview.InvalidCount invalid, @manifestPreview.TotalCount total rows.</p>
+                                @if (manifestPreview.InvalidCount > 0)
                                 {
-                                    <div class="booking-form-error" role="alert">@operationError</div>
+                                    <ul class="booking-form-error" role="alert">@foreach (var row in manifestPreview.Rows.Where(row => row.Errors.Count > 0)) { <li>Row @row.RowNumber: @string.Join(" ", row.Errors.SelectMany(error => error.Value))</li> }</ul>
                                 }
+                                else { <button class="booking-submit" type="button" @onclick="ImportManifestAsync" disabled="@isImportingManifest">@(isImportingManifest ? "Importing..." : "Confirm import")</button> }
+                            }
+                        </section>
+                        <EditForm class="manifest-add-form" EditContext="containerEditContext" OnValidSubmit="SubmitContainerAsync">
+                            <DataAnnotationsValidator />
 
-                                <div class="booking-form-grid">
-                                    <div class="booking-field">
-                                        <label for="operation-type">Operation type</label>
-                                        <InputSelect id="operation-type" @bind-Value="operationModel.OperationType">
-                                            <option value="Load">Load</option>
-                                            <option value="Unload">Unload</option>
-                                        </InputSelect>
-                                        <ValidationMessage For="() => operationModel.OperationType" />
-                                    </div>
+                            @if (containerError is not null)
+                            {
+                                <div class="booking-form-error" role="alert">@containerError</div>
+                            }
 
-                                    <div class="booking-field">
-                                        <label for="operation-planned">Planned (UTC)</label>
-                                        <InputDate id="operation-planned"
-                                                   Type="InputDateType.DateTimeLocal"
-                                                   @bind-Value="operationModel.PlannedAtUtc" />
-                                        <ValidationMessage For="() => operationModel.PlannedAtUtc" />
-                                    </div>
+                            <div class="manifest-add-layout">
+                                <div class="booking-field">
+                                    <label for="container-number">Container number</label>
+                                    <InputText id="container-number"
+                                               placeholder="MSKU1234567"
+                                               @ref="containerNumberInput"
+                                               @bind-Value="containerModel.ContainerNumber" />
+                                    <ValidationMessage For="() => containerModel.ContainerNumber" />
                                 </div>
 
-                                <div class="booking-form-actions">
-                                    <button class="booking-submit operation-submit" type="submit" disabled="@isPlanningOperation">
-                                        @(isPlanningOperation ? "Planning..." : "Plan operation")
+                                <div class="booking-field">
+                                    <label for="container-pol">POL</label>
+                                    <InputText id="container-pol" placeholder="NLRTM" @bind-Value="containerModel.PortOfLoadingCode" />
+                                    <ValidationMessage For="() => containerModel.PortOfLoadingCode" />
+                                </div>
+
+                                <div class="booking-field">
+                                    <label for="container-pod">POD</label>
+                                    <InputText id="container-pod" placeholder="USNYC" @bind-Value="containerModel.PortOfDischargeCode" />
+                                    <ValidationMessage For="() => containerModel.PortOfDischargeCode" />
+                                </div>
+
+                                <div class="booking-field">
+                                    <label for="container-weight">Weight (kg)</label>
+                                    <InputNumber id="container-weight" @bind-Value="containerModel.WeightKg" />
+                                    <ValidationMessage For="() => containerModel.WeightKg" />
+                                </div>
+
+                                <div class="booking-field">
+                                    <label for="container-type">Container type</label>
+                                    <InputSelect id="container-type" @bind-Value="containerModel.ContainerType">
+                                        <option value="">Select container type...</option>
+                                        @foreach (var containerType in StandardContainerTypes)
+                                        {
+                                            <option value="@containerType.Code">@containerType.Label</option>
+                                        }
+                                    </InputSelect>
+                                    <ValidationMessage For="() => containerModel.ContainerType" />
+                                </div>
+
+                                <div class="booking-form-actions manifest-add-action">
+                                    <button class="booking-submit container-submit" type="submit" disabled="@isAddingContainer">
+                                        <span class="bi bi-plus-lg" aria-hidden="true"></span>
+                                        @(isAddingContainer ? "Adding..." : "Add container")
                                     </button>
                                 </div>
-                            </EditForm>
+                            </div>
+                        </EditForm>
+                    }
+
+                    @if (containerTotalCount > 0 || IsContainerFilterActive)
+                    {
+                    <section class="manifest-filters" aria-label="Filter the container manifest">
+                        <div class="manifest-filter-layout">
+                            <div class="booking-field manifest-filter-search">
+                                <label for="manifest-search">Search container number</label>
+                                <input id="manifest-search"
+                                       type="search"
+                                       maxlength="@ContainerSearchMaxLength"
+                                       placeholder="e.g. MSKU123"
+                                       autocomplete="off"
+                                       @bind="containerSearchInput"
+                                       @bind:event="oninput"
+                                       @bind:after="ScheduleContainerSearchAsync" />
+                            </div>
+
+                            <div class="booking-field">
+                                <label for="manifest-status">Status</label>
+                                <select id="manifest-status" @bind="containerStatusInput" @bind:after="ApplyContainerFiltersNowAsync">
+                                    <option value="">All statuses</option>
+                                    @foreach (var statusOption in ContainerStatusOptions)
+                                    {
+                                        <option value="@statusOption">@statusOption</option>
+                                    }
+                                </select>
+                            </div>
+
+                            <div class="booking-field">
+                                <label for="manifest-type">Container type</label>
+                                <select id="manifest-type" @bind="containerTypeInput" @bind:after="ApplyContainerFiltersNowAsync">
+                                    <option value="">All types</option>
+                                    @foreach (var containerType in FilterContainerTypes)
+                                    {
+                                        <option value="@containerType.Code">@containerType.Label</option>
+                                    }
+                                </select>
+                            </div>
+
+                            <div class="booking-field">
+                                <label for="manifest-pol">POL</label>
+                                <input id="manifest-pol"
+                                       maxlength="@PortCodeLength"
+                                       placeholder="e.g. NLRTM"
+                                       title="Five-character UN/LOCODE, e.g. NLRTM"
+                                       autocomplete="off"
+                                       @bind="containerPolInput"
+                                       @bind:event="oninput"
+                                       @bind:after="ScheduleContainerSearchAsync"
+                                       @onblur="ApplyContainerFiltersNowAsync" />
+                            </div>
+
+                            <div class="booking-field">
+                                <label for="manifest-pod">POD</label>
+                                <input id="manifest-pod"
+                                       maxlength="@PortCodeLength"
+                                       placeholder="e.g. USNYC"
+                                       title="Five-character UN/LOCODE, e.g. USNYC"
+                                       autocomplete="off"
+                                       @bind="containerPodInput"
+                                       @bind:event="oninput"
+                                       @bind:after="ScheduleContainerSearchAsync"
+                                       @onblur="ApplyContainerFiltersNowAsync" />
+                            </div>
+
+                            <div class="manifest-filter-reset">
+                                <button type="button"
+                                        class="manifest-reset"
+                                        disabled="@(!HasContainerFilterInput)"
+                                        @onclick="ResetContainerFiltersAsync">Reset</button>
+                            </div>
+                        </div>
+
+                        @if (containerFilterError is not null)
+                        {
+                            <div class="booking-form-error manifest-filter-error" role="alert">@containerFilterError</div>
                         }
+
+                        <div class="manifest-filter-summary" role="status" aria-live="polite">
+                            @if (containerFilterHint is not null && containerFilterError is null)
+                            {
+                                <span class="manifest-filter-hint">
+                                    <span class="bi bi-info-circle" aria-hidden="true"></span>
+                                    @containerFilterHint
+                                </span>
+                            }
+                            else if (isLoadingContainers)
+                            {
+                                <span class="manifest-searching">Searching the manifest...</span>
+                            }
+                            else if (IsContainerFilterActive && containersFailure is null)
+                            {
+                                <span class="manifest-results">@containerMatchingCount of @containerTotalCount containers match</span>
+                            }
+
+                            @if (IsContainerFilterActive)
+                            {
+                                <ul class="manifest-active-filters" aria-label="Active filters">
+                                    @foreach (var activeFilter in ActiveContainerFilters)
+                                    {
+                                        <li class="manifest-active-filter"><span>@activeFilter.Label</span> @activeFilter.Value</li>
+                                    }
+                                </ul>
+                            }
+                        </div>
+
+                        <div class="manifest-outputs" aria-label="Export or print the matching containers">
+                            <button type="button"
+                                    class="manifest-output-button manifest-export"
+                                    disabled="@(!CanProduceManifestOutput || isExportingManifest)"
+                                    aria-describedby="@(ManifestOutputExceedsLimit ? "manifest-output-limit" : null)"
+                                    @onclick="ExportManifestCsvAsync">
+                                <span class="bi bi-download" aria-hidden="true"></span>
+                                @(isExportingManifest ? "Generating CSV..." : "Export CSV")
+                            </button>
+                            @if (CanProduceManifestOutput)
+                            {
+                                <a class="manifest-output-button manifest-print" href="@ManifestPrintHref">
+                                    <span class="bi bi-printer" aria-hidden="true"></span>
+                                    Print matching containers
+                                </a>
+                            }
+                            else
+                            {
+                                <button type="button"
+                                        class="manifest-output-button manifest-print"
+                                        disabled
+                                        aria-describedby="@(ManifestOutputExceedsLimit ? "manifest-output-limit" : null)">
+                                    <span class="bi bi-printer" aria-hidden="true"></span>
+                                    Print matching containers
+                                </button>
+                            }
+                            <span class="manifest-output-scope">
+                                @(IsContainerFilterActive ? "Uses the applied filters, every page." : "Includes the whole manifest.")
+                            </span>
+                        </div>
+
+                        @if (ManifestOutputExceedsLimit)
+                        {
+                            <p class="manifest-output-note" id="manifest-output-limit">
+                                @ManifestOutputLimitMessage
+                            </p>
+                        }
+
+                        @if (manifestExportError is not null)
+                        {
+                            <div class="booking-form-error manifest-output-error" role="alert">
+                                <span>@manifestExportError</span>
+                                <button type="button" class="manifest-output-retry" disabled="@isExportingManifest" @onclick="ExportManifestCsvAsync">Retry</button>
+                            </div>
+                        }
+                        else if (manifestExportNotice is not null)
+                        {
+                            <p class="manifest-output-notice" role="status">@manifestExportNotice</p>
+                        }
+                    </section>
+                    }
+
+                    @if (containersFailure is { IsValidation: true } validationFailure)
+                    {
+                        <div class="booking-form-error manifest-filter-error" role="alert">
+                            @(validationFailure.Errors.Count > 0
+                                ? string.Join(" ", validationFailure.Errors.SelectMany(error => error.Value))
+                                : validationFailure.Title)
+                        </div>
+                    }
+                    else if (containersFailure is not null)
+                    {
+                        <ApiErrorState Title="@containersFailure.Title"
+                                       Message="@containersFailure.Message"
+                                       OnRetry="LoadContainersAsync" />
+                    }
+                    else if (containerTotalCount > 0 && containerMatchingCount == 0)
+                    {
+                        <div class="manifest-no-match">
+                            <EmptyState Title="No containers match these filters"
+                                        Message="@($"None of the {containerTotalCount} containers on this booking match. Change or reset the filters to see the rest of the manifest.")" />
+                        </div>
+                    }
+                    else if (containerTotalCount > 0)
+                    {
+                    <div class="booking-table-scroll" aria-busy="@(isLoadingContainers ? "true" : "false")">
+                        <table class="booking-table manifest-table">
+                            <caption class="visually-hidden">Containers on this booking, ordered by container number</caption>
+                            <thead>
+                                <tr>
+                                    <th scope="col">Container</th>
+                                    <th scope="col">Type</th>
+                                    <th scope="col">POL</th>
+                                    <th scope="col">POD</th>
+                                    <th scope="col">Weight (kg)</th>
+                                    <th scope="col">Status</th>
+                                    <th scope="col">Control</th>
+                                    <th scope="col">Vessel</th>
+                                    <th scope="col"><span class="visually-hidden">Actions</span></th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var container in containers)
+                                {
+                                    <tr class="manifest-row" @key="container.ContainerId">
+                                        <td><code class="manifest-number">@container.ContainerNumber</code></td>
+                                        <td>@container.ContainerType</td>
+                                        <td>@(container.PortOfLoadingCode ?? "—")</td>
+                                        <td>@(container.PortOfDischargeCode ?? "—")</td>
+                                        <td>@(container.WeightKg?.ToString("N3") ?? "—")</td>
+                                        <td>
+                                            <span class="cargo-status @CargoBookingFormat.StatusModifier(container.Status)">@container.Status</span>
+                                        </td>
+                                        <td class="manifest-control">
+                                            <span class="@CargoBookingFormat.ControlStateClass(ControlStateFor(container.ContainerId))">
+                                                @CargoBookingFormat.ControlStateLabel(ControlStateFor(container.ContainerId))
+                                            </span>
+                                            <button type="button"
+                                                    class="manifest-control-open"
+                                                    @onclick="() => ToggleControl(container.ContainerId)">
+                                                @(selectedControlContainerId == container.ContainerId ? "Hide control" : "Open control")
+                                            </button>
+                                        </td>
+                                        <td class="manifest-vessel">
+                                            @(container.VesselId is { } vesselId
+                                                ? CargoBookingFormat.ShortVoyage(vesselId)
+                                                : "Not assigned")
+                                        </td>
+                                        <td>
+                                            @if (CanEdit(container))
+                                            {
+                                                <button type="button" class="manifest-control-open" @onclick="() => BeginContainerEdit(container)">Edit</button>
+                                            }
+                                        </td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
                     </div>
+
+                    @if (containerMatchingCount > ContainersPerPage)
+                    {
+                        <nav class="manifest-pagination" aria-label="Container manifest pages">
+                            <span>Showing @FirstContainerRowNumber–@LastContainerRowNumber of @containerMatchingCount @(IsContainerFilterActive ? "matching containers" : "containers")</span>
+                            <div>
+                                <button type="button" class="booking-pagination-button" disabled="@(containerPageNumber == 1 || isLoadingContainers)" @onclick="() => ChangeContainerPageAsync(containerPageNumber - 1)">Previous</button>
+                                <span aria-current="page">Page @containerPageNumber of @ContainerPageCount</span>
+                                <button type="button" class="booking-pagination-button" disabled="@(containerPageNumber == ContainerPageCount || isLoadingContainers)" @onclick="() => ChangeContainerPageAsync(containerPageNumber + 1)">Next</button>
+                            </div>
+                        </nav>
+                    }
+                    }
+
+                    }
+                }
+            </section>
+
+        </div>
+
+        <div role="tabpanel" id="@TabPanelId(BillsTab)" aria-labelledby="@TabButtonId(BillsTab)" class="booking-tab-panel" hidden="@(activeTab != BillsTab)">
+            <section class="booking-card booking-bills-card" aria-labelledby="bills-title">
+                <CargoBillsOfLadingPanel BookingId="BookingId"
+                                         OnChanged="RefreshAfterControlChangeAsync"
+                                         OnCountChanged="count => billCount = count" />
+            </section>
+        </div>
+
+        <div role="tabpanel" id="@TabPanelId(DiscrepanciesTab)" aria-labelledby="@TabButtonId(DiscrepanciesTab)" class="booking-tab-panel" hidden="@(activeTab != DiscrepanciesTab)">
+            <CargoDiscrepanciesPanel @ref="discrepanciesPanel"
+                                     BookingId="BookingId"
+                                     BookingStatus="@details.Status"
+                                     OnOpenContainer="OpenDiscrepancyContainer"
+                                     OnChanged="HandleDiscrepanciesChanged"
+                                     OnOpenCountChanged="count => openDiscrepancyCount = count" />
+        </div>
+
+        <div role="tabpanel" id="@TabPanelId(OperationsTab)" aria-labelledby="@TabButtonId(OperationsTab)" class="booking-tab-panel" hidden="@(activeTab != OperationsTab)">
+            <section class="booking-card booking-operations-card" aria-labelledby="booking-operations-title">
+                <div class="booking-card-heading">
+                    <div><p class="booking-section-eyebrow">Cargo execution</p><h2 id="booking-operations-title">Load and unload operations</h2></div>
+                    <span class="booking-count">@PlannedOperationCount planned</span>
+                </div>
+
+                <p class="booking-note operations-effect @(containerTotalCount == 0 ? "booking-note-warning" : null)" role="status">
+                    @(containerTotalCount == 0
+                        ? "Add at least one container to the manifest before an operation can be completed."
+                        : $"Completing an operation settles all {containerTotalCount} containers on this manifest.")
+                </p>
+
+                @if (isLoadingOperations)
+                {
+                    <LoadingState Message="Loading the cargo operations..." />
+                }
+                else if (operationsFailure is not null)
+                {
+                    <ApiErrorState Title="@operationsFailure.Title"
+                                   Message="@operationsFailure.Message"
+                                   OnRetry="LoadOperationsAsync" />
+                }
+                else
+                {
+                    @if (CanManageCargo && !IsBookingClosed)
+                    {
+                        <div class="operations-plan">
+                            <button type="button"
+                                    class="booking-submit operations-plan-toggle"
+                                    aria-expanded="@(isPlanFormOpen ? "true" : "false")"
+                                    @onclick="TogglePlanForm">
+                                <span class="bi @(isPlanFormOpen ? "bi-dash-lg" : "bi-plus-lg")" aria-hidden="true"></span>
+                                @(isPlanFormOpen ? "Cancel" : "Plan operation")
+                            </button>
+
+                            @if (isPlanFormOpen)
+                            {
+                                <EditForm class="operations-plan-form" EditContext="operationEditContext" OnValidSubmit="SubmitOperationAsync">
+                                    <DataAnnotationsValidator />
+
+                                    @if (operationError is not null)
+                                    {
+                                        <div class="booking-form-error" role="alert">@operationError</div>
+                                    }
+
+                                    <div class="booking-form-grid">
+                                        <div class="booking-field">
+                                            <label for="operation-type">Operation type</label>
+                                            <InputSelect id="operation-type" @bind-Value="operationModel.OperationType">
+                                                <option value="Load">Load</option>
+                                                <option value="Unload">Unload</option>
+                                            </InputSelect>
+                                            <ValidationMessage For="() => operationModel.OperationType" />
+                                        </div>
+
+                                        <div class="booking-field">
+                                            <label for="operation-planned">Planned (UTC)</label>
+                                            <InputDate id="operation-planned"
+                                                       Type="InputDateType.DateTimeLocal"
+                                                       @bind-Value="operationModel.PlannedAtUtc" />
+                                            <ValidationMessage For="() => operationModel.PlannedAtUtc" />
+                                        </div>
+                                    </div>
+
+                                    <div class="booking-form-actions">
+                                        <button class="booking-submit operation-submit" type="submit" disabled="@isPlanningOperation">
+                                            @(isPlanningOperation ? "Planning..." : "Plan operation")
+                                        </button>
+                                    </div>
+                                </EditForm>
+                            }
+                        </div>
+                    }
+
+                    @if (transitionError is not null && pendingOperation is null)
+                    {
+                        <div class="booking-form-error" role="alert">@transitionError</div>
+                    }
+
+                    @if (operations.Count == 0)
+                    {
+                        <EmptyState Title="No operations planned"
+                                    Message="Plan a load or unload operation to record execution against this booking." />
+                    }
+                    else
+                    {
+                        <div class="booking-table-scroll">
+                            <table class="booking-table operations-table">
+                                <caption class="visually-hidden">Operations in the order they are planned</caption>
+                                <thead>
+                                    <tr>
+                                        <th scope="col">Operation</th>
+                                        <th scope="col">State</th>
+                                        <th scope="col">Planned (UTC)</th>
+                                        <th scope="col">Started / finished (UTC)</th>
+                                        <th scope="col">Responsible</th>
+                                        @if (CanManageCargo)
+                                        {
+                                            <th scope="col">Action</th>
+                                        }
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach (var operation in operations)
+                                    {
+                                        <tr class="operation-row" @key="operation.OperationId">
+                                            <td>@operation.OperationType</td>
+                                            <td>
+                                                <span class="operation-state @CargoBookingFormat.OperationStateModifier(operation.OperationState)">
+                                                    @operation.OperationState
+                                                </span>
+                                            </td>
+                                            <td class="booking-event-stamp">
+                                                <span>@CargoBookingFormat.CreatedUtcDate(operation.PlannedAtUtc)</span>
+                                                <span class="booking-event-time">@CargoBookingFormat.CreatedUtcTime(operation.PlannedAtUtc)</span>
+                                            </td>
+                                            <td class="operation-stamps">
+                                                <span>@(operation.StartedAtUtc is { } startedAtUtc ? CargoBookingFormat.CreatedUtc(startedAtUtc) : "Not started")</span>
+                                                <span class="booking-event-time">@(operation.FinishedAtUtc is { } finishedAtUtc ? CargoBookingFormat.CreatedUtc(finishedAtUtc) : "Not finished")</span>
+                                            </td>
+                                            <td class="booking-event-actor" title="@operation.ResponsibleUserId">
+                                                @CargoBookingFormat.ShortUser(operation.ResponsibleUserId)
+                                            </td>
+                                            @if (CanManageCargo)
+                                            {
+                                                <td class="operation-actions">
+                                                    @if (operation.OperationState == "Planned")
+                                                    {
+                                                        <button type="button"
+                                                                class="booking-submit operation-start"
+                                                                @onclick="() => AskToConfirm(operation, StartAction)">Start</button>
+                                                    }
+                                                    else if (operation.OperationState == "InProgress")
+                                                    {
+                                                        <button type="button"
+                                                                class="booking-submit operation-complete"
+                                                                disabled="@(containerTotalCount == 0)"
+                                                                @onclick="() => AskToConfirm(operation, CompleteAction)">Complete</button>
+                                                    }
+                                                    else
+                                                    {
+                                                        <span class="operation-settled">Settled</span>
+                                                    }
+                                                </td>
+                                            }
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
+                    }
+                }
+            </section>
+
+            @if (pendingOperation is { } confirming && pendingAction is { } confirmingAction)
+            {
+                <div class="operation-modal-backdrop" @onclick="DismissConfirmation">
+                    <section class="operation-modal"
+                             role="alertdialog"
+                             aria-modal="true"
+                             aria-labelledby="operation-confirm-title"
+                             @onclick:stopPropagation="true">
+                        <div class="operation-modal-header">
+                            <h2 id="operation-confirm-title">Confirm</h2>
+                            <button type="button"
+                                    class="operation-modal-close"
+                                    aria-label="Close confirmation dialog"
+                                    disabled="@isTransitioning"
+                                    @onclick="DismissConfirmation">&times;</button>
+                        </div>
+
+                        <p class="operation-confirm-question">@ConfirmationQuestion(confirming, confirmingAction)</p>
+
+                        @if (transitionError is not null)
+                        {
+                            <div class="booking-form-error" role="alert">@transitionError</div>
+                        }
+
+                        <div class="operation-modal-actions">
+                            <button type="button"
+                                    class="booking-submit operation-confirm"
+                                    disabled="@isTransitioning"
+                                    @onclick="ConfirmPendingActionAsync">
+                                @(isTransitioning ? "Working..." : "Yes, continue")
+                            </button>
+                            <button type="button"
+                                    class="operation-confirm-dismiss"
+                                    disabled="@isTransitioning"
+                                    @onclick="DismissConfirmation">Keep as is</button>
+                        </div>
+                    </section>
+                </div>
+            }
+
+        </div>
+
+        <div role="tabpanel" id="@TabPanelId(TrackingTab)" aria-labelledby="@TabButtonId(TrackingTab)" class="booking-tab-panel" hidden="@(activeTab != TrackingTab)">
+            <section class="booking-card booking-tracking-card" aria-labelledby="booking-tracking-title">
+                <div class="booking-card-heading">
+                    <div><p class="booking-section-eyebrow">Shipment activity</p><h2 id="booking-tracking-title">Tracking history</h2></div>
+                    <span class="booking-count">@details.TrackingEvents.Count recorded</span>
+                </div>
+
+                @if (AuthorizationState.CanManageCargo)
+                {
+                    @if (IsBlockedByUnapprovedSafetyInfo)
+                    {
+                        <p class="booking-note booking-note-warning" role="status">
+                            @(details.SafetyInfo is null
+                                ? "Declare the safety information before this hazardous cargo can be loaded."
+                                : "The safety declaration must be approved before this hazardous cargo can be loaded.")
+                        </p>
+                    }
+                    else if (details.NextStatus is { } nextStatus)
+                    {
+                        <EditForm EditContext="trackingEditContext" OnValidSubmit="SubmitTrackingEventAsync">
+                            <DataAnnotationsValidator />
+
+                            @if (trackingError is not null)
+                            {
+                                <div class="booking-form-error" role="alert">@trackingError</div>
+                            }
+
+                            @if (IsCompletionBlocked && completionBlockers is { } blockers)
+                            {
+                                <div class="completion-blockers" role="status">
+                                    <p>
+                                        @blockers.OpenCount unresolved @(blockers.OpenCount == 1 ? "discrepancy blocks" : "discrepancies block") completion
+                                        (@blockers.ReportedCount reported, @blockers.InvestigatingCount under investigation).
+                                        Resolve or void @(blockers.OpenCount == 1 ? "it" : "them") before recording Completed.
+                                    </p>
+                                    <ul>
+                                        @foreach (var blocker in blockers.Discrepancies)
+                                        {
+                                            <li @key="blocker.DiscrepancyId">
+                                                <button type="button"
+                                                        class="completion-blocker-open"
+                                                        @onclick="() => OpenBlockingDiscrepancyAsync(blocker.DiscrepancyId)">
+                                                    @BlockerLabel(blocker)
+                                                </button>
+                                                <span class="completion-blocker-status">@blocker.Status</span>
+                                            </li>
+                                        }
+                                    </ul>
+                                </div>
+                            }
+
+                            <p class="booking-note">Next step for this booking is <strong>@nextStatus</strong>.</p>
+
+                            <div class="booking-form-grid">
+                                <div class="booking-field">
+                                    <label for="tracking-occurred">Occurred (UTC)</label>
+                                    <InputDate id="tracking-occurred"
+                                               Type="InputDateType.DateTimeLocal"
+                                               @bind-Value="trackingModel.OccurredUtc" />
+                                    <ValidationMessage For="() => trackingModel.OccurredUtc" />
+                                </div>
+
+                                <div class="booking-field booking-field-wide">
+                                    <label for="tracking-location">Location</label>
+                                    <InputText id="tracking-location" @bind-Value="trackingModel.Location" />
+                                    <ValidationMessage For="() => trackingModel.Location" />
+                                </div>
+                            </div>
+
+                            <div class="booking-form-actions">
+                                <button class="booking-submit tracking-submit" type="submit" disabled="@(isRecordingTrackingEvent || IsCompletionBlocked)">
+                                    @(isRecordingTrackingEvent ? "Recording..." : $"Record {nextStatus}")
+                                </button>
+                            </div>
+                        </EditForm>
+                    }
+                    else
+                    {
+                        <div class="booking-complete" role="status">
+                            <span class="booking-complete-icon" aria-hidden="true"><span class="bi bi-check-circle-fill"></span></span>
+                            <div>
+                                <p class="booking-complete-title">Lifecycle complete</p>
+                                <p class="booking-complete-note">All tracking steps have been recorded for this booking.</p>
+                            </div>
+                        </div>
+                    }
                 }
 
-                @if (transitionError is not null && pendingOperation is null)
+                @if (details.TrackingEvents.Count == 0)
                 {
-                    <div class="booking-form-error" role="alert">@transitionError</div>
-                }
-
-                @if (operations.Count == 0)
-                {
-                    <EmptyState Title="No operations planned"
-                                Message="Plan a load or unload operation to record execution against this booking." />
+                    <EmptyState Title="No tracking events yet"
+                                Message="Progress is recorded here as the cargo moves through its lifecycle." />
                 }
                 else
                 {
                     <div class="booking-table-scroll">
-                        <table class="booking-table operations-table">
-                            <caption class="visually-hidden">Operations in the order they are planned</caption>
+                        <table class="booking-table">
+                            <caption class="visually-hidden">Tracking events in the order the cargo moved through its lifecycle</caption>
                             <thead>
                                 <tr>
-                                    <th scope="col">Operation</th>
-                                    <th scope="col">State</th>
-                                    <th scope="col">Planned (UTC)</th>
-                                    <th scope="col">Started / finished (UTC)</th>
-                                    <th scope="col">Responsible</th>
-                                    @if (CanManageCargo)
-                                    {
-                                        <th scope="col">Action</th>
-                                    }
+                                    <th scope="col">Status</th>
+                                    <th scope="col">Occurred (UTC)</th>
+                                    <th scope="col">Location</th>
+                                    <th scope="col">Recorded by</th>
                                 </tr>
                             </thead>
                             <tbody>
-                                @foreach (var operation in operations)
+                                @foreach (var trackingEvent in details.TrackingEvents)
                                 {
-                                    <tr class="operation-row" @key="operation.OperationId">
-                                        <td>@operation.OperationType</td>
+                                    <tr class="booking-event-row" @key="trackingEvent.CargoTrackingEventId">
                                         <td>
-                                            <span class="operation-state @CargoBookingFormat.OperationStateModifier(operation.OperationState)">
-                                                @operation.OperationState
-                                            </span>
+                                            <span class="cargo-status @CargoBookingFormat.StatusModifier(trackingEvent.Status)">@trackingEvent.Status</span>
                                         </td>
                                         <td class="booking-event-stamp">
-                                            <span>@CargoBookingFormat.CreatedUtcDate(operation.PlannedAtUtc)</span>
-                                            <span class="booking-event-time">@CargoBookingFormat.CreatedUtcTime(operation.PlannedAtUtc)</span>
+                                            <span>@CargoBookingFormat.CreatedUtcDate(trackingEvent.OccurredUtc)</span>
+                                            <span class="booking-event-time">@CargoBookingFormat.CreatedUtcTime(trackingEvent.OccurredUtc)</span>
                                         </td>
-                                        <td class="operation-stamps">
-                                            <span>@(operation.StartedAtUtc is { } startedAtUtc ? CargoBookingFormat.CreatedUtc(startedAtUtc) : "Not started")</span>
-                                            <span class="booking-event-time">@(operation.FinishedAtUtc is { } finishedAtUtc ? CargoBookingFormat.CreatedUtc(finishedAtUtc) : "Not finished")</span>
+                                        <td>@trackingEvent.Location</td>
+                                        <td class="booking-event-actor" title="@trackingEvent.ResponsibleUserId">
+                                            @CargoBookingFormat.ShortUser(trackingEvent.ResponsibleUserId)
                                         </td>
-                                        <td class="booking-event-actor" title="@operation.ResponsibleUserId">
-                                            @CargoBookingFormat.ShortUser(operation.ResponsibleUserId)
-                                        </td>
-                                        @if (CanManageCargo)
-                                        {
-                                            <td class="operation-actions">
-                                                @if (operation.OperationState == "Planned")
-                                                {
-                                                    <button type="button"
-                                                            class="booking-submit operation-start"
-                                                            @onclick="() => AskToConfirm(operation, StartAction)">Start</button>
-                                                }
-                                                else if (operation.OperationState == "InProgress")
-                                                {
-                                                    <button type="button"
-                                                            class="booking-submit operation-complete"
-                                                            disabled="@(containerTotalCount == 0)"
-                                                            @onclick="() => AskToConfirm(operation, CompleteAction)">Complete</button>
-                                                }
-                                                else
-                                                {
-                                                    <span class="operation-settled">Settled</span>
-                                                }
-                                            </td>
-                                        }
                                     </tr>
                                 }
                             </tbody>
                         </table>
                     </div>
                 }
-            }
-        </section>
-
-        @if (pendingOperation is { } confirming && pendingAction is { } confirmingAction)
-        {
-            <div class="operation-modal-backdrop" @onclick="DismissConfirmation">
-                <section class="operation-modal"
-                         role="alertdialog"
-                         aria-modal="true"
-                         aria-labelledby="operation-confirm-title"
-                         @onclick:stopPropagation="true">
-                    <div class="operation-modal-header">
-                        <h2 id="operation-confirm-title">Confirm</h2>
-                        <button type="button"
-                                class="operation-modal-close"
-                                aria-label="Close confirmation dialog"
-                                disabled="@isTransitioning"
-                                @onclick="DismissConfirmation">&times;</button>
-                    </div>
-
-                    <p class="operation-confirm-question">@ConfirmationQuestion(confirming, confirmingAction)</p>
-
-                    @if (transitionError is not null)
-                    {
-                        <div class="booking-form-error" role="alert">@transitionError</div>
-                    }
-
-                    <div class="operation-modal-actions">
-                        <button type="button"
-                                class="booking-submit operation-confirm"
-                                disabled="@isTransitioning"
-                                @onclick="ConfirmPendingActionAsync">
-                            @(isTransitioning ? "Working..." : "Yes, continue")
-                        </button>
-                        <button type="button"
-                                class="operation-confirm-dismiss"
-                                disabled="@isTransitioning"
-                                @onclick="DismissConfirmation">Keep as is</button>
-                    </div>
-                </section>
-            </div>
-        }
-
-        <section class="booking-card booking-tracking-card" aria-labelledby="booking-tracking-title">
-            <div class="booking-card-heading">
-                <div><p class="booking-section-eyebrow">Shipment activity</p><h2 id="booking-tracking-title">Tracking history</h2></div>
-                <span class="booking-count">@details.TrackingEvents.Count recorded</span>
-            </div>
-
-            @if (AuthorizationState.CanManageCargo)
-            {
-                @if (IsBlockedByUnapprovedSafetyInfo)
-                {
-                    <p class="booking-note booking-note-warning" role="status">
-                        @(details.SafetyInfo is null
-                            ? "Declare the safety information before this hazardous cargo can be loaded."
-                            : "The safety declaration must be approved before this hazardous cargo can be loaded.")
-                    </p>
-                }
-                else if (details.NextStatus is { } nextStatus)
-                {
-                    <EditForm EditContext="trackingEditContext" OnValidSubmit="SubmitTrackingEventAsync">
-                        <DataAnnotationsValidator />
-
-                        @if (trackingError is not null)
-                        {
-                            <div class="booking-form-error" role="alert">@trackingError</div>
-                        }
-
-                        @if (IsCompletionBlocked && completionBlockers is { } blockers)
-                        {
-                            <div class="completion-blockers" role="status">
-                                <p>
-                                    @blockers.OpenCount unresolved @(blockers.OpenCount == 1 ? "discrepancy blocks" : "discrepancies block") completion
-                                    (@blockers.ReportedCount reported, @blockers.InvestigatingCount under investigation).
-                                    Resolve or void @(blockers.OpenCount == 1 ? "it" : "them") before recording Completed.
-                                </p>
-                                <ul>
-                                    @foreach (var blocker in blockers.Discrepancies)
-                                    {
-                                        <li @key="blocker.DiscrepancyId">
-                                            <button type="button"
-                                                    class="completion-blocker-open"
-                                                    @onclick="() => OpenBlockingDiscrepancyAsync(blocker.DiscrepancyId)">
-                                                @BlockerLabel(blocker)
-                                            </button>
-                                            <span class="completion-blocker-status">@blocker.Status</span>
-                                        </li>
-                                    }
-                                </ul>
-                            </div>
-                        }
-
-                        <p class="booking-note">Next step for this booking is <strong>@nextStatus</strong>.</p>
-
-                        <div class="booking-form-grid">
-                            <div class="booking-field">
-                                <label for="tracking-occurred">Occurred (UTC)</label>
-                                <InputDate id="tracking-occurred"
-                                           Type="InputDateType.DateTimeLocal"
-                                           @bind-Value="trackingModel.OccurredUtc" />
-                                <ValidationMessage For="() => trackingModel.OccurredUtc" />
-                            </div>
-
-                            <div class="booking-field booking-field-wide">
-                                <label for="tracking-location">Location</label>
-                                <InputText id="tracking-location" @bind-Value="trackingModel.Location" />
-                                <ValidationMessage For="() => trackingModel.Location" />
-                            </div>
-                        </div>
-
-                        <div class="booking-form-actions">
-                            <button class="booking-submit tracking-submit" type="submit" disabled="@(isRecordingTrackingEvent || IsCompletionBlocked)">
-                                @(isRecordingTrackingEvent ? "Recording..." : $"Record {nextStatus}")
-                            </button>
-                        </div>
-                    </EditForm>
-                }
-                else
-                {
-                    <div class="booking-complete" role="status">
-                        <span class="booking-complete-icon" aria-hidden="true"><span class="bi bi-check-circle-fill"></span></span>
-                        <div>
-                            <p class="booking-complete-title">Lifecycle complete</p>
-                            <p class="booking-complete-note">All tracking steps have been recorded for this booking.</p>
-                        </div>
-                    </div>
-                }
-            }
-
-            @if (details.TrackingEvents.Count == 0)
-            {
-                <EmptyState Title="No tracking events yet"
-                            Message="Progress is recorded here as the cargo moves through its lifecycle." />
-            }
-            else
-            {
-                <div class="booking-table-scroll">
-                    <table class="booking-table">
-                        <caption class="visually-hidden">Tracking events in the order the cargo moved through its lifecycle</caption>
-                        <thead>
-                            <tr>
-                                <th scope="col">Status</th>
-                                <th scope="col">Occurred (UTC)</th>
-                                <th scope="col">Location</th>
-                                <th scope="col">Recorded by</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            @foreach (var trackingEvent in details.TrackingEvents)
-                            {
-                                <tr class="booking-event-row" @key="trackingEvent.CargoTrackingEventId">
-                                    <td>
-                                        <span class="cargo-status @CargoBookingFormat.StatusModifier(trackingEvent.Status)">@trackingEvent.Status</span>
-                                    </td>
-                                    <td class="booking-event-stamp">
-                                        <span>@CargoBookingFormat.CreatedUtcDate(trackingEvent.OccurredUtc)</span>
-                                        <span class="booking-event-time">@CargoBookingFormat.CreatedUtcTime(trackingEvent.OccurredUtc)</span>
-                                    </td>
-                                    <td>@trackingEvent.Location</td>
-                                    <td class="booking-event-actor" title="@trackingEvent.ResponsibleUserId">
-                                        @CargoBookingFormat.ShortUser(trackingEvent.ResponsibleUserId)
-                                    </td>
-                                </tr>
-                            }
-                        </tbody>
-                    </table>
-                </div>
-            }
-        </section>
+            </section>
+        </div>
     }
 </section>
 

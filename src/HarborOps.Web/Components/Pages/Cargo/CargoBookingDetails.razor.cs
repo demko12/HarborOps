@@ -41,6 +41,108 @@ public partial class CargoBookingDetails : IDisposable
     [SupplyParameterFromQuery(Name = ManifestPageQueryKey)]
     public int? ManifestPageFromQuery { get; set; }
 
+    [SupplyParameterFromQuery(Name = TabQueryKey)]
+    public string? TabFromQuery { get; set; }
+
+    internal const string OverviewTab = "overview";
+    internal const string ManifestTab = "manifest";
+    internal const string SafetyTab = "safety";
+    internal const string BillsTab = "bills";
+    internal const string DiscrepanciesTab = "discrepancies";
+    internal const string OperationsTab = "operations";
+    internal const string TrackingTab = "tracking";
+    private const string TabQueryKey = "tab";
+
+    private static readonly IReadOnlyList<string> TabOrder =
+        [OverviewTab, ManifestTab, SafetyTab, BillsTab, DiscrepanciesTab, OperationsTab, TrackingTab];
+
+    private string activeTab = OverviewTab;
+    private int? billCount;
+    private int openDiscrepancyCount;
+
+    private sealed record BookingTab(string Id, string Label, string Icon, string? Badge, string Tone);
+
+    private IEnumerable<BookingTab> BookingTabs
+    {
+        get
+        {
+            yield return new BookingTab(OverviewTab, "Overview", "bi-box-seam", null, "neutral");
+            yield return new BookingTab(
+                ManifestTab,
+                "Manifest",
+                "bi-stack",
+                hasLoadedContainers ? containerTotalCount.ToString(CultureInfo.InvariantCulture) : null,
+                "neutral");
+            if (details is { IsHazardous: true })
+            {
+                yield return new BookingTab(
+                    SafetyTab,
+                    "Safety",
+                    "bi-shield-check",
+                    CargoBookingFormat.SafetyStatusLabel(details.SafetyInfo?.ReviewStatus),
+                    details.SafetyInfo?.ReviewStatus == CargoBookingFormat.ApprovedStatus ? "success" : "warning");
+            }
+
+            yield return new BookingTab(
+                BillsTab,
+                "Bills of lading",
+                "bi-file-earmark-text",
+                billCount is > 0 ? billCount.Value.ToString(CultureInfo.InvariantCulture) : null,
+                "neutral");
+            yield return new BookingTab(
+                DiscrepanciesTab,
+                "Discrepancies",
+                "bi-exclamation-diamond",
+                openDiscrepancyCount > 0 ? $"{openDiscrepancyCount.ToString(CultureInfo.InvariantCulture)} open" : null,
+                "danger");
+            yield return new BookingTab(
+                OperationsTab,
+                "Operations",
+                "bi-arrow-down-up",
+                OperationsBadge,
+                operations.Any(IsOperationInProgress) ? "warning" : "neutral");
+            yield return new BookingTab(TrackingTab, "Tracking", "bi-clock-history", TrackingBadge, TrackingTone);
+        }
+    }
+
+    private string? OperationsBadge => operations.Any(IsOperationInProgress)
+        ? "In progress"
+        : operations.Count > 0 ? operations.Count.ToString(CultureInfo.InvariantCulture) : null;
+
+    private static bool IsOperationInProgress(CargoOperationRow operation) =>
+        operation.StartedAtUtc is not null && operation.FinishedAtUtc is null;
+
+    private string? TrackingBadge => details switch
+    {
+        null => null,
+        { NextStatus: null } => "Complete",
+        _ when IsCompletionBlocked || IsBlockedByUnapprovedSafetyInfo => "Blocked",
+        _ => null,
+    };
+
+    private string TrackingTone => details?.NextStatus is null ? "success" : "warning";
+
+    private static string TabButtonId(string tab) => $"booking-tab-{tab}";
+
+    private static string TabPanelId(string tab) => $"booking-panel-{tab}";
+
+    private static string NormalizeTab(string? tab)
+    {
+        return TabOrder.FirstOrDefault(candidate => string.Equals(candidate, tab, StringComparison.OrdinalIgnoreCase))
+            ?? OverviewTab;
+    }
+
+    private void SelectTab(string tab)
+    {
+        if (activeTab == tab)
+        {
+            return;
+        }
+
+        activeTab = tab;
+        SyncManifestAddress();
+    }
+
     internal const string BoardQueryKey = "from";
     private const string ManifestSearchQueryKey = "manifestSearch";
     private const string ManifestStatusQueryKey = "manifestStatus";
@@ -100,6 +202,7 @@ public partial class CargoBookingDetails : IDisposable
 
         loadedBookingId = BookingId;
         hasLoadedContainers = false;
+        activeTab = NormalizeTab(TabFromQuery);
         ApplyAddressToContainerFilters();
 
         return LoadAsync();
@@ -142,6 +245,11 @@ public partial class CargoBookingDetails : IDisposable
         }
 
         details = result.Value;
+
+        if (activeTab == SafetyTab && details is { IsHazardous: false })
+        {
+            activeTab = OverviewTab;
+        }
 
         await Task.WhenAll(LoadExecutionAsync(), LoadCompletionBlockersAsync());
     }
@@ -267,6 +375,8 @@ public partial class CargoBookingDetails : IDisposable
 
     private async Task OpenBlockingDiscrepancyAsync(Guid discrepancyId)
     {
+        SelectTab(DiscrepanciesTab);
+
         if (discrepanciesPanel is not null)
         {
             await discrepanciesPanel.OpenDiscrepancyAsync(discrepancyId);
@@ -694,13 +804,14 @@ public partial class CargoBookingDetails : IDisposable
     }
 
     private string ManifestAddress =>
-        BuildManifestAddress(BookingId, BoardQuery, appliedContainerFilter, containerPageNumber);
+        BuildManifestAddress(BookingId, BoardQuery, appliedContainerFilter, containerPageNumber, activeTab);
 
     internal static string BuildManifestAddress(
         Guid bookingId,
         string? boardQuery,
         CargoContainerFilter filter,
-        int pageNumber)
+        int pageNumber,
+        string? tab = null)
     {
         var parts = new List<string>();
 
@@ -714,6 +825,11 @@ public partial class CargoBookingDetails : IDisposable
         if (pageNumber > 1)
         {
             parts.Add($"{ManifestPageQueryKey}={pageNumber}");
+        }
+
+        if (!string.IsNullOrEmpty(tab) && tab != OverviewTab)
+        {
+            parts.Add($"{TabQueryKey}={tab}");
         }
 
         return parts.Count == 0

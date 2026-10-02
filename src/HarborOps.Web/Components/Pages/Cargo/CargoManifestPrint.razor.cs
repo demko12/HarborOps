@@ -42,7 +42,12 @@ public partial class CargoManifestPrint : IDisposable
         CargoContainerFilter.Create(Search, Status, ContainerType, PortOfLoadingCode, PortOfDischargeCode);
 
     private string BookingHref =>
-        "/" + CargoBookingDetails.BuildManifestAddress(BookingId, BoardQuery, Filter, ReturnPage is > 1 ? ReturnPage.Value : 1);
+        "/" + CargoBookingDetails.BuildManifestAddress(
+            BookingId,
+            BoardQuery,
+            Filter,
+            ReturnPage is > 1 ? ReturnPage.Value : 1,
+            CargoBookingDetails.ManifestTab);
 
     private string PageHeading =>
         model is { } manifest ? $"Container manifest {manifest.BookingNumber}" : "Container manifest";

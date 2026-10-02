@@ -183,7 +183,7 @@ public sealed class CargoManifestPrintPageTests : BunitContext
         Assert.Equal(
             "More than 10,000 containers match. Narrow the filters to export or print at most 10,000 containers.",
             page.Find(".manifest-print-limit p").TextContent);
-        Assert.Equal($"/cargo/{BookingId}?manifestSearch=MSKU&manifestPage=2", page.Find(".manifest-print-limit a").GetAttribute("href"));
+        Assert.Equal($"/cargo/{BookingId}?manifestSearch=MSKU&manifestPage=2&tab=manifest", page.Find(".manifest-print-limit a").GetAttribute("href"));
         Assert.Empty(page.FindAll(".manifest-print-sheet"));
     }
 
@@ -214,7 +214,7 @@ public sealed class CargoManifestPrintPageTests : BunitContext
         var page = RenderPage("?search=msku&status=Loaded&returnPage=3&from=status%3DInTransit");
 
         Assert.Equal(
-            $"/cargo/{BookingId}?from=status%3DInTransit&manifestSearch=MSKU&manifestStatus=Loaded&manifestPage=3",
+            $"/cargo/{BookingId}?from=status%3DInTransit&manifestSearch=MSKU&manifestStatus=Loaded&manifestPage=3&tab=manifest",
             page.Find(".manifest-print-back").GetAttribute("href"));
     }
 
@@ -223,7 +223,7 @@ public sealed class CargoManifestPrintPageTests : BunitContext
     {
         var page = RenderPage(string.Empty);
 
-        Assert.Equal($"/cargo/{BookingId}", page.Find(".manifest-print-back").GetAttribute("href"));
+        Assert.Equal($"/cargo/{BookingId}?tab=manifest", page.Find(".manifest-print-back").GetAttribute("href"));
     }
 
     [Fact]

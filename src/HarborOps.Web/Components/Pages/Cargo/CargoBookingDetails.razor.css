@@ -338,10 +338,6 @@ html[data-theme="light"] .booking-complete-icon {
     background: rgba(15, 118, 110, 0.12);
 }
 
-.booking-no-hazard {
-    color: var(--text-muted);
-    font-size: 0.84rem;
-}
 .booking-count {
     color: var(--text-secondary);
     font-size: 0.82rem;
@@ -1335,31 +1331,6 @@ html[data-theme="light"] .manifest-filter-hint {
     border-color: var(--accent-border);
     background: var(--accent-bg);
 }
-.booking-section-nav {
-    display: flex;
-    gap: 0.4rem;
-    flex-wrap: wrap;
-    margin-bottom: 1.4rem;
-    padding-bottom: 0.8rem;
-    border-bottom: 1px solid var(--border-subtle);
-}
-.booking-section-nav a {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.5rem;
-    padding: 0.65rem 0.85rem;
-    border: 1px solid transparent;
-    border-radius: 0.65rem;
-    color: var(--text-secondary);
-    font-size: 0.82rem;
-    text-decoration: none;
-}
-.booking-section-nav a:hover {
-    color: var(--accent);
-    border-color: var(--accent-border);
-    background: var(--accent-bg);
-}
-.booking-section-nav a:focus-visible,
 .booking-back:focus-visible {
     outline: 2px solid var(--accent);
     outline-offset: 3px;
@@ -1666,4 +1637,144 @@ html[data-theme="light"] .manifest-filter-hint {
     font-weight: 700;
     letter-spacing: 0.06em;
     text-transform: uppercase;
+}
+
+.booking-tabs {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.2rem 0.2rem 0.8rem;
+    border-bottom: 1px solid var(--border-subtle);
+}
+
+.booking-tablist {
+    display: flex;
+    flex: 1;
+    flex-wrap: nowrap;
+    gap: 0.35rem;
+    min-width: 0;
+    overflow-x: auto;
+    scrollbar-width: thin;
+}
+
+.booking-tab {
+    display: flex;
+    flex: 0 0 auto;
+    align-items: center;
+    gap: 0.55rem;
+    min-height: 2.65rem;
+    padding: 0.65rem 0.85rem;
+    color: var(--text-secondary);
+    border: 1px solid transparent;
+    border-radius: 0.65rem;
+    background: transparent;
+    font: inherit;
+    font-size: 0.8rem;
+    font-weight: 400;
+    white-space: nowrap;
+    cursor: pointer;
+}
+
+.booking-tab:hover {
+    background: var(--bg-surface-strong);
+}
+.booking-tab:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+}
+.booking-tab.is-active {
+    color: var(--text-primary);
+    border-color: var(--accent-border);
+    background: var(--accent-bg);
+}
+
+.booking-tab-badge {
+    display: inline-flex;
+    align-items: center;
+    height: 1.25rem;
+    padding: 0 0.45rem;
+    border-radius: 999px;
+    font-size: 0.7rem;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+}
+
+.booking-tab-badge-neutral {
+    color: var(--text-secondary);
+    background: var(--bg-surface-strong);
+    box-shadow: inset 0 0 0 1px var(--border-medium);
+}
+.booking-tab-badge-success {
+    color: var(--status-success);
+    background: color-mix(in srgb, var(--status-success) 14%, transparent);
+}
+.booking-tab-badge-warning {
+    color: var(--status-warning);
+    background: color-mix(in srgb, var(--status-warning) 14%, transparent);
+}
+.booking-tab-badge-danger {
+    color: var(--status-danger);
+    background: color-mix(in srgb, var(--status-danger) 14%, transparent);
+}
+html[data-theme="light"] .booking-tab-badge-success {
+    color: var(--status-success-strong);
+    background: color-mix(
+        in srgb,
+        var(--status-success-strong) 12%,
+        transparent
+    );
+}
+html[data-theme="light"] .booking-tab-badge-warning {
+    color: var(--status-warning-strong);
+    background: color-mix(
+        in srgb,
+        var(--status-warning-strong) 12%,
+        transparent
+    );
+}
+html[data-theme="light"] .booking-tab-badge-danger {
+    color: var(--status-danger-strong);
+    background: color-mix(
+        in srgb,
+        var(--status-danger-strong) 12%,
+        transparent
+    );
+}
+
+.booking-tabs-next {
+    flex-shrink: 0;
+    padding: 0.4rem 0.7rem;
+    color: var(--text-secondary);
+    border: 0;
+    border-radius: var(--radius-button);
+    background: transparent;
+    font: inherit;
+    font-size: 0.8rem;
+    white-space: nowrap;
+    cursor: pointer;
+}
+
+.booking-tabs-next strong {
+    color: var(--text-primary);
+}
+.booking-tabs-next:hover {
+    background: var(--bg-surface-strong);
+}
+.booking-tabs-next:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+}
+
+.booking-tab-panel {
+    padding-top: 1rem;
+}
+.booking-tab-panel .booking-card,
+.booking-tab-panel ::deep .booking-card {
+    margin-top: 0;
+}
+
+@media (max-width: 760px) {
+    .booking-tabs-next {
+        display: none;
+    }
 }

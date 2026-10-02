@@ -120,13 +120,39 @@ public sealed class CargoBookingDetailsPageTests : BunitContext
     }
 
     [Fact]
-    public void Non_hazardous_cargo_reports_that_no_declaration_is_required()
+    public void Non_hazardous_cargo_has_no_safety_tab_or_section()
     {
         var page = RenderDetailsPage();
 
-        Assert.Contains("Not hazardous", page.Find(".booking-no-hazard").TextContent, StringComparison.Ordinal);
-        Assert.Contains("no IMDG declaration requirement", page.Markup, StringComparison.Ordinal);
+        Assert.Contains("Not hazardous", page.Markup, StringComparison.Ordinal);
+        Assert.Empty(page.FindAll("#booking-tab-safety"));
+        Assert.Empty(page.FindAll("#booking-panel-safety"));
+        Assert.DoesNotContain("no IMDG declaration requirement", page.Markup, StringComparison.Ordinal);
         Assert.Empty(page.FindAll(".cargo-hazard-chip"));
+    }
+
+    [Fact]
+    public void Hazardous_cargo_has_a_safety_tab_with_its_review_status()
+    {
+        respond = RespondWith(
+            Details(isHazardous: true, safetyInfo: DeclaredSafetyInfo),
+            DeclaredSafetyInfo);
+
+        var page = RenderDetailsPageAt($"/cargo/{BookingId}?tab=safety");
+
+        Assert.NotNull(page.Find("#booking-tab-safety .booking-tab-badge"));
+        Assert.False(page.Find("#booking-panel-safety").HasAttribute("hidden"));
+        Assert.NotNull(page.Find("#booking-panel-safety .cargo-hazard-chip"));
+    }
+
+    [Fact]
+    public void A_safety_address_on_non_hazardous_cargo_opens_the_overview()
+    {
+        var page = RenderDetailsPageAt($"/cargo/{BookingId}?tab=safety");
+
+        Assert.Empty(page.FindAll("#booking-panel-safety"));
+        Assert.False(page.Find("#booking-panel-overview").HasAttribute("hidden"));
+        Assert.Equal("true", page.Find("#booking-tab-overview").GetAttribute("aria-selected"));
     }
 
     [Fact]
@@ -1330,6 +1356,136 @@ public sealed class CargoBookingDetailsPageTests : BunitContext
         Assert.Contains("Damage on the whole booking", page.Find(".completion-blocker-open").TextContent, StringComparison.Ordinal);
         Assert.True(page.Find(".tracking-submit").HasAttribute("disabled"));
         Assert.DoesNotContain(requestedUris, uri => uri.AbsolutePath.EndsWith("/tracking-events", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void The_overview_tab_is_shown_first_and_every_other_section_is_kept_but_hidden()
+    {
+        var page = RenderDetailsPage();
+
+        var tabs = page.FindAll(".booking-tab");
+        Assert.Equal(
+            ["Overview", "Manifest", "Bills of lading", "Discrepancies", "Operations", "Tracking"],
+            tabs.Select(tab => tab.QuerySelector(".booking-tab-label")!.TextContent));
+        Assert.Equal("true", tabs[0].GetAttribute("aria-selected"));
+        Assert.False(page.Find("#booking-panel-overview").HasAttribute("hidden"));
+        Assert.True(page.Find("#booking-panel-manifest").HasAttribute("hidden"));
+        Assert.True(page.Find("#booking-panel-tracking").HasAttribute("hidden"));
+        Assert.NotNull(page.Find("#booking-panel-manifest .booking-manifest-card"));
+        Assert.NotNull(page.Find("#booking-panel-discrepancies .discrepancies-panel"));
+        Assert.DoesNotContain("tab=", Services.GetRequiredService<NavigationManager>().Uri, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Choosing_a_tab_shows_its_section_and_keeps_it_in_the_address()
+    {
+        var page = RenderDetailsPageFrom("status=InTransit");
+
+        page.FindAll(".booking-tab")[1].Click();
+
+        Assert.Equal("true", page.FindAll(".booking-tab")[1].GetAttribute("aria-selected"));
+        Assert.False(page.Find("#booking-panel-manifest").HasAttribute("hidden"));
+        Assert.True(page.Find("#booking-panel-overview").HasAttribute("hidden"));
+
+        var address = new Uri(Services.GetRequiredService<NavigationManager>().Uri);
+        Assert.Equal("manifest", ContainerQuery(address, "tab"));
+        Assert.Equal("status=InTransit", ContainerQuery(address, "from"));
+    }
+
+    [Fact]
+    public void Manifest_filters_keep_the_selected_tab_in_the_address()
+    {
+        RespondWithManifest(NumberedContainers("MSKU", 3));
+
+        var page = RenderDetailsPageAt($"/cargo/{BookingId}?tab=manifest");
+        page.WaitForAssertion(() => Assert.Equal(3, page.FindAll(".manifest-row").Count));
+
+        page.Find("#manifest-status").Change("Loaded");
+
+        page.WaitForAssertion(() =>
+        {
+            var address = new Uri(Services.GetRequiredService<NavigationManager>().Uri);
+            Assert.Equal("Loaded", ContainerQuery(address, "manifestStatus"));
+            Assert.Equal("manifest", ContainerQuery(address, "tab"));
+        });
+    }
+
+    [Fact]
+    public void The_address_opens_the_requested_tab()
+    {
+        var tracking = RenderDetailsPageAt($"/cargo/{BookingId}?tab=Tracking");
+
+        Assert.False(tracking.Find("#booking-panel-tracking").HasAttribute("hidden"));
+        Assert.True(tracking.Find("#booking-panel-overview").HasAttribute("hidden"));
+    }
+
+    [Fact]
+    public void An_unknown_tab_in_the_address_falls_back_to_the_overview()
+    {
+        var page = RenderDetailsPageAt($"/cargo/{BookingId}?tab=invoices");
+
+        Assert.False(page.Find("#booking-panel-overview").HasAttribute("hidden"));
+    }
+
+    [Fact]
+    public void Tabs_carry_the_counts_and_the_completion_state()
+    {
+        respond = _ => Json(HttpStatusCode.OK, Details(status: "Unloaded", nextStatus: "Completed"));
+        respondToDiscrepancies = request => request.RequestUri!.AbsolutePath.EndsWith("/completion-blockers", StringComparison.Ordinal)
+            ? Json(
+                HttpStatusCode.OK,
+                """
+                {"cargoBookingId":"20000000-0000-0000-0000-000000000001","openCount":2,"reportedCount":2,"investigatingCount":0,"discrepancies":[{"discrepancyId":"d0000000-0000-0000-0000-000000000001","type":"Damage","severity":"High","status":"Reported","containerId":null,"containerNumber":null},{"discrepancyId":"d0000000-0000-0000-0000-000000000002","type":"Shortage","severity":"Low","status":"Reported","containerId":null,"containerNumber":null}]}
+                """)
+            : Json(
+                HttpStatusCode.OK,
+                NoDiscrepancies.Replace("\"reportedCount\":0", "\"reportedCount\":2", StringComparison.Ordinal)
+                    .Replace("\"openCount\":0", "\"openCount\":2", StringComparison.Ordinal));
+
+        var page = RenderDetailsPage();
+
+        page.WaitForAssertion(() =>
+        {
+            Assert.Equal("2 open", page.Find("#booking-tab-discrepancies .booking-tab-badge").TextContent);
+            Assert.Equal("Blocked", page.Find("#booking-tab-tracking .booking-tab-badge").TextContent);
+        });
+        Assert.Contains("booking-tab-badge-danger", page.Find("#booking-tab-discrepancies .booking-tab-badge").ClassName, StringComparison.Ordinal);
+        Assert.Contains("Completed", page.Find(".booking-tabs-next").TextContent, StringComparison.Ordinal);
+
+        page.Find(".booking-tabs-next").Click();
+
+        Assert.False(page.Find("#booking-panel-tracking").HasAttribute("hidden"));
+    }
+
+    [Fact]
+    public void Opening_a_blocking_discrepancy_switches_to_the_discrepancies_tab()
+    {
+        respond = _ => Json(HttpStatusCode.OK, Details(status: "Unloaded", nextStatus: "Completed"));
+        respondToDiscrepancies = request => request.RequestUri!.AbsolutePath.EndsWith("/completion-blockers", StringComparison.Ordinal)
+            ? Json(
+                HttpStatusCode.OK,
+                """
+                {"cargoBookingId":"20000000-0000-0000-0000-000000000001","openCount":1,"reportedCount":1,"investigatingCount":0,"discrepancies":[{"discrepancyId":"d0000000-0000-0000-0000-000000000001","type":"Damage","severity":"High","status":"Reported","containerId":null,"containerNumber":null}]}
+                """)
+            : request.RequestUri!.AbsolutePath.EndsWith("d0000000-0000-0000-0000-000000000001", StringComparison.Ordinal)
+                ? Json(
+                    HttpStatusCode.OK,
+                    """
+                    {"discrepancy":{"id":"d0000000-0000-0000-0000-000000000001","cargoBookingId":"20000000-0000-0000-0000-000000000001","containerId":null,"containerNumber":null,"type":"Damage","severity":"High","description":"Dented door","observedAtUtc":"2026-09-29T07:30:00Z","reportedByUserId":"50000000-0000-0000-0000-000000000005","reportedAtUtc":"2026-09-29T08:00:00Z","status":"Reported","disposition":null,"resolvedByUserId":null,"resolvedAtUtc":null,"voidedByUserId":null,"voidedAtUtc":null,"sourceExcursionId":null},"bookingNumber":"BK-2026-0145","bookingStatus":"Unloaded","source":null,"investigationNoteCount":0,"resolutionBlocker":"Start the investigation before resolving the discrepancy.","history":[]}
+                    """)
+                : Json(HttpStatusCode.OK, NoDiscrepancies);
+        var page = RenderDetailsPageAt($"/cargo/{BookingId}?tab=tracking");
+
+        page.WaitForAssertion(() => Assert.Single(page.FindAll(".completion-blocker-open")));
+        page.Find(".completion-blocker-open").Click();
+
+        page.WaitForAssertion(() =>
+        {
+            Assert.False(page.Find("#booking-panel-discrepancies").HasAttribute("hidden"));
+            Assert.True(page.Find("#booking-panel-tracking").HasAttribute("hidden"));
+            Assert.Equal("discrepancies", ContainerQuery(new Uri(Services.GetRequiredService<NavigationManager>().Uri), "tab"));
+            Assert.Contains("Dented door", page.Find(".discrepancy-modal").TextContent, StringComparison.Ordinal);
+        });
     }
 
     [Fact]

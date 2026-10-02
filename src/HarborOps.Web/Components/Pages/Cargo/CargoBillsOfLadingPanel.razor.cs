@@ -68,7 +68,23 @@ public partial class CargoBillsOfLadingPanel : IDisposable
     [Parameter]
     public EventCallback OnChanged { get; set; }
 
+    [Parameter]
+    public EventCallback<int> OnCountChanged { get; set; }
+
     private IReadOnlyList<CargoContainerRow> Containers { get; set; } = [];
+
+    private int? reportedCount;
+
+    private async Task ReportCountAsync(int count)
+    {
+        if (reportedCount == count)
+        {
+            return;
+        }
+
+        reportedCount = count;
+        await OnCountChanged.InvokeAsync(count);
+    }
 
     private bool CanManage => AuthorizationState.CanManageCargo;
 
@@ -147,6 +163,7 @@ public partial class CargoBillsOfLadingPanel : IDisposable
             if (result.IsSuccess)
             {
                 list = result.Value;
+                await ReportCountAsync(Bills.Count);
             }
             else
             {

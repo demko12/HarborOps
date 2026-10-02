@@ -97,6 +97,22 @@ public partial class CargoDiscrepanciesPanel : IDisposable
     [Parameter]
     public EventCallback OnChanged { get; set; }
 
+    [Parameter]
+    public EventCallback<int> OnOpenCountChanged { get; set; }
+
+    private int? reportedOpenCount;
+
+    private async Task ReportOpenCountAsync(int openCount)
+    {
+        if (reportedOpenCount == openCount)
+        {
+            return;
+        }
+
+        reportedOpenCount = openCount;
+        await OnOpenCountChanged.InvokeAsync(openCount);
+    }
+
     [Inject]
     private CargoBookingsApiClient CargoApi { get; set; } = null!;
 
@@ -171,6 +187,7 @@ public partial class CargoDiscrepanciesPanel : IDisposable
             if (result.IsSuccess)
             {
                 page = result.Value;
+                await ReportOpenCountAsync(page!.Summary.OpenCount);
             }
             else
             {
