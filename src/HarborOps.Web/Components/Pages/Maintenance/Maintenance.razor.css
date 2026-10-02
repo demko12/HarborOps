@@ -2352,6 +2352,11 @@ html[data-theme="light"] .maintenance-page ::deep .dry-dock-timing.overdue {
     background: rgba(45, 212, 191, 0.14);
 }
 
+.maintenance-page ::deep .procurement-status-closedshort {
+    color: #c4b5fd;
+    background: rgba(167, 139, 250, 0.14);
+}
+
 .maintenance-page ::deep .procurement-status-cancelled {
     color: var(--status-danger);
     background: rgba(248, 113, 113, 0.14);
@@ -2635,7 +2640,7 @@ html[data-theme="light"] .maintenance-page ::deep .dry-dock-timing.overdue {
     .procurement-details-card
     .procurement-line-table
     .col-line-item {
-    width: 22%;
+    width: 20%;
 }
 
 .maintenance-page
@@ -2643,7 +2648,7 @@ html[data-theme="light"] .maintenance-page ::deep .dry-dock-timing.overdue {
     .procurement-details-card
     .procurement-line-table
     .col-line-part {
-    width: 14%;
+    width: 12%;
 }
 
 .maintenance-page
@@ -2665,8 +2670,13 @@ html[data-theme="light"] .maintenance-page ::deep .dry-dock-timing.overdue {
     ::deep
     .procurement-details-card
     .procurement-line-table
+    .col-line-closed,
+.maintenance-page
+    ::deep
+    .procurement-details-card
+    .procurement-line-table
     .col-line-outstanding {
-    width: 10%;
+    width: 9%;
 }
 
 .maintenance-page
@@ -2679,11 +2689,12 @@ html[data-theme="light"] .maintenance-page ::deep .dry-dock-timing.overdue {
     .procurement-details-card
     .procurement-line-table
     .col-line-total {
-    width: 12%;
+    width: 11.5%;
 }
 
 .maintenance-page ::deep .procurement-line-table th.col-line-received,
 .maintenance-page ::deep .procurement-line-table th.col-line-returned,
+.maintenance-page ::deep .procurement-line-table th.col-line-closed,
 .maintenance-page ::deep .procurement-line-table th.col-line-outstanding {
     text-align: right;
 }
@@ -2818,6 +2829,11 @@ html[data-theme="light"] .maintenance-page ::deep .procurement-status-partiallyr
 html[data-theme="light"] .maintenance-page ::deep .procurement-status-received {
     color: var(--status-success-strong);
     background: rgba(15, 118, 110, 0.12);
+}
+
+html[data-theme="light"] .maintenance-page ::deep .procurement-status-closedshort {
+    color: #6d28d9;
+    background: rgba(109, 40, 217, 0.1);
 }
 
 html[data-theme="light"]
@@ -3352,6 +3368,52 @@ html[data-theme="light"] .maintenance-page ::deep .preventive-state.completed {
     display: block;
     font-size: .75rem;
     overflow-wrap: anywhere;
+}
+
+/* Purchase order closure - closing the undelivered balance short */
+
+.maintenance-page ::deep .procurement-closed-note {
+    display: block;
+    font-size: .72rem;
+}
+
+.maintenance-page ::deep .closure-form .maintenance-conflict,
+.maintenance-page ::deep .closure-form .procurement-inline-error {
+    margin-bottom: .75rem;
+}
+
+.maintenance-page ::deep .closure-totals {
+    margin-bottom: .75rem;
+}
+
+.maintenance-page ::deep .closure-undelivered {
+    color: var(--status-warning);
+    font-weight: 600;
+}
+
+.maintenance-page ::deep .closure-lines-table .numeric,
+.maintenance-page ::deep .closure-record .numeric {
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+}
+
+.maintenance-page ::deep .closure-reason {
+    margin-top: .75rem;
+}
+
+.maintenance-page ::deep .closure-reason textarea {
+    width: 100%;
+    resize: vertical;
+}
+
+.maintenance-page ::deep .closure-record-reason {
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+}
+
+html[data-theme="light"] .maintenance-page ::deep .closure-undelivered {
+    color: var(--status-warning-strong);
 }
 
 /* Maintenance workspace follows the Fleet, Crew, and Voyages registers. */

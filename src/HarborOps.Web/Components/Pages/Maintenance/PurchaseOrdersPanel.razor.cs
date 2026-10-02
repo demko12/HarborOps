@@ -71,6 +71,8 @@ public partial class PurchaseOrdersPanel : IDisposable
     private bool receiveRemaining;
     private int historyRefreshKey;
 
+    private bool isClosureFormOpen;
+
     private CancellationTokenSource? toastCancellation;
 
     private bool CanManage => AuthorizationState.HasPermission("maintenance.manage");
@@ -87,6 +89,12 @@ public partial class PurchaseOrdersPanel : IDisposable
     private IReadOnlyList<string> ReceiptActions => details?.AllowedActions
         .Where(action => action is ProcurementFormat.ReceivePartialAction or ProcurementFormat.ReceiveRemainingAction)
         .ToList() ?? [];
+
+    // A partially received order whose remaining goods will not arrive is closed short instead of cancelled.
+    private bool CanCloseRemaining => details?.AllowedActions
+        .Contains(ProcurementFormat.CloseRemainingAction, StringComparer.Ordinal) == true;
+
+    private bool IsClosedShort => string.Equals(details?.Status, ProcurementFormat.ClosedShortStatus, StringComparison.Ordinal);
 
     private decimal LegacyReceivedQuantity => details?.Lines.Sum(line => line.LegacyReceivedQuantity) ?? 0m;
 
@@ -398,6 +406,7 @@ public partial class PurchaseOrdersPanel : IDisposable
         statusFailure = null;
         pendingTransition = null;
         isReceiptFormOpen = false;
+        isClosureFormOpen = false;
 
         await LoadDetailsAsync(purchaseOrderId);
     }
@@ -439,6 +448,7 @@ public partial class PurchaseOrdersPanel : IDisposable
         statusFailure = null;
         pendingTransition = null;
         isReceiptFormOpen = false;
+        isClosureFormOpen = false;
     }
 
     private void OpenReceiptForm(string action)
@@ -463,6 +473,37 @@ public partial class PurchaseOrdersPanel : IDisposable
     {
         isReceiptFormOpen = false;
         historyRefreshKey++;
+
+        ShowToast(message, value => statusSuccessMessage = value);
+
+        if (detailsPurchaseOrderId is { } purchaseOrderId)
+        {
+            await LoadDetailsAsync(purchaseOrderId);
+        }
+
+        await LoadAsync();
+    }
+
+    private void OpenClosureForm()
+    {
+        statusFailure = null;
+        isClosureFormOpen = true;
+    }
+
+    // Someone else may have received more goods while the form was open, so the details reload.
+    private async Task CloseClosureFormAsync()
+    {
+        isClosureFormOpen = false;
+
+        if (detailsPurchaseOrderId is { } purchaseOrderId)
+        {
+            await LoadDetailsAsync(purchaseOrderId);
+        }
+    }
+
+    private async Task OrderClosedAsync(string message)
+    {
+        isClosureFormOpen = false;
 
         ShowToast(message, value => statusSuccessMessage = value);
 

@@ -149,6 +149,14 @@ internal sealed class MaintenanceApiClient(HttpClient httpClient)
         {
         }
 
+        return ToFailure(response, problem, defaultTitle);
+    }
+
+    private static MaintenanceApiFailure ToFailure(
+        HttpResponseMessage response,
+        ApiProblemDetails? problem,
+        string defaultTitle)
+    {
         return new MaintenanceApiFailure(
             (int)response.StatusCode,
             problem?.Title ?? (response.StatusCode == HttpStatusCode.Forbidden
@@ -1148,6 +1156,148 @@ internal sealed class MaintenanceApiClient(HttpClient httpClient)
         {
             return new MaintenanceApiResult<PurchaseOrderReceiptsPage>(null, Unavailable());
         }
+    }
+
+    internal async Task<MaintenanceApiResult<PurchaseOrderClosurePreviewModel>> GetPurchaseOrderClosurePreviewAsync(
+        Guid purchaseOrderId,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            using var response = await httpClient.GetAsync(
+                $"{PurchaseOrdersPath}/{purchaseOrderId}/close/preview",
+                HttpCompletionOption.ResponseHeadersRead,
+                cancellationToken);
+
+            if (!response.IsSuccessStatusCode)
+            {
+                return new MaintenanceApiResult<PurchaseOrderClosurePreviewModel>(
+                    null, await ReadFailureAsync(response, "Unable to check the remaining quantities", cancellationToken));
+            }
+
+            var preview = await response.Content
+                .ReadFromJsonAsync<PurchaseOrderClosurePreviewModel>(cancellationToken);
+
+            return new MaintenanceApiResult<PurchaseOrderClosurePreviewModel>(preview, null);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (HttpRequestException)
+        {
+            return new MaintenanceApiResult<PurchaseOrderClosurePreviewModel>(null, Unavailable());
+        }
+        catch (TaskCanceledException) when (!cancellationToken.IsCancellationRequested)
+        {
+            return new MaintenanceApiResult<PurchaseOrderClosurePreviewModel>(null, Unavailable());
+        }
+    }
+
+    internal async Task<ClosePurchaseOrderApiResult> ClosePurchaseOrderAsync(
+        Guid purchaseOrderId,
+        ClosePurchaseOrderRequest request,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+
+        try
+        {
+            using var response = await httpClient.PostAsJsonAsync(
+                $"{PurchaseOrdersPath}/{purchaseOrderId}/close",
+                request,
+                cancellationToken);
+
+            if (!response.IsSuccessStatusCode)
+            {
+                PurchaseOrderClosureProblem? problem = null;
+
+                try
+                {
+                    problem = await response.Content.ReadFromJsonAsync<PurchaseOrderClosureProblem>(cancellationToken);
+                }
+                catch (JsonException)
+                {
+                }
+
+                var failure = ToFailure(
+                    response,
+                    problem is null
+                        ? null
+                        : new ApiProblemDetails
+                        {
+                            Title = problem.Title,
+                            Detail = problem.Detail,
+                            Errors = problem.Errors ?? NoErrors,
+                        },
+                    "Unable to close the purchase order");
+
+                return new ClosePurchaseOrderApiResult(null, failure, problem?.Preview);
+            }
+
+            var result = await response.Content.ReadFromJsonAsync<ClosePurchaseOrderResult>(cancellationToken);
+
+            return new ClosePurchaseOrderApiResult(result, null, null);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (HttpRequestException)
+        {
+            return new ClosePurchaseOrderApiResult(null, Unavailable(), null);
+        }
+        catch (TaskCanceledException) when (!cancellationToken.IsCancellationRequested)
+        {
+            return new ClosePurchaseOrderApiResult(null, Unavailable(), null);
+        }
+    }
+
+    internal async Task<MaintenanceApiResult<PurchaseOrderClosureModel>> GetPurchaseOrderClosureAsync(
+        Guid purchaseOrderId,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            using var response = await httpClient.GetAsync(
+                $"{PurchaseOrdersPath}/{purchaseOrderId}/closure",
+                HttpCompletionOption.ResponseHeadersRead,
+                cancellationToken);
+
+            if (!response.IsSuccessStatusCode)
+            {
+                return new MaintenanceApiResult<PurchaseOrderClosureModel>(
+                    null, await ReadFailureAsync(response, "Unable to load the closure", cancellationToken));
+            }
+
+            var closure = await response.Content.ReadFromJsonAsync<PurchaseOrderClosureModel>(cancellationToken);
+
+            return new MaintenanceApiResult<PurchaseOrderClosureModel>(closure, null);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (HttpRequestException)
+        {
+            return new MaintenanceApiResult<PurchaseOrderClosureModel>(null, Unavailable());
+        }
+        catch (TaskCanceledException) when (!cancellationToken.IsCancellationRequested)
+        {
+            return new MaintenanceApiResult<PurchaseOrderClosureModel>(null, Unavailable());
+        }
+    }
+
+    // The close endpoint's problem details: a recoverable conflict adds the refreshed preview as "preview".
+    private sealed record PurchaseOrderClosureProblem
+    {
+        public string? Title { get; init; }
+
+        public string? Detail { get; init; }
+
+        public IReadOnlyDictionary<string, string[]>? Errors { get; init; }
+
+        public PurchaseOrderClosurePreviewModel? Preview { get; init; }
     }
 
     internal Task<MaintenanceApiResult<ChangePurchaseOrderStatusResult>> CancelPurchaseOrderAsync(

@@ -93,6 +93,7 @@
 						<select id="supplier-return-order-status" @bind="orderStatusFilter" @bind:after="ApplyOrderStatusAsync">
 							<option value="@MaintenanceFormat.ReceivedPurchaseOrder">Received</option>
 							<option value="@MaintenanceFormat.PartiallyReceivedPurchaseOrder">Partially received</option>
+							<option value="@MaintenanceFormat.ClosedShortPurchaseOrder">Closed short</option>
 						</select>
 					</div>
 				</div>

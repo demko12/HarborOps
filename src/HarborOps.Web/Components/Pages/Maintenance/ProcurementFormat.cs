@@ -9,16 +9,22 @@ internal static class ProcurementFormat
     internal const string PartiallyReceivedStatus = "PartiallyReceived";
     internal const string ReceivedStatus = "Received";
     internal const string CancelledStatus = "Cancelled";
+    internal const string ClosedShortStatus = "ClosedShort";
     internal const string MissingValue = "—";
     internal const string ReceivePartialAction = "ReceivePartial";
     internal const string ReceiveRemainingAction = "ReceiveRemaining";
     internal const string CreateReturnAction = "CreateReturn";
+    internal const string CloseRemainingAction = "CloseRemaining";
     internal const string OrderNotReceivableBlocker = "OrderNotReceivable";
     internal const string NothingOutstandingBlocker = "NothingOutstanding";
     internal const string ExceedsOutstandingBlocker = "ExceedsOutstanding";
+    internal const string OrderNotClosableBlocker = "OrderNotClosable";
+    internal const string NoReceiptsBlocker = "NoReceipts";
+    internal const int ClosureReasonMinLength = 10;
+    internal const int ClosureReasonMaxLength = 500;
 
     internal static readonly IReadOnlyList<string> Statuses =
-        [DraftStatus, OrderedStatus, PartiallyReceivedStatus, ReceivedStatus, CancelledStatus];
+        [DraftStatus, OrderedStatus, PartiallyReceivedStatus, ReceivedStatus, ClosedShortStatus, CancelledStatus];
 
     internal static string Money(decimal value)
     {
@@ -52,6 +58,7 @@ internal static class ProcurementFormat
         return status switch
         {
             PartiallyReceivedStatus => "Partially received",
+            ClosedShortStatus => "Closed short",
             _ => status,
         };
     }
@@ -88,6 +95,17 @@ internal static class ProcurementFormat
             OrderNotReceivableBlocker => "Order not receivable",
             NothingOutstandingBlocker => "Nothing outstanding",
             ExceedsOutstandingBlocker => "Above outstanding",
+            _ => code,
+        };
+    }
+
+    internal static string ClosureBlockerLabel(string code)
+    {
+        return code switch
+        {
+            OrderNotClosableBlocker => "Order not closable",
+            NoReceiptsBlocker => "No delivery recorded",
+            NothingOutstandingBlocker => "Nothing outstanding",
             _ => code,
         };
     }
@@ -197,6 +215,7 @@ internal static class ProcurementFormat
             "clientRequestId" => "Request",
             "expectedConcurrencyToken" => "Purchase order version",
             "previewToken" => "Receipt check",
+            "reason" => "Reason",
             _ => field,
         };
     }
