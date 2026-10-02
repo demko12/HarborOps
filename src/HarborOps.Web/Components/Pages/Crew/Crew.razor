@@ -43,8 +43,9 @@
     <section class="crew-card @(cardView ? "crew-card-view" : "crew-list-view")" aria-labelledby="crew-roster-title">
         <div class="crew-card-heading"><div class="crew-register-title"><span class="crew-register-mark bi bi-people" aria-hidden="true"></span><div><h2 id="crew-roster-title">Personnel register</h2><p>@(isLoading ? "Updating roster…" : failure is not null ? "Unable to load roster" : $"{roster?.TotalCount ?? 0:N0} crew members found")</p></div></div>
             <div class="crew-view-switch" role="group" aria-label="Crew display">
+				 <button type="button" aria-label="List view" aria-pressed="@((!cardView).ToString().ToLowerInvariant())" @onclick="() => cardView = false"><span class="bi bi-list-ul" aria-hidden="true"></span> List</button>
                 <button type="button" aria-label="Card view" aria-pressed="@cardView.ToString().ToLowerInvariant()" @onclick="() => cardView = true"><span class="bi bi-grid" aria-hidden="true"></span> Cards</button>
-                <button type="button" aria-label="List view" aria-pressed="@((!cardView).ToString().ToLowerInvariant())" @onclick="() => cardView = false"><span class="bi bi-list-ul" aria-hidden="true"></span> List</button>
+               
             </div>
         </div>
     <div class="crew-filters">

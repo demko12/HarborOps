@@ -770,3 +770,9 @@ html[data-theme="light"] .requirements-state.enabled {
     white-space: nowrap;
     overflow-wrap: normal;
 }
+
+.requirements-add-button {
+    color: var(--text-primary);
+    border-color: var(--accent-border);
+    background: var(--accent-bg);
+}

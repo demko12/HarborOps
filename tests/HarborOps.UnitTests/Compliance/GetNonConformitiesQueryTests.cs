@@ -149,6 +149,24 @@ public sealed class GetNonConformitiesQueryTests
         Assert.Contains(GetNonConformitiesValidator.PageNumberField, exception.Errors);
     }
 
+    [Fact]
+    public async Task GetSummaryAsync_counts_unresolved_findings_by_severity_and_overdue()
+    {
+        await using var dbContext = CreateDbContext();
+        var inspection = await SeedPscInspectionAsync(dbContext);
+        var future = new DateOnly(2026, 12, 1);
+        var past = new DateOnly(2026, 8, 1);
+        await SeedNonConformityAsync(dbContext, NonConformity.SeverityCritical, NonConformity.ClosureStatusOpen, past, inspection.Id);
+        await SeedNonConformityAsync(dbContext, NonConformity.SeverityCritical, NonConformity.ClosureStatusInProgress, future, inspection.Id);
+        await SeedNonConformityAsync(dbContext, NonConformity.SeverityMajor, NonConformity.ClosureStatusOpen, future, inspection.Id);
+        await SeedNonConformityAsync(dbContext, NonConformity.SeverityMinor, NonConformity.ClosureStatusInProgress, past, inspection.Id);
+        await SeedNonConformityAsync(dbContext, NonConformity.SeverityMajor, NonConformity.ClosureStatusClosed, past, inspection.Id);
+
+        var summary = await new GetNonConformitiesQuery(dbContext, new FixedTimeProvider(FixedNow)).GetSummaryAsync(CancellationToken.None);
+
+        Assert.Equal(new GetNonConformitiesSummaryResponse(2, 1, 1, 2), summary);
+    }
+
     private static Task<GetNonConformitiesResponse> QueryAsync(HarborOpsDbContext dbContext, GetNonConformitiesRequest request) =>
         new GetNonConformitiesQuery(dbContext, new FixedTimeProvider(FixedNow)).GetAsync(request, CancellationToken.None);
 

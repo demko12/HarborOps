@@ -3,6 +3,7 @@ using HarborOps.Modules.Cargo.Application;
 using HarborOps.Modules.Cargo.Contracts;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 
 namespace HarborOps.Modules.Cargo.Presentation;
 
@@ -12,6 +13,8 @@ public sealed class CargoTrackingEventsController(
     RecordCargoTrackingEventService recordCargoTrackingEventService)
     : ControllerBase
 {
+    internal const string CompletionBlockersExtension = "completionBlockers";
+
     [HttpPost]
     [ProducesResponseType<RecordCargoTrackingEventResponse>(StatusCodes.Status201Created)]
     [ProducesResponseType<HttpValidationProblemDetails>(StatusCodes.Status400BadRequest)]
@@ -79,6 +82,28 @@ public sealed class CargoTrackingEventsController(
                 Status = StatusCodes.Status409Conflict,
                 Title = "Cargo status transition is not allowed.",
                 Detail = exception.Message,
+            });
+        }
+        catch (CargoBookingCompletionBlockedException exception)
+        {
+            return Conflict(new ProblemDetails
+            {
+                Status = StatusCodes.Status409Conflict,
+                Title = "Cargo booking has unresolved discrepancies.",
+                Detail = exception.Message,
+                Extensions =
+                {
+                    [CompletionBlockersExtension] = exception.Blockers,
+                },
+            });
+        }
+        catch (DbUpdateConcurrencyException)
+        {
+            return Conflict(new ProblemDetails
+            {
+                Status = StatusCodes.Status409Conflict,
+                Title = "Cargo booking was modified concurrently.",
+                Detail = "The cargo booking was changed by another request. Reload and try again.",
             });
         }
     }

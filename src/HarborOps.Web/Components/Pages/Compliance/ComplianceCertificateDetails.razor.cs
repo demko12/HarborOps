@@ -15,6 +15,7 @@ public partial class ComplianceCertificateDetails
     private const int RevocationReasonMaxLength = 1000;
 
     private ComplianceCertificateDetail? certificate;
+    private string? vesselName;
     private ComplianceApiFailure? failure;
     private ComplianceApiFailure? actionFailure;
     private bool isLoading = true;
@@ -45,6 +46,11 @@ public partial class ComplianceCertificateDetails
             if (result.IsSuccess)
             {
                 certificate = result.Value;
+                if (certificate is not null)
+                {
+                    var vessels = await FleetApi.LookupVesselNamesAsync([certificate.VesselId], CancellationToken.None);
+                    vesselName = vessels.TryGetValue(certificate.VesselId, out var name) ? name : null;
+                }
             }
             else
             {
@@ -246,6 +252,145 @@ public partial class ComplianceCertificateDetails
     }
 
     private static string DayCount(int days) => days == 1 ? "1 day" : $"{days} days";
+
+    internal static int ValidityPercent(ComplianceCertificateDetail certificate, DateOnly today)
+    {
+        ArgumentNullException.ThrowIfNull(certificate);
+
+        if (certificate.RevokedAtUtc is not null || certificate.ExpiresOn < today)
+        {
+            return 0;
+        }
+
+        if (certificate.IssuedOn > today)
+        {
+            return 100;
+        }
+
+        var total = certificate.ExpiresOn.DayNumber - certificate.IssuedOn.DayNumber + 1;
+        var left = certificate.ExpiresOn.DayNumber - today.DayNumber + 1;
+
+        return (int)Math.Round(Math.Clamp(left * 100d / Math.Max(total, 1), 0, 100));
+    }
+
+    internal static int CoverageGapCount(ComplianceCertificateDetail certificate)
+    {
+        ArgumentNullException.ThrowIfNull(certificate);
+
+        return certificate.Chain.Count(item => item.PredecessorCertificateId is not null && !item.CoversPredecessorExpiry);
+    }
+
+    internal static string CoverageValue(ComplianceCertificateDetail certificate)
+    {
+        var gaps = CoverageGapCount(certificate);
+
+        return gaps switch
+        {
+            0 => "No gaps",
+            1 => "1 gap",
+            _ => string.Create(CultureInfo.InvariantCulture, $"{gaps} gaps"),
+        };
+    }
+
+    internal static string CoverageNote(ComplianceCertificateDetail certificate)
+    {
+        ArgumentNullException.ThrowIfNull(certificate);
+
+        var gapDays = certificate.Chain.Sum(item => item.GapDaysAfterPredecessor is > 0 ? item.GapDaysAfterPredecessor.Value : 0);
+
+        if (CoverageGapCount(certificate) == 0)
+        {
+            return certificate.Chain.Count == 1
+                ? "Single certificate, not renewed yet"
+                : string.Create(CultureInfo.InvariantCulture, $"Continuous since {certificate.Chain[0].IssuedOn.ToString("dd MMM yyyy", CultureInfo.InvariantCulture)}");
+        }
+
+        return gapDays > 0
+            ? $"{DayCount(gapDays)} without a valid certificate"
+            : "A renewal does not cover the previous expiry";
+    }
+
+    internal static string HistoryEventClass(string eventType) => eventType switch
+    {
+        "Revoked" => "revoked",
+        "Renewed" => "renewed",
+        _ => "other",
+    };
+
+    internal static string HistoryEventIcon(string eventType) => eventType switch
+    {
+        "Revoked" => "bi-x-octagon",
+        "Renewed" => "bi-arrow-repeat",
+        _ => "bi-clock-history",
+    };
+
+    internal static CertificateTimeline BuildTimeline(IReadOnlyList<ComplianceCertificateChainItem> chain, DateOnly today)
+    {
+        ArgumentNullException.ThrowIfNull(chain);
+
+        if (chain.Count == 0)
+        {
+            return new CertificateTimeline([], [], null);
+        }
+
+        var firstYear = chain.Min(item => item.IssuedOn).Year;
+        var lastYear = Math.Max(chain.Max(item => item.ExpiresOn).Year, today.Year) + 1;
+        var start = new DateOnly(firstYear, 1, 1);
+        var end = new DateOnly(lastYear, 1, 1);
+        var totalDays = (double)(end.DayNumber - start.DayNumber);
+
+        double Percent(DateOnly day) => Math.Clamp((day.DayNumber - start.DayNumber) * 100d / totalDays, 0, 100);
+
+        var years = lastYear - firstYear;
+        var step = Math.Max(1, (int)Math.Ceiling(years / 8d));
+        var ticks = new List<CertificateTimelineTick>();
+        for (var year = firstYear; year < lastYear; year += step)
+        {
+            ticks.Add(new CertificateTimelineTick(year.ToString(CultureInfo.InvariantCulture), Percent(new DateOnly(year, 1, 1))));
+        }
+
+        var rows = new List<CertificateTimelineRow>();
+        for (var index = 0; index < chain.Count; index++)
+        {
+            var item = chain[index];
+            var left = Percent(item.IssuedOn);
+            var width = Math.Max(Percent(item.ExpiresOn.AddDays(1)) - left, 0.5);
+            double? gapLeft = null;
+            double? gapWidth = null;
+
+            if (index > 0 && item.GapDaysAfterPredecessor is > 0)
+            {
+                gapLeft = Percent(chain[index - 1].ExpiresOn.AddDays(1));
+                gapWidth = Math.Max(left - gapLeft.Value, 0.6);
+            }
+
+            var placement = left + width <= 70 ? "after" : left >= 25 ? "before" : "inside";
+            rows.Add(new CertificateTimelineRow(item, left, width, gapLeft, gapWidth, placement));
+        }
+
+        double? todayPercent = today >= start && today < end ? Percent(today) : null;
+
+        return new CertificateTimeline(ticks, rows, todayPercent);
+    }
+
+    internal static string FormatPercent(double value) => string.Create(CultureInfo.InvariantCulture, $"{value:0.###}%");
+
+    internal static string FormatFraction(double percent) => (percent / 100).ToString("0.#####", CultureInfo.InvariantCulture);
+
+    internal sealed record CertificateTimelineTick(string Label, double LeftPercent);
+
+    internal sealed record CertificateTimelineRow(
+        ComplianceCertificateChainItem Item,
+        double LeftPercent,
+        double WidthPercent,
+        double? GapLeftPercent,
+        double? GapWidthPercent,
+        string LabelPlacement);
+
+    internal sealed record CertificateTimeline(
+        IReadOnlyList<CertificateTimelineTick> Ticks,
+        IReadOnlyList<CertificateTimelineRow> Rows,
+        double? TodayPercent);
 
     private static string DateInputValue(DateOnly date) => date.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
 

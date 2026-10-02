@@ -62,6 +62,11 @@ internal static class CargoBookingFormat
         return ShortIdentifier(responsibleUserId);
     }
 
+    internal static string Actor(string? name, Guid userId)
+    {
+        return string.IsNullOrWhiteSpace(name) ? ShortIdentifier(userId) : name;
+    }
+
     private static string ShortIdentifier(Guid identifier)
     {
         var text = identifier.ToString("D", CultureInfo.InvariantCulture);

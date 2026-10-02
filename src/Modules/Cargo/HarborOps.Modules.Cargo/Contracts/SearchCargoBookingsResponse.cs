@@ -5,4 +5,5 @@ public sealed record SearchCargoBookingsResponse(
     int PageNumber,
     int PageSize,
     int TotalCount,
-    int HazardousCount);
+    int HazardousCount,
+    int OpenDiscrepancyBookingCount);

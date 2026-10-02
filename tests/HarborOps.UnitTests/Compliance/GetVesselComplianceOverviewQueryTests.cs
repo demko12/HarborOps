@@ -57,6 +57,35 @@ public sealed class GetVesselComplianceOverviewQueryTests
     }
 
     [Fact]
+    public async Task GetAsync_reports_the_detention_state_from_the_latest_detention_decision()
+    {
+        await using var dbContext = CreateDbContext();
+        var vesselId = Guid.NewGuid();
+        var date = new DateOnly(2026, 8, 1);
+        var clear = new PscInspection(vesselId, Guid.NewGuid(), date, "Clear", 0, false);
+        var detainedByDecision = new PscInspection(vesselId, Guid.NewGuid(), date, "Detained", 1, false);
+        var released = new PscInspection(vesselId, Guid.NewGuid(), date, "Released", 1, true);
+        var detainedAtRegistration = new PscInspection(vesselId, Guid.NewGuid(), date, "Legacy", 1, true);
+        await dbContext.AddRangeAsync(clear, detainedByDecision, released, detainedAtRegistration);
+        await dbContext.SaveChangesAsync();
+        var detainedAtUtc = new DateTimeOffset(2026, 8, 1, 10, 0, 0, TimeSpan.Zero);
+        await dbContext.AddRangeAsync(
+            PscDetentionDecision.RecordDetained(detainedByDecision.Id, "PMOU-1", "Critical fire safety deficiency.", Guid.NewGuid(), detainedAtUtc),
+            PscDetentionDecision.RecordDetained(released.Id, "PMOU-2", "Critical pollution deficiency.", Guid.NewGuid(), detainedAtUtc),
+            PscDetentionDecision.RecordReleased(released.Id, "PMOU-2-R", date.AddDays(2), null, Guid.NewGuid(), detainedAtUtc.AddDays(2)));
+        await dbContext.SaveChangesAsync();
+
+        var response = await QueryAsync(dbContext, vesselId);
+        var states = response.PscInspections.ToDictionary(item => item.Id, item => item.DetentionState);
+
+        Assert.Equal(PscDetentionState.NotDetained, states[clear.Id]);
+        Assert.Equal(PscDetentionState.Detained, states[detainedByDecision.Id]);
+        Assert.Equal(PscDetentionState.Released, states[released.Id]);
+        Assert.Equal(PscDetentionState.Detained, states[detainedAtRegistration.Id]);
+        Assert.False(response.PscInspections.Single(item => item.Id == detainedByDecision.Id).VesselDetained);
+    }
+
+    [Fact]
     public async Task GetAsync_orders_survey_audits_deterministically_by_date_descending_then_id()
     {
         await using var dbContext = CreateDbContext();

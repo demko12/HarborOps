@@ -38,11 +38,61 @@
             </div>
         }
 
-        <section class="reports-summary" aria-label="Report summary">
-            <article><div><span>Matching records</span><strong>@totalCount</strong><small>Across the current filters</small></div><span class="bi bi-bar-chart" aria-hidden="true"></span></article>
-            <article><div><span>Snapshot date</span><strong class="reports-summary-date">@reportAsOf.ToString("dd MMM yyyy")</strong><small>Report reference date</small></div><span class="bi bi-calendar-check" aria-hidden="true"></span></article>
-            <article><div><span>Records on this page</span><strong>@documentsRows.Count</strong><small>Page @pageNumber of @TotalPages</small></div><span class="bi bi-list-ul" aria-hidden="true"></span></article>
-        </section>
+        <div class="reports-kpis" aria-label="Report summary">
+            <div class="reports-kpi"><div><span class="reports-kpi-label">Expired</span><strong>@(overview?.Expired.ToString() ?? "—")</strong><span class="reports-kpi-note">Expiry date already passed</span></div><span class="reports-kpi-icon bi bi-calendar-x" aria-hidden="true"></span></div>
+            <div class="reports-kpi"><div><span class="reports-kpi-label">Due within 30 days</span><strong>@(overview?.DueSoon.ToString() ?? "—")</strong><span class="reports-kpi-note">Renew before they lapse</span></div><span class="reports-kpi-icon bi bi-calendar-event" aria-hidden="true"></span></div>
+            <div class="reports-kpi"><div><span class="reports-kpi-label">Due in 31–90 days</span><strong>@(overview?.DueLater.ToString() ?? "—")</strong><span class="reports-kpi-note">Plan the next surveys</span></div><span class="reports-kpi-icon bi bi-calendar-range" aria-hidden="true"></span></div>
+            <div class="reports-kpi"><div><span class="reports-kpi-label">Matching documents</span><strong>@totalCount</strong><span class="reports-kpi-note">As of @reportAsOf.ToString("dd MMM yyyy")</span></div><span class="reports-kpi-icon bi bi-files" aria-hidden="true"></span></div>
+        </div>
+
+        @if (overview is { } summary && totalCount > 0)
+        {
+            <section class="reports-charts reports-charts-even" aria-label="Documents needing attention">
+                <div class="reports-card reports-chart-card">
+                    <div class="reports-chart-heading">
+                        <div><span class="reports-section-label">Status mix</span><h2>Where the @totalCount documents stand</h2></div>
+                    </div>
+                    <div class="reports-ring-row">
+                        <div class="reports-ring reports-status-mix" style="@StatusMixGradient(summary, totalCount)" role="img" aria-label="@($"{Percent(totalCount - summary.Expired - summary.DueSoon - summary.DueLater, totalCount)}% valid beyond 90 days")">
+                            <div><strong>@Percent(totalCount - summary.Expired - summary.DueSoon - summary.DueLater, totalCount)%</strong><span>valid &gt; 90 days</span></div>
+                        </div>
+                        <div class="reports-ring-legend">
+                            <span><span class="reports-legend-swatch mix-expired"></span>Expired<strong>@summary.Expired</strong></span>
+                            <span><span class="reports-legend-swatch mix-due-soon"></span>Due within 30 days<strong>@summary.DueSoon</strong></span>
+                            <span><span class="reports-legend-swatch mix-due-later"></span>Due in 31–90 days<strong>@summary.DueLater</strong></span>
+                            <span><span class="reports-legend-swatch phase-cargo"></span>Valid beyond 90 days<strong>@(totalCount - summary.Expired - summary.DueSoon - summary.DueLater)</strong></span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="reports-card reports-chart-card">
+                    <div class="reports-chart-heading">
+                        <div><span class="reports-section-label">By vessel</span><h2>Vessels that need attention first</h2></div>
+                    </div>
+                    @if (summary.Vessels.Count == 0)
+                    {
+                        <p class="reports-muted">No vessel has an expired document or one due within 30 days.</p>
+                    }
+                    else
+                    {
+                        <div class="reports-attention-list">
+                            @foreach (var vessel in summary.Vessels)
+                            {
+                                <div class="reports-attention-row">
+                                    <div><strong>@VesselDisplayName(vessel.VesselId)</strong><span>@MostUrgentLabel(vessel.MostUrgent)</span></div>
+                                    <span class="reports-status reports-status-expired">@vessel.Expired expired</span>
+                                    <span class="reports-status reports-status-warning">@vessel.DueSoon due ≤ 30 d</span>
+                                </div>
+                            }
+                        </div>
+                    }
+                    @if (summary.AttentionTruncated)
+                    {
+                        <p class="reports-muted">Based on the first @DocumentsExpiryReportPageSizeLimit documents due within 90 days.</p>
+                    }
+                </div>
+            </section>
+        }
 
         <section class="reports-card" aria-labelledby="reports-list-title">
             <div class="reports-card-heading">
@@ -157,5 +207,68 @@
                 }
             </div>
         </section>
+
+        @if (overview is { } chartSummary && totalCount > 0)
+        {
+            var busiestMonth = chartSummary.Months.Max(month => month.Count);
+
+            <section class="reports-charts reports-charts-below" aria-label="Documents expiry charts">
+                <div class="reports-card reports-chart-card">
+                    <div class="reports-chart-heading">
+                        <div><span class="reports-section-label">Next 12 months</span><h2>Expiries over the next 12 months</h2></div>
+                        <span class="reports-muted">Documents expiring each month</span>
+                    </div>
+                    <svg class="reports-area-chart" viewBox="0 0 760 200" role="img" aria-label="Documents expiring per month over the next 12 months">
+                        <line class="reports-chart-axis" x1="30" y1="170" x2="760" y2="170"></line>
+                        <path class="reports-chart-area" d="@ChartAreaPath(chartSummary.Months)"></path>
+                        <path class="reports-chart-line" d="@ChartLinePath(chartSummary.Months)"></path>
+                        @for (var index = 0; index < chartSummary.Months.Count; index++)
+                        {
+                            var month = chartSummary.Months[index];
+                            var x = ChartX(index).ToString("0.#", System.Globalization.CultureInfo.InvariantCulture);
+                            var y = ChartY(month.Count, busiestMonth);
+
+                            <g>
+                                <circle class="reports-chart-point" cx="@x" cy="@y.ToString("0.#", System.Globalization.CultureInfo.InvariantCulture)" r="4"></circle>
+                                <text class="reports-chart-value" x="@x" y="@((y - 10).ToString("0.#", System.Globalization.CultureInfo.InvariantCulture))" text-anchor="middle">@month.Count</text>
+                                <text class="reports-chart-label" x="@x" y="192" text-anchor="middle">@month.Month.ToString("MMM", System.Globalization.CultureInfo.InvariantCulture)</text>
+                            </g>
+                        }
+                    </svg>
+                </div>
+
+                <div class="reports-card reports-chart-card">
+                    <div class="reports-chart-heading">
+                        <div><span class="reports-section-label">By document type</span><h2>Due or expired in the next 90 days</h2></div>
+                    </div>
+                    @if (chartSummary.Types.Count == 0)
+                    {
+                        <p class="reports-muted">Nothing expires in the next 90 days.</p>
+                    }
+                    else
+                    {
+                        var widest = chartSummary.Types.Max(type => type.Expired + type.Due);
+
+                        <div class="reports-port-bars">
+                            @foreach (var type in chartSummary.Types)
+                            {
+                                <div class="reports-port-bar">
+                                    <span class="reports-port-bar-name"><span>@type.Name</span></span>
+                                    <span class="reports-port-bar-track">
+                                        <span class="reports-port-bar-segment mix-expired" style="width: @Percent(type.Expired, widest)%"></span>
+                                        <span class="reports-port-bar-segment phase-cargo" style="width: @Percent(type.Due, widest)%"></span>
+                                    </span>
+                                    <strong>@(type.Expired + type.Due)</strong>
+                                </div>
+                            }
+                        </div>
+                        <div class="reports-chart-legend">
+                            <span><span class="reports-legend-swatch mix-expired"></span>Expired</span>
+                            <span><span class="reports-legend-swatch phase-cargo"></span>Due within 90 days</span>
+                        </div>
+                    }
+                </div>
+            </section>
+        }
     }
 </section>

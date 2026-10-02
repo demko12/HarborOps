@@ -62,6 +62,26 @@ public sealed class CompliancePageTests : BunitContext
         });
     }
 
+    [Theory]
+    [InlineData("Released", "Released", "neutral")]
+    [InlineData("NotDetained", "Clear", "success")]
+    [InlineData("Detained", "Detained", "danger")]
+    public async Task Psc_card_shows_the_detention_state_from_the_detention_workflow(string state, string label, string tone)
+    {
+        responder = request => request.RequestUri!.AbsolutePath.Contains("overview")
+            ? Json(HttpStatusCode.OK, Overview("CERT-1").Replace("\"vesselDetained\":true", $"\"vesselDetained\":true,\"detentionState\":\"{state}\""))
+            : DefaultResponse(request);
+        var page = Render<Compliance>();
+        await SelectAsync(page, "Aurora");
+        page.WaitForAssertion(() =>
+        {
+            var badge = page.Find(".inspection-card .record-status-block .compliance-badge");
+            Assert.Equal(label, badge.TextContent);
+            Assert.Contains(tone, badge.ClassList);
+            Assert.Equal(state == "Detained", page.Find(".inspection-card").ClassList.Contains("is-detained"));
+        });
+    }
+
     [Fact]
     public async Task Empty_collections_render_three_distinct_empty_states()
     {

@@ -292,6 +292,12 @@ namespace HarborOps.Infrastructure.Persistence.Migrations
                         .HasMaxLength(100)
                         .HasColumnType("nvarchar(100)");
 
+                    b.Property<Guid>("ConcurrencyToken")
+                        .IsConcurrencyToken()
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier")
+                        .HasDefaultValueSql("NEWID()");
+
                     b.Property<DateTime>("CreatedUtc")
                         .HasColumnType("datetime2");
 
@@ -345,6 +351,163 @@ namespace HarborOps.Infrastructure.Persistence.Migrations
                                     .HasPeriodEnd("PeriodEnd")
                                     .HasColumnName("PeriodEnd");
                             }));
+                });
+
+            modelBuilder.Entity("HarborOps.Modules.Cargo.Domain.CargoDiscrepancy", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("CargoBookingId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("ConcurrencyToken")
+                        .IsConcurrencyToken()
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier")
+                        .HasDefaultValueSql("NEWID()");
+
+                    b.Property<Guid?>("ContainerId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Description")
+                        .IsRequired()
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
+
+                    b.Property<string>("Disposition")
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<DateTime>("ObservedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime>("ReportedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("ReportedByName")
+                        .HasMaxLength(256)
+                        .HasColumnType("nvarchar(256)");
+
+                    b.Property<Guid>("ReportedByUserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime?>("ResolvedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("ResolvedByName")
+                        .HasMaxLength(256)
+                        .HasColumnType("nvarchar(256)");
+
+                    b.Property<Guid?>("ResolvedByUserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Severity")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<DateTime?>("SourceDetectedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("SourceDirection")
+                        .HasMaxLength(10)
+                        .HasColumnType("nvarchar(10)");
+
+                    b.Property<Guid?>("SourceExcursionId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime?>("SourceMeasuredAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<decimal?>("SourceTemperatureCelsius")
+                        .HasPrecision(5, 2)
+                        .HasColumnType("decimal(5,2)");
+
+                    b.Property<decimal?>("SourceThresholdMaximumCelsius")
+                        .HasPrecision(5, 2)
+                        .HasColumnType("decimal(5,2)");
+
+                    b.Property<decimal?>("SourceThresholdMinimumCelsius")
+                        .HasPrecision(5, 2)
+                        .HasColumnType("decimal(5,2)");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<string>("Type")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<DateTime?>("VoidedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("VoidedByName")
+                        .HasMaxLength(256)
+                        .HasColumnType("nvarchar(256)");
+
+                    b.Property<Guid?>("VoidedByUserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ContainerId");
+
+                    b.HasIndex("SourceExcursionId")
+                        .IsUnique()
+                        .HasDatabaseName("IX_CargoDiscrepancies_SourceExcursionId")
+                        .HasFilter("[SourceExcursionId] IS NOT NULL");
+
+                    b.HasIndex("CargoBookingId", "Status");
+
+                    b.HasIndex("CargoBookingId", "ReportedAtUtc", "Id");
+
+                    b.ToTable("CargoDiscrepancies", "cargo");
+                });
+
+            modelBuilder.Entity("HarborOps.Modules.Cargo.Domain.CargoDiscrepancyEvent", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("ActorName")
+                        .HasMaxLength(256)
+                        .HasColumnType("nvarchar(256)");
+
+                    b.Property<Guid>("ActorUserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("DiscrepancyId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("EventType")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<string>("FromStatus")
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<DateTime>("OccurredAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Text")
+                        .HasMaxLength(2000)
+                        .HasColumnType("nvarchar(2000)");
+
+                    b.Property<string>("ToStatus")
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("DiscrepancyId", "OccurredAtUtc", "Id");
+
+                    b.ToTable("CargoDiscrepancyEvents", "cargo");
                 });
 
             modelBuilder.Entity("HarborOps.Modules.Cargo.Domain.CargoSafetyInfo", b =>
@@ -5660,6 +5823,34 @@ namespace HarborOps.Infrastructure.Persistence.Migrations
                         .WithMany()
                         .HasForeignKey("BillOfLadingId")
                         .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("HarborOps.Modules.Cargo.Domain.CargoDiscrepancy", b =>
+                {
+                    b.HasOne("HarborOps.Modules.Cargo.Domain.CargoBooking", null)
+                        .WithMany()
+                        .HasForeignKey("CargoBookingId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("HarborOps.Modules.Cargo.Domain.Container", null)
+                        .WithMany()
+                        .HasForeignKey("ContainerId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("HarborOps.Modules.Cargo.Domain.ReeferExcursion", null)
+                        .WithMany()
+                        .HasForeignKey("SourceExcursionId")
+                        .OnDelete(DeleteBehavior.Restrict);
+                });
+
+            modelBuilder.Entity("HarborOps.Modules.Cargo.Domain.CargoDiscrepancyEvent", b =>
+                {
+                    b.HasOne("HarborOps.Modules.Cargo.Domain.CargoDiscrepancy", null)
+                        .WithMany()
+                        .HasForeignKey("DiscrepancyId")
+                        .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
                 });
 

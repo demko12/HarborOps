@@ -357,6 +357,78 @@ public sealed class SearchCargoBookingsQueryTests
         Assert.Equal(0, response.HazardousCount);
     }
 
+    [Fact]
+    public async Task SearchAsync_counts_only_reported_and_investigating_discrepancies_per_booking()
+    {
+        await using var dbContext = CreateDbContext();
+        var blocked = await AddBookingAsync(dbContext, "BK-DISC-0001", status: CargoStatus.Unloaded);
+        var clear = await AddBookingAsync(dbContext, "BK-DISC-0002", status: CargoStatus.Unloaded);
+        await AddDiscrepancyAsync(dbContext, blocked);
+        await AddDiscrepancyAsync(dbContext, blocked, investigate: true);
+        await AddDiscrepancyAsync(dbContext, blocked, voided: true);
+        await AddDiscrepancyAsync(dbContext, clear, voided: true);
+
+        var response = await new SearchCargoBookingsQuery(dbContext).SearchAsync(
+            new SearchCargoBookingsRequest(),
+            CancellationToken.None);
+
+        Assert.Equal(2, response.Items.Single(item => item.CargoBookingId == blocked.Id).OpenDiscrepancyCount);
+        Assert.Equal(0, response.Items.Single(item => item.CargoBookingId == clear.Id).OpenDiscrepancyCount);
+        Assert.Equal(1, response.OpenDiscrepancyBookingCount);
+    }
+
+    [Theory]
+    [InlineData(true, "BK-DISC-0003")]
+    [InlineData(false, "BK-DISC-0004")]
+    public async Task SearchAsync_filters_by_open_discrepancies(bool hasOpenDiscrepancies, string expectedBookingNumber)
+    {
+        await using var dbContext = CreateDbContext();
+        var blocked = await AddBookingAsync(dbContext, "BK-DISC-0003", status: CargoStatus.Arrived);
+        await AddBookingAsync(dbContext, "BK-DISC-0004", status: CargoStatus.Arrived);
+        await AddDiscrepancyAsync(dbContext, blocked);
+
+        var response = await new SearchCargoBookingsQuery(dbContext).SearchAsync(
+            new SearchCargoBookingsRequest { HasOpenDiscrepancies = hasOpenDiscrepancies },
+            CancellationToken.None);
+
+        Assert.Equal(expectedBookingNumber, Assert.Single(response.Items).BookingNumber);
+        Assert.Equal(1, response.TotalCount);
+    }
+
+    private static async Task AddDiscrepancyAsync(
+        HarborOpsDbContext dbContext,
+        CargoBooking booking,
+        bool investigate = false,
+        bool voided = false)
+    {
+        var utcNow = DateTime.UtcNow;
+        var (discrepancy, reported) = CargoDiscrepancy.Register(
+            booking,
+            null,
+            null,
+            CargoDiscrepancyType.Shortage,
+            CargoDiscrepancySeverity.Medium,
+            "Cartons missing",
+            utcNow.AddHours(-1),
+            Guid.NewGuid(),
+            null,
+            utcNow);
+
+        if (investigate)
+        {
+            discrepancy.StartInvestigation(Guid.NewGuid(), null, utcNow);
+        }
+
+        if (voided)
+        {
+            discrepancy.Void("Registered twice", Guid.NewGuid(), null, utcNow);
+        }
+
+        await dbContext.Set<CargoDiscrepancy>().AddAsync(discrepancy, CancellationToken.None);
+        await dbContext.Set<CargoDiscrepancyEvent>().AddAsync(reported, CancellationToken.None);
+        await dbContext.SaveChangesAsync(CancellationToken.None);
+    }
+
     private static async Task<CargoBooking> AddBookingAsync(
         HarborOpsDbContext dbContext,
         string bookingNumber,

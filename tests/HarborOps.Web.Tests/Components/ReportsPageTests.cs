@@ -3,6 +3,7 @@ using System.Security.Claims;
 using System.Text;
 using Bunit;
 using HarborOps.Web.Api;
+using HarborOps.Web.Api.Compliance;
 using HarborOps.Web.Api.Fleet;
 using HarborOps.Web.Api.Reports;
 using HarborOps.Web.Api.Voyages;
@@ -67,6 +68,11 @@ public sealed class ReportsPageTests : BunitContext
 
         Services.AddSingleton(new ReportsApiClient(reportsHttpClient));
         Services.AddSingleton(new FleetApiClient(fleetHttpClient));
+        Services.AddSingleton(new ComplianceApiClient(new HttpClient(new StubHttpMessageHandler(_ =>
+            Json(HttpStatusCode.OK, """{"items":[],"totalCount":0,"pageNumber":1,"pageSize":1}""")))
+        {
+            BaseAddress = new Uri("https://api.harborops.test/"),
+        }));
         Services.AddSingleton(new VoyagesApiClient(new HttpClient(new StubHttpMessageHandler(_ =>
             Json(HttpStatusCode.OK, """{"items":[]}""")))
         {
@@ -217,8 +223,13 @@ public sealed class ReportsPageTests : BunitContext
     public void Retry_reloads_the_report_after_a_failure()
     {
         var attempt = 0;
-        respondToDocumentsExpiry = _ =>
+        respondToDocumentsExpiry = request =>
         {
+            if (!request.RequestUri!.Query.Contains($"pageSize={Reports.PageSize}", StringComparison.Ordinal))
+            {
+                return Json(HttpStatusCode.OK, DocumentsPage());
+            }
+
             attempt++;
 
             return attempt == 1
@@ -356,6 +367,117 @@ public sealed class ReportsPageTests : BunitContext
                 requestedUris.Last(IsComplianceExposureRequest).Query,
                 StringComparison.Ordinal));
     }
+
+    [Fact]
+    public void Documents_expiry_kpis_and_charts_count_each_expiry_window_across_all_documents()
+    {
+        respondToDocumentsExpiry = request =>
+        {
+            var query = ParseQuery(request.RequestUri!);
+            var asOf = DateOnly.Parse(query["asOf"], System.Globalization.CultureInfo.InvariantCulture);
+            query.TryGetValue("from", out var from);
+            query.TryGetValue("to", out var to);
+
+            string Day(int offset) => asOf.AddDays(offset).ToString("yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture);
+
+            return query["pageSize"] switch
+            {
+                "1" when from is null && to == Day(-1) => Json(HttpStatusCode.OK, DocumentsPage(1, 5)),
+                "1" when from == Day(0) && to == Day(30) => Json(HttpStatusCode.OK, DocumentsPage(1, 9)),
+                "1" when from == Day(31) && to == Day(90) => Json(HttpStatusCode.OK, DocumentsPage(1, 7)),
+                "1" => Json(HttpStatusCode.OK, DocumentsPage(1, 2)),
+                "100" => Json(HttpStatusCode.OK, DocumentsPage(
+                    1,
+                    2,
+                    DocumentRow("10000000-0000-0000-0000-000000000001", documentTypeName: "Load Line", daysUntilExpiry: -12, isExpired: true),
+                    DocumentRow("10000000-0000-0000-0000-000000000002", documentTypeName: "Safety Certificate", daysUntilExpiry: 18))),
+                _ => Json(HttpStatusCode.OK, DocumentsPage(1, 96, DocumentRow("10000000-0000-0000-0000-000000000003"))),
+            };
+        };
+
+        var page = RenderReportsPage();
+
+        page.WaitForAssertion(() =>
+        {
+            Assert.Equal(["5", "9", "7", "96"], page.FindAll(".reports-kpis .reports-kpi strong").Select(value => value.TextContent));
+            Assert.Equal(12, page.FindAll(".reports-area-chart .reports-chart-point").Count);
+            Assert.Contains("78%", page.Find(".reports-status-mix").TextContent, StringComparison.Ordinal);
+            Assert.Equal(["Load Line", "Safety Certificate"], page.FindAll(".reports-port-bar-name > span").Select(name => name.TextContent));
+            var vessel = page.Find(".reports-attention-row");
+            Assert.Contains("Aurora Borealis", vessel.TextContent, StringComparison.Ordinal);
+            Assert.Contains("Load Line expired 12 days ago", vessel.TextContent, StringComparison.Ordinal);
+        });
+        Assert.Contains("pageSize=25", requestedUris.Last(IsDocumentsExpiryRequest).Query, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Compliance_exposure_kpis_count_each_category_and_a_click_filters_the_register()
+    {
+        var totals = new Dictionary<string, int> { ["Certificate"] = 6, ["Insurance"] = 4, ["Detention"] = 2, ["NonConformity"] = 16 };
+        respondToComplianceExposure = request =>
+        {
+            var query = ParseQuery(request.RequestUri!);
+
+            return query["pageSize"] == "1" && query.TryGetValue("category", out var category)
+                ? Json(HttpStatusCode.OK, CompliancePage(1, totals[category]))
+                : Json(HttpStatusCode.OK, CompliancePage());
+        };
+
+        var page = RenderReportsPage<ReportsComplianceExposure>();
+        page.WaitForAssertion(() =>
+            Assert.Equal(["6", "4", "2", "16"], page.FindAll(".reports-kpis .reports-kpi strong").Select(value => value.TextContent)));
+
+        page.Find("button[aria-label='Show certificates in the register']").Click();
+
+        page.WaitForAssertion(() =>
+        {
+            Assert.Contains("category=Certificate", requestedUris.Last(IsComplianceExposureRequest).Query, StringComparison.Ordinal);
+            Assert.Equal("true", page.Find("button[aria-label='Show certificates in the register']").GetAttribute("aria-pressed"));
+        });
+    }
+
+    [Fact]
+    public void Maintenance_backlog_kpis_count_open_overdue_and_critical_work_and_average_the_overdue_age()
+    {
+        respondToMaintenanceBacklog = request =>
+        {
+            var query = ParseQuery(request.RequestUri!);
+            query.TryGetValue("status", out var status);
+            query.TryGetValue("priority", out var priority);
+            query.TryGetValue("overdue", out var overdue);
+
+            return (priority, status, overdue) switch
+            {
+                (null, "Open", null) => Json(HttpStatusCode.OK, MaintenancePage(1, 30)),
+                (null, "InProgress", null) => Json(HttpStatusCode.OK, MaintenancePage(1, 12)),
+                (null, null, "true") => Json(HttpStatusCode.OK, MaintenancePage(1, 11, OverdueWorkOrder("2026-08-05"), OverdueWorkOrder("2026-07-26"))),
+                ("Critical", "Open", null) => Json(HttpStatusCode.OK, MaintenancePage(1, 4)),
+                ("Critical", "InProgress", null) => Json(HttpStatusCode.OK, MaintenancePage(1, 2)),
+                ("Critical", null, "true") => Json(HttpStatusCode.OK, MaintenancePage(1, 2)),
+                _ => Json(HttpStatusCode.OK, MaintenancePage()),
+            };
+        };
+
+        var page = RenderReportsPage<ReportsMaintenanceBacklog>();
+
+        page.WaitForAssertion(() =>
+        {
+            Assert.Equal(["42", "11", "6", "15 d"], page.FindAll(".reports-kpis .reports-kpi strong").Select(value => value.TextContent));
+            Assert.Contains("2 of them overdue", page.Find(".reports-kpis").TextContent, StringComparison.Ordinal);
+        });
+    }
+
+    private static string OverdueWorkOrder(string dueDate) =>
+        $$"""
+        {"workOrderId":"{{Guid.NewGuid()}}","vesselId":"{{VesselId}}","title":"Overdue job","priority":"High","status":"Open",
+        "dueUtc":"{{dueDate}}T00:00:00Z","isOverdue":true,"assignedEngineerId":null,"createdUtc":"2026-07-01T00:00:00Z","completedUtc":null}
+        """;
+
+    private static Dictionary<string, string> ParseQuery(Uri uri) =>
+        uri.Query.TrimStart('?')
+            .Split('&', StringSplitOptions.RemoveEmptyEntries)
+            .Select(pair => pair.Split('=', 2))
+            .ToDictionary(pair => pair[0], pair => Uri.UnescapeDataString(pair.Length > 1 ? pair[1] : string.Empty), StringComparer.Ordinal);
 
     [Fact]
     public void Reset_clears_filters_and_reloads_unfiltered_results()

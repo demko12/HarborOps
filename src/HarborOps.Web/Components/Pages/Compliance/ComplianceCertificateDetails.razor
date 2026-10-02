@@ -1,7 +1,9 @@
 @page "/compliance/certificates/{CertificateId:guid}"
 @attribute [Microsoft.AspNetCore.Authorization.Authorize(Policy = "AccessCompliance")]
 @using HarborOps.Web.Api.Compliance
+@using HarborOps.Web.Api.Fleet
 @inject ComplianceApiClient ComplianceApi
+@inject FleetApiClient FleetApi
 @inject CurrentUserAuthorizationState AuthorizationState
 
 <PageTitle>Certificate | HarborOps</PageTitle>
@@ -10,8 +12,15 @@
     <header class="certificate-header">
         <div>
             <nav class="page-breadcrumb" aria-label="Breadcrumb"><a href="@(certificate is null ? "/compliance" : Compliance.OverviewHref(certificate.VesselId))">Compliance operations</a><span aria-hidden="true">/</span><span>Certificate</span></nav>
-            <h1>Certificate details</h1>
-            <p>Review validity, the renewal chain, and every renewal or revocation recorded for this certificate.</p>
+            <h1>@(certificate?.CertificateNumber ?? "Certificate details")</h1>
+            @if (certificate is not null)
+            {
+                <p class="certificate-identity"><strong>@certificate.CertificateType</strong><span aria-hidden="true">·</span><span>@(vesselName ?? "Unknown vessel")</span><span aria-hidden="true">·</span><span>Issued by @certificate.IssuingAuthority</span></p>
+            }
+            else
+            {
+                <p>Review validity, the renewal chain, and every renewal or revocation recorded for this certificate.</p>
+            }
         </div>
         <span class="certificate-utc" aria-label="All times are shown in UTC">UTC</span>
     </header>
@@ -27,13 +36,20 @@
     else if (certificate is not null)
     {
         <section class="certificate-summary" aria-label="Certificate summary">
-            <article class="certificate-kpi">
+            <article class="certificate-kpi certificate-kpi-status">
+                @{
+                    var validityPercent = ValidityPercent(certificate, DateOnly.FromDateTime(DateTime.UtcNow));
+                }
+                <svg class="certificate-ring @Compliance.CertificateStatusClass(certificate.Status, IsCoveredByRenewal(certificate.Id))" viewBox="0 0 64 64" role="img" aria-label="@($"{validityPercent}% of validity left")">
+                    <circle class="certificate-ring-track" cx="32" cy="32" r="26" />
+                    <circle class="certificate-ring-value" cx="32" cy="32" r="26" pathLength="100" stroke-dasharray="@($"{validityPercent} 100")" transform="rotate(-90 32 32)" />
+                    <text x="32" y="36" text-anchor="middle">@validityPercent%</text>
+                </svg>
                 <div>
                     <p class="certificate-kpi-label">Status</p>
                     <p class="certificate-kpi-value">@Compliance.CertificateStatusLabel(certificate.Status, IsCoveredByRenewal(certificate.Id))</p>
                     <p class="certificate-kpi-note">@ValidityNote()</p>
                 </div>
-                <span class="certificate-kpi-icon bi bi-patch-check" aria-hidden="true"></span>
             </article>
             <article class="certificate-kpi">
                 <div>
@@ -43,13 +59,13 @@
                 </div>
                 <span class="certificate-kpi-icon bi bi-calendar-event" aria-hidden="true"></span>
             </article>
-            <article class="certificate-kpi">
+            <article class="certificate-kpi @(CoverageGapCount(certificate) > 0 ? "attention" : null)">
                 <div>
-                    <p class="certificate-kpi-label">Renewal chain</p>
-                    <p class="certificate-kpi-value">@certificate.Chain.Count</p>
-                    <p class="certificate-kpi-note">@ChainPositionNote()</p>
+                    <p class="certificate-kpi-label">Coverage</p>
+                    <p class="certificate-kpi-value">@CoverageValue(certificate)</p>
+                    <p class="certificate-kpi-note">@CoverageNote(certificate)</p>
                 </div>
-                <span class="certificate-kpi-icon bi bi-link-45deg" aria-hidden="true"></span>
+                <span class="certificate-kpi-icon bi @(CoverageGapCount(certificate) > 0 ? "bi-exclamation-triangle" : "bi-link-45deg")" aria-hidden="true"></span>
             </article>
             <article class="certificate-kpi">
                 <div>
@@ -98,37 +114,67 @@
         }
 
         <section class="certificate-card">
-            <div class="certificate-section-heading"><div class="certificate-register-title"><span class="certificate-register-mark bi bi-link-45deg" aria-hidden="true"></span><div><span class="certificate-kicker">Renewal chain</span><h2>Validity periods</h2><p>Oldest certificate first. A renewal does not end the validity of the certificate it renews.</p></div></div></div>
-            <ol class="certificate-chain">
-                @foreach (var item in certificate.Chain)
+            <div class="certificate-section-heading"><div class="certificate-register-title"><span class="certificate-register-mark bi bi-link-45deg" aria-hidden="true"></span><div><span class="certificate-kicker">Renewal chain</span><h2>Validity timeline</h2><p>Oldest certificate first. A renewal does not end the validity of the certificate it renews.</p></div></div><span class="certificate-chain-count">@ChainPositionNote()</span></div>
+            @{
+                var timeline = BuildTimeline(certificate.Chain, DateOnly.FromDateTime(DateTime.UtcNow));
+            }
+            <div class="certificate-timeline">
+                <div class="certificate-timeline-axis" aria-hidden="true">
+                    <span></span>
+                    <div>
+                        @foreach (var tick in timeline.Ticks)
+                        {
+                            <span style="left: @FormatPercent(tick.LeftPercent)">@tick.Label</span>
+                        }
+                    </div>
+                </div>
+                <ol class="certificate-chain">
+                    @foreach (var row in timeline.Rows)
+                    {
+                        var item = row.Item;
+                        <li @key="item.Id" class="@(item.Id == certificate.Id ? "is-selected" : null)">
+                            <div class="certificate-chain-label">
+                                @if (item.Id == certificate.Id) { <strong>@item.CertificateNumber</strong> } else { <a href="/compliance/certificates/@item.Id">@item.CertificateNumber</a> }
+                                <span class="compliance-badge @Compliance.CertificateStatusClass(item.Status, IsCoveredByRenewal(item.Id))">@Compliance.CertificateStatusLabel(item.Status, IsCoveredByRenewal(item.Id))</span>
+                                <small>@item.IssuingAuthority</small>
+                            </div>
+                            <div class="certificate-chain-track">
+                                @if (row.GapLeftPercent is { } gapLeft && row.GapWidthPercent is { } gapWidth)
+                                {
+                                    <span class="certificate-chain-gap" style="left: @FormatPercent(gapLeft); width: @FormatPercent(gapWidth)" title="@($"{item.GapDaysAfterPredecessor} days without a valid certificate")"></span>
+                                }
+                                <span class="certificate-chain-bar @(item.RevokedAtUtc is null ? null : "revoked")" style="left: @FormatPercent(row.LeftPercent); width: @FormatPercent(row.WidthPercent)"></span>
+                                <span class="certificate-chain-dates @row.LabelPlacement" style="left: @FormatPercent(row.LabelPlacement == "after" ? row.LeftPercent + row.WidthPercent : row.LeftPercent)">@item.IssuedOn.ToString("dd MMM yyyy") – @item.ExpiresOn.ToString("dd MMM yyyy")</span>
+                            </div>
+                            @if (item.GapDaysAfterPredecessor is > 0)
+                            {
+                                <p class="certificate-gap" role="note">Coverage gap: @item.GapDaysAfterPredecessor @(item.GapDaysAfterPredecessor == 1 ? "day" : "days") without a valid certificate before this renewal.</p>
+                            }
+                            else if (item.PredecessorCertificateId is not null && item.CoversPredecessorExpiry)
+                            {
+                                <p class="certificate-covered">Continues the previous certificate without a gap.</p>
+                            }
+                            else if (item.PredecessorCertificateId is not null)
+                            {
+                                <p class="certificate-gap" role="note">This renewal does not cover the previous certificate's expiry.</p>
+                            }
+                            @if (item.RevokedAtUtc is { } itemRevokedAtUtc)
+                            {
+                                <p class="certificate-chain-note">Revoked @itemRevokedAtUtc.ToString("dd MMM yyyy HH:mm 'UTC'")</p>
+                            }
+                        </li>
+                    }
+                </ol>
+                @if (timeline.TodayPercent is { } todayPercent)
                 {
-                    <li @key="item.Id" class="@(item.Id == certificate.Id ? "is-selected" : null)">
-                        @if (item.GapDaysAfterPredecessor is > 0)
-                        {
-                            <p class="certificate-gap" role="note">Coverage gap: @item.GapDaysAfterPredecessor @(item.GapDaysAfterPredecessor == 1 ? "day" : "days") without a valid certificate before this renewal.</p>
-                        }
-                        else if (item.PredecessorCertificateId is not null && item.CoversPredecessorExpiry)
-                        {
-                            <p class="certificate-covered">Continues the previous certificate without a gap.</p>
-                        }
-                        else if (item.PredecessorCertificateId is not null)
-                        {
-                            <p class="certificate-gap" role="note">This renewal does not cover the previous certificate's expiry.</p>
-                        }
-                        <div class="certificate-chain-row">
-                            <div><span>Number</span>@if (item.Id == certificate.Id) { <strong>@item.CertificateNumber</strong> } else { <a href="/compliance/certificates/@item.Id">@item.CertificateNumber</a> }</div>
-                            <div><span>Issuing authority</span><strong>@item.IssuingAuthority</strong></div>
-                            <div><span>Issued on</span><strong>@item.IssuedOn.ToString("dd MMM yyyy")</strong></div>
-                            <div><span>Expires on</span><strong>@item.ExpiresOn.ToString("dd MMM yyyy")</strong></div>
-                            <div><span>Status</span><span class="compliance-badge @Compliance.CertificateStatusClass(item.Status, IsCoveredByRenewal(item.Id))">@Compliance.CertificateStatusLabel(item.Status, IsCoveredByRenewal(item.Id))</span></div>
-                        </div>
-                        @if (item.RevokedAtUtc is { } itemRevokedAtUtc)
-                        {
-                            <p class="certificate-chain-note">Revoked @itemRevokedAtUtc.ToString("dd MMM yyyy HH:mm 'UTC'")</p>
-                        }
-                    </li>
+                    <div class="certificate-timeline-today" style="--certificate-today: @FormatFraction(todayPercent)" aria-hidden="true"><span>Today</span></div>
                 }
-            </ol>
+            </div>
+            <ul class="certificate-timeline-legend" aria-label="Timeline legend">
+                <li><i class="selected" aria-hidden="true"></i>Selected certificate</li>
+                <li><i class="other" aria-hidden="true"></i>Earlier or later in the chain</li>
+                <li><i class="gap" aria-hidden="true"></i>Coverage gap</li>
+            </ul>
         </section>
 
         @if (AuthorizationState.CanManageCompliance && (certificate.CanRenew || certificate.CanRevoke))
@@ -223,7 +269,8 @@
                 <ol class="certificate-history">
                     @foreach (var entry in certificate.History)
                     {
-                        <li @key="entry.Id">
+                        <li @key="entry.Id" class="@HistoryEventClass(entry.EventType)">
+                            <span class="certificate-history-dot bi @HistoryEventIcon(entry.EventType)" aria-hidden="true"></span>
                             <strong>@entry.EventType · @ChainNumber(entry.CertificateId)</strong>
                             <span>@entry.OccurredAtUtc.ToString("dd MMM yyyy HH:mm 'UTC'") · by <span class="certificate-actor" title="@entry.ActorUserId">@ShortUser(entry.ActorUserId)</span></span>
                             @if (entry.SuccessorCertificateId is { } successorId)

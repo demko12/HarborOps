@@ -1,9 +1,11 @@
 @page "/reports/compliance-exposure"
 @attribute [Microsoft.AspNetCore.Authorization.Authorize(Policy = "AccessReports")]
+@using HarborOps.Web.Api.Compliance
 @using HarborOps.Web.Api.Fleet
 @using HarborOps.Web.Api.Reports
 @implements IDisposable
 @inject ReportsApiClient ReportsApi
+@inject ComplianceApiClient ComplianceApi
 @inject FleetApiClient FleetApi
 @inject CurrentUserAuthorizationState AuthorizationState
 
@@ -28,11 +30,51 @@
     }
     else
     {
-        <section class="reports-summary" aria-label="Report summary">
-            <article><div><span>Matching records</span><strong>@totalCount</strong><small>Across the current filters</small></div><span class="bi bi-bar-chart" aria-hidden="true"></span></article>
-            <article><div><span>Snapshot date</span><strong class="reports-summary-date">@reportAsOf.ToString("dd MMM yyyy")</strong><small>Report reference date</small></div><span class="bi bi-calendar-check" aria-hidden="true"></span></article>
-            <article><div><span>Records on this page</span><strong>@complianceRows.Count</strong><small>Page @pageNumber of @TotalPages</small></div><span class="bi bi-list-ul" aria-hidden="true"></span></article>
-        </section>
+        <div class="reports-kpis" aria-label="Report summary">
+            @foreach (var (category, label, note, icon) in CategoryKpis)
+            {
+                var isSelected = complianceCategoryFilter == category;
+
+                <button type="button"
+                        class="reports-kpi reports-kpi-filter @(isSelected ? "selected" : null)"
+                        aria-pressed="@isSelected.ToString().ToLowerInvariant()"
+                        aria-label="@($"Show {label.ToLowerInvariant()} in the register")"
+                        @onclick="() => ToggleCategoryAsync(category)">
+                    <span class="reports-kpi-body"><span class="reports-kpi-label">@label</span><strong>@CategoryCount(category)</strong><span class="reports-kpi-note">@note</span></span>
+                    <span class="reports-kpi-icon bi @icon" aria-hidden="true"></span>
+                </button>
+            }
+        </div>
+
+        @if (overview is { } health && (health.Insurance is { Whole: > 0 } || health.Findings is { Whole: > 0 }))
+        {
+            <section class="reports-card reports-chart-card reports-health" aria-labelledby="reports-health-title">
+                <div class="reports-chart-heading">
+                    <div><span class="reports-section-label">Compliance health</span><h2 id="reports-health-title">How much is in order</h2></div>
+                    <span class="reports-muted">As of @reportAsOf.ToString("dd MMM yyyy")</span>
+                </div>
+                <div class="reports-health-rings">
+                    @if (health.Insurance is { Whole: > 0 } insurance)
+                    {
+                        <div class="reports-health-ring">
+                            <div class="reports-ring" style="--ring-percent: @RingPercent(insurance)" role="img" aria-label="@($"{RingPercent(insurance)}% of insurance policies in force")">
+                                <div><strong>@RingPercent(insurance)%</strong></div>
+                            </div>
+                            <div><strong>Insurance in force</strong><span>@insurance.Part of @insurance.Whole policies</span></div>
+                        </div>
+                    }
+                    @if (health.Findings is { Whole: > 0 } findings)
+                    {
+                        <div class="reports-health-ring">
+                            <div class="reports-ring reports-ring-warning" style="--ring-percent: @RingPercent(findings)" role="img" aria-label="@($"{RingPercent(findings)}% of non-conformities closed")">
+                                <div><strong>@RingPercent(findings)%</strong></div>
+                            </div>
+                            <div><strong>Findings closed</strong><span>@findings.Part of @findings.Whole non-conformities · whole fleet</span></div>
+                        </div>
+                    }
+                </div>
+            </section>
+        }
 
         <section class="reports-card" aria-labelledby="reports-list-title">
             <div class="reports-card-heading">

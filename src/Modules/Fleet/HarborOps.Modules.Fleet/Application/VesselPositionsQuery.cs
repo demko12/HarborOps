@@ -10,7 +10,8 @@ namespace HarborOps.Modules.Fleet.Application;
 
 internal sealed class VesselPositionsQuery(
     DbContext dbContext,
-    TimeProvider timeProvider)
+    TimeProvider timeProvider,
+    AisTrackingState? aisTracking = null)
     : IVesselPositionsQuery
 {
     internal const double StaleAfterHours = 12;
@@ -51,7 +52,8 @@ internal sealed class VesselPositionsQuery(
         if (!string.IsNullOrWhiteSpace(request.Search))
         {
             var search = request.Search.Trim();
-            rows = rows.Where(row => row.Vessel.Name.Contains(search) || row.Vessel.ImoNumber.Contains(search));
+            rows = rows.Where(row => row.Vessel.Name.Contains(search) || row.Vessel.ImoNumber.Contains(search)
+                || (row.Vessel.Mmsi != null && row.Vessel.Mmsi.Contains(search)));
         }
 
         if (!string.IsNullOrWhiteSpace(request.Status))
@@ -104,7 +106,9 @@ internal sealed class VesselPositionsQuery(
                 row.Vessel.CurrentLatitude,
                 row.Vessel.CurrentLongitude,
                 row.Vessel.LastPositionReportedAtUtc,
-                row.IsPositionStale))
+                row.IsPositionStale,
+                null,
+                row.Vessel.Mmsi))
             .ToListAsync(cancellationToken);
 
         return new VesselPositionsResponse(
@@ -113,6 +117,7 @@ internal sealed class VesselPositionsQuery(
             pageSize,
             totalCount,
             StaleAfterHours,
-            evaluatedAtUtc);
+            evaluatedAtUtc,
+            aisTracking?.Status);
     }
 }

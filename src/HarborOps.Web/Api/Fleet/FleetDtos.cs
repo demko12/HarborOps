@@ -19,7 +19,10 @@ internal sealed record VesselListItemResponse(
     DateTime UpdatedAtUtc,
     string? LifecycleStage,
     Guid? FleetId,
-    string? FleetName);
+    string? FleetName,
+    decimal? CurrentLatitude = null,
+    decimal? CurrentLongitude = null,
+    DateTime? LastPositionReportedAtUtc = null);
 
 internal sealed record VesselLookupItem(Guid Id, string Name);
 
@@ -174,7 +177,10 @@ internal sealed record VesselPositionsWebModel(
     int PageSize,
     int TotalCount,
     double StaleAfterHours,
-    DateTime EvaluatedAtUtc);
+    DateTime EvaluatedAtUtc,
+    AisTrackingWebModel? AisTracking = null);
+
+internal sealed record AisTrackingWebModel(string ConnectionState, DateTime? LastPositionReceivedAtUtc);
 
 internal sealed record VesselPositionWebModel(
     Guid VesselId,
@@ -186,7 +192,9 @@ internal sealed record VesselPositionWebModel(
     decimal? CurrentLatitude,
     decimal? CurrentLongitude,
     DateTime? LastPositionReportedAtUtc,
-    bool IsPositionStale)
+    bool IsPositionStale,
+    string? PositionSource = null,
+    string? Mmsi = null)
 {
     internal bool HasPosition => CurrentLatitude is not null && CurrentLongitude is not null;
 }

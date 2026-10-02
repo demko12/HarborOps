@@ -159,10 +159,10 @@ html[data-theme="dark"] .nc-select-shell select {
     height: 2.5rem;
     flex: 0 0 auto;
     place-items: center;
-    color: #2563eb;
-    border: 1px solid rgba(37, 99, 235, 0.22);
+    color: var(--accent);
+    border: 1px solid var(--accent-border);
     border-radius: 0.75rem;
-    background: rgba(37, 99, 235, 0.1);
+    background: var(--accent-bg);
     font-size: 1rem;
 }
 
@@ -204,9 +204,9 @@ html[data-theme="dark"] .nc-select-shell select {
     height: 2.3rem;
     flex: 0 0 auto;
     place-items: center;
-    color: #2563eb;
+    color: var(--accent);
     border-radius: var(--radius-control);
-    background: rgba(37, 99, 235, 0.1);
+    background: var(--accent-bg);
     font-size: 0.9rem;
 }
 
@@ -799,5 +799,101 @@ html[data-theme="light"] .nc-button-danger:hover:not(:disabled) {
 
 .nc-page .nc-record-icon {
     color: var(--accent);
+    background: var(--accent-bg);
+}
+
+.nc-summary {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 1rem;
+    margin-bottom: 1rem;
+}
+.nc-kpi {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 1.1rem 1.2rem;
+    color: inherit;
+    border: 1px solid var(--border-medium);
+    border-radius: var(--radius-card);
+    background: linear-gradient(
+        145deg,
+        var(--bg-surface-strong),
+        var(--bg-surface)
+    );
+    box-shadow: var(--card-shadow);
+    font: inherit;
+    text-align: left;
+}
+.nc-kpi-filter {
+    cursor: pointer;
+    transition:
+        border-color 0.15s ease,
+        box-shadow 0.15s ease,
+        transform 0.15s ease;
+}
+.nc-kpi-filter:hover {
+    border-color: var(--accent-border);
+    transform: translateY(-1px);
+}
+.nc-kpi-filter:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+}
+.nc-kpi-filter.selected {
+    border-color: var(--accent);
+    box-shadow:
+        inset 0 0 0 1px var(--accent),
+        0 18px 38px rgba(15, 23, 42, 0.06);
+}
+.nc-kpi-body > span {
+    display: block;
+}
+.nc-kpi-label {
+    color: var(--text-secondary);
+    font-size: 0.72rem;
+}
+.nc-kpi-value {
+    margin-top: 0.3rem;
+    font-size: 1.9rem;
+    font-weight: 650;
+    line-height: 1.05;
+    letter-spacing: -0.04em;
+    font-variant-numeric: tabular-nums;
+}
+.nc-kpi-note {
+    margin-top: 0.2rem;
+    color: var(--text-muted);
+    font-size: 0.72rem;
+}
+.nc-kpi-icon {
+    display: grid;
+    flex: 0 0 auto;
+    width: 2rem;
+    height: 2rem;
+    place-items: center;
+    color: var(--accent);
+    border: 1px solid var(--accent-border);
+    border-radius: var(--radius-control);
+    background: var(--accent-bg);
+    font-size: 0.9rem;
+}
+@media (max-width: 900px) {
+    .nc-summary {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+@media (prefers-reduced-motion: reduce) {
+    .nc-kpi-filter {
+        transition: none;
+    }
+    .nc-kpi-filter:hover {
+        transform: none;
+    }
+}
+
+.nc-button:not(.nc-button-secondary):not(.nc-button-danger) {
+    border-color: var(--accent-border);
     background: var(--accent-bg);
 }

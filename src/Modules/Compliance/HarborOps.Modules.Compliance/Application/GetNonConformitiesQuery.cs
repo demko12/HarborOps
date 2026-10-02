@@ -102,4 +102,28 @@ internal sealed class GetNonConformitiesQuery(DbContext dbContext, TimeProvider 
 
         return new GetNonConformitiesResponse(items, totalCount, request.PageNumber, request.PageSize);
     }
+
+    public async Task<GetNonConformitiesSummaryResponse> GetSummaryAsync(CancellationToken cancellationToken)
+    {
+        var today = DateOnly.FromDateTime(timeProvider.GetUtcNow().UtcDateTime);
+
+        var counts = await dbContext.Set<NonConformity>()
+            .AsNoTracking()
+            .Where(nonConformity => nonConformity.ClosureStatus != NonConformity.ClosureStatusClosed)
+            .GroupBy(_ => 1)
+            .Select(group => new
+            {
+                Critical = group.Count(nonConformity => nonConformity.Severity == NonConformity.SeverityCritical),
+                Major = group.Count(nonConformity => nonConformity.Severity == NonConformity.SeverityMajor),
+                Minor = group.Count(nonConformity => nonConformity.Severity == NonConformity.SeverityMinor),
+                Overdue = group.Count(nonConformity => nonConformity.CorrectiveActionDeadline < today),
+            })
+            .SingleOrDefaultAsync(cancellationToken);
+
+        return new GetNonConformitiesSummaryResponse(
+            counts?.Critical ?? 0,
+            counts?.Major ?? 0,
+            counts?.Minor ?? 0,
+            counts?.Overdue ?? 0);
+    }
 }

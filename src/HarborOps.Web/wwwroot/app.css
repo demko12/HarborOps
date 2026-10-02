@@ -23,6 +23,15 @@
     --accent-border: rgba(255, 255, 255, 0.16);
     --accent-text: #ffffff;
 
+    /* Module identity shared by dashboard tiles and navigation. */
+    --module-fleet: var(--accent);
+    --module-crew: #9b75ed;
+    --module-voyages: #0891b2;
+    --module-cargo: #d97706;
+    --module-maintenance: #d98a93;
+    --module-compliance: #059669;
+    --module-documents: #8270ef;
+
     /* ---------- Shared control vocabulary ----------
        One definition of the Compliance look, resolved by every page. Pages read
        these instead of restating their own surfaces, so a change here moves the
@@ -73,6 +82,9 @@
     --status-warning-strong: #b45309;
     --status-danger: #f87171;
     --status-danger-strong: #b91c1c;
+    --position-coverage-current: #7399c6;
+    --position-coverage-stale: #b49a70;
+    --position-coverage-missing: #536175;
 }
 
 [data-theme="light"] {
@@ -92,10 +104,14 @@
     --accent-bg: rgba(29, 78, 216, 0.14);
     --accent-border: rgba(29, 78, 216, 0.42);
     --accent-text: #1e40af;
+    --module-maintenance: #e05260;
 
     /* Light-theme values for the shared control vocabulary. The --apply-* tokens
        resolve through --bg-surface-strong and --accent-*, so they need no override. */
     --control-popup: #ffffff;
+    --position-coverage-current: var(--accent);
+    --position-coverage-stale: var(--status-warning);
+    --position-coverage-missing: var(--text-muted);
     --border-strong-hover: rgba(15, 23, 42, 0.28);
     --card-shadow: 0 18px 40px rgba(15, 23, 42, 0.1);
     --action-icon: #2563eb;
@@ -263,8 +279,13 @@ body {
         .cargo-summary-card,
         .audit-plans-card,
         .audit-plans-filters,
-        .compliance-card,
+        .compliance-card:where(:not(.compliance-registration-modal)),
         .compliance-selector,
+        .compliance-summary > article,
+        .certificate-card:where(:not(.compliance-record)),
+        .certificate-kpi,
+        .psc-card,
+        .psc-kpi,
         .crew-card,
         .crew-filters,
         .crew-insight-card,
@@ -277,14 +298,11 @@ body {
         .dashboard-summary-card,
         .documents-card,
         .documents-filters:where(:not(.documents-register-filters)),
-        .documents-form-card,
-        .documents-type-form-card,
+        .documents-form-card:where(:not(.documents-modal)),
+        .documents-type-form-card:where(:not(.documents-modal)),
+        .documents-kpi-filter,
         .error-card,
         .fleet-card,
-        .fleet-directory-summary > article,
-        .fleet-directory-create,
-        .fleet-directory-filter,
-        .fleet-directory-results,
         .fleet-details-register,
         .fleet-details-stat,
         .fleet-filters,
@@ -300,11 +318,13 @@ body {
         .work-order-kpi,
         .nc-card,
         .nc-filters,
+        .nc-kpi,
         .not-found-card,
         .profile-card,
         .psc-card,
         .register-route-card,
         .reports-card,
+        .reports-kpi,
         .schedule-card,
         .settings-card,
         .survey-card,
@@ -349,8 +369,13 @@ html[data-theme="dark"]
         .cargo-summary-card,
         .audit-plans-card,
         .audit-plans-filters,
-        .compliance-card,
+        .compliance-card:where(:not(.compliance-registration-modal)),
         .compliance-selector,
+        .compliance-summary > article,
+        .certificate-card:where(:not(.compliance-record)),
+        .certificate-kpi,
+        .psc-card,
+        .psc-kpi,
         .crew-card,
         .crew-filters,
         .crew-insight-card,
@@ -363,14 +388,11 @@ html[data-theme="dark"]
         .dashboard-summary-card,
         .documents-card,
         .documents-filters:where(:not(.documents-register-filters)),
-        .documents-form-card,
-        .documents-type-form-card,
+        .documents-form-card:where(:not(.documents-modal)),
+        .documents-type-form-card:where(:not(.documents-modal)),
+        .documents-kpi-filter,
         .error-card,
         .fleet-card,
-        .fleet-directory-summary > article,
-        .fleet-directory-create,
-        .fleet-directory-filter,
-        .fleet-directory-results,
         .fleet-details-register,
         .fleet-details-stat,
         .fleet-filters,
@@ -386,11 +408,13 @@ html[data-theme="dark"]
         .work-order-kpi,
         .nc-card,
         .nc-filters,
+        .nc-kpi,
         .not-found-card,
         .profile-card,
         .psc-card,
         .register-route-card,
         .reports-card,
+        .reports-kpi,
         .schedule-card,
         .settings-card,
         .survey-card,
@@ -409,6 +433,23 @@ html[data-theme="dark"]
     box-shadow:
         0 18px 38px rgba(0, 0, 0, 0.16),
         inset 0 1px rgba(255, 255, 255, 0.09) !important;
+}
+
+html
+    .page:not(.login-layout)
+    :is(.documents-summary, .nc-summary, .reports-kpis)
+    :is(.documents-kpi-filter, .nc-kpi-filter, .reports-kpi-filter).selected {
+    border-color: var(--accent) !important;
+    box-shadow:
+        inset 0 0 0 1px var(--accent),
+        0 18px 38px rgba(0, 0, 0, 0.16) !important;
+}
+
+html
+    .page:not(.login-layout)
+    :is(.psc-summary, .certificate-summary)
+    :is(.psc-kpi, .certificate-kpi).attention {
+    border-color: rgba(248, 113, 113, 0.45) !important;
 }
 
 /* Registration modals use the same solid surface as the Survey registration form.
@@ -1428,3 +1469,18 @@ html[data-theme="dark"] .login-page {
     --login-color-scheme: dark;
     --login-card-surface: var(--module-card-background);
 }
+
+.fleet-map-ship {
+    display: grid;
+    place-items: center;
+    border: 2px solid #fff;
+    border-radius: 50%;
+    color: #fff;
+    background: #16a34a;
+    box-shadow: 0 3px 12px rgba(15, 23, 42, 0.35);
+}
+.fleet-map-ship.stale { background: #d97706; }
+.fleet-map-ship svg { width: 25px; height: 25px; }
+.fleet-map-ship:focus-visible { outline: 3px solid #60a5fa; outline-offset: 3px; }
+.timeline-map .voyage-map-popup a { color: #2563eb; font-weight: 600; }
+html[data-theme="dark"] .timeline-map .voyage-map-popup a { color: #93c5fd; }

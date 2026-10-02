@@ -11,6 +11,8 @@ namespace HarborOps.Web.Components.Pages.Compliance;
 public partial class Compliance
 {
     internal const int ExpiringSoonDays = 30;
+    internal const string DetainedState = "Detained";
+    internal const string ReleasedState = "Released";
 
     [SupplyParameterFromQuery(Name = "surveyId")]
     private int? SurveyIdFromQuery { get; set; }
@@ -469,6 +471,23 @@ public partial class Compliance
 
         return overview.Certificates.Any(item => IsExpiringSoon(item, today)) ? "warning" : "success";
     }
+
+    internal static string? DetentionState(PscInspectionItem item) =>
+        item.DetentionState ?? (item.VesselDetained ? DetainedState : null);
+
+    private static string DetentionBadgeClass(string? state) => state switch
+    {
+        DetainedState => "danger",
+        ReleasedState => "neutral",
+        _ => "success",
+    };
+
+    private static string DetentionLabel(string? state) => state switch
+    {
+        DetainedState => "Detained",
+        ReleasedState => "Released",
+        _ => "Clear",
+    };
 
     private static string HealthIcon(string tone) => tone switch
     {

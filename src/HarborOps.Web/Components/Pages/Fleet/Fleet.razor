@@ -136,7 +136,7 @@
                 {
                     <a class="fleet-vessel-row" data-status="@GetStatusClass(vessel.CurrentStatus)" href="@DetailsUrl(vessel.VesselId)" aria-label="@($"Open {vessel.Name} details")">
                         <span class="vessel-row-icon"><VesselIcon /></span>
-                        <div class="vessel-primary"><strong>@vessel.Name</strong><span class="vessel-identity">IMO @vessel.ImoNumber <span class="vessel-type-tag">@vessel.VesselTypeName</span></span></div>
+                        <div class="vessel-primary"><strong>@vessel.Name</strong><span class="vessel-identity">IMO @vessel.ImoNumber <span class="vessel-type-tag">@vessel.VesselTypeName</span></span>@if (vessel.CurrentLatitude is { } latitude && vessel.CurrentLongitude is { } longitude) { <span class="vessel-position" title="@vessel.LastPositionReportedAtUtc?.ToString("O")">Position: @latitude.ToString("0.000000", System.Globalization.CultureInfo.InvariantCulture), @longitude.ToString("0.000000", System.Globalization.CultureInfo.InvariantCulture)</span> }</div>
                         <div class="vessel-status-group"><span class="vessel-status @GetStatusClass(vessel.CurrentStatus)">@vessel.CurrentStatus</span>@if (!string.IsNullOrWhiteSpace(vessel.LifecycleStage)) { <small>@vessel.LifecycleStage</small> }</div>
                         <div class="vessel-detail"><span>Flag state</span><strong>@vessel.FlagState</strong></div>
                         <div class="vessel-detail"><span>DWT</span><strong>@(vessel.Dwt is null ? "—" : FormatDwt(vessel.Dwt.Value))</strong></div>

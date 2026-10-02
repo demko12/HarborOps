@@ -31,6 +31,61 @@ public sealed class CargoPageTests : BunitContext
         _ => Json(HttpStatusCode.OK, VoyagePage(Voyage("VOY-2026-014")));
 
     [Fact]
+    public void List_is_the_default_and_switching_views_does_not_reload_bookings()
+    {
+        respond = _ => Json(HttpStatusCode.OK, Page(Row("BK-0001")));
+        var page = RenderCargoPage(CurrentUserAuthorizationState.CargoReadPermission);
+        Assert.Equal("true", page.FindAll(".cargo-view-switch button")[0].GetAttribute("aria-pressed"));
+        Assert.Single(page.FindAll(".cargo-table"));
+        var requestCount = requestedUris.Count;
+
+        page.FindAll(".cargo-view-switch button")[1].Click();
+        Assert.Equal("true", page.FindAll(".cargo-view-switch button")[1].GetAttribute("aria-pressed"));
+        Assert.Single(page.FindAll(".cargo-booking-card"));
+        Assert.Empty(page.FindAll(".cargo-table"));
+        Assert.Equal(requestCount, requestedUris.Count);
+
+        page.FindAll(".cargo-view-switch button")[0].Click();
+        Assert.Single(page.FindAll(".cargo-table"));
+        Assert.Empty(page.FindAll(".cargo-booking-card"));
+        Assert.Equal(requestCount, requestedUris.Count);
+    }
+
+    [Fact]
+    public void Cards_show_booking_details_hazard_labels_and_lifecycle_progress()
+    {
+        respond = _ => Json(HttpStatusCode.OK, Page(Row("BK-0001", isHazardous: true, weightKg: 24000.5m, status: "Loaded")));
+        var page = RenderCargoPageAt("/cargo?view=cards&status=Loaded");
+        var card = page.Find(".cargo-booking-card");
+        Assert.Contains("Steel coils", card.TextContent, StringComparison.Ordinal);
+        Assert.Contains("General Cargo", card.TextContent, StringComparison.Ordinal);
+        Assert.Contains("24,000.500", card.TextContent, StringComparison.Ordinal);
+        Assert.Contains("10", card.QuerySelector("dl")!.TextContent, StringComparison.Ordinal);
+        Assert.Contains("Loaded", card.TextContent, StringComparison.Ordinal);
+        Assert.Contains("UTC", card.TextContent, StringComparison.Ordinal);
+        Assert.Contains("Hazardous", card.QuerySelector(".cargo-hazard-chip")!.TextContent, StringComparison.Ordinal);
+        Assert.Single(card.QuerySelectorAll(".cargo-placard"));
+        Assert.Equal("Step 3 of 7", card.QuerySelector(".cargo-track")!.GetAttribute("aria-label"));
+        var returnQuery = Uri.UnescapeDataString(card.QuerySelector("a.cargo-booking-no")!.GetAttribute("href")!.Split("from=", StringSplitOptions.None)[1]);
+        Assert.Contains("view=cards", returnQuery, StringComparison.Ordinal);
+        Assert.Contains("status=Loaded", returnQuery, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Cards_preserve_filtering_and_pagination()
+    {
+        respond = _ => Json(HttpStatusCode.OK, Page(1, 30, Row("BK-0001")));
+        var page = RenderCargoPageAt("/cargo?view=cards");
+        page.Find("#cargo-status").Change("InTransit");
+        page.WaitForAssertion(() => Assert.Contains("status=InTransit", requestedUris[^1].Query, StringComparison.Ordinal));
+        page.Find(".cargo-pages button:last-child").Click();
+        page.WaitForAssertion(() => Assert.Contains("pageNumber=2", requestedUris[^1].Query, StringComparison.Ordinal));
+        Assert.Single(page.FindAll(".cargo-booking-card"));
+        Assert.Equal("true", page.FindAll(".cargo-view-switch button")[1].GetAttribute("aria-pressed"));
+        Assert.Null(page.Find(".cargo-booking-card").QuerySelector(".cargo-hazard-chip"));
+    }
+
+    [Fact]
     public void Hazardous_summary_card_reports_the_filtered_total_not_the_rendered_rows()
     {
         respond = _ => Json(HttpStatusCode.OK, Page(
@@ -61,12 +116,114 @@ public sealed class CargoPageTests : BunitContext
             Row("BK-0001", weightKg: 12000m),
             Row("BK-0002", weightKg: 4500m)));
 
-        var cards = RenderCargoPage().FindAll(".cargo-summary-card");
+        var weight = RenderCargoPage().FindAll(".cargo-summary-card")[3];
 
-        Assert.Contains("16.5", cards[2].TextContent, StringComparison.Ordinal);
-        Assert.Equal("20", cards[3].QuerySelector("strong")!.TextContent);
-        Assert.Contains("On this page", cards[2].TextContent, StringComparison.Ordinal);
-        Assert.Contains("On this page", cards[3].TextContent, StringComparison.Ordinal);
+        Assert.Contains("16.5", weight.QuerySelector("strong")!.TextContent, StringComparison.Ordinal);
+        Assert.Contains("On this page · 2 bookings · 20 packages", weight.TextContent, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void The_hazardous_kpi_applies_and_clears_its_filter()
+    {
+        var page = RenderCargoPage();
+        var hazardousKpi = page.FindAll(".cargo-kpi-filter")[1];
+
+        hazardousKpi.Click();
+
+        page.WaitForAssertion(() =>
+        {
+            Assert.Contains("isHazardous=true", requestedUris[^1].Query, StringComparison.Ordinal);
+            Assert.Equal("true", page.FindAll(".cargo-kpi-filter")[1].GetAttribute("aria-pressed"));
+            Assert.True(page.Find("#cargo-hazardous").HasAttribute("checked"));
+        });
+
+        page.FindAll(".cargo-kpi-filter")[1].Click();
+
+        page.WaitForAssertion(() =>
+        {
+            Assert.DoesNotContain("isHazardous", requestedUris[^1].Query, StringComparison.Ordinal);
+            Assert.Equal("false", page.FindAll(".cargo-kpi-filter")[1].GetAttribute("aria-pressed"));
+        });
+    }
+
+    [Fact]
+    public void The_total_kpi_clears_every_filter_and_keeps_the_view()
+    {
+        var page = RenderCargoPageAt("/cargo?search=steel&status=Loaded&hazardous=true&discrepancies=open&page=2&view=cards");
+
+        Assert.Equal("false", page.Find(".cargo-kpi-total").GetAttribute("aria-pressed"));
+        Assert.Contains("click to show all", page.Find(".cargo-kpi-total").TextContent, StringComparison.Ordinal);
+
+        page.Find(".cargo-kpi-total").Click();
+
+        page.WaitForAssertion(() =>
+        {
+            var query = requestedUris[^1].Query;
+            Assert.DoesNotContain("search=", query, StringComparison.Ordinal);
+            Assert.DoesNotContain("status=", query, StringComparison.Ordinal);
+            Assert.DoesNotContain("isHazardous", query, StringComparison.Ordinal);
+            Assert.DoesNotContain("hasOpenDiscrepancies", query, StringComparison.Ordinal);
+            Assert.Contains("pageNumber=1", query, StringComparison.Ordinal);
+            Assert.Equal("true", page.Find(".cargo-kpi-total").GetAttribute("aria-pressed"));
+            Assert.EndsWith("/cargo?view=cards", Services.GetRequiredService<NavigationManager>().Uri, StringComparison.Ordinal);
+        });
+    }
+
+    [Fact]
+    public void The_open_discrepancies_kpi_applies_its_filter()
+    {
+        var page = RenderCargoPage();
+
+        page.Find(".cargo-kpi-discrepancies").Click();
+
+        page.WaitForAssertion(() =>
+        {
+            Assert.Contains("hasOpenDiscrepancies=true", requestedUris[^1].Query, StringComparison.Ordinal);
+            Assert.Contains("selected", page.Find(".cargo-kpi-discrepancies").ClassName, StringComparison.Ordinal);
+        });
+    }
+
+    [Fact]
+    public void The_card_view_shows_each_booking_and_is_kept_in_the_address()
+    {
+        respond = _ => Json(HttpStatusCode.OK, Page(
+            Row("BK-0001", isHazardous: true, openDiscrepancyCount: 1),
+            Row("BK-0002", status: "InTransit")));
+        var page = RenderCargoPage();
+
+        page.FindAll(".cargo-view-switch button")[1].Click();
+
+        var cards = page.FindAll(".cargo-booking-card");
+        Assert.Equal(2, cards.Count);
+        Assert.Empty(page.FindAll(".cargo-table"));
+        Assert.Contains("BK-0001", cards[0].TextContent, StringComparison.Ordinal);
+        Assert.NotNull(cards[0].QuerySelector(".cargo-hazard-chip"));
+        Assert.Contains("1 open discrepancy", cards[0].TextContent, StringComparison.Ordinal);
+        Assert.Null(cards[1].QuerySelector(".cargo-hazard-chip"));
+        Assert.Contains("view=cards", Services.GetRequiredService<NavigationManager>().Uri, StringComparison.Ordinal);
+        Assert.Single(page.FindAll(".cargo-pagination"));
+    }
+
+    [Fact]
+    public void The_board_opens_in_card_view_from_its_address()
+    {
+        respond = _ => Json(HttpStatusCode.OK, Page(Row("BK-0001")));
+
+        var page = RenderCargoPageAt("/cargo?view=cards");
+
+        page.WaitForAssertion(() => Assert.Single(page.FindAll(".cargo-booking-card")));
+        Assert.Equal("true", page.FindAll(".cargo-view-switch button")[1].GetAttribute("aria-pressed"));
+    }
+
+    [Fact]
+    public void Hazardous_rows_are_not_labelled_twice()
+    {
+        respond = _ => Json(HttpStatusCode.OK, Page(Row("BK-0001", isHazardous: true)));
+
+        var page = RenderCargoPage();
+
+        Assert.Single(page.FindAll(".cargo-booking-row .cargo-hazard-chip"));
+        Assert.DoesNotContain("Hazardous cargo", page.Find(".cargo-identity").TextContent, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -123,6 +280,45 @@ public sealed class CargoPageTests : BunitContext
             Assert.Contains(
                 requestedUris,
                 uri => uri.Query.Contains("search=ammonium", StringComparison.Ordinal)));
+    }
+
+    [Fact]
+    public void Bookings_with_open_discrepancies_are_flagged_and_counted()
+    {
+        respond = _ => Json(
+            HttpStatusCode.OK,
+            Page(Row("BK-0001", openDiscrepancyCount: 2), Row("BK-0002"))
+                .Replace("\"hazardousCount\":0", "\"hazardousCount\":0,\"openDiscrepancyBookingCount\":1", StringComparison.Ordinal));
+
+        var page = RenderCargoPage();
+
+        var flag = Assert.Single(page.FindAll(".cargo-discrepancy-flag"));
+        Assert.Contains("2 open discrepancies", flag.TextContent, StringComparison.Ordinal);
+        Assert.Contains("BK-0001", flag.Closest("tr")!.TextContent, StringComparison.Ordinal);
+        Assert.Equal("1", page.Find(".cargo-kpi-discrepancies strong").TextContent);
+    }
+
+    [Fact]
+    public void The_open_discrepancies_filter_is_sent_and_kept_in_the_address()
+    {
+        var page = RenderCargoPage();
+
+        page.Find("#cargo-open-discrepancies").Change(true);
+
+        page.WaitForAssertion(() =>
+        {
+            Assert.Contains("hasOpenDiscrepancies=true", requestedUris[^1].Query, StringComparison.Ordinal);
+            Assert.Contains("discrepancies=open", Services.GetRequiredService<NavigationManager>().Uri, StringComparison.Ordinal);
+        });
+    }
+
+    [Fact]
+    public void The_board_opens_on_the_open_discrepancies_filter_from_its_address()
+    {
+        var page = RenderCargoPageAt("/cargo?discrepancies=open");
+
+        Assert.Contains("hasOpenDiscrepancies=true", requestedUris[0].Query, StringComparison.Ordinal);
+        Assert.True(page.Find("#cargo-open-discrepancies").HasAttribute("checked"));
     }
 
     [Fact]
@@ -658,10 +854,11 @@ public sealed class CargoPageTests : BunitContext
         string bookingNumber,
         bool isHazardous = false,
         decimal weightKg = 5000m,
-        string status = "Registered")
+        string status = "Registered",
+        int openDiscrepancyCount = 0)
     {
         return $$"""
-            {"cargoBookingId":"20000000-0000-0000-0000-000000000001","bookingNumber":"{{bookingNumber}}","voyageId":"30000000-0000-0000-0000-000000000002","description":"Steel coils","cargoType":"General Cargo","weightKg":{{weightKg.ToString(System.Globalization.CultureInfo.InvariantCulture)}},"packageCount":10,"isHazardous":{{(isHazardous ? "true" : "false")}},"status":"{{status}}","createdUtc":"2026-08-11T09:42:00Z"}
+            {"cargoBookingId":"20000000-0000-0000-0000-000000000001","bookingNumber":"{{bookingNumber}}","voyageId":"30000000-0000-0000-0000-000000000002","description":"Steel coils","cargoType":"General Cargo","weightKg":{{weightKg.ToString(System.Globalization.CultureInfo.InvariantCulture)}},"packageCount":10,"isHazardous":{{(isHazardous ? "true" : "false")}},"status":"{{status}}","createdUtc":"2026-08-11T09:42:00Z","openDiscrepancyCount":{{openDiscrepancyCount}}}
             """;
     }
 

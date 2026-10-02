@@ -93,6 +93,15 @@ public partial class CargoReeferPanel : IDisposable
 
     private bool isChangeLogOpen;
 
+    private Guid? discrepancyExcursionId;
+    private string discrepancySeverity = "High";
+    private string? discrepancyDescription;
+    private string? discrepancyError;
+    private bool isOpeningDiscrepancy;
+
+    [Parameter]
+    public EventCallback<Guid> OnDiscrepancyOpened { get; set; }
+
     [Parameter]
     public Guid ContainerId { get; set; }
 
@@ -601,6 +610,68 @@ public partial class CargoReeferPanel : IDisposable
         finally
         {
             isResolving = false;
+        }
+    }
+
+    private void StartDiscrepancy(ReeferExcursionRow excursion)
+    {
+        discrepancyExcursionId = excursion.Id;
+        discrepancySeverity = "High";
+        discrepancyDescription =
+            $"Temperature {CargoBookingFormat.TemperatureCelsius(excursion.TemperatureCelsius)} was {excursion.Direction.ToLowerInvariant()} the accepted range of {CargoBookingFormat.TemperatureCelsius(excursion.ThresholdMinimumCelsius)} to {CargoBookingFormat.TemperatureCelsius(excursion.ThresholdMaximumCelsius)}.";
+        discrepancyError = null;
+    }
+
+    private void CancelDiscrepancy()
+    {
+        discrepancyExcursionId = null;
+        discrepancyError = null;
+    }
+
+    private async Task SubmitDiscrepancyAsync()
+    {
+        if (isOpeningDiscrepancy || discrepancyExcursionId is not { } excursionId)
+        {
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(discrepancyDescription))
+        {
+            discrepancyError = "Describe the temperature issue.";
+
+            return;
+        }
+
+        isOpeningDiscrepancy = true;
+        discrepancyError = null;
+
+        try
+        {
+            var result = await CargoApi.OpenExcursionDiscrepancyAsync(
+                ContainerId,
+                excursionId,
+                new OpenExcursionDiscrepancyWebRequest(discrepancySeverity, discrepancyDescription.Trim()),
+                disposeCancellation.Token);
+
+            if (!result.IsSuccess)
+            {
+                var failure = result.Failure!;
+                discrepancyError = failure.Errors.Count > 0
+                    ? string.Join(" ", failure.Errors.SelectMany(error => error.Value))
+                    : $"{failure.Title} {failure.Message}".Trim();
+
+                return;
+            }
+
+            discrepancyExcursionId = null;
+            await OnDiscrepancyOpened.InvokeAsync(result.Value!.Details.Discrepancy.Id);
+        }
+        catch (OperationCanceledException) when (disposeCancellation.IsCancellationRequested)
+        {
+        }
+        finally
+        {
+            isOpeningDiscrepancy = false;
         }
     }
 

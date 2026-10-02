@@ -55,6 +55,19 @@ public sealed class RecordCargoTrackingEventService(DbContext dbContext, TimePro
                 cancellationToken);
         }
 
+        if (requestedStatus == CargoStatus.Completed && booking.NextStatus == CargoStatus.Completed)
+        {
+            var blockers = await CargoDiscrepancyGuard.GetCompletionBlockersAsync(
+                dbContext,
+                cargoBookingId,
+                cancellationToken);
+
+            if (blockers.OpenCount > 0)
+            {
+                throw new CargoBookingCompletionBlockedException(blockers);
+            }
+        }
+
         try
         {
             booking.AdvanceStatusTo(requestedStatus);

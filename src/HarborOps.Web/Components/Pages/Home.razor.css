@@ -150,28 +150,25 @@
     font-size: 0.85rem;
 }
 .dashboard-icon-fleet {
-    --module-color: var(--accent);
+    --module-color: var(--module-fleet);
 }
 .dashboard-icon-crew {
-    --module-color: #9b75ed;
+    --module-color: var(--module-crew);
 }
 .dashboard-icon-voyages {
-    --module-color: #0891b2;
+    --module-color: var(--module-voyages);
 }
 .dashboard-icon-cargo {
-    --module-color: #d97706;
+    --module-color: var(--module-cargo);
 }
 .dashboard-icon-maintenance {
-    --module-color: #e05260;
-}
-html:not([data-theme="light"]) .dashboard-icon-maintenance {
-    --module-color: #d98a93;
+    --module-color: var(--module-maintenance);
 }
 .dashboard-icon-compliance {
-    --module-color: #059669;
+    --module-color: var(--module-compliance);
 }
 .dashboard-icon-documents {
-    --module-color: #8270ef;
+    --module-color: var(--module-documents);
 }
 .dashboard-metric-value {
     margin: 0.7rem 0 0.25rem;

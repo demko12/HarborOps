@@ -47,6 +47,48 @@ public sealed class NonConformitiesPageTests : BunitContext
     }
 
     [Fact]
+    public void Kpis_show_unresolved_findings_by_severity_and_overdue()
+    {
+        var page = RenderPage();
+
+        page.WaitForAssertion(() =>
+            Assert.Equal(["2", "5", "8", "3"], page.FindAll(".nc-summary .nc-kpi-value").Select(value => value.TextContent)));
+    }
+
+    [Fact]
+    public void Severity_kpi_filters_by_severity_and_a_second_click_clears_it()
+    {
+        var page = RenderPage();
+        page.WaitForAssertion(() => Assert.Equal(4, page.FindAll(".nc-summary .nc-kpi").Count));
+        ClearListRequests();
+
+        page.Find("button[aria-label='Show critical findings']").Click();
+
+        page.WaitForAssertion(() => Assert.NotEmpty(ListRequests()));
+        Assert.Equal("Critical", QueryValue(ListRequests()[^1], "severity"));
+        Assert.Equal("true", page.Find("button[aria-label='Show critical findings']").GetAttribute("aria-pressed"));
+
+        ClearListRequests();
+        page.Find("button[aria-label='Show critical findings']").Click();
+
+        page.WaitForAssertion(() => Assert.NotEmpty(ListRequests()));
+        Assert.Null(QueryValue(ListRequests()[^1], "severity"));
+    }
+
+    [Fact]
+    public void Overdue_kpi_filters_to_overdue_findings()
+    {
+        var page = RenderPage();
+        page.WaitForAssertion(() => Assert.Equal(4, page.FindAll(".nc-summary .nc-kpi").Count));
+        ClearListRequests();
+
+        page.Find("button[aria-label='Show overdue findings']").Click();
+
+        page.WaitForAssertion(() => Assert.NotEmpty(ListRequests()));
+        Assert.Equal("true", QueryValue(ListRequests()[^1], "overdue"));
+    }
+
+    [Fact]
     public void Changing_closure_status_reloads_with_the_closure_status_query_parameter()
     {
         var page = RenderPage();
@@ -749,6 +791,11 @@ public sealed class NonConformitiesPageTests : BunitContext
         if (request.Method == HttpMethod.Get && path == "/api/compliance/non-conformities")
         {
             return Json(HttpStatusCode.OK, ListJson());
+        }
+
+        if (request.Method == HttpMethod.Get && path == "/api/compliance/non-conformities/summary")
+        {
+            return Json(HttpStatusCode.OK, """{"unresolvedCriticalCount":2,"unresolvedMajorCount":5,"unresolvedMinorCount":8,"overdueCount":3}""");
         }
 
         if (request.Method == HttpMethod.Get && path.StartsWith("/api/compliance/non-conformities/", StringComparison.Ordinal))

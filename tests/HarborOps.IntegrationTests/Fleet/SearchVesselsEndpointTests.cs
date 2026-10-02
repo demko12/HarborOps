@@ -18,12 +18,15 @@ public sealed class SearchVesselsEndpointTests : IntegrationTestBase
     private static readonly string[] ExpectedItemProperties =
     [
         "companyId",
+        "currentLatitude",
+        "currentLongitude",
         "currentStatus",
         "dwt",
         "flagState",
         "fleetId",
         "fleetName",
         "imoNumber",
+        "lastPositionReportedAtUtc",
         "lifecycleStage",
         "name",
         "updatedAtUtc",

@@ -332,6 +332,78 @@ public sealed class GetExpiringDocumentsQueryTests
         Assert.Equal(seeded.Id, Assert.Single(response.Items).DocumentId);
     }
 
+    [Fact]
+    public async Task GetSummary_counts_expired_due_soon_and_pending_review_and_buckets_the_next_twelve_months()
+    {
+        await using var dbContext = CreateDbContext();
+        var documentTypeId = await SeedDocumentTypeAsync(dbContext);
+        var vesselId = Guid.NewGuid();
+        await SeedSummaryDocumentsAsync(dbContext, vesselId, documentTypeId);
+
+        var query = new GetExpiringDocumentsQuery(dbContext, new FakeDateTimeProvider(FixedUtcNow));
+
+        var summary = await query.GetSummaryAsync(new GetExpiringDocumentsRequest(), CancellationToken.None);
+
+        Assert.Equal(6, summary.TotalCount);
+        Assert.Equal(1, summary.ExpiredCount);
+        Assert.Equal(2, summary.DueWithin30DaysCount);
+        Assert.Equal(1, summary.PendingReviewCount);
+        Assert.Equal(12, summary.Months.Count);
+        Assert.Equal(new ExpiringDocumentsMonthCount(2026, 8, 1), summary.Months[0]);
+        Assert.Equal(new ExpiringDocumentsMonthCount(2026, 9, 2), summary.Months[1]);
+        Assert.Equal(new ExpiringDocumentsMonthCount(2026, 12, 1), summary.Months[4]);
+        Assert.Equal(new ExpiringDocumentsMonthCount(2027, 7, 0), summary.Months[11]);
+    }
+
+    [Fact]
+    public async Task GetSummary_applies_the_date_range_to_the_counts_but_not_to_the_month_chart()
+    {
+        await using var dbContext = CreateDbContext();
+        var documentTypeId = await SeedDocumentTypeAsync(dbContext);
+        var vesselId = Guid.NewGuid();
+        await SeedSummaryDocumentsAsync(dbContext, vesselId, documentTypeId);
+
+        var query = new GetExpiringDocumentsQuery(dbContext, new FakeDateTimeProvider(FixedUtcNow));
+
+        var summary = await query.GetSummaryAsync(
+            new GetExpiringDocumentsRequest { From = new DateOnly(2026, 9, 1), To = new DateOnly(2026, 9, 30) },
+            CancellationToken.None);
+
+        Assert.Equal(2, summary.TotalCount);
+        Assert.Equal(0, summary.ExpiredCount);
+        Assert.Equal(1, summary.DueWithin30DaysCount);
+        Assert.Equal(4, summary.Months.Sum(month => month.Count));
+    }
+
+    [Fact]
+    public async Task GetSummary_for_read_only_users_only_counts_approved_documents()
+    {
+        await using var dbContext = CreateDbContext();
+        var documentTypeId = await SeedDocumentTypeAsync(dbContext);
+        await SeedSummaryDocumentsAsync(dbContext, Guid.NewGuid(), documentTypeId);
+
+        var query = new GetExpiringDocumentsQuery(dbContext, new FakeDateTimeProvider(FixedUtcNow));
+
+        var summary = await query.GetSummaryAsync(new GetExpiringDocumentsRequest(), CancellationToken.None, restrictToReadOnlyVisible: true);
+
+        Assert.Equal(0, summary.TotalCount);
+        Assert.Equal(0, summary.PendingReviewCount);
+        Assert.All(summary.Months, month => Assert.Equal(0, month.Count));
+    }
+
+    private static async Task SeedSummaryDocumentsAsync(HarborOpsDbContext dbContext, Guid vesselId, int documentTypeId)
+    {
+        await SeedDocumentAsync(dbContext, vesselId, documentTypeId, "EXPIRED", Today.AddDays(-9));
+        await SeedDocumentAsync(dbContext, vesselId, documentTypeId, "TODAY", Today);
+        await SeedDocumentAsync(dbContext, vesselId, documentTypeId, "DUE", Today.AddDays(30));
+        await SeedDocumentAsync(dbContext, vesselId, documentTypeId, "LATER", Today.AddDays(31));
+        await SeedDocumentAsync(dbContext, vesselId, documentTypeId, "NEXT-YEAR", new DateOnly(2027, 8, 1));
+        var pending = await SeedDocumentAsync(dbContext, vesselId, documentTypeId, "PENDING", new DateOnly(2026, 12, 15));
+        pending.AttachFile("certificate.pdf", "application/pdf", "storage-key", 100, Guid.NewGuid(), FixedUtcNow);
+        pending.SubmitForReview(Guid.NewGuid(), FixedUtcNow);
+        await dbContext.SaveChangesAsync();
+    }
+
     private static async Task<int> SeedDocumentTypeAsync(HarborOpsDbContext dbContext)
     {
         var documentType = new DocumentType(

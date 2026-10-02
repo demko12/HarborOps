@@ -59,6 +59,18 @@ internal sealed class DocumentsApiClient(HttpClient httpClient)
         }
     }
 
+    internal Task<DocumentsApiResult<ExpiringDocumentsSummary>> GetExpiringSummaryAsync(
+        GetExpiringDocumentsQuery query,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(query);
+
+        return GetAsync<ExpiringDocumentsSummary>(
+            BuildExpiringPath(query with { PageNumber = null, PageSize = null }, "expiring/summary"),
+            "Unable to load the document summary",
+            cancellationToken);
+    }
+
     internal async Task<DocumentsApiResult<DocumentsPage>> GetDocumentsAsync(
         GetDocumentsQuery query,
         CancellationToken cancellationToken)
@@ -1098,7 +1110,7 @@ internal sealed class DocumentsApiClient(HttpClient httpClient)
         return content;
     }
 
-    private static string BuildExpiringPath(GetExpiringDocumentsQuery query)
+    private static string BuildExpiringPath(GetExpiringDocumentsQuery query, string resource = "expiring")
     {
         var extra = new List<string>();
 
@@ -1132,7 +1144,7 @@ internal sealed class DocumentsApiClient(HttpClient httpClient)
             extra.Add($"pageSize={pageSize}");
         }
 
-        return extra.Count == 0 ? $"{BasePath}/expiring" : $"{BasePath}/expiring?{string.Join('&', extra)}";
+        return extra.Count == 0 ? $"{BasePath}/{resource}" : $"{BasePath}/{resource}?{string.Join('&', extra)}";
     }
 
     private async Task<DocumentsApiResult<T>> GetAsync<T>(string path, string title, CancellationToken cancellationToken)

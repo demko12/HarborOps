@@ -1,0 +1,581 @@
+@using HarborOps.Web.Api.Cargo
+
+<section class="booking-card booking-discrepancies-card discrepancies-panel" aria-labelledby="booking-discrepancies-title">
+    <div class="booking-card-heading">
+        <h2 id="booking-discrepancies-title">Discrepancies</h2>
+        <span class="discrepancy-open-count @(OpenCount > 0 ? "has-open" : null)">
+            @Count(OpenCount, "open", "open")
+        </span>
+    </div>
+
+    @if (page is { } current)
+    {
+        <div class="discrepancy-summary" role="group" aria-label="Filter discrepancies by status">
+            @foreach (var (status, count) in SummaryEntries(current.Summary))
+            {
+                <button type="button"
+                        class="discrepancy-summary-filter @(statusFilter == status ? "selected" : null)"
+                        aria-pressed="@(statusFilter == status ? "true" : "false")"
+                        aria-label="@($"{(statusFilter == status ? "Show every status" : $"Show only {status.ToLowerInvariant()}")} ({count})")"
+                        disabled="@isLoadingList"
+                        @onclick="() => ToggleStatusFilterAsync(status)">
+                    <span class="@StatusClass(status)">@status</span>
+                    <strong>@count</strong>
+                </button>
+            }
+        </div>
+    }
+
+    @if (BlocksCompletion)
+    {
+        <p class="booking-note booking-note-warning discrepancy-blocks" role="status">
+            @Count(OpenCount, "discrepancy is", "discrepancies are") still reported or under investigation, so this booking cannot be completed yet.
+        </p>
+    }
+
+    @if (CanManage && AcceptsRegistration)
+    {
+        <div class="discrepancy-actions">
+            <button type="button"
+                    class="booking-submit discrepancy-register-toggle"
+                    aria-expanded="@(isRegisterOpen ? "true" : "false")"
+                    @onclick="ToggleRegister">
+                <span class="bi @(isRegisterOpen ? "bi-dash-lg" : "bi-plus-lg")" aria-hidden="true"></span>
+                @(isRegisterOpen ? "Cancel" : "Register discrepancy")
+            </button>
+        </div>
+    }
+    else if (CanManage && string.Equals(BookingStatus, "Completed", StringComparison.OrdinalIgnoreCase))
+    {
+        <p class="booking-note discrepancy-closed-note">This booking is completed, so no new discrepancy can be registered.</p>
+    }
+    else if (CanManage)
+    {
+        <p class="booking-note discrepancy-closed-note">Discrepancies can be registered once the cargo is loaded.</p>
+    }
+
+    @if (isRegisterOpen)
+    {
+        <form class="discrepancy-form" @onsubmit="SubmitRegisterAsync" @onsubmit:preventDefault="true" novalidate>
+            @if (registerError is not null)
+            {
+                <div class="booking-form-error" role="alert">@registerError</div>
+            }
+
+            <div class="booking-form-grid">
+                <div class="booking-field">
+                    <label for="discrepancy-type">Type</label>
+                    <select id="discrepancy-type" @bind="registerType">
+                        <option value="">Select a type...</option>
+                        @foreach (var type in Types)
+                        {
+                            <option value="@type.Value">@type.Label</option>
+                        }
+                    </select>
+                    @if (ErrorFor("type") is { } typeError)
+                    {
+                        <span class="discrepancy-field-error">@typeError</span>
+                    }
+                </div>
+
+                <div class="booking-field">
+                    <label for="discrepancy-severity">Severity</label>
+                    <select id="discrepancy-severity" @bind="registerSeverity">
+                        <option value="">Select a severity...</option>
+                        @foreach (var severity in Severities)
+                        {
+                            <option value="@severity">@severity</option>
+                        }
+                    </select>
+                    @if (ErrorFor("severity") is { } severityError)
+                    {
+                        <span class="discrepancy-field-error">@severityError</span>
+                    }
+                </div>
+
+                <div class="booking-field">
+                    <label for="discrepancy-container">
+                        Container
+                        @if (!RequiresContainer)
+                        {
+                            <span class="discrepancy-optional">optional</span>
+                        }
+                    </label>
+                    <div class="discrepancy-combobox @(isContainerMenuOpen ? "is-open" : null)">
+                        <input id="discrepancy-container"
+                               role="combobox"
+                               aria-autocomplete="list"
+                               aria-expanded="@(isContainerMenuOpen ? "true" : "false")"
+                               aria-controls="discrepancy-container-listbox"
+                               aria-activedescendant="@ActiveContainerOptionId"
+                               placeholder="@(RequiresContainer ? "Choose a container" : "Whole booking, or choose a container")"
+                               autocomplete="off"
+                               maxlength="20"
+                               @bind="registerContainerNumber"
+                               @bind:event="oninput"
+                               @bind:after="SearchContainersAsync"
+                               @onfocus="OpenContainerMenuAsync"
+                               @onblur="CloseContainerMenu"
+                               @onkeydown="HandleContainerKeyDown" />
+                        <button type="button"
+                                class="discrepancy-combobox-toggle"
+                                tabindex="-1"
+                                aria-label="@(isContainerMenuOpen ? "Hide containers" : "Show containers")"
+                                @onmousedown:preventDefault="true"
+                                @onclick="ToggleContainerMenuAsync">
+                            <span class="bi bi-chevron-down" aria-hidden="true"></span>
+                        </button>
+                        @if (isContainerMenuOpen)
+                        {
+                            <ul id="discrepancy-container-listbox" class="discrepancy-combobox-menu" role="listbox" aria-label="Containers on this booking">
+                                @if (isLoadingContainers && containerSuggestions.Count == 0)
+                                {
+                                    <li class="discrepancy-combobox-note" role="presentation">Loading containers...</li>
+                                }
+                                else if (containerSuggestions.Count == 0)
+                                {
+                                    <li class="discrepancy-combobox-note" role="presentation">No container on this booking matches.</li>
+                                }
+                                @for (var index = 0; index < containerSuggestions.Count; index++)
+                                {
+                                    var optionIndex = index;
+                                    var suggestion = containerSuggestions[index];
+
+                                    <li @key="suggestion.ContainerId"
+                                        id="@ContainerOptionId(optionIndex)"
+                                        role="option"
+                                        class="discrepancy-combobox-option @(optionIndex == highlightedContainerIndex ? "is-active" : null)"
+                                        aria-selected="@(optionIndex == highlightedContainerIndex ? "true" : "false")"
+                                        @onmousedown:preventDefault="true"
+                                        @onclick="() => SelectContainer(suggestion)">
+                                        <span class="discrepancy-combobox-number">@suggestion.ContainerNumber</span>
+                                        <span class="discrepancy-combobox-meta">@suggestion.ContainerType · @suggestion.Status</span>
+                                    </li>
+                                }
+                                @if (containerMatchCount > containerSuggestions.Count)
+                                {
+                                    <li class="discrepancy-combobox-note" role="presentation">
+                                        Showing @containerSuggestions.Count of @containerMatchCount. Keep typing to narrow the list.
+                                    </li>
+                                }
+                            </ul>
+                        }
+                    </div>
+                    @if (ErrorFor("containerId") is { } containerIdError)
+                    {
+                        <span class="discrepancy-field-error">@containerIdError</span>
+                    }
+                </div>
+
+                <div class="booking-field">
+                    <label for="discrepancy-observed">Observed (UTC)</label>
+                    <input id="discrepancy-observed" type="datetime-local" max="@ObservedAtMax" @bind="registerObservedAtUtc" />
+                    @if (ErrorFor("observedAtUtc") is { } observedAtUtcError)
+                    {
+                        <span class="discrepancy-field-error">@observedAtUtcError</span>
+                    }
+                </div>
+
+                <div class="booking-field booking-field-wide">
+                    <label for="discrepancy-description">Description</label>
+                    <textarea id="discrepancy-description"
+                              rows="3"
+                              maxlength="@DescriptionMaxLength"
+                              @bind="registerDescription"></textarea>
+                    @if (ErrorFor("description") is { } descriptionError)
+                    {
+                        <span class="discrepancy-field-error">@descriptionError</span>
+                    }
+                </div>
+            </div>
+
+            <div class="discrepancy-form-actions">
+                <button type="submit" class="booking-submit discrepancy-register-submit" disabled="@isRegistering">
+                    @(isRegistering ? "Registering..." : "Register discrepancy")
+                </button>
+            </div>
+        </form>
+    }
+
+    <div class="discrepancy-filter">
+        <div class="booking-field">
+            <label for="discrepancy-status-filter">Status</label>
+            <select id="discrepancy-status-filter" @bind="statusFilter" @bind:after="ApplyFiltersAsync">
+                <option value="">All statuses</option>
+                <option value="@ReportedStatus">Reported</option>
+                <option value="@InvestigatingStatus">Investigating</option>
+                <option value="@ResolvedStatus">Resolved</option>
+                <option value="@VoidedStatus">Voided</option>
+            </select>
+        </div>
+        <div class="booking-field">
+            <label for="discrepancy-type-filter">Type</label>
+            <select id="discrepancy-type-filter" @bind="typeFilter" @bind:after="ApplyFiltersAsync">
+                <option value="">All types</option>
+                @foreach (var type in Types)
+                {
+                    <option value="@type.Value">@type.Label</option>
+                }
+            </select>
+        </div>
+        <div class="booking-field">
+            <label for="discrepancy-severity-filter">Severity</label>
+            <select id="discrepancy-severity-filter" @bind="severityFilter" @bind:after="ApplyFiltersAsync">
+                <option value="">All severities</option>
+                @foreach (var severity in Severities)
+                {
+                    <option value="@severity">@severity</option>
+                }
+            </select>
+        </div>
+        @if (HasFilters)
+        {
+            <button type="button" class="discrepancy-secondary discrepancy-clear-filters" disabled="@isLoadingList" @onclick="ClearFiltersAsync">Clear</button>
+        }
+    </div>
+
+    @if (isLoadingList && page is null)
+    {
+        <LoadingState Message="Loading the discrepancies..." />
+    }
+    else if (listFailure is not null)
+    {
+        <ApiErrorState Title="@listFailure.Title" Message="@listFailure.Message" OnRetry="LoadListAsync" />
+    }
+    else if (page is { } loaded && loaded.Items.Count == 0)
+    {
+        <EmptyState Title="@(HasFilters ? "No discrepancies match these filters" : "No discrepancies")"
+                    Message="Damage, shortages, seal mismatches and temperature issues registered for this booking are listed here." />
+    }
+    else if (page is { } list)
+    {
+        <div class="discrepancy-table-scroll" aria-busy="@(isLoadingList ? "true" : "false")">
+            <table class="discrepancy-table">
+                <caption class="visually-hidden">Discrepancies of this booking, newest first</caption>
+                <thead>
+                    <tr>
+                        <th scope="col">Reported (UTC)</th>
+                        <th scope="col">Type</th>
+                        <th scope="col">Severity</th>
+                        <th scope="col">Container</th>
+                        <th scope="col">Status</th>
+                        <th scope="col"><span class="visually-hidden">Actions</span></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var discrepancy in list.Items)
+                    {
+                        <tr class="discrepancy-row" @key="discrepancy.Id">
+                            <td>@CargoBookingFormat.CreatedUtc(discrepancy.ReportedAtUtc)</td>
+                            <td>@TypeLabel(discrepancy.Type)</td>
+                            <td><span class="@SeverityClass(discrepancy.Severity)">@discrepancy.Severity</span></td>
+                            <td>@(discrepancy.ContainerNumber ?? "Whole booking")</td>
+                            <td><span class="@StatusClass(discrepancy.Status)">@discrepancy.Status</span></td>
+                            <td>
+                                <button type="button"
+                                        class="discrepancy-open"
+                                        @onclick="() => SelectAsync(discrepancy.Id)">View</button>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+
+        @if (list.TotalCount > PageSize)
+        {
+            <nav class="discrepancy-pagination" aria-label="Discrepancy pages">
+                <button type="button" disabled="@(pageNumber == 1 || isLoadingList)" @onclick="() => GoToPageAsync(pageNumber - 1)">Previous</button>
+                <span aria-current="page">Page @pageNumber of @TotalPages</span>
+                <button type="button" disabled="@(pageNumber == TotalPages || isLoadingList)" @onclick="() => GoToPageAsync(pageNumber + 1)">Next</button>
+            </nav>
+        }
+    }
+</section>
+
+@if (selectedId is not null)
+{
+    <div class="operation-modal-backdrop" role="presentation" @onclick="CloseDetails">
+        <section class="operation-modal discrepancy-modal"
+                 role="dialog"
+                 aria-modal="true"
+                 aria-labelledby="discrepancy-details-title"
+                 @onclick:stopPropagation="true">
+            <div class="operation-modal-header">
+                <div>
+                    <p class="discrepancy-eyebrow">Discrepancy</p>
+                    <h2 id="discrepancy-details-title">
+                        @(selected is { } heading ? TypeLabel(heading.Discrepancy.Type) : "Loading...")
+                    </h2>
+                </div>
+                <button type="button"
+                        class="operation-modal-close"
+                        aria-label="Close discrepancy details"
+                        disabled="@isWorking"
+                        @onclick="CloseDetails">&times;</button>
+            </div>
+
+            @if (isLoadingSelected)
+            {
+                <LoadingState Message="Loading the discrepancy..." />
+            }
+            else if (selectedFailure is { IsNotFound: true })
+            {
+                <EmptyState Title="Discrepancy not found" Message="It no longer exists on this booking." />
+            }
+            else if (selectedFailure is not null)
+            {
+                <ApiErrorState Title="@selectedFailure.Title" Message="@selectedFailure.Message" OnRetry="LoadSelectedAsync" />
+            }
+            else if (selected is { } view)
+            {
+                var discrepancy = view.Discrepancy;
+
+                <div class="discrepancy-detail-status">
+                    <span class="@StatusClass(discrepancy.Status)">@discrepancy.Status</span>
+                    <span class="@SeverityClass(discrepancy.Severity)">@discrepancy.Severity</span>
+                    @if (discrepancy.Disposition is { } disposition)
+                    {
+                        <span class="discrepancy-disposition">@DispositionLabel(disposition)</span>
+                    }
+                </div>
+
+                <p class="discrepancy-description">@discrepancy.Description</p>
+
+                <dl class="discrepancy-facts">
+                    <div>
+                        <dt>Container</dt>
+                        <dd>
+                            @if (discrepancy.ContainerId is not null)
+                            {
+                                <button type="button" class="discrepancy-link discrepancy-container-link" @onclick="() => OpenContainerAsync(discrepancy)">
+                                    @(discrepancy.ContainerNumber ?? "Open container")
+                                </button>
+                            }
+                            else
+                            {
+                                <span>Whole booking</span>
+                            }
+                        </dd>
+                    </div>
+                    <div>
+                        <dt>Observed (UTC)</dt>
+                        <dd>@CargoBookingFormat.CreatedUtc(discrepancy.ObservedAtUtc)</dd>
+                    </div>
+                    <div>
+                        <dt>Reported</dt>
+                        <dd title="@discrepancy.ReportedByUserId">
+                            @CargoBookingFormat.CreatedUtc(discrepancy.ReportedAtUtc) by @CargoBookingFormat.Actor(discrepancy.ReportedByName, discrepancy.ReportedByUserId)
+                        </dd>
+                    </div>
+                    @if (discrepancy.ResolvedAtUtc is { } resolvedAt && discrepancy.ResolvedByUserId is { } resolvedBy)
+                    {
+                        <div>
+                            <dt>Resolved</dt>
+                            <dd title="@resolvedBy">@CargoBookingFormat.CreatedUtc(resolvedAt) by @CargoBookingFormat.Actor(discrepancy.ResolvedByName, resolvedBy)</dd>
+                        </div>
+                    }
+                    @if (discrepancy.VoidedAtUtc is { } voidedAt && discrepancy.VoidedByUserId is { } voidedBy)
+                    {
+                        <div>
+                            <dt>Voided</dt>
+                            <dd title="@voidedBy">@CargoBookingFormat.CreatedUtc(voidedAt) by @CargoBookingFormat.Actor(discrepancy.VoidedByName, voidedBy)</dd>
+                        </div>
+                    }
+                </dl>
+
+                @if (view.Source is { } source)
+                {
+                    <section class="discrepancy-source @(source.BlocksResolution ? "is-blocking" : null)" aria-label="Linked temperature excursion">
+                        <p class="discrepancy-source-title">
+                            <span class="bi bi-thermometer-high" aria-hidden="true"></span>
+                            Temperature excursion
+                            <span class="discrepancy-source-state">@source.CurrentStatus</span>
+                        </p>
+                        @if (source.TemperatureCelsius is { } temperature
+                             && source.ThresholdMinimumCelsius is { } minimum
+                             && source.ThresholdMaximumCelsius is { } maximum)
+                        {
+                            <p class="booking-note">
+                                @CargoBookingFormat.TemperatureCelsius(temperature) (@source.Direction range
+                                @CargoBookingFormat.TemperatureCelsius(minimum) to @CargoBookingFormat.TemperatureCelsius(maximum))
+                                @if (source.MeasuredAtUtc is { } measured)
+                                {
+                                    <span>, measured @CargoBookingFormat.CreatedUtc(measured)</span>
+                                }
+                            </p>
+                        }
+                        @if (source.BlocksResolution)
+                        {
+                            <p class="booking-note booking-note-warning">
+                                The excursion is still open. Record its disposition or correct its reading before resolving this discrepancy.
+                            </p>
+                        }
+                        <button type="button" class="discrepancy-link discrepancy-source-link" @onclick="() => OpenContainerAsync(discrepancy)">
+                            Open the reefer log
+                        </button>
+                    </section>
+                }
+
+                @if (CanManage && discrepancy.Status is ReportedStatus or InvestigatingStatus)
+                {
+                    <section class="discrepancy-workflow" aria-label="Investigation">
+                        @if (discrepancy.Status == ReportedStatus)
+                        {
+                            <div class="discrepancy-step discrepancy-step-start">
+                                <h3>1. Start the investigation</h3>
+                                <p class="booking-note">
+                                    The discrepancy is only reported so far. Starting the investigation moves it to Investigating and records that you took it on.
+                                    It can be resolved only after that, once at least one investigation note is added.
+                                </p>
+                                <div class="discrepancy-form-actions">
+                                    <button type="button" class="booking-submit discrepancy-start" disabled="@isWorking" @onclick="StartInvestigationAsync">
+                                        @(isWorking && actionArea == StartArea ? "Starting..." : "Start investigation")
+                                    </button>
+                                </div>
+                                @ActionErrorFor(StartArea)
+                            </div>
+                        }
+
+                        <div class="discrepancy-step discrepancy-step-note">
+                            <h3>@(discrepancy.Status == ReportedStatus ? "Note" : "2. Investigation notes")</h3>
+                            <p class="booking-note">
+                                @(discrepancy.Status == ReportedStatus
+                                    ? "Notes can be added now, but only notes added during the investigation count towards the resolution."
+                                    : $"Record what was checked and found. {Count(view.InvestigationNoteCount, "note", "notes")} added during the investigation so far.")
+                            </p>
+                            <div class="booking-field">
+                                <label for="discrepancy-note">Note</label>
+                                <textarea id="discrepancy-note" rows="2" maxlength="@TextMaxLength" @bind="noteText"></textarea>
+                            </div>
+                            <div class="discrepancy-form-actions">
+                                <button type="button" class="discrepancy-secondary discrepancy-add-note" disabled="@isWorking" @onclick="AddNoteAsync">
+                                    @(isWorking && actionArea == NoteArea ? "Adding..." : "Add note")
+                                </button>
+                            </div>
+                            @ActionErrorFor(NoteArea)
+                        </div>
+
+                        @if (discrepancy.Status == InvestigatingStatus)
+                        {
+                            <div class="discrepancy-step discrepancy-resolve">
+                                <h3>3. Resolve</h3>
+                                <p class="booking-note">Close the investigation with a disposition and a summary of at least @SummaryMinLength characters. A resolved discrepancy no longer blocks completing the booking.</p>
+                                @if (view.ResolutionBlocker is { } blocker)
+                                {
+                                    <p class="booking-note booking-note-warning discrepancy-resolution-blocker" role="status">@blocker</p>
+                                }
+                                <div class="booking-field">
+                                    <label for="discrepancy-disposition">Disposition</label>
+                                    <select id="discrepancy-disposition" @bind="resolveDisposition" disabled="@(pendingAction is not null)">
+                                        <option value="">Select a disposition...</option>
+                                        @foreach (var option in Dispositions)
+                                        {
+                                            <option value="@option.Value">@option.Label</option>
+                                        }
+                                    </select>
+                                </div>
+                                <div class="booking-field">
+                                    <label for="discrepancy-summary">Resolution summary</label>
+                                    <textarea id="discrepancy-summary" rows="3" maxlength="@TextMaxLength" @bind="resolveSummary" disabled="@(pendingAction is not null)"></textarea>
+                                </div>
+                                @if (pendingAction == PendingAction.Resolve)
+                                {
+                                    @Confirmation(PendingAction.Resolve)
+                                }
+                                else
+                                {
+                                    <div class="discrepancy-form-actions">
+                                        <button type="button"
+                                                class="booking-submit discrepancy-resolve-submit"
+                                                disabled="@(isWorking || pendingAction is not null || view.ResolutionBlocker is not null)"
+                                                @onclick="() => AskToConfirm(PendingAction.Resolve)">Resolve...</button>
+                                    </div>
+                                }
+                                @ActionErrorFor(ResolveArea)
+                            </div>
+                        }
+                        else
+                        {
+                            <p class="booking-note discrepancy-resolution-blocker" role="status">@view.ResolutionBlocker</p>
+                        }
+
+                        <div class="discrepancy-step discrepancy-void">
+                            <h3>Void</h3>
+                            <p class="booking-note">Use this when the discrepancy was registered by mistake, for example twice. It is possible only before resolution and needs a reason.</p>
+                            <div class="booking-field">
+                                <label for="discrepancy-void-reason">Void reason</label>
+                                <input id="discrepancy-void-reason" maxlength="@TextMaxLength" @bind="voidReason" disabled="@(pendingAction is not null)" />
+                            </div>
+                            @if (pendingAction == PendingAction.Void)
+                            {
+                                @Confirmation(PendingAction.Void)
+                            }
+                            else
+                            {
+                                <div class="discrepancy-form-actions">
+                                    <button type="button" class="discrepancy-danger discrepancy-void-submit" disabled="@(isWorking || pendingAction is not null)" @onclick="() => AskToConfirm(PendingAction.Void)">Void...</button>
+                                </div>
+                            }
+                            @ActionErrorFor(VoidArea)
+                        </div>
+                    </section>
+                }
+                else if (actionError is not null)
+                {
+                    @ActionErrorFor(actionArea)
+                }
+
+                <section class="discrepancy-history" aria-labelledby="discrepancy-history-title">
+                    <h3 id="discrepancy-history-title">Investigation history</h3>
+                    <ol class="discrepancy-history-list">
+                        @foreach (var entry in view.History)
+                        {
+                            <li class="discrepancy-history-entry" @key="entry.Id">
+                                <div class="discrepancy-history-head">
+                                    <span class="discrepancy-history-event">@HistoryLabel(entry.EventType)</span>
+                                    @if (entry.FromStatus is { } from && entry.ToStatus is { } to && from != to)
+                                    {
+                                        <span class="discrepancy-history-transition">@from → @to</span>
+                                    }
+                                    <span class="discrepancy-history-meta" title="@entry.ActorUserId">
+                                        @CargoBookingFormat.CreatedUtc(entry.OccurredAtUtc) · @CargoBookingFormat.Actor(entry.ActorName, entry.ActorUserId)
+                                    </span>
+                                </div>
+                                @if (!string.IsNullOrWhiteSpace(entry.Text))
+                                {
+                                    <p class="discrepancy-history-text">@entry.Text</p>
+                                }
+                            </li>
+                        }
+                    </ol>
+                </section>
+            }
+        </section>
+    </div>
+}
+
+@code {
+    private RenderFragment ActionErrorFor(string? area) => @<text>
+        @if (actionError is not null && actionArea == area)
+        {
+            <div class="booking-form-error discrepancy-action-error" role="alert">
+                <span>@actionError</span>
+                @if (actionConflict)
+                {
+                    <button type="button" class="discrepancy-link discrepancy-reload" disabled="@isWorking" @onclick="ReloadAfterConflictAsync">Reload</button>
+                }
+            </div>
+        }
+    </text>;
+
+    private RenderFragment Confirmation(PendingAction action) => @<div class="discrepancy-confirm" role="alertdialog" aria-labelledby="discrepancy-confirm-question">
+        <p id="discrepancy-confirm-question">@ConfirmationQuestion(action)</p>
+        <div class="discrepancy-form-actions">
+            <button type="button" class="booking-submit discrepancy-confirm-yes" disabled="@isWorking" @onclick="ConfirmPendingActionAsync">
+                @(isWorking ? "Working..." : "Yes, continue")
+            </button>
+            <button type="button" class="discrepancy-secondary discrepancy-confirm-no" disabled="@isWorking" @onclick="CancelConfirmation">Keep as is</button>
+        </div>
+    </div>;
+}

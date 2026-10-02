@@ -414,6 +414,56 @@ public sealed class VesselPositionsQueryTests
         Assert.Contains(VesselPositionsValidator.StatusField, exception.Errors);
     }
 
+    [Fact]
+    public async Task Search_matches_mmsi_and_includes_it_in_position_results()
+    {
+        await using var dbContext = CreateDbContext();
+        var vesselTypeId = await SeedVesselTypeAsync(dbContext);
+        var vessel = await SeedVesselAsync(dbContext, vesselTypeId, "Tracked", "1000001");
+        dbContext.Entry(vessel).Property(item => item.Mmsi).CurrentValue = "227441980";
+        await dbContext.SaveChangesAsync();
+        var response = await CreateQuery(dbContext).GetAsync(new VesselPositionsRequest { Search = "227441980" }, CancellationToken.None);
+        Assert.Equal("227441980", Assert.Single(response.Items).Mmsi);
+    }
+
+    [Fact]
+    public async Task Unsaved_ais_cache_does_not_override_persisted_positions()
+    {
+        await using var dbContext = CreateDbContext();
+        var vesselTypeId = await SeedVesselTypeAsync(dbContext);
+        await SeedVesselAsync(dbContext, vesselTypeId, "Alpha", "1000001");
+        await SeedVesselAsync(dbContext, vesselTypeId, "Zulu", "1000002");
+        var state = new AisTrackingState();
+        state.Record("1000002", new AisPosition(42, 10, FixedNow.UtcDateTime));
+        var query = new VesselPositionsQuery(dbContext, new FixedTimeProvider(FixedNow), state);
+
+        var firstPage = await query.GetAsync(new VesselPositionsRequest { PageSize = 1 }, CancellationToken.None);
+        Assert.Equal("Alpha", Assert.Single(firstPage.Items).Name);
+        Assert.Null(firstPage.Items[0].CurrentLatitude);
+        var stale = await query.GetAsync(new VesselPositionsRequest { StaleOnly = true }, CancellationToken.None);
+        Assert.Equal(2, stale.TotalCount);
+        Assert.All(dbContext.Set<Vessel>(), vessel => Assert.Null(vessel.CurrentLatitude));
+        Assert.Empty(dbContext.Set<VesselPositionReport>());
+    }
+
+    [Fact]
+    public async Task Newer_manual_report_takes_precedence_and_old_ais_observation_remains_stale()
+    {
+        await using var dbContext = CreateDbContext();
+        var vesselTypeId = await SeedVesselTypeAsync(dbContext);
+        await SeedVesselAsync(dbContext, vesselTypeId, "Manual", "1000001", position: (1, 2));
+        await SeedVesselAsync(dbContext, vesselTypeId, "Delayed", "1000002");
+        var state = new AisTrackingState();
+        state.Record("1000001", new AisPosition(42, 10, FixedNow.AddHours(-1).UtcDateTime));
+        state.Record("1000002", new AisPosition(42, 10, FixedNow.AddHours(-13).UtcDateTime));
+        var query = new VesselPositionsQuery(dbContext, new FixedTimeProvider(FixedNow), state);
+        var response = await query.GetAsync(new VesselPositionsRequest(), CancellationToken.None);
+        var manual = response.Items.Single(item => item.Name == "Manual");
+        Assert.Equal(1, manual.CurrentLatitude);
+        Assert.Null(manual.PositionSource);
+        Assert.True(response.Items.Single(item => item.Name == "Delayed").IsPositionStale);
+    }
+
     private static VesselPositionsQuery CreateQuery(HarborOpsDbContext dbContext) =>
         new(dbContext, new FixedTimeProvider(FixedNow));
 

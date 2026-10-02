@@ -143,7 +143,7 @@ public partial class CargoBookingDetails : IDisposable
 
         details = result.Value;
 
-        await LoadExecutionAsync();
+        await Task.WhenAll(LoadExecutionAsync(), LoadCompletionBlockersAsync());
     }
 
     private bool isRecordingTrackingEvent;
@@ -185,6 +185,13 @@ public partial class CargoBookingDetails : IDisposable
             {
                 CargoFormFailure.Apply(result.Failure!, trackingEditContext, trackingMessages, TrackingFieldMap, message => trackingError = message);
 
+                if (result.Failure!.CompletionBlockers is { } blockers)
+                {
+                    completionBlockers = blockers;
+
+                    return;
+                }
+
                 if (result.Failure!.IsConflict)
                 {
                     await LoadAsync();
@@ -204,6 +211,86 @@ public partial class CargoBookingDetails : IDisposable
         {
             isRecordingTrackingEvent = false;
         }
+    }
+
+    private const string CompletedStatus = "Completed";
+
+    private CargoDiscrepanciesPanel? discrepanciesPanel;
+    private CargoCompletionBlockersView? completionBlockers;
+    private CargoContainerRow? navigatedControlContainer;
+
+    private static string BlockerLabel(CargoCompletionBlockerRow blocker)
+    {
+        var scope = blocker.ContainerNumber is { } number ? $"on {number}" : "on the whole booking";
+
+        return $"{CargoDiscrepanciesPanel.TypeLabel(blocker.Type)} {scope}";
+    }
+
+    private bool IsCompletionBlocked =>
+        details?.NextStatus == CompletedStatus && completionBlockers is { OpenCount: > 0 };
+
+    private Task HandleDiscrepanciesChanged()
+    {
+        trackingError = null;
+
+        return LoadCompletionBlockersAsync();
+    }
+
+    private async Task LoadCompletionBlockersAsync()
+    {
+        var requestedBookingId = BookingId;
+
+        if (!AuthorizationState.CanManageCargo || details?.NextStatus != CompletedStatus)
+        {
+            completionBlockers = null;
+
+            return;
+        }
+
+        CargoApiResult<CargoCompletionBlockersView> result;
+        try
+        {
+            result = await CargoApi.GetCompletionBlockersAsync(requestedBookingId, disposeCancellation.Token);
+        }
+        catch (OperationCanceledException) when (disposeCancellation.IsCancellationRequested)
+        {
+            return;
+        }
+
+        if (disposeCancellation.IsCancellationRequested || requestedBookingId != BookingId)
+        {
+            return;
+        }
+
+        completionBlockers = result.IsSuccess ? result.Value : null;
+    }
+
+    private async Task OpenBlockingDiscrepancyAsync(Guid discrepancyId)
+    {
+        if (discrepanciesPanel is not null)
+        {
+            await discrepanciesPanel.OpenDiscrepancyAsync(discrepancyId);
+        }
+    }
+
+    private async Task OpenDiscrepancyFromExcursionAsync(Guid discrepancyId)
+    {
+        selectedControlContainerId = null;
+        await OpenBlockingDiscrepancyAsync(discrepancyId);
+    }
+
+    private void OpenDiscrepancyContainer((Guid ContainerId, string? ContainerNumber) container)
+    {
+        var containerId = container.ContainerId;
+
+        navigatedControlContainer = new CargoContainerRow(
+            containerId,
+            container.ContainerNumber ?? string.Empty,
+            string.Empty,
+            string.Empty,
+            BookingId,
+            null);
+        selectedControlContainerId = containerId;
     }
 
     private void ResetTrackingForm()
@@ -309,6 +396,7 @@ public partial class CargoBookingDetails : IDisposable
     private CargoContainerRow? SelectedControlContainer =>
         selectedControlContainerId is { } containerId
             ? containers.FirstOrDefault(container => container.ContainerId == containerId)
+                ?? (navigatedControlContainer?.ContainerId == containerId ? navigatedControlContainer : null)
             : null;
 
     private string? ControlStateFor(Guid containerId)

@@ -50,11 +50,98 @@
             </div>
         }
 
-        <section class="reports-summary" aria-label="Report summary">
-            <article><div><span>Matching records</span><strong>@totalCount</strong><small>Across the current filters</small></div><span class="bi bi-bar-chart" aria-hidden="true"></span></article>
-            <article><div><span>Departure range</span><strong class="reports-summary-date">@PortCallRangeLabel</strong><small>Actual departure, UTC days</small></div><span class="bi bi-calendar-range" aria-hidden="true"></span></article>
-            <article><div><span>Records on this page</span><strong>@portCallRows.Count</strong><small>Page @pageNumber of @TotalPages</small></div><span class="bi bi-list-ul" aria-hidden="true"></span></article>
-        </section>
+        @if (portCallSummary is { } kpiSummary)
+        {
+            <div class="reports-kpis" aria-label="Average elapsed time for all matching stops">
+                <div class="reports-kpi" title="@TurnaroundDefinition">
+                    <div>
+                        <span class="reports-kpi-label">Avg turnaround</span>
+                        <strong>@MeanLabel(kpiSummary.Turnaround)</strong>
+                        <span class="reports-kpi-note">@SampleLabel(kpiSummary, kpiSummary.Turnaround)</span>
+                    </div>
+                    <span class="reports-kpi-icon bi bi-arrow-repeat" aria-hidden="true"></span>
+                </div>
+                <div class="reports-kpi" title="@ArrivalToAllFastDefinition">
+                    <div>
+                        <span class="reports-kpi-label">Avg arrival → all fast</span>
+                        <strong>@MeanLabel(kpiSummary.ArrivalToAllFast)</strong>
+                        <span class="reports-kpi-note">@SampleLabel(kpiSummary, kpiSummary.ArrivalToAllFast)</span>
+                    </div>
+                    <span class="reports-kpi-icon bi bi-box-arrow-in-down-right" aria-hidden="true"></span>
+                </div>
+                <div class="reports-kpi" title="@CargoElapsedDefinition">
+                    <div>
+                        <span class="reports-kpi-label">Avg cargo elapsed</span>
+                        <strong>@MeanLabel(kpiSummary.CargoElapsed)</strong>
+                        <span class="reports-kpi-note">@SampleLabel(kpiSummary, kpiSummary.CargoElapsed)</span>
+                    </div>
+                    <span class="reports-kpi-icon bi bi-box-seam" aria-hidden="true"></span>
+                </div>
+                <div class="reports-kpi" title="@CargoCompletedToDepartureDefinition">
+                    <div>
+                        <span class="reports-kpi-label">Avg cargo completed → departure</span>
+                        <strong>@MeanLabel(kpiSummary.CargoCompletedToDeparture)</strong>
+                        <span class="reports-kpi-note">@SampleLabel(kpiSummary, kpiSummary.CargoCompletedToDeparture)</span>
+                    </div>
+                    <span class="reports-kpi-icon bi bi-box-arrow-up-right" aria-hidden="true"></span>
+                </div>
+            </div>
+
+            @if (kpiSummary.StopCount > 0)
+            {
+                <section class="reports-charts" aria-label="Port-call charts">
+                    <div class="reports-card reports-chart-card">
+                        <div class="reports-chart-heading">
+                            <div><span class="reports-section-label">By port</span><h2>Average turnaround and where the hours go</h2></div>
+                            <div class="reports-chart-legend">
+                                <span><span class="reports-legend-swatch phase-all-fast"></span>Arrival → all fast</span>
+                                <span><span class="reports-legend-swatch phase-cargo"></span>Cargo</span>
+                                <span><span class="reports-legend-swatch phase-departure"></span>Cargo done → departure</span>
+                                <span><span class="reports-legend-swatch phase-other"></span>Other</span>
+                            </div>
+                        </div>
+                        @if (PortTurnaroundBars.Count == 0)
+                        {
+                            <p class="reports-muted">No finalized stops with a turnaround in this range.</p>
+                        }
+                        else
+                        {
+                            <div class="reports-port-bars">
+                                @foreach (var bar in PortTurnaroundBars)
+                                {
+                                    <div class="reports-port-bar" title="@bar.Title">
+                                        <span class="reports-port-bar-name"><span>@bar.PortName</span><small>@bar.StopLabel</small></span>
+                                        <span class="reports-port-bar-track">
+                                            @foreach (var segment in bar.Segments)
+                                            {
+                                                <span class="reports-port-bar-segment @segment.CssClass" style="width: @segment.WidthPercent.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture)%"></span>
+                                            }
+                                        </span>
+                                        <strong>@FormatHours(bar.TurnaroundHours)</strong>
+                                    </div>
+                                }
+                            </div>
+                        }
+                    </div>
+
+                    <div class="reports-card reports-chart-card">
+                        <div class="reports-chart-heading">
+                            <div><span class="reports-section-label">Statements of facts</span><h2>How much of the data is final</h2></div>
+                        </div>
+                        <div class="reports-ring-row">
+                            <div class="reports-ring" style="--ring-percent: @FinalizedPercent(kpiSummary)" role="img" aria-label="@($"{FinalizedPercent(kpiSummary)}% of stops have a finalized statement")">
+                                <div><strong>@FinalizedPercent(kpiSummary)%</strong><span>finalized</span></div>
+                            </div>
+                            <div class="reports-ring-legend">
+                                <span><span class="reports-legend-swatch phase-cargo"></span>Finalized<strong>@kpiSummary.FinalizedCount</strong></span>
+                                <span><span class="reports-legend-swatch phase-other"></span>Not finalized<strong>@kpiSummary.NotFinalizedCount</strong></span>
+                                <small class="reports-muted">Stops without a finalized statement are left out of the averages.</small>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+            }
+        }
 
         <section class="reports-card" aria-labelledby="reports-list-title">
             <div class="reports-card-heading">
@@ -189,41 +276,6 @@
                             {
                                 <span><strong>@summary.RecordedDelayCount</strong> @RecordedDelaysLabel(summary) <span class="reports-muted">(not deducted from turnaround)</span></span>
                             }
-                        </div>
-
-                        <div class="reports-kpis" aria-label="Average elapsed time for all matching stops">
-                            <div class="reports-kpi" title="@TurnaroundDefinition">
-                                <div>
-                                    <span class="reports-kpi-label">Avg turnaround</span>
-                                    <strong>@MeanLabel(summary.Turnaround)</strong>
-                                    <span class="reports-kpi-note">@SampleLabel(summary, summary.Turnaround)</span>
-                                </div>
-                                <span class="reports-kpi-icon bi bi-arrow-repeat reports-kpi-icon-blue" aria-hidden="true"></span>
-                            </div>
-                            <div class="reports-kpi" title="@ArrivalToAllFastDefinition">
-                                <div>
-                                    <span class="reports-kpi-label">Avg arrival → all fast</span>
-                                    <strong>@MeanLabel(summary.ArrivalToAllFast)</strong>
-                                    <span class="reports-kpi-note">@SampleLabel(summary, summary.ArrivalToAllFast)</span>
-                                </div>
-                                <span class="reports-kpi-icon bi bi-box-arrow-in-down-right reports-kpi-icon-amber" aria-hidden="true"></span>
-                            </div>
-                            <div class="reports-kpi" title="@CargoElapsedDefinition">
-                                <div>
-                                    <span class="reports-kpi-label">Avg cargo elapsed</span>
-                                    <strong>@MeanLabel(summary.CargoElapsed)</strong>
-                                    <span class="reports-kpi-note">@SampleLabel(summary, summary.CargoElapsed)</span>
-                                </div>
-                                <span class="reports-kpi-icon bi bi-box-seam reports-kpi-icon-teal" aria-hidden="true"></span>
-                            </div>
-                            <div class="reports-kpi" title="@CargoCompletedToDepartureDefinition">
-                                <div>
-                                    <span class="reports-kpi-label">Avg cargo completed → departure</span>
-                                    <strong>@MeanLabel(summary.CargoCompletedToDeparture)</strong>
-                                    <span class="reports-kpi-note">@SampleLabel(summary, summary.CargoCompletedToDeparture)</span>
-                                </div>
-                                <span class="reports-kpi-icon bi bi-box-arrow-up-right reports-kpi-icon-purple" aria-hidden="true"></span>
-                            </div>
                         </div>
 
                         <section class="reports-port-section" aria-labelledby="reports-port-title">

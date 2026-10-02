@@ -4,6 +4,8 @@
     --accent-border: rgba(217, 119, 6, 0.3);
     --hazard: var(--status-warning);
     --hazard-bg: rgba(245, 158, 11, 0.14);
+    --discrepancy: var(--status-danger);
+    --discrepancy-bg: rgba(248, 113, 113, 0.12);
     max-width: 1600px;
     margin: 0 auto;
     padding: 1.5rem 1rem 3rem;
@@ -12,6 +14,8 @@
 html[data-theme="light"] .cargo-page {
     --hazard: var(--status-warning-strong);
     --hazard-bg: rgba(180, 83, 9, 0.12);
+    --discrepancy: var(--status-danger-strong);
+    --discrepancy-bg: rgba(185, 28, 28, 0.08);
 }
 
 .cargo-header {
@@ -25,7 +29,7 @@ html[data-theme="light"] .cargo-page {
 .cargo-eyebrow {
     margin: 0 0 0.4rem;
     color: var(--accent);
-    font-size: 0.72rem;
+    font-size: 0.65rem;
     font-weight: 700;
     letter-spacing: 0.14em;
     text-transform: uppercase;
@@ -129,11 +133,6 @@ html[data-theme="light"] .cargo-page {
     color: var(--accent);
     border: 1px solid var(--accent-border);
     background: var(--accent-bg);
-}
-html[data-theme="light"] .summary-icon-blue {
-    color: var(--status-info-strong);
-    border-color: rgba(37, 99, 235, 0.3);
-    background: rgba(37, 99, 235, 0.12);
 }
 html[data-theme="light"] .summary-icon-amber {
     color: var(--status-warning-strong);
@@ -270,33 +269,25 @@ html[data-theme="light"] .filter-field select {
     cursor: pointer;
 }
 
-.cargo-button {
+.cargo-discrepancy-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.55rem;
     height: var(--control-height);
-    padding: 0 1rem;
-    color: var(--apply-text);
-    border: 1px solid var(--apply-border);
-    border-radius: var(--radius-button);
-    background: var(--apply-surface);
-    font: inherit;
+    padding: 0 0.9rem;
+    color: var(--discrepancy);
+    border: 1px solid color-mix(in srgb, var(--discrepancy) 32%, transparent);
+    border-radius: var(--radius-control);
+    background: var(--discrepancy-bg);
     font-size: 0.88rem;
     font-weight: 600;
     cursor: pointer;
-    box-shadow: var(--button-shadow);
-    transition:
-        border-color 0.16s ease,
-        background 0.16s ease,
-        transform 0.16s ease;
 }
 
-.cargo-button:hover:not(:disabled) {
-    background: var(--apply-surface-hover);
-    border-color: var(--apply-border-hover);
-    transform: translateY(-1px);
-}
-.cargo-button:disabled {
-    cursor: not-allowed;
-    opacity: 0.5;
-    box-shadow: none;
+.cargo-discrepancy-toggle input {
+    margin: 0;
+    accent-color: var(--discrepancy);
+    cursor: pointer;
 }
 
 .cargo-reset {
@@ -324,9 +315,9 @@ html[data-theme="light"] .filter-field select {
     opacity: 0.45;
 }
 
-.cargo-button:focus-visible,
 .cargo-reset:focus-visible,
 .cargo-hazard-toggle:focus-within,
+.cargo-discrepancy-toggle:focus-within,
 .cargo-pagination button:focus-visible {
     outline: 2px solid var(--accent);
     outline-offset: 2px;
@@ -376,7 +367,6 @@ html[data-theme="light"] .cargo-validation {
 }
 
 .cargo-table-scroll {
-    overflow-x: auto;
     scrollbar-width: thin;
     scrollbar-color: var(--border-medium) transparent;
 }
@@ -396,6 +386,24 @@ html[data-theme="light"] .cargo-validation {
     font-weight: 700;
     letter-spacing: 0.1em;
     text-transform: uppercase;
+}
+
+@media (min-width: 1051px) {
+    .cargo-table th {
+        position: sticky;
+        top: 3.75rem;
+        z-index: 2;
+        background:
+            linear-gradient(var(--bg-surface-strong), var(--bg-surface-strong)),
+            var(--bg-app);
+        box-shadow: 0 1px var(--border-medium);
+    }
+}
+
+@media (max-width: 1050px) {
+    .cargo-table-scroll {
+        overflow-x: auto;
+    }
 }
 
 .cargo-table td {
@@ -447,15 +455,16 @@ html[data-theme="light"] .cargo-validation {
     color: #fff;
     background: #92400e;
 }
-.cargo-hazard-flag {
+.cargo-discrepancy-flag {
     display: inline-flex;
     align-items: center;
     gap: 0.3rem;
     margin-top: 0.4rem;
     padding: 0.2rem 0.45rem;
+    border: 1px solid color-mix(in srgb, var(--discrepancy) 40%, transparent);
     border-radius: 0.35rem;
-    color: #fff;
-    background: #92400e;
+    color: var(--discrepancy);
+    background: var(--discrepancy-bg);
     font-size: 0.65rem;
     font-weight: 700;
     letter-spacing: 0.025em;
@@ -579,7 +588,6 @@ html[data-theme="light"] .cargo-validation {
 }
 
 @media (prefers-reduced-motion: reduce) {
-    .cargo-button,
     .cargo-reset,
     .cargo-table tbody tr,
     .cargo-table td,
@@ -681,6 +689,7 @@ html[data-theme="light"] .cargo-validation {
 
 .cargo-card-tools {
     display: flex;
+    flex-wrap: wrap;
     align-items: center;
     gap: 0.6rem;
 }
@@ -692,9 +701,9 @@ html[data-theme="light"] .cargo-validation {
     height: 2.4rem;
     padding: 0 0.95rem;
     color: var(--text-primary);
-    border: 1px solid var(--border-medium);
+    border: 1px solid var(--accent-border);
     border-radius: var(--radius-button);
-    background: var(--bg-surface-strong);
+    background: var(--accent-bg);
     font: inherit;
     font-size: 0.85rem;
     font-weight: 600;
@@ -822,9 +831,6 @@ html[data-theme="light"] .cargo-modal {
     font-weight: 600;
     font-size: clamp(1.8rem, 3vw, 2.35rem);
 }
-.cargo-eyebrow {
-    font-size: 0.65rem;
-}
 .cargo-summary-card strong em {
     font-style: normal;
     font-size: 1rem;
@@ -855,10 +861,6 @@ html[data-theme="light"] .cargo-modal {
     letter-spacing: 0.12em;
     text-transform: uppercase;
 }
-.cargo-register-button {
-    border-color: var(--accent-border);
-    background: var(--accent-bg);
-}
 .cargo-identity {
     display: flex;
     align-items: center;
@@ -883,4 +885,207 @@ html[data-theme="light"] .cargo-modal {
 }
 .cargo-table th.cargo-num {
     text-align: right;
+}
+
+.summary-icon-red {
+    color: var(--discrepancy);
+    border: 1px solid color-mix(in srgb, var(--discrepancy) 32%, transparent);
+    background: var(--discrepancy-bg);
+}
+
+.cargo-kpi-filter {
+    width: 100%;
+    color: inherit;
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+    transition:
+        border-color 0.15s ease,
+        box-shadow 0.15s ease,
+        transform 0.15s ease;
+}
+.cargo-kpi-filter:hover {
+    border-color: var(--accent-border);
+    transform: translateY(-1px);
+}
+.cargo-kpi-filter:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+}
+.cargo-kpi-filter.selected {
+    border-color: var(--accent);
+    box-shadow:
+        inset 0 0 0 1px var(--accent),
+        0 18px 38px rgba(15, 23, 42, 0.06);
+}
+.cargo-kpi-discrepancies.has-open strong {
+    color: var(--discrepancy);
+}
+.cargo-kpi-discrepancies.selected {
+    border-color: var(--discrepancy);
+    box-shadow:
+        inset 0 0 0 1px var(--discrepancy),
+        0 18px 38px rgba(15, 23, 42, 0.06);
+}
+
+.cargo-view-switch {
+    display: flex;
+    gap: 0.2rem;
+    padding: 0.2rem;
+    border: 1px solid var(--border-subtle);
+    border-radius: 0.65rem;
+    background: var(--bg-surface);
+}
+.cargo-view-switch button {
+    display: flex;
+    align-items: center;
+    gap: 0.45rem;
+    padding: 0.45rem 0.7rem;
+    color: var(--text-secondary);
+    border: 1px solid transparent;
+    border-radius: 0.45rem;
+    background: transparent;
+    font-size: 0.72rem;
+    cursor: pointer;
+}
+.cargo-view-switch button.selected {
+    color: var(--text-primary);
+    border-color: var(--accent-border);
+    background: var(--accent-bg);
+}
+.cargo-view-switch button:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+}
+
+.cargo-card-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(290px, 1fr));
+    gap: 0.85rem;
+    margin: 0 0 1rem;
+    padding: 0;
+    list-style: none;
+}
+
+.cargo-booking-card {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    min-width: 0;
+    padding: 1rem;
+    border: 1px solid var(--border-subtle);
+    border-top: 3px solid var(--accent);
+    border-radius: 0.75rem;
+    background: linear-gradient(
+        170deg,
+        var(--bg-surface-strong),
+        var(--bg-surface) 55%
+    );
+    cursor: pointer;
+    transition:
+        border-color 0.15s ease,
+        transform 0.15s ease;
+}
+.cargo-booking-card:hover {
+    border-color: var(--accent-border);
+    border-top-color: var(--accent);
+    transform: translateY(-1px);
+}
+.cargo-booking-card:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+}
+
+.cargo-booking-card-head {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.65rem;
+}
+.cargo-booking-card-identity {
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    min-width: 0;
+}
+.cargo-booking-card-identity .cargo-booking-no {
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.cargo-booking-card-head .cargo-status {
+    flex: 0 0 auto;
+}
+.cargo-booking-card.is-hazardous .cargo-row-icon {
+    color: #fff;
+    background: #92400e;
+}
+
+.cargo-booking-card-description {
+    display: -webkit-box;
+    margin: 0;
+    overflow: hidden;
+    color: var(--text-primary);
+    font-size: 0.9rem;
+    line-height: 1.45;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+}
+
+.cargo-booking-card .cargo-track {
+    margin-top: 0;
+}
+
+.cargo-booking-card-facts {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.6rem 0.9rem;
+    margin: 0;
+}
+.cargo-booking-card-facts div {
+    min-width: 0;
+}
+.cargo-booking-card-facts dt {
+    color: var(--text-muted);
+    font-size: 0.66rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+.cargo-booking-card-facts dd {
+    margin: 0.15rem 0 0;
+    overflow: hidden;
+    color: var(--text-primary);
+    font-size: 0.84rem;
+    font-variant-numeric: tabular-nums;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.cargo-booking-card-flags {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.4rem;
+}
+.cargo-booking-card-flags .cargo-discrepancy-flag {
+    margin-top: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .cargo-kpi-filter,
+    .cargo-booking-card {
+        transition: none;
+    }
+    .cargo-kpi-filter:hover,
+    .cargo-booking-card:hover {
+        transform: none;
+    }
+}
+
+@media (max-width: 760px) {
+    .cargo-card-tools {
+        flex-wrap: wrap;
+    }
+    .cargo-card-grid {
+        grid-template-columns: 1fr;
+    }
 }

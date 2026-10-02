@@ -1,10 +1,12 @@
 using System.Globalization;
 using HarborOps.Web.Api;
 using HarborOps.Web.Api.Fleet;
+using Microsoft.AspNetCore.Components;
+using Microsoft.JSInterop;
 
 namespace HarborOps.Web.Components.Pages.Fleet;
 
-public partial class VesselPositions : IDisposable
+public partial class VesselPositions : IDisposable, IAsyncDisposable
 {
     private const int PageSize = 50;
 
@@ -13,8 +15,18 @@ public partial class VesselPositions : IDisposable
     private readonly CancellationTokenSource pageCancellation = new();
     private CancellationTokenSource? searchCancellation;
     private int loadVersion;
+    private bool disposed;
+    private bool autoRefresh = true;
+    private bool checkingPositions;
 
     private VesselPositionsWebModel? positions;
+    private IReadOnlyList<VesselPositionWebModel> mapVessels = [];
+    private FleetApiFailure? mapFailure;
+    private readonly string mapId = $"fleet-positions-map-{Guid.NewGuid():N}";
+    private ElementReference mapElement;
+    private bool mapInitialized;
+    private bool mapUnavailable;
+    private int MappedCount => mapVessels.Count(vessel => vessel.HasPosition);
     private FleetDirectoryWebModel? fleets;
     private FleetApiFailure? failure;
     private bool isLoading = true;
@@ -39,11 +51,15 @@ public partial class VesselPositions : IDisposable
     // by maintenance.manage, independent of the Fleet-specific CanManageFleet permission.
     private bool CanReportDefects => AuthorizationState.HasPermission("maintenance.manage");
 
-    private int MissingCount => positions?.Items.Count(vessel => !vessel.HasPosition) ?? 0;
+    private int MissingCount => mapVessels.Count(vessel => !vessel.HasPosition);
 
-    private int StaleCount => positions?.Items.Count(vessel => vessel.HasPosition && vessel.IsPositionStale) ?? 0;
+    private int StaleCount => mapVessels.Count(vessel => vessel.HasPosition && vessel.IsPositionStale);
 
-    private int CurrentCount => positions?.Items.Count(vessel => !vessel.IsPositionStale) ?? 0;
+    private int CurrentCount => mapVessels.Count(vessel => vessel.HasPosition && !vessel.IsPositionStale);
+
+    private string CoveragePercent(int count) => mapVessels.Count > 0
+        ? (100m * count / mapVessels.Count).ToString("0.#", CultureInfo.InvariantCulture)
+        : "0";
 
     private IReadOnlyList<VesselPositionWebModel> AttentionVessels =>
         positions?.Items.Where(vessel => vessel.IsPositionStale).Take(AttentionPreviewLimit).ToList() ?? [];
@@ -72,6 +88,43 @@ public partial class VesselPositions : IDisposable
         await LoadPositionsAsync();
     }
 
+    private async Task RefreshAutomaticallyAsync()
+    {
+        var cancellationToken = pageCancellation.Token;
+        using var timer = new PeriodicTimer(TimeSpan.FromSeconds(15));
+        try
+        {
+            while (await timer.WaitForNextTickAsync(cancellationToken))
+            {
+                await InvokeAsync(async () =>
+                {
+                    if (disposed || !autoRefresh || isLoading || isSubmitting || reportVesselId is not null) return;
+                    checkingPositions = true;
+                    StateHasChanged();
+                    try { await LoadPositionsAsync(true, true); }
+                    finally
+                    {
+                        checkingPositions = false;
+                        if (!disposed) StateHasChanged();
+                    }
+                });
+            }
+        }
+        catch (OperationCanceledException) when (disposed) { }
+    }
+
+    private string AisStatusLabel => positions?.AisTracking?.ConnectionState switch
+    {
+        "Connected" => "AIS feed connected",
+        "Connecting" => "Connecting to AIS feed",
+        "Reconnecting" => "AIS feed reconnecting; showing last received positions",
+        "NotConfigured" => "AIS tracking needs server configuration",
+        "AwaitingMmsi" => "Add a valid MMSI to a vessel to start AIS tracking",
+        "FleetLimitExceeded" => "AIS tracking supports up to 200 registered MMSIs",
+        "Disconnected" => "AIS feed disconnected; showing last received positions",
+        _ => "AIS tracking is disabled",
+    };
+
     private async Task LoadFleetsAsync()
     {
         try
@@ -88,10 +141,12 @@ public partial class VesselPositions : IDisposable
         }
     }
 
-    private async Task LoadPositionsAsync()
+    private Task LoadPositionsAsync() => LoadPositionsAsync(true);
+
+    private async Task LoadPositionsAsync(bool reloadMap, bool background = false)
     {
         var requestVersion = ++loadVersion;
-        isLoading = true;
+        if (!background) isLoading = true;
         failure = null;
 
         FleetApiResult<VesselPositionsWebModel> result;
@@ -121,6 +176,12 @@ public partial class VesselPositions : IDisposable
             positions = result.Value;
             pageNumber = positions.PageNumber;
 
+            if (reloadMap)
+            {
+                await LoadMapVesselsAsync(positions, requestVersion);
+                if (pageCancellation.IsCancellationRequested || requestVersion != loadVersion) return;
+            }
+
             if (reportVesselId is { } selected
                 && positions.Items.All(vessel => vessel.VesselId != selected))
             {
@@ -133,6 +194,117 @@ public partial class VesselPositions : IDisposable
         }
 
         isLoading = false;
+    }
+
+    private async Task LoadMapVesselsAsync(VesselPositionsWebModel tablePage, int requestVersion)
+    {
+        mapUnavailable = false;
+        mapFailure = null;
+        if (tablePage.TotalCount <= tablePage.PageSize && tablePage.PageNumber == 1)
+        {
+            mapVessels = tablePage.Items;
+            return;
+        }
+
+        var vessels = new List<VesselPositionWebModel>();
+        var fleetId = selectedFleetId;
+        var status = selectedStatus;
+        var onlyStale = staleOnly;
+        var searchText = search;
+        var mapPage = 1;
+        while (true)
+        {
+            FleetApiResult<VesselPositionsWebModel> result;
+            try
+            {
+                result = await FleetApi.GetVesselPositionsAsync(
+                    fleetId, status, onlyStale, mapPage, 100, searchText, pageCancellation.Token);
+            }
+            catch (OperationCanceledException) when (pageCancellation.IsCancellationRequested)
+            {
+                return;
+            }
+
+            if (pageCancellation.IsCancellationRequested || requestVersion != loadVersion) return;
+            if (!result.IsSuccess || result.Value is not { } batch)
+            {
+                mapFailure = result.Failure;
+                mapVessels = [];
+                return;
+            }
+
+            vessels.AddRange(batch.Items);
+            if (batch.Items.Count == 0 || mapPage * batch.PageSize >= batch.TotalCount) break;
+            mapPage++;
+        }
+
+        mapVessels = vessels.DistinctBy(vessel => vessel.VesselId).ToList();
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (pageCancellation.IsCancellationRequested) return;
+        // Prerendered instances never reach this lifecycle method.
+        if (firstRender) _ = RefreshAutomaticallyAsync();
+        try
+        {
+            if (isLoading || failure is not null || mapFailure is not null || MappedCount == 0 || mapUnavailable)
+            {
+                if (mapInitialized)
+                {
+                    await JS.InvokeVoidAsync("fleetPositionsMap.dispose", mapId);
+                    mapInitialized = false;
+                }
+                return;
+            }
+
+            mapInitialized = await JS.InvokeAsync<bool>("fleetPositionsMap.render", mapId, mapElement,
+                mapVessels.Where(vessel => vessel.HasPosition).Select(vessel => new
+                {
+                    vessel.VesselId,
+                    vessel.Name,
+                    vessel.ImoNumber,
+                    vessel.CurrentStatus,
+                    vessel.FleetName,
+                    Latitude = vessel.CurrentLatitude,
+                    Longitude = vessel.CurrentLongitude,
+                    vessel.LastPositionReportedAtUtc,
+                    vessel.IsPositionStale,
+                    vessel.PositionSource,
+                    vessel.Mmsi,
+                }));
+            if (!mapInitialized)
+            {
+                mapUnavailable = true;
+                await InvokeAsync(StateHasChanged);
+            }
+        }
+        catch (JSDisconnectedException) { }
+        catch (JSException)
+        {
+            mapUnavailable = true;
+            await InvokeAsync(StateHasChanged);
+        }
+    }
+
+    private async Task FitMapAsync()
+    {
+        try { await JS.InvokeVoidAsync("fleetPositionsMap.fit", mapId); }
+        catch (JSDisconnectedException) { }
+        catch (JSException) { mapUnavailable = true; }
+    }
+
+    private void RetryMap() => mapUnavailable = false;
+
+    public async ValueTask DisposeAsync()
+    {
+        Dispose();
+        // Prerendering also disposes the component, before JS interop is available.
+        if (!mapInitialized) return;
+        mapInitialized = false;
+        try { await JS.InvokeVoidAsync("fleetPositionsMap.dispose", mapId); }
+        catch (JSDisconnectedException) { }
+        catch (JSException) { }
     }
 
     private async Task ApplyFiltersAsync()
@@ -192,7 +364,7 @@ public partial class VesselPositions : IDisposable
         if (pageNumber > 1)
         {
             pageNumber--;
-            await LoadPositionsAsync();
+            await LoadPositionsAsync(false);
         }
     }
 
@@ -201,7 +373,7 @@ public partial class VesselPositions : IDisposable
         if (pageNumber < TotalPages)
         {
             pageNumber++;
-            await LoadPositionsAsync();
+            await LoadPositionsAsync(false);
         }
     }
 
@@ -294,6 +466,8 @@ public partial class VesselPositions : IDisposable
 
     public void Dispose()
     {
+        if (disposed) return;
+        disposed = true;
         pageCancellation.Cancel();
         searchCancellation?.Cancel();
         searchCancellation?.Dispose();

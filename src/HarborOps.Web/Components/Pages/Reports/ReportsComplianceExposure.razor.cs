@@ -1,3 +1,5 @@
+using System.Globalization;
+using HarborOps.Web.Api.Compliance;
 using HarborOps.Web.Api.Reports;
 
 namespace HarborOps.Web.Components.Pages.Reports;
@@ -5,6 +7,25 @@ namespace HarborOps.Web.Components.Pages.Reports;
 public partial class ReportsComplianceExposure : IDisposable
 {
     private static readonly string[] ComplianceCategories = ["Certificate", "Insurance", "Detention", "NonConformity"];
+
+    private const string ClosedClosureStatus = "Closed";
+
+    private static readonly (string Category, string Label, string Note, string Icon)[] CategoryKpis =
+    [
+        ("Certificate", "Certificates", "Expired, revoked or expiring within 60 days", "bi-patch-check"),
+        ("Insurance", "Insurance policies", "Expired or expiring within 60 days", "bi-shield-plus"),
+        ("Detention", "Detentions", "PSC inspections with a detention", "bi-sign-stop"),
+        ("NonConformity", "Open findings", "Non-conformities still open", "bi-exclamation-diamond"),
+    ];
+
+    private ComplianceExposureOverview? overview;
+
+    internal sealed record ComplianceExposureOverview(
+        IReadOnlyDictionary<string, int> CategoryCounts,
+        ComplianceHealthRing? Insurance,
+        ComplianceHealthRing? Findings);
+
+    internal sealed record ComplianceHealthRing(int Part, int Whole);
 
     private readonly CancellationTokenSource disposeCancellation = new();
     private int loadVersion;
@@ -120,6 +141,8 @@ public partial class ReportsComplianceExposure : IDisposable
         var query = new ComplianceExposureReportQuery(
             asOfFilter, vesselIdFilter, complianceCategoryFilter, pageNumber, Reports.PageSize);
 
+        var overviewTask = LoadOverviewAsync(asOfFilter, vesselIdFilter, cancellationToken);
+
         ReportsApiResult<ComplianceExposureReportPage> result;
 
         try
@@ -143,6 +166,7 @@ public partial class ReportsComplianceExposure : IDisposable
             failure = result.Failure;
             complianceRows = [];
             totalCount = 0;
+            overview = null;
 
             return;
         }
@@ -153,8 +177,93 @@ public partial class ReportsComplianceExposure : IDisposable
         totalCount = page.TotalCount;
         complianceRows = page.Items;
 
+        ComplianceExposureOverview? loadedOverview;
+
+        try
+        {
+            loadedOverview = await overviewTask;
+        }
+        catch (OperationCanceledException) when (disposeCancellation.IsCancellationRequested)
+        {
+            return;
+        }
+
+        if (disposeCancellation.IsCancellationRequested || requestVersion != loadVersion)
+        {
+            return;
+        }
+
+        overview = loadedOverview;
+
         await ResolveVesselNamesAsync(page.Items.Select(item => item.VesselId), cancellationToken, requestVersion);
     }
+
+    private async Task<ComplianceExposureOverview> LoadOverviewAsync(
+        DateOnly asOf, Guid? vesselId, CancellationToken cancellationToken)
+    {
+        var categoryTasks = ComplianceCategories
+            .Select(category => (Category: category, Result: ReportsApi.GetComplianceExposureAsync(
+                new ComplianceExposureReportQuery(asOf, vesselId, category, 1, 1), cancellationToken)))
+            .ToList();
+
+        var vesselQuery = vesselId is { } id ? $"vesselId={id}&" : string.Empty;
+        var insuranceTotalTask = ComplianceApi.GetInsurancePoliciesAsync($"{vesselQuery}pageNumber=1&pageSize=1", cancellationToken);
+        var insuranceInForceTask = ComplianceApi.GetInsurancePoliciesAsync(
+            string.Create(CultureInfo.InvariantCulture, $"{vesselQuery}expiryFrom={asOf:yyyy-MM-dd}&pageNumber=1&pageSize=1"),
+            cancellationToken);
+
+        Task<ComplianceApiResult<GetNonConformitiesResponse>>? findingsTotalTask = null;
+        Task<ComplianceApiResult<GetNonConformitiesResponse>>? findingsClosedTask = null;
+        if (vesselId is null)
+        {
+            findingsTotalTask = ComplianceApi.GetNonConformitiesAsync(new GetNonConformitiesRequest { PageNumber = 1, PageSize = 1 }, cancellationToken);
+            findingsClosedTask = ComplianceApi.GetNonConformitiesAsync(
+                new GetNonConformitiesRequest { ClosureStatus = ClosedClosureStatus, PageNumber = 1, PageSize = 1 },
+                cancellationToken);
+        }
+
+        var counts = new Dictionary<string, int>(StringComparer.Ordinal);
+        foreach (var (category, task) in categoryTasks)
+        {
+            var categoryResult = await task;
+            if (categoryResult.IsSuccess)
+            {
+                counts[category] = categoryResult.Value!.TotalCount;
+            }
+        }
+
+        var insuranceTotal = await insuranceTotalTask;
+        var insuranceInForce = await insuranceInForceTask;
+        var insurance = insuranceTotal.IsSuccess && insuranceInForce.IsSuccess
+            ? new ComplianceHealthRing(insuranceInForce.Value!.TotalCount, insuranceTotal.Value!.TotalCount)
+            : null;
+
+        ComplianceHealthRing? findings = null;
+        if (findingsTotalTask is not null && findingsClosedTask is not null)
+        {
+            var findingsTotal = await findingsTotalTask;
+            var findingsClosed = await findingsClosedTask;
+            if (findingsTotal.IsSuccess && findingsClosed.IsSuccess)
+            {
+                findings = new ComplianceHealthRing(findingsClosed.Value!.TotalCount, findingsTotal.Value!.TotalCount);
+            }
+        }
+
+        return new ComplianceExposureOverview(counts, insurance, findings);
+    }
+
+    private Task ToggleCategoryAsync(string category)
+    {
+        complianceCategoryFilter = complianceCategoryFilter == category ? null : category;
+
+        return SearchAsync();
+    }
+
+    private string CategoryCount(string category) =>
+        overview?.CategoryCounts.TryGetValue(category, out var count) == true ? count.ToString(CultureInfo.InvariantCulture) : "—";
+
+    private static int RingPercent(ComplianceHealthRing ring) =>
+        ring.Whole == 0 ? 0 : (int)Math.Round(ring.Part * 100d / ring.Whole);
 
     private async Task ResolveVesselNamesAsync(
         IEnumerable<Guid> ids, CancellationToken cancellationToken, int requestVersion)

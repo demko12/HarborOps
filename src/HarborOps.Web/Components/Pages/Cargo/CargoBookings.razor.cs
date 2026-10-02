@@ -18,10 +18,13 @@ public partial class CargoBookings
     private string? search;
     private string status = string.Empty;
     private bool hazardousOnly;
+    private bool openDiscrepanciesOnly;
+    private bool cardView;
     private int pageNumber = 1;
     private int pageSize = DefaultPageSize;
     private int totalCount;
     private int hazardousCount;
+    private int openDiscrepancyBookingCount;
     private bool isLoading = true;
 
     [SupplyParameterFromQuery(Name = SearchQueryKey)]
@@ -33,6 +36,12 @@ public partial class CargoBookings
     [SupplyParameterFromQuery(Name = HazardousQueryKey)]
     public bool? HazardousFromQuery { get; set; }
 
+    [SupplyParameterFromQuery(Name = ViewQueryKey)]
+    public string? ViewFromQuery { get; set; }
+
+    [SupplyParameterFromQuery(Name = DiscrepanciesQueryKey)]
+    public string? DiscrepanciesFromQuery { get; set; }
+
     [SupplyParameterFromQuery(Name = PageQueryKey)]
     public int? PageFromQuery { get; set; }
 
@@ -42,6 +51,10 @@ public partial class CargoBookings
     private const string SearchQueryKey = "search";
     private const string StatusQueryKey = "status";
     private const string HazardousQueryKey = "hazardous";
+    private const string ViewQueryKey = "view";
+    private const string CardsView = "cards";
+    private const string DiscrepanciesQueryKey = "discrepancies";
+    private const string OpenDiscrepanciesQueryValue = "open";
     private const string PageQueryKey = "page";
     private const string SizeQueryKey = "size";
 
@@ -66,6 +79,11 @@ public partial class CargoBookings
                 parts.Add($"{HazardousQueryKey}=true");
             }
 
+            if (openDiscrepanciesOnly)
+            {
+                parts.Add($"{DiscrepanciesQueryKey}={OpenDiscrepanciesQueryValue}");
+            }
+
             if (pageNumber > 1)
             {
                 parts.Add($"{PageQueryKey}={pageNumber}");
@@ -74,6 +92,11 @@ public partial class CargoBookings
             if (pageSize != DefaultPageSize)
             {
                 parts.Add($"{SizeQueryKey}={pageSize}");
+            }
+
+            if (cardView)
+            {
+                parts.Add($"{ViewQueryKey}={CardsView}");
             }
 
             return string.Join('&', parts);
@@ -137,6 +160,8 @@ public partial class CargoBookings
         search = string.IsNullOrWhiteSpace(SearchFromQuery) ? null : SearchFromQuery;
         status = StatusFromQuery ?? string.Empty;
         hazardousOnly = HazardousFromQuery == true;
+        openDiscrepanciesOnly = string.Equals(DiscrepanciesFromQuery, OpenDiscrepanciesQueryValue, StringComparison.OrdinalIgnoreCase);
+        cardView = string.Equals(ViewFromQuery, CardsView, StringComparison.OrdinalIgnoreCase);
         pageNumber = PageFromQuery is > 0 ? PageFromQuery.Value : 1;
         pageSize = SizeFromQuery is > 0 ? SizeFromQuery.Value : DefaultPageSize;
     }
@@ -148,14 +173,46 @@ public partial class CargoBookings
         return LoadAsync();
     }
 
+    private bool HasFilters =>
+        !string.IsNullOrWhiteSpace(search)
+        || !string.IsNullOrEmpty(status)
+        || hazardousOnly
+        || openDiscrepanciesOnly;
+
     private Task ClearFiltersAsync()
     {
         search = null;
         status = string.Empty;
         hazardousOnly = false;
+        openDiscrepanciesOnly = false;
         pageNumber = 1;
 
         return LoadAsync();
+    }
+
+    private Task ToggleHazardousKpiAsync()
+    {
+        hazardousOnly = !hazardousOnly;
+
+        return ApplyFiltersAsync();
+    }
+
+    private Task ToggleOpenDiscrepanciesKpiAsync()
+    {
+        openDiscrepanciesOnly = !openDiscrepanciesOnly;
+
+        return ApplyFiltersAsync();
+    }
+
+    private void SetView(bool cards)
+    {
+        if (cardView == cards)
+        {
+            return;
+        }
+
+        cardView = cards;
+        SyncBoardAddress();
     }
 
     private Task RetryAsync()
@@ -198,6 +255,7 @@ public partial class CargoBookings
             search,
             string.IsNullOrEmpty(status) ? null : status,
             hazardousOnly ? true : null,
+            openDiscrepanciesOnly ? true : null,
             pageNumber,
             pageSize);
 
@@ -224,6 +282,7 @@ public partial class CargoBookings
             rows = [];
             totalCount = 0;
             hazardousCount = 0;
+            openDiscrepancyBookingCount = 0;
 
             return;
         }
@@ -234,6 +293,7 @@ public partial class CargoBookings
         pageSize = page.PageSize;
         totalCount = page.TotalCount;
         hazardousCount = page.HazardousCount;
+        openDiscrepancyBookingCount = page.OpenDiscrepancyBookingCount;
 
         SyncBoardAddress();
     }
